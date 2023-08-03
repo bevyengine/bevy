@@ -266,6 +266,7 @@ impl Preprocessor {
                 if self.import_regex.is_match(&line) {
                     let mut import_lines = String::default();
                     let mut open_count = 0;
+                    let initial_offset = offset;
 
                     loop {
                         // output spaces for removed lines to keep spans consistent (errors report against substituted_source, which is not preprocessed)
@@ -276,6 +277,7 @@ impl Preprocessor {
                         open_count = open_count.saturating_sub(line.match_indices('}').count());
 
                         import_lines.push_str(&line);
+                        import_lines.push('\n');
 
                         if open_count == 0 || lines.peek().is_none() {
                             break;
@@ -285,8 +287,8 @@ impl Preprocessor {
                     }
 
                     parse_imports(import_lines.as_str(), &mut declared_imports).map_err(
-                        |(err, offset)| {
-                            ComposerErrorInner::ImportParseError(err.to_owned(), offset)
+                        |(err, line_offset)| {
+                            ComposerErrorInner::ImportParseError(err.to_owned(), initial_offset + line_offset)
                         },
                     )?;
                     output = true;
@@ -399,12 +401,14 @@ impl Preprocessor {
             } else if self.import_regex.is_match(&line) {
                 let mut import_lines = String::default();
                 let mut open_count = 0;
+                let initial_offset = offset;
 
                 loop {
                     open_count += line.match_indices('{').count();
                     open_count = open_count.saturating_sub(line.match_indices('}').count());
 
                     import_lines.push_str(&line);
+                    import_lines.push('\n');
 
                     if open_count == 0 || lines.peek().is_none() {
                         break;
@@ -417,7 +421,7 @@ impl Preprocessor {
                 }
 
                 parse_imports(import_lines.as_str(), &mut declared_imports).map_err(
-                    |(err, offset)| ComposerErrorInner::ImportParseError(err.to_owned(), offset),
+                    |(err, line_offset)| ComposerErrorInner::ImportParseError(err.to_owned(), initial_offset + line_offset),
                 )?;
             } else if let Some(cap) = self.define_import_path_regex.captures(&line) {
                 name = Some(cap.get(1).unwrap().as_str().to_string());
