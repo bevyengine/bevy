@@ -60,7 +60,10 @@ pub fn parse_imports<'a>(
                 current = String::default();
                 as_name = None;
             }
-            Some(Token::Other(',', _)) | Some(Token::Other('}', _)) | Some(Token::Other('\n', _)) | None => {
+            Some(Token::Other(',', _))
+            | Some(Token::Other('}', _))
+            | Some(Token::Other('\n', _))
+            | None => {
                 if !current.is_empty() {
                     let used_name = as_name.map(ToString::to_string).unwrap_or_else(|| {
                         current

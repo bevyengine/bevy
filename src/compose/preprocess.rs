@@ -288,7 +288,10 @@ impl Preprocessor {
 
                     parse_imports(import_lines.as_str(), &mut declared_imports).map_err(
                         |(err, line_offset)| {
-                            ComposerErrorInner::ImportParseError(err.to_owned(), initial_offset + line_offset)
+                            ComposerErrorInner::ImportParseError(
+                                err.to_owned(),
+                                initial_offset + line_offset,
+                            )
                         },
                     )?;
                     output = true;
@@ -421,7 +424,12 @@ impl Preprocessor {
                 }
 
                 parse_imports(import_lines.as_str(), &mut declared_imports).map_err(
-                    |(err, line_offset)| ComposerErrorInner::ImportParseError(err.to_owned(), initial_offset + line_offset),
+                    |(err, line_offset)| {
+                        ComposerErrorInner::ImportParseError(
+                            err.to_owned(),
+                            initial_offset + line_offset,
+                        )
+                    },
                 )?;
             } else if let Some(cap) = self.define_import_path_regex.captures(&line) {
                 name = Some(cap.get(1).unwrap().as_str().to_string());
