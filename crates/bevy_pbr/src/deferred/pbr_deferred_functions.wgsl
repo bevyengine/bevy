@@ -58,7 +58,7 @@ fn frag_coord_to_ndc(frag_coord: vec4<f32>) -> vec3<f32> {
 
 
 // Creates the deferred gbuffer from a PbrInput.
-fn deferred_gbuffer_from_pbr_input(in: PbrInput, depth: f32) -> vec4<u32> {
+fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
      // Only monochrome occlusion supported. May not be worth including at all.
      // Some models have baked occlusion, GLTF only supports monochrome. 
      // Real time occlusion is applied in the deferred lighting pass.
@@ -68,7 +68,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput, depth: f32) -> vec4<u32> {
         in.material.reflectance,
         in.material.metallic,
         occlusion, 
-        depth));
+        in.frag_coord.z));
 #else
     var props = deft::pack_unorm4x8_(vec4(
         in.material.reflectance, // could be fewer bits
