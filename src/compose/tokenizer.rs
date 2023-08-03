@@ -90,7 +90,7 @@ impl<'a> Tokenizer<'a> {
                 current_token = Some(TokenKind::Identifier);
                 current_token_start = ix;
             } else if !char.is_whitespace() {
-                tokens.push_back(Token::Other(char, current_token_start));
+                tokens.push_back(Token::Other(char, ix));
             } else if char.is_whitespace() && emit_whitespace {
                 current_token = Some(TokenKind::Whitespace);
                 current_token_start = ix;
