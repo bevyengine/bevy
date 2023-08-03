@@ -1,4 +1,3 @@
-#[cfg(target_arch = "wasm32")]
 use std::sync::Arc;
 use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc};
 
