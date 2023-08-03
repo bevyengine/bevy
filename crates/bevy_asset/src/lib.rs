@@ -160,12 +160,16 @@ pub mod transformer;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
+    pub use crate::asset_changed::{AssetChanged, AssetOrHandleChanged};
+
+    #[doc(hidden)]
     pub use crate::{
         Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets,
         DirectAssetAccessExt, Handle, UntypedHandle,
     };
 }
 
+mod asset_changed;
 mod assets;
 mod direct_access_ext;
 mod event;
