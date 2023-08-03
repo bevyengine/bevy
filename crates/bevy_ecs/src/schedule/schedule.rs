@@ -1579,6 +1579,7 @@ mod tests {
         world::World,
     };
 
+    // regression test for https://github.com/bevyengine/bevy/issues/9114
     #[test]
     fn ambiguous_with_not_breaking_run_conditions() {
         #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
