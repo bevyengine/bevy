@@ -1789,20 +1789,23 @@ pub fn get_preprocessor_data(
     Vec<ImportDefinition>,
     HashMap<String, ShaderDefValue>,
 ) {
-    let PreprocessorMetaData {
+    if let Ok(PreprocessorMetaData {
         name,
         imports,
         defines,
         ..
-    } = PREPROCESSOR
-        .get_preprocessor_metadata(source, true)
-        .unwrap();
-    (
-        name,
-        imports
-            .into_iter()
-            .map(|import_with_offset| import_with_offset.definition)
-            .collect(),
-        defines,
-    )
+    }) = PREPROCESSOR.get_preprocessor_metadata(source, true)
+    {
+        (
+            name,
+            imports
+                .into_iter()
+                .map(|import_with_offset| import_with_offset.definition)
+                .collect(),
+            defines,
+        )
+    } else {
+        // if errors occur we return nothing; the actual error will be displayed when the caller attempts to use the shader
+        Default::default()
+    }
 }
