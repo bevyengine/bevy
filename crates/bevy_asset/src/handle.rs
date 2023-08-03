@@ -472,7 +472,7 @@ impl Default for RefChangeChannel {
 }
 
 /// A map between an instance of an asset and some value.
-/// Performs slightly faster than HashMap<Handle<K>, Vs>.s
+/// Performs slightly faster than [`HashMap<Handle<K>, V>`].
 pub struct HandleMap<K: Asset, V> {
     id_map: HashMap<u64, (V, HandleType)>,
     asset_path_id_map: HashMap<AssetPathId, (V, HandleType)>,
@@ -481,7 +481,7 @@ pub struct HandleMap<K: Asset, V> {
 }
 
 impl<K: Asset, V> HandleMap<K, V> {
-    /// Create a [`HandleMap`] with specific capacity of id and asset_id [`HashMap`] slots.
+    /// Create a [`HandleMap`] with specific capacity of `id` and `asset_path_id` [`HashMap`] slots.
     pub fn with_capacity(id_map: usize, asset_path_id_map: usize) -> Self {
         HandleMap {
             id_map: HashMap::with_capacity(id_map),
