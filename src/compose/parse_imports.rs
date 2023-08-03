@@ -60,7 +60,7 @@ pub fn parse_imports<'a>(
                 current = String::default();
                 as_name = None;
             }
-            Some(Token::Other(',', _)) | Some(Token::Other('}', _)) | None => {
+            Some(Token::Other(',', _)) | Some(Token::Other('}', _)) | Some(Token::Other('\n', _)) | None => {
                 if !current.is_empty() {
                     let used_name = as_name.map(ToString::to_string).unwrap_or_else(|| {
                         current
@@ -85,6 +85,12 @@ pub fn parse_imports<'a>(
 
                 if tokens.peek().is_none() {
                     break;
+                }
+            }
+            Some(Token::Other(';', _)) => {
+                tokens.next();
+                if let Some(token) = tokens.peek() {
+                    return Err(("unexpected token after ';'", token.pos()));
                 }
             }
             Some(Token::Other(_, pos)) => return Err(("unexpected token", *pos)),
