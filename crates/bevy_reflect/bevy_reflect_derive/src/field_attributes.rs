@@ -99,44 +99,44 @@ fn parse_meta(args: &mut ReflectFieldAttr, meta: ParseNestedMeta) -> Result<(), 
         // Allow:
         // - `#[reflect(default)]`
         // - `#[reflect(default = "path::to::func")]`
-        match args.default {
-            DefaultBehavior::Required => {
-                if meta.input.peek(Token![=]) {
-                    let lit = meta.value()?.parse::<LitStr>()?;
-                    args.default = DefaultBehavior::Func(lit.parse()?);
-                } else {
-                    args.default = DefaultBehavior::Default;
-                }
-                Ok(())
-            }
-            _ => Err(meta.error(format!("only one of [{:?}] is allowed", [DEFAULT_ATTR]))),
+        if !matches!(args.default, DefaultBehavior::Required) {
+            return Err(meta.error(format!("only one of [{:?}] is allowed", [DEFAULT_ATTR])));
         }
+
+        if meta.input.peek(Token![=]) {
+            let lit = meta.value()?.parse::<LitStr>()?;
+            args.default = DefaultBehavior::Func(lit.parse()?);
+        } else {
+            args.default = DefaultBehavior::Default;
+        }
+
+        Ok(())
     } else if meta.path.is_ident(IGNORE_ALL_ATTR) {
         // Allow:
         // - `#[reflect(ignore)]`
-        match args.ignore {
-            ReflectIgnoreBehavior::None => {
-                args.ignore = ReflectIgnoreBehavior::IgnoreAlways;
-                Ok(())
-            }
-            _ => Err(meta.error(format!(
+        if args.ignore != ReflectIgnoreBehavior::None {
+            return Err(meta.error(format!(
                 "only one of [{:?}] is allowed",
                 [IGNORE_ALL_ATTR, IGNORE_SERIALIZATION_ATTR]
-            ))),
+            )));
         }
+
+        args.ignore = ReflectIgnoreBehavior::IgnoreAlways;
+
+        Ok(())
     } else if meta.path.is_ident(IGNORE_SERIALIZATION_ATTR) {
         // Allow:
         // - `#[reflect(skip_serializing)]`
-        match args.ignore {
-            ReflectIgnoreBehavior::None => {
-                args.ignore = ReflectIgnoreBehavior::IgnoreSerialization;
-                Ok(())
-            }
-            _ => Err(meta.error(format!(
+        if args.ignore != ReflectIgnoreBehavior::None {
+            return Err(meta.error(format!(
                 "only one of [{:?}] is allowed",
                 [IGNORE_ALL_ATTR, IGNORE_SERIALIZATION_ATTR]
-            ))),
+            )));
         }
+
+        args.ignore = ReflectIgnoreBehavior::IgnoreSerialization;
+
+        Ok(())
     } else {
         Err(meta.error(format!(
             "unknown attribute, expected {:?}",
