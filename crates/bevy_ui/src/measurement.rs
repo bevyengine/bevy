@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::Component;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::Vec2;
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use std::fmt::Formatter;
 pub use taffy::style::AvailableSpace;
 use taffy::{node::MeasureFunc, prelude::Size as TaffySize};
