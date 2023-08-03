@@ -70,8 +70,6 @@ impl ContentSize {
 
 impl Default for ContentSize {
     fn default() -> Self {
-        Self {
-            measure_func: None,
-        }
+        Self { measure_func: None }
     }
 }
