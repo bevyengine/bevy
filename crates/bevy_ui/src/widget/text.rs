@@ -1,5 +1,5 @@
 use crate::{
-    ContentSize, FixedMeasure, Measure, Node, SwappedMeasure, UiContentTransform, UiScale,
+    ContentSize, FixedMeasure, Measure, Node, SwappedDimensionsMeasure, UiContentTransform, UiScale,
 };
 use bevy_asset::Assets;
 use bevy_ecs::{
@@ -102,7 +102,7 @@ fn create_text_measure(
                 };
                 content_size.set(FixedMeasure { size });
             } else if rotated {
-                content_size.set(SwappedMeasure {
+                content_size.set(SwappedDimensionsMeasure {
                     inner_measure: TextMeasure { info: measure },
                 });
             } else {

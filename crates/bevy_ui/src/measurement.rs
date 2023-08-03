@@ -44,12 +44,15 @@ impl Measure for FixedMeasure {
     }
 }
 
+/// An adapter implementing measure and wrapping another measure. Its `measure` method calls the `measure` method of `inner_measure` with swapped width and height values.
+/// Then the components of the returned `Vec2` are swapped back before it is returned to the caller.
 #[derive(Default, Clone)]
-pub struct SwappedMeasure<M: Measure> {
+pub struct SwappedDimensionsMeasure<M: Measure> {
+    /// The wrapped measure. It is called with swapped width and height values, and then the value it returns is swapped back.
     pub inner_measure: M,
 }
 
-impl<M: Measure> Measure for SwappedMeasure<M> {
+impl<M: Measure> Measure for SwappedDimensionsMeasure<M> {
     fn measure(
         &self,
         width: Option<f32>,
