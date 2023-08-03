@@ -471,14 +471,17 @@ impl Default for RefChangeChannel {
     }
 }
 
+/// A map between an instance of an asset and some value.
+/// Performs slightly faster than HashMap<Handle<K>, Vs>.s
 pub struct HandleMap<K: Asset, V> {
-    id_map: HashMap<u64, V>,
-    asset_path_id_map: HashMap<AssetPathId, V>,
+    id_map: HashMap<u64, (V, HandleType)>,
+    asset_path_id_map: HashMap<AssetPathId, (V, HandleType)>,
     // NOTE: PhantomData<fn() -> T> gives this safe Send/Sync impls
     marker: PhantomData<fn() -> K>,
 }
 
 impl<K: Asset, V> HandleMap<K, V> {
+    /// Create a [`HandleMap`] with specific capacity of id and asset_id [`HashMap`] slots.
     pub fn with_capacity(id_map: usize, asset_path_id_map: usize) -> Self {
         HandleMap {
             id_map: HashMap::with_capacity(id_map),
@@ -487,32 +490,53 @@ impl<K: Asset, V> HandleMap<K, V> {
         }
     }
 
+    /// Get a reference of the value associated with a handle
     #[inline]
     pub fn get(&self, handle: &Handle<K>) -> Option<&V> {
         match &handle.id {
             HandleId::Id(_, id) => self.id_map.get(id),
             HandleId::AssetPathId(asset_path_id) => self.asset_path_id_map.get(asset_path_id),
         }
+        .map(|(v, _)| v)
     }
 
+    /// Get a mutable reference of the value associated with a handle
     #[inline]
     pub fn get_mut(&mut self, handle: &Handle<K>) -> Option<&mut V> {
         match &handle.id {
             HandleId::Id(_, id) => self.id_map.get_mut(id),
             HandleId::AssetPathId(asset_path_id) => self.asset_path_id_map.get_mut(asset_path_id),
         }
+        .map(|(v, _)| v)
     }
 
+    /// Insert a [`Handle<K>`] - V pair into the hashmap.
     #[inline]
     pub fn insert(&mut self, handle: &Handle<K>, value: V) -> Option<V> {
-        match &handle.id {
-            HandleId::Id(_, id) => self.id_map.insert(*id, value),
-            HandleId::AssetPathId(asset_path_id) => {
-                self.asset_path_id_map.insert(*asset_path_id, value)
+        let handle_type = match &handle.handle_type {
+            HandleType::Weak => HandleType::Weak,
+            HandleType::Strong(sender) => {
+                sender.send(RefChange::Increment(handle.id)).unwrap();
+                HandleType::Strong(sender.clone())
             }
+        };
+
+        let (v, handle_type) = match &handle.id {
+            HandleId::Id(_, id) => self.id_map.insert(*id, (value, handle_type)),
+            HandleId::AssetPathId(asset_path_id) => self
+                .asset_path_id_map
+                .insert(*asset_path_id, (value, handle_type)),
+        }?;
+
+        match handle_type {
+            HandleType::Weak => {}
+            HandleType::Strong(sender) => sender.send(RefChange::Decrement(handle.id)).unwrap(),
         }
+
+        Some(v)
     }
 
+    /// Returns true when the handle map contains a value associated with the given handle.
     #[inline]
     pub fn contains_handle(&mut self, handle: &Handle<K>) -> bool {
         match &handle.id {
@@ -523,12 +547,21 @@ impl<K: Asset, V> HandleMap<K, V> {
         }
     }
 
+    /// Remove a handle from the handle map and return the value associated with it if there was
+    /// one.
     #[inline]
     pub fn remove(&mut self, handle: &Handle<K>) -> Option<V> {
-        match &handle.id {
+        let (v, handle_type) = match &handle.id {
             HandleId::Id(_, id) => self.id_map.remove(id),
             HandleId::AssetPathId(asset_path_id) => self.asset_path_id_map.remove(asset_path_id),
+        }?;
+
+        match handle_type {
+            HandleType::Weak => {}
+            HandleType::Strong(sender) => sender.send(RefChange::Decrement(handle.id)).unwrap(),
         }
+
+        Some(v)
     }
 }
 

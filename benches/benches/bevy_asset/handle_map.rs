@@ -1,5 +1,5 @@
 use bevy_asset::{AssetPath, Handle, HandleId, HandleMap};
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{TypePath, TypeUuid};
 use bevy_utils::HashMap;
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
@@ -8,7 +8,7 @@ use rand::prelude::*;
 const NUM_UNIQUE_IDS: u64 = 10000;
 const NUM_GET: usize = 1000000;
 
-#[derive(TypeUuid)]
+#[derive(TypeUuid, TypePath)]
 #[uuid = "c976f5a3-a461-459e-bfb6-424e9e72f708"]
 struct TestAsset {}
 
