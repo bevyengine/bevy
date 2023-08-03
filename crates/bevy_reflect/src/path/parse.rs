@@ -4,6 +4,7 @@ use thiserror::Error;
 
 use super::{Access, ReflectPathError};
 
+/// An error that occurs when parsing reflect path strings.
 #[derive(Debug, PartialEq, Eq, Error)]
 #[error(transparent)]
 pub struct ParseError<'a>(Error<'a>);
@@ -18,15 +19,15 @@ enum Error<'a> {
     ExpectedIdent(Token<'a>),
 
     #[error("failed to parse index as integer")]
-    IndexParse(#[from] ParseIntError),
+    InvalidIndex(#[from] ParseIntError),
 
-    #[error("A '[' wasn't closed, reached end of path string before finding a ']'")]
+    #[error("a '[' wasn't closed, reached end of path string before finding a ']'")]
     Unclosed,
 
-    #[error("A '[' wasn't closed properly, got '{0}' instead")]
+    #[error("a '[' wasn't closed properly, got '{0}' instead")]
     BadClose(Token<'a>),
 
-    #[error("A ']' was found before an opening '['")]
+    #[error("a ']' was found before an opening '['")]
     CloseBeforeOpen,
 }
 
@@ -72,7 +73,7 @@ impl<'a> PathParser<'a> {
             Token::Ident(ident) => Ok(ident.field()),
             Token::CloseBracket => Err(Error::CloseBeforeOpen),
             Token::OpenBracket => {
-                let index_ident = self.next_ident()?.index()?;
+                let index_ident = self.next_ident()?.list_index()?;
                 match self.next_token() {
                     Some(Token::CloseBracket) => Ok(index_ident),
                     Some(other) => Err(Error::BadClose(other)),
@@ -108,7 +109,7 @@ impl<'a> Ident<'a> {
     fn field_index(self) -> Result<Access<'a>, Error<'a>> {
         Ok(Access::FieldIndex(self.0.parse()?))
     }
-    fn index(self) -> Result<Access<'a>, Error<'a>> {
+    fn list_index(self) -> Result<Access<'a>, Error<'a>> {
         Ok(Access::ListIndex(self.0.parse()?))
     }
 }
@@ -163,7 +164,7 @@ mod test {
         assert!(matches!(
             ParsedPath::parse_static("y[badindex]"),
             Err(ReflectPathError::ParseError {
-                error: ParseError(Error::IndexParse(_)),
+                error: ParseError(Error::InvalidIndex(_)),
                 offset: 2,
                 path: "y[badindex]",
             }),

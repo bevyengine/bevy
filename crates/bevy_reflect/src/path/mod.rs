@@ -18,7 +18,7 @@ pub struct AccessError<'a>(access::Error<'a>);
 /// An error returned from a failed path string query.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ReflectPathError<'a> {
-    #[error("At {offset} in path specification: {error}")]
+    #[error("at {offset} in path specification: {error}")]
     InvalidAccess {
         /// Position in the path string.
         offset: usize,
@@ -28,7 +28,7 @@ pub enum ReflectPathError<'a> {
     #[error("failed to downcast to the path result to the given type")]
     InvalidDowncast,
 
-    #[error("At {offset} in '{path}': {error}")]
+    #[error("at {offset} in '{path}': {error}")]
     ParseError {
         /// Position in `path`.
         offset: usize,
