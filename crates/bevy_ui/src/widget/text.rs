@@ -113,8 +113,15 @@ fn create_text_measure(
     };
 }
 
-/// Creates a `Measure` for text nodes that allows the UI to determine the appropriate amount of space
+/// Generates a new [`Measure`]( for a text node on changes to its [`Text`] component.
+/// A `Measure` is used by the UI's layout algorithm to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
+///
+/// * All measures are regenerated if the primary window's scale factor or [`UiScale`] is changed.
+/// * Changes that only modify the colors of a `Text` do not require a new `Measure`. This system
+/// is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
+/// color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
+/// method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
     mut last_scale_factor: Local<f64>,
     fonts: Res<Assets<Font>>,
@@ -217,8 +224,9 @@ fn queue_text(
     }
 }
 
-/// Updates the layout and size information whenever the text or style is changed.
-/// This information is computed by the `TextPipeline` on insertion, then stored.
+/// Updates the layout and size information for a UI text node on changes to the size value of its [`Node`] component,
+/// or when the `needs_recompute` field of [`TextFlags`] is set to true.
+/// This information is computed by the [`TextPipeline`] and then stored in [`TextLayoutInfo`].
 ///
 /// ## World Resources
 ///
