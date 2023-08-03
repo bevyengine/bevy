@@ -668,7 +668,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
             match event {
                 // TODO: if the asset was processed and the processed file was changed, the first modified event
                 // should be skipped?
-                AssetSourceEvent::Modified(path) | AssetSourceEvent::ModifiedMeta(path) => {
+                AssetSourceEvent::ModifiedAsset(path) | AssetSourceEvent::ModifiedMeta(path) => {
                     paths_to_reload.insert(path);
                 }
                 _ => {}

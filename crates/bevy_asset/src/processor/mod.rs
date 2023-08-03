@@ -134,6 +134,24 @@ impl AssetProcessor {
         &*self.data.destination_writer
     }
 
+    async fn log_unrecoverable(&self) {
+        let mut log = self.data.log.write().await;
+        let log = log.as_mut().unwrap();
+        log.unrecoverable().await.unwrap();
+    }
+
+    async fn log_begin_path(&self, path: &Path) {
+        let mut log = self.data.log.write().await;
+        let log = log.as_mut().unwrap();
+        log.begin_path(path).await.unwrap();
+    }
+
+    async fn log_end_path(&self, path: &Path) {
+        let mut log = self.data.log.write().await;
+        let log = log.as_mut().unwrap();
+        log.end_path(path).await.unwrap();
+    }
+
     /// Starts the processor in a background thread.
     pub fn start(_processor: Res<Self>) {
         #[cfg(target_arch = "wasm32")]
@@ -178,86 +196,14 @@ impl AssetProcessor {
         debug!("Listening for changes to source assets");
         loop {
             let mut started_processing = false;
+
             for event in self.data.source_event_receiver.try_iter() {
                 println!("{event:?}\n");
                 if !started_processing {
                     // TODO: re-enable this after resolving state change signaling issue
                     // self.set_state(ProcessorState::Processing).await;
                     started_processing = true;
-                }
-                match event {
-                    AssetSourceEvent::Added(path)
-                    | AssetSourceEvent::AddedMeta(path)
-                    | AssetSourceEvent::Modified(path)
-                    | AssetSourceEvent::ModifiedMeta(path) => {
-                        debug!("Asset {:?} was modified. Attempting to re-process", path);
-                        self.process_asset(&path).await;
-                    }
-                    AssetSourceEvent::Removed(path) => {
-                        debug!("Removing processed {:?} because source was removed", path);
-                        let asset_path = AssetPath::new(path, None);
-                        self.remove_processed_asset_transactional(&asset_path).await;
-                    }
-                    AssetSourceEvent::RemovedMeta(path) => {
-                        // If meta was removed, we might need to regenerate it.
-                        // Likewise, the user might be manually re-adding the asset.
-                        // Therefore, we shouldn't automatically delete the asset ... that is a
-                        // user-initiated action.
-                        debug!(
-                            "Meta for asset {:?} was removed. Attempting to re-process",
-                            path
-                        );
-                        self.process_asset(&path).await;
-                    }
-                    AssetSourceEvent::AddedFolder(path) => {
-                        debug!("Folder {:?} was added. Attempting to re-process", path);
-                        #[cfg(target_arch = "wasm32")]
-                        error!("AddFolder event cannot be handled on WASM yet.");
-                        #[cfg(not(target_arch = "wasm32"))]
-                        IoTaskPool::get().scope(|scope| {
-                            scope.spawn(async move {
-                                self.process_assets_internal(scope, path).await.unwrap();
-                            });
-                        });
-                    }
-                    AssetSourceEvent::RemovedFolder(path) => {
-                        debug!("Removing folder {:?} because source was removed", path);
-                        error!("remove folder is not implemented {path:?}");
-                        // TODO: clean up memory
-                        // if let Err(err) = self.destination_writer().remove_directory(&path).await {
-                        //     warn!("Failed to remove folder {path:?}: {err}");
-                        // }
-                    }
-                    AssetSourceEvent::Renamed { old, new } => {
-                        // If there was a rename event, but the path hasn't changed, this asset might need reprocessing.
-                        // Sometimes this event is returned when an asset is moved "back" into the asset folder
-                        if old == new {
-                            self.process_asset(&new).await;
-                        } else {
-                            self.rename_processed_asset_transactional(old, new).await;
-                        }
-                    }
-                    AssetSourceEvent::RenamedMeta { old, new } => {
-                        // If there was a rename event, but the path hasn't changed, this asset meta might need reprocessing.
-                        // Sometimes this event is returned when an asset meta is moved "back" into the asset folder
-                        if old == new {
-                            self.process_asset(&new).await;
-                        } else {
-                            debug!("Meta renamed from {old:?} to {new:?}");
-                            let mut infos = self.data.asset_infos.write().await;
-                            // Renaming meta should not assume that an asset has also been renamed. Check both old and new assets to see
-                            // if they should be re-imported (and/or have new meta generated)
-                            infos.check_reprocess_queue.push_back(old);
-                            infos.check_reprocess_queue.push_back(new);
-                        }
-                    }
-                    AssetSourceEvent::RenamedFolder { old, new } => {
-                        // TODO: Check if this applies here
-                        // If there was a rename event, but the path hasn't changed, this asset meta might need reprocessing.
-                        // Sometimes this event is returned when an asset meta is moved "back" into the asset folder
-                        // if old == new {
-                        error!("renamed folder not implemented {old:?} {new:?}")
-                    }
+                    self.handle_asset_source_event(event).await;
                 }
             }
 
@@ -267,9 +213,143 @@ impl AssetProcessor {
         }
     }
 
+    async fn handle_asset_source_event(&self, event: AssetSourceEvent) {
+        match event {
+            AssetSourceEvent::AddedAsset(path)
+            | AssetSourceEvent::AddedMeta(path)
+            | AssetSourceEvent::ModifiedAsset(path)
+            | AssetSourceEvent::ModifiedMeta(path) => {
+                self.process_asset(&path).await;
+            }
+            AssetSourceEvent::RemovedAsset(path) => {
+                self.handle_removed_asset(path).await;
+            }
+            AssetSourceEvent::RemovedMeta(path) => {
+                self.handle_removed_meta(&path).await;
+            }
+            AssetSourceEvent::AddedFolder(path) => {
+                self.handle_added_folder(path).await;
+            }
+            // NOTE: As a heads up for future devs: this event shouldn't be run in parallel with other events that might
+            // touch this folder (ex: the folder might be re-created with new assets). Clean up the old state first.
+            // Currently this event handler is not parallel, but it could be (and likely should be) in the future.
+            AssetSourceEvent::RemovedFolder(path) => {
+                self.handle_removed_folder(&path).await;
+            }
+            AssetSourceEvent::RenamedAsset { old, new } => {
+                // If there was a rename event, but the path hasn't changed, this asset might need reprocessing.
+                // Sometimes this event is returned when an asset is moved "back" into the asset folder
+                if old == new {
+                    self.process_asset(&new).await;
+                } else {
+                    self.handle_renamed_asset(old, new).await;
+                }
+            }
+            AssetSourceEvent::RenamedMeta { old, new } => {
+                // If there was a rename event, but the path hasn't changed, this asset meta might need reprocessing.
+                // Sometimes this event is returned when an asset meta is moved "back" into the asset folder
+                if old == new {
+                    self.process_asset(&new).await;
+                } else {
+                    debug!("Meta renamed from {old:?} to {new:?}");
+                    let mut infos = self.data.asset_infos.write().await;
+                    // Renaming meta should not assume that an asset has also been renamed. Check both old and new assets to see
+                    // if they should be re-imported (and/or have new meta generated)
+                    infos.check_reprocess_queue.push_back(old);
+                    infos.check_reprocess_queue.push_back(new);
+                }
+            }
+            AssetSourceEvent::RenamedFolder { old, new } => {
+                // If there was a rename event, but the path hasn't changed, this asset folder might need reprocessing.
+                // Sometimes this event is returned when an asset meta is moved "back" into the asset folder
+                if old == new {
+                    self.handle_added_folder(new).await;
+                } else {
+                    // PERF: this reprocesses everything in the moved folder. this is not necessary in most cases, but
+                    // requires some nuance when it comes to path handling.
+                    self.handle_removed_folder(&old).await;
+                    self.handle_added_folder(new).await;
+                }
+            }
+            AssetSourceEvent::RemovedUnknown { path, is_meta } => {
+                match self.destination_reader().is_directory(&path).await {
+                    Ok(is_directory) => {
+                        if is_directory {
+                            self.handle_removed_folder(&path).await;
+                        } else {
+                            if is_meta {
+                                self.handle_removed_meta(&path).await;
+                            } else {
+                                self.handle_removed_asset(path).await;
+                            }
+                        }
+                    },
+                    Err(err)  => error!(
+                        "Path '{path:?}' as removed, but the destination reader could not determine if it\
+                        was a folder or a file due to the following error: {err}"
+                    ),
+                }
+            }
+        }
+    }
+
+    async fn handle_added_folder(&self, path: PathBuf) {
+        debug!("Folder {:?} was added. Attempting to re-process", path);
+        #[cfg(target_arch = "wasm32")]
+        error!("AddFolder event cannot be handled on WASM yet.");
+        #[cfg(not(target_arch = "wasm32"))]
+        IoTaskPool::get().scope(|scope| {
+            scope.spawn(async move {
+                self.process_assets_internal(scope, path).await.unwrap();
+            });
+        });
+    }
+
+    /// Responds to a removed meta event by reprocessing the asset at the given path.
+    async fn handle_removed_meta(&self, path: &Path) {
+        // If meta was removed, we might need to regenerate it.
+        // Likewise, the user might be manually re-adding the asset.
+        // Therefore, we shouldn't automatically delete the asset ... that is a
+        // user-initiated action.
+        debug!(
+            "Meta for asset {:?} was removed. Attempting to re-process",
+            path
+        );
+        self.process_asset(&path).await;
+    }
+
+    /// Removes all processed assets stored at the given path (respecting transactionality), then removes the folder itself.
+    async fn handle_removed_folder(&self, path: &Path) {
+        debug!("Removing folder {:?} because source was removed", path);
+        match self.destination_reader().read_directory(&path).await {
+            Ok(mut path_stream) => {
+                while let Some(child_path) = path_stream.next().await {
+                    self.handle_removed_asset(child_path).await;
+                }
+            }
+            Err(err) => match err {
+                AssetReaderError::NotFound(_err) => {
+                    // The processed folder does not exist. No need to update anything
+                }
+                AssetReaderError::Io(err) => {
+                    self.log_unrecoverable().await;
+                    error!(
+                        "Unrecoverable Error: Failed to read the processed assets at {path:?} in order to remove assets that no longer exist \
+                        in the source directory. Restart the asset processor to fully reprocess assets. Error: {err}"
+                    );
+                }
+            },
+        }
+        if let Err(err) = self.destination_writer().remove_directory(&path).await {
+            error!("Failed to remove destination folder that no longer exists in asset source {path:?}: {err}");
+        }
+    }
+
     /// Removes the processed version of an asset and associated in-memory metadata. This will block until all existing reads/writes to the
     /// asset have finished, thanks to the `file_transaction_lock`.
-    async fn remove_processed_asset_transactional(&self, asset_path: &AssetPath<'static>) {
+    async fn handle_removed_asset(&self, path: PathBuf) {
+        debug!("Removing processed {:?} because source was removed", path);
+        let asset_path = AssetPath::new(path, None);
         let mut infos = self.data.asset_infos.write().await;
         if let Some(info) = infos.get(&asset_path) {
             // we must wait for uncontested write access to the asset source to ensure existing readers / writers
@@ -281,7 +361,9 @@ impl AssetProcessor {
         infos.remove(&asset_path).await;
     }
 
-    async fn rename_processed_asset_transactional(&self, old: PathBuf, new: PathBuf) {
+    /// Handles a renamed source asset by moving it's processed results to the new location and updating in-memory paths + metadata.
+    /// This will cause direct path dependencies to break.
+    async fn handle_renamed_asset(&self, old: PathBuf, new: PathBuf) {
         let mut infos = self.data.asset_infos.write().await;
         let old_asset_path = AssetPath::new(old, None);
         if let Some(info) = infos.get(&old_asset_path) {
@@ -616,11 +698,7 @@ impl AssetProcessor {
         // NOTE: if processing the asset fails this will produce an "unfinished" log entry, forcing a rebuild on next run.
         // Directly writing to the asset destination in the processor necessitates this behavior
         // TODO: this class of failure can be recovered via re-processing + smarter log validation that allows for duplicate transactions in the event of failures
-        {
-            let mut logger = self.data.log.write().await;
-            logger.as_mut().unwrap().begin_path(path).await.unwrap();
-        }
-
+        self.log_begin_path(path).await;
         if let Some(processor) = processor {
             let mut processed_meta = {
                 let mut context =
@@ -654,11 +732,7 @@ impl AssetProcessor {
             meta_writer.write_all(&meta_bytes).await.unwrap();
             meta_writer.flush().await.unwrap();
         }
-
-        {
-            let mut logger = self.data.log.write().await;
-            logger.as_mut().unwrap().end_path(path).await.unwrap();
-        }
+        self.log_end_path(path).await;
 
         Ok(ProcessResult::Processed(new_processed_info))
     }
@@ -668,6 +742,10 @@ impl AssetProcessor {
             let state_is_valid = match err {
                 ValidateLogError::ReadLogError(err) => {
                     error!("Failed to read processor log file. Processed assets cannot be validated so they must be re-generated {err}");
+                    false
+                }
+                ValidateLogError::UnrecoverableError => {
+                    error!("Encountered an unrecoverable error in the last run. Processed assets cannot be validated so they must be re-generated");
                     false
                 }
                 ValidateLogError::EntryErrors(entry_errors) => {

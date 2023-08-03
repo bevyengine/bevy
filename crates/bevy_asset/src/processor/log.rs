@@ -10,6 +10,7 @@ use thiserror::Error;
 pub(crate) enum LogEntry {
     BeginPath(PathBuf),
     EndPath(PathBuf),
+    UnrecoverableError,
 }
 
 /// A "write ahead" logger that helps ensure asset importing is transactional.
@@ -43,6 +44,8 @@ pub struct WriteLogError {
 /// An error that occurs when validating the [`ProcessorTransactionLog`] fails.
 #[derive(Error, Debug)]
 pub enum ValidateLogError {
+    #[error("Encountered an unrecoverable error. All assets will be reprocessed.")]
+    UnrecoverableError,
     #[error(transparent)]
     ReadLogError(#[from] ReadLogError),
     #[error("Encountered a duplicate process asset transaction: {0:?}")]
@@ -63,6 +66,7 @@ pub enum LogEntryError {
 const LOG_PATH: &str = "imported_assets/log";
 const ENTRY_BEGIN: &str = "Begin ";
 const ENTRY_END: &str = "End ";
+const UNRECOVERABLE_ERROR: &str = "UnrecoverableError";
 
 impl ProcessorTransactionLog {
     fn full_log_path() -> PathBuf {
@@ -138,6 +142,7 @@ impl ProcessorTransactionLog {
                         errors.push(LogEntryError::EndedMissingTransaction(path));
                     }
                 }
+                LogEntry::UnrecoverableError => return Err(ValidateLogError::UnrecoverableError),
             }
         }
         for transaction in transactions {
@@ -163,6 +168,15 @@ impl ProcessorTransactionLog {
             .await
             .map_err(|e| WriteLogError {
                 log_entry: LogEntry::EndPath(path.to_owned()),
+                error: e,
+            })
+    }
+
+    pub(crate) async fn unrecoverable(&mut self) -> Result<(), WriteLogError> {
+        self.write(UNRECOVERABLE_ERROR)
+            .await
+            .map_err(|e| WriteLogError {
+                log_entry: LogEntry::UnrecoverableError,
                 error: e,
             })
     }

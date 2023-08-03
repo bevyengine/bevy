@@ -179,7 +179,7 @@ impl AssetReader for FileAssetReader {
             FileWatcher::new(
                 self.root_path.clone(),
                 event_sender,
-                Duration::from_secs_f32(0.5),
+                Duration::from_millis(300),
             )
             .unwrap(),
         ))
@@ -341,7 +341,7 @@ impl FileWatcher {
                                     if is_meta {
                                         sender.send(AssetSourceEvent::AddedMeta(path)).unwrap();
                                     } else {
-                                        sender.send(AssetSourceEvent::Added(path)).unwrap();
+                                        sender.send(AssetSourceEvent::AddedAsset(path)).unwrap();
                                     }
                                 }
                                 notify::EventKind::Create(CreateKind::Folder) => {
@@ -354,7 +354,7 @@ impl FileWatcher {
                                     if is_meta {
                                         sender.send(AssetSourceEvent::ModifiedMeta(path)).unwrap();
                                     } else {
-                                        sender.send(AssetSourceEvent::Modified(path)).unwrap();
+                                        sender.send(AssetSourceEvent::ModifiedAsset(path)).unwrap();
                                     }
                                 }
                                 // Because this is debounced over a reasonable period of time, "From" events are assumed to be "dangling" without
@@ -363,24 +363,21 @@ impl FileWatcher {
                                 notify::EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
                                     let (path, is_meta) =
                                         get_asset_path(&owned_root, &event.paths[0]);
-                                    if path.is_dir() {
-                                        sender.send(AssetSourceEvent::RemovedFolder(path)).unwrap();
-                                    } else if is_meta {
-                                        sender.send(AssetSourceEvent::RemovedMeta(path)).unwrap();
-                                    } else {
-                                        sender.send(AssetSourceEvent::Removed(path)).unwrap();
-                                    }
+                                    sender
+                                        .send(AssetSourceEvent::RemovedUnknown { path, is_meta })
+                                        .unwrap();
                                 }
                                 notify::EventKind::Modify(ModifyKind::Name(RenameMode::To)) => {
                                     let (path, is_meta) =
                                         get_asset_path(&owned_root, &event.paths[0]);
-                                    if path.is_dir() {
-                                        sender.send(AssetSourceEvent::AddedFolder(path)).unwrap();
+                                    let event = if event.paths[0].is_dir() {
+                                        AssetSourceEvent::AddedFolder(path)
                                     } else if is_meta {
-                                        sender.send(AssetSourceEvent::AddedMeta(path)).unwrap();
+                                        AssetSourceEvent::AddedMeta(path)
                                     } else {
-                                        sender.send(AssetSourceEvent::Added(path)).unwrap();
-                                    }
+                                        AssetSourceEvent::AddedAsset(path)
+                                    };
+                                    sender.send(event).unwrap();
                                 }
                                 notify::EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
                                     let (old_path, old_is_meta) =
@@ -407,7 +404,7 @@ impl FileWatcher {
                                             }
                                             (false, false) => {
                                                 sender
-                                                    .send(AssetSourceEvent::Renamed {
+                                                    .send(AssetSourceEvent::RenamedAsset {
                                                         old: old_path,
                                                         new: new_path,
                                                     })
@@ -432,7 +429,7 @@ impl FileWatcher {
                                     if is_meta {
                                         sender.send(AssetSourceEvent::RemovedMeta(path)).unwrap();
                                     } else {
-                                        sender.send(AssetSourceEvent::Removed(path)).unwrap();
+                                        sender.send(AssetSourceEvent::RemovedAsset(path)).unwrap();
                                     }
                                 }
                                 notify::EventKind::Remove(RemoveKind::Folder) => {
