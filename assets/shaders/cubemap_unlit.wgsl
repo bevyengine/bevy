@@ -1,4 +1,4 @@
-#import bevy_pbr::mesh_vertex_output MeshVertexOutput
+#import bevy_pbr::mesh_vertex_output::MeshVertexOutput;
 
 #ifdef CUBEMAP_ARRAY
 @group(1) @binding(0)

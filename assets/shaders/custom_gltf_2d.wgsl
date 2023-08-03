@@ -1,6 +1,8 @@
-#import bevy_sprite::mesh2d_view_bindings   globals
-#import bevy_sprite::mesh2d_bindings        mesh
-#import bevy_sprite::mesh2d_functions       mesh2d_position_local_to_clip
+#import bevy_sprite::{
+    mesh2d_view_bindings::globals,
+    mesh2d_bindings::mesh,
+    mesh2d_functions::mesh2d_position_local_to_clip
+}
 
 struct Vertex {
     @location(0) position: vec3<f32>,

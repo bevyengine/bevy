@@ -1,8 +1,4 @@
-#ifdef TONEMAP_IN_SHADER
-#import bevy_core_pipeline::tonemapping
-#endif
-
-#import bevy_render::view  View
+#import bevy_render::view::View;
 
 @group(0) @binding(0)
 var<uniform> view: View;

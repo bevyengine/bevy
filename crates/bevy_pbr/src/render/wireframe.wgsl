@@ -1,9 +1,7 @@
-#import bevy_pbr::mesh_bindings    mesh
-#import bevy_pbr::mesh_functions   mesh_position_local_to_clip
-
-#ifdef SKINNED
-    #import bevy_pbr::skinning
-#endif
+#import bevy_pbr::{
+    mesh_bindings::mesh, 
+    mesh_functions::mesh_position_local_to_clip
+}
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,

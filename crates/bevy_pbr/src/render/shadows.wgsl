@@ -1,8 +1,11 @@
 #define_import_path bevy_pbr::shadows
 
-#import bevy_pbr::mesh_view_types  POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE
-#import bevy_pbr::mesh_view_bindings as view_bindings
-#import bevy_pbr::utils  hsv2rgb
+#import bevy_pbr::{
+    mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
+    mesh_view_bindings as view_bindings,
+    utils::hsv2rgb
+}
+
 const flip_z: vec3<f32> = vec3<f32>(1.0, 1.0, -1.0);
 
 fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {

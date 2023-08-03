@@ -67,12 +67,6 @@ impl Plugin for Mesh2dRenderPlugin {
         );
         load_internal_asset!(
             app,
-            MESH2D_VIEW_TYPES_HANDLE,
-            "mesh2d_view_types.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
             MESH2D_VIEW_BINDINGS_HANDLE,
             "mesh2d_view_bindings.wgsl",
             Shader::from_wgsl

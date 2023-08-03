@@ -1,8 +1,10 @@
-#import bevy_pbr::mesh_vertex_output    MeshVertexOutput
-#import bevy_pbr::mesh_view_bindings    view
-#import bevy_pbr::pbr_types             STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT
-#import bevy_core_pipeline::tonemapping tone_mapping
-#import bevy_pbr::pbr_functions as fns
+#import bevy_pbr::{
+    mesh_vertex_output::MeshVertexOutput,
+    mesh_view_bindings::view,
+    pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT,
+    pbr_functions
+}
+#import bevy_core_pipeline::tonemapping::tone_mapping;
 
 @group(1) @binding(0)
 var my_array_texture: texture_2d_array<f32>;
@@ -18,7 +20,7 @@ fn fragment(
 
     // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
     // the material members
-    var pbr_input: fns::PbrInput = fns::pbr_input_new();
+    var pbr_input: pbr_functions::PbrInput = pbr_functions::pbr_input_new();
 
     pbr_input.material.base_color = textureSample(my_array_texture, my_array_texture_sampler, mesh.uv, layer);
 #ifdef VERTEX_COLORS
@@ -27,7 +29,7 @@ fn fragment(
 
     pbr_input.frag_coord = mesh.position;
     pbr_input.world_position = mesh.world_position;
-    pbr_input.world_normal = fns::prepare_world_normal(
+    pbr_input.world_normal = pbr_functions::prepare_world_normal(
         mesh.world_normal,
         (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
         is_front,
@@ -35,7 +37,7 @@ fn fragment(
 
     pbr_input.is_orthographic = view.projection[3].w == 1.0;
 
-    pbr_input.N = fns::apply_normal_mapping(
+    pbr_input.N = pbr_functions::apply_normal_mapping(
         pbr_input.material.flags,
         mesh.world_normal,
 #ifdef VERTEX_TANGENTS
@@ -46,7 +48,7 @@ fn fragment(
         mesh.uv,
         view.mip_bias,
     );
-    pbr_input.V = fns::calculate_view(mesh.world_position, pbr_input.is_orthographic);
+    pbr_input.V = pbr_functions::calculate_view(mesh.world_position, pbr_input.is_orthographic);
 
-    return tone_mapping(fns::pbr(pbr_input), view.color_grading);
+    return tone_mapping(pbr_functions::pbr(pbr_input), view.color_grading);
 }

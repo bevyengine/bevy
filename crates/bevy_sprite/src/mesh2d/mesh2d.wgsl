@@ -1,11 +1,8 @@
-#import bevy_sprite::mesh2d_functions as mesh_functions
-#import bevy_sprite::mesh2d_bindings       mesh
-#import bevy_sprite::mesh2d_vertex_output  MeshVertexOutput
-#import bevy_sprite::mesh2d_view_bindings  view
-
-#ifdef TONEMAP_IN_SHADER
-#import bevy_core_pipeline::tonemapping
-#endif
+#import bevy_sprite::{
+    mesh2d_functions,
+    mesh2d_bindings::mesh,
+    mesh2d_vertex_output::MeshVertexOutput
+}
 
 struct Vertex {
 #ifdef VERTEX_POSITIONS
@@ -33,19 +30,19 @@ fn vertex(vertex: Vertex) -> MeshVertexOutput {
 #endif
 
 #ifdef VERTEX_POSITIONS
-    out.world_position = mesh_functions::mesh2d_position_local_to_world(
+    out.world_position = mesh2d_functions::mesh2d_position_local_to_world(
         mesh.model, 
         vec4<f32>(vertex.position, 1.0)
     );
-    out.position = mesh_functions::mesh2d_position_world_to_clip(out.world_position);
+    out.position = mesh2d_functions::mesh2d_position_world_to_clip(out.world_position);
 #endif
 
 #ifdef VERTEX_NORMALS
-    out.world_normal = mesh_functions::mesh2d_normal_local_to_world(vertex.normal);
+    out.world_normal = mesh2d_functions::mesh2d_normal_local_to_world(vertex.normal);
 #endif
 
 #ifdef VERTEX_TANGENTS
-    out.world_tangent = mesh_functions::mesh2d_tangent_local_to_world(
+    out.world_tangent = mesh2d_functions::mesh2d_tangent_local_to_world(
         mesh.model, 
         vertex.tangent
     );
@@ -64,7 +61,7 @@ fn fragment(
 #ifdef VERTEX_COLORS
     var color = in.color;
 #ifdef TONEMAP_IN_SHADER
-    color = bevy_core_pipeline::tonemapping::tone_mapping(color, view.color_grading);
+    color = bevy_core_pipeline::tonemapping::tone_mapping(color, bevy_sprite::mesh2d_view_bindings::view.color_grading);
 #endif
     return color;
 #else

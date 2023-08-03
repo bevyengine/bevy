@@ -1,10 +1,8 @@
-#import bevy_sprite::mesh2d_types          Mesh2d
-#import bevy_sprite::mesh2d_vertex_output  MeshVertexOutput
-#import bevy_sprite::mesh2d_view_bindings  view
-
-#ifdef TONEMAP_IN_SHADER
-#import bevy_core_pipeline::tonemapping
-#endif
+#import bevy_sprite::{
+    mesh2d_types::Mesh2d,
+    mesh2d_vertex_output::MeshVertexOutput,
+    mesh2d_view_bindings::view
+}
 
 struct ColorMaterial {
     color: vec4<f32>,

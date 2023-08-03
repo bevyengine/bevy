@@ -1,4 +1,4 @@
-#import bevy_pbr::mesh_vertex_output MeshVertexOutput
+#import bevy_pbr::mesh_vertex_output::MeshVertexOutput;
 
 @group(1) @binding(0)
 var textures: binding_array<texture_2d<f32>>;

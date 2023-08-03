@@ -9,7 +9,7 @@
 
 #ifdef MORPH_TARGETS
 
-#import bevy_pbr::mesh_types MorphWeights
+#import bevy_pbr::mesh_types::MorphWeights
 
 #ifdef MESH_BINDGROUP_1
 

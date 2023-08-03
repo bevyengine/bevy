@@ -1,6 +1,4 @@
-#import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::mesh_bindings
-#import bevy_pbr::mesh_vertex_output MeshVertexOutput
+#import bevy_pbr::{mesh_view_bindings, mesh_bindings, mesh_vertex_output::MeshVertexOutput}
 
 @group(1) @binding(0)
 var test_texture_1d: texture_1d<f32>;

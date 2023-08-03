@@ -6,8 +6,6 @@
 // * [COD] - Next Generation Post Processing in Call of Duty - http://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
 // * [PBB] - Physically Based Bloom - https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
 
-#import bevy_core_pipeline::fullscreen_vertex_shader
-
 struct BloomUniforms {
     threshold_precomputations: vec4<f32>,
     viewport: vec4<f32>,

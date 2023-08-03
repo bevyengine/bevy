@@ -1,6 +1,8 @@
 // The time since startup data is in the globals binding which is part of the mesh_view_bindings import
-#import bevy_pbr::mesh_view_bindings globals
-#import bevy_pbr::mesh_vertex_output MeshVertexOutput
+#import bevy_pbr::{
+    mesh_view_bindings::globals,
+    mesh_vertex_output::MeshVertexOutput,
+}
 
 fn oklab_to_linear_srgb(c: vec3<f32>) -> vec3<f32> {
     let L = c.x;

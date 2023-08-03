@@ -1,5 +1,7 @@
-#import bevy_pbr::mesh_bindings   mesh
-#import bevy_pbr::mesh_functions  mesh_position_local_to_clip
+#import bevy_pbr::{
+    mesh_bindings::mesh,
+    mesh_functions::mesh_position_local_to_clip
+}
 
 struct CustomMaterial {
     color: vec4<f32>,
