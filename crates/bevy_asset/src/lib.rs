@@ -5,12 +5,16 @@ pub mod saver;
 
 pub mod prelude {
     #[doc(hidden)]
+    pub use crate::asset_changed::{AssetChanged, AssetOrHandleChanged};
+
+    #[doc(hidden)]
     pub use crate::{
         Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets, Handle,
         UntypedHandle,
     };
 }
 
+mod asset_changed;
 mod assets;
 mod event;
 mod folder;
