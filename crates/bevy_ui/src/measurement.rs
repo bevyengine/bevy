@@ -71,7 +71,7 @@ impl ContentSize {
 impl Default for ContentSize {
     fn default() -> Self {
         Self {
-            measure_func: Some(MeasureFunc::Raw(|_, _| TaffySize::ZERO)),
+            measure_func: None,
         }
     }
 }
