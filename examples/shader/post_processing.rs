@@ -88,7 +88,8 @@ impl Plugin for PostProcessPlugin {
             // Add a [`Node`] to the [`RenderGraph`]
             // The Node needs to impl FromWorld
             //
-            // The [`ViewNodeRunner`] is a special [`Node`] that will automatically run the node for each view matching the <ViewQuery> trait thing
+            // The [`ViewNodeRunner`] is a special [`Node`] that will automatically run the node for each view
+            // matching the [`ViewQuery`]
             .add_render_graph_node::<ViewNodeRunner<PostProcessNode>>(
                 // Specify the name of the graph, in this case we want the graph for 3d
                 core_3d::graph::NAME,
@@ -119,7 +120,7 @@ impl Plugin for PostProcessPlugin {
     }
 }
 
-/// The post process node used for the render graph
+// The post process node used for the render graph
 #[derive(Default)]
 struct PostProcessNode;
 impl PostProcessNode {
@@ -139,7 +140,7 @@ impl ViewNode for PostProcessNode {
     //
     // This will run on every view on which the graph is running.
     // If you don't want your effect to run on every camera,
-    // you'll need to make sure you have a marker component as part of ViewQuery
+    // you'll need to make sure you have a marker component as part of [`ViewQuery`]
     // to identify which camera(s) should run the effect.
     fn run(
         &self,
@@ -392,7 +393,7 @@ fn update_settings(mut settings: Query<&mut PostProcessSettings>, time: Res<Time
         intensity *= 0.015;
 
         // Set the intensity.
-        // This will then be extracted to the render world and uploaded to the gpu automatically <via the uniform component plugin thing...>.
+        // This will then be extracted to the render world and uploaded to the gpu automatically by the [`UniformComponentPlugin`]
         setting.intensity = intensity;
     }
 }
