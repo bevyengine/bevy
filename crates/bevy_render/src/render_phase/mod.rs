@@ -38,6 +38,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
+use std::ops::Range;
 
 /// A collection of all rendering instructions, that will be executed by the GPU, for a
 /// single render phase for a single view.
@@ -84,6 +85,29 @@ impl<I: PhaseItem> RenderPhase<I> {
         draw_functions.prepare(world);
 
         self.items
+            .iter()
+            .filter(|item| !item.skip())
+            .for_each(|item| {
+                let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
+                draw_function.draw(world, render_pass, view, item);
+            });
+    }
+
+    /// Renders all [`PhaseItem`]s in the provided `range` (based on their index in `self.items`) using their corresponding draw functions.
+    pub fn render_range<'w>(
+        &self,
+        render_pass: &mut TrackedRenderPass<'w>,
+        world: &'w World,
+        view: Entity,
+        range: Range<usize>,
+    ) {
+        let draw_functions = world.resource::<DrawFunctions<I>>();
+        let mut draw_functions = draw_functions.write();
+        draw_functions.prepare(world);
+
+        self.items
+            .get(range)
+            .expect("`Range` provided to `render_range()` is out of bounds")
             .iter()
             .filter(|item| !item.skip())
             .for_each(|item| {
