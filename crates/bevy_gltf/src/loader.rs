@@ -223,10 +223,8 @@ async fn load_gltf<'a, 'b>(
             if let Some(mesh) = gltf_node.mesh() {
                 meshes_on_skinned_nodes.insert(mesh.index());
             }
-        } else {
-            if let Some(mesh) = gltf_node.mesh() {
-                meshes_on_non_skinned_nodes.insert(mesh.index());
-            }
+        } else if let Some(mesh) = gltf_node.mesh() {
+            meshes_on_non_skinned_nodes.insert(mesh.index());
         }
     }
     for gltf_mesh in gltf.meshes() {
