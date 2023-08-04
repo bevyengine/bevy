@@ -752,7 +752,7 @@ pub fn prepare_sprites(
                         existing_batch.unwrap().1.range.end = index;
                     }
                 } else {
-                    batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX)
+                    batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
                 }
             }
         }

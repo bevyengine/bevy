@@ -894,7 +894,7 @@ pub fn prepare_uinodes(
                     index += QUAD_INDICES.len() as u32;
                     existing_batch.unwrap().1.range.end = index;
                 } else {
-                    batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX)
+                    batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
                 }
             }
         }
