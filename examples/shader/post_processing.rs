@@ -88,7 +88,7 @@ impl Plugin for PostProcessPlugin {
             // Add a [`Node`] to the [`RenderGraph`]
             // The Node needs to impl FromWorld
             //
-            // The [`ViewNodeRunner`] is a special [`Node`] that will automatically run the query on the view
+            // The [`ViewNodeRunner`] is a special [`Node`] that will automatically run the node for each view matching the <ViewQuery> trait thing
             .add_render_graph_node::<ViewNodeRunner<PostProcessNode>>(
                 // Specify the name of the graph, in this case we want the graph for 3d
                 core_3d::graph::NAME,
@@ -139,7 +139,7 @@ impl ViewNode for PostProcessNode {
     //
     // This will run on every view on which the graph is running.
     // If you don't want your effect to run on every camera,
-    // you'll need to make sure you have a marker component
+    // you'll need to make sure you have a marker component as part of ViewQuery
     // to identify which camera(s) should run the effect.
     fn run(
         &self,
@@ -183,7 +183,7 @@ impl ViewNode for PostProcessNode {
         // but this doesn't work with the post_process_write().
         // The reason it doesn't work is because each post_process_write will alternate the source/destination.
         // The only way to have the correct source/destination for the bind_group
-        //  is to make sure you get it during the node execution.
+        // is to make sure you get it during the node execution.
         let bind_group = render_context
             .render_device()
             .create_bind_group(&BindGroupDescriptor {
@@ -392,7 +392,7 @@ fn update_settings(mut settings: Query<&mut PostProcessSettings>, time: Res<Time
         intensity *= 0.015;
 
         // Set the intensity.
-        // This will then be extracted to the render world and uploaded to the gpu automatically.
+        // This will then be extracted to the render world and uploaded to the gpu automatically <via the uniform component plugin thing...>.
         setting.intensity = intensity;
     }
 }
