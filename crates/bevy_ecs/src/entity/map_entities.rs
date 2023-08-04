@@ -130,15 +130,15 @@ impl EntityMap {
     }
 }
 
-impl Deref for EntityMap{
+impl Deref for EntityMap {
     type Target = HashMap<Entity, Entity>;
-    fn deref(&self) -> &Self::Target{
+    fn deref(&self) -> &Self::Target {
         &self.map
     }
 }
 
-impl DerefMut for EntityMap{
-    fn deref_mut(&mut self) -> &mut Self::Target{
+impl DerefMut for EntityMap {
+    fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.map
     }
 }
