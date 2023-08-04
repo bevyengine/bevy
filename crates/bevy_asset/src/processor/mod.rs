@@ -289,11 +289,17 @@ impl AssetProcessor {
                                 self.handle_removed_asset(path).await;
                             }
                         }
-                    },
-                    Err(err)  => error!(
-                        "Path '{path:?}' as removed, but the destination reader could not determine if it\
-                        was a folder or a file due to the following error: {err}"
-                    ),
+                    }
+                    Err(err) => {
+                        if let AssetReaderError::NotFound(_) = err {
+                            // if the path is not found, a processed version does not exist
+                        } else {
+                            error!(
+                                "Path '{path:?}' as removed, but the destination reader could not determine if it \
+                                was a folder or a file due to the following error: {err}"
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -470,34 +476,51 @@ impl AssetProcessor {
     async fn initialize(&self) -> Result<(), InitializeError> {
         self.validate_transaction_log_and_recover().await;
         let mut asset_infos = self.data.asset_infos.write().await;
+
+        /// Retrieves asset paths recursively. If `clean_empty_folders_writer` is Some, it will be used to clean up empty
+        /// folders when they are discovered.
         fn get_asset_paths<'a>(
             reader: &'a dyn AssetReader,
+            clean_empty_folders_writer: Option<&'a dyn AssetWriter>,
             path: PathBuf,
             paths: &'a mut Vec<PathBuf>,
-        ) -> BoxedFuture<'a, Result<(), AssetReaderError>> {
+        ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
             Box::pin(async move {
                 if reader.is_directory(&path).await? {
                     let mut path_stream = reader.read_directory(&path).await?;
+                    let mut contains_files = false;
                     while let Some(child_path) = path_stream.next().await {
-                        get_asset_paths(reader, child_path, paths).await?;
+                        contains_files =
+                            get_asset_paths(reader, clean_empty_folders_writer, child_path, paths)
+                                .await?
+                                && contains_files;
                     }
+                    if !contains_files {
+                        if let Some(writer) = clean_empty_folders_writer {
+                            // it is ok for this to fail as it is just a cleanup job.
+                            let _ = writer.remove_empty_directory(&path).await;
+                        }
+                    }
+                    Ok(contains_files)
                 } else {
                     paths.push(path);
+                    Ok(true)
                 }
-                Ok(())
             })
         }
 
         let mut source_paths = Vec::new();
         let source_reader = self.source_reader();
-        get_asset_paths(source_reader, PathBuf::from(""), &mut source_paths)
+        get_asset_paths(source_reader, None, PathBuf::from(""), &mut source_paths)
             .await
             .map_err(InitializeError::FailedToReadSourcePaths)?;
 
         let mut destination_paths = Vec::new();
         let destination_reader = self.destination_reader();
+        let destination_writer = self.destination_writer();
         get_asset_paths(
             destination_reader,
+            Some(destination_writer),
             PathBuf::from(""),
             &mut destination_paths,
         )
@@ -565,6 +588,29 @@ impl AssetProcessor {
 
         if let Err(err) = self.destination_writer().remove_meta(path).await {
             warn!("Failed to remove non-existent meta {path:?}: {err}");
+        }
+
+        self.clean_empty_processed_ancestor_folders(path).await;
+    }
+
+    async fn clean_empty_processed_ancestor_folders(&self, path: &Path) {
+        // As a safety precaution don't delete absolute paths to avoid deleting folders outside of the destination folder
+        if path.is_absolute() {
+            error!("Attempted to clean up ancestor folders of an absolute path. This is unsafe so the operation was skipped.");
+            return;
+        }
+        while let Some(parent) = path.parent() {
+            if parent == Path::new("") {
+                break;
+            }
+            if let Err(_) = self
+                .destination_writer()
+                .remove_empty_directory(parent)
+                .await
+            {
+                // if we fail to delete a folder, stop walking up the tree
+                break;
+            }
         }
     }
 

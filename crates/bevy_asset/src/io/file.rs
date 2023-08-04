@@ -268,6 +268,17 @@ impl AssetWriter for FileAssetWriter {
         })
     }
 
+    fn remove_empty_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, std::result::Result<(), AssetWriterError>> {
+        Box::pin(async move {
+            let full_path = self.root_path.join(path);
+            async_fs::remove_dir(full_path).await?;
+            Ok(())
+        })
+    }
+
     fn remove_assets_in_directory<'a>(
         &'a self,
         path: &'a Path,
