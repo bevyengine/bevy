@@ -333,7 +333,6 @@ impl FileWatcher {
                 match result {
                     Ok(events) => {
                         for event in events.iter() {
-                            println!("raw {event:?}\n");
                             match event.kind {
                                 notify::EventKind::Create(CreateKind::File) => {
                                     let (path, is_meta) =
@@ -347,6 +346,17 @@ impl FileWatcher {
                                 notify::EventKind::Create(CreateKind::Folder) => {
                                     let (path, _) = get_asset_path(&owned_root, &event.paths[0]);
                                     sender.send(AssetSourceEvent::AddedFolder(path)).unwrap();
+                                }
+                                notify::EventKind::Modify(ModifyKind::Any) => {
+                                    let (path, is_meta) =
+                                        get_asset_path(&owned_root, &event.paths[0]);
+                                    if event.paths[0].is_dir() {
+                                        // modified folder means nothing in this case
+                                    } else if is_meta {
+                                        sender.send(AssetSourceEvent::ModifiedMeta(path)).unwrap();
+                                    } else {
+                                        sender.send(AssetSourceEvent::ModifiedAsset(path)).unwrap();
+                                    };
                                 }
                                 notify::EventKind::Access(AccessKind::Close(AccessMode::Write)) => {
                                     let (path, is_meta) =
@@ -367,7 +377,8 @@ impl FileWatcher {
                                         .send(AssetSourceEvent::RemovedUnknown { path, is_meta })
                                         .unwrap();
                                 }
-                                notify::EventKind::Modify(ModifyKind::Name(RenameMode::To)) => {
+                                notify::EventKind::Create(CreateKind::Any)
+                                | notify::EventKind::Modify(ModifyKind::Name(RenameMode::To)) => {
                                     let (path, is_meta) =
                                         get_asset_path(&owned_root, &event.paths[0]);
                                     let event = if event.paths[0].is_dir() {
@@ -422,6 +433,13 @@ impl FileWatcher {
                                             }
                                         }
                                     }
+                                }
+                                notify::EventKind::Remove(RemoveKind::Any) => {
+                                    let (path, is_meta) =
+                                        get_asset_path(&owned_root, &event.paths[0]);
+                                    sender
+                                        .send(AssetSourceEvent::RemovedUnknown { path, is_meta })
+                                        .unwrap();
                                 }
                                 notify::EventKind::Remove(RemoveKind::File) => {
                                     let (path, is_meta) =

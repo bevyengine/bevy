@@ -203,8 +203,9 @@ impl AssetProcessor {
                     // TODO: re-enable this after resolving state change signaling issue
                     // self.set_state(ProcessorState::Processing).await;
                     started_processing = true;
-                    self.handle_asset_source_event(event).await;
                 }
+
+                self.handle_asset_source_event(event).await;
             }
 
             if started_processing {
