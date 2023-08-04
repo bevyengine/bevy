@@ -220,13 +220,13 @@ async fn load_gltf<'a, 'b>(
     let mut meshes_on_non_skinned_nodes = HashSet::default();
     for gltf_node in gltf.nodes() {
         if gltf_node.skin().is_some() {
-            gltf_node.mesh().map(|mesh| {
+            if let Some(mesh) = gltf_node.mesh() {
                 meshes_on_skinned_nodes.insert(mesh.index());
-            });
+            }
         } else {
-            gltf_node.mesh().map(|mesh| {
+            if let Some(mesh) = gltf_node.mesh() {
                 meshes_on_non_skinned_nodes.insert(mesh.index());
-            });
+            }
         }
     }
     for gltf_mesh in gltf.meshes() {
