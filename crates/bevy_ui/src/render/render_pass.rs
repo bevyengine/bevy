@@ -90,6 +90,7 @@ pub struct TransparentUi {
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
+    pub batch_size: usize,
 }
 
 impl PhaseItem for TransparentUi {
@@ -108,6 +109,11 @@ impl PhaseItem for TransparentUi {
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
+    }
+
+    #[inline]
+    fn batch_size(&self) -> usize {
+        self.batch_size
     }
 }
 
