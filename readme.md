@@ -32,15 +32,17 @@ fn my_func() -> f32 {
 }
 ```
 
-shaders can then import the module with an `#import` directive (with an optional `as` name). at point of use, imported items must be qualified:
+alternatively the module name can be specified as an argument to `Composer::add_composable_module`.
+
+shaders can then import the module with an `#import` directive (with an optional `as` name) :
 
 ```wgsl
-#import my_module
-#import my_other_module as Mod2
+#import my_module;
+#import my_other_module as mod2;
 
 fn main() -> f32 {
     let x = my_module::my_func();
-    let y = Mod2::my_other_func();
+    let y = mod2::my_other_func();
     return x*y;
 }
 ```
@@ -48,18 +50,33 @@ fn main() -> f32 {
 or import a comma-separated list of individual items :
 
 ```wgsl
-#import my_module my_func, my_const
+#import my_module::{my_func, my_const}
 
 fn main() -> f32 {
     return my_func(my_const);
 }
 ```
 
+Some rust-style import syntax is supported, and items can be directly imported using the fully qualified item name :
+
+```wgsl
+#import my_package::{
+    first_module::{item_one as item, item_two}, 
+    second_module::submodule,
+}
+
+fn main() -> f32 {
+    return item + item_two + submodule::subitem + my_package::third_module::item;
+}
+```
+
+`module::self` and `module::*` are not currently supported. 
+
 imports can be nested - modules may import other modules, but not recursively. when a new module is added, all its `#import`s must already have been added.
 the same module can be imported multiple times by different modules in the import tree.
 there is no overlap of namespaces, so the same function names (or type, constant, or variable names) may be used in different modules.
 
-note: when importing an item with the `#import module item` directive, the final shader will include the required dependencies (bindings, globals, consts, other functions) of the imported item, but will not include the rest of the imported module. it will however still include all of any modules imported by the imported module. this is probably not desired in general and may be fixed in a future version. currently for a more complete culling of unused dependencies the `prune` module can be used.
+note: the final shader will include the required dependencies (bindings, globals, consts, other functions) of any imported items that are used, but will not include the rest of the imported module. 
 
 ## overriding functions
 
@@ -78,6 +95,8 @@ override fn Lighting::point_light (world_position: vec3<f32>) -> vec3<f32> {
     return vec3<f32>(quantized) / 3.0;
 }
 ```
+
+overrides must either be declared in the top-level shader, or the module containing the override must be imported as an `additional_import` in a `Composer::add_composable_module` or `Composer::make_naga_module` call. using `#import` to import a module with overrides will not work due to tree-shaking.
 
 override function definitions cause *all* calls to the original function in the entire shader scope to be replaced by calls to the new function, with the exception of calls within the override function itself.
 
