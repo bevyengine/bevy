@@ -83,13 +83,13 @@ impl<I: PhaseItem> RenderPhase<I> {
         let mut draw_functions = draw_functions.write();
         draw_functions.prepare(world);
 
-        let mut index = 0;
-        while index < self.items.len() {
-            let item = &self.items[index];
-            let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
-            draw_function.draw(world, render_pass, view, item);
-            index += item.batch_size();
-        }
+        self.items
+            .iter()
+            .filter(|item| !item.skip())
+            .for_each(|item| {
+                let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
+                draw_function.draw(world, render_pass, view, item);
+            });
     }
 }
 
@@ -139,8 +139,8 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
         items.sort_unstable_by_key(|item| item.sort_key());
     }
 
-    fn batch_size(&self) -> usize {
-        1
+    fn skip(&self) -> bool {
+        false
     }
 }
 

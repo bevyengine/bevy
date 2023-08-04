@@ -2,7 +2,6 @@ mod pipeline;
 mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::storage::SparseSet;
 use bevy_hierarchy::Parent;
 use bevy_render::{ExtractSchedule, Render};
@@ -661,14 +660,17 @@ pub fn queue_uinodes(
             &ui_pipeline,
             UiPipelineKey { hdr: view.hdr },
         );
+        transparent_phase
+            .items
+            .reserve(extracted_uinodes.uinodes.len());
         for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
             transparent_phase.add(TransparentUi {
                 draw_function,
                 pipeline,
                 entity: *entity,
                 sort_key: FloatOrd(extracted_uinode.stack_index as f32),
-                // batch size will be calculated in prepare_uinodes
-                batch_size: 0,
+                // batching will be done in prepare_uinodes
+                skip: true,
             });
         }
     }
@@ -726,11 +728,10 @@ pub fn prepare_uinodes(
         let mut index = 0;
 
         for mut ui_phase in &mut phases {
-            let mut batch_item_index = 0;
             let mut batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
 
             for item_index in 0..ui_phase.items.len() {
-                let item = &ui_phase.items[item_index];
+                let item = &mut ui_phase.items[item_index];
                 if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(item.entity) {
                     let mut existing_batch = batches
                         .last_mut()
@@ -738,7 +739,7 @@ pub fn prepare_uinodes(
 
                     if existing_batch.is_none() {
                         if let Some(gpu_image) = gpu_images.get(&extracted_uinode.image) {
-                            batch_item_index = item_index;
+                            item.skip = false;
                             batch_image_handle = extracted_uinode.image.id();
 
                             let new_batch = UiBatch {
@@ -839,7 +840,6 @@ pub fn prepare_uinodes(
                         if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
                             || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
                         {
-                            ui_phase.items[batch_item_index].batch_size += 1;
                             continue;
                         }
                     }
@@ -892,7 +892,6 @@ pub fn prepare_uinodes(
                         });
                     }
                     index += QUAD_INDICES.len() as u32;
-                    ui_phase.items[batch_item_index].batch_size += 1;
                     existing_batch.unwrap().1.range.end = index;
                 } else {
                     batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX)
@@ -903,6 +902,5 @@ pub fn prepare_uinodes(
         *previous_len = batches.len();
         commands.insert_or_spawn_batch(batches);
     }
-
     extracted_uinodes.uinodes.clear();
 }

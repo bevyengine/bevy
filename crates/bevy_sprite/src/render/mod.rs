@@ -561,8 +561,8 @@ pub fn queue_sprites(
                     pipeline: colored_pipeline,
                     entity: *entity,
                     sort_key,
-                    // batch size will be calculated in prepare_sprites
-                    batch_size: 0,
+                    // items will be batched in prepare_sprites
+                    skip: true,
                 });
             } else {
                 transparent_phase.add(Transparent2d {
@@ -570,8 +570,8 @@ pub fn queue_sprites(
                     pipeline,
                     entity: *entity,
                     sort_key,
-                    // batch size will be calculated in prepare_sprites
-                    batch_size: 0,
+                    // items will be batched in prepare_sprites
+                    skip: true,
                 });
             }
         }
@@ -627,7 +627,6 @@ pub fn prepare_sprites(
         let image_bind_groups = &mut *image_bind_groups;
 
         for mut transparent_phase in &mut phases {
-            let mut batch_item_index = 0;
             let mut batch_image_size = Vec2::ZERO;
             let mut batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
             let mut batch_colored = false;
@@ -636,7 +635,7 @@ pub fn prepare_sprites(
             // Spawn an entity with a `SpriteBatch` component for each possible batch.
             // Compatible items share the same entity.
             for item_index in 0..transparent_phase.items.len() {
-                let item = &transparent_phase.items[item_index];
+                let item = &mut transparent_phase.items[item_index];
                 if let Some(extracted_sprite) = extracted_sprites.sprites.get(item.entity) {
                     // Take a reference to an existing compatible batch if one exists
                     let mut existing_batch = batches.last_mut().filter(|_| {
@@ -648,7 +647,7 @@ pub fn prepare_sprites(
                         if let Some(gpu_image) =
                             gpu_images.get(&Handle::weak(extracted_sprite.image_handle_id))
                         {
-                            batch_item_index = item_index;
+                            item.skip = false;
                             batch_image_size = Vec2::new(gpu_image.size.x, gpu_image.size.y);
                             batch_image_handle = extracted_sprite.image_handle_id;
                             batch_colored = extracted_sprite.color != Color::WHITE;
@@ -741,6 +740,7 @@ pub fn prepare_sprites(
                             });
                         }
                         colored_index += QUAD_INDICES.len() as u32;
+                        existing_batch.unwrap().1.range.end = colored_index;
                     } else {
                         for i in QUAD_INDICES {
                             sprite_meta.vertices.push(SpriteVertex {
@@ -749,9 +749,8 @@ pub fn prepare_sprites(
                             });
                         }
                         index += QUAD_INDICES.len() as u32;
+                        existing_batch.unwrap().1.range.end = index;
                     }
-                    transparent_phase.items[batch_item_index].batch_size += 1;
-                    existing_batch.unwrap().1.range.end += QUAD_INDICES.len() as u32;
                 } else {
                     batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX)
                 }

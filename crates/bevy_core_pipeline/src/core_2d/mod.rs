@@ -83,7 +83,7 @@ pub struct Transparent2d {
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
-    pub batch_size: usize,
+    pub skip: bool,
 }
 
 impl PhaseItem for Transparent2d {
@@ -110,8 +110,8 @@ impl PhaseItem for Transparent2d {
     }
 
     #[inline]
-    fn batch_size(&self) -> usize {
-        self.batch_size
+    fn skip(&self) -> bool {
+        self.skip
     }
 }
 

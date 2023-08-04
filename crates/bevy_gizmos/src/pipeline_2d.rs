@@ -167,7 +167,7 @@ fn queue_line_gizmos_2d(
                 draw_function,
                 pipeline,
                 sort_key: FloatOrd(f32::INFINITY),
-                batch_size: 1,
+                skip: false,
             });
         }
     }
