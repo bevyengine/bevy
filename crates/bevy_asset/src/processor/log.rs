@@ -8,8 +8,8 @@ use thiserror::Error;
 /// An in-memory representation of a single [`ProcessorTransactionLog`] entry.
 #[derive(Debug)]
 pub(crate) enum LogEntry {
-    BeginPath(PathBuf),
-    EndPath(PathBuf),
+    BeginProcessing(PathBuf),
+    EndProcessing(PathBuf),
     UnrecoverableError,
 }
 
@@ -110,9 +110,9 @@ impl ProcessorTransactionLog {
         file.read_to_string(&mut string).await?;
         for line in string.lines() {
             if let Some(path_str) = line.strip_prefix(ENTRY_BEGIN) {
-                log_lines.push(LogEntry::BeginPath(PathBuf::from(path_str)));
+                log_lines.push(LogEntry::BeginProcessing(PathBuf::from(path_str)));
             } else if let Some(path_str) = line.strip_prefix(ENTRY_END) {
-                log_lines.push(LogEntry::EndPath(PathBuf::from(path_str)));
+                log_lines.push(LogEntry::EndProcessing(PathBuf::from(path_str)));
             } else if line.is_empty() {
                 continue;
             } else {
@@ -128,7 +128,7 @@ impl ProcessorTransactionLog {
         let entries = Self::read().await?;
         for entry in entries {
             match entry {
-                LogEntry::BeginPath(path) => {
+                LogEntry::BeginProcessing(path) => {
                     // There should never be duplicate "start transactions" in a log
                     // Every start should be followed by:
                     //    * nothing (if there was an abrupt stop)
@@ -137,7 +137,7 @@ impl ProcessorTransactionLog {
                         errors.push(LogEntryError::DuplicateTransaction(path));
                     }
                 }
-                LogEntry::EndPath(path) => {
+                LogEntry::EndProcessing(path) => {
                     if !transactions.remove(&path) {
                         errors.push(LogEntryError::EndedMissingTransaction(path));
                     }
@@ -154,24 +154,29 @@ impl ProcessorTransactionLog {
         Ok(())
     }
 
-    pub(crate) async fn begin_path(&mut self, path: &Path) -> Result<(), WriteLogError> {
+    /// Logs the start of an asset being processed. If this is not followed at some point in the log by a closing [`ProcessorTransactionLog::end_processing`],
+    /// in the next run of the processor the asset processing will be considered "incomplete" and it will be reprocessed.
+    pub(crate) async fn begin_processing(&mut self, path: &Path) -> Result<(), WriteLogError> {
         self.write(&format!("{ENTRY_BEGIN}{}\n", path.to_string_lossy()))
             .await
             .map_err(|e| WriteLogError {
-                log_entry: LogEntry::BeginPath(path.to_owned()),
+                log_entry: LogEntry::BeginProcessing(path.to_owned()),
                 error: e,
             })
     }
 
-    pub(crate) async fn end_path(&mut self, path: &Path) -> Result<(), WriteLogError> {
+    /// Logs the end of an asset being successfully processed. See [`ProcessorTransactionLog::begin_processing`].
+    pub(crate) async fn end_processing(&mut self, path: &Path) -> Result<(), WriteLogError> {
         self.write(&format!("{ENTRY_END}{}\n", path.to_string_lossy()))
             .await
             .map_err(|e| WriteLogError {
-                log_entry: LogEntry::EndPath(path.to_owned()),
+                log_entry: LogEntry::EndProcessing(path.to_owned()),
                 error: e,
             })
     }
 
+    /// Logs an unrecoverable error. On the next run of the processor, all assets will be regenerated. This should only be used as a last resort.
+    /// Every call to this should be considered with scrutiny and ideally replaced with something more granular.
     pub(crate) async fn unrecoverable(&mut self) -> Result<(), WriteLogError> {
         self.write(UNRECOVERABLE_ERROR)
             .await

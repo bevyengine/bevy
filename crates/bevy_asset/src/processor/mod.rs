@@ -134,22 +134,27 @@ impl AssetProcessor {
         &*self.data.destination_writer
     }
 
+    /// Logs an unrecoverable error. On the next run of the processor, all assets will be regenerated. This should only be used as a last resort.
+    /// Every call to this should be considered with scrutiny and ideally replaced with something more granular.
     async fn log_unrecoverable(&self) {
         let mut log = self.data.log.write().await;
         let log = log.as_mut().unwrap();
         log.unrecoverable().await.unwrap();
     }
 
-    async fn log_begin_path(&self, path: &Path) {
+    /// Logs the start of an asset being processed. If this is not followed at some point in the log by a closing [`AssetProcessor::log_end_processing`],
+    /// in the next run of the processor the asset processing will be considered "incomplete" and it will be reprocessed.
+    async fn log_begin_processing(&self, path: &Path) {
         let mut log = self.data.log.write().await;
         let log = log.as_mut().unwrap();
-        log.begin_path(path).await.unwrap();
+        log.begin_processing(path).await.unwrap();
     }
 
-    async fn log_end_path(&self, path: &Path) {
+    /// Logs the end of an asset being successfully processed. See [`AssetProcessor::log_begin_processing`].
+    async fn log_end_processing(&self, path: &Path) {
         let mut log = self.data.log.write().await;
         let log = log.as_mut().unwrap();
-        log.end_path(path).await.unwrap();
+        log.end_processing(path).await.unwrap();
     }
 
     /// Starts the processor in a background thread.
@@ -699,7 +704,7 @@ impl AssetProcessor {
         // NOTE: if processing the asset fails this will produce an "unfinished" log entry, forcing a rebuild on next run.
         // Directly writing to the asset destination in the processor necessitates this behavior
         // TODO: this class of failure can be recovered via re-processing + smarter log validation that allows for duplicate transactions in the event of failures
-        self.log_begin_path(path).await;
+        self.log_begin_processing(path).await;
         if let Some(processor) = processor {
             let mut processed_meta = {
                 let mut context =
@@ -733,7 +738,7 @@ impl AssetProcessor {
             meta_writer.write_all(&meta_bytes).await.unwrap();
             meta_writer.flush().await.unwrap();
         }
-        self.log_end_path(path).await;
+        self.log_end_processing(path).await;
 
         Ok(ProcessResult::Processed(new_processed_info))
     }
