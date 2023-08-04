@@ -283,7 +283,7 @@ impl FromWorld for PostProcessPipeline {
                     ty: BindingType::Buffer {
                         ty: bevy::render::render_resource::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: None,
+                        min_binding_size: Some(PostProcessSettings::min_size()),
                     },
                     count: None,
                 },
@@ -338,6 +338,9 @@ impl FromWorld for PostProcessPipeline {
 #[derive(Component, Default, Clone, Copy, ExtractComponent, ShaderType)]
 struct PostProcessSettings {
     intensity: f32,
+    // WebGL2 structs must be 16 byte aligned.
+    #[cfg(feature = "webgl2")]
+    _webgl2_padding: Vec3,
 }
 
 /// Set up a simple 3D scene
@@ -359,7 +362,10 @@ fn setup(
         },
         // Add the setting to the camera.
         // This component is also used to determine on which camera to run the post processing effect.
-        PostProcessSettings { intensity: 0.02 },
+        PostProcessSettings {
+            intensity: 0.02,
+            ..default()
+        },
     ));
 
     // cube
