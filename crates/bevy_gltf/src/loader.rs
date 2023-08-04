@@ -7,7 +7,7 @@ use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3dBundle;
 use bevy_ecs::{entity::Entity, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
-use bevy_log::warn;
+use bevy_log::{error, warn};
 use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
@@ -35,7 +35,7 @@ use gltf::{
     accessor::Iter,
     mesh::{util::ReadIndices, Mode},
     texture::{MagFilter, MinFilter, WrappingMode},
-    Material, Node, Primitive,
+    Material, Node, Primitive, Semantic,
 };
 use serde::Deserialize;
 use std::{collections::VecDeque, path::Path};
@@ -216,6 +216,19 @@ async fn load_gltf<'a, 'b>(
 
     let mut meshes = vec![];
     let mut named_meshes = HashMap::default();
+    let mut meshes_on_skinned_nodes = HashSet::default();
+    let mut meshes_on_non_skinned_nodes = HashSet::default();
+    for gltf_node in gltf.nodes() {
+        if gltf_node.skin().is_some() {
+            gltf_node.mesh().map(|mesh| {
+                meshes_on_skinned_nodes.insert(mesh.index());
+            });
+        } else {
+            gltf_node.mesh().map(|mesh| {
+                meshes_on_non_skinned_nodes.insert(mesh.index());
+            });
+        }
+    }
     for gltf_mesh in gltf.meshes() {
         let mut primitives = vec![];
         for primitive in gltf_mesh.primitives() {
@@ -226,6 +239,18 @@ async fn load_gltf<'a, 'b>(
 
             // Read vertex attributes
             for (semantic, accessor) in primitive.attributes() {
+                if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
+                    if !meshes_on_skinned_nodes.contains(&gltf_mesh.index()) {
+                        warn!(
+                        "Ignoring attribute {:?} for skinned mesh {:?} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
+                        semantic,
+                        primitive_label
+                    );
+                        continue;
+                    } else if meshes_on_non_skinned_nodes.contains(&gltf_mesh.index()) {
+                        error!("Skinned mesh {:?} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
+                    }
+                }
                 match convert_attribute(
                     semantic,
                     accessor,
