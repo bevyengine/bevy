@@ -1,5 +1,6 @@
 use crate::{entity::Entity, world::World};
 use bevy_utils::{Entry, HashMap};
+use core::ops::{Deref, DerefMut};
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -126,6 +127,19 @@ impl EntityMap {
         let result = f(world, &mut mapper);
         mapper.finish(world);
         result
+    }
+}
+
+impl Deref for EntityMap{
+    type Target = HashMap<Entity, Entity>;
+    fn deref(&self) -> &Self::Target{
+        &self.map
+    }
+}
+
+impl DerefMut for EntityMap{
+    fn deref_mut(&mut self) -> &mut Self::Target{
+        &mut self.map
     }
 }
 
