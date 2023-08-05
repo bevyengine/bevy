@@ -12,7 +12,6 @@ pub fn static_ref_impl(input: &syn::DeriveInput) -> Result<TokenStream, TokenStr
             }
         }
         syn::Data::Enum(data) => {
-            let mut use_fallback_variant = false;
             let variants: Vec<_> = data
                 .variants
                 .iter()
@@ -22,23 +21,19 @@ pub fn static_ref_impl(input: &syn::DeriveInput) -> Result<TokenStream, TokenStr
                         let variant_ident = variant.ident.clone();
                         Some(quote_spanned! { span => Self::#variant_ident => ::std::option::Option::Some(&Self::#variant_ident), })
                     } else {
-                        use_fallback_variant = true;
                         None
                     }
                 })
                 .collect();
-            if use_fallback_variant {
-                quote! {
-                    match self {
-                        #(#variants)*
-                        _ => ::std::option::Option::None,
-                    }
-                }
+            let fallback_variant = if variants.len() < data.variants.len() {
+                quote!(_ => ::std::option::Option::None,)
             } else {
-                quote! {
-                    match self {
-                        #(#variants)*
-                    }
+                quote!()
+            };
+            quote! {
+                match self {
+                    #(#variants)*
+                    #fallback_variant
                 }
             }
         }
