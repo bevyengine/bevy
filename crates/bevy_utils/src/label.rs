@@ -85,7 +85,7 @@ macro_rules! define_label {
             /// Clones this `
             #[doc = stringify!($label_trait_name)]
             ///`.
-            fn dyn_clone(&self) -> Box<dyn $label_trait_name>;
+            fn dyn_clone(&self) -> ::std::boxed::Box<dyn $label_trait_name>;
 
             /// Casts this value to a form where it can be compared with other type-erased values.
             fn as_dyn_eq(&self) -> &dyn $crate::label::DynEq;
@@ -127,7 +127,7 @@ macro_rules! define_label {
             /// # Provided implementation
             ///
             /// The provided implementation always returns `None`.
-            fn dyn_static_ref(&self) -> Option<&'static dyn $label_trait_name> {
+            fn dyn_static_ref(&self) -> ::std::option::Option<&'static dyn $label_trait_name> {
                 None
             }
 
@@ -139,7 +139,7 @@ macro_rules! define_label {
         }
 
         impl $label_trait_name for $crate::intern::Interned<dyn $label_trait_name> {
-            fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
+            fn dyn_clone(&self) -> ::std::boxed::Box<dyn $label_trait_name> {
                 (**self).dyn_clone()
             }
 
@@ -152,7 +152,7 @@ macro_rules! define_label {
                 (**self).dyn_hash(state);
             }
 
-            fn dyn_static_ref(&self) -> Option<&'static dyn $label_trait_name> {
+            fn dyn_static_ref(&self) -> ::std::option::Option<&'static dyn $label_trait_name> {
                 Some(self.0)
             }
 
@@ -180,7 +180,7 @@ macro_rules! define_label {
                 Box::leak(self.dyn_clone())
             }
 
-            fn static_ref(&self) -> std::option::Option<&'static dyn $label_trait_name> {
+            fn static_ref(&self) -> ::std::option::Option<&'static dyn $label_trait_name> {
                 self.dyn_static_ref()
             }
         }

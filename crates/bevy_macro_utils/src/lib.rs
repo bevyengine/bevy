@@ -187,9 +187,9 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
     let dyn_static_ref_impl = match input.data {
         syn::Data::Struct(data) => {
             if data.fields.is_empty() {
-                quote! { std::option::Option::Some(&Self) }
+                quote! { ::std::option::Option::Some(&Self) }
             } else {
-                quote! { std::option::Option::None }
+                quote! { ::std::option::Option::None }
             }
         }
         syn::Data::Enum(data) => {
@@ -201,7 +201,7 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
                     if variant.fields.is_empty() {
                         let span = variant.span();
                         let variant_ident = variant.ident;
-                        Some(quote_spanned! { span => Self::#variant_ident => std::option::Option::Some(&Self::#variant_ident), })
+                        Some(quote_spanned! { span => Self::#variant_ident => ::std::option::Option::Some(&Self::#variant_ident), })
                     } else {
                         use_fallback_variant = true;
                         None
@@ -212,7 +212,7 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
                 quote! {
                     match self {
                         #(#variants)*
-                        _ => std::option::Option::None,
+                        _ => ::std::option::Option::None,
                     }
                 }
             } else {
@@ -223,12 +223,12 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
                 }
             }
         }
-        syn::Data::Union(_) => quote! { std::option::Option::None },
+        syn::Data::Union(_) => quote! { ::std::option::Option::None },
     };
     (quote! {
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
-            fn dyn_clone(&self) -> std::boxed::Box<dyn #trait_path> {
-                std::boxed::Box::new(std::clone::Clone::clone(self))
+            fn dyn_clone(&self) -> ::std::boxed::Box<dyn #trait_path> {
+                ::std::boxed::Box::new(::std::clone::Clone::clone(self))
             }
 
             fn as_dyn_eq(&self) -> &dyn #bevy_utils_path::label::DynEq {
@@ -241,7 +241,7 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
                 ::std::hash::Hash::hash(self, &mut state);
             }
 
-            fn dyn_static_ref(&self) -> std::option::Option<&'static dyn #trait_path> {
+            fn dyn_static_ref(&self) -> ::std::option::Option<&'static dyn #trait_path> {
                 #dyn_static_ref_impl
             }
         }
