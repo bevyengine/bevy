@@ -50,7 +50,7 @@ pub trait SystemSet: Debug + Send + Sync + 'static {
     ///
     /// # Invariant
     ///
-    /// The following invariants must be hold:
+    /// The following invariants most hold:
     ///
     /// `ptr_eq(a.dyn_static_ref(), b.dyn_static_ref())` if `a.dyn_eq(b)`
     /// `ptr_neq(a.dyn_static_ref(), b.dyn_static_ref())` if `!a.dyn_eq(b)`

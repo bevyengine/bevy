@@ -99,7 +99,7 @@ pub trait Leak {
     ///
     /// # Invariant
     ///
-    /// The following invariants must be hold:
+    /// The following invariants most hold:
     ///
     /// `ptr_eq(a.static_ref(), b.static_ref())` if `a == b`
     /// `ptr_neq(a.static_ref(), b.static_ref())` if `a != b`
