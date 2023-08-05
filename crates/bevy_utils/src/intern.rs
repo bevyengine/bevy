@@ -123,8 +123,6 @@ pub trait Leak {
     /// }
     /// ```
     ///
-    /// # Provided implementation
-    ///
     /// The provided implementation always returns `None`.
     fn static_ref(&self) -> Option<&'static Self> {
         None

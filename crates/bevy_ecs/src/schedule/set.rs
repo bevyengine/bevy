@@ -74,8 +74,6 @@ pub trait SystemSet: Debug + Send + Sync + 'static {
     /// }
     /// ```
     ///
-    /// # Provided implementation
-    ///
     /// The provided implementation always returns `None`.
     fn dyn_static_ref(&self) -> Option<&'static dyn SystemSet> {
         None

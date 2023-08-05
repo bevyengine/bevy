@@ -124,8 +124,6 @@ macro_rules! define_label {
             /// }
             /// ```
             ///
-            /// # Provided implementation
-            ///
             /// The provided implementation always returns `None`.
             fn dyn_static_ref(&self) -> ::std::option::Option<&'static dyn $label_trait_name> {
                 None
