@@ -201,8 +201,7 @@ pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
 
 /// Generates an impl of the `AppLabel` trait.
 ///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[app_label(ignore_fields)]`.
+/// This does not work for unions.
 #[proc_macro_derive(AppLabel)]
 pub fn derive_app_label(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);

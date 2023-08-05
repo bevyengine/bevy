@@ -432,6 +432,8 @@ pub fn derive_world_query(input: TokenStream) -> TokenStream {
 }
 
 /// Derive macro generating an impl of the trait `ScheduleLabel`.
+///
+/// This does not work for unions.
 #[proc_macro_derive(ScheduleLabel)]
 pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -444,6 +446,8 @@ pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
 }
 
 /// Derive macro generating an impl of the trait `SystemSet`.
+///
+/// This does not work for unions.
 #[proc_macro_derive(SystemSet)]
 pub fn derive_system_set(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
