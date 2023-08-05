@@ -203,7 +203,7 @@ impl AssetInfos {
         Self::process_handle_drop_internal(&mut self.infos, &mut self.path_to_id, id)
     }
 
-    /// Updates AssetInfo / load state for an asset that has finished loading (and relevant dependencies / dependents).
+    /// Updates AssetInfo / load state for an asset that has finished loading (and relevant dependencies / dependants).
     pub(crate) fn process_asset_load(
         &mut self,
         loaded_asset_id: UntypedAssetId,

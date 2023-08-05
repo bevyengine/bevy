@@ -1026,12 +1026,12 @@ pub struct ProcessorAssetInfos {
     /// The "current" in memory view of the asset space. During processing, if path does not exist in this, it should
     /// be considered non-existent.
     /// NOTE: YOU MUST USE `Self::get_or_insert` or `Self::insert` TO ADD ITEMS TO THIS COLLECTION TO ENSURE
-    /// non_existent_dependents DATA IS CONSUMED
+    /// non_existent_dependants DATA IS CONSUMED
     infos: HashMap<AssetPath<'static>, ProcessorAssetInfo>,
-    /// Dependents for assets that don't exist. This exists to track "dangling" asset references due to deleted / missing files.
+    /// Dependants for assets that don't exist. This exists to track "dangling" asset references due to deleted / missing files.
     /// If the dependant asset is added, it can "resolve" these dependencies and re-compute those assets.
     /// Therefore this _must_ always be consistent with the `infos` data. If a new asset is added to `infos`, it should
-    /// check this maps for dependencies and add them. If an asset is removed, it should update the dependents here.
+    /// check this maps for dependencies and add them. If an asset is removed, it should update the dependants here.
     non_existent_dependants: HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
     check_reprocess_queue: VecDeque<PathBuf>,
 }
@@ -1040,7 +1040,7 @@ impl ProcessorAssetInfos {
     fn get_or_insert(&mut self, asset_path: AssetPath<'static>) -> &mut ProcessorAssetInfo {
         self.infos.entry(asset_path.clone()).or_insert_with(|| {
             let mut info = ProcessorAssetInfo::default();
-            // track existing dependents by resolving existing "hanging" dependents.
+            // track existing dependants by resolving existing "hanging" dependants.
             if let Some(dependants) = self.non_existent_dependants.remove(&asset_path) {
                 info.dependants = dependants;
             }
@@ -1180,7 +1180,7 @@ impl ProcessorAssetInfos {
                 // we could do "remove everything in a folder and re-add", but that requires full rebuilds / destroying the cache.
                 // If processors / loaders could enumerate dependencies, we could check if the new deps line up with a rename.
                 // If deps encoded "relativeness" as part of loading, that would also work (this seems like the right call).
-                // TODO: it would be nice to log an error here for dependents that aren't also being moved + fixed.
+                // TODO: it would be nice to log an error here for dependants that aren't also being moved + fixed.
                 // (see the remove impl).
                 error!(
                     "The asset at {old} was removed, but it had assets that depend on it to be processed. Consider updating the path in the following assets: {:?}",
@@ -1190,7 +1190,7 @@ impl ProcessorAssetInfos {
                     .insert(old.clone(), std::mem::take(&mut info.dependants));
             }
             if let Some(processed_info) = &info.processed_info {
-                // Update "dependent" lists for this asset's "process dependencies" to use new path.
+                // Update "dependant" lists for this asset's "process dependencies" to use new path.
                 for dep in &processed_info.process_dependencies {
                     if let Some(info) = self.infos.get_mut(&dep.path) {
                         info.dependants.remove(old);
@@ -1207,7 +1207,7 @@ impl ProcessorAssetInfos {
                 .broadcast(ProcessStatus::NonExistent)
                 .await
                 .unwrap();
-            let dependents: Vec<AssetPath<'static>> = {
+            let dependants: Vec<AssetPath<'static>> = {
                 let new_info = self.get_or_insert(new.clone());
                 new_info.processed_info = info.processed_info;
                 new_info.status = info.status;
@@ -1219,9 +1219,9 @@ impl ProcessorAssetInfos {
             };
             // Queue the asset for a reprocess check, in case it needs new meta.
             self.check_reprocess_queue.push_back(new.path().to_owned());
-            for dependent in dependents {
-                // Queue dependents for reprocessing because they might have been waiting for this asset.
-                self.check_reprocess_queue.push_back(dependent.into());
+            for dependant in dependants {
+                // Queue dependants for reprocessing because they might have been waiting for this asset.
+                self.check_reprocess_queue.push_back(dependant.into());
             }
         }
     }
