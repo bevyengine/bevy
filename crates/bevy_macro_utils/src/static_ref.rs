@@ -25,15 +25,11 @@ pub fn static_ref_impl(input: &syn::DeriveInput) -> TokenStream {
                     }
                 })
                 .collect();
-            let fallback_variant = if variants.len() < data.variants.len() {
-                quote!(_ => ::std::option::Option::None,)
-            } else {
-                quote!()
-            };
             quote! {
                 match self {
                     #(#variants)*
-                    #fallback_variant
+                    #[allow(unreachable_patterns)]
+                    _ => ::std::option::Option::None,
                 }
             }
         }
