@@ -22,7 +22,7 @@ pub fn static_ref_impl(input: &syn::DeriveInput) -> TokenStream {
                 .iter()
                 .filter_map(|variant| {
                     let span = variant.span();
-                    let variant_ident = variant.ident.clone();        
+                    let variant_ident = variant.ident.clone();
                     match &variant.fields {
                         syn::Fields::Named(fields) if fields.named.is_empty() => {
                             Some(quote_spanned! { span => Self::#variant_ident{} => ::std::option::Option::Some(&Self::#variant_ident{}), })
