@@ -51,7 +51,8 @@ use crate::render::{
 #[derive(Default)]
 pub struct MeshRenderPlugin;
 
-const MAX_JOINTS: usize = 256;
+/// Maximum number of joints supported for skinned meshes.
+pub const MAX_JOINTS: usize = 256;
 const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
 pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
