@@ -12,7 +12,7 @@ use syn::spanned::Spanned;
 pub fn derive_set(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStream {
     let bevy_utils_path = BevyManifest::default().get_path("bevy_utils");
 
-    let ident = input.ident;
+    let ident = input.ident.clone();
 
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
     let mut where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
@@ -64,7 +64,12 @@ pub fn derive_set(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStrea
                 }
             }
         }
-        syn::Data::Union(_) => quote! { ::std::option::Option::None },
+        syn::Data::Union(_) => {
+            return quote_spanned! {
+                input.span() => compile_error!("Unions cannot be used as sets.");
+            }
+            .into()
+        }
     };
     (quote! {
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
