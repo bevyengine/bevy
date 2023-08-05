@@ -7,6 +7,7 @@ use bevy_ecs::{
         run_enter_schedule, BoxedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
         ScheduleLabel,
     },
+    system::RunSystem,
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use std::{
@@ -873,6 +874,16 @@ fn run_once(mut app: App) {
 /// system schedule ordering, and is idiomatic Rust.
 #[derive(Event, Debug, Clone, Default)]
 pub struct AppExit;
+
+impl RunSystem for &mut App {
+    fn run_system_with<T: IntoSystem<In, Out, Marker>, In, Out, Marker>(
+        self,
+        input: In,
+        system: T,
+    ) -> Out {
+        self.world.run_system_with(input, system)
+    }
+}
 
 #[cfg(test)]
 mod tests {
