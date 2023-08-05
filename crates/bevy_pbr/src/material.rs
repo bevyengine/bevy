@@ -410,7 +410,7 @@ pub fn queue_material_meshes<M: Material>(
         tonemapping,
         dither,
         environment_map,
-        shadow_filtering_mode,
+        shadow_filter_method,
         ssao,
         normal_prepass,
         taa_settings,
@@ -442,7 +442,7 @@ pub fn queue_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
         }
 
-        match shadow_filtering_mode.unwrap_or(&ShadowFilteringMethod::default()) {
+        match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
             ShadowFilteringMethod::Hardware2x2 => {
                 view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
             }

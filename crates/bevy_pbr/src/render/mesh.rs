@@ -871,6 +871,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("TAA".into());
         }
 
+        let shadow_filter_method =
+            key.intersection(MeshPipelineKey::SHADOW_FILTER_METHOD_RESERVED_BITS);
+        if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2 {
+            shader_defs.push("SHADOW_FILTER_METHOD_HARDWARE_2X2".into());
+        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13 {
+            shader_defs.push("SHADOW_FILTER_METHOD_CASTANO_13".into());
+        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14 {
+            shader_defs.push("SHADOW_FILTER_METHOD_JIMENEZ_14".into());
+        }
+
         let format = if key.contains(MeshPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {

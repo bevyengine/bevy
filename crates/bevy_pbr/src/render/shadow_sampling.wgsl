@@ -125,7 +125,7 @@ fn sample_shadow_map(light_local: vec2<f32>, depth: f32, array_index: i32) -> f3
     return sample_shadow_map_castano_thirteen(light_local, depth, array_index);
 #else ifdef SHADOW_FILTER_METHOD_JIMENEZ_14
     return sample_shadow_map_jimenez_fourteen(light_local, depth, array_index);
-#else
+#else ifdef SHADOW_FILTER_METHOD_HARDWARE_2X2
     return sample_shadow_map_hardware(light_local, depth, array_index);
 #endif
 }
