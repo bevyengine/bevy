@@ -1,0 +1,51 @@
+use proc_macro2::TokenStream;
+use quote::{quote, quote_spanned};
+use syn::spanned::Spanned;
+
+pub fn static_ref_impl(input: &syn::DeriveInput) -> Result<TokenStream, TokenStream> {
+    Ok(match &input.data {
+        syn::Data::Struct(data) => {
+            if data.fields.is_empty() {
+                quote! { ::std::option::Option::Some(&Self) }
+            } else {
+                quote! { ::std::option::Option::None }
+            }
+        }
+        syn::Data::Enum(data) => {
+            let mut use_fallback_variant = false;
+            let variants: Vec<_> = data
+                .variants
+                .iter()
+                .filter_map(|variant| {
+                    if variant.fields.is_empty() {
+                        let span = variant.span();
+                        let variant_ident = variant.ident.clone();
+                        Some(quote_spanned! { span => Self::#variant_ident => ::std::option::Option::Some(&Self::#variant_ident), })
+                    } else {
+                        use_fallback_variant = true;
+                        None
+                    }
+                })
+                .collect();
+            if use_fallback_variant {
+                quote! {
+                    match self {
+                        #(#variants)*
+                        _ => ::std::option::Option::None,
+                    }
+                }
+            } else {
+                quote! {
+                    match self {
+                        #(#variants)*
+                    }
+                }
+            }
+        }
+        syn::Data::Union(_) => {
+            return Err(quote_spanned! {
+                input.span() => compile_error!("Unions cannot be used as labels.");
+            });
+        }
+    })
+}

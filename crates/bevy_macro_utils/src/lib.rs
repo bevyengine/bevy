@@ -4,17 +4,19 @@ extern crate proc_macro;
 
 mod attrs;
 mod shape;
+mod static_ref;
 mod symbol;
 
 pub use attrs::*;
 pub use shape::*;
+pub use static_ref::*;
 pub use symbol::*;
 
 use proc_macro::{TokenStream, TokenTree};
-use quote::{quote, quote_spanned};
+use quote::quote;
 use rustc_hash::FxHashSet;
 use std::{env, path::PathBuf};
-use syn::{spanned::Spanned, Ident};
+use syn::Ident;
 use toml_edit::{Document, Item};
 
 pub struct BevyManifest {
@@ -184,51 +186,9 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
         })
         .unwrap(),
     );
-    let dyn_static_ref_impl = match input.data {
-        syn::Data::Struct(data) => {
-            if data.fields.is_empty() {
-                quote! { ::std::option::Option::Some(&Self) }
-            } else {
-                quote! { ::std::option::Option::None }
-            }
-        }
-        syn::Data::Enum(data) => {
-            let mut use_fallback_variant = false;
-            let variants: Vec<_> = data
-                .variants
-                .into_iter()
-                .filter_map(|variant| {
-                    if variant.fields.is_empty() {
-                        let span = variant.span();
-                        let variant_ident = variant.ident;
-                        Some(quote_spanned! { span => Self::#variant_ident => ::std::option::Option::Some(&Self::#variant_ident), })
-                    } else {
-                        use_fallback_variant = true;
-                        None
-                    }
-                })
-                .collect();
-            if use_fallback_variant {
-                quote! {
-                    match self {
-                        #(#variants)*
-                        _ => ::std::option::Option::None,
-                    }
-                }
-            } else {
-                quote! {
-                    match self {
-                        #(#variants)*
-                    }
-                }
-            }
-        }
-        syn::Data::Union(_) => {
-            return quote_spanned! {
-                input.span() => compile_error!("Unions cannot be used as labels.");
-            }
-            .into()
-        }
+    let dyn_static_ref_impl = match static_ref_impl(&input) {
+        Ok(stream) => stream,
+        Err(stream) => return stream.into(),
     };
     (quote! {
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
