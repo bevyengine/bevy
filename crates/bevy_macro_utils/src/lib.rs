@@ -13,10 +13,10 @@ pub use static_ref::*;
 pub use symbol::*;
 
 use proc_macro::{TokenStream, TokenTree};
-use quote::quote;
+use quote::{quote, quote_spanned};
 use rustc_hash::FxHashSet;
 use std::{env, path::PathBuf};
-use syn::Ident;
+use syn::{spanned::Spanned, Ident};
 use toml_edit::{Document, Item};
 
 pub struct BevyManifest {
@@ -172,6 +172,13 @@ pub fn ensure_no_collision(value: Ident, haystack: TokenStream) -> Ident {
 /// - `input`: The [`syn::DeriveInput`] for struct that is deriving the label trait
 /// - `trait_path`: The path [`syn::Path`] to the label trait
 pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStream {
+    if let syn::Data::Union(_) = &input.data {
+        return quote_spanned! {
+            input.span() => compile_error!("Unions cannot be used as labels.");
+        }
+        .into();
+    }
+
     let bevy_utils_path = BevyManifest::default().get_path("bevy_utils");
 
     let ident = input.ident.clone();
@@ -186,10 +193,7 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
         })
         .unwrap(),
     );
-    let dyn_static_ref_impl = match static_ref_impl(&input) {
-        Ok(stream) => stream,
-        Err(stream) => return stream.into(),
-    };
+    let dyn_static_ref_impl = static_ref_impl(&input);
     (quote! {
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
             fn dyn_clone(&self) -> ::std::boxed::Box<dyn #trait_path> {

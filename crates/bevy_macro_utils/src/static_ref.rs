@@ -2,8 +2,8 @@ use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 
-pub fn static_ref_impl(input: &syn::DeriveInput) -> Result<TokenStream, TokenStream> {
-    Ok(match &input.data {
+pub fn static_ref_impl(input: &syn::DeriveInput) -> TokenStream {
+    match &input.data {
         syn::Data::Struct(data) => {
             if data.fields.is_empty() {
                 quote! { ::std::option::Option::Some(&Self) }
@@ -38,9 +38,7 @@ pub fn static_ref_impl(input: &syn::DeriveInput) -> Result<TokenStream, TokenStr
             }
         }
         syn::Data::Union(_) => {
-            return Err(quote_spanned! {
-                input.span() => compile_error!("Unions cannot be used as labels.");
-            });
+            quote! { ::std::option::Option::None }
         }
-    })
+    }
 }

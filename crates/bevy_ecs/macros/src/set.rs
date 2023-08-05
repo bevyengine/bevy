@@ -1,6 +1,7 @@
 use bevy_macro_utils::{static_ref_impl, BevyManifest};
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{quote, quote_spanned};
+use syn::spanned::Spanned;
 
 /// Derive a set trait
 ///
@@ -9,6 +10,13 @@ use quote::quote;
 /// - `input`: The [`syn::DeriveInput`] for the struct that we want to derive the set trait for
 /// - `trait_path`: The [`syn::Path`] to the set trait
 pub fn derive_set(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStream {
+    if let syn::Data::Union(_) = &input.data {
+        return quote_spanned! {
+            input.span() => compile_error!("Unions cannot be used as sets.");
+        }
+        .into();
+    }
+
     let bevy_utils_path = BevyManifest::default().get_path("bevy_utils");
 
     let ident = input.ident.clone();
@@ -24,10 +32,7 @@ pub fn derive_set(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStrea
         })
         .unwrap(),
     );
-    let dyn_static_ref_impl = match static_ref_impl(&input) {
-        Ok(stream) => stream,
-        Err(stream) => return stream.into(),
-    };
+    let dyn_static_ref_impl = static_ref_impl(&input);
     (quote! {
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
             fn dyn_clone(&self) -> ::std::boxed::Box<dyn #trait_path> {
