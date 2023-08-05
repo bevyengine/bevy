@@ -22,7 +22,7 @@ use crate::HashSet;
 ///
 /// Interned values use reference equality, meaning they implement [`Eq`]
 /// and [`Hash`] regardless of whether `T` implements these traits.
-/// Two interned values will only compare equal if they were interned using
+/// Two interned values are only guaranteed to compare equal if they were interned using
 /// the same [`Interner`] instance.
 // NOTE: This type must NEVER implement Borrow since it does not obey that trait's invariants.
 ///
