@@ -999,6 +999,12 @@ mod tests {
         }
 
         #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct EmptyTupleLabel();
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct EmptyStructLabel {}
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         enum EnumLabel {
             #[default]
             Unit,
@@ -1007,6 +1013,8 @@ mod tests {
                 a: u32,
                 b: u32,
             },
+            EmptyTuple(),
+            EmptyStruct {},
         }
 
         #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
@@ -1076,5 +1084,12 @@ mod tests {
             GenericLabel::<u32>(PhantomData).intern(),
             GenericLabel::<u64>(PhantomData).intern()
         );
+
+        assert!(UnitLabel.dyn_static_ref().is_some());
+        assert!(EmptyTupleLabel().dyn_static_ref().is_some());
+        assert!(EmptyStructLabel {}.dyn_static_ref().is_some());
+        assert!(EnumLabel::Unit.dyn_static_ref().is_some());
+        assert!(EnumLabel::EmptyTuple().dyn_static_ref().is_some());
+        assert!(EnumLabel::EmptyStruct {}.dyn_static_ref().is_some());
     }
 }
