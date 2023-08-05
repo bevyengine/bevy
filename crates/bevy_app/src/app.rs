@@ -882,6 +882,8 @@ pub struct AppExit;
 
 #[cfg(test)]
 mod tests {
+    use std::marker::PhantomData;
+
     use bevy_ecs::{
         schedule::{OnEnter, States},
         system::Commands,
@@ -1007,6 +1009,9 @@ mod tests {
             },
         }
 
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct GenericLabel<T>(PhantomData<T>);
+
         assert_eq!(UnitLabel.intern(), UnitLabel.intern());
         assert_eq!(EnumLabel::Unit.intern(), EnumLabel::Unit.intern());
         assert_ne!(UnitLabel.intern(), EnumLabel::Unit.intern());
@@ -1061,6 +1066,15 @@ mod tests {
         assert_ne!(
             EnumLabel::Struct { a: 0, b: 0 }.intern(),
             EnumLabel::Unit.intern()
+        );
+
+        assert_eq!(
+            GenericLabel::<u32>(PhantomData).intern(),
+            GenericLabel::<u32>(PhantomData).intern()
+        );
+        assert_ne!(
+            GenericLabel::<u32>(PhantomData).intern(),
+            GenericLabel::<u64>(PhantomData).intern()
         );
     }
 }

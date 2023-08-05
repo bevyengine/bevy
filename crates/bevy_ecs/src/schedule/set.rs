@@ -348,6 +348,9 @@ mod tests {
             },
         }
 
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct GenericLabel<T>(PhantomData<T>);
+
         assert_eq!(UnitLabel.intern(), UnitLabel.intern());
         assert_eq!(EnumLabel::Unit.intern(), EnumLabel::Unit.intern());
         assert_ne!(UnitLabel.intern(), EnumLabel::Unit.intern());
@@ -403,6 +406,15 @@ mod tests {
             EnumLabel::Struct { a: 0, b: 0 }.intern(),
             EnumLabel::Unit.intern()
         );
+
+        assert_eq!(
+            GenericLabel::<u32>(PhantomData).intern(),
+            GenericLabel::<u32>(PhantomData).intern()
+        );
+        assert_ne!(
+            GenericLabel::<u32>(PhantomData).intern(),
+            GenericLabel::<u64>(PhantomData).intern()
+        );
     }
 
     #[test]
@@ -431,6 +443,9 @@ mod tests {
                 b: u32,
             },
         }
+
+        #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct GenericSet<T>(PhantomData<T>);
 
         assert_eq!(UnitSet.intern(), UnitSet.intern());
         assert_eq!(EnumSet::Unit.intern(), EnumSet::Unit.intern());
@@ -477,6 +492,15 @@ mod tests {
         assert_ne!(
             EnumSet::Struct { a: 0, b: 0 }.intern(),
             EnumSet::Unit.intern()
+        );
+
+        assert_eq!(
+            GenericSet::<u32>(PhantomData).intern(),
+            GenericSet::<u32>(PhantomData).intern()
+        );
+        assert_ne!(
+            GenericSet::<u32>(PhantomData).intern(),
+            GenericSet::<u64>(PhantomData).intern()
         );
     }
 }
