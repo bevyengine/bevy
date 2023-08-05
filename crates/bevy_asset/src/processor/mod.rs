@@ -408,7 +408,7 @@ impl AssetProcessor {
     ) -> bevy_utils::BoxedFuture<'scope, Result<(), AssetReaderError>> {
         Box::pin(async move {
             if self.source_reader().is_directory(&path).await? {
-                let mut path_stream = self.source_reader().read_directory(&path).await.unwrap();
+                let mut path_stream = self.source_reader().read_directory(&path).await?;
                 while let Some(path) = path_stream.next().await {
                     self.process_assets_internal(scope, path).await?;
                 }
@@ -688,10 +688,9 @@ impl AssetProcessor {
                 };
                 let meta_bytes = meta.serialize();
                 // write meta to source location if it doesn't already exist
-                let mut meta_writer = self.source_writer().write_meta(path).await?;
-                // TODO: handle error
-                meta_writer.write_all(&meta_bytes).await.unwrap();
-                meta_writer.flush().await.unwrap();
+                self.destination_writer()
+                    .write_meta_bytes(path, &meta_bytes)
+                    .await?;
                 (meta, meta_bytes, processor)
             }
             Err(err) => return Err(ProcessError::ReadAssetMetaError(err)),
@@ -701,7 +700,7 @@ impl AssetProcessor {
         reader
             .read_to_end(&mut asset_bytes)
             .await
-            .map_err(|e| ProcessError::AssetSourceIoError(e))?;
+            .map_err(ProcessError::AssetSourceIoError)?;
 
         // PERF: in theory these hashes could be streamed if we want to avoid allocating the whole asset.
         // The downside is that reading assets would need to happen twice (once for the hash and once for the asset loader)
@@ -745,13 +744,12 @@ impl AssetProcessor {
             info.file_transaction_lock.write_arc()
         };
 
-        let mut writer = self.destination_writer().write(path).await?;
-        let mut meta_writer = self.destination_writer().write_meta(path).await?;
         // NOTE: if processing the asset fails this will produce an "unfinished" log entry, forcing a rebuild on next run.
         // Directly writing to the asset destination in the processor necessitates this behavior
         // TODO: this class of failure can be recovered via re-processing + smarter log validation that allows for duplicate transactions in the event of failures
         self.log_begin_processing(path).await;
         if let Some(processor) = processor {
+            let mut writer = self.destination_writer().write(path).await?;
             let mut processed_meta = {
                 let mut context =
                     ProcessContext::new(self, &asset_path, &asset_bytes, &mut new_processed_info);
@@ -760,8 +758,7 @@ impl AssetProcessor {
                     .await?
             };
 
-            // TODO: error handling
-            writer.flush().await.unwrap();
+            writer.flush().await.map_err(AssetWriterError::Io)?;
 
             let full_hash = get_full_asset_hash(
                 new_hash,
@@ -773,16 +770,18 @@ impl AssetProcessor {
             new_processed_info.full_hash = full_hash;
             *processed_meta.processed_info_mut() = Some(new_processed_info.clone());
             let meta_bytes = processed_meta.serialize();
-            meta_writer.write_all(&meta_bytes).await.unwrap();
-            meta_writer.flush().await.unwrap();
+            self.destination_writer()
+                .write_meta_bytes(path, &meta_bytes)
+                .await?;
         } else {
-            // TODO: error handling
-            writer.write_all(&asset_bytes).await.unwrap();
-            writer.flush().await.unwrap();
+            self.destination_writer()
+                .write_bytes(path, &asset_bytes)
+                .await?;
             *source_meta.processed_info_mut() = Some(new_processed_info.clone());
             let meta_bytes = source_meta.serialize();
-            meta_writer.write_all(&meta_bytes).await.unwrap();
-            meta_writer.flush().await.unwrap();
+            self.destination_writer()
+                .write_meta_bytes(path, &meta_bytes)
+                .await?;
         }
         self.log_end_processing(path).await;
 

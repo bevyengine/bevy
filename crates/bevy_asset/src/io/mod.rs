@@ -138,6 +138,30 @@ pub trait AssetWriter: Send + Sync + 'static {
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     fn remove_meta<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
+    fn write_bytes<'a>(
+        &'a self,
+        path: &'a Path,
+        bytes: &'a [u8],
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
+        Box::pin(async move {
+            let mut writer = self.write(path).await?;
+            writer.write_all(&bytes).await?;
+            writer.flush().await?;
+            Ok(())
+        })
+    }
+    fn write_meta_bytes<'a>(
+        &'a self,
+        path: &'a Path,
+        bytes: &'a [u8],
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
+        Box::pin(async move {
+            let mut meta_writer = self.write_meta(path).await?;
+            meta_writer.write_all(&bytes).await?;
+            meta_writer.flush().await?;
+            Ok(())
+        })
+    }
 }
 
 /// An "asset source change event" that occurs whenever asset (or asset metadata) is created/added/removed
