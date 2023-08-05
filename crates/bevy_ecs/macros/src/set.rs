@@ -53,7 +53,7 @@ pub fn derive_set(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStrea
                 quote! {
                     match self {
                         #(#variants)*
-                        _ => None
+                        _ => std::option::Option::None
                     }
                 }
             } else {

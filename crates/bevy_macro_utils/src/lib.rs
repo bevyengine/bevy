@@ -212,7 +212,7 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
                 quote! {
                     match self {
                         #(#variants)*
-                        _ => quote! { std::option::Option::None }
+                        _ => std::option::Option::None,
                     }
                 }
             } else {

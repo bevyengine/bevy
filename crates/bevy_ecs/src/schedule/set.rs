@@ -297,7 +297,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_label() {
+    fn test_schedule_label() {
         use crate::{self as bevy_ecs, world::World};
 
         #[derive(Resource)]
@@ -321,5 +321,164 @@ mod tests {
         world.insert_resource(Flag(false));
         world.run_schedule(interned);
         assert!(world.resource::<Flag>().0);
+    }
+
+    #[test]
+    fn test_derive_schedule_label() {
+        use crate::{self as bevy_ecs};
+
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct UnitLabel;
+
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct TupleLabel(u32, u32);
+
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct StructLabel {
+            a: u32,
+            b: u32,
+        }
+
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        enum EnumLabel {
+            #[default]
+            Unit,
+            Tuple(u32, u32),
+            Struct {
+                a: u32,
+                b: u32,
+            },
+        }
+
+        assert_eq!(UnitLabel.intern(), UnitLabel.intern());
+        assert_eq!(EnumLabel::Unit.intern(), EnumLabel::Unit.intern());
+        assert_ne!(UnitLabel.intern(), EnumLabel::Unit.intern());
+        assert_ne!(UnitLabel.intern(), TupleLabel(0, 0).intern());
+        assert_ne!(EnumLabel::Unit.intern(), EnumLabel::Tuple(0, 0).intern());
+
+        assert_eq!(TupleLabel(0, 0).intern(), TupleLabel(0, 0).intern());
+        assert_eq!(
+            EnumLabel::Tuple(0, 0).intern(),
+            EnumLabel::Tuple(0, 0).intern()
+        );
+        assert_ne!(TupleLabel(0, 0).intern(), TupleLabel(0, 1).intern());
+        assert_ne!(
+            EnumLabel::Tuple(0, 0).intern(),
+            EnumLabel::Tuple(0, 1).intern()
+        );
+        assert_ne!(TupleLabel(0, 0).intern(), EnumLabel::Tuple(0, 0).intern());
+        assert_ne!(
+            TupleLabel(0, 0).intern(),
+            StructLabel { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            EnumLabel::Tuple(0, 0).intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+
+        assert_eq!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            StructLabel { a: 0, b: 0 }.intern()
+        );
+        assert_eq!(
+            EnumLabel::Struct { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            StructLabel { a: 0, b: 1 }.intern()
+        );
+        assert_ne!(
+            EnumLabel::Struct { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 1 }.intern()
+        );
+        assert_ne!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(StructLabel { a: 0, b: 0 }.intern(), UnitLabel.intern(),);
+        assert_ne!(
+            EnumLabel::Struct { a: 0, b: 0 }.intern(),
+            EnumLabel::Unit.intern()
+        );
+    }
+
+    #[test]
+    fn test_derive_system_set() {
+        use crate::{self as bevy_ecs};
+
+        #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct UnitSet;
+
+        #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct TupleSet(u32, u32);
+
+        #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct StructSet {
+            a: u32,
+            b: u32,
+        }
+
+        #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        enum EnumSet {
+            #[default]
+            Unit,
+            Tuple(u32, u32),
+            Struct {
+                a: u32,
+                b: u32,
+            },
+        }
+
+        assert_eq!(UnitSet.intern(), UnitSet.intern());
+        assert_eq!(EnumSet::Unit.intern(), EnumSet::Unit.intern());
+        assert_ne!(UnitSet.intern(), EnumSet::Unit.intern());
+        assert_ne!(UnitSet.intern(), TupleSet(0, 0).intern());
+        assert_ne!(EnumSet::Unit.intern(), EnumSet::Tuple(0, 0).intern());
+
+        assert_eq!(TupleSet(0, 0).intern(), TupleSet(0, 0).intern());
+        assert_eq!(EnumSet::Tuple(0, 0).intern(), EnumSet::Tuple(0, 0).intern());
+        assert_ne!(TupleSet(0, 0).intern(), TupleSet(0, 1).intern());
+        assert_ne!(EnumSet::Tuple(0, 0).intern(), EnumSet::Tuple(0, 1).intern());
+        assert_ne!(TupleSet(0, 0).intern(), EnumSet::Tuple(0, 0).intern());
+        assert_ne!(TupleSet(0, 0).intern(), StructSet { a: 0, b: 0 }.intern());
+        assert_ne!(
+            EnumSet::Tuple(0, 0).intern(),
+            EnumSet::Struct { a: 0, b: 0 }.intern()
+        );
+
+        assert_eq!(
+            StructSet { a: 0, b: 0 }.intern(),
+            StructSet { a: 0, b: 0 }.intern()
+        );
+        assert_eq!(
+            EnumSet::Struct { a: 0, b: 0 }.intern(),
+            EnumSet::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            StructSet { a: 0, b: 0 }.intern(),
+            StructSet { a: 0, b: 1 }.intern()
+        );
+        assert_ne!(
+            EnumSet::Struct { a: 0, b: 0 }.intern(),
+            EnumSet::Struct { a: 0, b: 1 }.intern()
+        );
+        assert_ne!(
+            StructSet { a: 0, b: 0 }.intern(),
+            EnumSet::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            StructSet { a: 0, b: 0 }.intern(),
+            EnumSet::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(StructSet { a: 0, b: 0 }.intern(), UnitSet.intern(),);
+        assert_ne!(
+            EnumSet::Struct { a: 0, b: 0 }.intern(),
+            EnumSet::Unit.intern()
+        );
     }
 }

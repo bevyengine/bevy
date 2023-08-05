@@ -978,4 +978,89 @@ mod tests {
         app.world.run_schedule(OnEnter(AppState::MainMenu));
         assert_eq!(app.world.entities().len(), 2);
     }
+
+    #[test]
+    fn test_derive_app_label() {
+        use super::AppLabel;
+        use crate::{self as bevy_app};
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct UnitLabel;
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct TupleLabel(u32, u32);
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct StructLabel {
+            a: u32,
+            b: u32,
+        }
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        enum EnumLabel {
+            #[default]
+            Unit,
+            Tuple(u32, u32),
+            Struct {
+                a: u32,
+                b: u32,
+            },
+        }
+
+        assert_eq!(UnitLabel.intern(), UnitLabel.intern());
+        assert_eq!(EnumLabel::Unit.intern(), EnumLabel::Unit.intern());
+        assert_ne!(UnitLabel.intern(), EnumLabel::Unit.intern());
+        assert_ne!(UnitLabel.intern(), TupleLabel(0, 0).intern());
+        assert_ne!(EnumLabel::Unit.intern(), EnumLabel::Tuple(0, 0).intern());
+
+        assert_eq!(TupleLabel(0, 0).intern(), TupleLabel(0, 0).intern());
+        assert_eq!(
+            EnumLabel::Tuple(0, 0).intern(),
+            EnumLabel::Tuple(0, 0).intern()
+        );
+        assert_ne!(TupleLabel(0, 0).intern(), TupleLabel(0, 1).intern());
+        assert_ne!(
+            EnumLabel::Tuple(0, 0).intern(),
+            EnumLabel::Tuple(0, 1).intern()
+        );
+        assert_ne!(TupleLabel(0, 0).intern(), EnumLabel::Tuple(0, 0).intern());
+        assert_ne!(
+            TupleLabel(0, 0).intern(),
+            StructLabel { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            EnumLabel::Tuple(0, 0).intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+
+        assert_eq!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            StructLabel { a: 0, b: 0 }.intern()
+        );
+        assert_eq!(
+            EnumLabel::Struct { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            StructLabel { a: 0, b: 1 }.intern()
+        );
+        assert_ne!(
+            EnumLabel::Struct { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 1 }.intern()
+        );
+        assert_ne!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(StructLabel { a: 0, b: 0 }.intern(), UnitLabel.intern(),);
+        assert_ne!(
+            EnumLabel::Struct { a: 0, b: 0 }.intern(),
+            EnumLabel::Unit.intern()
+        );
+    }
 }
