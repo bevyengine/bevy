@@ -69,7 +69,7 @@ impl<'a> PathParser<'a> {
     fn access_following(&mut self, token: Token<'a>) -> Result<Access<'a>, Error<'a>> {
         match token {
             Token::Dot => Ok(self.next_ident()?.field()),
-            Token::CrossHatch => self.next_ident()?.field_index(),
+            Token::Pound => self.next_ident()?.field_index(),
             Token::Ident(ident) => Ok(ident.field()),
             Token::CloseBracket => Err(Error::CloseBeforeOpen),
             Token::OpenBracket => {
@@ -117,7 +117,7 @@ impl<'a> Ident<'a> {
 #[derive(Debug, PartialEq, Eq)]
 enum Token<'a> {
     Dot,
-    CrossHatch,
+    Pound,
     OpenBracket,
     CloseBracket,
     Ident(Ident<'a>),
@@ -126,7 +126,7 @@ impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Token::Dot => f.write_str("."),
-            Token::CrossHatch => f.write_str("#"),
+            Token::Pound => f.write_str("#"),
             Token::OpenBracket => f.write_str("["),
             Token::CloseBracket => f.write_str("]"),
             Token::Ident(ident) => f.write_str(ident.0),
@@ -138,7 +138,7 @@ impl<'a> Token<'a> {
     fn symbol_from_char(char: char) -> Option<Self> {
         match char {
             '.' => Some(Self::Dot),
-            '#' => Some(Self::CrossHatch),
+            '#' => Some(Self::Pound),
             '[' => Some(Self::OpenBracket),
             ']' => Some(Self::CloseBracket),
             _ => None,
