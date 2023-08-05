@@ -88,7 +88,7 @@ macro_rules! define_label {
             fn dyn_clone(&self) -> Box<dyn $label_trait_name>;
 
             /// Casts this value to a form where it can be compared with other type-erased values.
-            fn as_dyn_eq(&self) -> &dyn ::bevy_utils::label::DynEq;
+            fn as_dyn_eq(&self) -> &dyn $crate::label::DynEq;
 
             /// Feeds this value into the given [`Hasher`].
             ///
@@ -132,19 +132,19 @@ macro_rules! define_label {
             }
 
             /// Returns an [`Interned`](bevy_utils::intern::Interned) value corresponding to `self`.
-            fn intern(&self) -> ::bevy_utils::intern::Interned<dyn $label_trait_name>
+            fn intern(&self) -> $crate::intern::Interned<dyn $label_trait_name>
             where Self: Sized {
                 $interner_name.intern(self)
             }
         }
 
-        impl $label_trait_name for ::bevy_utils::intern::Interned<dyn $label_trait_name> {
+        impl $label_trait_name for $crate::intern::Interned<dyn $label_trait_name> {
             fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
                 (**self).dyn_clone()
             }
 
             /// Casts this value to a form where it can be compared with other type-erased values.
-            fn as_dyn_eq(&self) -> &dyn ::bevy_utils::label::DynEq {
+            fn as_dyn_eq(&self) -> &dyn $crate::label::DynEq {
                 (**self).as_dyn_eq()
             }
 
@@ -175,7 +175,7 @@ macro_rules! define_label {
             }
         }
 
-        impl ::bevy_utils::intern::Leak for dyn $label_trait_name {
+        impl $crate::intern::Leak for dyn $label_trait_name {
             fn leak(&self) -> &'static Self {
                 Box::leak(self.dyn_clone())
             }
@@ -185,7 +185,7 @@ macro_rules! define_label {
             }
         }
 
-        static $interner_name: ::bevy_utils::intern::Interner<dyn $label_trait_name> =
-            ::bevy_utils::intern::Interner::new();
+        static $interner_name: $crate::intern::Interner<dyn $label_trait_name> =
+            $crate::intern::Interner::new();
     };
 }
