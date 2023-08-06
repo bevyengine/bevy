@@ -2,50 +2,7 @@
 //!
 //! This module exports two types: [`ReflectBundleFns`] and [`ReflectBundle`].
 //!
-//! # Architecture
-//!
-//! [`ReflectBundle`] wraps a [`ReflectBundleFns`]. In fact, each method on
-//! [`ReflectBundle`] wraps a call to a function pointer field in `ReflectBundleFns`.
-//!
-//! ## Who creates `ReflectBundle`s?
-//!
-//! When a user adds the `#[reflect(Bundle)]` attribute to their `#[derive(Reflect)]`
-//! type, it tells the derive macro for `Reflect` to add the following single line to its
-//! [`get_type_registration`] method (see the relevant code[^1]).
-//!
-//! ```ignore
-//! registration.insert::<ReflectBundle>(FromType::<Self>::from_type());
-//! ```
-//!
-//! This line adds a `ReflectBundle` to the registration data for the type in question.
-//! The user can access the `ReflectBundle` for type `T` through the type registry,
-//! as per the `trait_reflection.rs` example.
-//!
-//! The `FromType::<Self>::from_type()` in the previous line calls the `FromType<C>`
-//! implementation of `ReflectBundle`.
-//!
-//! The `FromType<C>` impl creates a function per field of [`ReflectBundleFns`].
-//! In those functions, we call generic methods on [`World`] and [`EntityMut`].
-//!
-//! The result is a `ReflectBundle` completely independent of `C`, yet capable
-//! of using generic ECS methods such as `entity.remove::<C>()` to insert `&dyn Reflect`
-//! with underlying type `C`, without the `C` appearing in the type signature.
-//!
-//! ## A note on code generation
-//!
-//! A downside of this approach is that monomorphized code (ie: concrete code
-//! for generics) is generated **unconditionally**, regardless of whether it ends
-//! up used or not.
-//!
-//! Adding `N` fields on `ReflectBundleFns` will generate `N × M` additional
-//! functions, where `M` is how many types derive `#[reflect(Bundle)]`.
-//!
-//! Those functions will increase the size of the final app binary.
-//!
-//! [^1]: `crates/bevy_reflect/bevy_reflect_derive/src/registration.rs`
-//!
-//! [`get_type_registration`]: bevy_reflect::GetTypeRegistration::get_type_registration
-
+//! Same as [`super::component`], but for bundles.
 use std::any::TypeId;
 
 use crate::{
@@ -65,24 +22,7 @@ pub struct ReflectBundle(ReflectBundleFns);
 
 /// The raw function pointers needed to make up a [`ReflectBundle`].
 ///
-/// This is used when creating custom implementations of [`ReflectBundle`] with
-/// [`ReflectBundle::new()`].
-///
-/// > **Note:**
-/// > Creating custom implementations of [`ReflectBundle`] is an advanced feature that most users
-/// > will not need.
-/// > Usually a [`ReflectBundle`] is created for a type by deriving [`Reflect`]
-/// > and adding the `#[reflect(Bundle)]` attribute.
-/// > After adding the bundle to the [`TypeRegistry`][bevy_reflect::TypeRegistry],
-/// > its [`ReflectBundle`] can then be retrieved when needed.
-///
-/// Creating a custom [`ReflectBundle`] may be useful if you need to create new bundle types
-/// at runtime, for example, for scripting implementations.
-///
-/// By creating a custom [`ReflectBundle`] and inserting it into a type's
-/// [`TypeRegistration`][bevy_reflect::TypeRegistration],
-/// you can modify the way that reflected bundles of that type will be inserted into the Bevy
-/// world.
+/// The also [`super::component::ReflectComponentFns`].
 #[derive(Clone)]
 pub struct ReflectBundleFns {
     /// Function pointer implementing [`ReflectBundle::from_world()`].
