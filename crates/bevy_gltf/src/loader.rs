@@ -5,10 +5,7 @@ use bevy_asset::{
 };
 use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3dBundle;
-use bevy_ecs::{
-    entity::Entity,
-    world::{FromWorld, World},
-};
+use bevy_ecs::{entity::Entity, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};
@@ -27,7 +24,6 @@ use bevy_render::{
     prelude::SpatialBundle,
     primitives::Aabb,
     render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
-    renderer::RenderDevice,
     texture::{
         CompressedImageFormats, Image, ImageLoaderSettings, ImageSampler, ImageType, TextureError,
     },
@@ -81,22 +77,8 @@ pub enum GltfError {
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
 pub struct GltfLoader {
-    pub(crate) supported_compressed_formats: CompressedImageFormats,
-    pub(crate) custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
-}
-
-impl FromWorld for GltfLoader {
-    fn from_world(world: &mut World) -> Self {
-        let supported_compressed_formats = match world.get_resource::<RenderDevice>() {
-            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
-
-            None => CompressedImageFormats::all(),
-        };
-        Self {
-            supported_compressed_formats,
-            custom_vertex_attributes: Default::default(),
-        }
-    }
+    pub supported_compressed_formats: CompressedImageFormats,
+    pub custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
 }
 
 impl AssetLoader for GltfLoader {

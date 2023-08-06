@@ -106,6 +106,11 @@ impl EntityMap {
         self.map.iter().map(|(from, to)| (*from, *to))
     }
 
+    /// Clears the map, removing all entity pairs. Keeps the allocated memory for reuse.
+    pub fn clear(&mut self) {
+        self.map.clear();
+    }
+
     /// Creates an [`EntityMapper`] from this [`EntityMap`] and scoped to the provided [`World`], then calls the
     /// provided function with it. This allows one to allocate new entity references in the provided `World` that are
     /// guaranteed to never point at a living entity now or in the future. This functionality is useful for safely

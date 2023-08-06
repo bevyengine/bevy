@@ -214,7 +214,7 @@ impl ShaderCache {
         shaders: &HashMap<AssetId<Shader>, Shader>,
         import: &ShaderImport,
     ) -> Result<(), PipelineCacheError> {
-        if !composer.contains_module(import.as_str()) {
+        if !composer.contains_module(&import.module_name()) {
             if let Some(shader_handle) = import_path_shaders.get(import) {
                 if let Some(shader) = shaders.get(shader_handle) {
                     for import in &shader.imports {
@@ -304,6 +304,7 @@ impl ShaderCache {
 
                         let shader_defs = shader_defs
                             .into_iter()
+                            .chain(shader.shader_defs.iter().cloned())
                             .map(|def| match def {
                                 ShaderDefVal::Bool(k, v) => {
                                     (k, naga_oil::compose::ShaderDefValue::Bool(v))
@@ -366,7 +367,8 @@ impl ShaderCache {
                 shaders_to_clear.extend(data.dependents.iter().copied());
 
                 if let Some(Shader { import_path, .. }) = self.shaders.get(&handle) {
-                    self.composer.remove_composable_module(import_path.as_str());
+                    self.composer
+                        .remove_composable_module(&import_path.module_name());
                 }
             }
         }

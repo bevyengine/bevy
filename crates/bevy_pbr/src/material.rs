@@ -29,9 +29,9 @@ use bevy_render::{
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, OwnedBindingResource,
-        PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
-        SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, GpuArrayBufferIndex,
+        OwnedBindingResource, PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef,
+        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
     texture::FallbackImage,
@@ -375,7 +375,12 @@ pub fn queue_material_meshes<M: Material>(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
-    material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
+    material_meshes: Query<(
+        &Handle<M>,
+        &Handle<Mesh>,
+        &MeshUniform,
+        &GpuArrayBufferIndex<MeshUniform>,
+    )>,
     images: Res<RenderAssets<Image>>,
     mut views: Query<(
         &ExtractedView,
@@ -459,7 +464,7 @@ pub fn queue_material_meshes<M: Material>(
 
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
-            if let Ok((material_handle, mesh_handle, mesh_uniform)) =
+            if let Ok((material_handle, mesh_handle, mesh_uniform, batch_indices)) =
                 material_meshes.get(*visible_entity)
             {
                 if let (Some(mesh), Some(material)) = (
@@ -516,6 +521,9 @@ pub fn queue_material_meshes<M: Material>(
                                 draw_function: draw_opaque_pbr,
                                 pipeline: pipeline_id,
                                 distance,
+                                per_object_binding_dynamic_offset: batch_indices
+                                    .dynamic_offset
+                                    .unwrap_or_default(),
                             });
                         }
                         AlphaMode::Mask(_) => {
@@ -524,6 +532,9 @@ pub fn queue_material_meshes<M: Material>(
                                 draw_function: draw_alpha_mask_pbr,
                                 pipeline: pipeline_id,
                                 distance,
+                                per_object_binding_dynamic_offset: batch_indices
+                                    .dynamic_offset
+                                    .unwrap_or_default(),
                             });
                         }
                         AlphaMode::Blend

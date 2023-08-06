@@ -174,13 +174,6 @@ impl Schedule {
         }
     }
 
-    /// Add a system to the schedule.
-    #[deprecated(since = "0.11.0", note = "please use `add_systems` instead")]
-    pub fn add_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.graph.add_systems_inner(system.into_configs(), false);
-        self
-    }
-
     /// Add a collection of systems to the schedule.
     pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
         self.graph.add_systems_inner(systems.into_configs(), false);
@@ -1120,7 +1113,7 @@ impl ScheduleGraph {
 
         let sys_count = self.systems.len();
         let set_with_conditions_count = hg_set_ids.len();
-        let node_count = self.systems.len() + self.system_sets.len();
+        let hg_node_count = self.hierarchy.graph.node_count();
 
         // get the number of dependencies and the immediate dependents of each system
         // (needed by multi-threaded executor to run systems in the correct order)
@@ -1152,7 +1145,7 @@ impl ScheduleGraph {
             let bitset = &mut systems_in_sets_with_conditions[i];
             for &(col, sys_id) in &hg_systems {
                 let idx = dg_system_idx_map[&sys_id];
-                let is_descendant = hier_results.reachable[index(row, col, node_count)];
+                let is_descendant = hier_results.reachable[index(row, col, hg_node_count)];
                 bitset.set(idx, is_descendant);
             }
         }
@@ -1167,7 +1160,7 @@ impl ScheduleGraph {
                 .enumerate()
                 .take_while(|&(_idx, &row)| row < col)
             {
-                let is_ancestor = hier_results.reachable[index(row, col, node_count)];
+                let is_ancestor = hier_results.reachable[index(row, col, hg_node_count)];
                 bitset.set(idx, is_ancestor);
             }
         }
@@ -1575,5 +1568,32 @@ impl ScheduleBuildSettings {
             use_shortnames: true,
             report_sets: true,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        self as bevy_ecs,
+        schedule::{IntoSystemConfigs, IntoSystemSetConfig, Schedule, SystemSet},
+        world::World,
+    };
+
+    // regression test for https://github.com/bevyengine/bevy/issues/9114
+    #[test]
+    fn ambiguous_with_not_breaking_run_conditions() {
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        struct Set;
+
+        let mut world = World::new();
+        let mut schedule = Schedule::new();
+
+        schedule.configure_set(Set.run_if(|| false));
+        schedule.add_systems(
+            (|| panic!("This system must not run"))
+                .ambiguous_with(|| ())
+                .in_set(Set),
+        );
+        schedule.run(&mut world);
     }
 }

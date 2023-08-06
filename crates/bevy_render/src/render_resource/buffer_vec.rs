@@ -21,9 +21,11 @@ use wgpu::BufferUsages;
 /// from system RAM to VRAM.
 ///
 /// Other options for storing GPU-accessible data are:
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 pub struct BufferVec<T: Pod> {

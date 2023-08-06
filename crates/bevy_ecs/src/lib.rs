@@ -37,7 +37,7 @@ pub mod prelude {
         component::Component,
         entity::Entity,
         event::{Event, EventReader, EventWriter, Events},
-        query::{Added, AnyOf, Changed, Or, QueryState, With, Without},
+        query::{Added, AnyOf, Changed, Has, Or, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, Condition,

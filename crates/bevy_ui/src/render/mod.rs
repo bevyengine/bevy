@@ -16,7 +16,7 @@ use crate::{
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
     color::Color,
@@ -55,6 +55,7 @@ pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(130128470471
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
     ExtractNode,
+    ExtractAtlasNode,
 }
 
 pub fn build_ui_render(app: &mut App) {
@@ -78,10 +79,12 @@ pub fn build_ui_render(app: &mut App) {
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
-                extract_atlas_uinodes.after(RenderUiSystem::ExtractNode),
-                extract_uinode_borders.after(RenderUiSystem::ExtractNode),
+                extract_atlas_uinodes
+                    .in_set(RenderUiSystem::ExtractAtlasNode)
+                    .after(RenderUiSystem::ExtractNode),
+                extract_uinode_borders.after(RenderUiSystem::ExtractAtlasNode),
                 #[cfg(feature = "bevy_text")]
-                extract_text_uinodes.after(RenderUiSystem::ExtractNode),
+                extract_text_uinodes.after(RenderUiSystem::ExtractAtlasNode),
             ),
         )
         .add_systems(
@@ -270,7 +273,7 @@ pub fn extract_uinode_borders(
             Without<ContentSize>,
         >,
     >,
-    parent_node_query: Extract<Query<&Node, With<Parent>>>,
+    node_query: Extract<Query<&Node>>,
 ) {
     let image = AssetId::<Image>::default();
 
@@ -298,7 +301,7 @@ pub fn extract_uinode_borders(
             // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
             // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
             let parent_width = parent
-                .and_then(|parent| parent_node_query.get(parent.get()).ok())
+                .and_then(|parent| node_query.get(parent.get()).ok())
                 .map(|parent_node| parent_node.size().x)
                 .unwrap_or(ui_logical_viewport_size.x);
             let left =
@@ -388,8 +391,6 @@ pub fn extract_uinodes(
         >,
     >,
 ) {
-    extracted_uinodes.uinodes.clear();
-
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
             uinode_query.get(*entity)
@@ -452,7 +453,14 @@ pub fn extract_default_ui_camera_view<T: Component>(
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
             continue;
         }
-        if let (Some(logical_size), Some((physical_origin, _)), Some(physical_size)) = (
+        if let (
+            Some(logical_size),
+            Some(URect {
+                min: physical_origin,
+                ..
+            }),
+            Some(physical_size),
+        ) = (
             camera.logical_viewport_size(),
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
@@ -633,7 +641,7 @@ pub fn prepare_uinodes(
         image != AssetId::<Image>::default()
     }
 
-    for extracted_uinode in &extracted_uinodes.uinodes {
+    for extracted_uinode in extracted_uinodes.uinodes.drain(..) {
         let mode = if is_textured(extracted_uinode.image) {
             if current_batch_image != extracted_uinode.image {
                 if is_textured(current_batch_image) && start != end {

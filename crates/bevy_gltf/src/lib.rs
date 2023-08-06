@@ -10,10 +10,14 @@ pub use loader::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp, Handle};
-use bevy_ecs::{prelude::Component, reflect::ReflectComponent, world::FromWorld};
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_pbr::StandardMaterial;
 use bevy_reflect::{Reflect, TypePath};
-use bevy_render::mesh::{Mesh, MeshVertexAttribute};
+use bevy_render::{
+    mesh::{Mesh, MeshVertexAttribute},
+    renderer::RenderDevice,
+    texture::CompressedImageFormats,
+};
 use bevy_scene::Scene;
 
 /// Adds support for glTF file loading to the app.
@@ -36,14 +40,23 @@ impl GltfPlugin {
 
 impl Plugin for GltfPlugin {
     fn build(&self, app: &mut App) {
-        let mut loader = GltfLoader::from_world(&mut app.world);
-        loader.custom_vertex_attributes = self.custom_vertex_attributes.clone();
-        app.register_asset_loader(loader)
-            .register_type::<GltfExtras>()
+        app.register_type::<GltfExtras>()
             .init_asset::<Gltf>()
             .init_asset::<GltfNode>()
             .init_asset::<GltfPrimitive>()
             .init_asset::<GltfMesh>();
+    }
+
+    fn finish(&self, app: &mut App) {
+        let supported_compressed_formats = match app.world.get_resource::<RenderDevice>() {
+            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
+
+            None => CompressedImageFormats::NONE,
+        };
+        app.register_asset_loader(GltfLoader {
+            supported_compressed_formats,
+            custom_vertex_attributes: self.custom_vertex_attributes.clone(),
+        });
     }
 }
 

@@ -229,6 +229,29 @@
 //!
 //! All primitives and simple types implement `FromReflect` by relying on their [`Default`] implementation.
 //!
+//! # Path navigation
+//!
+//! The [`GetPath`] trait allows accessing arbitrary nested fields of a [`Reflect`] type.
+//!
+//! Using `GetPath`, it is possible to use a path string to access a specific field
+//! of a reflected type.
+//!
+//! ```
+//! # use bevy_reflect::{Reflect, GetPath};
+//! #[derive(Reflect)]
+//! struct MyStruct {
+//!   value: Vec<Option<u32>>
+//! }
+//!
+//! let my_struct = MyStruct {
+//!   value: vec![None, None, Some(123)],
+//! };
+//! assert_eq!(
+//!   my_struct.path::<u32>(".value[2].0").unwrap(),
+//!   &123,
+//! );
+//! ```
+//!
 //! # Type Registration
 //!
 //! This crate also comes with a [`TypeRegistry`] that can be used to store and retrieve additional type metadata at runtime,
