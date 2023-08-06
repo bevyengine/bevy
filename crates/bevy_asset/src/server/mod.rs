@@ -67,7 +67,9 @@ impl AssetServer {
     ) -> Self {
         let (asset_event_sender, asset_event_receiver) = crossbeam_channel::unbounded();
         let (source_event_sender, source_event_receiver) = crossbeam_channel::unbounded();
+        let mut infos = AssetInfos::default();
         let watcher = if watch_for_changes {
+            infos.watching_for_changes = true;
             let watcher = reader.watch_for_changes(source_event_sender);
             if watcher.is_none() {
                 error!("Cannot watch for changes because the current `AssetReader` does not support it");
@@ -84,7 +86,7 @@ impl AssetServer {
                 asset_event_receiver,
                 source_event_receiver,
                 loaders,
-                infos: RwLock::new(AssetInfos::default()),
+                infos: RwLock::new(infos),
             }),
         }
     }
@@ -663,13 +665,31 @@ pub fn handle_internal_asset_events(world: &mut World) {
             }
         }
 
+        fn queue_ancestors(
+            asset_path: &AssetPath,
+            infos: &AssetInfos,
+            paths_to_reload: &mut HashSet<AssetPath<'static>>,
+        ) {
+            if let Some(dependants) = infos.loader_dependants.get(asset_path) {
+                for dependant in dependants {
+                    paths_to_reload.insert(dependant.to_owned());
+                    queue_ancestors(dependant, infos, paths_to_reload);
+                }
+            }
+        }
+
         let mut paths_to_reload = HashSet::new();
         for event in server.data.source_event_receiver.try_iter() {
             match event {
                 // TODO: if the asset was processed and the processed file was changed, the first modified event
                 // should be skipped?
                 AssetSourceEvent::ModifiedAsset(path) | AssetSourceEvent::ModifiedMeta(path) => {
-                    paths_to_reload.insert(path);
+                    queue_ancestors(
+                        &AssetPath::new_ref(&path, None),
+                        &infos,
+                        &mut paths_to_reload,
+                    );
+                    paths_to_reload.insert(path.into());
                 }
                 _ => {}
             }

@@ -1,7 +1,7 @@
 use crate::{
-    meta::MetaTransform, AssetHandleProvider, AssetPath, DependencyLoadState, ErasedLoadedAsset,
-    InternalAssetEvent, InternalAssetHandle, LoadState, RecursiveDependencyLoadState,
-    UntypedAssetId, UntypedHandle,
+    meta::{AssetHash, MetaTransform},
+    AssetHandleProvider, AssetPath, DependencyLoadState, ErasedLoadedAsset, InternalAssetEvent,
+    InternalAssetHandle, LoadState, RecursiveDependencyLoadState, UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
 use bevy_log::warn;
@@ -25,6 +25,14 @@ pub(crate) struct AssetInfo {
     failed_rec_dependencies: usize,
     dependants_waiting_on_load: HashSet<UntypedAssetId>,
     dependants_waiting_on_recursive_dep_load: HashSet<UntypedAssetId>,
+    /// The asset paths required to load this asset. Hashes will only be set for processed assets.
+    /// This is set using the value from [`LoadedAsset`].
+    /// This will only be populated if [`AssetInfos::watching_for_changes`] is set to `true` to
+    /// save memory.
+    ///
+    /// [`LoadedAsset`]: crate::loader::LoadedAsset
+    loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
+    /// asset paths that rely on this asset as part of their asset load
     handle_drops_to_skip: usize,
 }
 
@@ -40,6 +48,7 @@ impl AssetInfo {
             failed_dependencies: 0,
             loading_rec_dependencies: 0,
             failed_rec_dependencies: 0,
+            loader_dependencies: HashMap::default(),
             dependants_waiting_on_load: HashSet::default(),
             dependants_waiting_on_recursive_dep_load: HashSet::default(),
             handle_drops_to_skip: 0,
@@ -51,6 +60,12 @@ impl AssetInfo {
 pub(crate) struct AssetInfos {
     path_to_id: HashMap<AssetPath<'static>, UntypedAssetId>,
     infos: HashMap<UntypedAssetId, AssetInfo>,
+    /// If set to `true`, this informs [`AssetInfos`] to track data relevant to watching for changes (such as `load_dependants`)
+    /// This should only be set at startup.
+    pub(crate) watching_for_changes: bool,
+    /// Tracks assets that depend on the "key" asset path inside their asset loaders ("loader dependencies")
+    /// This should only be set when watching for changes to avoid unnecessary work.
+    pub(crate) loader_dependants: HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
     pub(crate) handle_providers: HashMap<TypeId, AssetHandleProvider>,
     pub(crate) dependency_loaded_event_sender: HashMap<TypeId, fn(&mut World, UntypedAssetId)>,
 }
@@ -200,7 +215,13 @@ impl AssetInfos {
 
     // Returns `true` if the asset should be removed from the collection
     pub(crate) fn process_handle_drop(&mut self, id: UntypedAssetId) -> bool {
-        Self::process_handle_drop_internal(&mut self.infos, &mut self.path_to_id, id)
+        Self::process_handle_drop_internal(
+            &mut self.infos,
+            &mut self.path_to_id,
+            &mut self.loader_dependants,
+            self.watching_for_changes,
+            id,
+        )
     }
 
     /// Updates AssetInfo / load state for an asset that has finished loading (and relevant dependencies / dependants).
@@ -278,6 +299,23 @@ impl AssetInfos {
         };
 
         let (dependants_waiting_on_load, dependants_waiting_on_rec_load) = {
+            let watching_for_changes = self.watching_for_changes;
+            // if watching for changes, track reverse loader dependencies for hot reloading
+            if watching_for_changes {
+                let info = self
+                    .infos
+                    .get(&loaded_asset_id)
+                    .expect("Asset info should always exist at this point");
+                if let Some(asset_path) = &info.path {
+                    for loader_dependency in loaded_asset.loader_dependencies.keys() {
+                        let dependants = self
+                            .loader_dependants
+                            .entry(loader_dependency.clone())
+                            .or_default();
+                        dependants.insert(asset_path.clone());
+                    }
+                }
+            }
             let info = self
                 .get_mut(loaded_asset_id)
                 .expect("Asset info should always exist at this point");
@@ -288,6 +326,9 @@ impl AssetInfos {
             info.load_state = LoadState::Loaded;
             info.dep_load_state = dep_load_state;
             info.rec_dep_load_state = rec_dep_load_state;
+            if watching_for_changes {
+                info.loader_dependencies = loaded_asset.loader_dependencies;
+            }
 
             let dependants_waiting_on_rec_load = if matches!(
                 rec_dep_load_state,
@@ -417,6 +458,8 @@ impl AssetInfos {
     fn process_handle_drop_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         path_to_id: &mut HashMap<AssetPath<'static>, UntypedAssetId>,
+        loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
+        watching_for_changes: bool,
         id: UntypedAssetId,
     ) -> bool {
         match infos.entry(id) {
@@ -427,6 +470,15 @@ impl AssetInfos {
                 } else {
                     let info = entry.remove();
                     if let Some(path) = info.path {
+                        if watching_for_changes {
+                            for loader_dependency in info.loader_dependencies.keys() {
+                                if let Some(dependants) =
+                                    loader_dependants.get_mut(loader_dependency)
+                                {
+                                    dependants.remove(&path);
+                                }
+                            }
+                        }
                         path_to_id.remove(&path);
                     }
                     true
@@ -449,6 +501,8 @@ impl AssetInfos {
                     Self::process_handle_drop_internal(
                         &mut self.infos,
                         &mut self.path_to_id,
+                        &mut self.loader_dependants,
+                        self.watching_for_changes,
                         id.untyped(provider.type_id),
                     );
                 }
