@@ -44,6 +44,7 @@ default = [
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
+  "filesystem_watcher",
   "multi-threaded",
   "png",
   "hdr",
@@ -240,6 +241,9 @@ shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 
 # Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm
 webgl2 = ["bevy_internal/webgl"]
+
+# Enables watching the filesystem for Bevy Asset hot-reloading
+filesystem_watcher = ["bevy_internal/filesystem_watcher"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0-dev", default-features = false, optional = true }
