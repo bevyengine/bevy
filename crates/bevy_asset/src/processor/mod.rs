@@ -688,7 +688,7 @@ impl AssetProcessor {
                 };
                 let meta_bytes = meta.serialize();
                 // write meta to source location if it doesn't already exist
-                self.destination_writer()
+                self.source_writer()
                     .write_meta_bytes(path, &meta_bytes)
                     .await?;
                 (meta, meta_bytes, processor)
