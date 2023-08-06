@@ -1936,6 +1936,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "text_transformed"
+path = "examples/ui/text_transformed.rs"
+
+[package.metadata.example.text_transformed]
+name = "Text Transformed"
+description = "Demonstrates flipped and rotated text."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "grid"
 path = "examples/ui/grid.rs"
 
@@ -1993,6 +2003,16 @@ path = "examples/ui/ui_texture_atlas.rs"
 [package.metadata.example.ui_texture_atlas]
 name = "UI Texture Atlas"
 description = "Illustrates how to use TextureAtlases in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ui_image_symmetries"
+path = "examples/ui/ui_image_symmetries.rs"
+
+[package.metadata.example.ui_image_symmetries]
+name = "UI Image Symmetries"
+description = "Demonstrates how to rotate and flip UI images"
 category = "UI (User Interface)"
 wasm = true
 

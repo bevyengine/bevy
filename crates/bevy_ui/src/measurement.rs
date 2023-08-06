@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::Component;
 use bevy_ecs::reflect::ReflectComponent;
-use bevy_math::Vec2;
+use bevy_math::{Vec2, Vec2Swizzles};
 use bevy_reflect::Reflect;
 use std::fmt::Formatter;
 pub use taffy::style::AvailableSpace;
@@ -41,6 +41,28 @@ impl Measure for FixedMeasure {
         _: AvailableSpace,
     ) -> Vec2 {
         self.size
+    }
+}
+
+/// An adapter implementing measure and wrapping another measure. Its `measure` method calls the `measure` method of `inner_measure` with swapped width and height values.
+/// Then the components of the returned `Vec2` are swapped back before it is returned to the caller.
+#[derive(Default, Clone)]
+pub struct SwappedDimensionsMeasure<M: Measure> {
+    /// The wrapped measure. It is called with swapped width and height values, and then the value it returns is swapped back.
+    pub inner_measure: M,
+}
+
+impl<M: Measure> Measure for SwappedDimensionsMeasure<M> {
+    fn measure(
+        &self,
+        width: Option<f32>,
+        height: Option<f32>,
+        available_width: AvailableSpace,
+        available_height: AvailableSpace,
+    ) -> Vec2 {
+        self.inner_measure
+            .measure(height, width, available_height, available_width)
+            .yx()
     }
 }
 

@@ -351,9 +351,11 @@ Example | Description
 [Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
+[Text Transformed](../examples/ui/text_transformed.rs) | Demonstrates flipped and rotated text.
 [Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
 [UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
+[UI Image Symmetries](../examples/ui/ui_image_symmetries.rs) | Demonstrates how to rotate and flip UI images
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
 [UI Texture Atlas](../examples/ui/ui_texture_atlas.rs) | Illustrates how to use TextureAtlases in UI
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
