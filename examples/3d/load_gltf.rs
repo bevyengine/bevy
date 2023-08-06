@@ -13,7 +13,7 @@ fn main() {
             brightness: 1.0 / 5.0f32,
         })
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
-        .add_plugins(DefaultPlugins.set(AssetPlugin::processed_dev()))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, animate_light_direction)
         .run();

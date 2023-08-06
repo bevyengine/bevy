@@ -92,6 +92,8 @@ pub enum ProcessError {
     WrongMetaType,
     #[error("Encountered an error while saving the asset: {0}")]
     AssetSaveError(anyhow::Error),
+    #[error("Assets without extensions are not supported.")]
+    ExtensionRequired,
 }
 
 impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process

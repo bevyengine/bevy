@@ -414,12 +414,10 @@ impl AssetProcessor {
                 }
             } else {
                 // Files without extensions are skipped
-                if path.extension().is_some() {
-                    let processor = self.clone();
-                    scope.spawn(async move {
-                        processor.process_asset(&path).await;
-                    });
-                }
+                let processor = self.clone();
+                scope.spawn(async move {
+                    processor.process_asset(&path).await;
+                });
             }
             Ok(())
         })
@@ -628,6 +626,9 @@ impl AssetProcessor {
     }
 
     async fn process_asset_internal(&self, path: &Path) -> Result<ProcessResult, ProcessError> {
+        if path.extension().is_none() {
+            return Err(ProcessError::ExtensionRequired);
+        }
         let asset_path = AssetPath::new(path.to_owned(), None);
         // TODO: check if already processing to protect against duplicate hot-reload events
         debug!("Processing {:?}", path);
@@ -1108,6 +1109,9 @@ impl ProcessorAssetInfos {
                 // If "block until latest state is reflected" is required, we can easily add a less granular
                 // "block until first pass finished" mode
                 info.update_status(ProcessStatus::Processed).await;
+            }
+            Err(ProcessError::ExtensionRequired) => {
+                // Skip assets without extensions
             }
             Err(ProcessError::MissingAssetLoaderForExtension(_)) => {
                 trace!("No loader found for {:?}", asset_path);
