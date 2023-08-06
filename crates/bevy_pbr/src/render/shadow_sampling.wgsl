@@ -97,7 +97,7 @@ fn sample_shadow_map_jimenez_fourteen(light_local: vec2<f32>, depth: f32, array_
         m.y, -m.x,
         m.x, m.y
     );
-    let scale = 4.0 / shadow_map_size;
+    let scale = 3.0 / shadow_map_size;
 
     let sample_offset1 = (rotation_matrix * sample_offsets[0]) * scale;
     let sample_offset2 = (rotation_matrix * sample_offsets[1]) * scale;
