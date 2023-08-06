@@ -210,7 +210,7 @@ Following is an example for `lighting`. For other examples, change the `lighting
 following commands.
 
 ```sh
-cargo build --release --example lighting --target wasm32-unknown-unknown --features webgl
+cargo build --release --example lighting --target wasm32-unknown-unknown --features webgl2
 wasm-bindgen --out-name wasm_example \
   --out-dir examples/wasm/target \
   --target web target/wasm32-unknown-unknown/release/examples/lighting.wasm
