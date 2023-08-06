@@ -182,50 +182,49 @@ impl Plugin for AssetPlugin {
 pub trait Asset: AssetDependencyVisitor + TypePath + Send + Sync + 'static {}
 
 pub trait AssetDependencyVisitor {
-    // TODO: should this be an owned handle or can it be an UntypedAssetId
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedHandle));
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId));
 }
 
 impl<A: Asset> AssetDependencyVisitor for Handle<A> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedHandle)) {
-        visit(self.clone().untyped());
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        visit(self.id().untyped());
     }
 }
 
 impl<A: Asset> AssetDependencyVisitor for Option<Handle<A>> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedHandle)) {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         if let Some(handle) = self {
-            visit(handle.clone().untyped());
+            visit(handle.id().untyped());
         }
     }
 }
 
 impl AssetDependencyVisitor for UntypedHandle {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedHandle)) {
-        visit(self.clone());
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        visit(self.id());
     }
 }
 
 impl AssetDependencyVisitor for Option<UntypedHandle> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedHandle)) {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         if let Some(handle) = self {
-            visit(handle.clone());
+            visit(handle.id());
         }
     }
 }
 
 impl<A: Asset> AssetDependencyVisitor for Vec<Handle<A>> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedHandle)) {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self.iter() {
-            visit(dependency.clone().untyped());
+            visit(dependency.id().untyped());
         }
     }
 }
 
 impl AssetDependencyVisitor for Vec<UntypedHandle> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedHandle)) {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self.iter() {
-            visit(dependency.clone());
+            visit(dependency.id());
         }
     }
 }

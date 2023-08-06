@@ -142,7 +142,7 @@ pub(crate) struct LabeledAsset {
 /// * Loader dependencies: dependencies whose actual asset values are used during the load process
 pub struct LoadedAsset<A: Asset> {
     pub(crate) value: A,
-    pub(crate) dependencies: HashSet<UntypedHandle>,
+    pub(crate) dependencies: HashSet<UntypedAssetId>,
     pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
     pub(crate) labeled_assets: HashMap<String, LabeledAsset>,
     pub(crate) meta: Option<Box<dyn AssetMetaDyn>>,
@@ -152,8 +152,8 @@ impl<A: Asset> LoadedAsset<A> {
     /// Create a new loaded asset. This will use [`AssetDependencyVisitor`](crate::AssetDependencyVisitor) to populate `dependencies`.
     pub fn new_with_dependencies(value: A, meta: Option<Box<dyn AssetMetaDyn>>) -> Self {
         let mut dependencies = HashSet::new();
-        value.visit_dependencies(&mut |handle| {
-            dependencies.insert(handle);
+        value.visit_dependencies(&mut |id| {
+            dependencies.insert(id);
         });
         LoadedAsset {
             value,
@@ -174,7 +174,7 @@ impl<A: Asset> From<A> for LoadedAsset<A> {
 /// A "type erased / boxed" counterpart to [`LoadedAsset`]. This is used in places where the loaded type is not statically known.
 pub struct ErasedLoadedAsset {
     pub(crate) value: Box<dyn AssetContainer>,
-    pub(crate) dependencies: HashSet<UntypedHandle>,
+    pub(crate) dependencies: HashSet<UntypedAssetId>,
     pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
     pub(crate) labeled_assets: HashMap<String, LabeledAsset>,
     pub(crate) meta: Option<Box<dyn AssetMetaDyn>>,
@@ -257,7 +257,7 @@ pub struct LoadContext<'a> {
     should_load_dependencies: bool,
     populate_hashes: bool,
     asset_path: AssetPath<'static>,
-    dependencies: HashSet<UntypedHandle>,
+    dependencies: HashSet<UntypedAssetId>,
     /// Direct dependencies used by this loader.
     loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
     labeled_assets: HashMap<String, LabeledAsset>,
@@ -412,7 +412,7 @@ impl<'a> LoadContext<'a> {
                 .get_or_create_path_handle(path.clone(), TypeId::of::<A>(), None)
                 .typed_debug_checked()
         };
-        self.dependencies.insert(handle.clone().untyped());
+        self.dependencies.insert(handle.id().untyped());
         handle
     }
 
@@ -436,7 +436,7 @@ impl<'a> LoadContext<'a> {
                 )
                 .typed_debug_checked()
         };
-        self.dependencies.insert(handle.clone().untyped());
+        self.dependencies.insert(handle.id().untyped());
         handle
     }
 
@@ -449,7 +449,7 @@ impl<'a> LoadContext<'a> {
             .asset_server
             .get_or_create_path_handle(path.to_owned(), TypeId::of::<A>(), None)
             .typed_debug_checked();
-        self.dependencies.insert(handle.clone().untyped());
+        self.dependencies.insert(handle.id().untyped());
         handle
     }
 

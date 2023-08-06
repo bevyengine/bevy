@@ -74,7 +74,7 @@ fn derive_dependency_visitor_internal(
 
     quote! {
         impl #impl_generics #bevy_asset_path::AssetDependencyVisitor for #struct_name #type_generics #where_clause {
-            fn visit_dependencies(&self, visit: &mut impl FnMut(#bevy_asset_path::UntypedHandle)) {
+            fn visit_dependencies(&self, visit: &mut impl FnMut(#bevy_asset_path::UntypedAssetId)) {
                 #(#field_visitors)*
             }
         }

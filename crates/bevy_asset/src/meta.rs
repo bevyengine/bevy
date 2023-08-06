@@ -184,7 +184,7 @@ impl Process for () {
 impl Asset for () {}
 
 impl AssetDependencyVisitor for () {
-    fn visit_dependencies(&self, _visit: &mut impl FnMut(bevy_asset::UntypedHandle)) {
+    fn visit_dependencies(&self, _visit: &mut impl FnMut(bevy_asset::UntypedAssetId)) {
         unreachable!()
     }
 }

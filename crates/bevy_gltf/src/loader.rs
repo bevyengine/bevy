@@ -242,30 +242,42 @@ async fn load_gltf<'a, 'b, 'c>(
     // See https://github.com/bevyengine/bevy/issues/1924 for more details
     // The taskpool use is also avoided when there is only one texture for performance reasons and
     // to avoid https://github.com/bevyengine/bevy/pull/2725
+    // PERF: could this be a Vec instead? Are gltf texture indices dense?
+    fn process_loaded_texture(
+        load_context: &mut LoadContext,
+        handles: &mut Vec<Handle<Image>>,
+        texture: ImageOrPath,
+    ) {
+        let handle = match texture {
+            ImageOrPath::Image { label, image } => load_context.add_labeled_asset(label, image),
+            ImageOrPath::Path { path, is_srgb } => {
+                load_context.load_with_settings(path, move |settings: &mut ImageLoaderSettings| {
+                    settings.is_srgb = is_srgb;
+                })
+            }
+        };
+        handles.push(handle);
+    }
+
+    // We collect handles to ensure loaded images from paths are not unloaded before they are used elsewhere
+    // in the loader. This prevents "reloads", but it also prevents dropping the is_srgb context on reload.
+    //
+    // In theory we could store a mapping between texture.index() and handle to use
+    // later in the loader when looking up handles for materials. However this would mean
+    // that the material's load context would no longer track those images as dependencies.
+    let mut _texture_handles = Vec::new();
     if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
-        for gltf_texture in gltf.textures() {
+        for texture in gltf.textures() {
             let parent_path = load_context.path().parent().unwrap();
-            let texture = load_texture(
-                gltf_texture,
+            let image = load_image(
+                texture,
                 &buffer_data,
                 &linear_textures,
                 parent_path,
                 loader.supported_compressed_formats,
             )
             .await?;
-            match texture {
-                ImageOrPath::Image { label, image } => {
-                    load_context.add_labeled_asset(label, image);
-                }
-                ImageOrPath::Path { path, is_srgb } => {
-                    let _handle: Handle<Image> = load_context.load_with_settings(
-                        path,
-                        move |settings: &mut ImageLoaderSettings| {
-                            settings.is_srgb = is_srgb;
-                        },
-                    );
-                }
-            }
+            process_loaded_texture(load_context, &mut _texture_handles, image);
         }
     } else {
         #[cfg(not(target_arch = "wasm32"))]
@@ -276,7 +288,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     let linear_textures = &linear_textures;
                     let buffer_data = &buffer_data;
                     scope.spawn(async move {
-                        load_texture(
+                        load_image(
                             gltf_texture,
                             buffer_data,
                             linear_textures,
@@ -288,17 +300,9 @@ async fn load_gltf<'a, 'b, 'c>(
                 });
             })
             .into_iter()
-            .for_each(|image| match image {
-                Ok(ImageOrPath::Image { label, image }) => {
-                    load_context.add_labeled_asset(label, image);
-                }
-                Ok(ImageOrPath::Path { path, is_srgb }) => {
-                    let _handle: Handle<Image> = load_context.load_with_settings(
-                        path,
-                        move |settings: &mut ImageLoaderSettings| {
-                            settings.is_srgb = is_srgb;
-                        },
-                    );
+            .for_each(|result| match result {
+                Ok(image) => {
+                    process_loaded_texture(load_context, &mut _texture_handles, image);
                 }
                 Err(err) => {
                     warn!("Error loading glTF texture: {}", err);
@@ -614,7 +618,7 @@ fn paths_recur(
 }
 
 /// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
-async fn load_texture<'a, 'b>(
+async fn load_image<'a, 'b>(
     gltf_texture: gltf::Texture<'a>,
     buffer_data: &[Vec<u8>],
     linear_textures: &HashSet<usize>,
