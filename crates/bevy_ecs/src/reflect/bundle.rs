@@ -132,85 +132,93 @@ impl<C: Bundle + Reflect + FromWorld> FromType<C> for ReflectBundle {
                 let mut bundle = entity.world_scope(|world| C::from_world(world));
                 bundle.apply(reflected_bundle);
 
-                if let ReflectRef::Struct(bundle) = bundle.reflect_ref() {
-                    for field in bundle.iter_fields() {
-                        if let Some(reflect_component) =
-                            registry.get_type_data::<ReflectComponent>(field.type_id())
-                        {
-                            reflect_component.apply(entity, field);
-                        } else if let Some(reflect_bundle) =
-                            registry.get_type_data::<ReflectBundle>(field.type_id())
-                        {
-                            reflect_bundle.apply(entity, field, registry);
-                        } else {
-                            entity.world_scope(|world| {
-                                if let Some(id) = world.bundles().get_id(TypeId::of::<C>()) {
-                                    let info = world.bundles().get(id).unwrap();
-                                    if info.components().is_empty() {
-                                        panic!(
-                                            "no `ReflectComponent` registration found for `{}`",
-                                            field.type_name()
-                                        );
-                                    }
-                                };
-                            });
-
-                            panic!(
-                                "no `ReflectBundle` registration found for `{}`",
-                                field.type_name()
-                            )
-                        }
-                    }
-                } else {
-                    panic!(
-                        "expected bundle `{}` to be named struct",
+                match bundle.reflect_ref() {
+                    ReflectRef::Struct(bundle) => bundle
+                        .iter_fields()
+                        .for_each(|field| insert_field::<C>(entity, field, registry)),
+                    ReflectRef::Tuple(bundle) => bundle
+                        .iter_fields()
+                        .for_each(|field| insert_field::<C>(entity, field, registry)),
+                    _ => panic!(
+                        "expected bundle `{}` to be named struct or tuple",
                         std::any::type_name::<C>()
-                    );
+                    ),
                 }
             },
             apply_or_insert: |entity, reflected_bundle, registry| {
                 let mut bundle = entity.world_scope(|world| C::from_world(world));
                 bundle.apply(reflected_bundle);
 
-                if let ReflectRef::Struct(bundle) = bundle.reflect_ref() {
-                    for field in bundle.iter_fields() {
-                        if let Some(reflect_component) =
-                            registry.get_type_data::<ReflectComponent>(field.type_id())
-                        {
-                            reflect_component.apply_or_insert(entity, field);
-                        } else if let Some(reflect_bundle) =
-                            registry.get_type_data::<ReflectBundle>(field.type_id())
-                        {
-                            reflect_bundle.apply_or_insert(entity, field, registry);
-                        } else {
-                            entity.world_scope(|world| {
-                                if let Some(id) = world.bundles().get_id(TypeId::of::<C>()) {
-                                    let info = world.bundles().get(id).unwrap();
-                                    if info.components().is_empty() {
-                                        panic!(
-                                            "no `ReflectComponent` registration found for `{}`",
-                                            field.type_name()
-                                        );
-                                    }
-                                };
-                            });
-
-                            panic!(
-                                "no `ReflectBundle` registration found for `{}`",
-                                field.type_name()
-                            )
-                        }
-                    }
-                } else {
-                    panic!(
-                        "expected bundle `{}` to be named struct",
+                match bundle.reflect_ref() {
+                    ReflectRef::Struct(bundle) => bundle
+                        .iter_fields()
+                        .for_each(|field| apply_or_insert_field::<C>(entity, field, registry)),
+                    ReflectRef::Tuple(bundle) => bundle
+                        .iter_fields()
+                        .for_each(|field| apply_or_insert_field::<C>(entity, field, registry)),
+                    _ => panic!(
+                        "expected bundle `{}` to be named struct or tuple",
                         std::any::type_name::<C>()
-                    );
+                    ),
                 }
             },
             remove: |entity| {
                 entity.remove::<C>();
             },
         })
+    }
+}
+
+fn insert_field<C: 'static>(entity: &mut EntityMut, field: &dyn Reflect, registry: &TypeRegistry) {
+    if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(field.type_id()) {
+        reflect_component.apply(entity, field);
+    } else if let Some(reflect_bundle) = registry.get_type_data::<ReflectBundle>(field.type_id()) {
+        reflect_bundle.apply(entity, field, registry);
+    } else {
+        entity.world_scope(|world| {
+            if let Some(id) = world.bundles().get_id(TypeId::of::<C>()) {
+                let info = world.bundles().get(id).unwrap();
+                if info.components().is_empty() {
+                    panic!(
+                        "no `ReflectComponent` registration found for `{}`",
+                        field.type_name()
+                    );
+                }
+            };
+        });
+
+        panic!(
+            "no `ReflectBundle` registration found for `{}`",
+            field.type_name()
+        )
+    }
+}
+
+fn apply_or_insert_field<C: 'static>(
+    entity: &mut EntityMut,
+    field: &dyn Reflect,
+    registry: &TypeRegistry,
+) {
+    if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(field.type_id()) {
+        reflect_component.apply_or_insert(entity, field);
+    } else if let Some(reflect_bundle) = registry.get_type_data::<ReflectBundle>(field.type_id()) {
+        reflect_bundle.apply_or_insert(entity, field, registry);
+    } else {
+        entity.world_scope(|world| {
+            if let Some(id) = world.bundles().get_id(TypeId::of::<C>()) {
+                let info = world.bundles().get(id).unwrap();
+                if info.components().is_empty() {
+                    panic!(
+                        "no `ReflectComponent` registration found for `{}`",
+                        field.type_name()
+                    );
+                }
+            };
+        });
+
+        panic!(
+            "no `ReflectBundle` registration found for `{}`",
+            field.type_name()
+        )
     }
 }
