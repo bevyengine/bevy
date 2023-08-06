@@ -24,7 +24,7 @@ pub fn derive_asset(input: TokenStream) -> TokenStream {
             {
                 if let Some(field_ident) = &field.ident {
                     field_visitors.push(quote! {
-                        #bevy_asset_path::AssetDependencyVisitor::visit_dependencies(&self.#field_ident, visit);
+                        #bevy_asset_path::VisitAssetDependencies::visit_dependencies(&self.#field_ident, visit);
                     });
                 }
             }
@@ -41,7 +41,7 @@ pub fn derive_asset(input: TokenStream) -> TokenStream {
     })
 }
 
-#[proc_macro_derive(AssetDependencyVisitor, attributes(dependency))]
+#[proc_macro_derive(VisitAssetDependencies, attributes(dependency))]
 pub fn derive_asset_dependency_visitor(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let bevy_asset_path: Path = bevy_asset_path();
@@ -62,7 +62,7 @@ fn derive_dependency_visitor_internal(
             {
                 if let Some(field_ident) = &field.ident {
                     field_visitors.push(quote! {
-                        #bevy_asset_path::AssetDependencyVisitor::visit_dependencies(&self.#field_ident, visit);
+                        #bevy_asset_path::VisitAssetDependencies::visit_dependencies(&self.#field_ident, visit);
                     });
                 }
             }
@@ -73,7 +73,7 @@ fn derive_dependency_visitor_internal(
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     quote! {
-        impl #impl_generics #bevy_asset_path::AssetDependencyVisitor for #struct_name #type_generics #where_clause {
+        impl #impl_generics #bevy_asset_path::VisitAssetDependencies for #struct_name #type_generics #where_clause {
             fn visit_dependencies(&self, visit: &mut impl FnMut(#bevy_asset_path::UntypedAssetId)) {
                 #(#field_visitors)*
             }

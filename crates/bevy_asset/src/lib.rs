@@ -179,19 +179,19 @@ impl Plugin for AssetPlugin {
     }
 }
 
-pub trait Asset: AssetDependencyVisitor + TypePath + Send + Sync + 'static {}
+pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {}
 
-pub trait AssetDependencyVisitor {
+pub trait VisitAssetDependencies {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId));
 }
 
-impl<A: Asset> AssetDependencyVisitor for Handle<A> {
+impl<A: Asset> VisitAssetDependencies for Handle<A> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         visit(self.id().untyped());
     }
 }
 
-impl<A: Asset> AssetDependencyVisitor for Option<Handle<A>> {
+impl<A: Asset> VisitAssetDependencies for Option<Handle<A>> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         if let Some(handle) = self {
             visit(handle.id().untyped());
@@ -199,13 +199,13 @@ impl<A: Asset> AssetDependencyVisitor for Option<Handle<A>> {
     }
 }
 
-impl AssetDependencyVisitor for UntypedHandle {
+impl VisitAssetDependencies for UntypedHandle {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         visit(self.id());
     }
 }
 
-impl AssetDependencyVisitor for Option<UntypedHandle> {
+impl VisitAssetDependencies for Option<UntypedHandle> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         if let Some(handle) = self {
             visit(handle.id());
@@ -213,7 +213,7 @@ impl AssetDependencyVisitor for Option<UntypedHandle> {
     }
 }
 
-impl<A: Asset> AssetDependencyVisitor for Vec<Handle<A>> {
+impl<A: Asset> VisitAssetDependencies for Vec<Handle<A>> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self.iter() {
             visit(dependency.id().untyped());
@@ -221,7 +221,7 @@ impl<A: Asset> AssetDependencyVisitor for Vec<Handle<A>> {
     }
 }
 
-impl AssetDependencyVisitor for Vec<UntypedHandle> {
+impl VisitAssetDependencies for Vec<UntypedHandle> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self.iter() {
             visit(dependency.id());

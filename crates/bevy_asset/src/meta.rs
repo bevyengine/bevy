@@ -1,4 +1,4 @@
-use crate::{self as bevy_asset, AssetDependencyVisitor, DeserializeMetaError};
+use crate::{self as bevy_asset, DeserializeMetaError, VisitAssetDependencies};
 use crate::{loader::AssetLoader, processor::Process, Asset, AssetPath};
 use bevy_log::error;
 use downcast_rs::{impl_downcast, Downcast};
@@ -183,7 +183,7 @@ impl Process for () {
 
 impl Asset for () {}
 
-impl AssetDependencyVisitor for () {
+impl VisitAssetDependencies for () {
     fn visit_dependencies(&self, _visit: &mut impl FnMut(bevy_asset::UntypedAssetId)) {
         unreachable!()
     }
