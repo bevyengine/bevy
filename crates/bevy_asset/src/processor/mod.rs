@@ -180,7 +180,7 @@ impl AssetProcessor {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn process_assets(&self) {
         let start_time = std::time::Instant::now();
-        debug!("Processing started");
+        debug!("Processing Assets");
         IoTaskPool::get().scope(|scope| {
             scope.spawn(async move {
                 self.initialize().await.unwrap();
@@ -539,7 +539,7 @@ impl AssetProcessor {
                     Ok(meta_bytes) => {
                         match ron::de::from_bytes::<ProcessedInfoMinimal>(&meta_bytes) {
                             Ok(minimal) => {
-                                debug!(
+                                trace!(
                                     "Populated processed info for asset {path:?} {:?}",
                                     minimal.processed_info
                                 );
@@ -554,18 +554,18 @@ impl AssetProcessor {
                                 info.processed_info = minimal.processed_info;
                             }
                             Err(err) => {
-                                debug!("Removing processed data for {path:?} because meta could not be parsed: {err}");
+                                trace!("Removing processed data for {path:?} because meta could not be parsed: {err}");
                                 self.remove_processed_asset_and_meta(path).await;
                             }
                         }
                     }
                     Err(err) => {
-                        debug!("Removing processed data for {path:?} because meta failed to load: {err}");
+                        trace!("Removing processed data for {path:?} because meta failed to load: {err}");
                         self.remove_processed_asset_and_meta(path).await;
                     }
                 }
             } else {
-                debug!("Removing processed data for non-existent asset {path:?}");
+                trace!("Removing processed data for non-existent asset {path:?}");
                 self.remove_processed_asset_and_meta(path).await;
             }
 
@@ -630,7 +630,7 @@ impl AssetProcessor {
     async fn process_asset_internal(&self, path: &Path) -> Result<ProcessResult, ProcessError> {
         let asset_path = AssetPath::new(path.to_owned(), None);
         // TODO: check if already processing to protect against duplicate hot-reload events
-        debug!("Processing asset {:?}", path);
+        debug!("Processing {:?}", path);
         let server = &self.server;
 
         // Note: we get the asset source reader first because we don't want to create meta files for assets that don't have source files
@@ -1076,7 +1076,7 @@ impl ProcessorAssetInfos {
     ) {
         match result {
             Ok(ProcessResult::Processed(processed_info)) => {
-                debug!("Finished processing asset {:?}", asset_path,);
+                debug!("Finished processing \"{:?}\"", asset_path);
                 // clean up old dependants
                 let old_processed_info = self
                     .infos
@@ -1099,10 +1099,7 @@ impl ProcessorAssetInfos {
                 }
             }
             Ok(ProcessResult::SkippedNotChanged) => {
-                debug!(
-                    "Skipping processing of asset {:?} because it has not changed",
-                    asset_path
-                );
+                debug!("Skipping processing (unchanged) \"{:?}\"", asset_path);
                 let info = self.get_mut(&asset_path).expect("info should exist");
                 // NOTE: skipping an asset on a given pass doesn't mean it won't change in the future as a result
                 // of a dependency being re-processed. This means apps might receive an "old" (but valid) asset first.
