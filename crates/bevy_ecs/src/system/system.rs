@@ -216,6 +216,28 @@ impl Debug for dyn System<In = (), Out = ()> {
 ///
 /// # assert_eq!(count, 2);
 /// ```
+///
+/// Note that instead of closures you can also pass in regular functions as systems:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::RunSystem;
+///
+/// #[derive(Component)]
+/// struct T(usize);
+///
+/// fn count(query: Query<&T>) -> usize {
+///     query.iter().filter(|t| t.0 == 1).count()
+/// }
+///
+/// let mut world = World::default();
+/// world.spawn(T(0));
+/// world.spawn(T(1));
+/// world.spawn(T(1));
+/// let count = world.run_system(count);
+///
+/// # assert_eq!(count, 2);
+/// ```
 pub trait RunSystem: Sized {
     /// Runs a system and applies its deferred parameters.
     fn run_system<T: IntoSystem<(), Out, Marker>, Out, Marker>(self, system: T) -> Out {
