@@ -117,7 +117,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue_number,
-                body: 'The examples readme needs to be updated. Please run `cargo run -p build-templated-pages -- update examples` to update it, and commit the file change.'
+                body: 'The generated `examples/README.md` is out of sync with the example metadata in `Cargo.toml` or the example readme template. Please run `cargo run -p build-templated-pages -- update examples` to update it, and commit the file change.'
               });
             }
 
