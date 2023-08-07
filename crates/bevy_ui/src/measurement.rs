@@ -66,4 +66,11 @@ impl ContentSize {
         };
         self.measure_func = Some(MeasureFunc::Boxed(Box::new(measure_func)));
     }
+
+    /// Creates a `ContentSize` with a `Measure` that always returns given `size` argument, regardless of the UI layout's constraints.
+    pub fn fixed_size(size: Vec2) -> ContentSize {
+        let mut content_size = Self::default();
+        content_size.set(FixedMeasure { size });
+        content_size
+    }
 }
