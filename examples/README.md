@@ -514,7 +514,8 @@ wasm-bindgen --out-name wasm_example \
 ```
 
 The first command will build the example for the wasm target, creating a binary. Then,
-[wasm-bindgen-cli](https://rustwasm.github.io/wasm-bindgen/reference/cli.html) is used to create javascript bindings to this wasm file in the output file `examples/wasm/target/wasm_example.js`, which can be loaded using this
+[wasm-bindgen-cli](https://rustwasm.github.io/wasm-bindgen/reference/cli.html) is used to create
+javascript bindings to this wasm file in the output file `examples/wasm/target/wasm_example.js`, which can be loaded using this
 [example HTML file](./wasm/index.html).
 
 Then serve `examples/wasm` directory to browser. i.e.
