@@ -55,7 +55,7 @@ pub struct ContentSize {
 }
 
 impl ContentSize {
-    /// Set a `Measure` for this function
+    /// Set a `Measure` for the UI node entity with this component
     pub fn set(&mut self, measure: impl Measure) {
         let measure_func = move |size: TaffySize<_>, available: TaffySize<_>| {
             let size = measure.measure(size.width, size.height, available.width, available.height);

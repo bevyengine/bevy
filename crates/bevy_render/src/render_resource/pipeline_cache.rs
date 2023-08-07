@@ -304,6 +304,7 @@ impl ShaderCache {
 
                         let shader_defs = shader_defs
                             .into_iter()
+                            .chain(shader.shader_defs.iter().cloned())
                             .map(|def| match def {
                                 ShaderDefVal::Bool(k, v) => {
                                     (k, naga_oil::compose::ShaderDefValue::Bool(v))
