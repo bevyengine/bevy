@@ -735,6 +735,35 @@ impl<'a> MutUntyped<'a> {
         self.value.as_ref()
     }
 
+    /// Turn this [`MutUntyped`] into a [`Mut`] by mapping the inner [`PtrMut`] to another value,
+    /// without flagging a change.
+    /// This function is the untyped equivalent of [`Mut::map_unchanged`].
+    ///
+    /// You should never modify the argument passed to the closure – if you want to modify the data without flagging a change, consider using [`bypass_change_detection`](DetectChangesMut::bypass_change_detection) to make your intent explicit.
+    ///
+    /// If you know the type of the value you can do
+    /// ```no_run
+    /// # use bevy_ecs::change_detection::{Mut, MutUntyped};
+    /// # let mut_untyped: MutUntyped = unimplemented!();
+    /// // SAFETY: ptr is of type `u8`
+    /// mut_untyped.map_unchanged(|ptr| unsafe { ptr.deref_mut::<u8>() });
+    /// ```
+    /// If you have a [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) that you know belongs to this [`MutUntyped`],
+    /// you can do
+    /// ```no_run
+    /// # use bevy_ecs::change_detection::{Mut, MutUntyped};
+    /// # let mut_untyped: MutUntyped = unimplemented!();
+    /// # let reflect_from_ptr: bevy_reflect::ReflectFromPtr = unimplemented!();
+    /// // SAFETY: from the context it is known that `ReflectFromPtr` was made for the type of the `MutUntyped`
+    /// mut_untyped.map_unchanged(|ptr| unsafe { reflect_from_ptr.as_reflect_ptr_mut(ptr) });
+    /// ```
+    pub fn map_unchanged<T: ?Sized>(self, f: impl FnOnce(PtrMut<'a>) -> &'a mut T) -> Mut<'a, T> {
+        Mut {
+            value: f(self.value),
+            ticks: self.ticks,
+        }
+    }
+
     /// Transforms this [`MutUntyped`] into a [`Mut<T>`] with the same lifetime.
     ///
     /// # Safety
@@ -798,6 +827,8 @@ impl std::fmt::Debug for MutUntyped<'_> {
 #[cfg(test)]
 mod tests {
     use bevy_ecs_macros::Resource;
+    use bevy_ptr::PtrMut;
+    use bevy_reflect::{FromType, ReflectFromPtr};
 
     use crate::{
         self as bevy_ecs,
@@ -809,8 +840,7 @@ mod tests {
         world::World,
     };
 
-    use super::DetectChanges;
-    use super::DetectChangesMut;
+    use super::{DetectChanges, DetectChangesMut, MutUntyped};
 
     #[derive(Component, PartialEq)]
     struct C;
@@ -1033,5 +1063,41 @@ mod tests {
             r.is_changed(),
             "Resource must be changed after setting to a different value."
         );
+    }
+
+    #[test]
+    fn mut_untyped_to_reflect() {
+        let last_run = Tick::new(2);
+        let this_run = Tick::new(3);
+        let mut component_ticks = ComponentTicks {
+            added: Tick::new(1),
+            changed: Tick::new(2),
+        };
+        let ticks = TicksMut {
+            added: &mut component_ticks.added,
+            changed: &mut component_ticks.changed,
+            last_run,
+            this_run,
+        };
+
+        let mut value: i32 = 5;
+        let value = MutUntyped {
+            value: PtrMut::from(&mut value),
+            ticks,
+        };
+
+        let reflect_from_ptr = <ReflectFromPtr as FromType<i32>>::from_type();
+
+        let mut new = value.map_unchanged(|ptr| {
+            // SAFETY: The underlying type of `ptr` matches `reflect_from_ptr`.
+            let value = unsafe { reflect_from_ptr.as_reflect_ptr_mut(ptr) };
+            value
+        });
+
+        assert!(!new.is_changed());
+
+        new.reflect_mut();
+
+        assert!(new.is_changed());
     }
 }

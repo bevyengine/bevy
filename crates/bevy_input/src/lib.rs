@@ -28,7 +28,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::Reflect;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
 use mouse::{
     mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseScrollUnit,
@@ -140,7 +140,7 @@ impl Plugin for InputPlugin {
 }
 
 /// The current "press" state of an element
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Reflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",

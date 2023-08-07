@@ -4,19 +4,19 @@ mod render_pass;
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
 use bevy_render::{ExtractSchedule, Render};
-#[cfg(feature = "bevy_text")]
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
 
 use crate::{
-    prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, Node, UiImage, UiStack,
+    prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
+    Style, UiImage, UiScale, UiStack, UiTextureAtlasImage, Val,
 };
-use crate::{ContentSize, Style, Val};
+
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
 use bevy_render::{
@@ -32,7 +32,6 @@ use bevy_render::{
     Extract, RenderApp, RenderSet,
 };
 use bevy_sprite::SpriteAssetEvents;
-#[cfg(feature = "bevy_text")]
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
@@ -59,6 +58,7 @@ pub const UI_SHADER_HANDLE: HandleUntyped =
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
     ExtractNode,
+    ExtractAtlasNode,
 }
 
 pub fn build_ui_render(app: &mut App) {
@@ -82,9 +82,12 @@ pub fn build_ui_render(app: &mut App) {
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
-                extract_uinode_borders.after(RenderUiSystem::ExtractNode),
+                extract_atlas_uinodes
+                    .in_set(RenderUiSystem::ExtractAtlasNode)
+                    .after(RenderUiSystem::ExtractNode),
+                extract_uinode_borders.after(RenderUiSystem::ExtractAtlasNode),
                 #[cfg(feature = "bevy_text")]
-                extract_text_uinodes.after(RenderUiSystem::ExtractNode),
+                extract_text_uinodes.after(RenderUiSystem::ExtractAtlasNode),
             ),
         )
         .add_systems(
@@ -166,6 +169,82 @@ pub struct ExtractedUiNodes {
     pub uinodes: Vec<ExtractedUiNode>,
 }
 
+pub fn extract_atlas_uinodes(
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    images: Extract<Res<Assets<Image>>>,
+    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
+    ui_stack: Extract<Res<UiStack>>,
+    uinode_query: Extract<
+        Query<
+            (
+                &Node,
+                &GlobalTransform,
+                &BackgroundColor,
+                &ComputedVisibility,
+                Option<&CalculatedClip>,
+                &Handle<TextureAtlas>,
+                &UiTextureAtlasImage,
+            ),
+            Without<UiImage>,
+        >,
+    >,
+) {
+    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
+        if let Ok((uinode, transform, color, visibility, clip, texture_atlas_handle, atlas_image)) =
+            uinode_query.get(*entity)
+        {
+            // Skip invisible and completely transparent nodes
+            if !visibility.is_visible() || color.0.a() == 0.0 {
+                continue;
+            }
+
+            let (mut atlas_rect, mut atlas_size, image) =
+                if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
+                    let atlas_rect = *texture_atlas
+                        .textures
+                        .get(atlas_image.index)
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Atlas index {:?} does not exist for texture atlas handle {:?}.",
+                                atlas_image.index,
+                                texture_atlas_handle.id(),
+                            )
+                        });
+                    (
+                        atlas_rect,
+                        texture_atlas.size,
+                        texture_atlas.texture.clone(),
+                    )
+                } else {
+                    // Atlas not present in assets resource (should this warn the user?)
+                    continue;
+                };
+
+            // Skip loading images
+            if !images.contains(&image) {
+                continue;
+            }
+
+            let scale = uinode.size() / atlas_rect.size();
+            atlas_rect.min *= scale;
+            atlas_rect.max *= scale;
+            atlas_size *= scale;
+
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                stack_index,
+                transform: transform.compute_matrix(),
+                color: color.0,
+                rect: atlas_rect,
+                clip: clip.map(|clip| clip.clip),
+                image,
+                atlas_size: Some(atlas_size),
+                flip_x: atlas_image.flip_x,
+                flip_y: atlas_image.flip_y,
+            });
+        }
+    }
+}
+
 fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
     match value {
         Val::Auto => 0.,
@@ -181,6 +260,7 @@ fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) 
 pub fn extract_uinode_borders(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
+    ui_scale: Extract<Res<UiScale>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<
@@ -196,14 +276,17 @@ pub fn extract_uinode_borders(
             Without<ContentSize>,
         >,
     >,
-    parent_node_query: Extract<Query<&Node, With<Parent>>>,
+    node_query: Extract<Query<&Node>>,
 ) {
     let image = bevy_render::texture::DEFAULT_IMAGE_HANDLE.typed();
 
-    let viewport_size = windows
+    let ui_logical_viewport_size = windows
         .get_single()
         .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
-        .unwrap_or(Vec2::ZERO);
+        .unwrap_or(Vec2::ZERO)
+        // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
+        // so we have to divide by `UiScale` to get the size of the UI viewport.
+        / ui_scale.scale as f32;
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((node, global_transform, style, border_color, parent, visibility, clip)) =
@@ -221,13 +304,23 @@ pub fn extract_uinode_borders(
             // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
             // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
             let parent_width = parent
-                .and_then(|parent| parent_node_query.get(parent.get()).ok())
+                .and_then(|parent| node_query.get(parent.get()).ok())
                 .map(|parent_node| parent_node.size().x)
-                .unwrap_or(viewport_size.x);
-            let left = resolve_border_thickness(style.border.left, parent_width, viewport_size);
-            let right = resolve_border_thickness(style.border.right, parent_width, viewport_size);
-            let top = resolve_border_thickness(style.border.top, parent_width, viewport_size);
-            let bottom = resolve_border_thickness(style.border.bottom, parent_width, viewport_size);
+                .unwrap_or(ui_logical_viewport_size.x);
+            let left =
+                resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
+            let right = resolve_border_thickness(
+                style.border.right,
+                parent_width,
+                ui_logical_viewport_size,
+            );
+            let top =
+                resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
+            let bottom = resolve_border_thickness(
+                style.border.bottom,
+                parent_width,
+                ui_logical_viewport_size,
+            );
 
             // Calculate the border rects, ensuring no overlap.
             // The border occupies the space between the node's bounding rect and the node's bounding rect inset in each direction by the node's corresponding border value.
@@ -288,18 +381,19 @@ pub fn extract_uinodes(
     images: Extract<Res<Assets<Image>>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
-        Query<(
-            &Node,
-            &GlobalTransform,
-            &BackgroundColor,
-            Option<&UiImage>,
-            &ComputedVisibility,
-            Option<&CalculatedClip>,
-        )>,
+        Query<
+            (
+                &Node,
+                &GlobalTransform,
+                &BackgroundColor,
+                Option<&UiImage>,
+                &ComputedVisibility,
+                Option<&CalculatedClip>,
+            ),
+            Without<UiTextureAtlasImage>,
+        >,
     >,
 ) {
-    extracted_uinodes.uinodes.clear();
-
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
             uinode_query.get(*entity)
@@ -316,7 +410,7 @@ pub fn extract_uinodes(
                 }
                 (image.texture.clone_weak(), image.flip_x, image.flip_y)
             } else {
-                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
+                (DEFAULT_IMAGE_HANDLE.typed(), false, false)
             };
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
@@ -327,13 +421,13 @@ pub fn extract_uinodes(
                     min: Vec2::ZERO,
                     max: uinode.calculated_size,
                 },
+                clip: clip.map(|clip| clip.clip),
                 image,
                 atlas_size: None,
-                clip: clip.map(|clip| clip.clip),
                 flip_x,
                 flip_y,
             });
-        }
+        };
     }
 }
 
@@ -353,21 +447,36 @@ pub struct DefaultCameraView(pub Entity);
 
 pub fn extract_default_ui_camera_view<T: Component>(
     mut commands: Commands,
+    ui_scale: Extract<Res<UiScale>>,
     query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
 ) {
+    let scale = (ui_scale.scale as f32).recip();
     for (entity, camera, camera_ui) in &query {
         // ignore cameras with disabled ui
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
             continue;
         }
-        if let (Some(logical_size), Some((physical_origin, _)), Some(physical_size)) = (
+        if let (
+            Some(logical_size),
+            Some(URect {
+                min: physical_origin,
+                ..
+            }),
+            Some(physical_size),
+        ) = (
             camera.logical_viewport_size(),
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
         ) {
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
-            let projection_matrix =
-                Mat4::orthographic_rh(0.0, logical_size.x, logical_size.y, 0.0, 0.0, UI_CAMERA_FAR);
+            let projection_matrix = Mat4::orthographic_rh(
+                0.0,
+                logical_size.x * scale,
+                logical_size.y * scale,
+                0.0,
+                0.0,
+                UI_CAMERA_FAR,
+            );
             let default_camera_view = commands
                 .spawn(ExtractedView {
                     projection: projection_matrix,
@@ -401,6 +510,7 @@ pub fn extract_text_uinodes(
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_stack: Extract<Res<UiStack>>,
+    ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -415,10 +525,11 @@ pub fn extract_text_uinodes(
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
-        .map(|window| window.resolution.scale_factor() as f32)
-        .unwrap_or(1.0);
+        .map(|window| window.resolution.scale_factor())
+        .unwrap_or(1.0)
+        * ui_scale.scale;
 
-    let inverse_scale_factor = scale_factor.recip();
+    let inverse_scale_factor = (scale_factor as f32).recip();
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
@@ -472,6 +583,7 @@ struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub color: [f32; 4],
+    pub mode: u32,
 }
 
 #[derive(Resource)]
@@ -505,6 +617,9 @@ pub struct UiBatch {
     pub z: f32,
 }
 
+const TEXTURED_QUAD: u32 = 0;
+const UNTEXTURED_QUAD: u32 = 1;
+
 pub fn prepare_uinodes(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -521,20 +636,33 @@ pub fn prepare_uinodes(
 
     let mut start = 0;
     let mut end = 0;
-    let mut current_batch_handle = Default::default();
+    let mut current_batch_image = DEFAULT_IMAGE_HANDLE.typed();
     let mut last_z = 0.0;
-    for extracted_uinode in &extracted_uinodes.uinodes {
-        if current_batch_handle != extracted_uinode.image {
-            if start != end {
-                commands.spawn(UiBatch {
-                    range: start..end,
-                    image: current_batch_handle,
-                    z: last_z,
-                });
-                start = end;
+
+    #[inline]
+    fn is_textured(image: &Handle<Image>) -> bool {
+        image.id() != DEFAULT_IMAGE_HANDLE.id()
+    }
+
+    for extracted_uinode in extracted_uinodes.uinodes.drain(..) {
+        let mode = if is_textured(&extracted_uinode.image) {
+            if current_batch_image.id() != extracted_uinode.image.id() {
+                if is_textured(&current_batch_image) && start != end {
+                    commands.spawn(UiBatch {
+                        range: start..end,
+                        image: current_batch_image,
+                        z: last_z,
+                    });
+                    start = end;
+                }
+                current_batch_image = extracted_uinode.image.clone_weak();
             }
-            current_batch_handle = extracted_uinode.image.clone_weak();
-        }
+            TEXTURED_QUAD
+        } else {
+            // Untextured `UiBatch`es are never spawned within the loop.
+            // If all the `extracted_uinodes` are untextured a single untextured UiBatch will be spawned after the loop terminates.
+            UNTEXTURED_QUAD
+        };
 
         let mut uinode_rect = extracted_uinode.rect;
 
@@ -592,7 +720,7 @@ pub fn prepare_uinodes(
                 continue;
             }
         }
-        let uvs = if current_batch_handle.id() == DEFAULT_IMAGE_HANDLE.id() {
+        let uvs = if mode == UNTEXTURED_QUAD {
             [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
         } else {
             let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
@@ -637,6 +765,7 @@ pub fn prepare_uinodes(
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
                 color,
+                mode,
             });
         }
 
@@ -648,7 +777,7 @@ pub fn prepare_uinodes(
     if start != end {
         commands.spawn(UiBatch {
             range: start..end,
-            image: current_batch_handle,
+            image: current_batch_image,
             z: last_z,
         });
     }

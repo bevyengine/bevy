@@ -253,12 +253,13 @@ impl<A: Asset> FromType<Handle<A>> for ReflectHandle {
 mod tests {
     use std::any::TypeId;
 
-    use bevy_app::{App, AppTypeRegistry};
-    use bevy_reflect::{FromReflect, Reflect, ReflectMut, TypeUuid};
+    use bevy_app::App;
+    use bevy_ecs::reflect::AppTypeRegistry;
+    use bevy_reflect::{Reflect, ReflectMut, TypeUuid};
 
     use crate::{AddAsset, AssetPlugin, HandleUntyped, ReflectAsset};
 
-    #[derive(Reflect, FromReflect, TypeUuid)]
+    #[derive(Reflect, TypeUuid)]
     #[uuid = "09191350-1238-4736-9a89-46f04bda6966"]
     struct AssetType {
         field: String,
@@ -267,7 +268,7 @@ mod tests {
     #[test]
     fn test_reflect_asset_operations() {
         let mut app = App::new();
-        app.add_plugin(AssetPlugin::default())
+        app.add_plugins(AssetPlugin::default())
             .add_asset::<AssetType>()
             .register_asset_reflect::<AssetType>();
 

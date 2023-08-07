@@ -35,12 +35,14 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            // Hot reloading the shader works correctly
-            watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
-            ..default()
-        }))
-        .add_plugin(PostProcessPlugin)
+        .add_plugins((
+            DefaultPlugins.set(AssetPlugin {
+                // Hot reloading the shader works correctly
+                watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
+                ..default()
+            }),
+            PostProcessPlugin,
+        ))
         .add_systems(Startup, setup)
         .add_systems(Update, (rotate, update_settings))
         .run();
@@ -51,18 +53,19 @@ struct PostProcessPlugin;
 
 impl Plugin for PostProcessPlugin {
     fn build(&self, app: &mut App) {
-        app
+        app.add_plugins((
             // The settings will be a component that lives in the main world but will
             // be extracted to the render world every frame.
             // This makes it possible to control the effect from the main world.
             // This plugin will take care of extracting it automatically.
             // It's important to derive [`ExtractComponent`] on [`PostProcessingSettings`]
             // for this plugin to work correctly.
-            .add_plugin(ExtractComponentPlugin::<PostProcessSettings>::default())
+            ExtractComponentPlugin::<PostProcessSettings>::default(),
             // The settings will also be the data used in the shader.
             // This plugin will prepare the component for the GPU by creating a uniform buffer
             // and writing the data to that buffer every frame.
-            .add_plugin(UniformComponentPlugin::<PostProcessSettings>::default());
+            UniformComponentPlugin::<PostProcessSettings>::default(),
+        ));
 
         // We need to get the render app from the main app
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -81,7 +84,7 @@ impl Plugin for PostProcessPlugin {
             // Add a [`Node`] to the [`RenderGraph`]
             // The Node needs to impl FromWorld
             .add_render_graph_node::<PostProcessNode>(
-                // Specifiy the name of the graph, in this case we want the graph for 3d
+                // Specify the name of the graph, in this case we want the graph for 3d
                 core_3d::graph::NAME,
                 // It also needs the name of the node
                 PostProcessNode::NAME,
@@ -280,7 +283,7 @@ impl FromWorld for PostProcessPipeline {
                     ty: BindingType::Buffer {
                         ty: bevy::render::render_resource::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: None,
+                        min_binding_size: Some(PostProcessSettings::min_size()),
                     },
                     count: None,
                 },
@@ -315,8 +318,8 @@ impl FromWorld for PostProcessPipeline {
                         write_mask: ColorWrites::ALL,
                     })],
                 }),
-                // All of the following property are not important for this effect so just use the default values.
-                // This struct doesn't have the Default trai implemented because not all field can have a default value.
+                // All of the following properties are not important for this effect so just use the default values.
+                // This struct doesn't have the Default trait implemented because not all field can have a default value.
                 primitive: PrimitiveState::default(),
                 depth_stencil: None,
                 multisample: MultisampleState::default(),
@@ -335,6 +338,9 @@ impl FromWorld for PostProcessPipeline {
 #[derive(Component, Default, Clone, Copy, ExtractComponent, ShaderType)]
 struct PostProcessSettings {
     intensity: f32,
+    // WebGL2 structs must be 16 byte aligned.
+    #[cfg(feature = "webgl2")]
+    _webgl2_padding: Vec3,
 }
 
 /// Set up a simple 3D scene
@@ -356,7 +362,10 @@ fn setup(
         },
         // Add the setting to the camera.
         // This component is also used to determine on which camera to run the post processing effect.
-        PostProcessSettings { intensity: 0.02 },
+        PostProcessSettings {
+            intensity: 0.02,
+            ..default()
+        },
     ));
 
     // cube

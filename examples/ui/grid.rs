@@ -169,34 +169,31 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             });
 
-            // Modal (absolutely positioned on top of content - uncomment to view)
-            // builder.spawn(NodeBundle {
-            //     style: Style {
-            //         position_type: PositionType::Absolute,
-            //         margin: UiRect {
-            //             top: Val::Px(100.),
-            //             bottom: Val::Auto,
-            //             left: Val::Auto,
-            //             right: Val::Auto,
-            //         },
-            //         size: Size {
-            //             width: Val::Percent(60.),
-            //             height: Val::Px(300.),
-            //         },
-            //         max_size: Size {
-            //             width: Val::Px(600.),
-            //             height: Val::Auto,
-            //         },
-            //         ..default()
-            //     },
-            //     background_color: BackgroundColor(Color::Rgba {
-            //         red: 255.0,
-            //         green: 255.0,
-            //         blue: 255.0,
-            //         alpha: 0.8,
-            //     }),
-            //     ..default()
-            // });
+            // Modal (absolutely positioned on top of content - currently hidden: to view it, change its visibility)
+            builder.spawn(NodeBundle {
+                visibility: Visibility::Hidden,
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    margin: UiRect {
+                        top: Val::Px(100.),
+                        bottom: Val::Auto,
+                        left: Val::Auto,
+                        right: Val::Auto,
+                    },
+                    width: Val::Percent(60.),
+                    height: Val::Px(300.),
+                    max_width: Val::Px(600.),
+                    max_height: Val::Auto,
+                    ..default()
+                },
+                background_color: BackgroundColor(Color::Rgba {
+                    red: 255.0,
+                    green: 255.0,
+                    blue: 255.0,
+                    alpha: 0.8,
+                }),
+                ..default()
+            });
         });
 }
 

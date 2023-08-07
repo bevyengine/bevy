@@ -1,4 +1,4 @@
-use bevy_app::{Plugin, PreUpdate, Update};
+use bevy_app::{Plugin, PreUpdate};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
@@ -30,8 +30,8 @@ use bevy_render::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
         ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
-        DynamicUniformBuffer, FragmentState, FrontFace, MultisampleState, PipelineCache,
-        PolygonMode, PrimitiveState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef,
+        DynamicUniformBuffer, FragmentState, FrontFace, GpuArrayBufferIndex, MultisampleState,
+        PipelineCache, PolygonMode, PrimitiveState, RenderPipelineDescriptor, Shader, ShaderRef,
         ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
         SpecializedMeshPipelines, StencilFaceState, StencilState, TextureSampleType,
         TextureViewDimension, VertexState,
@@ -45,9 +45,9 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;
 
 use crate::{
-    prepare_lights, AlphaMode, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey,
-    MeshPipeline, MeshPipelineKey, MeshUniform, RenderMaterials, SetMaterialBindGroup,
-    SetMeshBindGroup, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    prepare_lights, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material, MaterialPipeline,
+    MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, MeshUniform, RenderMaterials,
+    SetMaterialBindGroup, SetMeshBindGroup,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -141,9 +141,15 @@ where
 
         if no_prepass_plugin_loaded {
             app.insert_resource(AnyPrepassPluginLoaded)
-                .add_systems(Update, update_previous_view_projections)
                 // At the start of each frame, last frame's GlobalTransforms become this frame's PreviousGlobalTransforms
-                .add_systems(PreUpdate, update_mesh_previous_global_transforms);
+                // and last frame's view projection matrices become this frame's PreviousViewProjections
+                .add_systems(
+                    PreUpdate,
+                    (
+                        update_mesh_previous_global_transforms,
+                        update_previous_view_projections,
+                    ),
+                );
         }
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -219,8 +225,7 @@ pub fn update_mesh_previous_global_transforms(
 pub struct PrepassPipeline<M: Material> {
     pub view_layout_motion_vectors: BindGroupLayout,
     pub view_layout_no_motion_vectors: BindGroupLayout,
-    pub mesh_layout: BindGroupLayout,
-    pub skinned_mesh_layout: BindGroupLayout,
+    pub mesh_layouts: MeshLayouts,
     pub material_layout: BindGroupLayout,
     pub material_vertex_shader: Option<Handle<Shader>>,
     pub material_fragment_shader: Option<Handle<Shader>>,
@@ -307,8 +312,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
         PrepassPipeline {
             view_layout_motion_vectors,
             view_layout_no_motion_vectors,
-            mesh_layout: mesh_pipeline.mesh_layout.clone(),
-            skinned_mesh_layout: mesh_pipeline.skinned_mesh_layout.clone(),
+            mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
             material_vertex_shader: match M::prepass_vertex_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),
@@ -375,16 +379,15 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_DIRECTIONAL_LIGHTS".to_string(),
-            MAX_DIRECTIONAL_LIGHTS as u32,
-        ));
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_CASCADES_PER_LIGHT".to_string(),
-            MAX_CASCADES_PER_LIGHT as u32,
-        ));
         if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO) {
             shader_defs.push("DEPTH_CLAMP_ORTHO".into());
+            // PERF: This line forces the "prepass fragment shader" to always run in
+            // common scenarios like "directional light calculation". Doing so resolves
+            // a pretty nasty depth clamping bug, but it also feels a bit excessive.
+            // We should try to find a way to resolve this without forcing the fragment
+            // shader to run.
+            // https://github.com/bevyengine/bevy/pull/8877
+            shader_defs.push("PREPASS_FRAGMENT".into());
         }
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
@@ -416,16 +419,15 @@ where
             shader_defs.push("PREPASS_FRAGMENT".into());
         }
 
-        if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
-            && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
-        {
-            shader_defs.push("SKINNED".into());
-            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(4));
-            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(5));
-            bind_group_layouts.insert(2, self.skinned_mesh_layout.clone());
-        } else {
-            bind_group_layouts.insert(2, self.mesh_layout.clone());
-        }
+        let bind_group = setup_morph_and_skinning_defs(
+            &self.mesh_layouts,
+            layout,
+            4,
+            &key.mesh_key,
+            &mut shader_defs,
+            &mut vertex_attributes,
+        );
+        bind_group_layouts.insert(2, bind_group);
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
@@ -457,8 +459,9 @@ where
 
         // The fragment shader is only used when the normal prepass or motion vectors prepass
         // is enabled or the material uses alpha cutoff values and doesn't rely on the standard
-        // prepass shader
+        // prepass shader or we are clamping the orthographic depth.
         let fragment_required = !targets.is_empty()
+            || key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO)
             || (key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
                 && self.material_fragment_shader.is_some());
 
@@ -748,7 +751,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
-    material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
+    material_meshes: Query<(
+        &Handle<M>,
+        &Handle<Mesh>,
+        &MeshUniform,
+        &GpuArrayBufferIndex<MeshUniform>,
+    )>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -793,7 +801,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {
-            let Ok((material_handle, mesh_handle, mesh_uniform)) = material_meshes.get(*visible_entity) else {
+            let Ok((material_handle, mesh_handle, mesh_uniform, batch_indices)) = material_meshes.get(*visible_entity) else {
                 continue;
             };
 
@@ -806,6 +814,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
 
             let mut mesh_key =
                 MeshPipelineKey::from_primitive_topology(mesh.primitive_topology) | view_key;
+            if mesh.morph_targets.is_some() {
+                mesh_key |= MeshPipelineKey::MORPH_TARGETS;
+            }
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
                 AlphaMode::Opaque => {}
@@ -842,6 +853,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         draw_function: opaque_draw_prepass,
                         pipeline_id,
                         distance,
+                        per_object_binding_dynamic_offset: batch_indices
+                            .dynamic_offset
+                            .unwrap_or_default(),
                     });
                 }
                 AlphaMode::Mask(_) => {
@@ -850,6 +864,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         draw_function: alpha_mask_draw_prepass,
                         pipeline_id,
                         distance,
+                        per_object_binding_dynamic_offset: batch_indices
+                            .dynamic_offset
+                            .unwrap_or_default(),
                     });
                 }
                 AlphaMode::Blend

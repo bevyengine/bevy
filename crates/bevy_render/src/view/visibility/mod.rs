@@ -6,7 +6,7 @@ use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
@@ -27,8 +27,8 @@ use crate::{
 ///
 /// This is done by the `visibility_propagate_system` which uses the entity hierarchy and
 /// `Visibility` to set the values of each entity's [`ComputedVisibility`] component.
-#[derive(Component, Clone, Copy, Reflect, FromReflect, Debug, PartialEq, Eq, Default)]
-#[reflect(Component, Default, FromReflect)]
+#[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default)]
+#[reflect(Component, Default)]
 pub enum Visibility {
     /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`Parent`].
     ///
@@ -68,7 +68,6 @@ bitflags::bitflags! {
     }
 }
 bevy_reflect::impl_reflect_value!((in bevy_render::view) ComputedVisibilityFlags);
-bevy_reflect::impl_from_reflect_value!(ComputedVisibilityFlags);
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
 #[derive(Component, Clone, Reflect, Debug, Eq, PartialEq)]
@@ -155,8 +154,8 @@ pub struct VisibilityBundle {
 }
 
 /// Use this component to opt-out of built-in frustum culling for Mesh entities
-#[derive(Component, Default, Reflect, FromReflect)]
-#[reflect(Component, Default, FromReflect)]
+#[derive(Component, Default, Reflect)]
+#[reflect(Component, Default)]
 pub struct NoFrustumCulling;
 
 /// Collection of entities visible from the current view.
@@ -368,7 +367,7 @@ pub fn check_visibility(
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
         visible_entities.entities.clear();
-        visible_aabb_query.par_iter_mut().for_each_mut(
+        visible_aabb_query.par_iter_mut().for_each(
             |(
                 entity,
                 mut computed_visibility,
@@ -413,7 +412,7 @@ pub fn check_visibility(
             },
         );
 
-        visible_no_aabb_query.par_iter_mut().for_each_mut(
+        visible_no_aabb_query.par_iter_mut().for_each(
             |(entity, mut computed_visibility, maybe_entity_mask)| {
                 // skip computing visibility for entities that are configured to be hidden. is_visible_in_view has already been set to false
                 // in visibility_propagate_system
