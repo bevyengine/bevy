@@ -23,6 +23,10 @@ use generate_from_skybox::{
 
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 154476556247605696);
+pub const DOWNSAMPLE_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 254476556247605696);
+pub const FILTER_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 354476556247605696);
 
 pub struct EnvironmentMapLightPlugin;
 
@@ -34,6 +38,13 @@ impl Plugin for EnvironmentMapLightPlugin {
             "environment_map.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(
+            app,
+            DOWNSAMPLE_SHADER_HANDLE,
+            "downsample.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(app, FILTER_SHADER_HANDLE, "filter.wgsl", Shader::from_wgsl);
 
         app.register_type::<EnvironmentMapLight>()
             .register_type::<GenerateEnvironmentMapLight>()

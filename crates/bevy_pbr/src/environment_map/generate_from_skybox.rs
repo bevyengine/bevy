@@ -1,4 +1,4 @@
-use super::EnvironmentMapLight;
+use super::{EnvironmentMapLight, DOWNSAMPLE_SHADER_HANDLE, FILTER_SHADER_HANDLE};
 use bevy_asset::Assets;
 use bevy_core_pipeline::Skybox;
 use bevy_ecs::{
@@ -76,7 +76,7 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
                 label: Some("generate_environment_map_light_downsample_pipeline".into()),
                 layout: vec![downsample_layout.clone()],
                 push_constant_ranges: vec![],
-                shader: todo!(),
+                shader: DOWNSAMPLE_SHADER_HANDLE.typed(),
                 shader_defs: vec![],
                 entry_point: "main".into(),
             });
@@ -85,7 +85,7 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
             label: Some("generate_environment_map_light_filter_pipeline".into()),
             layout: vec![filter_layout.clone()],
             push_constant_ranges: vec![],
-            shader: todo!(),
+            shader: FILTER_SHADER_HANDLE.typed(),
             shader_defs: vec![],
             entry_point: "main".into(),
         });
