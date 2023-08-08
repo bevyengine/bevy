@@ -108,16 +108,19 @@ pub fn get_bindings<'a>(
     fallback_image_cubemap: &'a FallbackImageCubemap,
     bindings: [u32; 3],
 ) -> [BindGroupEntry<'a>; 3] {
-    let (diffuse_map, specular_map) = match (
+    let (diffuse_map, specular_map, sampler) = match (
         environment_map_light.and_then(|env_map| images.get(&env_map.diffuse_map)),
         environment_map_light.and_then(|env_map| images.get(&env_map.specular_map)),
     ) {
-        (Some(diffuse_map), Some(specular_map)) => {
-            (&diffuse_map.texture_view, &specular_map.texture_view)
-        }
+        (Some(diffuse_map), Some(specular_map)) => (
+            &diffuse_map.texture_view,
+            &specular_map.texture_view,
+            &specular_map.sampler,
+        ),
         _ => (
             &fallback_image_cubemap.texture_view,
             &fallback_image_cubemap.texture_view,
+            &fallback_image_cubemap.sampler,
         ),
     };
 
@@ -132,7 +135,7 @@ pub fn get_bindings<'a>(
         },
         BindGroupEntry {
             binding: bindings[2],
-            resource: BindingResource::Sampler(&fallback_image_cubemap.sampler),
+            resource: BindingResource::Sampler(sampler),
         },
     ]
 }
