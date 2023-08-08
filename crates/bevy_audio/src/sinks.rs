@@ -71,6 +71,10 @@ pub trait AudioSinkPlayback {
 /// Use [`AudioBundle`][crate::AudioBundle] to trigger that to happen.
 ///
 /// You can use this component to modify the playback settings while the audio is playing.
+///
+/// If this component is removed from an entity, and an [`AudioSource`][crate::AudioSource] is
+/// attached to that entity, that [`AudioSource`][crate::AudioSource] will start playing. If
+/// that source is unchanged, that translates to the audio restarting.
 #[derive(Component)]
 pub struct AudioSink {
     // This field is an Option in order to allow us to have a safe drop that will detach the sink.
@@ -128,6 +132,10 @@ impl AudioSinkPlayback for AudioSink {
 /// Use [`SpatialAudioBundle`][crate::SpatialAudioBundle] to trigger that to happen.
 ///
 /// You can use this component to modify the playback settings while the audio is playing.
+///
+/// If this component is removed from an entity, and a [`AudioSource`][crate::AudioSource] is
+/// attached to that entity, that [`AudioSource`][crate::AudioSource] will start playing. If
+/// that source is unchanged, that translates to the audio restarting.
 #[derive(Component)]
 pub struct SpatialAudioSink {
     // This field is an Option in order to allow us to have a safe drop that will detach the sink.

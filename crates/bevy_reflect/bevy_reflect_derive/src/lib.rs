@@ -221,7 +221,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 ///
 /// By default, this attribute denotes that the field's type implements [`Default`].
 /// However, it can also take in a path string to a user-defined function that will return the default value.
-/// This takes the form: `#[reflect(default = "path::to::my_function)]` where `my_function` is a parameterless
+/// This takes the form: `#[reflect(default = "path::to::my_function")]` where `my_function` is a parameterless
 /// function that must return some default value for the type.
 ///
 /// Specifying a custom default can be used to give different fields their own specialized defaults,

@@ -41,9 +41,9 @@ pub struct TextPlugin;
 /// [`TextPlugin`] settings
 #[derive(Resource)]
 pub struct TextSettings {
-    /// Maximum number of font atlases supported in a ['FontAtlasSet']
+    /// Maximum number of font atlases supported in a [`FontAtlasSet`].
     pub max_font_atlases: NonZeroUsize,
-    /// Allows font size to be set dynamically exceeding the amount set in max_font_atlases.
+    /// Allows font size to be set dynamically exceeding the amount set in `max_font_atlases`.
     /// Note each font size has to be generated which can have a strong performance impact.
     pub allow_dynamic_font_size: bool,
 }

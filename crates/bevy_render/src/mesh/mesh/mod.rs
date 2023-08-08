@@ -77,7 +77,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// }
 /// ```
 ///
-/// You can see how it looks like [here](https://github.com/bevyengine/bevy/blob/main/assets/dovs/Mesh.png),
+/// You can see how it looks like [here](https://github.com/bevyengine/bevy/blob/main/assets/docs/Mesh.png),
 /// used in a `PbrBundle` with a square bevy logo texture, with added axis, points,
 /// lines and text for clarity.
 ///
