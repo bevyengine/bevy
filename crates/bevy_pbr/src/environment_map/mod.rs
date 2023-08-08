@@ -1,7 +1,9 @@
-use bevy_app::{App, Plugin};
+mod generate_from_skybox;
+
+use bevy_app::{App, Last, Plugin};
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::prelude::Camera3d;
-use bevy_ecs::{prelude::Component, query::With};
+use bevy_ecs::{prelude::Component, query::With, schedule::IntoSystemConfigs};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -11,6 +13,12 @@ use bevy_render::{
         Shader, ShaderStages, TextureSampleType, TextureViewDimension,
     },
     texture::{FallbackImageCubemap, Image},
+    Render, RenderApp, RenderSet,
+};
+use generate_from_skybox::{
+    generate_dummy_environment_map_lights_for_skyboxes,
+    prepare_generate_environment_map_lights_for_skyboxes_bind_groups, GenerateEnvironmentMapLight,
+    GenerateEnvironmentMapLightResources,
 };
 
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: HandleUntyped =
@@ -28,7 +36,20 @@ impl Plugin for EnvironmentMapPlugin {
         );
 
         app.register_type::<EnvironmentMapLight>()
-            .add_plugins(ExtractComponentPlugin::<EnvironmentMapLight>::default());
+            .register_type::<GenerateEnvironmentMapLight>()
+            .add_plugins(ExtractComponentPlugin::<EnvironmentMapLight>::default())
+            .add_plugins(ExtractComponentPlugin::<GenerateEnvironmentMapLight>::default())
+            .add_systems(Last, generate_dummy_environment_map_lights_for_skyboxes);
+    }
+
+    fn finish(&self, app: &mut App) {
+        app.sub_app_mut(RenderApp)
+            .init_resource::<GenerateEnvironmentMapLightResources>()
+            .add_systems(
+                Render,
+                prepare_generate_environment_map_lights_for_skyboxes_bind_groups
+                    .in_set(RenderSet::Prepare),
+            );
     }
 }
 
