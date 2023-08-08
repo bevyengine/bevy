@@ -19,9 +19,10 @@ use bevy_render::{
     texture::{FallbackImageCubemap, Image},
     Render, RenderApp, RenderSet,
 };
+pub use generate_from_skybox::GenerateEnvironmentMapLight;
 use generate_from_skybox::{
     generate_dummy_environment_map_lights_for_skyboxes,
-    prepare_generate_environment_map_lights_for_skyboxes_bind_groups, GenerateEnvironmentMapLight,
+    prepare_generate_environment_map_lights_for_skyboxes_bind_groups,
     GenerateEnvironmentMapLightNode, GenerateEnvironmentMapLightResources,
 };
 
