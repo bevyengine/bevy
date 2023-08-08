@@ -3,7 +3,7 @@ use bevy_asset::Assets;
 use bevy_core_pipeline::Skybox;
 use bevy_ecs::{
     prelude::{Component, Entity},
-    query::{With, Without},
+    query::{QueryItem, With, Without},
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -11,14 +11,15 @@ use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::ExtractComponent,
     render_asset::RenderAssets,
+    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, CachedComputePipelineId,
-        ComputePipelineDescriptor, FilterMode, PipelineCache, SamplerBindingType,
-        SamplerDescriptor, ShaderStages, StorageTextureAccess, TextureAspect, TextureFormat,
-        TextureSampleType, TextureView, TextureViewDescriptor, TextureViewDimension,
+        ComputePassDescriptor, ComputePipelineDescriptor, FilterMode, PipelineCache,
+        SamplerBindingType, SamplerDescriptor, ShaderStages, StorageTextureAccess, TextureAspect,
+        TextureFormat, TextureSampleType, TextureView, TextureViewDescriptor, TextureViewDimension,
     },
-    renderer::RenderDevice,
+    renderer::{RenderContext, RenderDevice},
     texture::{GpuImage, Image, ImageSampler},
 };
 use bevy_utils::default;
@@ -128,7 +129,7 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
             TextureFormat::Rgba16Float,
         );
         diffuse_map.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor {
-            label: Some("generate_environment_map_downsample_sampler"),
+            label: Some("generate_environment_map_light_downsample_sampler"),
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
             mipmap_filter: FilterMode::Nearest,
@@ -143,7 +144,7 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
         );
         specular_map.texture_descriptor.mip_level_count = 7;
         specular_map.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor {
-            label: Some("generate_environment_map_filter_sampler"),
+            label: Some("generate_environment_map_light_filter_sampler"),
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
             mipmap_filter: FilterMode::Linear,
@@ -158,7 +159,7 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
 }
 
 #[derive(Component)]
-struct GenerateEnvironmentMapLightBindGroups {
+pub struct GenerateEnvironmentMapLightBindGroups {
     downsample: BindGroup,
     filter: BindGroup,
 }
@@ -174,19 +175,16 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
     images: Res<RenderAssets<Image>>,
 ) {
     for (entity, skybox, environment_map_light) in &environment_map_lights {
-        let (skybox, diffuse_map, specular_map) = match (
+        let (Some(skybox), Some(diffuse_map), Some(specular_map)) = (
             images.get(&skybox.0),
             images.get(&environment_map_light.diffuse_map),
             images.get(&environment_map_light.specular_map),
-        ) {
-            (Some(skybox), Some(diffuse_map), Some(specular_map)) => {
-                (skybox, diffuse_map, specular_map)
-            }
-            _ => continue,
+        ) else {
+            continue;
         };
 
         let downsample = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("generate_environment_map_downsample_bind_group"),
+            label: Some("generate_environment_map_light_downsample_bind_group"),
             layout: &resources.downsample_layout,
             entries: &[
                 BindGroupEntry {
@@ -205,7 +203,7 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
         });
 
         let filter = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("generate_environment_map_filter_bind_group"),
+            label: Some("generate_environment_map_light_filter_bind_group"),
             layout: &resources.filter_layout,
             entries: &[
                 BindGroupEntry {
@@ -253,7 +251,45 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
     }
 }
 
-// TODO: Node
+#[derive(Default)]
+pub struct GenerateEnvironmentMapLightNode;
+
+impl ViewNode for GenerateEnvironmentMapLightNode {
+    type ViewQuery = &'static GenerateEnvironmentMapLightBindGroups;
+
+    fn run(
+        &self,
+        _: &mut RenderGraphContext,
+        render_context: &mut RenderContext,
+        bind_groups: QueryItem<Self::ViewQuery>,
+        world: &World,
+    ) -> Result<(), NodeRunError> {
+        let resources = world.resource::<GenerateEnvironmentMapLightResources>();
+        let pipeline_cache = world.resource::<PipelineCache>();
+
+        let (Some(downsample_pipeline), Some(filter_pipeline)) = (
+            pipeline_cache.get_compute_pipeline(resources.downsample_pipeline),
+            pipeline_cache.get_compute_pipeline(resources.filter_pipeline),
+        ) else {
+            return Ok(());
+        };
+
+        let command_encoder = render_context.command_encoder();
+        let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: Some("generate_environment_map_light_pass"),
+        });
+
+        pass.set_bind_group(0, &bind_groups.downsample, &[]);
+        pass.set_pipeline(downsample_pipeline);
+        pass.dispatch_workgroups(todo!(), todo!(), 6);
+
+        pass.set_bind_group(0, &bind_groups.filter, &[]);
+        pass.set_pipeline(filter_pipeline);
+        pass.dispatch_workgroups(todo!(), 6, 1);
+
+        Ok(())
+    }
+}
 
 fn bgl_entry(binding: u32, ty: BindingType) -> BindGroupLayoutEntry {
     BindGroupLayoutEntry {
@@ -266,7 +302,7 @@ fn bgl_entry(binding: u32, ty: BindingType) -> BindGroupLayoutEntry {
 
 fn specular_texture_view(mip_level: u32, specular_map: &GpuImage) -> TextureView {
     specular_map.texture.create_view(&TextureViewDescriptor {
-        label: Some("generate_environment_map_specular_texture_view"),
+        label: Some("generate_environment_map_light_specular_texture_view"),
         format: Some(TextureFormat::Rgba16Float),
         dimension: Some(TextureViewDimension::D3),
         aspect: TextureAspect::All,

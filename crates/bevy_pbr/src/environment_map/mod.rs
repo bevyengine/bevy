@@ -2,12 +2,16 @@ mod generate_from_skybox;
 
 use bevy_app::{App, Last, Plugin};
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
-use bevy_core_pipeline::prelude::Camera3d;
+use bevy_core_pipeline::{
+    core_3d::{self, CORE_3D},
+    prelude::Camera3d,
+};
 use bevy_ecs::{prelude::Component, query::With, schedule::IntoSystemConfigs};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
+    render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{
         BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType, SamplerBindingType,
         Shader, ShaderStages, TextureSampleType, TextureViewDimension,
@@ -18,8 +22,15 @@ use bevy_render::{
 use generate_from_skybox::{
     generate_dummy_environment_map_lights_for_skyboxes,
     prepare_generate_environment_map_lights_for_skyboxes_bind_groups, GenerateEnvironmentMapLight,
-    GenerateEnvironmentMapLightResources,
+    GenerateEnvironmentMapLightNode, GenerateEnvironmentMapLightResources,
 };
+
+pub mod draw_3d_graph {
+    pub mod node {
+        /// Label for the generate environment map light render node.
+        pub const GENERATE_ENVIRONMENT_MAP_LIGHT: &str = "generate_environment_map_light";
+    }
+}
 
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 154476556247605696);
@@ -55,6 +66,17 @@ impl Plugin for EnvironmentMapLightPlugin {
 
     fn finish(&self, app: &mut App) {
         app.sub_app_mut(RenderApp)
+            .add_render_graph_node::<ViewNodeRunner<GenerateEnvironmentMapLightNode>>(
+                CORE_3D,
+                draw_3d_graph::node::GENERATE_ENVIRONMENT_MAP_LIGHT,
+            )
+            .add_render_graph_edges(
+                CORE_3D,
+                &[
+                    draw_3d_graph::node::GENERATE_ENVIRONMENT_MAP_LIGHT,
+                    core_3d::graph::node::START_MAIN_PASS,
+                ],
+            )
             .init_resource::<GenerateEnvironmentMapLightResources>()
             .add_systems(
                 Render,
