@@ -24,9 +24,9 @@ use generate_from_skybox::{
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 154476556247605696);
 
-pub struct EnvironmentMapPlugin;
+pub struct EnvironmentMapLightPlugin;
 
-impl Plugin for EnvironmentMapPlugin {
+impl Plugin for EnvironmentMapLightPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
