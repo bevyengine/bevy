@@ -1,0 +1,14 @@
+fn fooX_naga_oil_mod_XEJYXK33UMVSF63LPMR2WYZJCX() -> f32 {
+    return 3.0;
+}
+
+fn myfunc(foo: u32) -> f32 {
+    return (f32(foo) * 2.0);
+}
+
+fn main() -> f32 {
+    let _e1: f32 = myfunc(1u);
+    let _e2: f32 = fooX_naga_oil_mod_XEJYXK33UMVSF63LPMR2WYZJCX();
+    return (_e1 + _e2);
+}
+

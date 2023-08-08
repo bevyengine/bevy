@@ -156,7 +156,16 @@ pub fn substitute_identifiers(
                                 .push(item.to_owned());
                             output.push_str(item);
                             output.push_str(&Composer::decorate(module));
+                        } else if full_path.find('"').is_some() {
+                            // we don't want to replace local variables that shadow quoted module imports with the
+                            // quoted name as that won't compile.
+                            // since quoted items always refer to modules, we can just emit the original ident
+                            // in this case
+                            output.push_str(ident);
                         } else {
+                            // if there are no quotes we do the replacement. this means that individually imported
+                            // items can be used, and any shadowing local variables get harmlessly renamed.
+                            // TODO: it can lead to weird errors, but such is life
                             output.push_str(&full_path);
                         }
                     }
