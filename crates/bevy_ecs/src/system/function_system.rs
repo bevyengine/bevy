@@ -15,13 +15,13 @@ use super::{In, IntoSystem, ReadOnlySystem};
 /// The metadata of a [`System`].
 #[derive(Clone)]
 pub struct SystemMeta {
-    pub(crate) name: Cow<'static, str>,
-    pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
-    pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
+    name: Cow<'static, str>,
+    component_access_set: FilteredAccessSet<ComponentId>,
+    archetype_component_access: Access<ArchetypeComponentId>,
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     is_send: bool,
-    pub(crate) last_run: Tick,
+    last_run: Tick,
 }
 
 impl SystemMeta {
@@ -35,15 +35,51 @@ impl SystemMeta {
         }
     }
 
-    /// Returns the system's name
+    /// Returns the system's name.
     #[inline]
-    pub fn name(&self) -> &str {
+    pub const fn name(&self) -> &Cow<'static, str> {
         &self.name
+    }
+
+    /// Returns a reference to the system's component access set.
+    #[inline]
+    pub const fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.component_access_set
+    }
+
+    /// Returns an unsafe mutable reference to the system's component access set.
+    ///
+    /// # Safety
+    ///
+    /// *All* of the system's [`World`] accesses must be correctly recorded in its component access
+    /// set. Additionally, archetype component accesses must be recorded with
+    /// [`Self::archetype_component_access_mut`].
+    #[inline]
+    pub unsafe fn component_access_set_mut(&mut self) -> &mut FilteredAccessSet<ComponentId> {
+        &mut self.component_access_set
+    }
+
+    /// Returns a reference to the system's archetype component access set.
+    #[inline]
+    pub const fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        &self.archetype_component_access
+    }
+
+    /// Returns an unsafe mutable reference to the system's archetype component access set.
+    ///
+    /// # Safety
+    ///
+    /// *All* of the system's [`World`] accesses must be correctly recorded in its archetype
+    /// component access set. Additionally, component accesses must be recorded with
+    /// [`Self::component_access_set_mut`].
+    #[inline]
+    pub unsafe fn archetype_component_access_mut(&mut self) -> &mut Access<ArchetypeComponentId> {
+        &mut self.archetype_component_access
     }
 
     /// Returns true if the system is [`Send`].
     #[inline]
-    pub fn is_send(&self) -> bool {
+    pub const fn is_send(&self) -> bool {
         self.is_send
     }
 
@@ -53,6 +89,26 @@ impl SystemMeta {
     #[inline]
     pub fn set_non_send(&mut self) {
         self.is_send = false;
+    }
+
+    /// Returns the system's last tick, which is used for reliable change detection.
+    ///
+    /// See [`crate::system::SystemChangeTick`] and [`crate::change_detection`].
+    #[inline]
+    pub const fn last_run(&self) -> Tick {
+        self.last_run
+    }
+
+    /// Set the system's last tick, which is used for reliable change detection.
+    ///
+    /// Note that component changes are detected when the system's `last_run` tick is older
+    /// than their component change ticks, so this value is updated after each run to be
+    /// [`World::read_change_tick`].
+    ///
+    /// See [`crate::system::SystemChangeTick`] and [`crate::change_detection`].
+    #[inline]
+    pub fn last_run_mut(&mut self) -> &mut Tick {
+        &mut self.last_run
     }
 }
 
@@ -502,11 +558,7 @@ where
 
     #[inline]
     fn check_change_tick(&mut self, change_tick: Tick) {
-        check_system_change_tick(
-            &mut self.system_meta.last_run,
-            change_tick,
-            self.system_meta.name.as_ref(),
-        );
+        check_system_change_tick(&mut self.system_meta, change_tick);
     }
 
     fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
