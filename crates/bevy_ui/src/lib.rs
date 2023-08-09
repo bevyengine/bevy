@@ -119,6 +119,7 @@ impl Plugin for UiPlugin {
             .register_type::<BorderColor>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
+            .register_type::<UiStackIndex>()
             .register_type::<ZIndex>()
             .add_systems(
                 PreUpdate,

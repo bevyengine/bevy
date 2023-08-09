@@ -78,8 +78,15 @@ impl Default for Node {
     }
 }
 
-#[derive(Component, Copy, Clone, Debug, Default)]
-pub struct UiStackIndex(pub u32);
+#[derive(Component, Copy, Clone, Debug, Default, Reflect)]
+#[reflect(Component, Default)]
+pub struct UiStackIndex(pub(crate) u32);
+
+impl UiStackIndex {
+    pub fn get(self) -> u32 {
+        self.0
+    }
+}
 
 /// Represents the possible value types for layout properties.
 ///
