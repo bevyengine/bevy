@@ -1742,7 +1742,7 @@ path = "examples/tools/gamepad_viewer.rs"
 name = "Gamepad Viewer"
 description = "Shows a visualization of gamepad buttons, sticks, and triggers"
 category = "Tools"
-wasm = false
+wasm = true
 
 [[example]]
 name = "nondeterministic_system_order"
