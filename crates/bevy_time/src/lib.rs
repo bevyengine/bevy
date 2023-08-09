@@ -7,11 +7,13 @@ mod stopwatch;
 #[allow(clippy::module_inception)]
 mod time;
 mod timer;
+mod timer_builder;
 
 use fixed_timestep::FixedTime;
 pub use stopwatch::*;
 pub use time::*;
 pub use timer::*;
+pub use timer_builder::*;
 
 use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{tracing::warn, Duration, Instant};
