@@ -53,7 +53,7 @@ pub struct NodeBundle {
     /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
     ///
-    /// This field is automatically managed by [`ui_stack_system`](`crate::stack::ui_stack_system`).
+    /// This field is automatically managed by `ui_stack_system`.
     pub stack_index: UiStackIndex,
 }
 
@@ -119,6 +119,8 @@ pub struct ImageBundle {
     pub z_index: ZIndex,
     /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
+    ///
+    /// This field is automatically managed by `ui_stack_system`.
     pub stack_index: UiStackIndex,
 }
 
@@ -167,6 +169,8 @@ pub struct AtlasImageBundle {
     pub z_index: ZIndex,
     /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
+    ///
+    /// This field is automatically managed by `ui_stack_system`.
     pub stack_index: UiStackIndex,
 }
 
@@ -207,8 +211,10 @@ pub struct TextBundle {
     pub z_index: ZIndex,
     /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
+    ///
+    /// This field is automatically managed by `ui_stack_system`.
     pub stack_index: UiStackIndex,
-    /// The background color that will fill the containing node
+    /// The background color that will fill the containing node    
     pub background_color: BackgroundColor,
 }
 
@@ -323,6 +329,8 @@ pub struct ButtonBundle {
     pub z_index: ZIndex,
     /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
+    ///
+    /// This field is automatically managed by `ui_stack_system`.
     pub stack_index: UiStackIndex,
 }
 
