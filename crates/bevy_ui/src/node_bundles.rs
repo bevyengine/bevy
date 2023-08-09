@@ -36,12 +36,12 @@ pub struct NodeBundle {
     pub focus_policy: FocusPolicy,
     /// The transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
@@ -53,7 +53,7 @@ pub struct NodeBundle {
     /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
     ///
-    /// This field is automatically managed by `ui_stack_system`.
+    /// This component is automatically managed by `ui_stack_system`.
     pub stack_index: UiStackIndex,
 }
 
@@ -81,7 +81,7 @@ impl Default for NodeBundle {
 pub struct ImageBundle {
     /// Describes the logical size of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub node: Node,
     /// Styles which control the layout (size and position) of the node and it's children
@@ -97,18 +97,18 @@ pub struct ImageBundle {
     pub image: UiImage,
     /// The size of the image in pixels
     ///
-    /// This field is set automatically
+    /// This component is set automatically
     pub image_size: UiImageSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
@@ -120,7 +120,7 @@ pub struct ImageBundle {
     /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
     ///
-    /// This field is automatically managed by `ui_stack_system`.
+    /// This component is automatically managed by `ui_stack_system`.
     pub stack_index: UiStackIndex,
 }
 
@@ -129,7 +129,7 @@ pub struct ImageBundle {
 pub struct AtlasImageBundle {
     /// Describes the logical size of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub node: Node,
     /// Styles which control the layout (size and position) of the node and it's children
@@ -149,16 +149,16 @@ pub struct AtlasImageBundle {
     pub focus_policy: FocusPolicy,
     /// The size of the image in pixels
     ///
-    /// This field is set automatically
+    /// This component is set automatically
     pub image_size: UiImageSize,
     /// The transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
@@ -170,7 +170,7 @@ pub struct AtlasImageBundle {
     /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
     ///
-    /// This field is automatically managed by `ui_stack_system`.
+    /// This component is automatically managed by `ui_stack_system`.
     pub stack_index: UiStackIndex,
 }
 
@@ -195,12 +195,12 @@ pub struct TextBundle {
     pub focus_policy: FocusPolicy,
     /// The transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
@@ -212,7 +212,7 @@ pub struct TextBundle {
     /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
     ///
-    /// This field is automatically managed by `ui_stack_system`.
+    /// This component is automatically managed by `ui_stack_system`.
     pub stack_index: UiStackIndex,
     /// The background color that will fill the containing node    
     pub background_color: BackgroundColor,
@@ -313,12 +313,12 @@ pub struct ButtonBundle {
     pub image: UiImage,
     /// The transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
@@ -330,7 +330,7 @@ pub struct ButtonBundle {
     /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
     ///
-    /// This field is automatically managed by `ui_stack_system`.
+    /// This component is automatically managed by `ui_stack_system`.
     pub stack_index: UiStackIndex,
 }
 
