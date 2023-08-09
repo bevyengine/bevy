@@ -52,6 +52,8 @@ pub struct NodeBundle {
     pub z_index: ZIndex,
     /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
+    ///
+    /// This field is automatically managed by [`ui_stack_system`](`crate::stack::ui_stack_system`).
     pub stack_index: UiStackIndex,
 }
 
