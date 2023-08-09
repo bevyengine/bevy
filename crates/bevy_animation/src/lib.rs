@@ -102,7 +102,7 @@ impl AnimationClip {
         self.duration
     }
 
-    /// Returns the [`EntityPath`] map
+    /// The [`EntityPath`] map.
     #[inline]
     pub fn paths(&self) -> &HashMap<EntityPath, usize> {
         &self.paths
