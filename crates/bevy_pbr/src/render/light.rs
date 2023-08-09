@@ -3,8 +3,8 @@ use crate::{
     CascadeShadowConfig, Cascades, CascadesVisibleEntities, Clusters, CubemapVisibleEntities,
     DirectionalLight, DirectionalLightShadowMap, DrawPrepass, EnvironmentMapLight,
     GlobalVisiblePointLights, Material, MaterialPipelineKey, MeshPipeline, MeshPipelineKey,
-    NotShadowCaster, PointLight, PointLightShadowMap, PrepassPipeline, RenderMaterials, SpotLight,
-    VisiblePointLights,
+    MeshUniform, NotShadowCaster, PointLight, PointLightShadowMap, PrepassPipeline,
+    RenderMaterials, SpotLight, VisiblePointLights,
 };
 use bevy_asset::Handle;
 use bevy_core_pipeline::core_3d::Transparent3d;
@@ -1556,7 +1556,10 @@ pub fn prepare_clusters(
 pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
-    casting_meshes: Query<(&Handle<Mesh>, &Handle<M>), Without<NotShadowCaster>>,
+    casting_meshes: Query<
+        (&GpuArrayBufferIndex<MeshUniform>, &Handle<Mesh>, &Handle<M>),
+        Without<NotShadowCaster>,
+    >,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
@@ -1601,7 +1604,9 @@ pub fn queue_shadows<M: Material>(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
             for entity in visible_entities.iter().copied() {
-                if let Ok((mesh_handle, material_handle)) = casting_meshes.get(entity) {
+                if let Ok((batch_indices, mesh_handle, material_handle)) =
+                    casting_meshes.get(entity)
+                {
                     if let (Some(mesh), Some(material)) = (
                         render_meshes.get(mesh_handle),
                         render_materials.get(material_handle),
@@ -1647,7 +1652,10 @@ pub fn queue_shadows<M: Material>(
                             draw_function: draw_shadow_mesh,
                             pipeline: pipeline_id,
                             entity,
-                            distance: 0.0, // TODO: sort back-to-front
+                            distance: 0.0, // TODO: sort front-to-back
+                            per_object_binding_dynamic_offset: batch_indices
+                                .dynamic_offset
+                                .unwrap_or_default(),
                         });
                     }
                 }
@@ -1658,13 +1666,16 @@ pub fn queue_shadows<M: Material>(
 
 pub struct Shadow {
     pub distance: f32,
+    // Per-object data may be bound at different dynamic offsets within a buffer. If it is, then
+    // each batch of per-object data starts at the same dynamic offset.
+    pub per_object_binding_dynamic_offset: u32,
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
 impl PhaseItem for Shadow {
-    type SortKey = usize;
+    type SortKey = (usize, u32);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -1673,7 +1684,7 @@ impl PhaseItem for Shadow {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        self.pipeline.id()
+        (self.pipeline.id(), self.per_object_binding_dynamic_offset)
     }
 
     #[inline]
@@ -1686,7 +1697,7 @@ impl PhaseItem for Shadow {
         // The shadow phase is sorted by pipeline id for performance reasons.
         // Grouping all draw commands using the same pipeline together performs
         // better than rebinding everything at a high rate.
-        radsort::sort_by_key(items, |item| item.pipeline.id());
+        radsort::sort_by_key(items, |item| item.sort_key());
     }
 }
 

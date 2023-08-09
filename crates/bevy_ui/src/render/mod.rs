@@ -3,7 +3,6 @@ mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
-use bevy_render::view::Msaa;
 use bevy_render::{ExtractSchedule, Render};
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
@@ -325,7 +324,7 @@ pub fn extract_uinode_borders(
             Without<ContentSize>,
         >,
     >,
-    parent_node_query: Extract<Query<&Node, With<Parent>>>,
+    node_query: Extract<Query<&Node>>,
 ) {
     let image = bevy_render::texture::DEFAULT_IMAGE_HANDLE.typed();
 
@@ -847,7 +846,6 @@ pub fn queue_uinodes(
     ui_batches: Query<(Entity, &UiBatch)>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
     events: Res<SpriteAssetEvents>,
-    msaa: Res<Msaa>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
@@ -873,10 +871,7 @@ pub fn queue_uinodes(
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &ui_pipeline,
-                UiPipelineKey {
-                    hdr: view.hdr,
-                    msaa_samples: msaa.samples(),
-                },
+                UiPipelineKey { hdr: view.hdr },
             );
             for (entity, batch) in &ui_batches {
                 image_bind_groups

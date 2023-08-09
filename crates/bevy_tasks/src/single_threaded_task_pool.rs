@@ -1,4 +1,3 @@
-#[cfg(target_arch = "wasm32")]
 use std::sync::Arc;
 use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc};
 
@@ -6,7 +5,7 @@ thread_local! {
     static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
 }
 
-/// Used to create a TaskPool
+/// Used to create a [`TaskPool`].
 #[derive(Debug, Default, Clone)]
 pub struct TaskPoolBuilder {}
 
@@ -25,7 +24,7 @@ impl<'a> ThreadExecutor<'a> {
 }
 
 impl TaskPoolBuilder {
-    /// Creates a new TaskPoolBuilder instance
+    /// Creates a new `TaskPoolBuilder` instance
     pub fn new() -> Self {
         Self::default()
     }
@@ -77,7 +76,7 @@ impl TaskPool {
         1
     }
 
-    /// Allows spawning non-'static futures on the thread pool. The function takes a callback,
+    /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,
     /// passing a scope object into it. The scope object provided to the callback can be used
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
@@ -90,7 +89,7 @@ impl TaskPool {
         self.scope_with_executor(false, None, f)
     }
 
-    /// Allows spawning non-`static futures on the thread pool. The function takes a callback,
+    /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,
     /// passing a scope object into it. The scope object provided to the callback can be used
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
@@ -241,7 +240,8 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
         let result = Rc::new(RefCell::new(None));
         self.results.borrow_mut().push(result.clone());
         let f = async move {
-            result.borrow_mut().replace(f.await);
+            let temp_result = f.await;
+            result.borrow_mut().replace(temp_result);
         };
         self.executor.spawn(f).detach();
     }

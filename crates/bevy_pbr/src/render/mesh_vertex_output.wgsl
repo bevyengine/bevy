@@ -1,7 +1,7 @@
 #define_import_path bevy_pbr::mesh_vertex_output
 
 struct MeshVertexOutput {
-    // this is `clip position` when the struct is used as a vertex stage output 
+    // this is `clip position` when the struct is used as a vertex stage output
     // and `frag coord` when used as a fragment stage input
     @builtin(position) position: vec4<f32>,
     @location(0) world_position: vec4<f32>,
@@ -14,5 +14,8 @@ struct MeshVertexOutput {
     #endif
     #ifdef VERTEX_COLORS
     @location(4) color: vec4<f32>,
+    #endif
+    #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
+    @location(5) instance_index: u32,
     #endif
 }
