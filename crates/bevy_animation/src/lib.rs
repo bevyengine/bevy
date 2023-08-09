@@ -102,6 +102,12 @@ impl AnimationClip {
         self.duration
     }
 
+    /// Returns the [`EntityPath`] map
+    #[inline]
+    pub fn paths(&self) -> &HashMap<EntityPath, usize> {
+        &self.paths
+    }
+
     /// Add a [`VariableCurve`] to an [`EntityPath`].
     pub fn add_curve_to_path(&mut self, path: EntityPath, curve: VariableCurve) {
         // Update the duration of the animation by this curve duration if it's longer
