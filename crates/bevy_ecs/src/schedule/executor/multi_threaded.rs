@@ -62,6 +62,12 @@ struct SystemTaskMetadata {
     is_send: bool,
     /// Is `true` if the system is exclusive.
     is_exclusive: bool,
+    /// Cached tracing span for system task
+    #[cfg(feature = "trace")]
+    system_task_span: Span,
+    /// Cached tracing span for system
+    #[cfg(feature = "trace")]
+    system_span: Span,
 }
 
 /// The result of running a system that is sent across a channel.
@@ -112,12 +118,6 @@ pub struct MultiThreadedExecutor {
     panic_payload: Arc<Mutex<Option<Box<dyn Any + Send>>>>,
     /// When set, stops the executor from running any more systems.
     stop_spawning: bool,
-    /// Cached tracing spans for system tasks
-    #[cfg(feature = "trace")]
-    system_task_spans: Vec<Span>,
-    /// Cached tracing spans for systems
-    #[cfg(feature = "trace")]
-    system_spans: Vec<Span>,
 }
 
 impl Default for MultiThreadedExecutor {
@@ -153,24 +153,23 @@ impl SystemExecutor for MultiThreadedExecutor {
         self.unapplied_systems = FixedBitSet::with_capacity(sys_count);
 
         self.system_task_metadata = Vec::with_capacity(sys_count);
-        #[cfg(feature = "trace")]
-        {
-            self.system_task_spans = Vec::with_capacity(sys_count);
-            self.system_spans = Vec::with_capacity(sys_count);
-        }
         for index in 0..sys_count {
             self.system_task_metadata.push(SystemTaskMetadata {
                 archetype_component_access: default(),
                 dependents: schedule.system_dependents[index].clone(),
                 is_send: schedule.systems[index].is_send(),
                 is_exclusive: schedule.systems[index].is_exclusive(),
+                #[cfg(feature = "trace")]
+                system_task_span: info_span!(
+                    "system_task",
+                    name = &*schedule.systems[index].name()
+                ),
+                #[cfg(feature = "trace")]
+                system_span: info_span!(
+                    "system",
+                    name = &*schedule.systems[index].name()
+                ),
             });
-
-            #[cfg(feature = "trace")]
-            {
-                self.system_task_spans.push(info_span!("system_task", name = &*schedule.systems[index].name()));
-                self.system_spans.push(info_span!("system", name = &*schedule.systems[index].name()));
-            }
         }
 
         self.num_dependencies_remaining = Vec::with_capacity(sys_count);
@@ -299,10 +298,6 @@ impl MultiThreadedExecutor {
             apply_final_deferred: true,
             panic_payload: Arc::new(Mutex::new(None)),
             stop_spawning: false,
-            #[cfg(feature = "trace")]
-            system_task_spans: Vec::new(),
-            #[cfg(feature = "trace")]
-            system_spans: Vec::new(),
         }
     }
 
@@ -509,7 +504,7 @@ impl MultiThreadedExecutor {
         let system = unsafe { &mut *systems[system_index].get() };
 
         #[cfg(feature = "trace")]
-        let system_span = self.system_spans[system_index].clone();
+        let system_span = self.system_task_metadata[system_index].system_span.clone();
 
         let sender = self.sender.clone();
         let panic_payload = self.panic_payload.clone();
@@ -543,7 +538,7 @@ impl MultiThreadedExecutor {
         };
 
         #[cfg(feature = "trace")]
-        let task = task.instrument(self.system_task_spans[system_index].clone());
+        let task = task.instrument(self.system_task_metadata[system_index].system_task_span.clone());
 
         let system_meta = &self.system_task_metadata[system_index];
         self.active_access
