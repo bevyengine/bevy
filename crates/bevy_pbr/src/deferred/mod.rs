@@ -33,7 +33,7 @@ use crate::{
 };
 
 #[derive(Default)]
-pub struct PBRDeferredLightingPlugin {
+pub struct PbrDeferredLightingPlugin {
     pub bypass: bool,
 }
 
@@ -51,7 +51,7 @@ impl Default for PBRDeferredLightingStencilReference {
     }
 }
 
-impl Plugin for PBRDeferredLightingPlugin {
+impl Plugin for PbrDeferredLightingPlugin {
     fn build(&self, app: &mut App) {
         if self.bypass {
             return;
