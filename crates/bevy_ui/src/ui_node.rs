@@ -344,7 +344,7 @@ impl From<Num> for Val {
 }
 
 impl TryFrom<Val> for Num {
-    type Error = ValConversionError;
+    type Error = NumConversionError;
     fn try_from(value: Val) -> Result<Self, Self::Error> {
         match value {
             Val::Px(inner) => Ok(Num::Px(inner)),
@@ -421,7 +421,7 @@ pub enum NumArithmeticError {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
-pub enum ValConversionError {
+pub enum NumConversionError {
     #[error("Cannot convert from non-evaluatable variants (non-numeric)")]
     NonEvaluateable,
 }
@@ -2151,7 +2151,7 @@ mod tests {
     }
 
     #[test]
-    fn from_val_to_autoval() {
+    fn from_num_to_val() {
         let inner_value = 11.;
 
         assert_eq!(Val::from(Num::Px(inner_value)), Val::Px(inner_value));
@@ -2162,12 +2162,12 @@ mod tests {
     }
 
     #[test]
-    fn try_from_autoval_to_val() {
+    fn try_from_val_to_num() {
         let inner_value = 22.;
 
         assert_eq!(
             Num::try_from(Val::Auto),
-            Err(crate::ValConversionError::NonEvaluateable)
+            Err(crate::NumConversionError::NonEvaluateable)
         );
         assert_eq!(
             Num::try_from(Val::Px(inner_value)),
