@@ -3,11 +3,54 @@ use taffy::style_helpers;
 use crate::{
     AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, GridAutoFlow,
     GridPlacement, GridTrack, GridTrackRepetition, JustifyContent, JustifyItems, JustifySelf,
-    MaxTrackSizingFunction, MinTrackSizingFunction, PositionType, RepeatedGridTrack, Style, UiRect,
-    Val,
+    MaxTrackSizingFunction, MinTrackSizingFunction, PositionType, RepeatedGridTrack, Style,
+    Val, Margin, Border, Padding, AutoVal,
 };
 
 use super::LayoutContext;
+
+impl AutoVal {
+    fn into_length_percentage_auto(
+        self,
+        context: &LayoutContext,
+    ) -> taffy::style::LengthPercentageAuto {
+        match self {
+            AutoVal::Auto => taffy::style::LengthPercentageAuto::Auto,
+            AutoVal::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.),
+            AutoVal::Px(value) => taffy::style::LengthPercentageAuto::Points(
+                (context.scale_factor * value as f64) as f32,
+            ),
+            AutoVal::VMin(value) => {
+                taffy::style::LengthPercentageAuto::Points(context.min_size * value / 100.)
+            }
+            AutoVal::VMax(value) => {
+                taffy::style::LengthPercentageAuto::Points(context.max_size * value / 100.)
+            }
+            AutoVal::Vw(value) => {
+                taffy::style::LengthPercentageAuto::Points(context.physical_size.x * value / 100.)
+            }
+            AutoVal::Vh(value) => {
+                taffy::style::LengthPercentageAuto::Points(context.physical_size.y * value / 100.)
+            }
+        }
+    }
+
+    fn into_length_percentage(self, context: &LayoutContext) -> taffy::style::LengthPercentage {
+        match self.into_length_percentage_auto(context) {
+            taffy::style::LengthPercentageAuto::Auto => taffy::style::LengthPercentage::Points(0.0),
+            taffy::style::LengthPercentageAuto::Percent(value) => {
+                taffy::style::LengthPercentage::Percent(value)
+            }
+            taffy::style::LengthPercentageAuto::Points(value) => {
+                taffy::style::LengthPercentage::Points(value)
+            }
+        }
+    }
+
+    fn into_dimension(self, context: &LayoutContext) -> taffy::style::Dimension {
+        self.into_length_percentage_auto(context).into()
+    }
+}
 
 impl Val {
     fn into_length_percentage_auto(
@@ -15,7 +58,7 @@ impl Val {
         context: &LayoutContext,
     ) -> taffy::style::LengthPercentageAuto {
         match self {
-            Val::Auto => taffy::style::LengthPercentageAuto::Auto,
+            //Val::Auto => taffy::style::LengthPercentageAuto::Auto,
             Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.),
             Val::Px(value) => taffy::style::LengthPercentageAuto::Points(
                 (context.scale_factor * value as f64) as f32,
@@ -52,7 +95,18 @@ impl Val {
     }
 }
 
-impl UiRect {
+impl Margin {
+    fn map_to_taffy_rect<T>(self, map_fn: impl Fn(AutoVal) -> T) -> taffy::geometry::Rect<T> {
+        taffy::geometry::Rect {
+            left: map_fn(self.left),
+            right: map_fn(self.right),
+            top: map_fn(self.top),
+            bottom: map_fn(self.bottom),
+        }
+    }
+}
+
+impl Border {
     fn map_to_taffy_rect<T>(self, map_fn: impl Fn(Val) -> T) -> taffy::geometry::Rect<T> {
         taffy::geometry::Rect {
             left: map_fn(self.left),
@@ -62,6 +116,17 @@ impl UiRect {
         }
     }
 }
+
+impl Padding {
+        fn map_to_taffy_rect<T>(self, map_fn: impl Fn(Val) -> T) -> taffy::geometry::Rect<T> {
+            taffy::geometry::Rect {
+                left: map_fn(self.left),
+                right: map_fn(self.right),
+                top: map_fn(self.top),
+                bottom: map_fn(self.bottom),
+            }
+        }
+    }
 
 pub fn from_style(context: &LayoutContext, style: &Style) -> taffy::style::Style {
     taffy::style::Style {
@@ -393,19 +458,23 @@ impl RepeatedGridTrack {
 
 #[cfg(test)]
 mod tests {
+    use crate::AutoVal;
+    use crate::Border;
+    use crate::Margin;
+    use crate::Padding;
+
     use super::*;
 
     #[test]
     fn test_convert_from() {
         use taffy::style_helpers as sh;
-
         let bevy_style = crate::Style {
             display: Display::Flex,
             position_type: PositionType::Absolute,
-            left: Val::Px(0.),
-            right: Val::Percent(0.),
-            top: Val::Auto,
-            bottom: Val::Auto,
+            left: AutoVal::Px(0.),
+            right: AutoVal::Percent(0.),
+            top: AutoVal::Auto,           
+            bottom: AutoVal::Auto,
             direction: crate::Direction::Inherit,
             flex_direction: FlexDirection::ColumnReverse,
             flex_wrap: FlexWrap::WrapReverse,
@@ -415,33 +484,33 @@ mod tests {
             justify_items: JustifyItems::Default,
             justify_self: JustifySelf::Center,
             justify_content: JustifyContent::SpaceEvenly,
-            margin: UiRect {
-                left: Val::Percent(0.),
-                right: Val::Px(0.),
-                top: Val::Auto,
-                bottom: Val::Auto,
+            margin: Margin {
+                left: AutoVal::Percent(0.),
+                right: AutoVal::Px(0.),
+                top: AutoVal::Auto,
+                bottom: AutoVal::Auto,
             },
-            padding: UiRect {
+            padding: Padding {
                 left: Val::Percent(0.),
                 right: Val::Px(0.),
                 top: Val::Percent(0.),
                 bottom: Val::Percent(0.),
             },
-            border: UiRect {
+            border: Border {
                 left: Val::Px(0.),
                 right: Val::Px(0.),
-                top: Val::Auto,
+                top: Val::Percent(0.),
                 bottom: Val::Px(0.),
             },
             flex_grow: 1.,
             flex_shrink: 0.,
-            flex_basis: Val::Px(0.),
-            width: Val::Px(0.),
-            height: Val::Auto,
-            min_width: Val::Px(0.),
-            min_height: Val::Percent(0.),
-            max_width: Val::Auto,
-            max_height: Val::Px(0.),
+            flex_basis: AutoVal::Px(0.),
+            width: AutoVal::Px(0.),
+            height: AutoVal::Auto,
+            min_width: AutoVal::Px(0.),
+            min_height: AutoVal::Percent(0.),
+            max_width: AutoVal::Auto,
+            max_height: AutoVal::Px(0.),
             aspect_ratio: None,
             overflow: crate::Overflow::clip(),
             column_gap: Val::Px(0.),
@@ -635,7 +704,6 @@ mod tests {
         use taffy::style::LengthPercentage;
         let context = LayoutContext::new(2.0, bevy_math::Vec2::new(800., 600.));
         let cases = [
-            (Val::Auto, LengthPercentage::Points(0.)),
             (Val::Percent(1.), LengthPercentage::Percent(0.01)),
             (Val::Px(1.), LengthPercentage::Points(2.)),
             (Val::Vw(1.), LengthPercentage::Points(8.)),
