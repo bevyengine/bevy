@@ -489,7 +489,7 @@ where
                 .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
                 .then_some(ColorTargetState {
                     format: MOTION_VECTOR_PREPASS_FORMAT,
-                    blend: None,
+                    blend: Some(bevy_render::render_resource::BlendState::REPLACE),
                     write_mask: ColorWrites::ALL,
                 }),
         );
@@ -573,51 +573,9 @@ where
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
             },
-            depth_stencil: if key.mesh_key.contains(MeshPipelineKey::SHADOW_PASS) {
-                Some(DepthStencilState {
-                    format: SHADOW_FORMAT,
-                    depth_write_enabled: true,
-                    depth_compare: CompareFunction::GreaterEqual,
-                    stencil: StencilState {
-                        front: StencilFaceState::IGNORE,
-                        back: StencilFaceState::IGNORE,
-                        read_mask: 0,
-                        write_mask: 0,
-                    },
-                    bias: DepthBiasState {
-                        constant: 0,
-                        slope_scale: 0.0,
-                        clamp: 0.0,
-                    },
-                })
-            } else {
-                Some(DepthStencilState {
-                    format: DEPTH_PREPASS_FORMAT,
-                    depth_write_enabled: true,
-                    depth_compare: CompareFunction::GreaterEqual,
-                    stencil: StencilState {
-                        front: StencilFaceState {
-                            compare: CompareFunction::Always,
-                            fail_op: StencilOperation::Keep,
-                            depth_fail_op: StencilOperation::Keep,
-                            pass_op: StencilOperation::Replace,
-                        },
-                        back: StencilFaceState {
-                            compare: CompareFunction::Always,
-                            fail_op: StencilOperation::Keep,
-                            depth_fail_op: StencilOperation::Keep,
-                            pass_op: StencilOperation::Replace,
-                        },
-                        read_mask: 0,
-                        write_mask: u32::MAX,
-                    },
-                    bias: DepthBiasState {
-                        constant: 0,
-                        slope_scale: 0.0,
-                        clamp: 0.0,
-                    },
-                })
-            },
+            depth_stencil: Some(get_depth_stencil_state(
+                key.mesh_key.contains(MeshPipelineKey::SHADOW_PASS),
+            )),
             multisample: MultisampleState {
                 count: key.mesh_key.msaa_samples(),
                 mask: !0,
@@ -713,6 +671,55 @@ impl DepthBindingsSet {
         ]
     }
 }
+
+pub fn get_depth_stencil_state(shadow: bool) -> DepthStencilState {
+    if shadow {
+        DepthStencilState {
+            format: SHADOW_FORMAT,
+            depth_write_enabled: true,
+            depth_compare: CompareFunction::GreaterEqual,
+            stencil: StencilState {
+                front: StencilFaceState::IGNORE,
+                back: StencilFaceState::IGNORE,
+                read_mask: 0,
+                write_mask: 0,
+            },
+            bias: DepthBiasState {
+                constant: 0,
+                slope_scale: 0.0,
+                clamp: 0.0,
+            },
+        }
+    } else {
+        DepthStencilState {
+            format: DEPTH_PREPASS_FORMAT,
+            depth_write_enabled: true,
+            depth_compare: CompareFunction::GreaterEqual,
+            stencil: StencilState {
+                front: StencilFaceState {
+                    compare: CompareFunction::Always,
+                    fail_op: StencilOperation::Keep,
+                    depth_fail_op: StencilOperation::Keep,
+                    pass_op: StencilOperation::Replace,
+                },
+                back: StencilFaceState {
+                    compare: CompareFunction::Always,
+                    fail_op: StencilOperation::Keep,
+                    depth_fail_op: StencilOperation::Keep,
+                    pass_op: StencilOperation::Replace,
+                },
+                read_mask: 0,
+                write_mask: u32::MAX,
+            },
+            bias: DepthBiasState {
+                constant: 0,
+                slope_scale: 0.0,
+                clamp: 0.0,
+            },
+        }
+    }
+}
+
 pub fn get_bindings(
     prepass_textures: Option<&ViewPrepassTextures>,
     fallback_images: &mut FallbackImageMsaa,

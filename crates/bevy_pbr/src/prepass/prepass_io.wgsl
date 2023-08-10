@@ -92,6 +92,3 @@ struct FragmentOutput {
 #endif // DEPTH_CLAMP_ORTHO
 }
 #endif //PREPASS_FRAGMENT
-
-
-
