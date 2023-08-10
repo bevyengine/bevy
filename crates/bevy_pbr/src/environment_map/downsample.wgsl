@@ -22,7 +22,7 @@
 
 @group(0) @binding(0) var tex_hi_re: texture_cube<f32>;
 @group(0) @binding(1) var tex_los_res: texture_storage_2d_array<rg11b10float, write>;
-@group(0) @binding(2) var bilinear: sampler
+@group(0) @binding(2) var bilinear: sampler;
 
 @compute
 @workgroup_size(8, 8, 1)
