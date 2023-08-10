@@ -146,8 +146,8 @@ mod game {
         display_quality: Res<DisplayQuality>,
         volume: Res<Volume>,
     ) {
-        commandsNum
-            .spawn((Num
+        commands
+            .spawn((
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
@@ -185,7 +185,7 @@ mod game {
                                 TextStyle {
                                     font_size: 80.0,
                                     color: TEXT_COLOR,
-                                    ..default()Num
+                                    ..default()
                                 },
                             )
                             .with_style(Style {
@@ -393,7 +393,7 @@ mod menu {
         menu_state.set(MenuState::Main);
     }
 
-    fn main_menu_setup(commands: Commands, asset_server: Res<AssetServer>) {
+    fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Common style for all Numtons on the screen
         let button_style = Style {
             width: Val::Px(250.0),
