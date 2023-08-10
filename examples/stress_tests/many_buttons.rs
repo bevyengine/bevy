@@ -91,9 +91,9 @@ fn setup(mut commands: Commands) {
         .with_children(|commands| {
             let spawn_text = std::env::args().all(|arg| arg != "no-text");
             let border = if std::env::args().all(|arg| arg != "no-borders") {
-                UiRect::all(Num::Percent(10. / count_f))
+                Border::all(Num::Percent(10. / count_f))
             } else {
-                UiRect::DEFAULT
+                Border::DEFAULT
             };
             for i in 0..count {
                 for j in 0..count {
@@ -122,24 +122,10 @@ fn spawn_button(
     i: usize,
     j: usize,
     spawn_text: bool,
-    border: UiRect,
+    border: Border,
     border_color: BorderColor,
 ) {
     let width = 90.0 / total;
-<<<<<<< HEAD
-    commands
-        .spawn((
-            ButtonBundlNum
-                style: SNume {
-                    sizeNumize::new(Val::Percent(width), Val::Percent(width)),
-                    boNumm: Val::Percent(100.0 / total * i as f32),
-                    left: Val::Percent(100.0 / total * j as f32),
-                    align_items: AlignItems::Center,
-                    position_type: PositionType::Absolute,
-                    ..default()
-                },
-                background_color: color,
-=======
     let mut builder = commands.spawn((
         ButtonBundle {
             style: Style {
@@ -150,7 +136,6 @@ fn spawn_button(
                 align_items: AlignItems::Center,
                 position_type: PositionType::Absolute,
                 border,
->>>>>>> main
                 ..default()
             },
             background_color,

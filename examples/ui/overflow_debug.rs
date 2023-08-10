@@ -166,8 +166,8 @@ fn spawn_image(
             style: Style {
                 height: Val::Px(100.),
                 position_type: PositionType::Absolute,
-                top: Num::Px(-50.),
-                left: Num::Px(-200.),
+                top: Val::Px(-50.),
+                left: Val::Px(-200.),
                 ..default()
             },
             ..default()
@@ -224,8 +224,8 @@ fn spawn_container(
                         style: Style {
                             align_items: AlignItems::Center,
                             justify_content: JustifyContent::Center,
-                            top: Num::Px(transform.translation.x),
-                            left: Num::Px(transform.translation.y),
+                            top: Val::Px(transform.translation.x),
+                            left: Val::Px(transform.translation.y),
                             ..default()
                         },
                         transform,
@@ -266,8 +266,8 @@ fn update_transform<T: UpdateTransform + Component>(
     for (mut transform, mut style, update_transform) in &mut containers {
         update_transform.update(animation.t, &mut transform);
 
-        style.left = Num::Px(transform.translation.x);
-        style.top = Num::Px(transform.translation.y);
+        style.left = Val::Px(transform.translation.x);
+        style.top = Val::Px(transform.translation.y);
     }
 }
 
@@ -302,12 +302,12 @@ fn next_container_size(
             container.0 = (container.0 + 1) % 3;
 
             style.width = match container.0 {
-                2 => Num::Px(30.),
-                _ => Num::Px(CONTAINER_SIZE),
+                2 => Val::Px(30.),
+                _ => Val::Px(CONTAINER_SIZE),
             };
             style.height = match container.0 {
-                1 => Num::Px(30.),
-                _ => Num::Px(CONTAINER_SIZE),
+                1 => Val::Px(30.),
+                _ => Val::Px(CONTAINER_SIZE),
             };
         }
     }

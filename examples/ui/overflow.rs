@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     width: Val::Px(100.),
                                     height: Val::Px(100.),
-                                    padding: UiRect {
+                                    padding: Padding {
                                         left: Num::Px(25.),
                                         top: Num::Px(25.),
                                         ..Default::default()
@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     image: UiImage::new(image.clone()),
                                     style: Style {
                                         min_width: Val::Px(100.),
-                                        min_height: Num::Px(100.),
+                                        min_height: Val::Px(100.),
                                         ..Default::default()
                                     },
                                     background_color: Color::WHITE.into(),

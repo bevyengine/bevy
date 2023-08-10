@@ -35,18 +35,6 @@ impl Val {
         }
     }
 
-    fn into_length_percentage(self, context: &LayoutContext) -> taffy::style::LengthPercentage {
-        match self.into_length_percentage_auto(context) {
-            taffy::style::LengthPercentageAuto::Auto => taffy::style::LengthPercentage::Points(0.0),
-            taffy::style::LengthPercentageAuto::Percent(value) => {
-                taffy::style::LengthPercentage::Percent(value)
-            }
-            taffy::style::LengthPercentageAuto::Points(value) => {
-                taffy::style::LengthPercentage::Points(value)
-            }
-        }
-    }
-
     fn into_dimension(self, context: &LayoutContext) -> taffy::style::Dimension {
         self.into_length_percentage_auto(context).into()
     }
@@ -88,10 +76,6 @@ impl Num {
                 taffy::style::LengthPercentage::Points(value)
             }
         }
-    }
-
-    fn into_dimension(self, context: &LayoutContext) -> taffy::style::Dimension {
-        self.into_length_percentage_auto(context).into()
     }
 }
 

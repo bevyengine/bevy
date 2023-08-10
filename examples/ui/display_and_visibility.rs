@@ -312,7 +312,7 @@ fn spawn_right_panel(
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::FlexEnd,
                         justify_content: JustifyContent::SpaceBetween,
-                        padding: UiRect {
+                        padding: Padding {
                             left: Num::Px(5.),
                             top: Num::Px(5.),
                             ..Default::default()
@@ -333,7 +333,7 @@ fn spawn_right_panel(
                                 flex_direction: FlexDirection::Column,
                                 align_items: AlignItems::FlexEnd,
                                 justify_content: JustifyContent::SpaceBetween,
-                                padding: UiRect {
+                                padding: Padding {
                                     left: Num::Px(5.),
                                     top: Num::Px(5.),
                                     ..Default::default()
@@ -354,7 +354,7 @@ fn spawn_right_panel(
                                         flex_direction: FlexDirection::Column,
                                         align_items: AlignItems::FlexEnd,
                                         justify_content: JustifyContent::SpaceBetween,
-                                        padding: UiRect {
+                                        padding: Padding {
                                             left: Num::Px(5.),
                                             top: Num::Px(5.),
                                             ..Default::default()
@@ -375,7 +375,7 @@ fn spawn_right_panel(
                                                 align_items: AlignItems::FlexStart,
                                                 justify_content: JustifyContent::SpaceBetween,
                                                 flex_direction: FlexDirection::Column,
-                                                padding: UiRect {
+                                                padding: Padding {
                                                     left: Num::Px(5.),
                                                     top: Num::Px(5.),
                                                     ..Default::default()

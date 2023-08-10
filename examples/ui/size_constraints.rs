@@ -33,7 +33,7 @@ enum Constraint {
 }
 
 #[derive(Copy, Clone, Component)]
-struct ButtonValue(Num);
+struct ButtonValue(Val);
 
 #[derive(Event)]
 struct ButtonActivatedEvent(Entity);
@@ -208,7 +208,7 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                             spawn_button(
                                 parent,
                                 constraint,
-                                ButtonValue(Num::Auto),
+                                ButtonValue(Val::Auto),
                                 "Auto".to_string(),
                                 text_style.clone(),
                                 true,
@@ -217,7 +217,7 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                                 spawn_button(
                                     parent,
                                     constraint,
-                                    ButtonValue(Num::Percent(percent)),
+                                    ButtonValue(Val::Percent(percent)),
                                     format!("{percent}%"),
                                     text_style.clone(),
                                     false,
