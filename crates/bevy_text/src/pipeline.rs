@@ -10,9 +10,9 @@ use bevy_utils::HashMap;
 use glyph_brush_layout::{FontId, GlyphPositioner, SectionGeometry, SectionText};
 
 use crate::{
-    compute_text_bounds, error::TextError, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font,
-    FontAtlasSet, FontAtlasWarning, PositionedGlyph, TextAlignment, TextSection, TextSettings,
-    YAxisOrientation,
+    compute_text_bounds, error::TextError, glyph_brush::GlyphBrush, scale_value, text, BreakLineOn,
+    Font, FontAtlasSet, FontAtlasWarning, PositionedGlyph, TextAlignment, TextSection,
+    TextSettings, YAxisOrientation,
 };
 
 #[derive(Default, Resource)]
@@ -85,7 +85,12 @@ impl TextPipeline {
             return Ok(TextLayoutInfo::default());
         }
 
-        let size = compute_text_bounds(&section_glyphs, |index| &scaled_fonts[index]).size();
+        let size = compute_text_bounds(
+            &section_glyphs,
+            |index| &scaled_fonts[index],
+            text_alignment,
+        )
+        .size();
 
         let glyphs = self.brush.process_glyphs(
             section_glyphs,
@@ -97,6 +102,7 @@ impl TextPipeline {
             text_settings,
             font_atlas_warning,
             y_axis_orientation,
+            text_alignment,
         )?;
 
         Ok(TextLayoutInfo { glyphs, size })
@@ -213,7 +219,12 @@ impl TextMeasureInfo {
             .line_breaker(self.linebreak_behaviour)
             .calculate_glyphs(&self.fonts, &geom, sections);
 
-        compute_text_bounds(&section_glyphs, |index| &self.scaled_fonts[index]).size()
+        compute_text_bounds(
+            &section_glyphs,
+            |index| &self.scaled_fonts[index],
+            self.text_alignment,
+        )
+        .size()
     }
 
     pub fn compute_size(&self, bounds: Vec2) -> Vec2 {

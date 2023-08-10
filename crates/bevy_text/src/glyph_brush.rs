@@ -10,7 +10,7 @@ use glyph_brush_layout::{
 };
 
 use crate::{
-    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo,
+    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo, Text,
     TextAlignment, TextSettings, YAxisOrientation,
 };
 
@@ -64,6 +64,7 @@ impl GlyphBrush {
         text_settings: &TextSettings,
         font_atlas_warning: &mut FontAtlasWarning,
         y_axis_orientation: YAxisOrientation,
+        text_alignment: TextAlignment,
     ) -> Result<Vec<PositionedGlyph>, TextError> {
         if glyphs.is_empty() {
             return Ok(Vec::new());
@@ -84,7 +85,8 @@ impl GlyphBrush {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let text_bounds = compute_text_bounds(&glyphs, |index| &sections_data[index].3);
+        let text_bounds =
+            compute_text_bounds(&glyphs, |index| &sections_data[index].3, text_alignment);
 
         let mut positioned_glyphs = Vec::new();
         for sg in glyphs {
@@ -206,6 +208,7 @@ impl GlyphPlacementAdjuster {
 pub(crate) fn compute_text_bounds<'a, T>(
     section_glyphs: &[SectionGlyph],
     get_scaled_font: impl Fn(usize) -> &'a PxScaleFont<T>,
+    text_alignment: TextAlignment,
 ) -> bevy_math::Rect
 where
     T: ab_glyph::Font + 'a,
@@ -225,6 +228,10 @@ where
                 glyph.position.y - scaled_font.descent(),
             ),
         });
+    }
+
+    if text_alignment == TextAlignment::Right {
+        text_bounds.max.x = 0.;
     }
 
     text_bounds
