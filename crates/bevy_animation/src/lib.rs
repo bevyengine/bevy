@@ -119,7 +119,7 @@ impl AnimationClip {
 
     /// Whether this animation clip can run on entity with given [`Name`].
     pub fn compatible_with(&self, name: &Name) -> bool {
-        self.paths.keys().all(|path| &path.parts[0] == name)
+        self.paths.keys().any(|path| &path.parts[0] == name)
     }
 }
 
@@ -295,8 +295,16 @@ fn entity_from_path(
     // PERF: finding the target entity can be optimised
     let mut current_entity = root;
     path_cache.resize(path.parts.len(), None);
-    // Ignore the first name, it is the root node which we already have
-    for (idx, part) in path.parts.iter().enumerate().skip(1) {
+
+    let mut parts = path.parts.iter().enumerate();
+
+    // check the first name is the root node which we already have
+    let root_name = parts.next().unwrap().1;
+    if names.get(current_entity) != Ok(root_name) {
+        return None;
+    }
+
+    for (idx, part) in parts {
         let mut found = false;
         let children = children.get(current_entity).ok()?;
         if let Some(cached) = path_cache[idx] {
