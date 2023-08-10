@@ -1,3 +1,5 @@
+// Original source: https://www.activision.com/cdn/research/downsample_cubemap.txt
+
 // Copyright 2016 Activision Publishing, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining
