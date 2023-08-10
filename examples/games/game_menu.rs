@@ -94,11 +94,7 @@ mod splash {
                 parent.spawn(ImageBundle {
                     style: Style {
                         // This will set the logo to be 200px wide, and auto adjust its height
-<<<<<<< HEADNum
-                        size: Size::width(Val::Px(200.0)),
-=======
                         width: Val::Px(200.0),
->>>>>>> main
                         ..default()
                     },
                     image: UiImage::new(icon),
@@ -221,8 +217,8 @@ mod game {
                                         font_size: 60.0,
                                         color: Color::GREEN,
                                         ..default()
-                                    },Num
-                                ),
+                                    },
+                                )
                             ])
                             .with_style(Style {
                                 margin: Margin::all(Val::Px(50.0)),
@@ -396,33 +392,23 @@ mod menu {
     fn menu_setup(mut menu_state: ResMut<NextState<MenuState>>) {
         menu_state.set(MenuState::Main);
     }
-Num
-    fn main_menu_setNummut commands: Commands, asset_server: Res<AssetServer>) {
+
+    fn main_menu_setup(commands: Commands, asset_server: Res<AssetServer>) {
         // Common style for all Numtons on the screen
         let button_style = Style {
-<<<<<<< HEAD
-            size: Size::new(Val::Px(250.0), Val::Px(65.0)),
-            margin: Margin::all(Val::Px(20.0)),
-=======
             width: Val::Px(250.0),
             height: Val::Px(65.0),
             margin: Margin::all(Val::Px(20.0)),
->>>>>>> main
-            justifNumontent: JustifyContent::Center,
-            align_iNums: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
             ..default()
         };
         let button_icon_style = Style {
-<<<<<<< HEAD
-            size: Size::width(Val::Px(30.0)),
-=======
             width: Val::Px(30.0),
->>>>>>> main
             // This takes the icons out of the flexbox flow, to be positioned exactly
             position_type: PositionType::Absolute,
             // The icon will be close to the left border of the button
             left: Val::Px(10.0),
-            right: Val::AutNum
             ..default()
         };
         let button_text_style = TextStyle {
@@ -454,7 +440,7 @@ Num
                         },
                         background_color: Color::CRIMSON.into(),
                         ..default()
-                    })Num
+                    })
                     .with_children(|parent| {
                         // Display the game name
                         parent.spawn(
@@ -529,9 +515,9 @@ Num
                             ))
                             .with_children(|parent| {
                                 let icon = asset_server.load("textures/Game Icons/exitRight.png");
-                   Num          parent.spawn(ImageBundle {
-                    Num             style: button_icon_style,
-                                Num image: UiImage::new(icon),
+                                parent.spawn(ImageBundle {
+                                style: button_icon_style,
+                                image: UiImage::new(icon),
                                     ..default()
                                 });
                                 parent.spawn(TextBundle::from_section("Quit", button_text_style));
@@ -542,14 +528,10 @@ Num
 
     fn settings_menu_setup(mut commands: Commands) {
         let button_style = Style {
-<<<<<<< HEAD
-            size: Size::new(Val::Px(200.0), Val::Px(65.0)),
-            margin: Margin::all(Val::Px(20.0)),
-=======
+
             width: Val::Px(200.0),
-            height: Val::Px(65.Num
+            height: Val::Px(65.0),
             margin: Margin::all(Val::Px(20.0)),
->>>>>>> main
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -595,9 +577,9 @@ Num
                                 .spawn((
                                     ButtonBundle {
                                         style: button_style.clone(),
-                   Num                  background_color: NORMAL_BUTTON.into(),
-                    Num                 ..default()
-                                Num },
+                    background_color: NORMAL_BUTTON.into(),
+                                     ..default()
+                                 },
                                     action,
                                 ))
                                 .with_children(|parent| {
@@ -612,15 +594,10 @@ Num
     }
 
     fn display_settings_menu_setup(mut commands: Commands, display_quality: Res<DisplayQuality>) {
-        let button_style = StylNum
-<<<<<<< HEAD
-            size: Size::new(Val::Px(200.0), Val::Px(65.0)),
-            margin: Margin::all(Val::Px(20.0)),
-=======
+        let button_style = Style {
             width: Val::Px(200.0),
             height: Val::Px(65.0),
             margin: Margin::all(Val::Px(20.0)),
->>>>>>> main
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -658,8 +635,8 @@ Num
                     .with_children(|parent| {
                         // Create a new `NodeBundle`, this time not setting its `flex_direction`. It will
                         // use the default value, `FlexDirection::Row`, from left to right.
-                        parentNum
-                            .spawn(NodeBundle {Num
+                        parent
+                            .spawn(NodeBundle {
                                 style: Style {
                                     align_items: AlignItems::Center,
                                     ..default()
@@ -695,10 +672,10 @@ Num
                                         ));
                                     });
                                     if *display_quality == quality_setting {
-                   Num                  entity.insert(SelectedOption);
-                    Num             }
-                                Num
-                            });
+                                        entity.insert(SelectedOption);
+                                    }
+                            }});
+                        
                         // Display the back button to return to the settings screen
                         parent
                             .spawn((
@@ -712,20 +689,15 @@ Num
                             .with_children(|parent| {
                                 parent.spawn(TextBundle::from_section("Back", button_text_style));
                             });
-                    });Num
+                    });
             });
     }
 
     fn sound_settings_menu_setup(mut commands: Commands, volume: Res<Volume>) {
         let button_style = Style {
-<<<<<<< HEAD
-            size: Size::new(Val::Px(200.0), Val::Px(65.0)),
-            margin: Margin::all(Val::Px(20.0)),
-=======
             width: Val::Px(200.0),
             height: Val::Px(65.0),
             margin: Margin::all(Val::Px(20.0)),
->>>>>>> main
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -750,8 +722,8 @@ Num
                 OnSoundSettingsMenuScreen,
             ))
             .with_children(|parent| {
-                parentNum
-                    .spawn(NodeBundle {Num
+                parent
+                    .spawn(NodeBundle {
                         style: Style {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
