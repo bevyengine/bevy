@@ -569,6 +569,7 @@ mod tests {
     use super::*;
     use crate as bevy_reflect;
     use crate::serde::{ReflectSerializer, UntypedReflectDeserializer};
+    use crate::utility::GenericTypePathCell;
 
     #[test]
     fn reflect_struct() {
@@ -1869,6 +1870,54 @@ bevy_reflect::tests::should_reflect_debug::Test {
 
         let _ = <Recurse<Recurse<()>> as Typed>::type_info();
         let _ = <Recurse<Recurse<()>> as TypePath>::type_path();
+    }
+
+    #[test]
+    fn can_opt_out_type_path() {
+        #[derive(Reflect)]
+        #[reflect(type_path = false)]
+        struct Foo<T> {
+            #[reflect(ignore)]
+            _marker: PhantomData<T>,
+        }
+
+        struct NotTypePath;
+
+        impl<T: 'static> TypePath for Foo<T> {
+            fn type_path() -> &'static str {
+                std::any::type_name::<Self>()
+            }
+
+            fn short_type_path() -> &'static str {
+                static CELL: GenericTypePathCell = GenericTypePathCell::new();
+                CELL.get_or_insert::<Self, _>(|| {
+                    bevy_utils::get_short_name(std::any::type_name::<Self>())
+                })
+            }
+
+            fn crate_name() -> Option<&'static str> {
+                Some("bevy_reflect")
+            }
+
+            fn module_path() -> Option<&'static str> {
+                Some("bevy_reflect::tests")
+            }
+
+            fn type_ident() -> Option<&'static str> {
+                Some("Foo")
+            }
+        }
+
+        // Can use `TypePath`
+        let path = <Foo<NotTypePath> as TypePath>::type_path();
+        assert_eq!("bevy_reflect::tests::can_opt_out_type_path::Foo<bevy_reflect::tests::can_opt_out_type_path::NotTypePath>", path);
+
+        // Can register the type
+        let mut registry = TypeRegistry::default();
+        registry.register::<Foo<NotTypePath>>();
+
+        let registration = registry.get(TypeId::of::<Foo<NotTypePath>>()).unwrap();
+        assert_eq!("Foo<NotTypePath>", registration.short_name());
     }
 
     #[cfg(feature = "glam")]
