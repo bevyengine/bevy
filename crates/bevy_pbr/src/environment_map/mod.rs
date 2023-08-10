@@ -87,6 +87,7 @@ impl Plugin for EnvironmentMapLightPlugin {
     }
 }
 
+/// TODO: Update docs to mention GenerateEnvironmentMapLight
 /// Environment map based ambient lighting representing light from distant scenery.
 ///
 /// When added to a 3D camera, this component adds indirect light
