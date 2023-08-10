@@ -507,10 +507,12 @@ fn apply_animation(
             return;
         }
 
+        let mut any_path_found = false;
         for (path, bone_id) in &animation_clip.paths {
             let cached_path = &mut animation.path_cache[*bone_id];
             let curves = animation_clip.get_curves(*bone_id).unwrap();
             let Some(target) = entity_from_path(root, path, children, names, cached_path) else { continue };
+            any_path_found = true;
             // SAFETY: The verify_no_ancestor_player check above ensures that two animation players cannot alias
             // any of their descendant Transforms.
             //
@@ -596,6 +598,10 @@ fn apply_animation(
                     }
                 }
             }
+        }
+
+        if !any_path_found {
+            warn!("Animation player on {:?} did not match any entity paths.", root);
         }
     }
 }
