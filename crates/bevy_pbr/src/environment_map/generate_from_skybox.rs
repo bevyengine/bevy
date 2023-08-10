@@ -145,7 +145,7 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
             &[0],
             TextureFormat::Rg11b10Float,
         );
-        specular_map.texture_descriptor.mip_level_count = 7;
+        specular_map.texture_descriptor.mip_level_count = 6;
         specular_map.texture_descriptor.usage =
             TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING;
         specular_map.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor {
@@ -166,7 +166,7 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
             &[0],
             TextureFormat::Rg11b10Float,
         );
-        downsampled_cubemap.texture_descriptor.mip_level_count = 7;
+        downsampled_cubemap.texture_descriptor.mip_level_count = 5;
         downsampled_cubemap.texture_descriptor.usage =
             TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING;
         gen_env_map_light.downsampled_cubemap = Some(images.add(downsampled_cubemap));
@@ -180,7 +180,7 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
 
 #[derive(Component)]
 pub struct GenerateEnvironmentMapLightBindGroups {
-    downsample: [BindGroup; 7],
+    downsample: [BindGroup; 6],
     filter: BindGroup,
     skybox_size: UVec2,
 }
@@ -315,24 +315,6 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
                 },
             ],
         });
-        let downsample7 = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("generate_environment_map_light_downsample7_bind_group"),
-            layout: &resources.downsample_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&texture_view(5, downsampled_cubemap)),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(&texture_view(6, downsampled_cubemap)),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::Sampler(&diffuse_map.sampler),
-                },
-            ],
-        });
 
         let filter = render_device.create_bind_group(&BindGroupDescriptor {
             label: Some("generate_environment_map_light_filter_bind_group"),
@@ -387,7 +369,6 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
                     downsample4,
                     downsample5,
                     downsample6,
-                    downsample7,
                 ],
                 filter,
                 skybox_size: skybox.size.as_uvec2(),
@@ -425,9 +406,9 @@ impl ViewNode for GenerateEnvironmentMapLightNode {
 
         pass.set_pipeline(downsample_pipeline);
         let mut texture_size = bind_groups.skybox_size;
-        for i in 0..7 {
+        for bind_group in &bind_groups.downsample {
             let workgroup_count = div_ceil(texture_size, 8);
-            pass.set_bind_group(0, &bind_groups.downsample[i], &[]);
+            pass.set_bind_group(0, bind_group, &[]);
             pass.dispatch_workgroups(workgroup_count, workgroup_count, 6);
             texture_size /= 2;
         }
@@ -458,7 +439,7 @@ fn texture_view(mip_level: u32, specular_map: &GpuImage) -> TextureView {
         base_mip_level: mip_level,
         mip_level_count: Some(1),
         base_array_layer: 0,
-        array_layer_count: Some(7),
+        array_layer_count: Some(6),
     })
 }
 
