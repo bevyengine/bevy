@@ -182,7 +182,7 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
 pub struct GenerateEnvironmentMapLightBindGroups {
     downsample: [BindGroup; 6],
     filter: BindGroup,
-    skybox_size: UVec2,
+    downsampled_cubemap_size: UVec2,
 }
 
 pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
@@ -371,7 +371,7 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
                     downsample6,
                 ],
                 filter,
-                skybox_size: skybox.size.as_uvec2(),
+                downsampled_cubemap_size: downsampled_cubemap.size.as_uvec2(),
             });
     }
 }
@@ -405,7 +405,7 @@ impl ViewNode for GenerateEnvironmentMapLightNode {
         });
 
         pass.set_pipeline(downsample_pipeline);
-        let mut texture_size = bind_groups.skybox_size;
+        let mut texture_size = bind_groups.downsampled_cubemap_size;
         for bind_group in &bind_groups.downsample {
             let workgroup_count = div_ceil(texture_size, 8);
             pass.set_bind_group(0, bind_group, &[]);
