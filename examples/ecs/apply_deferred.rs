@@ -69,7 +69,7 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Percent(100.0),
+                width: AutoVal::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Column,

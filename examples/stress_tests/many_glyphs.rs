@@ -65,7 +65,7 @@ fn setup(mut commands: Commands) {
             commands.spawn(TextBundle {
                 text: text.clone(),
                 style: Style {
-                    width: Val::Px(1000.),
+                    width: AutoVal::Px(1000.),
                     ..Default::default()
                 },
                 ..Default::default()

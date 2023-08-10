@@ -137,23 +137,6 @@ fn setup_pyramid_scene(
     });
 }
 
-<<<<<<< HEAD
-fn setup_instructions(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn((TextBundle::from_section(
-        "",
-        TextStyle {
-            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-            font_size: 15.0,
-            color: Color::WHITE,
-        },
-    )
-    .with_style(Style {
-        position_type: PositionType::Absolute,
-        top: AutoVal::Px(10.0),
-        left: AutoVal::Px(10.0),
-        ..default()
-    }),));
-=======
 fn setup_instructions(mut commands: Commands) {
     commands.spawn(
         TextBundle::from_section(
@@ -165,12 +148,11 @@ fn setup_instructions(mut commands: Commands) {
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: AutoVal::Px(12.0),
+            left: AutoVal::Px(12.0),
             ..default()
         }),
     );
->>>>>>> main
 }
 
 fn update_system(
