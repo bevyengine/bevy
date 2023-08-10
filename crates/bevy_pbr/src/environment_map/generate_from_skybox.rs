@@ -29,7 +29,7 @@ use bevy_utils::default;
 /// TODO: Docs
 #[derive(Component, ExtractComponent, Reflect, Default, Copy, Clone)]
 pub struct GenerateEnvironmentMapLight {
-    intermediate_texture: Option<Handle<Image>>,
+    downsampled_cubemap: Option<Handle<Image>>,
 }
 
 #[derive(Resource)]
@@ -156,7 +156,7 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
             ..default()
         });
 
-        let mut intermediate_texture = Image::new_fill(
+        let mut downsampled_cubemap = Image::new_fill(
             Extent3d {
                 width: texture_descriptor.size.width / 2,
                 height: texture_descriptor.size.height / 2,
@@ -166,10 +166,10 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
             &[0],
             TextureFormat::Rg11b10Float,
         );
-        intermediate_texture.texture_descriptor.mip_level_count = 7;
-        intermediate_texture.texture_descriptor.usage =
+        downsampled_cubemap.texture_descriptor.mip_level_count = 7;
+        downsampled_cubemap.texture_descriptor.usage =
             TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING;
-        gen_env_map_light.intermediate_texture = Some(images.add(intermediate_texture));
+        gen_env_map_light.downsampled_cubemap = Some(images.add(downsampled_cubemap));
 
         commands.entity(entity).insert(EnvironmentMapLight {
             diffuse_map: images.add(diffuse_map),
@@ -198,11 +198,11 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
     images: Res<RenderAssets<Image>>,
 ) {
     for (entity, skybox, environment_map_light, gen_env_map) in &environment_map_lights {
-        let (Some(skybox), Some(diffuse_map), Some(specular_map), Some(intermediate_texture)) = (
+        let (Some(skybox), Some(diffuse_map), Some(specular_map), Some(downsampled_cubemap)) = (
             images.get(&skybox.0),
             images.get(&environment_map_light.diffuse_map),
             images.get(&environment_map_light.specular_map),
-            gen_env_map.intermediate_texture.and_then(|t| images.get(t)),
+            gen_env_map.downsampled_cubemap.and_then(|t| images.get(t)),
         ) else {
             continue;
         };
@@ -217,7 +217,7 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::TextureView(&texture_view(0, intermediate_texture)),
+                    resource: BindingResource::TextureView(&texture_view(0, downsampled_cubemap)),
                 },
                 BindGroupEntry {
                     binding: 2,
@@ -231,11 +231,11 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&texture_view(0, intermediate_texture)),
+                    resource: BindingResource::TextureView(&texture_view(0, downsampled_cubemap)),
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::TextureView(&texture_view(1, intermediate_texture)),
+                    resource: BindingResource::TextureView(&texture_view(1, downsampled_cubemap)),
                 },
                 BindGroupEntry {
                     binding: 2,
@@ -249,11 +249,11 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&texture_view(1, intermediate_texture)),
+                    resource: BindingResource::TextureView(&texture_view(1, downsampled_cubemap)),
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::TextureView(&texture_view(2, intermediate_texture)),
+                    resource: BindingResource::TextureView(&texture_view(2, downsampled_cubemap)),
                 },
                 BindGroupEntry {
                     binding: 2,
@@ -267,11 +267,11 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&texture_view(2, intermediate_texture)),
+                    resource: BindingResource::TextureView(&texture_view(2, downsampled_cubemap)),
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::TextureView(&texture_view(3, intermediate_texture)),
+                    resource: BindingResource::TextureView(&texture_view(3, downsampled_cubemap)),
                 },
                 BindGroupEntry {
                     binding: 2,
@@ -285,11 +285,11 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&texture_view(3, intermediate_texture)),
+                    resource: BindingResource::TextureView(&texture_view(3, downsampled_cubemap)),
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::TextureView(&texture_view(4, intermediate_texture)),
+                    resource: BindingResource::TextureView(&texture_view(4, downsampled_cubemap)),
                 },
                 BindGroupEntry {
                     binding: 2,
@@ -303,11 +303,11 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&texture_view(4, intermediate_texture)),
+                    resource: BindingResource::TextureView(&texture_view(4, downsampled_cubemap)),
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::TextureView(&texture_view(5, intermediate_texture)),
+                    resource: BindingResource::TextureView(&texture_view(5, downsampled_cubemap)),
                 },
                 BindGroupEntry {
                     binding: 2,
@@ -321,11 +321,11 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&texture_view(5, intermediate_texture)),
+                    resource: BindingResource::TextureView(&texture_view(5, downsampled_cubemap)),
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::TextureView(&texture_view(6, intermediate_texture)),
+                    resource: BindingResource::TextureView(&texture_view(6, downsampled_cubemap)),
                 },
                 BindGroupEntry {
                     binding: 2,
@@ -340,7 +340,7 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&intermediate_texture.texture_view),
+                    resource: BindingResource::TextureView(&downsampled_cubemap.texture_view),
                 },
                 BindGroupEntry {
                     binding: 1,
