@@ -385,7 +385,7 @@ pub fn prepare_core_3d_depth_textures(
                     // PERF: vulkan docs recommend using 24 bit depth for better performance
                     format: CORE_3D_DEPTH_FORMAT,
                     usage,
-                    view_formats: &[CORE_3D_DEPTH_FORMAT],
+                    view_formats: &[],
                 };
 
                 texture_cache.get(&render_device, descriptor)
