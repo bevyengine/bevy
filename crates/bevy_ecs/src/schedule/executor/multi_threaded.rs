@@ -165,10 +165,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                     name = &*schedule.systems[index].name()
                 ),
                 #[cfg(feature = "trace")]
-                system_span: info_span!(
-                    "system",
-                    name = &*schedule.systems[index].name()
-                ),
+                system_span: info_span!("system", name = &*schedule.systems[index].name()),
             });
         }
 
@@ -538,7 +535,11 @@ impl MultiThreadedExecutor {
         };
 
         #[cfg(feature = "trace")]
-        let task = task.instrument(self.system_task_metadata[system_index].system_task_span.clone());
+        let task = task.instrument(
+            self.system_task_metadata[system_index]
+                .system_task_span
+                .clone(),
+        );
 
         let system_meta = &self.system_task_metadata[system_index];
         self.active_access
