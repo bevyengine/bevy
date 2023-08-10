@@ -117,6 +117,8 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
 ) {
+    // TODO: Validate that Rg11b10Float can be used a storage texture format
+
     for (entity, skybox, gen_env_map_light) in &skyboxes {
         let texture_descriptor = match images.get(&skybox.0) {
             Some(skybox) => skybox.texture_descriptor.clone(),
