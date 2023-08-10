@@ -5,7 +5,8 @@ use bevy::{asset::LoadState, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((setup.on_startup(), environment_map_load_finish))
+        .add_systems(Startup, setup)
+        .add_systems(Update, environment_map_load_finish)
         .run();
 }
 
@@ -16,6 +17,13 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
+    let sphere_mesh = meshes.add(
+        Mesh::try_from(shape::Icosphere {
+            radius: 0.45,
+            ..default()
+        })
+        .unwrap(),
+    );
     // add entities to the world
     for y in -2..=2 {
         for x in -5..=5 {
@@ -23,13 +31,7 @@ fn setup(
             let y01 = (y + 2) as f32 / 4.0;
             // sphere
             commands.spawn(PbrBundle {
-                mesh: meshes.add(
-                    Mesh::try_from(shape::Icosphere {
-                        radius: 0.45,
-                        subdivisions: 32,
-                    })
-                    .unwrap(),
-                ),
+                mesh: sphere_mesh.clone(),
                 material: materials.add(StandardMaterial {
                     base_color: Color::hex("#ffd891").unwrap(),
                     // vary key PBR parameters on a grid of spheres to show the effect
@@ -44,13 +46,7 @@ fn setup(
     }
     // unlit sphere
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            Mesh::try_from(shape::Icosphere {
-                radius: 0.45,
-                subdivisions: 32,
-            })
-            .unwrap(),
-        ),
+        mesh: sphere_mesh,
         material: materials.add(StandardMaterial {
             base_color: Color::hex("#ffd891").unwrap(),
             // vary key PBR parameters on a grid of spheres to show the effect
@@ -77,9 +73,9 @@ fn setup(
         TextBundle::from_section(
             "Perceptual Roughness",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 36.0,
                 color: Color::WHITE,
+                ..default()
             },
         )
         .with_style(Style {
@@ -94,9 +90,9 @@ fn setup(
         text: Text::from_section(
             "Metallic",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 36.0,
                 color: Color::WHITE,
+                ..default()
             },
         ),
         style: Style {
@@ -116,9 +112,9 @@ fn setup(
         TextBundle::from_section(
             "Loading Environment Map...",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 36.0,
                 color: Color::RED,
+                ..default()
             },
         )
         .with_style(Style {

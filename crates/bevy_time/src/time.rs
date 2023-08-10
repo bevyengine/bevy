@@ -1,11 +1,11 @@
 use bevy_ecs::{reflect::ReflectResource, system::Resource};
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::{Duration, Instant};
 
 /// A clock that tracks how much it has advanced (and how much real time has elapsed) since
 /// its previous update and since its creation.
-#[derive(Resource, Reflect, FromReflect, Debug, Clone)]
-#[reflect(Resource)]
+#[derive(Resource, Reflect, Debug, Clone)]
+#[reflect(Resource, Default)]
 pub struct Time {
     startup: Instant,
     first_update: Option<Instant>,
@@ -121,7 +121,7 @@ impl Time {
     ///     world.insert_resource(Health { health_value: 0.2 });
     ///
     ///     let mut schedule = Schedule::new();
-    ///     schedule.add_system(health_system);
+    ///     schedule.add_systems(health_system);
     ///
     ///     // Simulate that 30 ms have passed
     ///     let mut time = world.resource_mut::<Time>();

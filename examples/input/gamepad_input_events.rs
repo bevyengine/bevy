@@ -10,7 +10,7 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((gamepad_events, gamepad_ordered_events))
+        .add_systems(Update, (gamepad_events, gamepad_ordered_events))
         .run();
 }
 

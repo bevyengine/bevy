@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -10,12 +10,13 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
-rust-version = "1.67.0"
+rust-version = "1.70.0"
 
 [workspace]
 exclude = [
   "benches",
   "crates/bevy_ecs_compile_fail_tests",
+  "crates/bevy_macros_compile_fail_tests",
   "crates/bevy_reflect_compile_fail_tests",
 ]
 members = [
@@ -24,6 +25,7 @@ members = [
   "tools/ci",
   "tools/build-templated-pages",
   "tools/build-wasm-example",
+  "tools/example-showcase",
   "errors",
 ]
 
@@ -42,6 +44,7 @@ default = [
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
+  "multi-threaded",
   "png",
   "hdr",
   "ktx2",
@@ -49,8 +52,11 @@ default = [
   "vorbis",
   "x11",
   "filesystem_watcher",
+  "bevy_gizmos",
   "android_shared_stdcxx",
   "tonemapping_luts",
+  "default_font",
+  "webgl2",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -90,7 +96,7 @@ bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_render", "bevy_core_pipeline"]
 
 # Provides text functionality
-bevy_text = ["bevy_internal/bevy_text"]
+bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
 
 # A custom ECS-driven UI framework
 bevy_ui = ["bevy_internal/bevy_ui", "bevy_core_pipeline", "bevy_text", "bevy_sprite"]
@@ -98,11 +104,17 @@ bevy_ui = ["bevy_internal/bevy_ui", "bevy_core_pipeline", "bevy_text", "bevy_spr
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
 
+# Adds support for rendering gizmos
+bevy_gizmos = ["bevy_internal/bevy_gizmos"]
+
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
 
 # Tracing support, exposing a port for Tracy
 trace_tracy = ["trace", "bevy_internal/trace_tracy"]
+
+# Tracing support, with memory profiling, exposing a port for Tracy
+trace_tracy_memory = ["trace", "bevy_internal/trace_tracy", "bevy_internal/trace_tracy_memory"]
 
 # Tracing support
 trace = ["bevy_internal/trace"]
@@ -128,6 +140,9 @@ jpeg = ["bevy_internal/jpeg"]
 # BMP image format support
 bmp = ["bevy_internal/bmp"]
 
+# WebP image format support
+webp = ["bevy_internal/webp"]
+
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
 
@@ -136,6 +151,9 @@ dds = ["bevy_internal/dds"]
 
 # KTX2 compressed texture support
 ktx2 = ["bevy_internal/ktx2"]
+
+# PNM image format support, includes pam, pbm, pgm and ppm
+pnm = ["bevy_internal/pnm"]
 
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
@@ -182,6 +200,9 @@ filesystem_watcher = ["bevy_internal/filesystem_watcher"]
 # Enable serialization support through serde
 serialize = ["bevy_internal/serialize"]
 
+# Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.
+multi-threaded = ["bevy_internal/multi-threaded"]
+
 # Wayland display server support
 wayland = ["bevy_internal/wayland"]
 
@@ -212,14 +233,24 @@ tonemapping_luts = ["bevy_internal/tonemapping_luts"]
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
 accesskit_unix = ["bevy_internal/accesskit_unix"]
 
-[dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.11.0-dev", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.11.0-dev", default-features = false }
+# Enable assertions to check the validity of parameters passed to glam
+glam_assert = ["bevy_internal/glam_assert"]
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.11.0-dev", default-features = false, features = [
-  "webgl",
-] }
+# Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase
+default_font = ["bevy_internal/default_font"]
+
+# Enable support for shaders in GLSL
+shader_format_glsl = ["bevy_internal/shader_format_glsl"]
+
+# Enable support for shaders in SPIR-V
+shader_format_spirv = ["bevy_internal/shader_format_spirv"]
+
+# Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm
+webgl2 = ["bevy_internal/webgl"]
+
+[dependencies]
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0-dev", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.12.0-dev", default-features = false }
 
 [dev-dependencies]
 anyhow = "1.0.4"
@@ -247,7 +278,7 @@ path = "examples/2d/bloom_2d.rs"
 name = "2D Bloom"
 description = "Illustrates bloom post-processing in 2d"
 category = "2D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "move_sprite"
@@ -310,6 +341,26 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "custom_gltf_vertex_attribute"
+path = "examples/2d/custom_gltf_vertex_attribute.rs"
+
+[package.metadata.example.custom_gltf_vertex_attribute]
+name = "Custom glTF vertex attribute 2D"
+description = "Renders a glTF mesh in 2D with a custom vertex attribute"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "2d_gizmos"
+path = "examples/2d/2d_gizmos.rs"
+
+[package.metadata.example.2d_gizmos]
+name = "2D Gizmos"
+description = "A scene showcasing 2D gizmos"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
 
@@ -357,7 +408,7 @@ path = "examples/2d/texture_atlas.rs"
 name = "Texture Atlas"
 description = "Generates a texture atlas (sprite sheet) from individual sprites"
 category = "2D Rendering"
-wasm = true
+wasm = false
 
 [[example]]
 name = "transparency_2d"
@@ -397,6 +448,36 @@ path = "examples/3d/3d_shapes.rs"
 [package.metadata.example.3d_shapes]
 name = "3D Shapes"
 description = "A scene showcasing the built-in 3D shapes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "generate_custom_mesh"
+path = "examples/3d/generate_custom_mesh.rs"
+
+[package.metadata.example.generate_custom_mesh]
+name = "Generate Custom Mesh"
+description = "Simple showcase of how to generate a custom mesh with a custom texture"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "anti_aliasing"
+path = "examples/3d/anti_aliasing.rs"
+
+[package.metadata.example.anti_aliasing]
+name = "Anti-aliasing"
+description = "Compares different anti-aliasing methods"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "3d_gizmos"
+path = "examples/3d/3d_gizmos.rs"
+
+[package.metadata.example.3d_gizmos]
+name = "3D Gizmos"
+description = "A scene showcasing 3D gizmos"
 category = "3D Rendering"
 wasm = true
 
@@ -451,6 +532,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "ssao"
+path = "examples/3d/ssao.rs"
+
+[package.metadata.example.ssao]
+name = "Screen Space Ambient Occlusion"
+description = "A scene showcasing screen space ambient occlusion"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "spotlight"
 path = "examples/3d/spotlight.rs"
 
@@ -468,7 +559,7 @@ path = "examples/3d/bloom_3d.rs"
 name = "3D Bloom"
 description = "Illustrates bloom configuration using HDR and emissive materials"
 category = "3D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "load_gltf"
@@ -483,31 +574,10 @@ wasm = true
 [[example]]
 name = "tonemapping"
 path = "examples/3d/tonemapping.rs"
-required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.tonemapping]
 name = "Tonemapping"
 description = "Compares tonemapping options"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "fxaa"
-path = "examples/3d/fxaa.rs"
-
-[package.metadata.example.fxaa]
-name = "FXAA"
-description = "Compares MSAA (Multi-Sample Anti-Aliasing) and FXAA (Fast Approximate Anti-Aliasing)"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "msaa"
-path = "examples/3d/msaa.rs"
-
-[package.metadata.example.msaa]
-name = "MSAA"
-description = "Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges"
 category = "3D Rendering"
 wasm = true
 
@@ -538,6 +608,16 @@ path = "examples/3d/pbr.rs"
 [package.metadata.example.pbr]
 name = "Physically Based Rendering"
 description = "Demonstrates use of Physically Based Rendering (PBR) properties"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "parallax_mapping"
+path = "examples/3d/parallax_mapping.rs"
+
+[package.metadata.example.parallax_mapping]
+name = "Parallax Mapping"
+description = "Demonstrates use of a normal map and depth map for parallax mapping"
 category = "3D Rendering"
 wasm = true
 
@@ -659,7 +739,7 @@ path = "examples/3d/wireframe.rs"
 name = "Wireframe"
 description = "Showcases wireframe rendering"
 category = "3D Rendering"
-wasm = true
+wasm = false
 
 [[example]]
 name = "no_prepass"
@@ -680,12 +760,32 @@ category = "Animation"
 wasm = true
 
 [[example]]
+name = "morph_targets"
+path = "examples/animation/morph_targets.rs"
+
+[package.metadata.example.morph_targets]
+name = "Morph Targets"
+description = "Plays an animation from a glTF file with meshes with morph targets"
+category = "Animation"
+wasm = true
+
+[[example]]
 name = "animated_transform"
 path = "examples/animation/animated_transform.rs"
 
 [package.metadata.example.animated_transform]
 name = "Animated Transform"
 description = "Create and play an animation defined by code that operates on the `Transform` component"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "cubic_curve"
+path = "examples/animation/cubic_curve.rs"
+
+[package.metadata.example.cubic_curve]
+name = "Cubic Curve"
+description = "Bezier curve example showing a cube following a cubic curve"
 category = "Animation"
 wasm = true
 
@@ -839,7 +939,7 @@ path = "examples/asset/asset_loading.rs"
 name = "Asset Loading"
 description = "Demonstrates various methods to load assets"
 category = "Assets"
-wasm = true
+wasm = false
 
 [[example]]
 name = "custom_asset"
@@ -943,6 +1043,16 @@ description = "Shows how to play spatial audio, and moving the emitter in 3D"
 category = "Audio"
 wasm = true
 
+[[example]]
+name = "pitch"
+path = "examples/audio/pitch.rs"
+
+[package.metadata.example.pitch]
+name = "Pitch"
+description = "Shows how to directly play a simple pitch"
+category = "Audio"
+wasm = true
+
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
@@ -976,12 +1086,12 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "apply_system_buffers"
-path = "examples/ecs/apply_system_buffers.rs"
+name = "apply_deferred"
+path = "examples/ecs/apply_deferred.rs"
 
-[package.metadata.example.apply_system_buffers]
+[package.metadata.example.apply_deferred]
 name = "Apply System Buffers"
-description = "Show how to use `apply_system_buffers` system"
+description = "Show how to use `apply_deferred` system"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1218,6 +1328,16 @@ category = "Input"
 wasm = false
 
 [[example]]
+name = "gamepad_rumble"
+path = "examples/input/gamepad_rumble.rs"
+
+[package.metadata.example.gamepad_rumble]
+name = "Gamepad Rumble"
+description = "Shows how to rumble a gamepad using force feedback"
+category = "Input"
+wasm = false
+
+[[example]]
 name = "keyboard_input"
 path = "examples/input/keyboard_input.rs"
 
@@ -1385,8 +1505,8 @@ name = "post_processing"
 path = "examples/shader/post_processing.rs"
 
 [package.metadata.example.post_processing]
-name = "Post Processing"
-description = "A custom post processing effect, using two cameras, with one reusing the render texture of the first one"
+name = "Post Processing - Custom Render Pass"
+description = "A custom post processing effect, using a custom render pass that runs after the main pass"
 category = "Shaders"
 wasm = true
 
@@ -1544,6 +1664,16 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_gizmos"
+path = "examples/stress_tests/many_gizmos.rs"
+
+[package.metadata.example.many_gizmos]
+name = "Many Gizmos"
+description = "Test rendering of many gizmos"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_foxes"
 path = "examples/stress_tests/many_foxes.rs"
 
@@ -1591,7 +1721,7 @@ path = "examples/stress_tests/transform_hierarchy.rs"
 name = "Transform Hierarchy"
 description = "Various test cases for hierarchy and transform propagation performance"
 category = "Stress Tests"
-wasm = true
+wasm = false
 
 [[example]]
 name = "text_pipeline"
@@ -1630,7 +1760,7 @@ path = "examples/ecs/nondeterministic_system_order.rs"
 
 [package.metadata.example.nondeterministic_system_order]
 name = "Nondeterministic System Order"
-description = "Systems run in paralell, but their order isn't always deteriministic. Here's how to detect and fix this."
+description = "Systems run in parallel, but their order isn't always deterministic. Here's how to detect and fix this."
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1676,12 +1806,32 @@ wasm = true
 
 # UI (User Interface)
 [[example]]
+name = "borders"
+path = "examples/ui/borders.rs"
+
+[package.metadata.example.borders]
+name = "Borders"
+description = "Demonstrates how to create a node with a border"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "button"
 path = "examples/ui/button.rs"
 
 [package.metadata.example.button]
 name = "Button"
 description = "Illustrates creating and updating a button"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "display_and_visibility"
+path = "examples/ui/display_and_visibility.rs"
+
+[package.metadata.example.display_and_visibility]
+name = "Display and Visibility"
+description = "Demonstrates how Display and Visibility work in the UI."
 category = "UI (User Interface)"
 wasm = true
 
@@ -1706,12 +1856,42 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "overflow"
+path = "examples/ui/overflow.rs"
+
+[package.metadata.example.overflow]
+name = "Overflow"
+description = "Simple example demonstrating overflow behavior"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "overflow_debug"
+path = "examples/ui/overflow_debug.rs"
+
+[package.metadata.example.overflow_debug]
+name = "Overflow and Clipping Debug"
+description = "An example to debug overflow and clipping behavior"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "relative_cursor_position"
 path = "examples/ui/relative_cursor_position.rs"
 
 [package.metadata.example.relative_cursor_position]
 name = "Relative Cursor Position"
 description = "Showcases the RelativeCursorPosition component"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "size_constraints"
+path = "examples/ui/size_constraints.rs"
+
+[package.metadata.example.size_constraints]
+name = "Size Constraints"
+description = "Demonstrates how the to use the size constraints to control the size of a UI node."
 category = "UI (User Interface)"
 wasm = true
 
@@ -1736,14 +1916,35 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "text_layout"
-path = "examples/ui/text_layout.rs"
+name = "flex_layout"
+path = "examples/ui/flex_layout.rs"
 
-[package.metadata.example.text_layout]
-name = "Text Layout"
-description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout text"
+[package.metadata.example.flex_layout]
+name = "Flex Layout"
+description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text"
 category = "UI (User Interface)"
-wasm = false
+wasm = true
+
+[[example]]
+name = "text_wrap_debug"
+path = "examples/ui/text_wrap_debug.rs"
+
+[package.metadata.example.text_wrap_debug]
+name = "Text Wrap Debug"
+description = "Demonstrates text wrapping"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "grid"
+path = "examples/ui/grid.rs"
+
+[package.metadata.example.grid]
+name = "CSS Grid"
+description = "An example for CSS Grid layout"
+
+category = "UI (User Interface)"
+wasm = true
 
 [[example]]
 name = "transparency_ui"
@@ -1782,6 +1983,26 @@ path = "examples/ui/ui_scaling.rs"
 [package.metadata.example.ui_scaling]
 name = "UI Scaling"
 description = "Illustrates how to scale the UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ui_texture_atlas"
+path = "examples/ui/ui_texture_atlas.rs"
+
+[package.metadata.example.ui_texture_atlas]
+name = "UI Texture Atlas"
+description = "Illustrates how to use TextureAtlases in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "viewport_debug"
+path = "examples/ui/viewport_debug.rs"
+
+[package.metadata.example.viewport_debug]
+name = "Viewport Debug"
+description = "An example for debugging viewport coordinates"
 category = "UI (User Interface)"
 wasm = true
 
@@ -1827,6 +2048,16 @@ category = "Window"
 wasm = true
 
 [[example]]
+name = "screenshot"
+path = "examples/window/screenshot.rs"
+
+[package.metadata.example.screenshot]
+name = "Screenshot"
+description = "Shows how to save screenshots to disk"
+category = "Window"
+wasm = true
+
+[[example]]
 name = "transparent_window"
 path = "examples/window/transparent_window.rs"
 
@@ -1863,6 +2094,13 @@ hidden = true
 [[example]]
 name = "window_resizing"
 path = "examples/window/window_resizing.rs"
+
+[[example]]
+name = "fallback_image"
+path = "examples/shader/fallback_image.rs"
+
+[package.metadata.example.fallback_image]
+hidden = true
 
 [package.metadata.example.window_resizing]
 name = "Window Resizing"

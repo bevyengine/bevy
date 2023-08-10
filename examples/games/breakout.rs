@@ -52,10 +52,13 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
-        .add_startup_system(setup)
         .add_event::<CollisionEvent>()
+        // Configure how frequently our gameplay systems are run
+        .insert_resource(FixedTime::new_from_secs(1.0 / 60.0))
+        .add_systems(Startup, setup)
         // Add our gameplay simulation systems to the fixed timestep schedule
         .add_systems(
+            FixedUpdate,
             (
                 check_for_collisions,
                 apply_velocity.before(check_for_collisions),
@@ -63,13 +66,9 @@ fn main() {
                     .before(check_for_collisions)
                     .after(apply_velocity),
                 play_collision_sound.after(check_for_collisions),
-            )
-                .in_schedule(CoreSchedule::FixedUpdate),
+            ),
         )
-        // Configure how frequently our gameplay systems are run
-        .insert_resource(FixedTime::new_from_secs(1.0 / 60.0))
-        .add_system(update_scoreboard)
-        .add_system(bevy::window::close_on_esc)
+        .add_systems(Update, (update_scoreboard, bevy::window::close_on_esc))
         .run();
 }
 
@@ -85,7 +84,7 @@ struct Velocity(Vec2);
 #[derive(Component)]
 struct Collider;
 
-#[derive(Default)]
+#[derive(Event, Default)]
 struct CollisionEvent;
 
 #[derive(Component)]
@@ -224,15 +223,15 @@ fn setup(
             TextSection::new(
                 "Score: ",
                 TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: SCOREBOARD_FONT_SIZE,
                     color: TEXT_COLOR,
+                    ..default()
                 },
             ),
             TextSection::from_style(TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: SCOREBOARD_FONT_SIZE,
                 color: SCORE_COLOR,
+                ..default()
             }),
         ])
         .with_style(Style {
@@ -405,14 +404,18 @@ fn check_for_collisions(
 }
 
 fn play_collision_sound(
+    mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
-    audio: Res<Audio>,
     sound: Res<CollisionSound>,
 ) {
     // Play a sound once per frame if a collision occurred.
     if !collision_events.is_empty() {
         // This prevents events staying active on the next frame.
         collision_events.clear();
-        audio.play(sound.0.clone());
+        commands.spawn(AudioBundle {
+            source: sound.0.clone(),
+            // auto-despawn the entity when playback finishes
+            settings: PlaybackSettings::DESPAWN,
+        });
     }
 }

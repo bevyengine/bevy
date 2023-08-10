@@ -9,7 +9,7 @@ fn setup(system_count: usize) -> (World, Schedule) {
     fn empty() {}
     let mut schedule = Schedule::new();
     for _ in 0..system_count {
-        schedule.add_system(empty);
+        schedule.add_systems(empty);
     }
     schedule.run(&mut world);
     (world, schedule)

@@ -11,20 +11,25 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                present_mode: PresentMode::Immediate,
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    present_mode: PresentMode::AutoNoVsync,
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_systems((spawn.on_startup(), update_text_bounds))
+            FrameTimeDiagnosticsPlugin,
+            LogDiagnosticsPlugin::default(),
+        ))
+        .add_systems(Startup, spawn)
+        .add_systems(Update, update_text_bounds)
         .run();
 }
 
 fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
+    warn!(include_str!("warning_string.txt"));
+
     commands.spawn(Camera2dBundle::default());
     let sections = (1..=50)
         .flat_map(|i| {
@@ -52,7 +57,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         text: Text {
             sections,
             alignment: TextAlignment::Center,
-            linebreak_behaviour: BreakLineOn::AnyCharacter,
+            linebreak_behavior: BreakLineOn::AnyCharacter,
         },
         ..Default::default()
     });

@@ -3,12 +3,12 @@
 use bevy::{
     asset::{AssetLoader, LoadContext, LoadedAsset},
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypePath, TypeUuid},
     utils::BoxedFuture,
 };
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize, TypeUuid)]
+#[derive(Debug, Deserialize, TypeUuid, TypePath)]
 #[uuid = "39cadc56-aa9c-4543-8640-a018b74b5052"]
 pub struct CustomAsset {
     pub value: i32,
@@ -41,7 +41,8 @@ fn main() {
         .init_resource::<State>()
         .add_asset::<CustomAsset>()
         .init_asset_loader::<CustomAssetLoader>()
-        .add_systems((setup.on_startup(), print_on_load))
+        .add_systems(Startup, setup)
+        .add_systems(Update, print_on_load)
         .run();
 }
 

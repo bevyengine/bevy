@@ -6,6 +6,8 @@ use crate::{
 };
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use super::unsafe_world_cell::UnsafeWorldCell;
+
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 // We use usize here because that is the largest `Atomic` we want to require
 /// A unique identifier for a [`World`].
@@ -42,10 +44,10 @@ impl FromWorld for WorldId {
     }
 }
 
-// SAFETY: Has read-only access to shared World metadata
+// SAFETY: No world data is accessed.
 unsafe impl ReadOnlySystemParam for WorldId {}
 
-// SAFETY: A World's ID is immutable and fetching it from the World does not borrow anything
+// SAFETY: No world data is accessed.
 unsafe impl SystemParam for WorldId {
     type State = ();
 
@@ -56,10 +58,10 @@ unsafe impl SystemParam for WorldId {
     unsafe fn get_param<'world, 'state>(
         _: &'state mut Self::State,
         _: &crate::system::SystemMeta,
-        world: &'world super::World,
+        world: UnsafeWorldCell<'world>,
         _: Tick,
     ) -> Self::Item<'world, 'state> {
-        world.id
+        world.id()
     }
 }
 
@@ -69,6 +71,7 @@ impl SparseSetIndex for WorldId {
         self.0
     }
 
+    #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Self(value)
     }

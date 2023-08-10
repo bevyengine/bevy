@@ -3,7 +3,7 @@
 //! Note that this uses [`Text2dBundle`] to display text alongside your other entities in a 2D scene.
 //!
 //! For an example on how to render text as part of a user interface, independent from the world
-//! viewport, you may want to look at `2d/contributors.rs` or `ui/text.rs`.
+//! viewport, you may want to look at `games/contributors.rs` or `ui/text.rs`.
 
 use bevy::{
     prelude::*,
@@ -14,12 +14,11 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((
-            setup.on_startup(),
-            animate_translation,
-            animate_rotation,
-            animate_scale,
-        ))
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (animate_translation, animate_rotation, animate_scale),
+        )
         .run();
 }
 
@@ -93,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         slightly_smaller_text_style.clone(),
                     )],
                     alignment: TextAlignment::Left,
-                    linebreak_behaviour: BreakLineOn::WordBoundary,
+                    linebreak_behavior: BreakLineOn::WordBoundary,
                 },
                 text_2d_bounds: Text2dBounds {
                     // Wrap text in the rectangle
@@ -125,7 +124,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         slightly_smaller_text_style.clone(),
                     )],
                     alignment: TextAlignment::Left,
-                    linebreak_behaviour: BreakLineOn::AnyCharacter,
+                    linebreak_behavior: BreakLineOn::AnyCharacter,
                 },
                 text_2d_bounds: Text2dBounds {
                     // Wrap text in the rectangle

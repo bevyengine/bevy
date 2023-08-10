@@ -33,13 +33,11 @@ fn main() {
         // Insert as resource the initial value for the settings resources
         .insert_resource(DisplayQuality::Medium)
         .insert_resource(Volume(7))
-        .add_startup_system(setup)
         // Declare the game state, whose starting value is determined by the `Default` trait
         .add_state::<GameState>()
+        .add_systems(Startup, setup)
         // Adds the plugins for each state
-        .add_plugin(splash::SplashPlugin)
-        .add_plugin(menu::MenuPlugin)
-        .add_plugin(game::GamePlugin)
+        .add_plugins((splash::SplashPlugin, menu::MenuPlugin, game::GamePlugin))
         .run();
 }
 
@@ -58,14 +56,13 @@ mod splash {
     impl Plugin for SplashPlugin {
         fn build(&self, app: &mut App) {
             // As this plugin is managing the splash screen, it will focus on the state `GameState::Splash`
-            app.add_systems((
+            app
                 // When entering the state, spawn everything needed for this screen
-                splash_setup.in_schedule(OnEnter(GameState::Splash)),
+                .add_systems(OnEnter(GameState::Splash), splash_setup)
                 // While in this state, run the `countdown` system
-                countdown.in_set(OnUpdate(GameState::Splash)),
+                .add_systems(Update, countdown.run_if(in_state(GameState::Splash)))
                 // When exiting the state, despawn everything that was spawned for this screen
-                despawn_screen::<OnSplashScreen>.in_schedule(OnExit(GameState::Splash)),
-            ));
+                .add_systems(OnExit(GameState::Splash), despawn_screen::<OnSplashScreen>);
         }
     }
 
@@ -86,7 +83,7 @@ mod splash {
                     style: Style {
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        width: Val::Percent(100.0),
                         ..default()
                     },
                     ..default()
@@ -97,7 +94,11 @@ mod splash {
                 parent.spawn(ImageBundle {
                     style: Style {
                         // This will set the logo to be 200px wide, and auto adjust its height
+<<<<<<< HEAD
                         size: Size::width(Val::Px(200.0)),
+=======
+                        width: Val::Px(200.0),
+>>>>>>> main
                         ..default()
                     },
                     image: UiImage::new(icon),
@@ -131,11 +132,9 @@ mod game {
 
     impl Plugin for GamePlugin {
         fn build(&self, app: &mut App) {
-            app.add_systems((
-                game_setup.in_schedule(OnEnter(GameState::Game)),
-                game.in_set(OnUpdate(GameState::Game)),
-                despawn_screen::<OnGameScreen>.in_schedule(OnExit(GameState::Game)),
-            ));
+            app.add_systems(OnEnter(GameState::Game), game_setup)
+                .add_systems(Update, game.run_if(in_state(GameState::Game)))
+                .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
         }
     }
 
@@ -148,17 +147,15 @@ mod game {
 
     fn game_setup(
         mut commands: Commands,
-        asset_server: Res<AssetServer>,
         display_quality: Res<DisplayQuality>,
         volume: Res<Volume>,
     ) {
-        let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-
         commands
             .spawn((
                 NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         // center children
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
@@ -190,9 +187,9 @@ mod game {
                             TextBundle::from_section(
                                 "Will be back to the menu shortly...",
                                 TextStyle {
-                                    font: font.clone(),
                                     font_size: 80.0,
                                     color: TEXT_COLOR,
+                                    ..default()
                                 },
                             )
                             .with_style(Style {
@@ -205,25 +202,25 @@ mod game {
                                 TextSection::new(
                                     format!("quality: {:?}", *display_quality),
                                     TextStyle {
-                                        font: font.clone(),
                                         font_size: 60.0,
                                         color: Color::BLUE,
+                                        ..default()
                                     },
                                 ),
                                 TextSection::new(
                                     " - ",
                                     TextStyle {
-                                        font: font.clone(),
                                         font_size: 60.0,
                                         color: TEXT_COLOR,
+                                        ..default()
                                     },
                                 ),
                                 TextSection::new(
                                     format!("volume: {:?}", *volume),
                                     TextStyle {
-                                        font: font.clone(),
                                         font_size: 60.0,
                                         color: Color::GREEN,
+                                        ..default()
                                     },
                                 ),
                             ])
@@ -268,33 +265,47 @@ mod menu {
                 // entering the `GameState::Menu` state.
                 // Current screen in the menu is handled by an independent state from `GameState`
                 .add_state::<MenuState>()
-                .add_system(menu_setup.in_schedule(OnEnter(GameState::Menu)))
+                .add_systems(OnEnter(GameState::Menu), menu_setup)
                 // Systems to handle the main menu screen
-                .add_systems((
-                    main_menu_setup.in_schedule(OnEnter(MenuState::Main)),
-                    despawn_screen::<OnMainMenuScreen>.in_schedule(OnExit(MenuState::Main)),
-                ))
+                .add_systems(OnEnter(MenuState::Main), main_menu_setup)
+                .add_systems(OnExit(MenuState::Main), despawn_screen::<OnMainMenuScreen>)
                 // Systems to handle the settings menu screen
-                .add_systems((
-                    settings_menu_setup.in_schedule(OnEnter(MenuState::Settings)),
-                    despawn_screen::<OnSettingsMenuScreen>.in_schedule(OnExit(MenuState::Settings)),
-                ))
+                .add_systems(OnEnter(MenuState::Settings), settings_menu_setup)
+                .add_systems(
+                    OnExit(MenuState::Settings),
+                    despawn_screen::<OnSettingsMenuScreen>,
+                )
                 // Systems to handle the display settings screen
-                .add_systems((
-                    display_settings_menu_setup.in_schedule(OnEnter(MenuState::SettingsDisplay)),
-                    setting_button::<DisplayQuality>.in_set(OnUpdate(MenuState::SettingsDisplay)),
-                    despawn_screen::<OnDisplaySettingsMenuScreen>
-                        .in_schedule(OnExit(MenuState::SettingsDisplay)),
-                ))
+                .add_systems(
+                    OnEnter(MenuState::SettingsDisplay),
+                    display_settings_menu_setup,
+                )
+                .add_systems(
+                    Update,
+                    (
+                        setting_button::<DisplayQuality>
+                            .run_if(in_state(MenuState::SettingsDisplay)),
+                    ),
+                )
+                .add_systems(
+                    OnExit(MenuState::SettingsDisplay),
+                    despawn_screen::<OnDisplaySettingsMenuScreen>,
+                )
                 // Systems to handle the sound settings screen
-                .add_systems((
-                    sound_settings_menu_setup.in_schedule(OnEnter(MenuState::SettingsSound)),
-                    setting_button::<Volume>.in_set(OnUpdate(MenuState::SettingsSound)),
-                    despawn_screen::<OnSoundSettingsMenuScreen>
-                        .in_schedule(OnExit(MenuState::SettingsSound)),
-                ))
-                // Common systems to all screens that handles buttons behaviour
-                .add_systems((menu_action, button_system).in_set(OnUpdate(GameState::Menu)));
+                .add_systems(OnEnter(MenuState::SettingsSound), sound_settings_menu_setup)
+                .add_systems(
+                    Update,
+                    setting_button::<Volume>.run_if(in_state(MenuState::SettingsSound)),
+                )
+                .add_systems(
+                    OnExit(MenuState::SettingsSound),
+                    despawn_screen::<OnSoundSettingsMenuScreen>,
+                )
+                // Common systems to all screens that handles buttons behavior
+                .add_systems(
+                    Update,
+                    (menu_action, button_system).run_if(in_state(GameState::Menu)),
+                );
         }
     }
 
@@ -355,7 +366,7 @@ mod menu {
     ) {
         for (interaction, mut color, selected) in &mut interaction_query {
             *color = match (*interaction, selected) {
-                (Interaction::Clicked, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
+                (Interaction::Pressed, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
                 (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
                 (Interaction::Hovered, None) => HOVERED_BUTTON.into(),
                 (Interaction::None, None) => NORMAL_BUTTON.into(),
@@ -372,7 +383,7 @@ mod menu {
         mut setting: ResMut<T>,
     ) {
         for (interaction, button_setting, entity) in &interaction_query {
-            if *interaction == Interaction::Clicked && *setting != *button_setting {
+            if *interaction == Interaction::Pressed && *setting != *button_setting {
                 let (previous_button, mut previous_color) = selected_query.single_mut();
                 *previous_color = NORMAL_BUTTON.into();
                 commands.entity(previous_button).remove::<SelectedOption>();
@@ -387,17 +398,26 @@ mod menu {
     }
 
     fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        let font = asset_server.load("fonts/FiraSans-Bold.ttf");
         // Common style for all buttons on the screen
         let button_style = Style {
+<<<<<<< HEAD
             size: Size::new(Val::Px(250.0), Val::Px(65.0)),
             margin: Margin::all(Val::Px(20.0)),
+=======
+            width: Val::Px(250.0),
+            height: Val::Px(65.0),
+            margin: UiRect::all(Val::Px(20.0)),
+>>>>>>> main
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
         };
         let button_icon_style = Style {
+<<<<<<< HEAD
             size: Size::width(Val::Px(30.0)),
+=======
+            width: Val::Px(30.0),
+>>>>>>> main
             // This takes the icons out of the flexbox flow, to be positioned exactly
             position_type: PositionType::Absolute,
             // The icon will be close to the left border of the button
@@ -406,16 +426,16 @@ mod menu {
             ..default()
         };
         let button_text_style = TextStyle {
-            font: font.clone(),
             font_size: 40.0,
             color: TEXT_COLOR,
+            ..default()
         };
 
         commands
             .spawn((
                 NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        width: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -441,9 +461,9 @@ mod menu {
                             TextBundle::from_section(
                                 "Bevy Game Menu UI",
                                 TextStyle {
-                                    font: font.clone(),
                                     font_size: 80.0,
                                     color: TEXT_COLOR,
+                                    ..default()
                                 },
                             )
                             .with_style(Style {
@@ -520,26 +540,32 @@ mod menu {
             });
     }
 
-    fn settings_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    fn settings_menu_setup(mut commands: Commands) {
         let button_style = Style {
+<<<<<<< HEAD
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
             margin: Margin::all(Val::Px(20.0)),
+=======
+            width: Val::Px(200.0),
+            height: Val::Px(65.0),
+            margin: UiRect::all(Val::Px(20.0)),
+>>>>>>> main
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
         };
 
         let button_text_style = TextStyle {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 40.0,
             color: TEXT_COLOR,
+            ..default()
         };
 
         commands
             .spawn((
                 NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        width: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -585,29 +611,31 @@ mod menu {
             });
     }
 
-    fn display_settings_menu_setup(
-        mut commands: Commands,
-        asset_server: Res<AssetServer>,
-        display_quality: Res<DisplayQuality>,
-    ) {
+    fn display_settings_menu_setup(mut commands: Commands, display_quality: Res<DisplayQuality>) {
         let button_style = Style {
+<<<<<<< HEAD
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
             margin: Margin::all(Val::Px(20.0)),
+=======
+            width: Val::Px(200.0),
+            height: Val::Px(65.0),
+            margin: UiRect::all(Val::Px(20.0)),
+>>>>>>> main
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
         };
         let button_text_style = TextStyle {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 40.0,
             color: TEXT_COLOR,
+            ..default()
         };
 
         commands
             .spawn((
                 NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        width: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -653,7 +681,8 @@ mod menu {
                                 ] {
                                     let mut entity = parent.spawn(ButtonBundle {
                                         style: Style {
-                                            size: Size::new(Val::Px(150.0), Val::Px(65.0)),
+                                            width: Val::Px(150.0),
+                                            height: Val::Px(65.0),
                                             ..button_style.clone()
                                         },
                                         background_color: NORMAL_BUTTON.into(),
@@ -687,29 +716,31 @@ mod menu {
             });
     }
 
-    fn sound_settings_menu_setup(
-        mut commands: Commands,
-        asset_server: Res<AssetServer>,
-        volume: Res<Volume>,
-    ) {
+    fn sound_settings_menu_setup(mut commands: Commands, volume: Res<Volume>) {
         let button_style = Style {
+<<<<<<< HEAD
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
             margin: Margin::all(Val::Px(20.0)),
+=======
+            width: Val::Px(200.0),
+            height: Val::Px(65.0),
+            margin: UiRect::all(Val::Px(20.0)),
+>>>>>>> main
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
         };
         let button_text_style = TextStyle {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 40.0,
             color: TEXT_COLOR,
+            ..default()
         };
 
         commands
             .spawn((
                 NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        width: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -747,7 +778,8 @@ mod menu {
                                 for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
                                     let mut entity = parent.spawn(ButtonBundle {
                                         style: Style {
-                                            size: Size::new(Val::Px(30.0), Val::Px(65.0)),
+                                            width: Val::Px(30.0),
+                                            height: Val::Px(65.0),
                                             ..button_style.clone()
                                         },
                                         background_color: NORMAL_BUTTON.into(),
@@ -785,7 +817,7 @@ mod menu {
         mut game_state: ResMut<NextState<GameState>>,
     ) {
         for (interaction, menu_button_action) in &interaction_query {
-            if *interaction == Interaction::Clicked {
+            if *interaction == Interaction::Pressed {
                 match menu_button_action {
                     MenuButtonAction::Quit => app_exit_events.send(AppExit),
                     MenuButtonAction::Play => {

@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 /// Common run conditions
 pub mod common_conditions;
 pub mod fixed_timestep;
@@ -6,7 +8,7 @@ mod stopwatch;
 mod time;
 mod timer;
 
-use fixed_timestep::{run_fixed_update_schedule, FixedTime};
+use fixed_timestep::FixedTime;
 pub use stopwatch::*;
 pub use time::*;
 pub use timer::*;
@@ -21,8 +23,10 @@ pub mod prelude {
     pub use crate::{fixed_timestep::FixedTime, Time, Timer, TimerMode};
 }
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, RunFixedUpdateLoop};
 use bevy_ecs::prelude::*;
+
+use crate::fixed_timestep::run_fixed_update_schedule;
 
 /// Adds time functionality to Apps.
 #[derive(Default)]
@@ -41,9 +45,21 @@ impl Plugin for TimePlugin {
             .register_type::<Time>()
             .register_type::<Stopwatch>()
             .init_resource::<FixedTime>()
-            .configure_set(TimeSystem.in_base_set(CoreSet::First))
-            .add_system(time_system.in_set(TimeSystem))
-            .add_system(run_fixed_update_schedule.in_base_set(CoreSet::FixedUpdate));
+            .add_systems(First, time_system.in_set(TimeSystem))
+            .add_systems(RunFixedUpdateLoop, run_fixed_update_schedule);
+
+        #[cfg(feature = "bevy_ci_testing")]
+        if let Some(ci_testing_config) = app
+            .world
+            .get_resource::<bevy_app::ci_testing::CiTestingConfig>()
+        {
+            if let Some(frame_time) = ci_testing_config.frame_time {
+                app.world
+                    .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
+                        frame_time,
+                    )));
+            }
+        }
     }
 }
 
@@ -57,7 +73,7 @@ pub enum TimeUpdateStrategy {
     Automatic,
     // Update [`Time`] with an exact `Instant` value
     ManualInstant(Instant),
-    // Update [`Time`] with the current time + a specified `Duration`
+    // Update [`Time`] with the last update time + a specified `Duration`
     ManualDuration(Duration),
 }
 
@@ -104,7 +120,8 @@ fn time_system(
         TimeUpdateStrategy::Automatic => time.update_with_instant(new_time),
         TimeUpdateStrategy::ManualInstant(instant) => time.update_with_instant(*instant),
         TimeUpdateStrategy::ManualDuration(duration) => {
-            time.update_with_instant(Instant::now() + *duration);
+            let last_update = time.last_update().unwrap_or_else(|| time.startup());
+            time.update_with_instant(last_update + *duration);
         }
     }
 }

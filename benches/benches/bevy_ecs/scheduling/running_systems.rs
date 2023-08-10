@@ -23,7 +23,7 @@ pub fn empty_systems(criterion: &mut Criterion) {
     for amount in 0..5 {
         let mut schedule = Schedule::new();
         for _ in 0..amount {
-            schedule.add_system(empty);
+            schedule.add_systems(empty);
         }
         schedule.run(&mut world);
         group.bench_function(&format!("{:03}_systems", amount), |bencher| {

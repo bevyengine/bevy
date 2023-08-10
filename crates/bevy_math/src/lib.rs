@@ -4,22 +4,23 @@
 //! matrices like [`Mat2`], [`Mat3`] and [`Mat4`] and orientation representations
 //! like [`Quat`].
 
+#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 
 pub mod cubic_splines;
 mod ray;
-mod rect;
+mod rects;
 
 pub use ray::Ray;
-pub use rect::Rect;
+pub use rects::*;
 
 /// The `bevy_math` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         cubic_splines::{BSpline, Bezier, CardinalSpline, CubicGenerator, CubicSegment, Hermite},
-        BVec2, BVec3, BVec4, EulerRot, IVec2, IVec3, IVec4, Mat2, Mat3, Mat4, Quat, Ray, Rect,
-        UVec2, UVec3, UVec4, Vec2, Vec3, Vec4,
+        BVec2, BVec3, BVec4, EulerRot, IRect, IVec2, IVec3, IVec4, Mat2, Mat3, Mat4, Quat, Ray,
+        Rect, URect, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4,
     };
 }
 

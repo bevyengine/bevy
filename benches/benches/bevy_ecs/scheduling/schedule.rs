@@ -1,4 +1,4 @@
-use bevy_app::App;
+use bevy_app::{App, Update};
 use bevy_ecs::prelude::*;
 use criterion::Criterion;
 
@@ -72,7 +72,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(15));
 
     // Method: generate a set of `graph_size` systems which have a One True Ordering.
-    // Add system to the schedule with full constraints. Hopefully this should be maximimally
+    // Add system to the schedule with full constraints. Hopefully this should be maximally
     // difficult for bevy to figure out.
     let labels: Vec<_> = (0..1000).map(|i| NumSet(i)).collect();
 
@@ -83,7 +83,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
             bencher.iter(|| {
                 let mut app = App::new();
                 for _ in 0..graph_size {
-                    app.add_system(empty_system);
+                    app.add_systems(Update, empty_system);
                 }
                 app.update();
             });
@@ -93,7 +93,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
         group.bench_function(format!("{graph_size}_schedule"), |bencher| {
             bencher.iter(|| {
                 let mut app = App::new();
-                app.add_system(empty_system.in_set(DummySet));
+                app.add_systems(Update, empty_system.in_set(DummySet));
 
                 // Build a fully-connected dependency graph describing the One True Ordering.
                 // Not particularly realistic but this can be refined later.
@@ -105,7 +105,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
                     for label in &labels[i + 1..graph_size] {
                         sys = sys.before(*label);
                     }
-                    app.add_system(sys);
+                    app.add_systems(Update, sys);
                 }
                 // Run the app for a single frame.
                 // This is necessary since dependency resolution does not occur until the game runs.

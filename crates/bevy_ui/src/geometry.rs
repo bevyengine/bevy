@@ -1,8 +1,9 @@
+use std::ops::{Mul, MulAssign, Div, DivAssign};
+
 use crate::{AutoVal, Val};
 use bevy_reflect::Reflect;
-use std::ops::{Div, DivAssign, Mul, MulAssign};
 
-macro_rules! frame_impl {
+macro_rules! uirect_impl {
     ($t:ty, $v:ty, $e:expr) => {
         impl $t {
             /// Default value for the fields of the field type.
@@ -17,7 +18,7 @@ macro_rules! frame_impl {
                 }
             };
 
-            /// Creates a new frame type from the values specified.
+            /// Creates a new uirect type from the values specified.
             pub fn new(
                 left: impl Into<$v>,
                 right: impl Into<$v>,
@@ -32,7 +33,56 @@ macro_rules! frame_impl {
                 }
             }
 
-            /// Creates a new frame type where `left` takes the given value.
+            
+            /// Creates a new uirect from the values specified in logical pixels.
+            ///
+            /// This is a shortcut for [`UiRect::new()`], applying [`Val::Px`] to all arguments.
+            ///
+            /// # Example
+            ///
+            /// ```
+            /// # use bevy_ui::{UiRect, Val};
+            /// #
+            /// let ui_rect = UiRect::px(10., 20., 30., 40.);
+            /// assert_eq!(ui_rect.left, Val::Px(10.));
+            /// assert_eq!(ui_rect.right, Val::Px(20.));
+            /// assert_eq!(ui_rect.top, Val::Px(30.));
+            /// assert_eq!(ui_rect.bottom, Val::Px(40.));
+            /// ```
+            pub fn px(left: f32, right: f32, top: f32, bottom: f32) -> Self {
+                Self::new(
+                    Val::Px(left),
+                    Val::Px(right),
+                    Val::Px(top),
+                    Val::Px(bottom),
+                )
+            }
+
+            /// Creates a new [`UiRect`] from the values specified in percentages.
+            ///
+            /// This is a shortcut for [`UiRect::new()`], applying [`Val::Percent`] to all arguments.
+            ///
+            /// # Example
+            ///
+            /// ```
+            /// # use bevy_ui::{UiRect, Val};
+            /// #
+            /// let ui_rect = UiRect::percent(5., 10., 2., 1.);
+            /// assert_eq!(ui_rect.left, Val::Percent(5.));
+            /// assert_eq!(ui_rect.right, Val::Percent(10.));
+            /// assert_eq!(ui_rect.top, Val::Percent(2.));
+            /// assert_eq!(ui_rect.bottom, Val::Percent(1.));
+            /// ```
+            pub fn percent(left: f32, right: f32, top: f32, bottom: f32) -> Self {
+                Self::new(
+                    Val::Percent(left),
+                    Val::Percent(right),
+                    Val::Percent(top),
+                    Val::Percent(bottom),
+                )
+            }
+
+            /// Creates a new uirect type where `left` takes the given value.
             pub fn left(left: impl Into<$v>) -> Self {
                 Self::new(
                     left.into(),
@@ -42,7 +92,7 @@ macro_rules! frame_impl {
                 )
             }
 
-            /// Creates a new frame type where `right` takes the given value.
+            /// Creates a new uirect type where `right` takes the given value.
             pub fn right(right: impl Into<$v>) -> Self {
                 Self::new(
                     Self::FIELD_DEFAULT,
@@ -52,7 +102,7 @@ macro_rules! frame_impl {
                 )
             }
 
-            /// Creates a new frame type where `top` takes the given value.
+            /// Creates a new uirect type where `top` takes the given value.
             pub fn top(top: impl Into<$v>) -> Self {
                 Self::new(
                     Self::FIELD_DEFAULT,
@@ -62,7 +112,7 @@ macro_rules! frame_impl {
                 )
             }
 
-            /// Creates a new frame type where `bottom` takes the given value.
+            /// Creates a new uirect type where `bottom` takes the given value.
             pub fn bottom(bottom: impl Into<$v>) -> Self {
                 Self::new(
                     Self::FIELD_DEFAULT,
@@ -72,25 +122,27 @@ macro_rules! frame_impl {
                 )
             }
 
-            /// Creates a new frame type where `left` and `right` take the given value.
+            /// Creates a new uirect type where `left` and `right` take the given value.
             pub fn horizontal(value: impl Into<$v> + Copy) -> Self {
                 Self::new(value, value, Self::FIELD_DEFAULT, Self::FIELD_DEFAULT)
             }
 
-            /// Creates a new frame type where `top` and `bottom` take the given value.
+            /// Creates a new uirect type where `top` and `bottom` take the given value.
             pub fn vertical(value: impl Into<$v> + Copy) -> Self {
                 Self::new(Self::FIELD_DEFAULT, Self::FIELD_DEFAULT, value, value)
             }
 
-            /// Creates a new frame type where all sides have the same value.
+            /// Creates a new uirect type where all sides have the same value.
             pub fn axes(horizontal: impl Into<$v> + Copy, vertical: impl Into<$v> + Copy) -> Self {
                 Self::new(horizontal, horizontal, vertical, vertical)
             }
 
-            /// Creates a new frame type where all sides have the same value.
+            /// Creates a new uirect type where all sides have the same value.
             pub fn all(value: impl Into<$v> + Copy) -> Self {
                 Self::new(value, value, value, value)
             }
+
+            
         }
 
         impl Default for $t {
@@ -117,7 +169,7 @@ pub struct Margin {
     pub bottom: AutoVal,
 }
 
-frame_impl!(Margin, AutoVal, AutoVal::Px(0.));
+uirect_impl!(Margin, AutoVal, AutoVal::Px(0.));
 
 /// A padding is used to create space around UI elements, inside of any defined borders.
 ///
@@ -140,7 +192,7 @@ pub struct Padding {
     pub bottom: Val,
 }
 
-frame_impl!(Padding, Val, Val::Px(0.));
+uirect_impl!(Padding, Val, Val::Px(0.));
 
 /// ## Borders
 ///
@@ -165,7 +217,7 @@ pub struct Border {
     pub bottom: Val,
 }
 
-frame_impl!(Border, Val, Val::Px(0.));
+uirect_impl!(Border, Val, Val::Px(0.));
 
 /// A 2-dimensional area defined by a width and height.
 ///
@@ -457,5 +509,37 @@ mod tests {
             }
         );
         assert_eq!(Size::default(), Size::DEFAULT);
+    }
+    
+    #[test]
+    fn test_uirect_axes() {
+        let x = Val::Px(1.);
+        let y = Val::Vw(4.);
+        let r = Border::axes(x, y);
+        let h = Border::horizontal(x);
+        let v = Border::vertical(y);
+
+        assert_eq!(r.top, v.top);
+        assert_eq!(r.bottom, v.bottom);
+        assert_eq!(r.left, h.left);
+        assert_eq!(r.right, h.right);
+    }
+
+    #[test]
+    fn uirect_px() {
+        let r = Border::px(3., 5., 20., 999.);
+        assert_eq!(r.left, Val::Px(3.));
+        assert_eq!(r.right, Val::Px(5.));
+        assert_eq!(r.top, Val::Px(20.));
+        assert_eq!(r.bottom, Val::Px(999.));
+    }
+
+    #[test]
+    fn uirect_percent() {
+        let r = Border::percent(3., 5., 20., 99.);
+        assert_eq!(r.left, Val::Percent(3.));
+        assert_eq!(r.right, Val::Percent(5.));
+        assert_eq!(r.top, Val::Percent(20.));
+        assert_eq!(r.bottom, Val::Percent(99.));
     }
 }

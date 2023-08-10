@@ -11,19 +11,20 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_state::<AppState>()
-        .add_system(setup.on_startup())
-        // This system runs when we enter `AppState::Menu`, during `CoreSet::StateTransitions`.
+        .add_systems(Startup, setup)
+        // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.
         // All systems from the exit schedule of the state we're leaving are run first,
         // and then all systems from the enter schedule of the state we're entering are run second.
-        .add_system(setup_menu.in_schedule(OnEnter(AppState::Menu)))
-        // By contrast, on_update systems are stored in the main schedule, during CoreSet::Update,
-        // and simply check the value of the `State<T>` resource to see if they should run each frame.
-        .add_systems((
-            menu.in_set(OnUpdate(AppState::Menu)),
-            cleanup_menu.in_schedule(OnExit(AppState::Menu)),
-            setup_game.in_schedule(OnEnter(AppState::InGame)),
-        ))
-        .add_systems((movement, change_color).in_set(OnUpdate(AppState::InGame)))
+        .add_systems(OnEnter(AppState::Menu), setup_menu)
+        // By contrast, update systems are stored in the `Update` schedule. They simply
+        // check the value of the `State<T>` resource to see if they should run each frame.
+        .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
+        .add_systems(OnExit(AppState::Menu), cleanup_menu)
+        .add_systems(OnEnter(AppState::InGame), setup_game)
+        .add_systems(
+            Update,
+            (movement, change_color).run_if(in_state(AppState::InGame)),
+        )
         .run();
 }
 
@@ -47,12 +48,12 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
-fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_menu(mut commands: Commands) {
     let button_entity = commands
         .spawn(NodeBundle {
             style: Style {
                 // center button
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                width: Val::Percent(100.),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
@@ -63,7 +64,8 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(ButtonBundle {
                     style: Style {
-                        size: Size::new(Val::Px(150.0), Val::Px(65.0)),
+                        width: Val::Px(150.),
+                        height: Val::Px(65.),
                         // horizontally center child text
                         justify_content: JustifyContent::Center,
                         // vertically center child text
@@ -77,9 +79,9 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent.spawn(TextBundle::from_section(
                         "Play",
                         TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 40.0,
                             color: Color::rgb(0.9, 0.9, 0.9),
+                            ..default()
                         },
                     ));
                 });
@@ -97,7 +99,7 @@ fn menu(
 ) {
     for (interaction, mut color) in &mut interaction_query {
         match *interaction {
-            Interaction::Clicked => {
+            Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
                 next_state.set(AppState::InGame);
             }

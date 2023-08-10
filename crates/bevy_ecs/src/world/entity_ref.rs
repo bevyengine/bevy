@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
-    bundle::{Bundle, BundleInfo},
+    bundle::{Bundle, BundleInfo, BundleInserter, DynamicBundle},
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
@@ -12,7 +12,7 @@ use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
 use std::any::TypeId;
 
-use super::unsafe_world_cell::UnsafeEntityCell;
+use super::{unsafe_world_cell::UnsafeEntityCell, Ref};
 
 /// A read-only reference to a particular [`Entity`] and all of its components
 #[derive(Copy, Clone)]
@@ -49,48 +49,86 @@ impl<'w> EntityRef<'w> {
         )
     }
 
+    /// Returns the [ID](Entity) of the current entity.
     #[inline]
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity
     }
 
+    /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
     pub fn location(&self) -> EntityLocation {
         self.location
     }
 
+    /// Returns the archetype that the current entity belongs to.
     #[inline]
     pub fn archetype(&self) -> &Archetype {
         &self.world.archetypes[self.location.archetype_id]
     }
 
+    /// Gets read-only access to the world that the current entity belongs to.
     #[inline]
     pub fn world(&self) -> &'w World {
         self.world
     }
 
+    /// Returns `true` if the current entity has a component of type `T`.
+    /// Otherwise, this returns `false`.
+    ///
+    /// ## Notes
+    ///
+    /// If you do not know the concrete type of a component, consider using
+    /// [`Self::contains_id`] or [`Self::contains_type_id`].
     #[inline]
     pub fn contains<T: Component>(&self) -> bool {
         self.contains_type_id(TypeId::of::<T>())
     }
 
+    /// Returns `true` if the current entity has a component identified by `component_id`.
+    /// Otherwise, this returns false.
+    ///
+    /// ## Notes
+    ///
+    /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
+    /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
+    /// [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
         self.as_unsafe_world_cell_readonly()
             .contains_id(component_id)
     }
 
+    /// Returns `true` if the current entity has a component with the type identified by `type_id`.
+    /// Otherwise, this returns false.
+    ///
+    /// ## Notes
+    ///
+    /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
+    /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
         self.as_unsafe_world_cell_readonly()
             .contains_type_id(type_id)
     }
 
+    /// Gets access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'w T> {
         // SAFETY: &self implies shared access for duration of returned value
         unsafe { self.as_unsafe_world_cell_readonly().get::<T>() }
+    }
+
+    /// Gets access to the component of type `T` for the current entity,
+    /// including change detection information as a [`Ref`].
+    ///
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
+        // SAFETY: &self implies shared access for duration of returned value
+        unsafe { self.as_unsafe_world_cell_readonly().get_ref::<T>() }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -186,45 +224,74 @@ impl<'w> EntityMut<'w> {
         }
     }
 
+    /// Returns the [ID](Entity) of the current entity.
     #[inline]
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity
     }
 
+    /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
     pub fn location(&self) -> EntityLocation {
         self.location
     }
 
+    /// Returns the archetype that the current entity belongs to.
     #[inline]
     pub fn archetype(&self) -> &Archetype {
         &self.world.archetypes[self.location.archetype_id]
     }
 
+    /// Returns `true` if the current entity has a component of type `T`.
+    /// Otherwise, this returns `false`.
+    ///
+    /// ## Notes
+    ///
+    /// If you do not know the concrete type of a component, consider using
+    /// [`Self::contains_id`] or [`Self::contains_type_id`].
     #[inline]
     pub fn contains<T: Component>(&self) -> bool {
         self.contains_type_id(TypeId::of::<T>())
     }
 
+    /// Returns `true` if the current entity has a component identified by `component_id`.
+    /// Otherwise, this returns false.
+    ///
+    /// ## Notes
+    ///
+    /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
+    /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
+    /// [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
         self.as_unsafe_world_cell_readonly()
             .contains_id(component_id)
     }
 
+    /// Returns `true` if the current entity has a component with the type identified by `type_id`.
+    /// Otherwise, this returns false.
+    ///
+    /// ## Notes
+    ///
+    /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
+    /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
         self.as_unsafe_world_cell_readonly()
             .contains_type_id(type_id)
     }
 
+    /// Gets access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
         // SAFETY: &self implies shared access for duration of returned value
         unsafe { self.as_unsafe_world_cell_readonly().get::<T>() }
     }
 
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
@@ -275,6 +342,90 @@ impl<'w> EntityMut<'w> {
         unsafe {
             self.location = bundle_inserter.insert(self.entity, self.location, bundle);
         }
+
+        self
+    }
+
+    /// Inserts a dynamic [`Component`] into the entity.
+    ///
+    /// This will overwrite any previous value(s) of the same component type.
+    ///
+    /// You should prefer to use the typed API [`EntityMut::insert`] where possible.
+    ///
+    /// # Safety
+    ///
+    /// - [`ComponentId`] must be from the same world as [`EntityMut`]
+    /// - [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
+    pub unsafe fn insert_by_id(
+        &mut self,
+        component_id: ComponentId,
+        component: OwningPtr<'_>,
+    ) -> &mut Self {
+        let change_tick = self.world.change_tick();
+
+        let bundles = &mut self.world.bundles;
+        let components = &mut self.world.components;
+
+        let (bundle_info, storage_type) = bundles.init_component_info(components, component_id);
+        let bundle_inserter = bundle_info.get_bundle_inserter(
+            &mut self.world.entities,
+            &mut self.world.archetypes,
+            &mut self.world.components,
+            &mut self.world.storages,
+            self.location.archetype_id,
+            change_tick,
+        );
+
+        self.location = insert_dynamic_bundle(
+            bundle_inserter,
+            self.entity,
+            self.location,
+            Some(component).into_iter(),
+            Some(storage_type).into_iter(),
+        );
+
+        self
+    }
+
+    /// Inserts a dynamic [`Bundle`] into the entity.
+    ///
+    /// This will overwrite any previous value(s) of the same component type.
+    ///
+    /// You should prefer to use the typed API [`EntityMut::insert`] where possible.
+    /// If your [`Bundle`] only has one component, use the cached API [`EntityMut::insert_by_id`].
+    ///
+    /// If possible, pass a sorted slice of `ComponentId` to maximize caching potential.
+    ///
+    /// # Safety
+    /// - Each [`ComponentId`] must be from the same world as [`EntityMut`]
+    /// - Each [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
+    pub unsafe fn insert_by_ids<'a, I: Iterator<Item = OwningPtr<'a>>>(
+        &mut self,
+        component_ids: &[ComponentId],
+        iter_components: I,
+    ) -> &mut Self {
+        let change_tick = self.world.change_tick();
+
+        let bundles = &mut self.world.bundles;
+        let components = &mut self.world.components;
+
+        let (bundle_info, storage_types) = bundles.init_dynamic_info(components, component_ids);
+        let bundle_inserter = bundle_info.get_bundle_inserter(
+            &mut self.world.entities,
+            &mut self.world.archetypes,
+            &mut self.world.components,
+            &mut self.world.storages,
+            self.location.archetype_id,
+            change_tick,
+        );
+
+        self.location = insert_dynamic_bundle(
+            bundle_inserter,
+            self.entity,
+            self.location,
+            iter_components,
+            storage_types.iter().cloned(),
+        );
 
         self
     }
@@ -496,6 +647,7 @@ impl<'w> EntityMut<'w> {
         self
     }
 
+    /// Despawns the current entity.
     pub fn despawn(self) {
         debug!("Despawning entity {:?}", self.entity);
         let world = self.world;
@@ -561,6 +713,7 @@ impl<'w> EntityMut<'w> {
         }
     }
 
+    /// Gets read-only access to the world that the current entity belongs to.
     #[inline]
     pub fn world(&self) -> &World {
         self.world
@@ -579,7 +732,7 @@ impl<'w> EntityMut<'w> {
         self.world
     }
 
-    /// Return this `EntityMut`'s [`World`], consuming itself.
+    /// Returns this `EntityMut`'s [`World`], consuming itself.
     #[inline]
     pub fn into_world_mut(self) -> &'w mut World {
         self.world
@@ -603,7 +756,7 @@ impl<'w> EntityMut<'w> {
     ///     // Mutate the world while we have access to it.
     ///     let mut r = world.resource_mut::<R>();
     ///     r.0 += 1;
-    ///     
+    ///
     ///     // Return a value from the world before giving it back to the `EntityMut`.
     ///     *r
     /// });
@@ -672,6 +825,44 @@ impl<'w> EntityMut<'w> {
     }
 }
 
+/// Inserts a dynamic [`Bundle`] into the entity.
+///
+/// # Safety
+///
+/// - [`OwningPtr`] and [`StorageType`] iterators must correspond to the
+/// [`BundleInfo`] used to construct [`BundleInserter`]
+/// - [`Entity`] must correspond to [`EntityLocation`]
+unsafe fn insert_dynamic_bundle<
+    'a,
+    I: Iterator<Item = OwningPtr<'a>>,
+    S: Iterator<Item = StorageType>,
+>(
+    mut bundle_inserter: BundleInserter<'_, '_>,
+    entity: Entity,
+    location: EntityLocation,
+    components: I,
+    storage_types: S,
+) -> EntityLocation {
+    struct DynamicInsertBundle<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> {
+        components: I,
+    }
+
+    impl<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> DynamicBundle
+        for DynamicInsertBundle<'a, I>
+    {
+        fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
+            self.components.for_each(|(t, ptr)| func(t, ptr));
+        }
+    }
+
+    let bundle = DynamicInsertBundle {
+        components: storage_types.zip(components),
+    };
+
+    // SAFETY: location matches current entity.
+    unsafe { bundle_inserter.insert(entity, location, bundle) }
+}
+
 /// Removes a bundle from the given archetype and returns the resulting archetype (or None if the
 /// removal was invalid). in the event that adding the given bundle does not result in an Archetype
 /// change. Results are cached in the Archetype Graph to avoid redundant work.
@@ -692,13 +883,11 @@ unsafe fn remove_bundle_from_archetype(
     // check the archetype graph to see if the Bundle has been removed from this archetype in the
     // past
     let remove_bundle_result = {
-        let current_archetype = &mut archetypes[archetype_id];
+        let edges = archetypes[archetype_id].edges();
         if intersection {
-            current_archetype
-                .edges()
-                .get_remove_bundle(bundle_info.id())
+            edges.get_remove_bundle(bundle_info.id())
         } else {
-            current_archetype.edges().get_take_bundle(bundle_info.id())
+            edges.get_take_bundle(bundle_info.id())
         }
     };
     let result = if let Some(result) = remove_bundle_result {
@@ -835,6 +1024,7 @@ pub(crate) unsafe fn take_component<'a>(
 
 #[cfg(test)]
 mod tests {
+    use bevy_ptr::OwningPtr;
     use std::panic::AssertUnwindSafe;
 
     use crate as bevy_ecs;
@@ -862,8 +1052,12 @@ mod tests {
         assert_eq!(a, vec![1]);
     }
 
-    #[derive(Component)]
+    #[derive(Component, Clone, Copy, Debug, PartialEq)]
     struct TestComponent(u32);
+
+    #[derive(Component, Clone, Copy, Debug, PartialEq)]
+    #[component(storage = "SparseSet")]
+    struct TestComponent2(u32);
 
     #[test]
     fn entity_ref_get_by_id() {
@@ -1106,5 +1300,73 @@ mod tests {
         world.entity_mut(e1).despawn();
 
         assert_eq!(world.entity(e2).get::<Dense>().unwrap(), &Dense(1));
+    }
+
+    #[test]
+    fn entity_mut_insert_by_id() {
+        let mut world = World::new();
+        let test_component_id = world.init_component::<TestComponent>();
+
+        let mut entity = world.spawn_empty();
+        OwningPtr::make(TestComponent(42), |ptr| {
+            // SAFETY: `ptr` matches the component id
+            unsafe { entity.insert_by_id(test_component_id, ptr) };
+        });
+
+        let components: Vec<_> = world.query::<&TestComponent>().iter(&world).collect();
+
+        assert_eq!(components, vec![&TestComponent(42)]);
+
+        // Compare with `insert_bundle_by_id`
+
+        let mut entity = world.spawn_empty();
+        OwningPtr::make(TestComponent(84), |ptr| {
+            // SAFETY: `ptr` matches the component id
+            unsafe { entity.insert_by_ids(&[test_component_id], vec![ptr].into_iter()) };
+        });
+
+        let components: Vec<_> = world.query::<&TestComponent>().iter(&world).collect();
+
+        assert_eq!(components, vec![&TestComponent(42), &TestComponent(84)]);
+    }
+
+    #[test]
+    fn entity_mut_insert_bundle_by_id() {
+        let mut world = World::new();
+        let test_component_id = world.init_component::<TestComponent>();
+        let test_component_2_id = world.init_component::<TestComponent2>();
+
+        let component_ids = [test_component_id, test_component_2_id];
+        let test_component_value = TestComponent(42);
+        let test_component_2_value = TestComponent2(84);
+
+        let mut entity = world.spawn_empty();
+        OwningPtr::make(test_component_value, |ptr1| {
+            OwningPtr::make(test_component_2_value, |ptr2| {
+                // SAFETY: `ptr1` and `ptr2` match the component ids
+                unsafe { entity.insert_by_ids(&component_ids, vec![ptr1, ptr2].into_iter()) };
+            });
+        });
+
+        let dynamic_components: Vec<_> = world
+            .query::<(&TestComponent, &TestComponent2)>()
+            .iter(&world)
+            .collect();
+
+        assert_eq!(
+            dynamic_components,
+            vec![(&TestComponent(42), &TestComponent2(84))]
+        );
+
+        // Compare with `World` generated using static type equivalents
+        let mut static_world = World::new();
+
+        static_world.spawn((test_component_value, test_component_2_value));
+        let static_components: Vec<_> = static_world
+            .query::<(&TestComponent, &TestComponent2)>()
+            .iter(&static_world)
+            .collect();
+
+        assert_eq!(dynamic_components, static_components);
     }
 }

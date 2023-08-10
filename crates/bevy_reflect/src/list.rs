@@ -2,9 +2,11 @@ use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
-use crate::utility::{reflect_hasher, NonGenericTypeInfoCell};
+use bevy_reflect_derive::impl_type_path;
+
+use crate::utility::reflect_hasher;
 use crate::{
-    DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
+    self as bevy_reflect, FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
 };
 
 /// A trait used to power [list-like] operations via [reflection].
@@ -27,7 +29,7 @@ use crate::{
 ///
 /// Due to the [type-erasing] nature of the reflection API as a whole,
 /// this trait does not make any guarantees that the implementor's elements
-/// are homogenous (i.e. all the same type).
+/// are homogeneous (i.e. all the same type).
 ///
 /// # Example
 ///
@@ -97,7 +99,7 @@ pub trait List: Reflect {
     /// Clones the list, producing a [`DynamicList`].
     fn clone_dynamic(&self) -> DynamicList {
         DynamicList {
-            name: self.type_name().to_string(),
+            represented_type: self.get_represented_type_info(),
             values: self.iter().map(|value| value.clone_value()).collect(),
         }
     }
@@ -177,25 +179,27 @@ impl ListInfo {
 /// A list of reflected values.
 #[derive(Default)]
 pub struct DynamicList {
-    name: String,
+    represented_type: Option<&'static TypeInfo>,
     values: Vec<Box<dyn Reflect>>,
 }
 
 impl DynamicList {
-    /// Returns the type name of the list.
+    /// Sets the [type] to be represented by this `DynamicList`.
+    /// # Panics
     ///
-    /// The value returned by this method is the same value returned by
-    /// [`Reflect::type_name`].
-    pub fn name(&self) -> &str {
-        &self.name
-    }
+    /// Panics if the given [type] is not a [`TypeInfo::List`].
+    ///
+    /// [type]: TypeInfo
+    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        if let Some(represented_type) = represented_type {
+            assert!(
+                matches!(represented_type, TypeInfo::List(_)),
+                "expected TypeInfo::List but received: {:?}",
+                represented_type
+            );
+        }
 
-    /// Sets the type name of the list.
-    ///
-    /// The value set by this method is the value returned by
-    /// [`Reflect::type_name`].
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
+        self.represented_type = represented_type;
     }
 
     /// Appends a typed value to the list.
@@ -248,7 +252,7 @@ impl List for DynamicList {
 
     fn clone_dynamic(&self) -> DynamicList {
         DynamicList {
-            name: self.name.clone(),
+            represented_type: self.represented_type,
             values: self
                 .values
                 .iter()
@@ -261,12 +265,14 @@ impl List for DynamicList {
 impl Reflect for DynamicList {
     #[inline]
     fn type_name(&self) -> &str {
-        self.name.as_str()
+        self.represented_type
+            .map(|info| info.type_name())
+            .unwrap_or_else(|| std::any::type_name::<Self>())
     }
 
     #[inline]
-    fn get_type_info(&self) -> &'static TypeInfo {
-        <Self as Typed>::type_info()
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 
     #[inline]
@@ -343,18 +349,18 @@ impl Reflect for DynamicList {
         list_debug(self, f)?;
         write!(f, ")")
     }
+
+    #[inline]
+    fn is_dynamic(&self) -> bool {
+        true
+    }
 }
+
+impl_type_path!((in bevy_reflect) DynamicList);
 
 impl Debug for DynamicList {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
-    }
-}
-
-impl Typed for DynamicList {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 

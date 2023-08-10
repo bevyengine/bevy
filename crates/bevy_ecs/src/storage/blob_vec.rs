@@ -11,7 +11,7 @@ use bevy_utils::OnDrop;
 /// A flat, type-erased data storage type
 ///
 /// Used to densely store homogeneous ECS data. A blob is usually just an arbitrary block of contiguous memory without any identity, and
-/// could be used to represent any arbitrary data (i.e. string, arrays, etc). This type is an extendable and reallcatable blob, which makes
+/// could be used to represent any arbitrary data (i.e. string, arrays, etc). This type is an extendable and re-allocatable blob, which makes
 /// it a blobby Vec, a `BlobVec`.
 pub(super) struct BlobVec {
     item_layout: Layout,
@@ -244,6 +244,7 @@ impl BlobVec {
     /// Newly added items must be immediately populated with valid values and length must be
     /// increased. For better unwind safety, call [`BlobVec::set_len`] _after_ populating a new
     /// value.
+    #[inline]
     pub unsafe fn set_len(&mut self, len: usize) {
         debug_assert!(len <= self.capacity());
         self.len = len;

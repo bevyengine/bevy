@@ -1,10 +1,7 @@
 //! Renders a lot of animated sprites to allow performance testing.
 //!
-//! It sets up many animated sprites in different sizes and rotations,
-//! and at different scales in the world, and moves the camera over them.
-//!
-//! Having sprites out of the camera's field of view should also help stress
-//! test any future potential 2d frustum culling implementation.
+//! This example sets up many animated sprites in different sizes, rotations, and scales in the world.
+//! It also moves the camera over them to see how well frustum culling works.
 
 use std::time::Duration;
 
@@ -23,21 +20,26 @@ const CAMERA_SPEED: f32 = 1000.0;
 fn main() {
     App::new()
         // Since this is also used as a benchmark, we want it to display performance data.
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                present_mode: PresentMode::AutoNoVsync,
+        .add_plugins((
+            LogDiagnosticsPlugin::default(),
+            FrameTimeDiagnosticsPlugin,
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    present_mode: PresentMode::AutoNoVsync,
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_systems((
-            setup.on_startup(),
-            animate_sprite,
-            print_sprite_count,
-            move_camera.after(print_sprite_count),
         ))
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (
+                animate_sprite,
+                print_sprite_count,
+                move_camera.after(print_sprite_count),
+            ),
+        )
         .run();
 }
 

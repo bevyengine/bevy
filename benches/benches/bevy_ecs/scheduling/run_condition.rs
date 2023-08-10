@@ -19,7 +19,7 @@ pub fn run_condition_yes(criterion: &mut Criterion) {
     fn empty() {}
     for amount in 0..21 {
         let mut schedule = Schedule::new();
-        schedule.add_system(empty.run_if(yes));
+        schedule.add_systems(empty.run_if(yes));
         for _ in 0..amount {
             schedule.add_systems((empty, empty, empty, empty, empty).distributive_run_if(yes));
         }
@@ -42,7 +42,7 @@ pub fn run_condition_no(criterion: &mut Criterion) {
     fn empty() {}
     for amount in 0..21 {
         let mut schedule = Schedule::new();
-        schedule.add_system(empty.run_if(no));
+        schedule.add_systems(empty.run_if(no));
         for _ in 0..amount {
             schedule.add_systems((empty, empty, empty, empty, empty).distributive_run_if(no));
         }
@@ -72,7 +72,7 @@ pub fn run_condition_yes_with_query(criterion: &mut Criterion) {
     }
     for amount in 0..21 {
         let mut schedule = Schedule::new();
-        schedule.add_system(empty.run_if(yes_with_query));
+        schedule.add_systems(empty.run_if(yes_with_query));
         for _ in 0..amount {
             schedule.add_systems(
                 (empty, empty, empty, empty, empty).distributive_run_if(yes_with_query),
@@ -101,7 +101,7 @@ pub fn run_condition_yes_with_resource(criterion: &mut Criterion) {
     }
     for amount in 0..21 {
         let mut schedule = Schedule::new();
-        schedule.add_system(empty.run_if(yes_with_resource));
+        schedule.add_systems(empty.run_if(yes_with_resource));
         for _ in 0..amount {
             schedule.add_systems(
                 (empty, empty, empty, empty, empty).distributive_run_if(yes_with_resource),

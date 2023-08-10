@@ -13,7 +13,8 @@ struct Rotatable {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems((setup.on_startup(), rotate_cube))
+        .add_systems(Startup, setup)
+        .add_systems(Update, rotate_cube)
         .run();
 }
 

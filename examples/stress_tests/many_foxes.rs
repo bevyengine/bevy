@@ -20,16 +20,18 @@ struct Foxes {
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
-                present_mode: PresentMode::AutoNoVsync,
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
+                    present_mode: PresentMode::AutoNoVsync,
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_plugin(FrameTimeDiagnosticsPlugin)
-        .add_plugin(LogDiagnosticsPlugin::default())
+            FrameTimeDiagnosticsPlugin,
+            LogDiagnosticsPlugin::default(),
+        ))
         .insert_resource(Foxes {
             count: std::env::args()
                 .nth(1)
@@ -41,12 +43,15 @@ fn main() {
             color: Color::WHITE,
             brightness: 1.0,
         })
-        .add_systems((
-            setup.on_startup(),
-            setup_scene_once_loaded,
-            keyboard_animation_control,
-            update_fox_rings.after(keyboard_animation_control),
-        ))
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (
+                setup_scene_once_loaded,
+                keyboard_animation_control,
+                update_fox_rings.after(keyboard_animation_control),
+            ),
+        )
         .run();
 }
 

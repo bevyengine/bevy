@@ -28,7 +28,7 @@ impl Plugin for EnvironmentMapPlugin {
         );
 
         app.register_type::<EnvironmentMapLight>()
-            .add_plugin(ExtractComponentPlugin::<EnvironmentMapLight>::default());
+            .add_plugins(ExtractComponentPlugin::<EnvironmentMapLight>::default());
     }
 }
 

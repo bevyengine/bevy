@@ -1,22 +1,25 @@
 //! Shows various text layout options.
 
 use bevy::{
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowPlugin},
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                present_mode: PresentMode::AutoNoVsync,
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    present_mode: PresentMode::AutoNoVsync,
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_plugin(FrameTimeDiagnosticsPlugin)
-        .add_systems((infotext_system.on_startup(), change_text_system))
+            FrameTimeDiagnosticsPlugin,
+        ))
+        .add_systems(Startup, infotext_system)
+        .add_systems(Update, change_text_system)
         .run();
 }
 
@@ -43,7 +46,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         }),
     );
     commands.spawn(TextBundle::from_section(
-            "This text is very long, has a limited width, is centred, is positioned in the top right and is also coloured pink.",
+            "This text is very long, has a limited width, is centered, is positioned in the top right and is also colored pink.",
             TextStyle {
                 font: font.clone(),
                 font_size: 50.0,
@@ -53,9 +56,15 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_text_alignment(TextAlignment::Center)
         .with_style(Style {
             position_type: PositionType::Absolute,
+<<<<<<< HEAD
             top: AutoVal::Px(5.0),
             right: AutoVal::Px(15.0),
             max_size: Size::width(Val::Px(400.)),
+=======
+            top: Val::Px(5.0),
+            right: Val::Px(15.0),
+            max_width: Val::Px(400.),
+>>>>>>> main
             ..default()
         })
     );
@@ -124,9 +133,15 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_style(Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
+<<<<<<< HEAD
             bottom: AutoVal::Px(5.0),
             left: AutoVal::Px(15.0),
             size: Size::width(Val::Px(200.0)),
+=======
+            bottom: Val::Px(5.0),
+            left: Val::Px(15.0),
+            width: Val::Px(200.0),
+>>>>>>> main
             ..default()
         }),
     );
@@ -134,7 +149,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn change_text_system(
     time: Res<Time>,
-    diagnostics: Res<Diagnostics>,
+    diagnostics: Res<DiagnosticsStore>,
     mut query: Query<&mut Text, With<TextChanges>>,
 ) {
     for mut text in &mut query {

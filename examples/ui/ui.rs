@@ -15,7 +15,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
-        .add_systems((setup.on_startup(), mouse_scroll))
+        .add_systems(Startup, setup)
+        .add_systems(Update, mouse_scroll)
         .run();
 }
 
@@ -27,7 +28,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::all(Val::Percent(100.)),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
@@ -38,8 +40,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
+<<<<<<< HEAD
                         size: Size::width(Val::Px(200.)),
                         border: Border::all(Val::Px(2.)),
+=======
+                        width: Val::Px(200.),
+                        border: UiRect::all(Val::Px(2.)),
+>>>>>>> main
                         ..default()
                     },
                     background_color: Color::rgb(0.65, 0.65, 0.65).into(),
@@ -50,7 +57,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn(NodeBundle {
                             style: Style {
-                                size: Size::width(Val::Percent(100.)),
+                                width: Val::Percent(100.),
                                 ..default()
                             },
                             background_color: Color::rgb(0.15, 0.15, 0.15).into(),
@@ -85,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        size: Size::width(Val::Px(200.)),
+                        width: Val::Px(200.),
                         ..default()
                     },
                     background_color: Color::rgb(0.15, 0.15, 0.15).into(),
@@ -110,8 +117,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             style: Style {
                                 flex_direction: FlexDirection::Column,
                                 align_self: AlignSelf::Stretch,
-                                size: Size::height(Val::Percent(50.)),
-                                overflow: Overflow::Hidden,
+                                height: Val::Percent(50.),
+                                overflow: Overflow::clip_y(),
                                 ..default()
                             },
                             background_color: Color::rgb(0.10, 0.10, 0.10).into(),
@@ -155,20 +162,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::all(Val::Px(200.)),
+                        width: Val::Px(200.0),
+                        height: Val::Px(200.0),
                         position_type: PositionType::Absolute,
                         left: AutoVal::Px(210.),
                         bottom: AutoVal::Px(10.),
                         border: Border::all(Val::Px(20.)),
                         ..default()
                     },
+                    border_color: Color::GREEN.into(),
                     background_color: Color::rgb(0.4, 0.4, 1.).into(),
                     ..default()
                 })
                 .with_children(|parent| {
                     parent.spawn(NodeBundle {
                         style: Style {
-                            size: Size::all(Val::Percent(100.)),
+                            width: Val::Percent(100.0),
+                            height: Val::Percent(100.0),
                             ..default()
                         },
                         background_color: Color::rgb(0.8, 0.8, 1.).into(),
@@ -179,7 +189,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::all(Val::Percent(100.)),
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         position_type: PositionType::Absolute,
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
@@ -191,7 +202,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn(NodeBundle {
                             style: Style {
-                                size: Size::all(Val::Px(100.)),
+                                width: Val::Px(100.0),
+                                height: Val::Px(100.0),
                                 ..default()
                             },
                             background_color: Color::rgb(1.0, 0.0, 0.).into(),
@@ -201,7 +213,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             parent.spawn(NodeBundle {
                                 style: Style {
                                     // Take the size of the parent node.
-                                    size: Size::all(Val::Percent(100.)),
+                                    width: Val::Percent(100.0),
+                                    height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
                                     left: AutoVal::Px(20.),
                                     bottom: AutoVal::Px(20.),
@@ -212,7 +225,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             });
                             parent.spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::all(Val::Percent(100.)),
+                                    width: Val::Percent(100.0),
+                                    height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
                                     left: AutoVal::Px(40.),
                                     bottom: AutoVal::Px(40.),
@@ -223,7 +237,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             });
                             parent.spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::all(Val::Percent(100.)),
+                                    width: Val::Percent(100.0),
+                                    height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
                                     left: AutoVal::Px(60.),
                                     bottom: AutoVal::Px(60.),
@@ -235,7 +250,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             // alpha test
                             parent.spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::all(Val::Percent(100.)),
+                                    width: Val::Percent(100.0),
+                                    height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
                                     left: AutoVal::Px(80.),
                                     bottom: AutoVal::Px(80.),
@@ -250,7 +266,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::width(Val::Percent(100.)),
+                        width: Val::Percent(100.0),
                         position_type: PositionType::Absolute,
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::FlexStart,
@@ -260,19 +276,37 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // bevy logo (image)
-
+                    // A `NodeBundle` is used to display the logo the image as an `ImageBundle` can't automatically
+                    // size itself with a child node present.
                     parent
-                        .spawn(ImageBundle {
-                            style: Style {
-                                size: Size::width(Val::Px(500.0)),
+                        .spawn((
+                            NodeBundle {
+                                style: Style {
+                                    width: Val::Px(500.0),
+                                    height: Val::Px(125.0),
+                                    margin: UiRect::top(Val::VMin(5.)),
+                                    ..default()
+                                },
+                                // a `NodeBundle` is transparent by default, so to see the image we have to its color to `WHITE`
+                                background_color: Color::WHITE.into(),
                                 ..default()
                             },
-                            ..default()
-                        })
+                            UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
+                        ))
                         .with_children(|parent| {
                             // alt text
-                            parent
-                                .spawn(TextBundle::from_section("Bevy logo", TextStyle::default()));
+                            // This UI node takes up no space in the layout and the `Text` component is used by the accessibility module
+                            // and is not rendered.
+                            parent.spawn((
+                                NodeBundle {
+                                    style: Style {
+                                        display: Display::None,
+                                        ..Default::default()
+                                    },
+                                    ..Default::default()
+                                },
+                                Text::from_section("Bevy logo", TextStyle::default()),
+                            ));
                         });
                 });
         });

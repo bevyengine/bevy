@@ -3,18 +3,24 @@ use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
 // the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
 #[bevy_main]
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                resizable: false,
-                mode: WindowMode::BorderlessFullscreen,
-                ..default()
-            }),
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            resizable: false,
+            mode: WindowMode::BorderlessFullscreen,
             ..default()
-        }))
-        .add_startup_systems((setup_scene, setup_music))
-        .add_systems((touch_camera, button_handler))
-        .run();
+        }),
+        ..default()
+    }))
+    .add_systems(Startup, (setup_scene, setup_music))
+    .add_systems(Update, (touch_camera, button_handler));
+
+    // MSAA makes some Android devices panic, this is under investigation
+    // https://github.com/bevyengine/bevy/issues/8229
+    #[cfg(target_os = "android")]
+    app.insert_resource(Msaa::Off);
+
+    app.run();
 }
 
 fn touch_camera(
@@ -49,7 +55,6 @@ fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
     // plane
     commands.spawn(PbrBundle {
@@ -82,6 +87,9 @@ fn setup_scene(
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         point_light: PointLight {
             intensity: 5000.0,
+            // Shadows makes some Android devices segfault, this is under investigation
+            // https://github.com/bevyengine/bevy/issues/8214
+            #[cfg(not(target_os = "android"))]
             shadows_enabled: true,
             ..default()
         },
@@ -113,9 +121,9 @@ fn setup_scene(
                 TextBundle::from_section(
                     "Test Button",
                     TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 30.0,
                         color: Color::BLACK,
+                        ..default()
                     },
                 )
                 .with_text_alignment(TextAlignment::Center),
@@ -131,7 +139,7 @@ fn button_handler(
 ) {
     for (interaction, mut color) in &mut interaction_query {
         match *interaction {
-            Interaction::Clicked => {
+            Interaction::Pressed => {
                 *color = Color::BLUE.into();
             }
             Interaction::Hovered => {
@@ -144,7 +152,9 @@ fn button_handler(
     }
 }
 
-fn setup_music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    let music = asset_server.load("sounds/Windless Slopes.ogg");
-    audio.play(music);
+fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
+    commands.spawn(AudioBundle {
+        source: asset_server.load("sounds/Windless Slopes.ogg"),
+        settings: PlaybackSettings::LOOP,
+    });
 }

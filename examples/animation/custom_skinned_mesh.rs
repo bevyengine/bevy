@@ -20,7 +20,8 @@ fn main() {
             brightness: 1.0,
             ..default()
         })
-        .add_systems((setup.on_startup(), joint_animation))
+        .add_systems(Startup, setup)
+        .add_systems(Update, joint_animation)
         .run();
 }
 

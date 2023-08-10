@@ -57,7 +57,7 @@ impl CommandQueue {
                 // SAFETY: According to the invariants of `CommandMeta.apply_command_and_get_size`,
                 // `command` must point to a value of type `C`.
                 let command: C = unsafe { command.read_unaligned() };
-                command.write(world);
+                command.apply(world);
                 std::mem::size_of::<C>()
             },
         };
@@ -165,7 +165,7 @@ mod test {
     }
 
     impl Command for DropCheck {
-        fn write(self, _: &mut World) {}
+        fn apply(self, _: &mut World) {}
     }
 
     #[test]
@@ -191,7 +191,7 @@ mod test {
     struct SpawnCommand;
 
     impl Command for SpawnCommand {
-        fn write(self, world: &mut World) {
+        fn apply(self, world: &mut World) {
             world.spawn_empty();
         }
     }
@@ -219,7 +219,7 @@ mod test {
     // some data added to it.
     struct PanicCommand(String);
     impl Command for PanicCommand {
-        fn write(self, _: &mut World) {
+        fn apply(self, _: &mut World) {
             panic!("command is panicking");
         }
     }
@@ -267,7 +267,7 @@ mod test {
 
     struct CommandWithPadding(u8, u16);
     impl Command for CommandWithPadding {
-        fn write(self, _: &mut World) {}
+        fn apply(self, _: &mut World) {}
     }
 
     #[cfg(miri)]

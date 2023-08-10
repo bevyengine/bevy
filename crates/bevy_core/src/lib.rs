@@ -1,4 +1,5 @@
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 //! This crate provides core functionality for Bevy Engine.
 
 mod name;
@@ -27,13 +28,13 @@ use std::borrow::Cow;
 use std::ffi::OsString;
 use std::marker::PhantomData;
 use std::ops::Range;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 
-/// Registration of default types to the `TypeRegistry` resource.
+/// Registration of default types to the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource.
 #[derive(Default)]
 pub struct TypeRegistrationPlugin;
 
@@ -55,7 +56,10 @@ fn register_rust_types(app: &mut App) {
         .register_type::<OsString>()
         .register_type::<HashSet<String>>()
         .register_type::<Option<String>>()
+        .register_type::<Option<bool>>()
+        .register_type::<Option<f64>>()
         .register_type::<Cow<'static, str>>()
+        .register_type::<Cow<'static, Path>>()
         .register_type::<Duration>()
         .register_type::<Instant>();
 }
@@ -68,6 +72,7 @@ fn register_math_types(app: &mut App) {
         .register_type::<bevy_math::UVec3>()
         .register_type::<bevy_math::UVec4>()
         .register_type::<bevy_math::DVec2>()
+        .register_type::<Option<bevy_math::DVec2>>()
         .register_type::<bevy_math::DVec3>()
         .register_type::<bevy_math::DVec4>()
         .register_type::<bevy_math::BVec2>()
@@ -91,10 +96,12 @@ fn register_math_types(app: &mut App) {
         .register_type::<bevy_math::Mat3A>()
         .register_type::<bevy_math::Mat4>()
         .register_type::<bevy_math::DQuat>()
-        .register_type::<bevy_math::Quat>();
+        .register_type::<bevy_math::Quat>()
+        .register_type::<bevy_math::Rect>();
 }
 
-/// Setup of default task pools: `AsyncComputeTaskPool`, `ComputeTaskPool`, `IoTaskPool`.
+/// Setup of default task pools: [`AsyncComputeTaskPool`](bevy_tasks::AsyncComputeTaskPool),
+/// [`ComputeTaskPool`](bevy_tasks::ComputeTaskPool), [`IoTaskPool`](bevy_tasks::IoTaskPool).
 #[derive(Default)]
 pub struct TaskPoolPlugin {
     /// Options for the [`TaskPool`](bevy_tasks::TaskPool) created at application start.
@@ -102,12 +109,12 @@ pub struct TaskPoolPlugin {
 }
 
 impl Plugin for TaskPoolPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
         // Setup the default bevy task pools
         self.task_pool_options.create_default_pools();
 
         #[cfg(not(target_arch = "wasm32"))]
-        app.add_system(tick_global_task_pools.in_base_set(bevy_app::CoreSet::Last));
+        _app.add_systems(Last, tick_global_task_pools);
     }
 }
 /// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
@@ -124,8 +131,8 @@ fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
 
 /// Maintains a count of frames rendered since the start of the application.
 ///
-/// [`FrameCount`] is incremented during [`CoreSet::Last`], providing predictable
-/// behaviour: it will be 0 during the first update, 1 during the next, and so forth.
+/// [`FrameCount`] is incremented during [`Last`], providing predictable
+/// behavior: it will be 0 during the first update, 1 during the next, and so forth.
 ///
 /// # Overflows
 ///
@@ -142,7 +149,7 @@ pub struct FrameCountPlugin;
 impl Plugin for FrameCountPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FrameCount>();
-        app.add_system(update_frame_count.in_base_set(CoreSet::Last));
+        app.add_systems(Last, update_frame_count);
     }
 }
 
@@ -158,8 +165,7 @@ mod tests {
     #[test]
     fn runs_spawn_local_tasks() {
         let mut app = App::new();
-        app.add_plugin(TaskPoolPlugin::default());
-        app.add_plugin(TypeRegistrationPlugin::default());
+        app.add_plugins((TaskPoolPlugin::default(), TypeRegistrationPlugin));
 
         let (async_tx, async_rx) = crossbeam_channel::unbounded();
         AsyncComputeTaskPool::get()
@@ -192,9 +198,11 @@ mod tests {
     #[test]
     fn frame_counter_update() {
         let mut app = App::new();
-        app.add_plugin(TaskPoolPlugin::default());
-        app.add_plugin(TypeRegistrationPlugin::default());
-        app.add_plugin(FrameCountPlugin::default());
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            TypeRegistrationPlugin,
+            FrameCountPlugin,
+        ));
         app.update();
 
         let frame_count = app.world.resource::<FrameCount>();

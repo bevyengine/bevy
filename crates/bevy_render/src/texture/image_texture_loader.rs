@@ -34,6 +34,16 @@ const FILE_EXTENSIONS: &[&str] = &[
     "jpeg",
     #[cfg(feature = "ktx2")]
     "ktx2",
+    #[cfg(feature = "webp")]
+    "webp",
+    #[cfg(feature = "pnm")]
+    "pam",
+    #[cfg(feature = "pnm")]
+    "pbm",
+    #[cfg(feature = "pnm")]
+    "pgm",
+    #[cfg(feature = "pnm")]
+    "ppm",
 ];
 
 impl AssetLoader for ImageTextureLoader {
@@ -72,7 +82,7 @@ impl FromWorld for ImageTextureLoader {
         let supported_compressed_formats = match world.get_resource::<RenderDevice>() {
             Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
 
-            None => CompressedImageFormats::all(),
+            None => CompressedImageFormats::NONE,
         };
         Self {
             supported_compressed_formats,
