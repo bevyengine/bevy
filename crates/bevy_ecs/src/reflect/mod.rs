@@ -12,7 +12,7 @@ mod map_entities;
 mod resource;
 
 pub use component::{ReflectComponent, ReflectComponentFns};
-pub use entity_commands::EntityCommandsReflectExtension;
+pub use entity_commands::ReflectCommandExt;
 pub use map_entities::ReflectMapEntities;
 pub use resource::{ReflectResource, ReflectResourceFns};
 

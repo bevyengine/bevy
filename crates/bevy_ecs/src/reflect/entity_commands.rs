@@ -2,11 +2,12 @@ use crate::reflect::AppTypeRegistry;
 use crate::system::{Command, EntityCommands, Resource};
 use crate::{entity::Entity, reflect::ReflectComponent, world::World};
 use bevy_reflect::{Reflect, TypeRegistry};
+use std::borrow::Cow;
 use std::marker::PhantomData;
 
 /// An extension trait for [`EntityCommands`] for reflection related functions
-pub trait EntityCommandsReflectExtension {
-    /// Inserts the given boxed reflect component to the entity using the reflection data in
+pub trait ReflectCommandExt {
+    /// Adds the given boxed reflect component to the entity using the reflection data in
     /// [`AppTypeRegistry`].
     ///
     /// This will overwrite any previous component of the same type.
@@ -14,21 +15,24 @@ pub trait EntityCommandsReflectExtension {
     /// # Panics
     ///
     /// - If the entity doesn't exist.
-    /// - If [`AppTypeRegistry`] does not have the reflection data for the given [Component](crate::component::Component).
+    /// - If [`AppTypeRegistry`] does not have the reflection data for the given [`Component`](crate::component::Component).
     /// - If the component data is invalid. See [`Reflect::apply`] for further details.
     /// - If [`AppTypeRegistry`] is not present in the [`World`].
     ///
     /// # Note
     ///
-    /// Prefer to use the typed [`EntityCommands::insert`] if possible as it is optimized for insertions
-    /// compared to reflection which requires more overhead.
+    /// Prefer to use the typed [`EntityCommands::insert`] if possible. Adding a reflected component
+    /// is much slower.
     ///
     /// # Example
     ///
     /// ```rust
+    /// // Note that you need to register the component type in the AppTypeRegistry prior to using
+    /// // reflection. You can use the helpers on the App with `app.register_type::<ComponentA>()`
+    /// // or write to the TypeRegistry directly to register all your components
     ///
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::reflect::EntityCommandsReflectExtension;
+    /// # use bevy_ecs::reflect::ReflectCommandExt;
     /// # use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
     /// // A resource that can hold any component that implements reflect as a boxed reflect component
     /// #[derive(Resource)]
@@ -43,7 +47,7 @@ pub trait EntityCommandsReflectExtension {
     /// #[reflect(Component)]
     /// struct ComponentB(String);
     ///
-    /// fn insert_reflected_component(
+    /// fn insert_reflect_component(
     ///     mut commands: Commands,
     ///     mut prefab: ResMut<Prefab>
     ///     ) {
@@ -56,107 +60,49 @@ pub trait EntityCommandsReflectExtension {
     ///     prefab.component = boxed_reflect_component_b;
     ///     
     ///     // No matter which component is in the resource and without knowing the exact type, you can
-    ///     // use the insert_reflected entity command to insert that component into an entity.
+    ///     // use the insert_reflect entity command to insert that component into an entity.
     ///     commands
     ///         .spawn_empty()
-    ///         .insert_reflected(prefab.component.clone_value());
+    ///         .insert_reflect(prefab.component.clone_value());
     /// }
     ///
     /// ```
-    fn insert_reflected(&mut self, component: Box<dyn Reflect>) -> &mut Self;
+    fn insert_reflect(&mut self, component: Box<dyn Reflect>) -> &mut Self;
 
-    /// Inserts the given boxed reflect component to the entity using the reflection data in the
-    /// provided [`TypeRegistry`] [Resource](Resource)..
-    ///
-    /// This will overwrite any previous component of the same type.
+    /// Same as [`insert_reflect`](ReflectCommandExt::insert_reflect), but using the `T` resource as type registry instead of
+    /// `AppTypeRegistry`.
     ///
     /// # Panics
     ///
-    /// - If the entity doesn't exist.
-    /// - If the given [`TypeRegistry`] does not have the reflection data for the given [Component](crate::component::Component).
-    /// - If the component data is invalid. See [`Reflect::apply`] for further details.
     /// - If the given [`Resource`] is not present in the [`World`].
     ///
     /// # Note
     ///
-    /// - Prefer to use the typed [`EntityCommands::insert`] if possible as it is optimized for insertions
-    /// compared to reflection which requires more overhead.
     /// - The given [`Resource`] is removed from the [`World`] before the command is applied.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    ///
-    /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::reflect::EntityCommandsReflectExtension;
-    /// # use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
-    ///
-    /// // A custom TypeRegistry Resource
-    /// #[derive(Resource)]
-    /// struct TypeRegistryResource {
-    ///     type_registry: TypeRegistry,
-    /// }
-    ///
-    /// impl AsRef<TypeRegistry> for TypeRegistryResource {
-    ///     fn as_ref(&self) -> &TypeRegistry {
-    ///         &self.type_registry
-    ///     }
-    /// }
-    /// // A resource that can hold any component that implements reflect as a boxed reflect component
-    /// #[derive(Resource)]
-    /// struct Prefab{
-    ///     component: Box<dyn Reflect>,
-    /// }
-    /// #[derive(Component, Reflect, Default)]
-    /// #[reflect(Component)]
-    /// struct ComponentA(u32);
-    /// #[derive(Component, Reflect, Default)]
-    /// #[reflect(Component)]
-    /// struct ComponentB(String);
-    ///
-    /// fn insert_reflected_component(
-    ///     mut commands: Commands,
-    ///     mut prefab: ResMut<Prefab>
-    ///     ) {
-    ///     // Create a set of new boxed reflect components to use
-    ///     let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn Reflect>;
-    ///     let boxed_reflect_component_b = Box::new(ComponentB("NineSixteen".to_string())) as Box<dyn Reflect>;
-    ///
-    ///     // You can overwrite the component in the resource with either ComponentA or ComponentB
-    ///     prefab.component = boxed_reflect_component_a;
-    ///     prefab.component = boxed_reflect_component_b;
-    ///     
-    ///     // No matter which component is in the resource and without knowing the exact type, you can
-    ///     // use the insert_reflected entity command to insert that component into an entity using
-    ///     // the data in the provided resource.
-    ///     commands
-    ///         .spawn_empty()
-    ///         .insert_reflected_with_registry::<TypeRegistryResource>(prefab.component.clone_value());
-    /// }
-    ///
-    /// ```
-    fn insert_reflected_with_registry<T: Resource + AsRef<TypeRegistry>>(
+    fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
         component: Box<dyn Reflect>,
     ) -> &mut Self;
 
-    /// Removes the component of the same type as the component type name from the entity using the
-    /// reflection data from [`AppTypeRegistry`].
+    /// Removes from the entity the component with the given type name registered in [`AppTypeRegistry`]
     ///
     /// Does nothing if the entity does not have a component of the same type, if [`AppTypeRegistry`]
     /// does not contain the reflection data for the given component, or if the entity does not exist.
     ///
     /// # Note
     ///
-    /// Prefer to use the typed [`EntityCommands::remove`] if possible as it is optimized for removals
-    /// compared to reflection which requires more overhead.
+    /// Prefer to use the typed [`EntityCommands::remove`] if possible. Removing a reflected component
+    /// is much slower.
     ///
     /// # Example
     ///
     /// ```rust
+    /// // Note that you need to register the component type in the AppTypeRegistry prior to using
+    /// // reflection. You can use the helpers on the App with `app.register_type::<ComponentA>()`
+    /// // or write to the TypeRegistry directly to register all your components
     ///
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::reflect::EntityCommandsReflectExtension;
+    /// # use bevy_ecs::reflect::ReflectCommandExt;
     /// # use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
     ///
     /// // A resource that can hold any component that implements reflect as a boxed reflect component
@@ -172,7 +118,7 @@ pub trait EntityCommandsReflectExtension {
     /// #[reflect(Component)]
     /// struct ComponentB(String);
     ///
-    /// fn remove_reflected_component(
+    /// fn remove_reflect_component(
     ///     mut commands: Commands,
     ///     prefab: Res<Prefab>
     ///     ) {
@@ -180,86 +126,33 @@ pub trait EntityCommandsReflectExtension {
     ///     // ComponentA or ComponentB. No matter which component is in the resource though,
     ///     // we can attempt to remove any component of that same type from an entity.
     ///     commands.entity(prefab.entity)
-    ///         .remove_reflected(prefab.component.type_name().into());
+    ///         .remove_reflect(prefab.component.type_name().to_owned());
     /// }
     ///
     /// ```
-    fn remove_reflected(&mut self, component_type_name: String) -> &mut Self;
-
-    /// Removes the component of the same type as the given component type name from the entity
-    /// using the reflection data in the provided [`TypeRegistry`] [Resource](Resource).
-    ///
-    /// Does nothing if the entity does not have a component of the same type, if [`AppTypeRegistry`]
-    /// does not contain the reflection data for the given component, or if the entity does not exist.
-    ///
-    /// # Note
-    ///
-    /// Prefer to use the typed [`EntityCommands::remove`] if possible as it is optimized for removals
-    /// compared to reflection which requires more overhead.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    ///
-    /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::reflect::EntityCommandsReflectExtension;
-    /// # use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
-    /// // A custom TypeRegistry Resource
-    /// #[derive(Resource)]
-    /// struct TypeRegistryResource {
-    ///     type_registry: TypeRegistry,
-    /// }
-    ///
-    /// impl AsRef<TypeRegistry> for TypeRegistryResource {
-    ///     fn as_ref(&self) -> &TypeRegistry {
-    ///         &self.type_registry
-    ///     }
-    /// }    
-    /// // A resource that can hold any component that implements reflect as a boxed reflect component
-    /// #[derive(Resource)]
-    /// struct Prefab{
-    ///     entity: Entity,
-    ///     component: Box<dyn Reflect>,
-    /// }
-    /// #[derive(Component, Reflect, Default)]
-    /// #[reflect(Component)]
-    /// struct ComponentA(u32);
-    /// #[derive(Component, Reflect, Default)]
-    /// #[reflect(Component)]
-    /// struct ComponentB(String);
-    ///
-    /// fn remove_reflected_component(
-    ///     mut commands: Commands,
-    ///     prefab: Res<Prefab>
-    ///     ) {
-    ///     // Prefab can hold any boxed reflect component. In this case either
-    ///     // ComponentA or ComponentB. No matter which component is in the resource though,
-    ///     // we can attempt to remove any component of that same type from an entity.
-    ///     commands.entity(prefab.entity)
-    ///         .remove_reflected_with_registry::<TypeRegistryResource>(prefab.component.type_name().into());
-    /// }
-    ///
-    /// ```
-    fn remove_reflected_with_registry<T: Resource + AsRef<TypeRegistry>>(
+    fn remove_reflect(&mut self, component_type_name: impl Into<Cow<'static, str>>) -> &mut Self;
+    /// Same as [`remove_reflect`](ReflectCommandExt::remove_reflect), but using the `T` resource as type registry instead of
+    /// `AppTypeRegistry`.
+    fn remove_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
-        component_type_name: String,
+        component_type_name: impl Into<Cow<'static, str>>,
     ) -> &mut Self;
 }
 
-impl<'w, 's, 'a> EntityCommandsReflectExtension for EntityCommands<'w, 's, 'a> {
-    fn insert_reflected(&mut self, component: Box<dyn Reflect>) -> &mut Self {
-        self.commands.add(InsertReflected {
+impl<'w, 's, 'a> ReflectCommandExt for EntityCommands<'w, 's, 'a> {
+    fn insert_reflect(&mut self, component: Box<dyn Reflect>) -> &mut Self {
+        self.commands.add(InsertReflect {
             entity: self.entity,
             component,
         });
         self
     }
 
-    fn insert_reflected_with_registry<T: Resource + AsRef<TypeRegistry>>(
+    fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
         component: Box<dyn Reflect>,
     ) -> &mut Self {
-        self.commands.add(InsertReflectedWithRegistry::<T> {
+        self.commands.add(InsertReflectWithRegistry::<T> {
             entity: self.entity,
             _t: PhantomData,
             component,
@@ -267,22 +160,22 @@ impl<'w, 's, 'a> EntityCommandsReflectExtension for EntityCommands<'w, 's, 'a> {
         self
     }
 
-    fn remove_reflected(&mut self, component_type_name: String) -> &mut Self {
-        self.commands.add(RemoveReflected {
+    fn remove_reflect(&mut self, component_type_name: impl Into<Cow<'static, str>>) -> &mut Self {
+        self.commands.add(RemoveReflect {
             entity: self.entity,
-            component_type_name,
+            component_type_name: component_type_name.into(),
         });
         self
     }
 
-    fn remove_reflected_with_registry<T: Resource + AsRef<TypeRegistry>>(
+    fn remove_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
-        component_type_name: String,
+        component_type_name: impl Into<Cow<'static, str>>,
     ) -> &mut Self {
-        self.commands.add(RemoveReflectedWithRegistry::<T> {
+        self.commands.add(RemoveReflectWithRegistry::<T> {
             entity: self.entity,
             _t: PhantomData,
-            component_type_name,
+            component_type_name: component_type_name.into(),
         });
         self
     }
@@ -291,15 +184,15 @@ impl<'w, 's, 'a> EntityCommandsReflectExtension for EntityCommands<'w, 's, 'a> {
 /// A [`Command`] that adds the boxed reflect component to an entity using the data in
 /// [`AppTypeRegistry`].
 ///
-/// See [`EntityCommandsReflectExtension::insert_reflected`] for details.
-pub struct InsertReflected {
+/// See [`ReflectCommandExt::insert_reflect`] for details.
+pub struct InsertReflect {
     /// The entity on which the component will be inserted.
     pub entity: Entity,
     /// The reflect [Component](crate::component::Component) that will be added to the entity.
     pub component: Box<dyn Reflect>,
 }
 
-impl Command for InsertReflected {
+impl Command for InsertReflect {
     fn apply(self, world: &mut World) {
         let registry = world.get_resource::<AppTypeRegistry>().unwrap().clone();
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
@@ -322,8 +215,8 @@ impl Command for InsertReflected {
 /// A [`Command`] that adds the boxed reflect component to an entity using the data in the provided
 /// [`Resource`] that implements [`AsRef<TypeRegistry>`].
 ///
-/// See [`EntityCommandsReflectExtension::insert_reflected_with_registry`] for details.
-pub struct InsertReflectedWithRegistry<T: Resource + AsRef<TypeRegistry>> {
+/// See [`ReflectCommandExt::insert_reflect_with_registry`] for details.
+pub struct InsertReflectWithRegistry<T: Resource + AsRef<TypeRegistry>> {
     /// The entity on which the component will be inserted.
     pub entity: Entity,
     pub _t: PhantomData<T>,
@@ -331,7 +224,7 @@ pub struct InsertReflectedWithRegistry<T: Resource + AsRef<TypeRegistry>> {
     pub component: Box<dyn Reflect>,
 }
 
-impl<T: Resource + AsRef<TypeRegistry>> Command for InsertReflectedWithRegistry<T> {
+impl<T: Resource + AsRef<TypeRegistry>> Command for InsertReflectWithRegistry<T> {
     fn apply(self, world: &mut World) {
         let registry = world.remove_resource::<T>().unwrap();
         let registry: &TypeRegistry = registry.as_ref();
@@ -356,22 +249,21 @@ impl<T: Resource + AsRef<TypeRegistry>> Command for InsertReflectedWithRegistry<
 /// A [`Command`] that removes the component of the same type as the given component type name from
 /// the provided entity.
 ///
-/// See [`EntityCommandsReflectExtension::remove_reflected`] for details.
-pub struct RemoveReflected {
+/// See [`ReflectCommandExt::remove_reflect`] for details.
+pub struct RemoveReflect {
     /// The entity from which the component will be removed.
     pub entity: Entity,
     /// The [Component](crate::component::Component) type name that will be used to remove a component
     /// of the same type from the entity.
-    pub component_type_name: String,
+    pub component_type_name: Cow<'static, str>,
 }
 
-impl Command for RemoveReflected {
+impl Command for RemoveReflect {
     fn apply(self, world: &mut World) {
         let registry = world.get_resource::<AppTypeRegistry>().unwrap().clone();
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
-            if let Some(type_registration) = registry
-                .read()
-                .get_with_name(self.component_type_name.as_ref())
+            if let Some(type_registration) =
+                registry.read().get_with_name(&self.component_type_name)
             {
                 if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
                     reflect_component.remove(&mut entity);
@@ -384,25 +276,23 @@ impl Command for RemoveReflected {
 /// A [`Command`] that removes the component of the same type as the given component type name from
 /// the provided entity using the provided [`Resource`] that implements [`AsRef<TypeRegistry>`].
 ///
-/// See [`EntityCommandsReflectExtension::remove_reflected_with_registry`] for details.
-pub struct RemoveReflectedWithRegistry<T: Resource + AsRef<TypeRegistry>> {
+/// See [`ReflectCommandExt::remove_reflect_with_registry`] for details.
+pub struct RemoveReflectWithRegistry<T: Resource + AsRef<TypeRegistry>> {
     /// The entity from which the component will be removed.
     pub entity: Entity,
     pub _t: PhantomData<T>,
     /// The [Component](crate::component::Component) type name that will be used to remove a component
     /// of the same type from the entity.
-    pub component_type_name: String,
+    pub component_type_name: Cow<'static, str>,
 }
 
-impl<T: Resource + AsRef<TypeRegistry>> Command for RemoveReflectedWithRegistry<T> {
+impl<T: Resource + AsRef<TypeRegistry>> Command for RemoveReflectWithRegistry<T> {
     fn apply(self, world: &mut World) {
         let registry = world.remove_resource::<T>().unwrap();
         let registry: &TypeRegistry = registry.as_ref();
 
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
-            if let Some(type_registration) =
-                registry.get_with_name(self.component_type_name.as_ref())
-            {
+            if let Some(type_registration) = registry.get_with_name(&self.component_type_name) {
                 if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
                     reflect_component.remove(&mut entity);
                 }
@@ -414,7 +304,7 @@ impl<T: Resource + AsRef<TypeRegistry>> Command for RemoveReflectedWithRegistry<
 #[cfg(test)]
 mod tests {
     use crate::prelude::{AppTypeRegistry, ReflectComponent};
-    use crate::reflect::EntityCommandsReflectExtension;
+    use crate::reflect::ReflectCommandExt;
     use crate::system::{Commands, SystemState};
     use crate::{self as bevy_ecs, component::Component, world::World};
     use bevy_ecs_macros::Resource;
@@ -458,7 +348,7 @@ mod tests {
 
         commands
             .entity(entity)
-            .insert_reflected(boxed_reflect_component_a);
+            .insert_reflect(boxed_reflect_component_a);
         system_state.apply(&mut world);
 
         assert!(world.entity(entity).get::<ComponentA>().is_some());
@@ -490,7 +380,7 @@ mod tests {
 
         commands
             .entity(entity)
-            .insert_reflected_with_registry::<TypeRegistryResource>(boxed_reflect_component_a);
+            .insert_reflect_with_registry::<TypeRegistryResource>(boxed_reflect_component_a);
         system_state.apply(&mut world);
 
         assert!(world.entity(entity).get::<ComponentA>().is_some());
@@ -520,7 +410,7 @@ mod tests {
 
         commands
             .entity(entity)
-            .remove_reflected(boxed_reflect_component_a.type_name().into());
+            .remove_reflect(boxed_reflect_component_a.type_name().to_owned());
         system_state.apply(&mut world);
 
         assert!(world.entity(entity).get::<ComponentA>().is_none());
@@ -551,8 +441,8 @@ mod tests {
 
         commands
             .entity(entity)
-            .remove_reflected_with_registry::<TypeRegistryResource>(
-                boxed_reflect_component_a.type_name().into(),
+            .remove_reflect_with_registry::<TypeRegistryResource>(
+                boxed_reflect_component_a.type_name().to_owned(),
             );
         system_state.apply(&mut world);
 
