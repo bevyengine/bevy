@@ -528,7 +528,7 @@ pub fn queue_material_meshes<M: Material>(
                     render_meshes.get(mesh_handle),
                     render_materials.get(material_handle),
                 ) {
-                    let forward = match material.properties.deferred {
+                    let forward = match material.properties.render_method {
                         OpaqueRendererMethod::Forward => true,
                         OpaqueRendererMethod::Deferred => false,
                     };
@@ -635,7 +635,7 @@ pub enum OpaqueRendererMethod {
 pub struct MaterialProperties {
     /// Is this material should be rendered by the deferred renderer when.
     /// AlphaMode::Opaque or AlphaMode::Mask
-    pub deferred: OpaqueRendererMethod,
+    pub render_method: OpaqueRendererMethod,
     /// The [`AlphaMode`] of this material.
     pub alpha_mode: AlphaMode,
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order
@@ -805,7 +805,7 @@ fn prepare_material<M: Material>(
         properties: MaterialProperties {
             alpha_mode: material.alpha_mode(),
             depth_bias: material.depth_bias(),
-            deferred: method,
+            render_method: method,
         },
         stencil_reference: match method {
             OpaqueRendererMethod::Forward => 0,
