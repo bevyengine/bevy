@@ -119,7 +119,7 @@ impl ViewNode for PrepassNode {
             }
         }
         if deferred_prepass.is_none() {
-            // copy if deferred isn't going to
+            // Copy if deferred isn't going to
             if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
                 // Warnings in WebGL:
                 // Chrome: [.WebGL-0000002C0AD19500] GL_INVALID_FRAMEBUFFER_OPERATION: Framebuffer is incomplete: Depth stencil texture in color attachment.

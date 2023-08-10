@@ -311,7 +311,7 @@ pub struct StandardMaterial {
     /// Default is `16.0`.
     pub max_parallax_layer_count: f32,
 
-    /// Render method used for opaque materials
+    /// Render method used for opaque materials. (Where `alpha_mode` is [`AlphaMode::Opaque`] or [`AlphaMode::Mask`])
     pub opaque_render_method: Option<OpaqueRendererMethod>,
 
     /// Used for selecting the deferred lighting pass for deferred materials.
