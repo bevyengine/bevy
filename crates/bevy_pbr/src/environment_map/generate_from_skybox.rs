@@ -7,6 +7,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_math::UVec2;
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::ExtractComponent,
@@ -15,9 +16,10 @@ use bevy_render::{
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, CachedComputePipelineId,
-        ComputePassDescriptor, ComputePipelineDescriptor, FilterMode, PipelineCache,
+        ComputePassDescriptor, ComputePipelineDescriptor, Extent3d, FilterMode, PipelineCache,
         SamplerBindingType, SamplerDescriptor, ShaderStages, StorageTextureAccess, TextureAspect,
-        TextureFormat, TextureSampleType, TextureView, TextureViewDescriptor, TextureViewDimension,
+        TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
+        TextureViewDimension,
     },
     renderer::{RenderContext, RenderDevice},
     texture::{GpuImage, Image, ImageSampler},
@@ -25,8 +27,10 @@ use bevy_render::{
 use bevy_utils::default;
 
 /// TODO: Docs
-#[derive(Component, ExtractComponent, Reflect, Copy, Clone)]
-pub struct GenerateEnvironmentMapLight;
+#[derive(Component, ExtractComponent, Reflect, Default, Copy, Clone)]
+pub struct GenerateEnvironmentMapLight {
+    intermediate_texture: Option<Handle<Image>>,
+}
 
 #[derive(Resource)]
 pub struct GenerateEnvironmentMapLightResources {
@@ -48,7 +52,7 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
         };
         let write_texture = BindingType::StorageTexture {
             access: StorageTextureAccess::WriteOnly,
-            format: TextureFormat::Rgba16Float,
+            format: TextureFormat::Rg11b10Float,
             view_dimension: TextureViewDimension::D2Array,
         };
 
@@ -107,16 +111,13 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
 
 pub fn generate_dummy_environment_map_lights_for_skyboxes(
     skyboxes: Query<
-        (Entity, &Skybox),
-        (
-            With<GenerateEnvironmentMapLight>,
-            Without<EnvironmentMapLight>,
-        ),
+        (Entity, &Skybox, &mut GenerateEnvironmentMapLight),
+        Without<EnvironmentMapLight>,
     >,
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
 ) {
-    for (entity, skybox) in &skyboxes {
+    for (entity, skybox, gen_env_map_light) in &skyboxes {
         let texture_descriptor = match images.get(&skybox.0) {
             Some(skybox) => skybox.texture_descriptor.clone(),
             None => continue,
@@ -126,8 +127,10 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
             texture_descriptor.size,
             texture_descriptor.dimension,
             &[0],
-            TextureFormat::Rgba16Float,
+            TextureFormat::Rg11b10Float,
         );
+        diffuse_map.texture_descriptor.usage =
+            TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING;
         diffuse_map.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor {
             label: Some("generate_environment_map_light_downsample_sampler"),
             mag_filter: FilterMode::Linear,
@@ -140,9 +143,11 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
             texture_descriptor.size,
             texture_descriptor.dimension,
             &[0],
-            TextureFormat::Rgba16Float,
+            TextureFormat::Rg11b10Float,
         );
         specular_map.texture_descriptor.mip_level_count = 7;
+        specular_map.texture_descriptor.usage =
+            TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING;
         specular_map.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor {
             label: Some("generate_environment_map_light_filter_sampler"),
             mag_filter: FilterMode::Linear,
@@ -150,6 +155,21 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
             mipmap_filter: FilterMode::Linear,
             ..default()
         });
+
+        let mut intermediate_texture = Image::new_fill(
+            Extent3d {
+                width: texture_descriptor.size.width / 2,
+                height: texture_descriptor.size.height / 2,
+                depth_or_array_layers: texture_descriptor.size.depth_or_array_layers,
+            },
+            texture_descriptor.dimension,
+            &[0],
+            TextureFormat::Rg11b10Float,
+        );
+        intermediate_texture.texture_descriptor.mip_level_count = 7;
+        intermediate_texture.texture_descriptor.usage =
+            TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING;
+        gen_env_map_light.intermediate_texture = Some(images.add(intermediate_texture));
 
         commands.entity(entity).insert(EnvironmentMapLight {
             diffuse_map: images.add(diffuse_map),
@@ -160,31 +180,35 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
 
 #[derive(Component)]
 pub struct GenerateEnvironmentMapLightBindGroups {
-    downsample: BindGroup,
+    downsample: [BindGroup; 7],
     filter: BindGroup,
+    skybox_size: UVec2,
 }
 
 pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
-    environment_map_lights: Query<
-        (Entity, &Skybox, &EnvironmentMapLight),
-        With<GenerateEnvironmentMapLight>,
-    >,
+    environment_map_lights: Query<(
+        Entity,
+        &Skybox,
+        &EnvironmentMapLight,
+        &GenerateEnvironmentMapLight,
+    )>,
     resources: Res<GenerateEnvironmentMapLightResources>,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
     images: Res<RenderAssets<Image>>,
 ) {
-    for (entity, skybox, environment_map_light) in &environment_map_lights {
-        let (Some(skybox), Some(diffuse_map), Some(specular_map)) = (
+    for (entity, skybox, environment_map_light, gen_env_map) in &environment_map_lights {
+        let (Some(skybox), Some(diffuse_map), Some(specular_map), Some(intermediate_texture)) = (
             images.get(&skybox.0),
             images.get(&environment_map_light.diffuse_map),
             images.get(&environment_map_light.specular_map),
+            gen_env_map.intermediate_texture.and_then(|t| images.get(t)),
         ) else {
             continue;
         };
 
-        let downsample = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("generate_environment_map_light_downsample_bind_group"),
+        let downsample1 = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("generate_environment_map_light_downsample1_bind_group"),
             layout: &resources.downsample_layout,
             entries: &[
                 BindGroupEntry {
@@ -193,7 +217,115 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::TextureView(todo!()),
+                    resource: BindingResource::TextureView(&texture_view(0, intermediate_texture)),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::Sampler(&diffuse_map.sampler),
+                },
+            ],
+        });
+        let downsample2 = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("generate_environment_map_light_downsample2_bind_group"),
+            layout: &resources.downsample_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(&texture_view(0, intermediate_texture)),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(&texture_view(1, intermediate_texture)),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::Sampler(&diffuse_map.sampler),
+                },
+            ],
+        });
+        let downsample3 = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("generate_environment_map_light_downsample3_bind_group"),
+            layout: &resources.downsample_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(&texture_view(1, intermediate_texture)),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(&texture_view(2, intermediate_texture)),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::Sampler(&diffuse_map.sampler),
+                },
+            ],
+        });
+        let downsample4 = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("generate_environment_map_light_downsample4_bind_group"),
+            layout: &resources.downsample_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(&texture_view(2, intermediate_texture)),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(&texture_view(3, intermediate_texture)),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::Sampler(&diffuse_map.sampler),
+                },
+            ],
+        });
+        let downsample5 = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("generate_environment_map_light_downsample5_bind_group"),
+            layout: &resources.downsample_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(&texture_view(3, intermediate_texture)),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(&texture_view(4, intermediate_texture)),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::Sampler(&diffuse_map.sampler),
+                },
+            ],
+        });
+        let downsample6 = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("generate_environment_map_light_downsample6_bind_group"),
+            layout: &resources.downsample_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(&texture_view(4, intermediate_texture)),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(&texture_view(5, intermediate_texture)),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::Sampler(&diffuse_map.sampler),
+                },
+            ],
+        });
+        let downsample7 = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("generate_environment_map_light_downsample7_bind_group"),
+            layout: &resources.downsample_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(&texture_view(5, intermediate_texture)),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(&texture_view(6, intermediate_texture)),
                 },
                 BindGroupEntry {
                     binding: 2,
@@ -208,35 +340,35 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(todo!()),
+                    resource: BindingResource::TextureView(&intermediate_texture.texture_view),
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::TextureView(&specular_map.texture_view),
+                    resource: BindingResource::TextureView(&texture_view(0, specular_map)),
                 },
                 BindGroupEntry {
                     binding: 2,
-                    resource: BindingResource::TextureView(&specular_texture_view(1, specular_map)),
+                    resource: BindingResource::TextureView(&texture_view(1, specular_map)),
                 },
                 BindGroupEntry {
                     binding: 3,
-                    resource: BindingResource::TextureView(&specular_texture_view(2, specular_map)),
+                    resource: BindingResource::TextureView(&texture_view(2, specular_map)),
                 },
                 BindGroupEntry {
                     binding: 4,
-                    resource: BindingResource::TextureView(&specular_texture_view(3, specular_map)),
+                    resource: BindingResource::TextureView(&texture_view(3, specular_map)),
                 },
                 BindGroupEntry {
                     binding: 5,
-                    resource: BindingResource::TextureView(&specular_texture_view(4, specular_map)),
+                    resource: BindingResource::TextureView(&texture_view(4, specular_map)),
                 },
                 BindGroupEntry {
                     binding: 6,
-                    resource: BindingResource::TextureView(&specular_texture_view(5, specular_map)),
+                    resource: BindingResource::TextureView(&texture_view(5, specular_map)),
                 },
                 BindGroupEntry {
                     binding: 7,
-                    resource: BindingResource::TextureView(&specular_texture_view(6, specular_map)),
+                    resource: BindingResource::TextureView(&texture_view(6, specular_map)),
                 },
                 BindGroupEntry {
                     binding: 8,
@@ -247,7 +379,19 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
 
         commands
             .entity(entity)
-            .insert(GenerateEnvironmentMapLightBindGroups { downsample, filter });
+            .insert(GenerateEnvironmentMapLightBindGroups {
+                downsample: [
+                    downsample1,
+                    downsample2,
+                    downsample3,
+                    downsample4,
+                    downsample5,
+                    downsample6,
+                    downsample7,
+                ],
+                filter,
+                skybox_size: skybox.size.as_uvec2(),
+            });
     }
 }
 
@@ -279,12 +423,17 @@ impl ViewNode for GenerateEnvironmentMapLightNode {
             label: Some("generate_environment_map_light_pass"),
         });
 
-        pass.set_bind_group(0, &bind_groups.downsample, &[]);
         pass.set_pipeline(downsample_pipeline);
-        pass.dispatch_workgroups(todo!(), todo!(), 6);
+        let mut texture_size = bind_groups.skybox_size;
+        for i in 0..7 {
+            let workgroup_count = div_ceil(texture_size, 8);
+            pass.set_bind_group(0, &bind_groups.downsample[i], &[]);
+            pass.dispatch_workgroups(workgroup_count, workgroup_count, 6);
+            texture_size /= 2;
+        }
 
-        pass.set_bind_group(0, &bind_groups.filter, &[]);
         pass.set_pipeline(filter_pipeline);
+        pass.set_bind_group(0, &bind_groups.filter, &[]);
         pass.dispatch_workgroups(todo!(), 6, 1);
 
         Ok(())
@@ -300,15 +449,20 @@ fn bgl_entry(binding: u32, ty: BindingType) -> BindGroupLayoutEntry {
     }
 }
 
-fn specular_texture_view(mip_level: u32, specular_map: &GpuImage) -> TextureView {
+fn texture_view(mip_level: u32, specular_map: &GpuImage) -> TextureView {
     specular_map.texture.create_view(&TextureViewDescriptor {
-        label: Some("generate_environment_map_light_specular_texture_view"),
-        format: Some(TextureFormat::Rgba16Float),
+        label: Some("generate_environment_map_light_texture_view"),
+        format: Some(TextureFormat::Rg11b10Float),
         dimension: Some(TextureViewDimension::D3),
         aspect: TextureAspect::All,
         base_mip_level: mip_level,
         mip_level_count: Some(1),
         base_array_layer: 0,
-        array_layer_count: Some(6),
+        array_layer_count: Some(7),
     })
+}
+
+/// Divide `numerator` by `denominator`, rounded up to the nearest multiple of `denominator`.
+fn div_ceil(numerator: u32, denominator: u32) -> u32 {
+    (numerator + denominator - 1) / denominator
 }
