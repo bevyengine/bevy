@@ -15,7 +15,7 @@ fn setup(mut commands: Commands) {
         .spawn(NodeBundle {
             style: Style {
                 flex_basis: Num::Percent(100.0),
-                margin: UiRect::all(Num::Px(25.0)),
+                margin: Margin::all(Num::Px(25.0)),
                 flex_wrap: FlexWrap::Wrap,
                 justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::FlexStart,
@@ -101,7 +101,7 @@ fn setup(mut commands: Commands) {
                     width: Num::Px(50.),
                     height: Num::Px(50.),
                     border: borders[i % borders.len()],
-                    margin: UiRect::all(Num::Px(2.)),
+                    margin: Margin::all(Num::Px(2.)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     ..Default::default()

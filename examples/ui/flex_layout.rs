@@ -131,7 +131,7 @@ fn spawn_child_node(
 =======
                 width: Val::Px(160.),
                 height: Val::Px(160.),
-                margin: UiRect::all(MARGIN),
+                margin: Margin::all(MARGIN),
 >>>>>>> main:examples/ui/flex_layout.rs
                 ..Default::default()
             },

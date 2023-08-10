@@ -97,7 +97,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 text_style.clone(),
             ).with_alignment(TextAlignment::Center),
             style: Style {
-                margin: UiRect::bottom(Num::Px(10.)),
+                margin: Margin::bottom(Num::Px(10.)),
                 ..Default::default()
             },
             ..Default::default()
@@ -180,7 +180,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
     builder
         .spawn(NodeBundle {
             style: Style {
-                padding: UiRect::all(Num::Px(10.)),
+                padding: Padding::all(Num::Px(10.)),
                 ..Default::default()
             },
             background_color: BackgroundColor(Color::WHITE),
@@ -297,7 +297,7 @@ fn spawn_right_panel(
     parent
         .spawn(NodeBundle {
             style: Style {
-                padding: UiRect::all(Num::Px(10.)),
+                padding: Padding::all(Num::Px(10.)),
                 ..Default::default()
             },
             background_color: BackgroundColor(Color::WHITE),
@@ -414,7 +414,7 @@ where
                 style: Style {
                     //height: Val::Px(24.),
                     align_self: AlignSelf::FlexStart,
-                    padding: UiRect::axes(Num::Px(5.), Num::Px(1.)),
+                    padding: Padding::axes(Num::Px(5.), Num::Px(1.)),
                     ..Default::default()
                 },
                 background_color: BackgroundColor(Color::BLACK.with_a(0.5)),

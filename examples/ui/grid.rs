@@ -54,7 +54,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         display: Display::Grid,
                         /// Make this node span two grid columns so that it takes up the entire top tow
                         grid_column: GridPlacement::span(2),
-                        padding: UiRect::all(Num::Px(6.0)),
+                        padding: Padding::all(Num::Px(6.0)),
                         ..default()
                     },
                     ..default()
@@ -75,7 +75,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         /// Use grid layout for this node
                         display: Display::Grid,
                         // Add 24px of padding around the grid
-                        padding: UiRect::all(Num::Px(24.0)),
+                        padding: Padding::all(Num::Px(24.0)),
                         /// Set the grid to have 4 columns all with sizes minmax(0, 1fr)
                         /// This creates 4 exactly evenly sized columns
                         grid_template_columns: RepeatedGridTrack::flex(4, 1.0),
@@ -127,7 +127,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         // Align content towards the center in the horizontal axis
                         justify_items: JustifyItems::Center,
                         // Add 10px padding
-                        padding: UiRect::all(Num::Px(10.)),
+                        padding: Padding::all(Num::Px(10.)),
                         // Add an fr track to take up all the available space at the bottom of the column so that the text nodes
                         // can be top-aligned. Normally you'd use flexbox for this, but this is the CSS Grid example so we're using grid.
                         grid_template_rows: vec![GridTrack::auto(), GridTrack::auto(), GridTrack::fr(1.0)],
@@ -205,7 +205,7 @@ fn item_rect(builder: &mut ChildBuilder, color: Color) {
         .spawn(NodeBundle {
             style: Style {
                 display: Display::Grid,
-                padding: UiRect::all(Num::Px(3.0)),
+                padding: Padding::all(Num::Px(3.0)),
                 ..default()
             },
             background_color: BackgroundColor(Color::BLACK),

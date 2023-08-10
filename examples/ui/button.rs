@@ -70,7 +70,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         width: Num::Px(150.0),
                         height: Num::Px(65.0),
-                        border: UiRect::all(Num::Px(5.0)),
+                        border: Border::all(Num::Px(5.0)),
                         // horizontally center child text
                         justify_content: JustifyContent::Center,
                         // vertically center child text

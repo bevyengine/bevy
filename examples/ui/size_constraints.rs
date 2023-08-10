@@ -74,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent.spawn(
                         TextBundle::from_section("Size Constraints Example", text_style.clone())
                             .with_style(Style {
-                                margin: UiRect::bottom(Num::Px(25.)),
+                                margin: Margin::bottom(Num::Px(25.)),
                                 ..Default::default()
                             }),
                     );
@@ -86,8 +86,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             style: Style {
                                 flex_direction: FlexDirection::Column,
                                 align_items: AlignItems::Stretch,
-                                padding: UiRect::all(Num::Px(10.)),
-                                margin: UiRect::top(Num::Px(50.)),
+                                padding: Padding::all(Num::Px(10.)),
+                                margin: Margin::top(Num::Px(50.)),
                                 ..Default::default()
                             },
                             background_color: Color::YELLOW.into(),
@@ -113,7 +113,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
             style: Style {
                 flex_basis: Num::Percent(100.0),
                 align_self: AlignSelf::Stretch,
-                padding: UiRect::all(Num::Px(10.)),
+                padding: Padding::all(Num::Px(10.)),
                 ..Default::default()
             },
             background_color: Color::YELLOW.into(),
@@ -126,7 +126,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                         align_items: AlignItems::Stretch,
                         width: Num::Percent(100.),
                         height: Num::Px(100.),
-                        padding: UiRect::all(Num::Px(4.)),
+                        padding: Padding::all(Num::Px(4.)),
                         ..Default::default()
                     },
                     background_color: Color::BLACK.into(),
@@ -159,7 +159,7 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
         .spawn(NodeBundle {
             style: Style {
                 flex_direction: FlexDirection::Column,
-                padding: UiRect::all(Num::Px(2.)),
+                padding: Padding::all(Num::Px(2.)),
                 align_items: AlignItems::Stretch,
                 ..Default::default()
             },
@@ -172,7 +172,7 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                     style: Style {
                         flex_direction: FlexDirection::Row,
                         justify_content: JustifyContent::End,
-                        padding: UiRect::all(Num::Px(2.)),
+                        padding: Padding::all(Num::Px(2.)),
                         ..Default::default()
                     },
                     //background_color: Color::RED.into(),
@@ -242,8 +242,8 @@ fn spawn_button(
                 style: Style {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    border: UiRect::all(Num::Px(2.)),
-                    margin: UiRect::horizontal(Num::Px(2.)),
+                    border: Border::all(Num::Px(2.)),
+                    margin: Margin::horizontal(Num::Px(2.)),
                     ..Default::default()
                 },
                 background_color: if active {

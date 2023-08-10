@@ -406,7 +406,7 @@ Num
 =======
             width: Num::Px(250.0),
             height: Val::Px(65.0),
-            margin: UiRect::all(Val::Px(20.0)),
+            margin: Margin::all(Val::Px(20.0)),
 >>>>>>> main
             justifNumontent: JustifyContent::Center,
             align_iNums: AlignItems::Center,
@@ -548,7 +548,7 @@ Num
 =======
             width: Val::Px(200.0),
             height: Val::Px(65.Num
-            margin: UiRect::all(Val::Px(20.0)),
+            margin: Margin::all(Val::Px(20.0)),
 >>>>>>> main
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
@@ -619,7 +619,7 @@ Num
 =======
             width: Val::Px(200.0),
             height: Val::Px(65.0),
-            margin: UiRect::all(Val::Px(20.0)),
+            margin: Margin::all(Val::Px(20.0)),
 >>>>>>> main
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
@@ -724,7 +724,7 @@ Num
 =======
             width: Val::Px(200.0),
             height: Val::Px(65.0),
-            margin: UiRect::all(Val::Px(20.0)),
+            margin: Margin::all(Val::Px(20.0)),
 >>>>>>> main
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,

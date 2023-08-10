@@ -79,7 +79,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
                 style: Style {
                     width: Num::Vw(100.),
                     height: Num::Vh(100.),
-                    border: UiRect::axes(Num::Vw(5.), Num::Vh(5.)),
+                    border: Border::axes(Num::Vw(5.), Num::Vh(5.)),
                     flex_wrap: FlexWrap::Wrap,
                     ..default()
                 },
@@ -93,7 +93,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
                 style: Style {
                     width: Num::Vw(30.),
                     height: Num::Vh(30.),
-                    border: UiRect::all(Num::VMin(5.)),
+                    border: Border::all(Num::VMin(5.)),
                     ..default()
                 },
                 background_color: PALETTE[2].into(),
@@ -115,7 +115,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
                 style: Style {
                     width: Num::Vw(45.),
                     height: Num::Vh(30.),
-                    border: UiRect::left(Num::VMax(45. / 2.)),
+                    border: Border::left(Num::VMax(45. / 2.)),
                     ..default()
                 },
                 background_color: PALETTE[4].into(),
@@ -127,7 +127,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
                 style: Style {
                     width: Num::Vw(45.),
                     height: Num::Vh(30.),
-                    border: UiRect::right(Num::VMax(45. / 2.)),
+                    border: Border::right(Num::VMax(45. / 2.)),
                     ..default()
                 },
                 background_color: PALETTE[5].into(),
@@ -149,7 +149,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
                 style: Style {
                     width: Num::Vw(30.),
                     height: Num::Vh(30.),
-                    border: UiRect::all(Num::VMin(5.)),
+                    border: Border::all(Num::VMin(5.)),
                     ..default()
                 },
                 background_color: PALETTE[7].into(),
@@ -166,7 +166,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
                 style: Style {
                     width: Num::Px(800.),
                     height: Num::Px(600.),
-                    border: UiRect::axes(Num::Px(40.), Num::Px(30.)),
+                    border: Border::axes(Num::Px(40.), Num::Px(30.)),
                     flex_wrap: FlexWrap::Wrap,
                     ..default()
                 },
@@ -180,7 +180,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
                 style: Style {
                     width: Num::Px(240.),
                     height: Num::Px(180.),
-                    border: UiRect::axes(Num::Px(30.), Num::Px(30.)),
+                    border: Border::axes(Num::Px(30.), Num::Px(30.)),
                     ..default()
                 },
                 background_color: PALETTE[2].into(),
@@ -202,7 +202,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
                 style: Style {
                     width: Num::Px(360.),
                     height: Num::Px(180.),
-                    border: UiRect::left(Num::Px(180.)),
+                    border: Border::left(Num::Px(180.)),
                     ..default()
                 },
                 background_color: PALETTE[4].into(),
@@ -214,7 +214,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
                 style: Style {
                     width: Num::Px(360.),
                     height: Num::Px(180.),
-                    border: UiRect::right(Num::Px(180.)),
+                    border: Border::right(Num::Px(180.)),
                     ..default()
                 },
                 background_color: PALETTE[5].into(),
@@ -236,7 +236,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
                 style: Style {
                     width: Num::Px(240.),
                     height: Num::Px(180.),
-                    border: UiRect::axes(Num::Px(30.), Num::Px(30.)),
+                    border: Border::axes(Num::Px(30.), Num::Px(30.)),
                     ..default()
                 },
                 background_color: PALETTE[7].into(),

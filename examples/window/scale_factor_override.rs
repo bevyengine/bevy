@@ -44,7 +44,7 @@ fn setup(mut commands: Commands) {
 =======
                         width: Val::Px(200.0),
                         height: Val::Percent(100.0),
-                        border: UiRect::all(Val::Px(2.0)),
+                        border: Border::all(Val::Px(2.0)),
 >>>>>>> main
                         ..default()
                     },

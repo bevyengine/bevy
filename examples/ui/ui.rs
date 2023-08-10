@@ -279,7 +279,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     width: Val::Px(500.0),
                                     height: Val::Px(125.0),
-                                    margin: UiRect::top(Val::VMin(5.)),
+                                    margin: Margin::top(Val::VMin(5.)),
                                     ..default()
                                 },
                                 // a `NodeBundle` is transparent by default, so to see the image we have to its color to `WHITE`
