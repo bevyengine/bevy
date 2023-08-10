@@ -57,6 +57,7 @@ pub struct NormalPrepass;
 #[derive(Component, Default, Reflect)]
 pub struct MotionVectorPrepass;
 
+/// If added to a [`crate::prelude::Camera3d`] then deferred materials will be rendered to the deferred gbuffer texture and will be available to subsequent passes.
 #[derive(Component, Default, Reflect)]
 pub struct DeferredPrepass;
 
