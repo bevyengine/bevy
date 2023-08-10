@@ -102,7 +102,7 @@ impl AnimationClip {
         self.duration
     }
 
-    /// The [`EntityPath`] map.
+    /// The bone ids mapped by their [`EntityPath`].
     #[inline]
     pub fn paths(&self) -> &HashMap<EntityPath, usize> {
         &self.paths
