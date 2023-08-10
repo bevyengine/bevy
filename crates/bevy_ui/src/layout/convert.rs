@@ -1,10 +1,10 @@
 use taffy::style_helpers;
 
 use crate::{
-    AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, GridAutoFlow,
+    AlignContent, AlignItems, AlignSelf, Border, Display, FlexDirection, FlexWrap, GridAutoFlow,
     GridPlacement, GridTrack, GridTrackRepetition, JustifyContent, JustifyItems, JustifySelf,
-    MaxTrackSizingFunction, MinTrackSizingFunction, PositionType, RepeatedGridTrack, Style,
-    Num, Margin, Border, Padding, Val,
+    Margin, MaxTrackSizingFunction, MinTrackSizingFunction, Num, Padding, PositionType,
+    RepeatedGridTrack, Style, Val,
 };
 
 use super::LayoutContext;
@@ -102,15 +102,15 @@ impl Border {
 }
 
 impl Padding {
-        fn map_to_taffy_rect<T>(self, map_fn: impl Fn(Num) -> T) -> taffy::geometry::Rect<T> {
-            taffy::geometry::Rect {
-                left: map_fn(self.left),
-                right: map_fn(self.right),
-                top: map_fn(self.top),
-                bottom: map_fn(self.bottom),
-            }
+    fn map_to_taffy_rect<T>(self, map_fn: impl Fn(Num) -> T) -> taffy::geometry::Rect<T> {
+        taffy::geometry::Rect {
+            left: map_fn(self.left),
+            right: map_fn(self.right),
+            top: map_fn(self.top),
+            bottom: map_fn(self.bottom),
         }
     }
+}
 
 pub fn from_style(context: &LayoutContext, style: &Style) -> taffy::style::Style {
     taffy::style::Style {
@@ -442,10 +442,10 @@ impl RepeatedGridTrack {
 
 #[cfg(test)]
 mod tests {
-    use crate::Val;
     use crate::Border;
     use crate::Margin;
     use crate::Padding;
+    use crate::Val;
 
     use super::*;
 
@@ -457,7 +457,7 @@ mod tests {
             position_type: PositionType::Absolute,
             left: Val::Px(0.),
             right: Val::Percent(0.),
-            top: Val::Auto,           
+            top: Val::Auto,
             bottom: Val::Auto,
             direction: crate::Direction::Inherit,
             flex_direction: FlexDirection::ColumnReverse,

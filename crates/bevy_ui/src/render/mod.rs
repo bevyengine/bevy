@@ -9,8 +9,8 @@ pub use pipeline::*;
 pub use render_pass::*;
 
 use crate::{
-    prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
-    Style, UiImage, UiScale, UiStack, UiTextureAtlasImage, Num,
+    prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node, Num,
+    Style, UiImage, UiScale, UiStack, UiTextureAtlasImage,
 };
 
 use bevy_app::prelude::*;

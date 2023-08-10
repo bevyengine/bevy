@@ -1,6 +1,6 @@
-use std::ops::{Mul, MulAssign, Div, DivAssign};
+use std::ops::{Div, DivAssign, Mul, MulAssign};
 
-use crate::{Val, Num};
+use crate::{Num, Val};
 use bevy_reflect::Reflect;
 
 macro_rules! uirect_impl {
@@ -33,7 +33,6 @@ macro_rules! uirect_impl {
                 }
             }
 
-            
             /// Creates a new uirect from the values specified in logical pixels.
             ///
             /// This is a shortcut for [`UiRect::new()`], applying [`Val::Px`] to all arguments.
@@ -50,12 +49,7 @@ macro_rules! uirect_impl {
             /// assert_eq!(ui_rect.bottom, Val::Px(40.));
             /// ```
             pub fn px(left: f32, right: f32, top: f32, bottom: f32) -> Self {
-                Self::new(
-                    Num::Px(left),
-                    Num::Px(right),
-                    Num::Px(top),
-                    Num::Px(bottom),
-                )
+                Self::new(Num::Px(left), Num::Px(right), Num::Px(top), Num::Px(bottom))
             }
 
             /// Creates a new [`UiRect`] from the values specified in percentages.
@@ -141,8 +135,6 @@ macro_rules! uirect_impl {
             pub fn all(value: impl Into<$v> + Copy) -> Self {
                 Self::new(value, value, value, value)
             }
-
-            
         }
 
         impl Default for $t {
@@ -438,10 +430,7 @@ mod tests {
 
     #[test]
     fn test_size_mul() {
-        assert_eq!(
-            Size::all(Val::Px(10.)) * 2.,
-            Size::all(Val::Px(20.))
-        );
+        assert_eq!(Size::all(Val::Px(10.)) * 2., Size::all(Val::Px(20.)));
 
         let mut size = Size::all(Val::Px(10.));
         size *= 2.;
@@ -510,7 +499,7 @@ mod tests {
         );
         assert_eq!(Size::default(), Size::DEFAULT);
     }
-    
+
     #[test]
     fn test_uirect_axes() {
         let x = Num::Px(1.);

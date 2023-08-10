@@ -218,7 +218,7 @@ mod game {
                                         color: Color::GREEN,
                                         ..default()
                                     },
-                                )
+                                ),
                             ])
                             .with_style(Style {
                                 margin: Margin::all(Val::Px(50.0)),
@@ -516,8 +516,8 @@ mod menu {
                             .with_children(|parent| {
                                 let icon = asset_server.load("textures/Game Icons/exitRight.png");
                                 parent.spawn(ImageBundle {
-                                style: button_icon_style,
-                                image: UiImage::new(icon),
+                                    style: button_icon_style,
+                                    image: UiImage::new(icon),
                                     ..default()
                                 });
                                 parent.spawn(TextBundle::from_section("Quit", button_text_style));
@@ -528,7 +528,6 @@ mod menu {
 
     fn settings_menu_setup(mut commands: Commands) {
         let button_style = Style {
-
             width: Val::Px(200.0),
             height: Val::Px(65.0),
             margin: Margin::all(Val::Px(20.0)),
@@ -577,9 +576,9 @@ mod menu {
                                 .spawn((
                                     ButtonBundle {
                                         style: button_style.clone(),
-                    background_color: NORMAL_BUTTON.into(),
-                                     ..default()
-                                 },
+                                        background_color: NORMAL_BUTTON.into(),
+                                        ..default()
+                                    },
                                     action,
                                 ))
                                 .with_children(|parent| {
@@ -674,8 +673,9 @@ mod menu {
                                     if *display_quality == quality_setting {
                                         entity.insert(SelectedOption);
                                     }
-                            }});
-                        
+                                }
+                            });
+
                         // Display the back button to return to the settings screen
                         parent
                             .spawn((

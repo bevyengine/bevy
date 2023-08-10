@@ -81,7 +81,7 @@ fn setup(mut commands: Commands) {
                             left: Val::Px(70.0),
                             bottom: Val::Px(20.0),
                             width: Val::Px(100.),
-                            height:Val::Px(75.),
+                            height: Val::Px(75.),
                             ..default()
                         },
                         ..default()
