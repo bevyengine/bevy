@@ -126,8 +126,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: NumoVal::Px(5.0),
-            left: NumoVal::Px(5.0),
+            top: Val::Px(5.0),
+            left: Val::Px(5.0),
             ..default()
         }),
         StatsText,

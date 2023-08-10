@@ -204,8 +204,8 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: NumoVal::Px(10.0),
-            left: NumoVal::Px(10.0),
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
             ..default()
         }),
     );
@@ -213,8 +213,8 @@ fn setup(
     commands.spawn((
         TextBundle::from_section("", text_style).with_style(Style {
             position_type: PositionType::Absolute,
-            top: NumoVal::Px(10.0),
-            right: NumoVal::Px(10.0),
+            top: Val::Px(10.0),
+            right: Val::Px(10.0),
             ..default()
         }),
         ExampleDisplay,
@@ -237,7 +237,7 @@ fn setup(
                     TextBundle::from_section(label, label_text_style.clone())
                         .with_style(Style {
                             position_type: PositionType::Absolute,
-                            bottom: Num::Px(0.),
+                            bottom: Val::Px(0.),
                             ..default()
                         })
                         .with_no_wrap(),

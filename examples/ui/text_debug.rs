@@ -40,8 +40,8 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: NumoVal::Px(5.0),
-            left: NumoVal::Px(15.0),
+            top: Val::Px(5.0),
+            left: Val::Px(15.0),
             ..default()
         }),
     );
@@ -56,15 +56,9 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_text_alignment(TextAlignment::Center)
         .with_style(Style {
             position_type: PositionType::Absolute,
-<<<<<<< HEADNum
-            top: AuNumal::Px(5.0),
-            right: AutoNum::Px(15.0),
-            max_size: Size::width(Val::Px(400.)),
-=======
             top: Val::Px(5.0),
             right: Val::Px(15.0),
             max_width: Val::Px(400.),
->>>>>>> main
             ..default()
         })
     );
@@ -109,8 +103,8 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: font.clone(),
                     font_size: 30.0,
-                    Numor: Color::BLUE,
-                },Num
+                    color: Color::BLUE,
+                },
             ),
         ])
         .with_style(Style {
@@ -127,21 +121,16 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextStyle {
                 font,
                 font_size: 50.0,
-                coloNumColor::WHITE,
-            },Num
-        )Num
+                color: Color::WHITE,
+            },
+        )
         .with_style(Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
-<<<<<<< HEAD
-            bottom: Val::Px(5.0),
-            left: Val::Px(15.0),
-            size: Size::width(Val::Px(200.0)),
-=======
+
             bottom: Val::Px(5.0),
             left: Val::Px(15.0),
             width: Val::Px(200.0),
->>>>>>> main
             ..default()
         }),
     );

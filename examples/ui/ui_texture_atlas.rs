@@ -41,7 +41,7 @@ fn setup(
         .spawn(NodeBundle {
             style: Style {
                 flex_direction: FlexDirection::Column,
-                width: Num::Percent(100.0),
+                width: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 row_gap: Num::Px(text_style.font_size * 2.),
@@ -52,8 +52,8 @@ fn setup(
         .with_children(|parent| {
             parent.spawn((AtlasImageBundle {
                 style: Style {
-                    width: Num::Px(256.),
-                    height: Num::Px(256.),
+                    width: Val::Px(256.),
+                    height: Val::Px(256.),
                     ..default()
                 },
                 texture_atlas: texture_atlas_handle,

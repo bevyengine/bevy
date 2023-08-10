@@ -81,8 +81,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Num::Percent(100.),
-                height: Num::Percent(100.),
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
@@ -92,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        height: Num::Px(32.),
+                        height: Val::Px(32.),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -145,7 +145,7 @@ fn spawn_row(parent: &mut ChildBuilder, spawn_children: impl FnOnce(&mut ChildBu
     parent
         .spawn(NodeBundle {
             style: Style {
-                width: Num::Percent(50.),
+                width: Val::Percent(50.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceEvenly,
                 ..default()
@@ -164,7 +164,7 @@ fn spawn_image(
         parent.spawn(ImageBundle {
             image: UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
             style: Style {
-                height: Num::Px(100.),
+                height: Val::Px(100.),
                 position_type: PositionType::Absolute,
                 top: Num::Px(-50.),
                 left: Num::Px(-200.),
@@ -205,8 +205,8 @@ fn spawn_container(
         .spawn((
             NodeBundle {
                 style: Style {
-                    width: Num::Px(CONTAINER_SIZE),
-                    height: Num::Px(CONTAINER_SIZE),
+                    width: Val::Px(CONTAINER_SIZE),
+                    height: Val::Px(CONTAINER_SIZE),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     overflow: Overflow::clip(),

@@ -27,7 +27,7 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Num::Percent(100.0),
+                width: Val::Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
@@ -38,14 +38,9 @@ fn setup(mut commands: Commands) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-<<<<<<< HEADNum
-                        size: SiNum:new(Val::Px(200.0), Val::Percent(100.0)),
-                        border: Border::all(Num::Px(2.0)),
-=======
                         width: Val::Px(200.0),
                         height: Val::Percent(100.0),
-                        border: Border::all(Val::Px(2.0)),
->>>>>>> main
+                        border: Border::all(Num::Px(2.0)),
                         ..default()
                     },
                     background_color: Color::rgb(0.65, 0.65, 0.65).into(),

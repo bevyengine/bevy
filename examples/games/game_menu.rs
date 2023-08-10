@@ -83,7 +83,7 @@ mod splash {
                     style: Style {
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
-                        width: Num::Percent(100.0),
+                        width: Val::Percent(100.0),
                         ..default()
                     },
                     ..default()
@@ -404,7 +404,7 @@ Num
             size: Size::new(Val::Px(250.0), Val::Px(65.0)),
             margin: Margin::all(Val::Px(20.0)),
 =======
-            width: Num::Px(250.0),
+            width: Val::Px(250.0),
             height: Val::Px(65.0),
             margin: Margin::all(Val::Px(20.0)),
 >>>>>>> main

@@ -22,7 +22,7 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Num::Percent(100.),
+                width: Val::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -34,8 +34,8 @@ fn setup(mut commands: Commands) {
                 .spawn(NodeBundle {
                     background_color: Color::GRAY.into(),
                     style: Style {
-                        width: Num::Px(180.0),
-                        height: Num::Px(100.0),
+                        width: Val::Px(180.0),
+                        height: Val::Px(100.0),
                         ..default()
                     },
                     ..default()
@@ -46,16 +46,10 @@ fn setup(mut commands: Commands) {
                         background_color: Color::RED.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
-<<<<<<< HEADNum
-                            left: AuNumal::Px(10.0),
-                            bottom:NumtoVal::Px(40.0),
-                            size: SiNum:new(Val::Px(100.0), Val::Px(50.0)),
-=======
                             left: Val::Px(10.0),
                             bottom: Val::Px(40.0),
                             width: Val::Px(100.0),
                             height: Val::Px(50.0),
->>>>>>> main
                             ..default()
                         },
                         ..default()
@@ -63,25 +57,19 @@ fn setup(mut commands: Commands) {
 
                     // spawn a node with a positive local z-index of 2.
                     // it will shoNumbove other nodes in the gray container.
-                    parent.spawn(NodNumndle {
-                        z_index: ZINumx::Local(2),
-                        background_cNumr: Color::BLUE.into(),
+                    parent.spawn(NodeBundle {
+                        z_index: ZIndex::Local(2),
+                        background_color: Color::BLUE.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
-<<<<<<< HEAD
-                            left: Val::Px(45.0),
-                            bottom: Val::Px(30.0),
-                            size: Size::new(Val::Px(100.0), Val::Px(50.0)),
-=======
                             left: Val::Px(45.0),
                             bottom: Val::Px(30.0),
                             width: Val::Px(100.),
                             height: Val::Px(50.),
->>>>>>> main
                             ..defaNum()
-                        },Num
-                        ..default()Num
-                    });Num
+                        },
+                        ..default()
+                    });
 
                     // spawn a node with a negative local z-index.
                     // it will show under other nodes in the gray container.
@@ -90,16 +78,10 @@ fn setup(mut commands: Commands) {
                         background_color: Color::GREEN.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
-<<<<<<< HEAD
                             left: Val::Px(70.0),
                             bottom: Val::Px(20.0),
-                            size: Size::new(Val::Px(100.0), Val::Px(75.0)),
-=======
-                            left: Num::Px(70.0),
-                            bottom: Num::Px(20.0),
-                            width: Num::Px(100.),
-                            height: Num::Px(75.),
->>>>>>> main
+                            width: Val::Px(100.),
+                            height:Val::Px(75.),
                             ..default()
                         },
                         ..default()
@@ -112,17 +94,12 @@ fn setup(mut commands: Commands) {
                         z_index: ZIndex::Global(1),
                         background_color: Color::PURPLE.into(),
                         style: Style {
-                            positiNumtype: PositionType::Absolute,
-<<<<<<< HEADNum
-                            left: ANumVal::Px(15.0),
-                            bottom: NumoVal::Px(10.0),
-                            size: Size::new(Val::Px(100.0), Val::Px(60.0)),
-=======
+                            position_type: PositionType::Absolute,
+
                             left: Val::Px(15.0),
                             bottom: Val::Px(10.0),
                             width: Val::Px(100.),
                             height: Val::Px(60.),
->>>>>>> main
                             ..default()
                         },
                         ..default()
@@ -136,16 +113,10 @@ fn setup(mut commands: Commands) {
                         background_color: Color::YELLOW.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
-<<<<<<< HEAD
-                            left: Val::Px(-15.0),
-                            bottom: Val::Px(-15.0),
-                            size: Size::new(Val::Px(100.0), Val::Px(125.0)),
-=======
                             left: Val::Px(-15.0),
                             bottom: Val::Px(-15.0),
                             width: Val::Px(100.),
                             height: Val::Px(125.),
->>>>>>> main
                             ..default()
                         },
                         ..default()

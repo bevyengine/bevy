@@ -51,7 +51,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                flex_basis: Num::Percent(100.0),
+                flex_basis: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..Default::default()
@@ -111,7 +111,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
     parent
         .spawn(NodeBundle {
             style: Style {
-                flex_basis: Num::Percent(100.0),
+                flex_basis: Val::Percent(100.0),
                 align_self: AlignSelf::Stretch,
                 padding: Padding::all(Num::Px(10.)),
                 ..Default::default()
@@ -124,8 +124,8 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                 .spawn(NodeBundle {
                     style: Style {
                         align_items: AlignItems::Stretch,
-                        width: Num::Percent(100.),
-                        height: Num::Px(100.),
+                        width: Val::Percent(100.),
+                        height: Val::Px(100.),
                         padding: Padding::all(Num::Px(4.)),
                         ..Default::default()
                     },
@@ -183,8 +183,8 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                     parent
                         .spawn(NodeBundle {
                             style: Style {
-                                min_width: Num::Px(200.),
-                                max_width: Num::Px(200.),
+                                min_width: Val::Px(200.),
+                                max_width: Val::Px(200.),
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
                                 ..Default::default()
@@ -261,7 +261,7 @@ fn spawn_button(
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        width: Num::Px(100.),
+                        width: Val::Px(100.),
                         justify_content: JustifyContent::Center,
                         ..Default::default()
                     },

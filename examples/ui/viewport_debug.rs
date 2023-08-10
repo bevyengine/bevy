@@ -77,8 +77,8 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
         .spawn((
             NodeBundle {
                 style: Style {
-                    width: Num::Vw(100.),
-                    height: Num::Vh(100.),
+                    width: Val::Vw(100.),
+                    height: Val::Vh(100.),
                     border: Border::axes(Num::Vw(5.), Num::Vh(5.)),
                     flex_wrap: FlexWrap::Wrap,
                     ..default()
@@ -91,8 +91,8 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
         .with_children(|builder| {
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Num::Vw(30.),
-                    height: Num::Vh(30.),
+                    width: Val::Vw(30.),
+                    height: Val::Vh(30.),
                     border: Border::all(Num::VMin(5.)),
                     ..default()
                 },
@@ -103,8 +103,8 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Num::Vw(60.),
-                    height: Num::Vh(30.),
+                    width: Val::Vw(60.),
+                    height: Val::Vh(30.),
                     ..default()
                 },
                 background_color: PALETTE[3].into(),
@@ -113,8 +113,8 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Num::Vw(45.),
-                    height: Num::Vh(30.),
+                    width: Val::Vw(45.),
+                    height: Val::Vh(30.),
                     border: Border::left(Num::VMax(45. / 2.)),
                     ..default()
                 },
@@ -125,8 +125,8 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Num::Vw(45.),
-                    height: Num::Vh(30.),
+                    width: Val::Vw(45.),
+                    height: Val::Vh(30.),
                     border: Border::right(Num::VMax(45. / 2.)),
                     ..default()
                 },
@@ -137,8 +137,8 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Num::Vw(60.),
-                    height: Num::Vh(30.),
+                    width: Val::Vw(60.),
+                    height: Val::Vh(30.),
                     ..default()
                 },
                 background_color: PALETTE[6].into(),
@@ -147,8 +147,8 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Num::Vw(30.),
-                    height: Num::Vh(30.),
+                    width: Val::Vw(30.),
+                    height: Val::Vh(30.),
                     border: Border::all(Num::VMin(5.)),
                     ..default()
                 },
@@ -164,8 +164,8 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
         .spawn((
             NodeBundle {
                 style: Style {
-                    width: Num::Px(800.),
-                    height: Num::Px(600.),
+                    width: Val::Px(800.),
+                    height: Val::Px(600.),
                     border: Border::axes(Num::Px(40.), Num::Px(30.)),
                     flex_wrap: FlexWrap::Wrap,
                     ..default()
@@ -178,8 +178,8 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
         .with_children(|builder| {
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Num::Px(240.),
-                    height: Num::Px(180.),
+                    width: Val::Px(240.),
+                    height: Val::Px(180.),
                     border: Border::axes(Num::Px(30.), Num::Px(30.)),
                     ..default()
                 },
@@ -190,8 +190,8 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Num::Px(480.),
-                    height: Num::Px(180.),
+                    width: Val::Px(480.),
+                    height: Val::Px(180.),
                     ..default()
                 },
                 background_color: PALETTE[3].into(),
@@ -200,8 +200,8 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Num::Px(360.),
-                    height: Num::Px(180.),
+                    width: Val::Px(360.),
+                    height: Val::Px(180.),
                     border: Border::left(Num::Px(180.)),
                     ..default()
                 },
@@ -212,8 +212,8 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Num::Px(360.),
-                    height: Num::Px(180.),
+                    width: Val::Px(360.),
+                    height: Val::Px(180.),
                     border: Border::right(Num::Px(180.)),
                     ..default()
                 },
@@ -224,8 +224,8 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Num::Px(480.),
-                    height: Num::Px(180.),
+                    width: Val::Px(480.),
+                    height: Val::Px(180.),
                     ..default()
                 },
                 background_color: PALETTE[6].into(),
@@ -234,8 +234,8 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Num::Px(240.),
-                    height: Num::Px(180.),
+                    width: Val::Px(240.),
+                    height: Val::Px(180.),
                     border: Border::axes(Num::Px(30.), Num::Px(30.)),
                     ..default()
                 },

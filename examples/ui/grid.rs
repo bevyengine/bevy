@@ -26,8 +26,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 /// Use the CSS Grid algorithm for laying out this node
                 display: Display::Grid,
                 /// Make node fill the entirety it's parent (in this case the window)
-                width: Num::Percent(100.0),
-                height: Num::Percent(100.0),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 /// Set the grid to have 2 columns with sizes [min-content, minmax(0, 1fr)]
                 ///   - The first column will size to the size of it's contents
                 ///   - The second column will take up the remaining available space
@@ -68,7 +68,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn(NodeBundle {
                     style: Style {
                         /// Make the height of the node fill its parent
-                        height: Num::Percent(100.0),
+                        height: Val::Percent(100.0),
                         /// Make the grid have a 1:1 aspect ratio meaning it will scale as an exact square
                         /// As the height is set explicitly, this means the width will adjust to match the height
                         aspect_ratio: Some(1.0),
@@ -174,16 +174,16 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 visibility: Visibility::Hidden,
                 style: Style {
                     position_type: PositionType::Absolute,
-                    margin: UiRect {
-                        top: Num::Px(100.),
-                        bottom: Num::Auto,
-                        left: Num::Auto,
-                        right: Num::Auto,
+                    margin: Margin {
+                        top: Val::Px(100.),
+                        bottom: Val::Auto,
+                        left: Val::Auto,
+                        right: Val::Auto,
                     },
-                    width: Num::Percent(60.),
-                    height: Num::Px(300.),
-                    max_width: Num::Px(600.),
-                    max_height: Num::Auto,
+                    width: Val::Percent(60.),
+                    height: Val::Px(300.),
+                    max_width: Val::Px(600.),
+                    max_height: Val::Auto,
                     ..default()
                 },
                 background_color: BackgroundColor(Color::Rgba {

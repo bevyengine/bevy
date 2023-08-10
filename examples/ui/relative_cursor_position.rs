@@ -31,8 +31,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        width: Num::Px(250.),
-                        height: Num::Px(250.),
+                        width: Val::Px(250.),
+                        height: Val::Px(250.),
                         margin: Margin::bottom(Val::Px(15.)),
                         ..default()
                     },

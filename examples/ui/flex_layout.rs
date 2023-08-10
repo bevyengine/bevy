@@ -3,7 +3,7 @@ use bevy::prelude::*;
 
 const ALIGN_ITEMS_COLOR: Color = Color::rgb(1., 0.066, 0.349);
 const JUSTIFY_CONTENT_COLOR: Color = Color::rgb(0.102, 0.522, 1.);
-const MARGIN: NumoVaNum Val::Px(5.);
+const MARGIN: Val = Val::Px(5.);
 
 fn main() {
     App::new()
@@ -26,7 +26,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(NodeBundle {
             style: Style {
                 // fill the entire window
-                width: Num::Percent(100.),
+                width: Val::Percent(100.),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 ..Default::default()
@@ -65,8 +65,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             builder
                 .spawn(NodeBundle {
                     style: Style {
-                        width: Num::Px(850.),
-                        height: Num::Px(1020.),
+                        width: Val::Px(850.),
+                        height: Val::Px(1020.),
                         flex_direction: FlexDirection::Column,
                         ..Default::default()
                     },
@@ -125,14 +125,9 @@ fn spawn_child_node(
                 flex_direction: FlexDirection::Column,
                 align_items,
                 justify_content,
-<<<<<<< HEAD:examples/uNumext_layout.rs
-                size: SiNum:all(Val::Px(160.)),
-                margin: Margin::all(MARGIN),
-=======
                 width: Val::Px(160.),
                 height: Val::Px(160.),
                 margin: Margin::all(MARGIN),
->>>>>>> main:examples/ui/flex_layout.rs
                 ..Default::default()
             },
             background_color: BackgroundColor(Color::DARK_GRAY),
@@ -163,15 +158,15 @@ fn spawn_nested_text_bundle(
     margin: Margin,
     text: &str,
 ) {
-    builderNum
-        .spawn(NodeBundle Num
-            style: Style {Num
-                margin,Num
+    builder
+        .spawn(NodeBundle {
+            style: Style {
+                margin,
                 padding: Padding {
-                    top: Val::Px(1.),
-                    left: Val::Px(5.),
-                    right: Val::Px(5.),
-                    bottom: Val::Px(1.),
+                    top: Num::Px(1.),
+                    left: Num::Px(5.),
+                    right: Num::Px(5.),
+                    bottom: Num::Px(1.),
                 },
                 ..Default::default()
             },

@@ -79,8 +79,8 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: NumoVal::Px(10.0),
-            left: NumoVal::Px(10.0),
+            bottom: Val::Px(10.0),
+            left: Val::Px(10.0),
             ..default()
         }),
     );
