@@ -406,21 +406,12 @@ impl ReflectTraits {
     ///
     /// An error is returned if the two [`ReflectTraits`] have conflicting implementations.
     pub fn merge(&mut self, other: ReflectTraits) -> Result<(), syn::Error> {
-        let Self {
-            debug,
-            hash,
-            partial_eq,
-            from_reflect_attrs: from_reflect,
-            type_path_attrs,
-            idents,
-        } = other;
-
-        self.debug.merge(debug)?;
-        self.hash.merge(hash)?;
-        self.partial_eq.merge(partial_eq)?;
-        self.from_reflect_attrs.merge(from_reflect)?;
-        self.type_path_attrs.merge(type_path_attrs)?;
-        for ident in idents {
+        self.debug.merge(other.debug)?;
+        self.hash.merge(other.hash)?;
+        self.partial_eq.merge(other.partial_eq)?;
+        self.from_reflect_attrs.merge(other.from_reflect_attrs)?;
+        self.type_path_attrs.merge(other.type_path_attrs)?;
+        for ident in other.idents {
             add_unique_ident(&mut self.idents, ident)?;
         }
         Ok(())
