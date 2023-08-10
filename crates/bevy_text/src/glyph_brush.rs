@@ -10,7 +10,7 @@ use glyph_brush_layout::{
 };
 
 use crate::{
-    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo, Text,
+    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo,
     TextAlignment, TextSettings, YAxisOrientation,
 };
 

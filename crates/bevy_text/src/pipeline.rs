@@ -10,9 +10,9 @@ use bevy_utils::HashMap;
 use glyph_brush_layout::{FontId, GlyphPositioner, SectionGeometry, SectionText};
 
 use crate::{
-    compute_text_bounds, error::TextError, glyph_brush::GlyphBrush, scale_value, text, BreakLineOn,
-    Font, FontAtlasSet, FontAtlasWarning, PositionedGlyph, TextAlignment, TextSection,
-    TextSettings, YAxisOrientation,
+    compute_text_bounds, error::TextError, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font,
+    FontAtlasSet, FontAtlasWarning, PositionedGlyph, TextAlignment, TextSection, TextSettings,
+    YAxisOrientation,
 };
 
 #[derive(Default, Resource)]
