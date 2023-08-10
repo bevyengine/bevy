@@ -10,7 +10,7 @@ pub use render_pass::*;
 
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
-    Style, UiImage, UiScale, UiStack, UiTextureAtlasImage, Val,
+    Style, UiImage, UiScale, UiStack, UiTextureAtlasImage, Num,
 };
 
 use bevy_app::prelude::*;
@@ -245,14 +245,14 @@ pub fn extract_atlas_uinodes(
     }
 }
 
-fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
+fn resolve_border_thickness(value: Num, parent_width: f32, viewport_size: Vec2) -> f32 {
     match value {
-        Val::Px(px) => px.max(0.),
-        Val::Percent(percent) => (parent_width * percent / 100.).max(0.),
-        Val::Vw(percent) => (viewport_size.x * percent / 100.).max(0.),
-        Val::Vh(percent) => (viewport_size.y * percent / 100.).max(0.),
-        Val::VMin(percent) => (viewport_size.min_element() * percent / 100.).max(0.),
-        Val::VMax(percent) => (viewport_size.max_element() * percent / 100.).max(0.),
+        Num::Px(px) => px.max(0.),
+        Num::Percent(percent) => (parent_width * percent / 100.).max(0.),
+        Num::Vw(percent) => (viewport_size.x * percent / 100.).max(0.),
+        Num::Vh(percent) => (viewport_size.y * percent / 100.).max(0.),
+        Num::VMin(percent) => (viewport_size.min_element() * percent / 100.).max(0.),
+        Num::VMax(percent) => (viewport_size.max_element() * percent / 100.).max(0.),
     }
 }
 

@@ -40,13 +40,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-<<<<<<< HEAD
-                        size: Size::width(Val::Px(200.)),
-                        border: Border::all(Val::Px(2.)),
-=======
                         width: Val::Px(200.),
-                        border: UiRect::all(Val::Px(2.)),
->>>>>>> main
+                        border: Border::all(Val::Px(2.)),
                         ..default()
                     },
                     background_color: Color::rgb(0.65, 0.65, 0.65).into(),
@@ -165,9 +160,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         width: Val::Px(200.0),
                         height: Val::Px(200.0),
                         position_type: PositionType::Absolute,
-                        left: AutoVal::Px(210.),
-                        bottom: AutoVal::Px(10.),
-                        border: Border::all(Val::Px(20.)),
+                        left: Val::Px(210.),
+                        bottom: Val::Px(10.),
+                        border: Border::all(Num::Px(20.)),
                         ..default()
                     },
                     border_color: Color::GREEN.into(),
@@ -216,8 +211,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     width: Val::Percent(100.0),
                                     height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
-                                    left: AutoVal::Px(20.),
-                                    bottom: AutoVal::Px(20.),
+                                    left: Val::Px(20.),
+                                    bottom: Val::Px(20.),
                                     ..default()
                                 },
                                 background_color: Color::rgb(1.0, 0.3, 0.3).into(),
@@ -228,8 +223,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     width: Val::Percent(100.0),
                                     height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
-                                    left: AutoVal::Px(40.),
-                                    bottom: AutoVal::Px(40.),
+                                    left: Val::Px(40.),
+                                    bottom: Val::Px(40.),
                                     ..default()
                                 },
                                 background_color: Color::rgb(1.0, 0.5, 0.5).into(),
@@ -240,8 +235,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     width: Val::Percent(100.0),
                                     height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
-                                    left: AutoVal::Px(60.),
-                                    bottom: AutoVal::Px(60.),
+                                    left: Val::Px(60.),
+                                    bottom: Val::Px(60.),
                                     ..default()
                                 },
                                 background_color: Color::rgb(1.0, 0.7, 0.7).into(),
@@ -253,8 +248,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     width: Val::Percent(100.0),
                                     height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
-                                    left: AutoVal::Px(80.),
-                                    bottom: AutoVal::Px(80.),
+                                    left: Val::Px(80.),
+                                    bottom: Val::Px(80.),
                                     ..default()
                                 },
                                 background_color: Color::rgba(1.0, 0.9, 0.9, 0.4).into(),
@@ -336,7 +331,7 @@ fn mouse_scroll(
 
             scrolling_list.position += dy;
             scrolling_list.position = scrolling_list.position.clamp(-max_scroll, 0.);
-            style.top = AutoVal::Px(scrolling_list.position);
+            style.top = Val::Px(scrolling_list.position);
         }
     }
 }

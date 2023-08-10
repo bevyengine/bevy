@@ -77,9 +77,9 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
         .spawn((
             NodeBundle {
                 style: Style {
-                    width: Val::Vw(100.),
-                    height: Val::Vh(100.),
-                    border: UiRect::axes(Val::Vw(5.), Val::Vh(5.)),
+                    width: Num::Vw(100.),
+                    height: Num::Vh(100.),
+                    border: UiRect::axes(Num::Vw(5.), Num::Vh(5.)),
                     flex_wrap: FlexWrap::Wrap,
                     ..default()
                 },
@@ -91,9 +91,9 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
         .with_children(|builder| {
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Val::Vw(30.),
-                    height: Val::Vh(30.),
-                    border: UiRect::all(Val::VMin(5.)),
+                    width: Num::Vw(30.),
+                    height: Num::Vh(30.),
+                    border: UiRect::all(Num::VMin(5.)),
                     ..default()
                 },
                 background_color: PALETTE[2].into(),
@@ -103,8 +103,8 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Val::Vw(60.),
-                    height: Val::Vh(30.),
+                    width: Num::Vw(60.),
+                    height: Num::Vh(30.),
                     ..default()
                 },
                 background_color: PALETTE[3].into(),
@@ -113,9 +113,9 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Val::Vw(45.),
-                    height: Val::Vh(30.),
-                    border: UiRect::left(Val::VMax(45. / 2.)),
+                    width: Num::Vw(45.),
+                    height: Num::Vh(30.),
+                    border: UiRect::left(Num::VMax(45. / 2.)),
                     ..default()
                 },
                 background_color: PALETTE[4].into(),
@@ -125,9 +125,9 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Val::Vw(45.),
-                    height: Val::Vh(30.),
-                    border: UiRect::right(Val::VMax(45. / 2.)),
+                    width: Num::Vw(45.),
+                    height: Num::Vh(30.),
+                    border: UiRect::right(Num::VMax(45. / 2.)),
                     ..default()
                 },
                 background_color: PALETTE[5].into(),
@@ -137,8 +137,8 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Val::Vw(60.),
-                    height: Val::Vh(30.),
+                    width: Num::Vw(60.),
+                    height: Num::Vh(30.),
                     ..default()
                 },
                 background_color: PALETTE[6].into(),
@@ -147,9 +147,9 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Val::Vw(30.),
-                    height: Val::Vh(30.),
-                    border: UiRect::all(Val::VMin(5.)),
+                    width: Num::Vw(30.),
+                    height: Num::Vh(30.),
+                    border: UiRect::all(Num::VMin(5.)),
                     ..default()
                 },
                 background_color: PALETTE[7].into(),
@@ -164,9 +164,9 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
         .spawn((
             NodeBundle {
                 style: Style {
-                    width: Val::Px(800.),
-                    height: Val::Px(600.),
-                    border: UiRect::axes(Val::Px(40.), Val::Px(30.)),
+                    width: Num::Px(800.),
+                    height: Num::Px(600.),
+                    border: UiRect::axes(Num::Px(40.), Num::Px(30.)),
                     flex_wrap: FlexWrap::Wrap,
                     ..default()
                 },
@@ -178,9 +178,9 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
         .with_children(|builder| {
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Val::Px(240.),
-                    height: Val::Px(180.),
-                    border: UiRect::axes(Val::Px(30.), Val::Px(30.)),
+                    width: Num::Px(240.),
+                    height: Num::Px(180.),
+                    border: UiRect::axes(Num::Px(30.), Num::Px(30.)),
                     ..default()
                 },
                 background_color: PALETTE[2].into(),
@@ -190,8 +190,8 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Val::Px(480.),
-                    height: Val::Px(180.),
+                    width: Num::Px(480.),
+                    height: Num::Px(180.),
                     ..default()
                 },
                 background_color: PALETTE[3].into(),
@@ -200,9 +200,9 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Val::Px(360.),
-                    height: Val::Px(180.),
-                    border: UiRect::left(Val::Px(180.)),
+                    width: Num::Px(360.),
+                    height: Num::Px(180.),
+                    border: UiRect::left(Num::Px(180.)),
                     ..default()
                 },
                 background_color: PALETTE[4].into(),
@@ -212,9 +212,9 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Val::Px(360.),
-                    height: Val::Px(180.),
-                    border: UiRect::right(Val::Px(180.)),
+                    width: Num::Px(360.),
+                    height: Num::Px(180.),
+                    border: UiRect::right(Num::Px(180.)),
                     ..default()
                 },
                 background_color: PALETTE[5].into(),
@@ -224,8 +224,8 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Val::Px(480.),
-                    height: Val::Px(180.),
+                    width: Num::Px(480.),
+                    height: Num::Px(180.),
                     ..default()
                 },
                 background_color: PALETTE[6].into(),
@@ -234,9 +234,9 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
 
             builder.spawn(NodeBundle {
                 style: Style {
-                    width: Val::Px(240.),
-                    height: Val::Px(180.),
-                    border: UiRect::axes(Val::Px(30.), Val::Px(30.)),
+                    width: Num::Px(240.),
+                    height: Num::Px(180.),
+                    border: UiRect::axes(Num::Px(30.), Num::Px(30.)),
                     ..default()
                 },
                 background_color: PALETTE[7].into(),

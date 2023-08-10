@@ -204,8 +204,8 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: AutoVal::Px(10.0),
-            left: AutoVal::Px(10.0),
+            top: NumoVal::Px(10.0),
+            left: NumoVal::Px(10.0),
             ..default()
         }),
     );
@@ -213,8 +213,8 @@ fn setup(
     commands.spawn((
         TextBundle::from_section("", text_style).with_style(Style {
             position_type: PositionType::Absolute,
-            top: AutoVal::Px(10.0),
-            right: AutoVal::Px(10.0),
+            top: NumoVal::Px(10.0),
+            right: NumoVal::Px(10.0),
             ..default()
         }),
         ExampleDisplay,
@@ -237,7 +237,7 @@ fn setup(
                     TextBundle::from_section(label, label_text_style.clone())
                         .with_style(Style {
                             position_type: PositionType::Absolute,
-                            bottom: Val::Px(0.),
+                            bottom: Num::Px(0.),
                             ..default()
                         })
                         .with_no_wrap(),
@@ -341,13 +341,8 @@ fn example_control_system(
             .world_to_viewport(camera_global_transform, world_position)
             .unwrap();
 
-<<<<<<< HEAD
-        style.bottom = AutoVal::Px(viewport_position.y);
-        style.left = AutoVal::Px(viewport_position.x);
-=======
         style.top = Val::Px(viewport_position.y);
         style.left = Val::Px(viewport_position.x);
->>>>>>> main
     }
 
     let mut display = display.single_mut();

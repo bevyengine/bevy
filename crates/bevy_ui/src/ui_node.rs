@@ -86,7 +86,7 @@ impl Default for Node {
 /// such as logical pixels, percentages, or automatically determined values.
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
-pub enum AutoVal {
+pub enum Val {
     /// Automatically determine the value based on the context and other [`Style`] properties.
     Auto,
     /// Set this value in logical pixels.
@@ -114,72 +114,72 @@ pub enum AutoVal {
     VMax(f32),
 }
 
-impl AutoVal {
+impl Val {
     pub const DEFAULT: Self = Self::Auto;
 }
 
-impl Default for AutoVal {
+impl Default for Val {
     fn default() -> Self {
         Self::DEFAULT
     }
 }
 
-impl Mul<f32> for AutoVal {
-    type Output = AutoVal;
+impl Mul<f32> for Val {
+    type Output = Val;
 
     fn mul(self, rhs: f32) -> Self::Output {
         match self {
-            AutoVal::Auto => AutoVal::Auto,
-            AutoVal::Px(value) => AutoVal::Px(value * rhs),
-            AutoVal::Percent(value) => AutoVal::Percent(value * rhs),
-            AutoVal::Vw(value) => AutoVal::Vw(value * rhs),
-            AutoVal::Vh(value) => AutoVal::Vh(value * rhs),
-            AutoVal::VMin(value) => AutoVal::VMin(value * rhs),
-            AutoVal::VMax(value) => AutoVal::VMax(value * rhs),
+            Val::Auto => Val::Auto,
+            Val::Px(value) => Val::Px(value * rhs),
+            Val::Percent(value) => Val::Percent(value * rhs),
+            Val::Vw(value) => Val::Vw(value * rhs),
+            Val::Vh(value) => Val::Vh(value * rhs),
+            Val::VMin(value) => Val::VMin(value * rhs),
+            Val::VMax(value) => Val::VMax(value * rhs),
         }
     }
 }
 
-impl MulAssign<f32> for AutoVal {
+impl MulAssign<f32> for Val {
     fn mul_assign(&mut self, rhs: f32) {
         match self {
-            AutoVal::Auto => {}
-            AutoVal::Px(value)
-            | AutoVal::Percent(value)
-            | AutoVal::Vw(value)
-            | AutoVal::Vh(value)
-            | AutoVal::VMin(value)
-            | AutoVal::VMax(value) => *value *= rhs,
+            Val::Auto => {}
+            Val::Px(value)
+            | Val::Percent(value)
+            | Val::Vw(value)
+            | Val::Vh(value)
+            | Val::VMin(value)
+            | Val::VMax(value) => *value *= rhs,
         }
     }
 }
 
-impl Div<f32> for AutoVal {
-    type Output = AutoVal;
+impl Div<f32> for Val {
+    type Output = Val;
 
     fn div(self, rhs: f32) -> Self::Output {
         match self {
-            AutoVal::Auto => AutoVal::Auto,
-            AutoVal::Px(value) => AutoVal::Px(value / rhs),
-            AutoVal::Percent(value) => AutoVal::Percent(value / rhs),
-            AutoVal::Vw(value) => AutoVal::Vw(value / rhs),
-            AutoVal::Vh(value) => AutoVal::Vh(value / rhs),
-            AutoVal::VMin(value) => AutoVal::VMin(value / rhs),
-            AutoVal::VMax(value) => AutoVal::VMax(value / rhs),
+            Val::Auto => Val::Auto,
+            Val::Px(value) => Val::Px(value / rhs),
+            Val::Percent(value) => Val::Percent(value / rhs),
+            Val::Vw(value) => Val::Vw(value / rhs),
+            Val::Vh(value) => Val::Vh(value / rhs),
+            Val::VMin(value) => Val::VMin(value / rhs),
+            Val::VMax(value) => Val::VMax(value / rhs),
         }
     }
 }
 
-impl DivAssign<f32> for AutoVal {
+impl DivAssign<f32> for Val {
     fn div_assign(&mut self, rhs: f32) {
         match self {
-            AutoVal::Auto => {}
-            AutoVal::Px(value)
-            | AutoVal::Percent(value)
-            | AutoVal::Vw(value)
-            | AutoVal::Vh(value)
-            | AutoVal::VMin(value)
-            | AutoVal::VMax(value) => *value /= rhs,
+            Val::Auto => {}
+            Val::Px(value)
+            | Val::Percent(value)
+            | Val::Vw(value)
+            | Val::Vh(value)
+            | Val::VMin(value)
+            | Val::VMax(value) => *value /= rhs,
         }
     }
 }
@@ -192,23 +192,23 @@ pub enum AutoValArithmeticError {
     NonEvaluateable,
 }
 
-impl AutoVal {
+impl Val {
     /// Tries to add the values of two [`AutoVal`]s.
     /// Returns [`AutoValArithmeticError::NonIdenticalVariants`] if two [`AutoVal`]s are of different variants.
     /// When adding non-numeric [`AutoVal`]s, it returns the value unchanged.
-    pub fn try_add(&self, rhs: AutoVal) -> Result<AutoVal, AutoValArithmeticError> {
+    pub fn try_add(&self, rhs: Val) -> Result<Val, AutoValArithmeticError> {
         match (self, rhs) {
-            (AutoVal::Auto, AutoVal::Auto) => Ok(*self),
-            (AutoVal::Px(value), AutoVal::Px(rhs_value)) => Ok(AutoVal::Px(value + rhs_value)),
-            (AutoVal::Percent(value), AutoVal::Percent(rhs_value)) => {
-                Ok(AutoVal::Percent(value + rhs_value))
+            (Val::Auto, Val::Auto) => Ok(*self),
+            (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value + rhs_value)),
+            (Val::Percent(value), Val::Percent(rhs_value)) => {
+                Ok(Val::Percent(value + rhs_value))
             }
             _ => Err(AutoValArithmeticError::NonIdenticalVariants),
         }
     }
 
     /// Adds `rhs` to `self` and assigns the result to `self` (see [`AutoVal::try_add`])
-    pub fn try_add_assign(&mut self, rhs: AutoVal) -> Result<(), AutoValArithmeticError> {
+    pub fn try_add_assign(&mut self, rhs: Val) -> Result<(), AutoValArithmeticError> {
         *self = self.try_add(rhs)?;
         Ok(())
     }
@@ -216,19 +216,19 @@ impl AutoVal {
     /// Tries to subtract the values of two [`AutoVal`]s.
     /// Returns [`AutoValArithmeticError::NonIdenticalVariants`] if two [`AutoVal`]s are of different variants.
     /// When adding non-numeric [`AutoVal`]s, it returns the value unchanged.
-    pub fn try_sub(&self, rhs: AutoVal) -> Result<AutoVal, AutoValArithmeticError> {
+    pub fn try_sub(&self, rhs: Val) -> Result<Val, AutoValArithmeticError> {
         match (self, rhs) {
-            (AutoVal::Auto, AutoVal::Auto) => Ok(*self),
-            (AutoVal::Px(value), AutoVal::Px(rhs_value)) => Ok(AutoVal::Px(value - rhs_value)),
-            (AutoVal::Percent(value), AutoVal::Percent(rhs_value)) => {
-                Ok(AutoVal::Percent(value - rhs_value))
+            (Val::Auto, Val::Auto) => Ok(*self),
+            (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value - rhs_value)),
+            (Val::Percent(value), Val::Percent(rhs_value)) => {
+                Ok(Val::Percent(value - rhs_value))
             }
             _ => Err(AutoValArithmeticError::NonIdenticalVariants),
         }
     }
 
     /// Subtracts `rhs` from `self` and assigns the result to `self` (see [`AutoVal::try_sub`])
-    pub fn try_sub_assign(&mut self, rhs: AutoVal) -> Result<(), AutoValArithmeticError> {
+    pub fn try_sub_assign(&mut self, rhs: Val) -> Result<(), AutoValArithmeticError> {
         *self = self.try_sub(rhs)?;
         Ok(())
     }
@@ -240,8 +240,8 @@ impl AutoVal {
     /// **Note:** If a [`AutoVal::Px`] is evaluated, it's inner value returned unchanged.
     pub fn evaluate(&self, size: f32) -> Result<f32, AutoValArithmeticError> {
         match self {
-            AutoVal::Percent(value) => Ok(size * value / 100.0),
-            AutoVal::Px(value) => Ok(*value),
+            Val::Percent(value) => Ok(size * value / 100.0),
+            Val::Px(value) => Ok(*value),
             _ => Err(AutoValArithmeticError::NonEvaluateable),
         }
     }
@@ -250,7 +250,7 @@ impl AutoVal {
     /// Returns an [`f32`] value in pixels.
     pub fn try_add_with_size(
         &self,
-        rhs: AutoVal,
+        rhs: Val,
         size: f32,
     ) -> Result<f32, AutoValArithmeticError> {
         let lhs = self.evaluate(size)?;
@@ -263,10 +263,10 @@ impl AutoVal {
     /// The value gets converted to [`AutoVal::Px`].
     pub fn try_add_assign_with_size(
         &mut self,
-        rhs: AutoVal,
+        rhs: Val,
         size: f32,
     ) -> Result<(), AutoValArithmeticError> {
-        *self = AutoVal::Px(self.evaluate(size)? + rhs.evaluate(size)?);
+        *self = Val::Px(self.evaluate(size)? + rhs.evaluate(size)?);
         Ok(())
     }
 
@@ -274,7 +274,7 @@ impl AutoVal {
     /// Returns an [`f32`] value in pixels.
     pub fn try_sub_with_size(
         &self,
-        rhs: AutoVal,
+        rhs: Val,
         size: f32,
     ) -> Result<f32, AutoValArithmeticError> {
         let lhs = self.evaluate(size)?;
@@ -287,10 +287,10 @@ impl AutoVal {
     /// The value gets converted to [`AutoVal::Px`].
     pub fn try_sub_assign_with_size(
         &mut self,
-        rhs: AutoVal,
+        rhs: Val,
         size: f32,
     ) -> Result<(), AutoValArithmeticError> {
-        *self = AutoVal::Px(self.try_add_with_size(rhs, size)?);
+        *self = Val::Px(self.try_add_with_size(rhs, size)?);
         Ok(())
     }
 }
@@ -309,7 +309,7 @@ impl AutoVal {
 /// Represents the possible value types for layout properties.
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
-pub enum Val {
+pub enum Num {
     /// Set this value in logical pixels.
     Px(f32),
     /// Set the value as a percentage of its parent node's length along a specific axis.
@@ -335,96 +335,96 @@ pub enum Val {
     VMax(f32),
 }
 
-impl Val {
+impl Num {
     pub const DEFAULT: Self = Self::Px(0.);
 }
 
-impl Default for Val {
+impl Default for Num {
     fn default() -> Self {
         Self::DEFAULT
     }
 }
 
-impl From<Val> for AutoVal {
-    fn from(value: Val) -> Self {
+impl From<Num> for Val {
+    fn from(value: Num) -> Self {
         match value {
-            Val::Px(inner) => AutoVal::Px(inner),
-            Val::Percent(inner) => AutoVal::Percent(inner),
-            Val::Vw(value) => AutoVal::Vw(value),
-            Val::Vh(value) => AutoVal::Vh(value),
-            Val::VMin(value) => AutoVal::VMin(value),
-            Val::VMax(value) => AutoVal::VMax(value),
+            Num::Px(inner) => Val::Px(inner),
+            Num::Percent(inner) => Val::Percent(inner),
+            Num::Vw(value) => Val::Vw(value),
+            Num::Vh(value) => Val::Vh(value),
+            Num::VMin(value) => Val::VMin(value),
+            Num::VMax(value) => Val::VMax(value),
         }
     }
 }
 
-impl TryFrom<AutoVal> for Val {
+impl TryFrom<Val> for Num {
     type Error = ValConversionError;
-    fn try_from(value: AutoVal) -> Result<Self, Self::Error> {
+    fn try_from(value: Val) -> Result<Self, Self::Error> {
         match value {
-            AutoVal::Px(inner) => Ok(Val::Px(inner)),
-            AutoVal::Percent(inner) => Ok(Val::Percent(inner)),
-            AutoVal::Vw(inner) => Ok(Val::Vw(inner)),
-            AutoVal::Vh(inner) => Ok(Val::Vh(inner)),
-            AutoVal::VMin(inner) => Ok(Val::VMin(inner)),
-            AutoVal::VMax(inner) => Ok(Val::VMax(inner)),
+            Val::Px(inner) => Ok(Num::Px(inner)),
+            Val::Percent(inner) => Ok(Num::Percent(inner)),
+            Val::Vw(inner) => Ok(Num::Vw(inner)),
+            Val::Vh(inner) => Ok(Num::Vh(inner)),
+            Val::VMin(inner) => Ok(Num::VMin(inner)),
+            Val::VMax(inner) => Ok(Num::VMax(inner)),
             _ => Err(Self::Error::NonEvaluateable),
         }
     }
 }
 
-impl Mul<f32> for Val {
-    type Output = Val;
+impl Mul<f32> for Num {
+    type Output = Num;
 
     fn mul(self, rhs: f32) -> Self::Output {
         match self {
-            Val::Px(value) => Val::Px(value * rhs),
-            Val::Percent(value) => Val::Percent(value * rhs),
-            Val::Vw(value) => Val::Vw(value * rhs),
-            Val::Vh(value) => Val::Vh(value * rhs),
-            Val::VMin(value) => Val::VMin(value * rhs),
-            Val::VMax(value) => Val::VMax(value * rhs),
+            Num::Px(value) => Num::Px(value * rhs),
+            Num::Percent(value) => Num::Percent(value * rhs),
+            Num::Vw(value) => Num::Vw(value * rhs),
+            Num::Vh(value) => Num::Vh(value * rhs),
+            Num::VMin(value) => Num::VMin(value * rhs),
+            Num::VMax(value) => Num::VMax(value * rhs),
         }
     }
 }
 
-impl MulAssign<f32> for Val {
+impl MulAssign<f32> for Num {
     fn mul_assign(&mut self, rhs: f32) {
         match self {
-            Val::Px(value)
-            | Val::Percent(value)
-            | Val::Vw(value)
-            | Val::Vh(value)
-            | Val::VMin(value)
-            | Val::VMax(value) => *value *= rhs,
+            Num::Px(value)
+            | Num::Percent(value)
+            | Num::Vw(value)
+            | Num::Vh(value)
+            | Num::VMin(value)
+            | Num::VMax(value) => *value *= rhs,
         }
     }
 }
 
-impl Div<f32> for Val {
-    type Output = Val;
+impl Div<f32> for Num {
+    type Output = Num;
 
     fn div(self, rhs: f32) -> Self::Output {
         match self {
-            Val::Px(value) => Val::Px(value / rhs),
-            Val::Percent(value) => Val::Percent(value / rhs),
-            Val::Vw(value) => Val::Vw(value / rhs),
-            Val::Vh(value) => Val::Vh(value / rhs),
-            Val::VMin(value) => Val::VMin(value / rhs),
-            Val::VMax(value) => Val::VMax(value / rhs),
+            Num::Px(value) => Num::Px(value / rhs),
+            Num::Percent(value) => Num::Percent(value / rhs),
+            Num::Vw(value) => Num::Vw(value / rhs),
+            Num::Vh(value) => Num::Vh(value / rhs),
+            Num::VMin(value) => Num::VMin(value / rhs),
+            Num::VMax(value) => Num::VMax(value / rhs),
         }
     }
 }
 
-impl DivAssign<f32> for Val {
+impl DivAssign<f32> for Num {
     fn div_assign(&mut self, rhs: f32) {
         match self {
-            Val::Px(value)
-            | Val::Percent(value)
-            | Val::Vw(value)
-            | Val::Vh(value)
-            | Val::VMin(value)
-            | Val::VMax(value) => *value /= rhs,
+            Num::Px(value)
+            | Num::Percent(value)
+            | Num::Vw(value)
+            | Num::Vh(value)
+            | Num::VMin(value)
+            | Num::VMax(value) => *value /= rhs,
         }
     }
 }
@@ -441,35 +441,35 @@ pub enum ValConversionError {
     NonEvaluateable,
 }
 
-impl Val {
+impl Num {
     /// Tries to add the values of two [`Val`]s.
     /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
-    pub fn try_add(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
+    pub fn try_add(&self, rhs: Num) -> Result<Num, ValArithmeticError> {
         match (self, rhs) {
-            (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value + rhs_value)),
-            (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value + rhs_value)),
+            (Num::Px(value), Num::Px(rhs_value)) => Ok(Num::Px(value + rhs_value)),
+            (Num::Percent(value), Num::Percent(rhs_value)) => Ok(Num::Percent(value + rhs_value)),
             _ => Err(ValArithmeticError::NonIdenticalVariants),
         }
     }
 
     /// Adds `rhs` to `self` and assigns the result to `self` (see [`Val::try_add`])
-    pub fn try_add_assign(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
+    pub fn try_add_assign(&mut self, rhs: Num) -> Result<(), ValArithmeticError> {
         *self = self.try_add(rhs)?;
         Ok(())
     }
 
     /// Tries to subtract the values of two [`Val`]s.
     /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
-    pub fn try_sub(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
+    pub fn try_sub(&self, rhs: Num) -> Result<Num, ValArithmeticError> {
         match (self, rhs) {
-            (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value - rhs_value)),
-            (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value - rhs_value)),
+            (Num::Px(value), Num::Px(rhs_value)) => Ok(Num::Px(value - rhs_value)),
+            (Num::Percent(value), Num::Percent(rhs_value)) => Ok(Num::Percent(value - rhs_value)),
             _ => Err(ValArithmeticError::NonIdenticalVariants),
         }
     }
 
     /// Subtracts `rhs` from `self` and assigns the result to `self` (see [`Val::try_sub`])
-    pub fn try_sub_assign(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
+    pub fn try_sub_assign(&mut self, rhs: Num) -> Result<(), ValArithmeticError> {
         *self = self.try_sub(rhs)?;
         Ok(())
     }
@@ -480,37 +480,37 @@ impl Val {
     /// **Note:** If a [`Val::Px`] is evaluated, it's inner value returned unchanged.
     pub fn evaluate(&self, size: f32, viewport_size: Vec2) -> f32 {
         match self {
-            Val::Percent(value) => size * value / 100.0,
-            Val::Px(value) => *value,
-            Val::Vh(value) => *value * viewport_size.y,
-            Val::Vw(value) => *value * viewport_size.x,
-            Val::VMin(value) => *value * viewport_size.min_element(),
-            Val::VMax(value) => *value * viewport_size.max_element(),
+            Num::Percent(value) => size * value / 100.0,
+            Num::Px(value) => *value,
+            Num::Vh(value) => *value * viewport_size.y,
+            Num::Vw(value) => *value * viewport_size.x,
+            Num::VMin(value) => *value * viewport_size.min_element(),
+            Num::VMax(value) => *value * viewport_size.max_element(),
         }
     }
 
     /// Similar to [`Val::try_add`], but performs [`Val::evaluate`] on both values before adding.
     /// Returns an [`f32`] value in pixels.
-    pub fn add_with_size(&self, rhs: Val, size: f32, viewport_size: Vec2) -> f32 {
+    pub fn add_with_size(&self, rhs: Num, size: f32, viewport_size: Vec2) -> f32 {
         self.evaluate(size, viewport_size) + rhs.evaluate(size, viewport_size)
     }
 
     /// Similar to [`Val::try_add_assign`], but performs [`Val::evaluate`] on both values before adding.
     /// The value gets converted to [`Val::Px`].
-    pub fn add_assign_with_size(&mut self, rhs: Val, size: f32, viewport_size: Vec2) {
-        *self = Val::Px(self.evaluate(size, viewport_size) + rhs.evaluate(size, viewport_size));
+    pub fn add_assign_with_size(&mut self, rhs: Num, size: f32, viewport_size: Vec2) {
+        *self = Num::Px(self.evaluate(size, viewport_size) + rhs.evaluate(size, viewport_size));
     }
 
     /// Similar to [`Val::try_sub`], but performs [`Val::evaluate`] on both values before subtracting.
     /// Returns an [`f32`] value in pixels.
-    pub fn sub_with_size(&self, rhs: Val, size: f32, viewport_size: Vec2) -> f32 {
+    pub fn sub_with_size(&self, rhs: Num, size: f32, viewport_size: Vec2) -> f32 {
         self.evaluate(size, viewport_size) - rhs.evaluate(size, viewport_size)
     }
 
     /// Similar to [`Val::try_sub_assign`], but performs [`Val::evaluate`] on both values before adding.
     /// The value gets converted to [`Val::Px`].
-    pub fn sub_assign_with_size(&mut self, rhs: Val, size: f32, viewport_size: Vec2) {
-        *self = Val::Px(self.add_with_size(rhs, size, viewport_size));
+    pub fn sub_assign_with_size(&mut self, rhs: Num, size: f32, viewport_size: Vec2) {
+        *self = Num::Px(self.add_with_size(rhs, size, viewport_size));
     }
 }
 
@@ -565,58 +565,58 @@ pub struct Style {
     ///  - For absolutely positioned nodes, this is relative to the *parent* node's bounding box.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/left>
-    pub left: AutoVal,
+    pub left: Val,
 
     /// The horizontal position of the right edge of the node.
     ///  - For relatively positioned nodes, this is relative to the node's position as computed during regular layout.
     ///  - For absolutely positioned nodes, this is relative to the *parent* node's bounding box.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/right>
-    pub right: AutoVal,
+    pub right: Val,
 
     /// The vertical position of the top edge of the node.
     ///  - For relatively positioned nodes, this is relative to the node's position as computed during regular layout.
     ///  - For absolutely positioned nodes, this is relative to the *parent* node's bounding box.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/top>
-    pub top: AutoVal,
+    pub top: Val,
 
     /// The vertical position of the bottom edge of the node.
     ///  - For relatively positioned nodes, this is relative to the node's position as computed during regular layout.
     ///  - For absolutely positioned nodes, this is relative to the *parent* node's bounding box.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/bottom>
-    pub bottom: AutoVal,
+    pub bottom: Val,
 
     /// The ideal width of the node. `width` is used when it is within the bounds defined by `min_width` and `max_width`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/width>
-    pub width: AutoVal,
+    pub width: Val,
 
     /// The ideal height of the node. `height` is used when it is within the bounds defined by `min_height` and `max_height`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/height>
-    pub height: AutoVal,
+    pub height: Val,
 
     /// The minimum width of the node. `min_width` is used if it is greater than either `width` and/or `max_width`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/min-width>
-    pub min_width: AutoVal,
+    pub min_width: Val,
 
     /// The minimum height of the node. `min_height` is used if it is greater than either `height` and/or `max_height`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/min-height>
-    pub min_height: AutoVal,
+    pub min_height: Val,
 
     /// The maximum width of the node. `max_width` is used if it is within the bounds defined by `min_width` and `width`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/max-width>
-    pub max_width: AutoVal,
+    pub max_width: Val,
 
     /// The maximum height of the node. `max_height` is used if it is within the bounds defined by `min_height` and `height`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/max-height>
-    pub max_height: AutoVal,
+    pub max_height: Val,
 
     /// The aspect ratio of the node (defined as `width / height`)
     ///
@@ -745,21 +745,21 @@ pub struct Style {
     /// `flex_basis` overrides `size` on the main axis if both are set,  but it obeys the bounds defined by `min_size` and `max_size`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-basis>
-    pub flex_basis: AutoVal,
+    pub flex_basis: Val,
 
     /// The size of the gutters between items in a vertical flexbox layout or between rows in a grid layout
     ///
     /// Note: Values of `Val::Auto` are not valid and are treated as zero.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/row-gap>
-    pub row_gap: Val,
+    pub row_gap: Num,
 
     /// The size of the gutters between items in a horizontal flexbox layout or between column in a grid layout
     ///
     /// Note: Values of `Val::Auto` are not valid and are treated as zero.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/column-gap>
-    pub column_gap: Val,
+    pub column_gap: Num,
 
     /// Controls whether automatically placed grid items are placed row-wise or column-wise. And whether the sparse or dense packing algorithm is used.
     /// Only affect Grid layouts
@@ -805,10 +805,10 @@ impl Style {
     pub const DEFAULT: Self = Self {
         display: Display::DEFAULT,
         position_type: PositionType::DEFAULT,
-        left: AutoVal::Auto,
-        right: AutoVal::Auto,
-        top: AutoVal::Auto,
-        bottom: AutoVal::Auto,
+        left: Val::Auto,
+        right: Val::Auto,
+        top: Val::Auto,
+        bottom: Val::Auto,
         direction: Direction::DEFAULT,
         flex_direction: FlexDirection::DEFAULT,
         flex_wrap: FlexWrap::DEFAULT,
@@ -823,17 +823,17 @@ impl Style {
         border: Border::DEFAULT,
         flex_grow: 0.0,
         flex_shrink: 1.0,
-        flex_basis: AutoVal::Auto,
-        width: AutoVal::Auto,
-        height: AutoVal::Auto,
-        min_width: AutoVal::Auto,
-        min_height: AutoVal::Auto,
-        max_width: AutoVal::Auto,
-        max_height: AutoVal::Auto,
+        flex_basis: Val::Auto,
+        width: Val::Auto,
+        height: Val::Auto,
+        min_width: Val::Auto,
+        min_height: Val::Auto,
+        max_width: Val::Auto,
+        max_height: Val::Auto,
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
-        row_gap: Val::Px(0.0),
-        column_gap: Val::Px(0.0),
+        row_gap: Num::Px(0.0),
+        column_gap: Num::Px(0.0),
         grid_auto_flow: GridAutoFlow::DEFAULT,
         grid_template_rows: Vec::new(),
         grid_template_columns: Vec::new(),
@@ -1911,47 +1911,47 @@ impl Default for ZIndex {
 mod tests {
     use bevy_math::Vec2;
 
-    use crate::{AutoVal, AutoValArithmeticError, Val, ValArithmeticError};
+    use crate::{Val, AutoValArithmeticError, Num, ValArithmeticError};
 
     #[test]
     fn autoval_try_add() {
-        let auto_sum = AutoVal::Auto.try_add(AutoVal::Auto).unwrap();
-        let px_sum = AutoVal::Px(20.).try_add(AutoVal::Px(22.)).unwrap();
-        let percent_sum = AutoVal::Percent(50.)
-            .try_add(AutoVal::Percent(50.))
+        let auto_sum = Val::Auto.try_add(Val::Auto).unwrap();
+        let px_sum = Val::Px(20.).try_add(Val::Px(22.)).unwrap();
+        let percent_sum = Val::Percent(50.)
+            .try_add(Val::Percent(50.))
             .unwrap();
 
-        assert_eq!(auto_sum, AutoVal::Auto);
-        assert_eq!(px_sum, AutoVal::Px(42.));
-        assert_eq!(percent_sum, AutoVal::Percent(100.));
+        assert_eq!(auto_sum, Val::Auto);
+        assert_eq!(px_sum, Val::Px(42.));
+        assert_eq!(percent_sum, Val::Percent(100.));
     }
 
     #[test]
     fn autoval_try_add_to_self() {
-        let mut val = AutoVal::Px(5.);
+        let mut val = Val::Px(5.);
 
-        val.try_add_assign(AutoVal::Px(3.)).unwrap();
+        val.try_add_assign(Val::Px(3.)).unwrap();
 
-        assert_eq!(val, AutoVal::Px(8.));
+        assert_eq!(val, Val::Px(8.));
     }
 
     #[test]
     fn autoval_try_sub() {
-        let auto_sum = AutoVal::Auto.try_sub(AutoVal::Auto).unwrap();
-        let px_sum = AutoVal::Px(72.).try_sub(AutoVal::Px(30.)).unwrap();
-        let percent_sum = AutoVal::Percent(100.)
-            .try_sub(AutoVal::Percent(50.))
+        let auto_sum = Val::Auto.try_sub(Val::Auto).unwrap();
+        let px_sum = Val::Px(72.).try_sub(Val::Px(30.)).unwrap();
+        let percent_sum = Val::Percent(100.)
+            .try_sub(Val::Percent(50.))
             .unwrap();
 
-        assert_eq!(auto_sum, AutoVal::Auto);
-        assert_eq!(px_sum, AutoVal::Px(42.));
-        assert_eq!(percent_sum, AutoVal::Percent(50.));
+        assert_eq!(auto_sum, Val::Auto);
+        assert_eq!(px_sum, Val::Px(42.));
+        assert_eq!(percent_sum, Val::Percent(50.));
     }
 
     #[test]
     fn different_variant_val_try_add() {
-        let different_variant_sum_1 = AutoVal::Px(50.).try_add(AutoVal::Percent(50.));
-        let different_variant_sum_2 = AutoVal::Percent(50.).try_add(AutoVal::Auto);
+        let different_variant_sum_1 = Val::Px(50.).try_add(Val::Percent(50.));
+        let different_variant_sum_2 = Val::Percent(50.).try_add(Val::Auto);
 
         assert_eq!(
             different_variant_sum_1,
@@ -1965,8 +1965,8 @@ mod tests {
 
     #[test]
     fn different_variant_val_try_sub() {
-        let different_variant_diff_1 = AutoVal::Px(50.).try_sub(AutoVal::Percent(50.));
-        let different_variant_diff_2 = AutoVal::Percent(50.).try_sub(AutoVal::Auto);
+        let different_variant_diff_1 = Val::Px(50.).try_sub(Val::Percent(50.));
+        let different_variant_diff_2 = Val::Percent(50.).try_sub(Val::Auto);
 
         assert_eq!(
             different_variant_diff_1,
@@ -1981,7 +1981,7 @@ mod tests {
     #[test]
     fn autoval_evaluate() {
         let size = 250.;
-        let result = AutoVal::Percent(80.).evaluate(size).unwrap();
+        let result = Val::Percent(80.).evaluate(size).unwrap();
 
         assert_eq!(result, size * 0.8);
     }
@@ -1989,7 +1989,7 @@ mod tests {
     #[test]
     fn autoval_evaluate_px() {
         let size = 250.;
-        let result = AutoVal::Px(10.).evaluate(size).unwrap();
+        let result = Val::Px(10.).evaluate(size).unwrap();
 
         assert_eq!(result, 10.);
     }
@@ -1997,7 +1997,7 @@ mod tests {
     #[test]
     fn autoval_invalid_evaluation() {
         let size = 250.;
-        let evaluate_auto = AutoVal::Auto.evaluate(size);
+        let evaluate_auto = Val::Auto.evaluate(size);
 
         assert_eq!(evaluate_auto, Err(AutoValArithmeticError::NonEvaluateable));
     }
@@ -2006,14 +2006,14 @@ mod tests {
     fn autoval_try_add_with_size() {
         let size = 250.;
 
-        let px_sum = AutoVal::Px(21.)
-            .try_add_with_size(AutoVal::Px(21.), size)
+        let px_sum = Val::Px(21.)
+            .try_add_with_size(Val::Px(21.), size)
             .unwrap();
-        let percent_sum = AutoVal::Percent(20.)
-            .try_add_with_size(AutoVal::Percent(30.), size)
+        let percent_sum = Val::Percent(20.)
+            .try_add_with_size(Val::Percent(30.), size)
             .unwrap();
-        let mixed_sum = AutoVal::Px(20.)
-            .try_add_with_size(AutoVal::Percent(30.), size)
+        let mixed_sum = Val::Px(20.)
+            .try_add_with_size(Val::Percent(30.), size)
             .unwrap();
 
         assert_eq!(px_sum, 42.);
@@ -2025,14 +2025,14 @@ mod tests {
     fn autoval_try_sub_with_size() {
         let size = 250.;
 
-        let px_sum = AutoVal::Px(60.)
-            .try_sub_with_size(AutoVal::Px(18.), size)
+        let px_sum = Val::Px(60.)
+            .try_sub_with_size(Val::Px(18.), size)
             .unwrap();
-        let percent_sum = AutoVal::Percent(80.)
-            .try_sub_with_size(AutoVal::Percent(30.), size)
+        let percent_sum = Val::Percent(80.)
+            .try_sub_with_size(Val::Percent(30.), size)
             .unwrap();
-        let mixed_sum = AutoVal::Percent(50.)
-            .try_sub_with_size(AutoVal::Px(30.), size)
+        let mixed_sum = Val::Percent(50.)
+            .try_sub_with_size(Val::Px(30.), size)
             .unwrap();
 
         assert_eq!(px_sum, 42.);
@@ -2044,7 +2044,7 @@ mod tests {
     fn autoval_try_add_non_numeric_with_size() {
         let size = 250.;
 
-        let percent_sum = AutoVal::Auto.try_add_with_size(AutoVal::Auto, size);
+        let percent_sum = Val::Auto.try_add_with_size(Val::Auto, size);
 
         assert_eq!(percent_sum, Err(AutoValArithmeticError::NonEvaluateable));
     }
@@ -2063,40 +2063,40 @@ mod tests {
 
     #[test]
     fn default_autoval_equals_const_default_autoval() {
-        assert_eq!(AutoVal::default(), AutoVal::DEFAULT);
+        assert_eq!(Val::default(), Val::DEFAULT);
     }
 
     #[test]
     fn val_try_add() {
-        let px_sum = Val::Px(20.).try_add(Val::Px(22.)).unwrap();
-        let percent_sum = Val::Percent(50.).try_add(Val::Percent(50.)).unwrap();
+        let px_sum = Num::Px(20.).try_add(Num::Px(22.)).unwrap();
+        let percent_sum = Num::Percent(50.).try_add(Num::Percent(50.)).unwrap();
 
-        assert_eq!(px_sum, Val::Px(42.));
-        assert_eq!(percent_sum, Val::Percent(100.));
+        assert_eq!(px_sum, Num::Px(42.));
+        assert_eq!(percent_sum, Num::Percent(100.));
     }
 
     #[test]
     fn val_try_add_to_self() {
-        let mut breadth = Val::Px(5.);
+        let mut breadth = Num::Px(5.);
 
-        breadth.try_add_assign(Val::Px(3.)).unwrap();
+        breadth.try_add_assign(Num::Px(3.)).unwrap();
 
-        assert_eq!(breadth, Val::Px(8.));
+        assert_eq!(breadth, Num::Px(8.));
     }
 
     #[test]
     fn val_try_sub() {
-        let px_sum = Val::Px(72.).try_sub(Val::Px(30.)).unwrap();
-        let percent_sum = Val::Percent(100.).try_sub(Val::Percent(50.)).unwrap();
+        let px_sum = Num::Px(72.).try_sub(Num::Px(30.)).unwrap();
+        let percent_sum = Num::Percent(100.).try_sub(Num::Percent(50.)).unwrap();
 
-        assert_eq!(px_sum, Val::Px(42.));
-        assert_eq!(percent_sum, Val::Percent(50.));
+        assert_eq!(px_sum, Num::Px(42.));
+        assert_eq!(percent_sum, Num::Percent(50.));
     }
 
     #[test]
     fn different_variant_breadth_try_add() {
-        let different_variant_sum_1 = Val::Px(50.).try_add(Val::Percent(50.));
-        let different_variant_sum_2 = Val::Percent(50.).try_add(Val::Px(50.));
+        let different_variant_sum_1 = Num::Px(50.).try_add(Num::Percent(50.));
+        let different_variant_sum_2 = Num::Percent(50.).try_add(Num::Px(50.));
 
         assert_eq!(
             different_variant_sum_1,
@@ -2110,8 +2110,8 @@ mod tests {
 
     #[test]
     fn different_variant_breadth_try_sub() {
-        let different_variant_diff_1 = Val::Px(50.).try_sub(Val::Percent(50.));
-        let different_variant_diff_2 = Val::Percent(50.).try_sub(Val::Px(50.));
+        let different_variant_diff_1 = Num::Px(50.).try_sub(Num::Percent(50.));
+        let different_variant_diff_2 = Num::Percent(50.).try_sub(Num::Px(50.));
 
         assert_eq!(
             different_variant_diff_1,
@@ -2126,7 +2126,7 @@ mod tests {
     #[test]
     fn val_evaluate_percent() {
         let size = 250.;
-        let result = Val::Percent(80.).evaluate(size, Vec2::ZERO);
+        let result = Num::Percent(80.).evaluate(size, Vec2::ZERO);
 
         assert_eq!(result, size * 0.8);
     }
@@ -2134,7 +2134,7 @@ mod tests {
     #[test]
     fn val_evaluate_px() {
         let size = 250.;
-        let result = Val::Px(10.).evaluate(size, Vec2::ZERO);
+        let result = Num::Px(10.).evaluate(size, Vec2::ZERO);
 
         assert_eq!(result, 10.);
     }
@@ -2143,9 +2143,9 @@ mod tests {
     fn val_add_with_size() {
         let size = 250.;
 
-        let px_sum = Val::Px(21.).add_with_size(Val::Px(21.), size, Vec2::ZERO);
-        let percent_sum = Val::Percent(20.).add_with_size(Val::Percent(30.), size, Vec2::ZERO);
-        let mixed_sum = Val::Px(20.).add_with_size(Val::Percent(30.), size, Vec2::ZERO);
+        let px_sum = Num::Px(21.).add_with_size(Num::Px(21.), size, Vec2::ZERO);
+        let percent_sum = Num::Percent(20.).add_with_size(Num::Percent(30.), size, Vec2::ZERO);
+        let mixed_sum = Num::Px(20.).add_with_size(Num::Percent(30.), size, Vec2::ZERO);
 
         assert_eq!(px_sum, 42.);
         assert_eq!(percent_sum, 0.5 * size);
@@ -2156,9 +2156,9 @@ mod tests {
     fn val_sub_with_size() {
         let size = 250.;
 
-        let px_sum = Val::Px(60.).sub_with_size(Val::Px(18.), size, Vec2::ZERO);
-        let percent_sum = Val::Percent(80.).sub_with_size(Val::Percent(30.), size, Vec2::ZERO);
-        let mixed_sum = Val::Percent(50.).sub_with_size(Val::Px(30.), size, Vec2::ZERO);
+        let px_sum = Num::Px(60.).sub_with_size(Num::Px(18.), size, Vec2::ZERO);
+        let percent_sum = Num::Percent(80.).sub_with_size(Num::Percent(30.), size, Vec2::ZERO);
+        let mixed_sum = Num::Percent(50.).sub_with_size(Num::Px(30.), size, Vec2::ZERO);
 
         assert_eq!(px_sum, 42.);
         assert_eq!(percent_sum, 0.5 * size);
@@ -2178,12 +2178,12 @@ mod tests {
         let inner_value = 11.;
 
         assert_eq!(
-            AutoVal::from(Val::Px(inner_value)),
-            AutoVal::Px(inner_value)
+            Val::from(Num::Px(inner_value)),
+            Val::Px(inner_value)
         );
         assert_eq!(
-            AutoVal::from(Val::Percent(inner_value)),
-            AutoVal::Percent(inner_value)
+            Val::from(Num::Percent(inner_value)),
+            Val::Percent(inner_value)
         );
     }
 
@@ -2192,16 +2192,16 @@ mod tests {
         let inner_value = 22.;
 
         assert_eq!(
-            Val::try_from(AutoVal::Auto),
+            Num::try_from(Val::Auto),
             Err(crate::ValConversionError::NonEvaluateable)
         );
         assert_eq!(
-            Val::try_from(AutoVal::Px(inner_value)),
-            Ok(Val::Px(inner_value))
+            Num::try_from(Val::Px(inner_value)),
+            Ok(Num::Px(inner_value))
         );
         assert_eq!(
-            Val::try_from(AutoVal::Percent(inner_value)),
-            Ok(Val::Percent(inner_value))
+            Num::try_from(Val::Percent(inner_value)),
+            Ok(Num::Percent(inner_value))
         );
     }
 }

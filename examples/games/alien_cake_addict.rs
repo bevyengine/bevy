@@ -175,8 +175,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: AutoVal::Px(5.0),
-            left: AutoVal::Px(5.0),
+            top: NumoVal::Px(5.0),
+            left: NumoVal::Px(5.0),
             ..default()
         }),
     );
@@ -388,7 +388,7 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Percent(100.),
+                width: Num::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()

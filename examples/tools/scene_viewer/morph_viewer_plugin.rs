@@ -265,8 +265,8 @@ fn detect_morphs(
     commands.insert_resource(WeightsControl { weights: detected });
     commands.spawn(TextBundle::from_sections(sections).with_style(Style {
         position_type: PositionType::Absolute,
-        top: Val::Px(10.0),
-        left: Val::Px(10.0),
+        top: Num::Px(10.0),
+        left: Num::Px(10.0),
         ..default()
     }));
 }

@@ -1,4 +1,4 @@
-use crate::{AutoVal, ContentSize, FixedMeasure, Measure, Node, UiScale};
+use crate::{ContentSize, FixedMeasure, Measure, Node, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
     prelude::{Component, DetectChanges},

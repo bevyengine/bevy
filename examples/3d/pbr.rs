@@ -80,8 +80,8 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: AutoVal::Px(20.0),
-            left: AutoVal::Px(100.0),
+            top: Val::Px(20.0),
+            left: Val::Px(100.0),
             ..default()
         }),
     );
@@ -97,8 +97,8 @@ fn setup(
         ),
         style: Style {
             position_type: PositionType::Absolute,
-            top: AutoVal::Px(130.0),
-            right: AutoVal::Px(0.0),
+            top: Val::Px(130.0),
+            right: Val::Px(0.0),
             ..default()
         },
         transform: Transform {
@@ -119,8 +119,8 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: AutoVal::Px(20.0),
-            right: AutoVal::Px(20.0),
+            bottom: Val::Px(20.0),
+            right: Val::Px(20.0),
             ..default()
         }),
         EnvironmentMapLabel,

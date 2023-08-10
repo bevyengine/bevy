@@ -14,8 +14,8 @@ fn setup(mut commands: Commands) {
     let root = commands
         .spawn(NodeBundle {
             style: Style {
-                flex_basis: Val::Percent(100.0),
-                margin: UiRect::all(Val::Px(25.0)),
+                flex_basis: Num::Percent(100.0),
+                margin: UiRect::all(Num::Px(25.0)),
                 flex_wrap: FlexWrap::Wrap,
                 justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::FlexStart,
@@ -30,55 +30,55 @@ fn setup(mut commands: Commands) {
     // all the different combinations of border edges
     let borders = [
         UiRect::default(),
-        UiRect::all(Val::Px(10.)),
-        UiRect::left(Val::Px(10.)),
-        UiRect::right(Val::Px(10.)),
-        UiRect::top(Val::Px(10.)),
-        UiRect::bottom(Val::Px(10.)),
-        UiRect::horizontal(Val::Px(10.)),
-        UiRect::vertical(Val::Px(10.)),
+        UiRect::all(Num::Px(10.)),
+        UiRect::left(Num::Px(10.)),
+        UiRect::right(Num::Px(10.)),
+        UiRect::top(Num::Px(10.)),
+        UiRect::bottom(Num::Px(10.)),
+        UiRect::horizontal(Num::Px(10.)),
+        UiRect::vertical(Num::Px(10.)),
         UiRect {
-            left: Val::Px(10.),
-            top: Val::Px(10.),
+            left: Num::Px(10.),
+            top: Num::Px(10.),
             ..Default::default()
         },
         UiRect {
-            left: Val::Px(10.),
-            bottom: Val::Px(10.),
+            left: Num::Px(10.),
+            bottom: Num::Px(10.),
             ..Default::default()
         },
         UiRect {
-            right: Val::Px(10.),
-            top: Val::Px(10.),
+            right: Num::Px(10.),
+            top: Num::Px(10.),
             ..Default::default()
         },
         UiRect {
-            right: Val::Px(10.),
-            bottom: Val::Px(10.),
+            right: Num::Px(10.),
+            bottom: Num::Px(10.),
             ..Default::default()
         },
         UiRect {
-            right: Val::Px(10.),
-            top: Val::Px(10.),
-            bottom: Val::Px(10.),
+            right: Num::Px(10.),
+            top: Num::Px(10.),
+            bottom: Num::Px(10.),
             ..Default::default()
         },
         UiRect {
-            left: Val::Px(10.),
-            top: Val::Px(10.),
-            bottom: Val::Px(10.),
+            left: Num::Px(10.),
+            top: Num::Px(10.),
+            bottom: Num::Px(10.),
             ..Default::default()
         },
         UiRect {
-            left: Val::Px(10.),
-            right: Val::Px(10.),
-            top: Val::Px(10.),
+            left: Num::Px(10.),
+            right: Num::Px(10.),
+            top: Num::Px(10.),
             ..Default::default()
         },
         UiRect {
-            left: Val::Px(10.),
-            right: Val::Px(10.),
-            bottom: Val::Px(10.),
+            left: Num::Px(10.),
+            right: Num::Px(10.),
+            bottom: Num::Px(10.),
             ..Default::default()
         },
     ];
@@ -87,8 +87,8 @@ fn setup(mut commands: Commands) {
         let inner_spot = commands
             .spawn(NodeBundle {
                 style: Style {
-                    width: Val::Px(10.),
-                    height: Val::Px(10.),
+                    width: Num::Px(10.),
+                    height: Num::Px(10.),
                     ..Default::default()
                 },
                 background_color: Color::YELLOW.into(),
@@ -98,10 +98,10 @@ fn setup(mut commands: Commands) {
         let bordered_node = commands
             .spawn(NodeBundle {
                 style: Style {
-                    width: Val::Px(50.),
-                    height: Val::Px(50.),
+                    width: Num::Px(50.),
+                    height: Num::Px(50.),
                     border: borders[i % borders.len()],
-                    margin: UiRect::all(Val::Px(2.)),
+                    margin: UiRect::all(Num::Px(2.)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     ..Default::default()

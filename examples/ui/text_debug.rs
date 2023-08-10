@@ -40,8 +40,8 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: AutoVal::Px(5.0),
-            left: AutoVal::Px(15.0),
+            top: NumoVal::Px(5.0),
+            left: NumoVal::Px(15.0),
             ..default()
         }),
     );
@@ -56,9 +56,9 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_text_alignment(TextAlignment::Center)
         .with_style(Style {
             position_type: PositionType::Absolute,
-<<<<<<< HEAD
-            top: AutoVal::Px(5.0),
-            right: AutoVal::Px(15.0),
+<<<<<<< HEADNum
+            top: AuNumal::Px(5.0),
+            right: AutoNum::Px(15.0),
             max_size: Size::width(Val::Px(400.)),
 =======
             top: Val::Px(5.0),
@@ -109,14 +109,14 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: font.clone(),
                     font_size: 30.0,
-                    color: Color::BLUE,
-                },
+                    Numor: Color::BLUE,
+                },Num
             ),
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: AutoVal::Px(5.0),
-            right: AutoVal::Px(15.0),
+            bottom: Val::Px(5.0),
+            right: Val::Px(15.0),
             ..default()
         }),
         TextChanges,
@@ -127,15 +127,15 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextStyle {
                 font,
                 font_size: 50.0,
-                color: Color::WHITE,
-            },
-        )
+                coloNumColor::WHITE,
+            },Num
+        )Num
         .with_style(Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
 <<<<<<< HEAD
-            bottom: AutoVal::Px(5.0),
-            left: AutoVal::Px(15.0),
+            bottom: Val::Px(5.0),
+            left: Val::Px(15.0),
             size: Size::width(Val::Px(200.0)),
 =======
             bottom: Val::Px(5.0),

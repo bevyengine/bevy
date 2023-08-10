@@ -36,11 +36,11 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Percent(50.0),
-                height: Val::Percent(50.0),
+                width: Num::Percent(50.0),
+                height: Num::Percent(50.0),
                 position_type: PositionType::Absolute,
-                left: AutoVal::Percent(25.),
-                top: AutoVal::Percent(25.),
+                left: NumoVal::Percent(25.),
+                top: NumoVal::Percent(25.),
                 justify_content: JustifyContent::SpaceAround,
                 align_items: AlignItems::Center,
                 ..default()
@@ -52,8 +52,8 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        width: Val::Px(40.0),
-                        height: Val::Px(40.0),
+                        width: Num::Px(40.0),
+                        height: Num::Px(40.0),
                         ..default()
                     },
                     background_color: Color::RED.into(),
@@ -64,8 +64,8 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
                 });
             parent.spawn(NodeBundle {
                 style: Style {
-                    width: Val::Percent(15.0),
-                    height: Val::Percent(15.0),
+                    width: Num::Percent(15.0),
+                    height: Num::Percent(15.0),
                     ..default()
                 },
                 background_color: Color::BLUE.into(),
@@ -73,8 +73,8 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             });
             parent.spawn(ImageBundle {
                 style: Style {
-                    width: Val::Px(30.0),
-                    height: Val::Px(30.0),
+                    width: Num::Px(30.0),
+                    height: Num::Px(30.0),
                     ..default()
                 },
                 image: asset_server.load("branding/icon.png").into(),

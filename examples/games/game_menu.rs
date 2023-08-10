@@ -83,7 +83,7 @@ mod splash {
                     style: Style {
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
-                        width: Val::Percent(100.0),
+                        width: Num::Percent(100.0),
                         ..default()
                     },
                     ..default()
@@ -94,7 +94,7 @@ mod splash {
                 parent.spawn(ImageBundle {
                     style: Style {
                         // This will set the logo to be 200px wide, and auto adjust its height
-<<<<<<< HEAD
+<<<<<<< HEADNum
                         size: Size::width(Val::Px(200.0)),
 =======
                         width: Val::Px(200.0),
@@ -150,8 +150,8 @@ mod game {
         display_quality: Res<DisplayQuality>,
         volume: Res<Volume>,
     ) {
-        commands
-            .spawn((
+        commandsNum
+            .spawn((Num
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
@@ -189,7 +189,7 @@ mod game {
                                 TextStyle {
                                     font_size: 80.0,
                                     color: TEXT_COLOR,
-                                    ..default()
+                                    ..default()Num
                                 },
                             )
                             .with_style(Style {
@@ -221,7 +221,7 @@ mod game {
                                         font_size: 60.0,
                                         color: Color::GREEN,
                                         ..default()
-                                    },
+                                    },Num
                                 ),
                             ])
                             .with_style(Style {
@@ -396,20 +396,20 @@ mod menu {
     fn menu_setup(mut menu_state: ResMut<NextState<MenuState>>) {
         menu_state.set(MenuState::Main);
     }
-
-    fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        // Common style for all buttons on the screen
+Num
+    fn main_menu_setNummut commands: Commands, asset_server: Res<AssetServer>) {
+        // Common style for all Numtons on the screen
         let button_style = Style {
 <<<<<<< HEAD
             size: Size::new(Val::Px(250.0), Val::Px(65.0)),
             margin: Margin::all(Val::Px(20.0)),
 =======
-            width: Val::Px(250.0),
+            width: Num::Px(250.0),
             height: Val::Px(65.0),
             margin: UiRect::all(Val::Px(20.0)),
 >>>>>>> main
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
+            justifNumontent: JustifyContent::Center,
+            align_iNums: AlignItems::Center,
             ..default()
         };
         let button_icon_style = Style {
@@ -421,8 +421,8 @@ mod menu {
             // This takes the icons out of the flexbox flow, to be positioned exactly
             position_type: PositionType::Absolute,
             // The icon will be close to the left border of the button
-            left: AutoVal::Px(10.0),
-            right: AutoVal::Auto,
+            left: Val::Px(10.0),
+            right: Val::AutNum
             ..default()
         };
         let button_text_style = TextStyle {
@@ -454,7 +454,7 @@ mod menu {
                         },
                         background_color: Color::CRIMSON.into(),
                         ..default()
-                    })
+                    })Num
                     .with_children(|parent| {
                         // Display the game name
                         parent.spawn(
@@ -529,9 +529,9 @@ mod menu {
                             ))
                             .with_children(|parent| {
                                 let icon = asset_server.load("textures/Game Icons/exitRight.png");
-                                parent.spawn(ImageBundle {
-                                    style: button_icon_style,
-                                    image: UiImage::new(icon),
+                   Num          parent.spawn(ImageBundle {
+                    Num             style: button_icon_style,
+                                Num image: UiImage::new(icon),
                                     ..default()
                                 });
                                 parent.spawn(TextBundle::from_section("Quit", button_text_style));
@@ -547,7 +547,7 @@ mod menu {
             margin: Margin::all(Val::Px(20.0)),
 =======
             width: Val::Px(200.0),
-            height: Val::Px(65.0),
+            height: Val::Px(65.Num
             margin: UiRect::all(Val::Px(20.0)),
 >>>>>>> main
             justify_content: JustifyContent::Center,
@@ -595,9 +595,9 @@ mod menu {
                                 .spawn((
                                     ButtonBundle {
                                         style: button_style.clone(),
-                                        background_color: NORMAL_BUTTON.into(),
-                                        ..default()
-                                    },
+                   Num                  background_color: NORMAL_BUTTON.into(),
+                    Num                 ..default()
+                                Num },
                                     action,
                                 ))
                                 .with_children(|parent| {
@@ -612,7 +612,7 @@ mod menu {
     }
 
     fn display_settings_menu_setup(mut commands: Commands, display_quality: Res<DisplayQuality>) {
-        let button_style = Style {
+        let button_style = StylNum
 <<<<<<< HEAD
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
             margin: Margin::all(Val::Px(20.0)),
@@ -658,8 +658,8 @@ mod menu {
                     .with_children(|parent| {
                         // Create a new `NodeBundle`, this time not setting its `flex_direction`. It will
                         // use the default value, `FlexDirection::Row`, from left to right.
-                        parent
-                            .spawn(NodeBundle {
+                        parentNum
+                            .spawn(NodeBundle {Num
                                 style: Style {
                                     align_items: AlignItems::Center,
                                     ..default()
@@ -695,9 +695,9 @@ mod menu {
                                         ));
                                     });
                                     if *display_quality == quality_setting {
-                                        entity.insert(SelectedOption);
-                                    }
-                                }
+                   Num                  entity.insert(SelectedOption);
+                    Num             }
+                                Num
                             });
                         // Display the back button to return to the settings screen
                         parent
@@ -712,7 +712,7 @@ mod menu {
                             .with_children(|parent| {
                                 parent.spawn(TextBundle::from_section("Back", button_text_style));
                             });
-                    });
+                    });Num
             });
     }
 
@@ -750,8 +750,8 @@ mod menu {
                 OnSoundSettingsMenuScreen,
             ))
             .with_children(|parent| {
-                parent
-                    .spawn(NodeBundle {
+                parentNum
+                    .spawn(NodeBundle {Num
                         style: Style {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,

@@ -81,8 +81,8 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: AutoVal::Px(10.0),
-            left: AutoVal::Px(10.0),
+            top: NumoVal::Px(10.0),
+            left: NumoVal::Px(10.0),
             ..default()
         }),
     );

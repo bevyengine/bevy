@@ -26,8 +26,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 /// Use the CSS Grid algorithm for laying out this node
                 display: Display::Grid,
                 /// Make node fill the entirety it's parent (in this case the window)
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: Num::Percent(100.0),
+                height: Num::Percent(100.0),
                 /// Set the grid to have 2 columns with sizes [min-content, minmax(0, 1fr)]
                 ///   - The first column will size to the size of it's contents
                 ///   - The second column will take up the remaining available space
@@ -54,7 +54,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         display: Display::Grid,
                         /// Make this node span two grid columns so that it takes up the entire top tow
                         grid_column: GridPlacement::span(2),
-                        padding: UiRect::all(Val::Px(6.0)),
+                        padding: UiRect::all(Num::Px(6.0)),
                         ..default()
                     },
                     ..default()
@@ -68,14 +68,14 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn(NodeBundle {
                     style: Style {
                         /// Make the height of the node fill its parent
-                        height: Val::Percent(100.0),
+                        height: Num::Percent(100.0),
                         /// Make the grid have a 1:1 aspect ratio meaning it will scale as an exact square
                         /// As the height is set explicitly, this means the width will adjust to match the height
                         aspect_ratio: Some(1.0),
                         /// Use grid layout for this node
                         display: Display::Grid,
                         // Add 24px of padding around the grid
-                        padding: UiRect::all(Val::Px(24.0)),
+                        padding: UiRect::all(Num::Px(24.0)),
                         /// Set the grid to have 4 columns all with sizes minmax(0, 1fr)
                         /// This creates 4 exactly evenly sized columns
                         grid_template_columns: RepeatedGridTrack::flex(4, 1.0),
@@ -83,8 +83,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         /// This creates 4 exactly evenly sized rows
                         grid_template_rows: RepeatedGridTrack::flex(4, 1.0),
                         /// Set a 12px gap/gutter between rows and columns
-                        row_gap: Val::Px(12.0),
-                        column_gap: Val::Px(12.0),
+                        row_gap: Num::Px(12.0),
+                        column_gap: Num::Px(12.0),
                         ..default()
                     },
                     background_color: BackgroundColor(Color::DARK_GRAY),
@@ -127,12 +127,12 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         // Align content towards the center in the horizontal axis
                         justify_items: JustifyItems::Center,
                         // Add 10px padding
-                        padding: UiRect::all(Val::Px(10.)),
+                        padding: UiRect::all(Num::Px(10.)),
                         // Add an fr track to take up all the available space at the bottom of the column so that the text nodes
                         // can be top-aligned. Normally you'd use flexbox for this, but this is the CSS Grid example so we're using grid.
                         grid_template_rows: vec![GridTrack::auto(), GridTrack::auto(), GridTrack::fr(1.0)],
                         // Add a 10px gap between rows
-                        row_gap: Val::Px(10.),
+                        row_gap: Num::Px(10.),
                         ..default()
                     },
                     background_color: BackgroundColor(Color::BLACK),
@@ -175,15 +175,15 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: Style {
                     position_type: PositionType::Absolute,
                     margin: UiRect {
-                        top: Val::Px(100.),
-                        bottom: Val::Auto,
-                        left: Val::Auto,
-                        right: Val::Auto,
+                        top: Num::Px(100.),
+                        bottom: Num::Auto,
+                        left: Num::Auto,
+                        right: Num::Auto,
                     },
-                    width: Val::Percent(60.),
-                    height: Val::Px(300.),
-                    max_width: Val::Px(600.),
-                    max_height: Val::Auto,
+                    width: Num::Percent(60.),
+                    height: Num::Px(300.),
+                    max_width: Num::Px(600.),
+                    max_height: Num::Auto,
                     ..default()
                 },
                 background_color: BackgroundColor(Color::Rgba {
@@ -205,7 +205,7 @@ fn item_rect(builder: &mut ChildBuilder, color: Color) {
         .spawn(NodeBundle {
             style: Style {
                 display: Display::Grid,
-                padding: UiRect::all(Val::Px(3.0)),
+                padding: UiRect::all(Num::Px(3.0)),
                 ..default()
             },
             background_color: BackgroundColor(Color::BLACK),

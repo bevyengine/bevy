@@ -103,13 +103,8 @@ fn setup_scene(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-<<<<<<< HEAD
-            bottom: AutoVal::Px(10.0),
-            left: AutoVal::Px(10.0),
-=======
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
->>>>>>> main
             ..default()
         }),
     );

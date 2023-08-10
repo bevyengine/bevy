@@ -1,6 +1,6 @@
 use std::ops::{Mul, MulAssign, Div, DivAssign};
 
-use crate::{AutoVal, Val};
+use crate::{Val, Num};
 use bevy_reflect::Reflect;
 
 macro_rules! uirect_impl {
@@ -51,10 +51,10 @@ macro_rules! uirect_impl {
             /// ```
             pub fn px(left: f32, right: f32, top: f32, bottom: f32) -> Self {
                 Self::new(
-                    Val::Px(left),
-                    Val::Px(right),
-                    Val::Px(top),
-                    Val::Px(bottom),
+                    Num::Px(left),
+                    Num::Px(right),
+                    Num::Px(top),
+                    Num::Px(bottom),
                 )
             }
 
@@ -75,10 +75,10 @@ macro_rules! uirect_impl {
             /// ```
             pub fn percent(left: f32, right: f32, top: f32, bottom: f32) -> Self {
                 Self::new(
-                    Val::Percent(left),
-                    Val::Percent(right),
-                    Val::Percent(top),
-                    Val::Percent(bottom),
+                    Num::Percent(left),
+                    Num::Percent(right),
+                    Num::Percent(top),
+                    Num::Percent(bottom),
                 )
             }
 
@@ -163,13 +163,13 @@ macro_rules! uirect_impl {
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 pub struct Margin {
-    pub left: AutoVal,
-    pub right: AutoVal,
-    pub top: AutoVal,
-    pub bottom: AutoVal,
+    pub left: Val,
+    pub right: Val,
+    pub top: Val,
+    pub bottom: Val,
 }
 
-uirect_impl!(Margin, AutoVal, AutoVal::Px(0.));
+uirect_impl!(Margin, Val, Val::Px(0.));
 
 /// A padding is used to create space around UI elements, inside of any defined borders.
 ///
@@ -186,13 +186,13 @@ uirect_impl!(Margin, AutoVal, AutoVal::Px(0.));
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 pub struct Padding {
-    pub left: Val,
-    pub right: Val,
-    pub top: Val,
-    pub bottom: Val,
+    pub left: Num,
+    pub right: Num,
+    pub top: Num,
+    pub bottom: Num,
 }
 
-uirect_impl!(Padding, Val, Val::Px(0.));
+uirect_impl!(Padding, Num, Num::Px(0.));
 
 /// ## Borders
 ///
@@ -211,13 +211,13 @@ uirect_impl!(Padding, Val, Val::Px(0.));
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 pub struct Border {
-    pub left: Val,
-    pub right: Val,
-    pub top: Val,
-    pub bottom: Val,
+    pub left: Num,
+    pub right: Num,
+    pub top: Num,
+    pub bottom: Num,
 }
 
-uirect_impl!(Border, Val, Val::Px(0.));
+uirect_impl!(Border, Num, Num::Px(0.));
 
 /// A 2-dimensional area defined by a width and height.
 ///
@@ -226,9 +226,9 @@ uirect_impl!(Border, Val, Val::Px(0.));
 #[reflect(PartialEq)]
 pub struct Size {
     /// The width of the 2-dimensional area.
-    pub width: AutoVal,
+    pub width: Val,
     /// The height of the 2-dimensional area.
-    pub height: AutoVal,
+    pub height: Val,
 }
 
 impl Size {
@@ -247,7 +247,7 @@ impl Size {
     /// assert_eq!(size.height, AutoVal::Px(200.0));
     /// ```
     #[inline]
-    pub fn new(width: impl Into<AutoVal>, height: impl Into<AutoVal>) -> Self {
+    pub fn new(width: impl Into<Val>, height: impl Into<Val>) -> Self {
         Size {
             width: width.into(),
             height: height.into(),
@@ -267,7 +267,7 @@ impl Size {
     /// assert_eq!(size.height, AutoVal::Px(10.0));
     /// ```
     #[inline]
-    pub fn all(value: impl Into<AutoVal> + Copy) -> Self {
+    pub fn all(value: impl Into<Val> + Copy) -> Self {
         Self {
             width: value.into(),
             height: value.into(),
@@ -288,10 +288,10 @@ impl Size {
     /// assert_eq!(size.height, AutoVal::Auto);
     /// ```
     #[inline]
-    pub fn width(width: impl Into<AutoVal>) -> Self {
+    pub fn width(width: impl Into<Val>) -> Self {
         Self {
             width: width.into(),
-            height: AutoVal::Auto,
+            height: Val::Auto,
         }
     }
 
@@ -309,17 +309,17 @@ impl Size {
     /// assert_eq!(size.height, AutoVal::Px(10.));
     /// ```
     #[inline]
-    pub fn height(height: impl Into<AutoVal>) -> Self {
+    pub fn height(height: impl Into<Val>) -> Self {
         Self {
-            width: AutoVal::Auto,
+            width: Val::Auto,
             height: height.into(),
         }
     }
 
     /// Creates a Size where both values are [`AutoVal::Auto`].
     pub const AUTO: Self = Self {
-        width: AutoVal::Auto,
-        height: AutoVal::Auto,
+        width: Val::Auto,
+        height: Val::Auto,
     };
 }
 
@@ -329,8 +329,8 @@ impl Default for Size {
     }
 }
 
-impl From<(AutoVal, AutoVal)> for Size {
-    fn from(vals: (AutoVal, AutoVal)) -> Self {
+impl From<(Val, Val)> for Size {
+    fn from(vals: (Val, Val)) -> Self {
         Self {
             width: vals.0,
             height: vals.1,
@@ -384,10 +384,10 @@ mod tests {
         assert_eq!(
             Border::default(),
             Border {
-                left: Val::Px(0.),
-                right: Val::Px(0.),
-                top: Val::Px(0.),
-                bottom: Val::Px(0.)
+                left: Num::Px(0.),
+                right: Num::Px(0.),
+                top: Num::Px(0.),
+                bottom: Num::Px(0.)
             }
         );
         assert_eq!(Border::default(), Border::DEFAULT);
@@ -399,10 +399,10 @@ mod tests {
         assert_eq!(
             Margin::default(),
             Margin {
-                left: AutoVal::Px(0.),
-                right: AutoVal::Px(0.),
-                top: AutoVal::Px(0.),
-                bottom: AutoVal::Px(0.)
+                left: Val::Px(0.),
+                right: Val::Px(0.),
+                top: Val::Px(0.),
+                bottom: Val::Px(0.)
             }
         );
         assert_eq!(Margin::default(), Margin::DEFAULT);
@@ -414,10 +414,10 @@ mod tests {
         assert_eq!(
             Padding::default(),
             Padding {
-                left: Val::Px(0.),
-                right: Val::Px(0.),
-                top: Val::Px(0.),
-                bottom: Val::Px(0.)
+                left: Num::Px(0.),
+                right: Num::Px(0.),
+                top: Num::Px(0.),
+                bottom: Num::Px(0.)
             }
         );
         assert_eq!(Padding::default(), Padding::DEFAULT);
@@ -425,13 +425,13 @@ mod tests {
 
     #[test]
     fn test_size_from() {
-        let size: Size = (AutoVal::Px(20.), AutoVal::Px(30.)).into();
+        let size: Size = (Val::Px(20.), Val::Px(30.)).into();
 
         assert_eq!(
             size,
             Size {
-                width: AutoVal::Px(20.),
-                height: AutoVal::Px(30.),
+                width: Val::Px(20.),
+                height: Val::Px(30.),
             }
         );
     }
@@ -439,30 +439,30 @@ mod tests {
     #[test]
     fn test_size_mul() {
         assert_eq!(
-            Size::all(AutoVal::Px(10.)) * 2.,
-            Size::all(AutoVal::Px(20.))
+            Size::all(Val::Px(10.)) * 2.,
+            Size::all(Val::Px(20.))
         );
 
-        let mut size = Size::all(AutoVal::Px(10.));
+        let mut size = Size::all(Val::Px(10.));
         size *= 2.;
-        assert_eq!(size, Size::all(AutoVal::Px(20.)));
+        assert_eq!(size, Size::all(Val::Px(20.)));
     }
 
     #[test]
     fn test_size_div() {
         assert_eq!(
-            Size::new(AutoVal::Px(20.), AutoVal::Px(20.)) / 2.,
-            Size::new(AutoVal::Px(10.), AutoVal::Px(10.))
+            Size::new(Val::Px(20.), Val::Px(20.)) / 2.,
+            Size::new(Val::Px(10.), Val::Px(10.))
         );
 
-        let mut size = Size::new(AutoVal::Px(20.), AutoVal::Px(20.));
+        let mut size = Size::new(Val::Px(20.), Val::Px(20.));
         size /= 2.;
-        assert_eq!(size, Size::new(AutoVal::Px(10.), AutoVal::Px(10.)));
+        assert_eq!(size, Size::new(Val::Px(10.), Val::Px(10.)));
     }
 
     #[test]
     fn test_size_all() {
-        let length = AutoVal::Px(10.);
+        let length = Val::Px(10.);
 
         assert_eq!(
             Size::all(length),
@@ -475,7 +475,7 @@ mod tests {
 
     #[test]
     fn test_size_width() {
-        let width = AutoVal::Px(10.);
+        let width = Val::Px(10.);
 
         assert_eq!(
             Size::width(width),
@@ -488,7 +488,7 @@ mod tests {
 
     #[test]
     fn test_size_height() {
-        let height = AutoVal::Px(7.);
+        let height = Val::Px(7.);
 
         assert_eq!(
             Size::height(height),
@@ -504,8 +504,8 @@ mod tests {
         assert_eq!(
             Size::default(),
             Size {
-                width: AutoVal::Auto,
-                height: AutoVal::Auto
+                width: Val::Auto,
+                height: Val::Auto
             }
         );
         assert_eq!(Size::default(), Size::DEFAULT);
@@ -513,8 +513,8 @@ mod tests {
     
     #[test]
     fn test_uirect_axes() {
-        let x = Val::Px(1.);
-        let y = Val::Vw(4.);
+        let x = Num::Px(1.);
+        let y = Num::Vw(4.);
         let r = Border::axes(x, y);
         let h = Border::horizontal(x);
         let v = Border::vertical(y);
@@ -528,18 +528,18 @@ mod tests {
     #[test]
     fn uirect_px() {
         let r = Border::px(3., 5., 20., 999.);
-        assert_eq!(r.left, Val::Px(3.));
-        assert_eq!(r.right, Val::Px(5.));
-        assert_eq!(r.top, Val::Px(20.));
-        assert_eq!(r.bottom, Val::Px(999.));
+        assert_eq!(r.left, Num::Px(3.));
+        assert_eq!(r.right, Num::Px(5.));
+        assert_eq!(r.top, Num::Px(20.));
+        assert_eq!(r.bottom, Num::Px(999.));
     }
 
     #[test]
     fn uirect_percent() {
         let r = Border::percent(3., 5., 20., 99.);
-        assert_eq!(r.left, Val::Percent(3.));
-        assert_eq!(r.right, Val::Percent(5.));
-        assert_eq!(r.top, Val::Percent(20.));
-        assert_eq!(r.bottom, Val::Percent(99.));
+        assert_eq!(r.left, Num::Percent(3.));
+        assert_eq!(r.right, Num::Percent(5.));
+        assert_eq!(r.top, Num::Percent(20.));
+        assert_eq!(r.bottom, Num::Percent(99.));
     }
 }

@@ -3,7 +3,7 @@ use bevy::prelude::*;
 
 const ALIGN_ITEMS_COLOR: Color = Color::rgb(1., 0.066, 0.349);
 const JUSTIFY_CONTENT_COLOR: Color = Color::rgb(0.102, 0.522, 1.);
-const MARGIN: AutoVal = AutoVal::Px(5.);
+const MARGIN: NumoVaNum Val::Px(5.);
 
 fn main() {
     App::new()
@@ -26,7 +26,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(NodeBundle {
             style: Style {
                 // fill the entire window
-                width: Val::Percent(100.),
+                width: Num::Percent(100.),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 ..Default::default()
@@ -65,8 +65,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             builder
                 .spawn(NodeBundle {
                     style: Style {
-                        width: Val::Px(850.),
-                        height: Val::Px(1020.),
+                        width: Num::Px(850.),
+                        height: Num::Px(1020.),
                         flex_direction: FlexDirection::Column,
                         ..Default::default()
                     },
@@ -125,8 +125,8 @@ fn spawn_child_node(
                 flex_direction: FlexDirection::Column,
                 align_items,
                 justify_content,
-<<<<<<< HEAD:examples/ui/text_layout.rs
-                size: Size::all(Val::Px(160.)),
+<<<<<<< HEAD:examples/uNumext_layout.rs
+                size: SiNum:all(Val::Px(160.)),
                 margin: Margin::all(MARGIN),
 =======
                 width: Val::Px(160.),
@@ -144,7 +144,7 @@ fn spawn_child_node(
                 (format!("{justify_content:?}"), JUSTIFY_CONTENT_COLOR, 3.),
             ];
             for (text, color, top_margin) in labels {
-                // We nest the text within a parent node because margins and padding can't be directly applied to text nodes currently.
+                // We nest the tNum within a parent node because margins and padding can't be directly applied to text nodes currently.
                 spawn_nested_text_bundle(
                     builder,
                     font.clone(),
@@ -163,10 +163,10 @@ fn spawn_nested_text_bundle(
     margin: Margin,
     text: &str,
 ) {
-    builder
-        .spawn(NodeBundle {
-            style: Style {
-                margin,
+    builderNum
+        .spawn(NodeBundle Num
+            style: Style {Num
+                margin,Num
                 padding: Padding {
                     top: Val::Px(1.),
                     left: Val::Px(5.),

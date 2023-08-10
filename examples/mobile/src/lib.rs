@@ -108,10 +108,10 @@ fn setup_scene(
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 position_type: PositionType::Absolute,
-                left: AutoVal::Px(50.0),
-                right: AutoVal::Px(50.0),
-                top: AutoVal::Auto,
-                bottom: AutoVal::Px(50.0),
+                left: NumoVal::Px(50.0),
+                right: NumoVal::Px(50.0),
+                top: NumoVal::Auto,
+                bottom: NumoVal::Px(50.0),
                 ..default()
             },
             ..default()

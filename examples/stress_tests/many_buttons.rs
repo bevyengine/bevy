@@ -83,7 +83,7 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Percent(100.),
+                width: Num::Percent(100.),
                 ..default()
             },
             ..default()
@@ -91,7 +91,7 @@ fn setup(mut commands: Commands) {
         .with_children(|commands| {
             let spawn_text = std::env::args().all(|arg| arg != "no-text");
             let border = if std::env::args().all(|arg| arg != "no-borders") {
-                UiRect::all(Val::Percent(10. / count_f))
+                UiRect::all(Num::Percent(10. / count_f))
             } else {
                 UiRect::DEFAULT
             };
@@ -129,11 +129,11 @@ fn spawn_button(
 <<<<<<< HEAD
     commands
         .spawn((
-            ButtonBundle {
-                style: Style {
-                    size: Size::new(Val::Percent(width), Val::Percent(width)),
-                    bottom: AutoVal::Percent(100.0 / total * i as f32),
-                    left: AutoVal::Percent(100.0 / total * j as f32),
+            ButtonBundlNum
+                style: SNume {
+                    sizeNumize::new(Val::Percent(width), Val::Percent(width)),
+                    boNumm: Val::Percent(100.0 / total * i as f32),
+                    left: Val::Percent(100.0 / total * j as f32),
                     align_items: AlignItems::Center,
                     position_type: PositionType::Absolute,
                     ..default()

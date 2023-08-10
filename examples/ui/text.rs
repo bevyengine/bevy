@@ -44,8 +44,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Set the style of the TextBundle itself.
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: AutoVal::Px(5.0),
-            right: AutoVal::Px(15.0),
+            bottom: NumoVal::Px(5.0),
+            right: NumoVal::Px(15.0),
             ..default()
         }),
         ColorText,

@@ -33,7 +33,7 @@ enum Constraint {
 }
 
 #[derive(Copy, Clone, Component)]
-struct ButtonValue(Val);
+struct ButtonValue(Num);
 
 #[derive(Event)]
 struct ButtonActivatedEvent(Entity);
@@ -51,7 +51,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                flex_basis: Val::Percent(100.0),
+                flex_basis: Num::Percent(100.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..Default::default()
@@ -74,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent.spawn(
                         TextBundle::from_section("Size Constraints Example", text_style.clone())
                             .with_style(Style {
-                                margin: UiRect::bottom(Val::Px(25.)),
+                                margin: UiRect::bottom(Num::Px(25.)),
                                 ..Default::default()
                             }),
                     );
@@ -86,8 +86,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             style: Style {
                                 flex_direction: FlexDirection::Column,
                                 align_items: AlignItems::Stretch,
-                                padding: UiRect::all(Val::Px(10.)),
-                                margin: UiRect::top(Val::Px(50.)),
+                                padding: UiRect::all(Num::Px(10.)),
+                                margin: UiRect::top(Num::Px(50.)),
                                 ..Default::default()
                             },
                             background_color: Color::YELLOW.into(),
@@ -111,9 +111,9 @@ fn spawn_bar(parent: &mut ChildBuilder) {
     parent
         .spawn(NodeBundle {
             style: Style {
-                flex_basis: Val::Percent(100.0),
+                flex_basis: Num::Percent(100.0),
                 align_self: AlignSelf::Stretch,
-                padding: UiRect::all(Val::Px(10.)),
+                padding: UiRect::all(Num::Px(10.)),
                 ..Default::default()
             },
             background_color: Color::YELLOW.into(),
@@ -124,9 +124,9 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                 .spawn(NodeBundle {
                     style: Style {
                         align_items: AlignItems::Stretch,
-                        width: Val::Percent(100.),
-                        height: Val::Px(100.),
-                        padding: UiRect::all(Val::Px(4.)),
+                        width: Num::Percent(100.),
+                        height: Num::Px(100.),
+                        padding: UiRect::all(Num::Px(4.)),
                         ..Default::default()
                     },
                     background_color: Color::BLACK.into(),
@@ -159,7 +159,7 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
         .spawn(NodeBundle {
             style: Style {
                 flex_direction: FlexDirection::Column,
-                padding: UiRect::all(Val::Px(2.)),
+                padding: UiRect::all(Num::Px(2.)),
                 align_items: AlignItems::Stretch,
                 ..Default::default()
             },
@@ -172,7 +172,7 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                     style: Style {
                         flex_direction: FlexDirection::Row,
                         justify_content: JustifyContent::End,
-                        padding: UiRect::all(Val::Px(2.)),
+                        padding: UiRect::all(Num::Px(2.)),
                         ..Default::default()
                     },
                     //background_color: Color::RED.into(),
@@ -183,8 +183,8 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                     parent
                         .spawn(NodeBundle {
                             style: Style {
-                                min_width: Val::Px(200.),
-                                max_width: Val::Px(200.),
+                                min_width: Num::Px(200.),
+                                max_width: Num::Px(200.),
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
                                 ..Default::default()
@@ -208,7 +208,7 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                             spawn_button(
                                 parent,
                                 constraint,
-                                ButtonValue(Val::Auto),
+                                ButtonValue(Num::Auto),
                                 "Auto".to_string(),
                                 text_style.clone(),
                                 true,
@@ -217,7 +217,7 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                                 spawn_button(
                                     parent,
                                     constraint,
-                                    ButtonValue(Val::Percent(percent)),
+                                    ButtonValue(Num::Percent(percent)),
                                     format!("{percent}%"),
                                     text_style.clone(),
                                     false,
@@ -242,8 +242,8 @@ fn spawn_button(
                 style: Style {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    border: UiRect::all(Val::Px(2.)),
-                    margin: UiRect::horizontal(Val::Px(2.)),
+                    border: UiRect::all(Num::Px(2.)),
+                    margin: UiRect::horizontal(Num::Px(2.)),
                     ..Default::default()
                 },
                 background_color: if active {
@@ -261,7 +261,7 @@ fn spawn_button(
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        width: Val::Px(100.),
+                        width: Num::Px(100.),
                         justify_content: JustifyContent::Center,
                         ..Default::default()
                     },

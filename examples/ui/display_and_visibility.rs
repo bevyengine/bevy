@@ -83,7 +83,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(NodeBundle {
         style: Style {
             flex_direction: FlexDirection::Column,
-            flex_basis: Val::Percent(100.),
+            flex_basis: Num::Percent(100.),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceEvenly,
             ..Default::default()
@@ -97,7 +97,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 text_style.clone(),
             ).with_alignment(TextAlignment::Center),
             style: Style {
-                margin: UiRect::bottom(Val::Px(10.)),
+                margin: UiRect::bottom(Num::Px(10.)),
                 ..Default::default()
             },
             ..Default::default()
@@ -106,7 +106,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         parent
             .spawn(NodeBundle {
                 style: Style {
-                    width: Val::Percent(100.),
+                    width: Num::Percent(100.),
                     ..Default::default()
                 },
                 ..Default::default()
@@ -115,8 +115,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 let mut target_ids = vec![];
                 parent.spawn(NodeBundle {
                     style: Style {
-                        width: Val::Percent(50.),
-                        height: Val::Px(520.),
+                        width: Num::Percent(50.),
+                        height: Num::Px(520.),
                         justify_content: JustifyContent::Center,
                         ..Default::default()
                     },
@@ -127,7 +127,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                 parent.spawn(NodeBundle {
                     style: Style {
-                        width: Val::Percent(50.),
+                        width: Num::Percent(50.),
                         justify_content: JustifyContent::Center,
                         ..Default::default()
                     },
@@ -142,7 +142,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Start,
                     justify_content: JustifyContent::Start,
-                    column_gap: Val::Px(10.),
+                    column_gap: Num::Px(10.),
                     ..Default::default()
                 },
                 ..default() })
@@ -180,7 +180,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
     builder
         .spawn(NodeBundle {
             style: Style {
-                padding: UiRect::all(Val::Px(10.)),
+                padding: UiRect::all(Num::Px(10.)),
                 ..Default::default()
             },
             background_color: BackgroundColor(Color::WHITE),
@@ -209,8 +209,8 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                         .with_children(|parent| {
                             parent.spawn(NodeBundle {
                                 style: Style {
-                                    width: Val::Px(100.),
-                                    height: Val::Px(500.),
+                                    width: Num::Px(100.),
+                                    height: Num::Px(500.),
                                     ..Default::default()
                                 },
                                 ..Default::default()
@@ -219,7 +219,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                             let id = parent
                                 .spawn((NodeBundle {
                                     style: Style {
-                                        height: Val::Px(400.),
+                                        height: Num::Px(400.),
                                         align_items: AlignItems::FlexEnd,
                                         justify_content: JustifyContent::FlexEnd,
                                         ..Default::default()
@@ -230,8 +230,8 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                 .with_children(|parent| {
                                     parent.spawn(NodeBundle {
                                         style: Style {
-                                            width: Val::Px(100.),
-                                            height: Val::Px(400.),
+                                            width: Num::Px(100.),
+                                            height: Num::Px(400.),
                                             ..Default::default()
                                         },
                                         ..Default::default()
@@ -240,7 +240,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                     let id = parent
                                         .spawn((NodeBundle {
                                             style: Style {
-                                                height: Val::Px(300.),
+                                                height: Num::Px(300.),
                                                 align_items: AlignItems::FlexEnd,
                                                 justify_content: JustifyContent::FlexEnd,
                                                 ..Default::default()
@@ -251,8 +251,8 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                         .with_children(|parent| {
                                             parent.spawn(NodeBundle {
                                                 style: Style {
-                                                    width: Val::Px(100.),
-                                                    height: Val::Px(300.),
+                                                    width: Num::Px(100.),
+                                                    height: Num::Px(300.),
                                                     ..Default::default()
                                                 },
                                                 ..Default::default()
@@ -261,8 +261,8 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                             let id = parent
                                                 .spawn((NodeBundle {
                                                     style: Style {
-                                                        width: Val::Px(200.),
-                                                        height: Val::Px(200.),
+                                                        width: Num::Px(200.),
+                                                        height: Num::Px(200.),
                                                         ..Default::default()
                                                     },
                                                     background_color: BackgroundColor(palette[3]),
@@ -297,7 +297,7 @@ fn spawn_right_panel(
     parent
         .spawn(NodeBundle {
             style: Style {
-                padding: UiRect::all(Val::Px(10.)),
+                padding: UiRect::all(Num::Px(10.)),
                 ..Default::default()
             },
             background_color: BackgroundColor(Color::WHITE),
@@ -307,14 +307,14 @@ fn spawn_right_panel(
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        width: Val::Px(500.),
-                        height: Val::Px(500.),
+                        width: Num::Px(500.),
+                        height: Num::Px(500.),
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::FlexEnd,
                         justify_content: JustifyContent::SpaceBetween,
                         padding: UiRect {
-                            left: Val::Px(5.),
-                            top: Val::Px(5.),
+                            left: Num::Px(5.),
+                            top: Num::Px(5.),
                             ..Default::default()
                         },
                         ..Default::default()
@@ -328,14 +328,14 @@ fn spawn_right_panel(
                     parent
                         .spawn((NodeBundle {
                             style: Style {
-                                width: Val::Px(400.),
-                                height: Val::Px(400.),
+                                width: Num::Px(400.),
+                                height: Num::Px(400.),
                                 flex_direction: FlexDirection::Column,
                                 align_items: AlignItems::FlexEnd,
                                 justify_content: JustifyContent::SpaceBetween,
                                 padding: UiRect {
-                                    left: Val::Px(5.),
-                                    top: Val::Px(5.),
+                                    left: Num::Px(5.),
+                                    top: Num::Px(5.),
                                     ..Default::default()
                                 },
                                 ..Default::default()
@@ -349,14 +349,14 @@ fn spawn_right_panel(
                             parent
                                 .spawn((NodeBundle {
                                     style: Style {
-                                        width: Val::Px(300.),
-                                        height: Val::Px(300.),
+                                        width: Num::Px(300.),
+                                        height: Num::Px(300.),
                                         flex_direction: FlexDirection::Column,
                                         align_items: AlignItems::FlexEnd,
                                         justify_content: JustifyContent::SpaceBetween,
                                         padding: UiRect {
-                                            left: Val::Px(5.),
-                                            top: Val::Px(5.),
+                                            left: Num::Px(5.),
+                                            top: Num::Px(5.),
                                             ..Default::default()
                                         },
                                         ..Default::default()
@@ -370,14 +370,14 @@ fn spawn_right_panel(
                                     parent
                                         .spawn((NodeBundle {
                                             style: Style {
-                                                width: Val::Px(200.),
-                                                height: Val::Px(200.),
+                                                width: Num::Px(200.),
+                                                height: Num::Px(200.),
                                                 align_items: AlignItems::FlexStart,
                                                 justify_content: JustifyContent::SpaceBetween,
                                                 flex_direction: FlexDirection::Column,
                                                 padding: UiRect {
-                                                    left: Val::Px(5.),
-                                                    top: Val::Px(5.),
+                                                    left: Num::Px(5.),
+                                                    top: Num::Px(5.),
                                                     ..Default::default()
                                                 },
                                                 ..Default::default()
@@ -390,8 +390,8 @@ fn spawn_right_panel(
 
                                             parent.spawn(NodeBundle {
                                                 style: Style {
-                                                    width: Val::Px(100.),
-                                                    height: Val::Px(100.),
+                                                    width: Num::Px(100.),
+                                                    height: Num::Px(100.),
                                                     ..Default::default()
                                                 },
                                                 ..Default::default()
@@ -414,7 +414,7 @@ where
                 style: Style {
                     //height: Val::Px(24.),
                     align_self: AlignSelf::FlexStart,
-                    padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
+                    padding: UiRect::axes(Num::Px(5.), Num::Px(1.)),
                     ..Default::default()
                 },
                 background_color: BackgroundColor(Color::BLACK.with_a(0.5)),

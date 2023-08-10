@@ -25,7 +25,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(NodeBundle {
             style: Style {
                 flex_direction: FlexDirection::Column,
-                width: Val::Percent(100.),
+                width: Num::Percent(100.),
                 ..Default::default()
             },
             background_color: Color::BLACK.into(),
@@ -44,8 +44,8 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceAround,
                     align_items: AlignItems::Center,
-                    width: Val::Percent(100.),
-                    height: Val::Percent(50.),
+                    width: Num::Percent(100.),
+                    height: Num::Percent(50.),
                     ..Default::default()
                 },
                 ..Default::default()
@@ -68,8 +68,8 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         justify_content: justification,
                         flex_direction: FlexDirection::Column,
-                        width: Val::Percent(16.),
-                        height: Val::Percent(95.),
+                        width: Num::Percent(16.),
+                        height: Num::Percent(95.),
                         overflow: Overflow::clip_x(),
                         ..Default::default()
                     },

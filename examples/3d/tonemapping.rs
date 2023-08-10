@@ -84,8 +84,8 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: AutoVal::Px(10.0),
-            left: AutoVal::Px(10.0),
+            top: NumoVal::Px(10.0),
+            left: NumoVal::Px(10.0),
             ..default()
         }),
     );
@@ -282,7 +282,7 @@ fn setup_image_viewer_scene(
             .with_text_alignment(TextAlignment::Center)
             .with_style(Style {
                 align_self: AlignSelf::Center,
-                margin: Margin::all(AutoVal::Auto),
+                margin: Margin::all(NumoVal::Auto),
                 ..default()
             }),
             SceneNumber(3),

@@ -148,8 +148,8 @@ fn setup_instructions(mut commands: Commands) {
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: AutoVal::Px(12.0),
-            left: AutoVal::Px(12.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
