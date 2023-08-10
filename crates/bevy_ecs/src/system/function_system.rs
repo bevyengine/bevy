@@ -39,7 +39,7 @@ impl SystemMeta {
             is_send: true,
             last_run: Tick::new(0),
             #[cfg(feature = "trace")]
-            commands_span: info_span!("system_commands", name = &*name),
+            commands_span: info_span!("system_commands", name = name),
         }
     }
 
