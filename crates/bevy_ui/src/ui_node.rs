@@ -184,7 +184,7 @@ impl DivAssign<f32> for Val {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
-pub enum AutoValArithmeticError {
+pub enum ValArithmeticError {
     #[error("the variants of the Vals don't match")]
     NonIdenticalVariants,
     #[error("the given variant of Val is not evaluateable (non-numeric)")]
@@ -195,17 +195,17 @@ impl Val {
     /// Tries to add the values of two [`AutoVal`]s.
     /// Returns [`AutoValArithmeticError::NonIdenticalVariants`] if two [`AutoVal`]s are of different variants.
     /// When adding non-numeric [`AutoVal`]s, it returns the value unchanged.
-    pub fn try_add(&self, rhs: Val) -> Result<Val, AutoValArithmeticError> {
+    pub fn try_add(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
         match (self, rhs) {
             (Val::Auto, Val::Auto) => Ok(*self),
             (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value + rhs_value)),
             (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value + rhs_value)),
-            _ => Err(AutoValArithmeticError::NonIdenticalVariants),
+            _ => Err(ValArithmeticError::NonIdenticalVariants),
         }
     }
 
     /// Adds `rhs` to `self` and assigns the result to `self` (see [`AutoVal::try_add`])
-    pub fn try_add_assign(&mut self, rhs: Val) -> Result<(), AutoValArithmeticError> {
+    pub fn try_add_assign(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
         *self = self.try_add(rhs)?;
         Ok(())
     }
@@ -213,17 +213,17 @@ impl Val {
     /// Tries to subtract the values of two [`AutoVal`]s.
     /// Returns [`AutoValArithmeticError::NonIdenticalVariants`] if two [`AutoVal`]s are of different variants.
     /// When adding non-numeric [`AutoVal`]s, it returns the value unchanged.
-    pub fn try_sub(&self, rhs: Val) -> Result<Val, AutoValArithmeticError> {
+    pub fn try_sub(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
         match (self, rhs) {
             (Val::Auto, Val::Auto) => Ok(*self),
             (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value - rhs_value)),
             (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value - rhs_value)),
-            _ => Err(AutoValArithmeticError::NonIdenticalVariants),
+            _ => Err(ValArithmeticError::NonIdenticalVariants),
         }
     }
 
     /// Subtracts `rhs` from `self` and assigns the result to `self` (see [`AutoVal::try_sub`])
-    pub fn try_sub_assign(&mut self, rhs: Val) -> Result<(), AutoValArithmeticError> {
+    pub fn try_sub_assign(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
         *self = self.try_sub(rhs)?;
         Ok(())
     }
@@ -233,17 +233,17 @@ impl Val {
     /// Otherwise it returns an [`f32`] containing the evaluated value in pixels.
     ///
     /// **Note:** If a [`AutoVal::Px`] is evaluated, it's inner value returned unchanged.
-    pub fn evaluate(&self, size: f32) -> Result<f32, AutoValArithmeticError> {
+    pub fn evaluate(&self, size: f32) -> Result<f32, ValArithmeticError> {
         match self {
             Val::Percent(value) => Ok(size * value / 100.0),
             Val::Px(value) => Ok(*value),
-            _ => Err(AutoValArithmeticError::NonEvaluateable),
+            _ => Err(ValArithmeticError::NonEvaluateable),
         }
     }
 
     /// Similar to [`AutoVal::try_add`], but performs [`AutoVal::evaluate`] on both values before adding.
     /// Returns an [`f32`] value in pixels.
-    pub fn try_add_with_size(&self, rhs: Val, size: f32) -> Result<f32, AutoValArithmeticError> {
+    pub fn try_add_with_size(&self, rhs: Val, size: f32) -> Result<f32, ValArithmeticError> {
         let lhs = self.evaluate(size)?;
         let rhs = rhs.evaluate(size)?;
 
@@ -256,14 +256,14 @@ impl Val {
         &mut self,
         rhs: Val,
         size: f32,
-    ) -> Result<(), AutoValArithmeticError> {
+    ) -> Result<(), ValArithmeticError> {
         *self = Val::Px(self.evaluate(size)? + rhs.evaluate(size)?);
         Ok(())
     }
 
     /// Similar to [`AutoVal::try_sub`], but performs [`AutoVal::evaluate`] on both values before subtracting.
     /// Returns an [`f32`] value in pixels.
-    pub fn try_sub_with_size(&self, rhs: Val, size: f32) -> Result<f32, AutoValArithmeticError> {
+    pub fn try_sub_with_size(&self, rhs: Val, size: f32) -> Result<f32, ValArithmeticError> {
         let lhs = self.evaluate(size)?;
         let rhs = rhs.evaluate(size)?;
 
@@ -276,7 +276,7 @@ impl Val {
         &mut self,
         rhs: Val,
         size: f32,
-    ) -> Result<(), AutoValArithmeticError> {
+    ) -> Result<(), ValArithmeticError> {
         *self = Val::Px(self.try_add_with_size(rhs, size)?);
         Ok(())
     }
@@ -415,7 +415,7 @@ impl DivAssign<f32> for Num {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
-pub enum ValArithmeticError {
+pub enum NumArithmeticError {
     #[error("the variants of the Vals don't match")]
     NonIdenticalVariants,
 }
@@ -429,32 +429,32 @@ pub enum ValConversionError {
 impl Num {
     /// Tries to add the values of two [`Val`]s.
     /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
-    pub fn try_add(&self, rhs: Num) -> Result<Num, ValArithmeticError> {
+    pub fn try_add(&self, rhs: Num) -> Result<Num, NumArithmeticError> {
         match (self, rhs) {
             (Num::Px(value), Num::Px(rhs_value)) => Ok(Num::Px(value + rhs_value)),
             (Num::Percent(value), Num::Percent(rhs_value)) => Ok(Num::Percent(value + rhs_value)),
-            _ => Err(ValArithmeticError::NonIdenticalVariants),
+            _ => Err(NumArithmeticError::NonIdenticalVariants),
         }
     }
 
     /// Adds `rhs` to `self` and assigns the result to `self` (see [`Val::try_add`])
-    pub fn try_add_assign(&mut self, rhs: Num) -> Result<(), ValArithmeticError> {
+    pub fn try_add_assign(&mut self, rhs: Num) -> Result<(), NumArithmeticError> {
         *self = self.try_add(rhs)?;
         Ok(())
     }
 
     /// Tries to subtract the values of two [`Val`]s.
     /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
-    pub fn try_sub(&self, rhs: Num) -> Result<Num, ValArithmeticError> {
+    pub fn try_sub(&self, rhs: Num) -> Result<Num, NumArithmeticError> {
         match (self, rhs) {
             (Num::Px(value), Num::Px(rhs_value)) => Ok(Num::Px(value - rhs_value)),
             (Num::Percent(value), Num::Percent(rhs_value)) => Ok(Num::Percent(value - rhs_value)),
-            _ => Err(ValArithmeticError::NonIdenticalVariants),
+            _ => Err(NumArithmeticError::NonIdenticalVariants),
         }
     }
 
     /// Subtracts `rhs` from `self` and assigns the result to `self` (see [`Val::try_sub`])
-    pub fn try_sub_assign(&mut self, rhs: Num) -> Result<(), ValArithmeticError> {
+    pub fn try_sub_assign(&mut self, rhs: Num) -> Result<(), NumArithmeticError> {
         *self = self.try_sub(rhs)?;
         Ok(())
     }
@@ -658,13 +658,13 @@ pub struct Style {
     ///
     /// # Example
     /// ```
-    /// # use bevy_ui::{Style, Margin, AutoVal};
+    /// # use bevy_ui::{Style, Margin, Val};
     /// let style = Style {
     ///     margin: Margin {
-    ///         left: AutoVal::Percent(10.),
-    ///         right: AutoVal::Percent(10.),
-    ///         top: AutoVal::Percent(15.),
-    ///         bottom: AutoVal::Percent(15.)
+    ///         left: Val::Percent(10.),
+    ///         right: Val::Percent(10.),
+    ///         top: Val::Percent(15.),
+    ///         bottom: Val::Percent(15.)
     ///     },
     ///     ..Default::default()
     /// };
@@ -683,10 +683,10 @@ pub struct Style {
     /// # use bevy_ui::{Style, Padding, Val};
     /// let style = Style {
     ///     padding: Padding {
-    ///         left: Val::Percent(1.),
-    ///         right: Val::Percent(2.),
-    ///         top: Val::Percent(3.),
-    ///         bottom: Val::Percent(4.)
+    ///         left: Num::Percent(1.),
+    ///         right: Num::Percent(2.),
+    ///         top: Num::Percent(3.),
+    ///         bottom:Num::Percent(4.)
     ///     },
     ///     ..Default::default()
     /// };
@@ -1896,7 +1896,7 @@ impl Default for ZIndex {
 mod tests {
     use bevy_math::Vec2;
 
-    use crate::{AutoValArithmeticError, Num, Val, ValArithmeticError};
+    use crate::{ValArithmeticError, Num, Val, NumArithmeticError};
 
     #[test]
     fn autoval_try_add() {
@@ -1936,11 +1936,11 @@ mod tests {
 
         assert_eq!(
             different_variant_sum_1,
-            Err(AutoValArithmeticError::NonIdenticalVariants)
+            Err(ValArithmeticError::NonIdenticalVariants)
         );
         assert_eq!(
             different_variant_sum_2,
-            Err(AutoValArithmeticError::NonIdenticalVariants)
+            Err(ValArithmeticError::NonIdenticalVariants)
         );
     }
 
@@ -1951,11 +1951,11 @@ mod tests {
 
         assert_eq!(
             different_variant_diff_1,
-            Err(AutoValArithmeticError::NonIdenticalVariants)
+            Err(ValArithmeticError::NonIdenticalVariants)
         );
         assert_eq!(
             different_variant_diff_2,
-            Err(AutoValArithmeticError::NonIdenticalVariants)
+            Err(ValArithmeticError::NonIdenticalVariants)
         );
     }
 
@@ -1980,7 +1980,7 @@ mod tests {
         let size = 250.;
         let evaluate_auto = Val::Auto.evaluate(size);
 
-        assert_eq!(evaluate_auto, Err(AutoValArithmeticError::NonEvaluateable));
+        assert_eq!(evaluate_auto, Err(ValArithmeticError::NonEvaluateable));
     }
 
     #[test]
@@ -2023,17 +2023,17 @@ mod tests {
 
         let percent_sum = Val::Auto.try_add_with_size(Val::Auto, size);
 
-        assert_eq!(percent_sum, Err(AutoValArithmeticError::NonEvaluateable));
+        assert_eq!(percent_sum, Err(ValArithmeticError::NonEvaluateable));
     }
 
     #[test]
     fn autoval_arithmetic_error_messages() {
         assert_eq!(
-            format!("{}", AutoValArithmeticError::NonIdenticalVariants),
+            format!("{}", ValArithmeticError::NonIdenticalVariants),
             "the variants of the Vals don't match"
         );
         assert_eq!(
-            format!("{}", AutoValArithmeticError::NonEvaluateable),
+            format!("{}", ValArithmeticError::NonEvaluateable),
             "the given variant of Val is not evaluateable (non-numeric)"
         );
     }
@@ -2077,11 +2077,11 @@ mod tests {
 
         assert_eq!(
             different_variant_sum_1,
-            Err(ValArithmeticError::NonIdenticalVariants)
+            Err(NumArithmeticError::NonIdenticalVariants)
         );
         assert_eq!(
             different_variant_sum_2,
-            Err(ValArithmeticError::NonIdenticalVariants)
+            Err(NumArithmeticError::NonIdenticalVariants)
         );
     }
 
@@ -2092,11 +2092,11 @@ mod tests {
 
         assert_eq!(
             different_variant_diff_1,
-            Err(ValArithmeticError::NonIdenticalVariants)
+            Err(NumArithmeticError::NonIdenticalVariants)
         );
         assert_eq!(
             different_variant_diff_2,
-            Err(ValArithmeticError::NonIdenticalVariants)
+            Err(NumArithmeticError::NonIdenticalVariants)
         );
     }
 
@@ -2145,7 +2145,7 @@ mod tests {
     #[test]
     fn val_arithmetic_error_messages() {
         assert_eq!(
-            format!("{}", ValArithmeticError::NonIdenticalVariants),
+            format!("{}", NumArithmeticError::NonIdenticalVariants),
             "the variants of the Vals don't match"
         );
     }
