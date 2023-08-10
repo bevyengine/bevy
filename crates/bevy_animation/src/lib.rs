@@ -601,10 +601,7 @@ fn apply_animation(
         }
 
         if !any_path_found {
-            warn!(
-                "Animation player on {:?} did not match any entity paths.",
-                root
-            );
+            warn!("Animation player on {root:?} did not match any entity paths.");
         }
     }
 }
