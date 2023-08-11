@@ -193,6 +193,13 @@ impl<'w> EntityBorrowMut<'w> {
         Self(cell)
     }
 
+    /// Returns a new instance with a shorter lifetime.
+    /// This is useful if you have `&mut EntityBorrowMut`, but you need `EntityBorrowMut`.
+    pub fn reborrow(&mut self) -> EntityBorrowMut<'_> {
+        // SAFETY: We have exclusive access to the entire entity and its components.
+        unsafe { Self::new(self.0) }
+    }
+
     /// Gets read-only access to all of the entity's components.
     pub fn as_readonly(&self) -> EntityBorrow<'_> {
         // SAFETY:
