@@ -14,7 +14,14 @@ use std::any::TypeId;
 
 use super::{unsafe_world_cell::UnsafeEntityCell, Ref};
 
-/// A read-only reference to a particular [`Entity`] and all of its components
+/// A read-only reference to a particular [`Entity`] and all of its components.
+///
+/// This type provides access to the entire world, which means it can not exist
+/// at the same time as any [`EntityMut`]. See [`EntityBorrow`] and [`EntityBorrowMut`],
+/// which allow disjoint access to multiple entities at once.
+///
+/// [`EntityBorrow`]: super::EntityBorrow
+/// [`EntityBorrowMut`]: super::EntityBorrowMut
 #[derive(Copy, Clone)]
 pub struct EntityRef<'w> {
     world: &'w World,
@@ -179,7 +186,13 @@ impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
     }
 }
 
-/// A mutable reference to a particular [`Entity`] and all of its components
+/// A mutable reference to a particular [`Entity`] and all of its components.
+///
+/// This type provides mutable access to the entire world, which means only one
+/// [`EntityMut`] can exist at one time for a given world. See [`EntityBorrowMut`],
+/// which allows disjoint mutable access to multiple entities at once.
+///
+/// [`EntityBorrowMut`]: super::EntityBorrowMut
 pub struct EntityMut<'w> {
     world: &'w mut World,
     entity: Entity,
