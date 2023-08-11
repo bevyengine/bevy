@@ -202,6 +202,13 @@ impl<'w> EntityMut<'w> {
             self.location,
         )
     }
+    pub(crate) fn into_unsafe_entity_cell(self) -> UnsafeEntityCell<'w> {
+        UnsafeEntityCell::new(
+            self.world.as_unsafe_world_cell(),
+            self.entity,
+            self.location,
+        )
+    }
 
     /// # Safety
     ///
