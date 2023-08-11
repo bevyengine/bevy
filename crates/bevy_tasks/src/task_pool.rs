@@ -101,7 +101,7 @@ impl TaskPoolBuilder {
 /// purpose, it is often stored in a component or resource, see the
 /// `async_compute` example.)
 ///
-/// If the result is not required, one may also use [`Task.detach`] and the pool
+/// If the result is not required, one may also use [`Task::detach`] and the pool
 /// will still execute a task, even if it is dropped.
 #[derive(Debug)]
 pub struct TaskPool {
