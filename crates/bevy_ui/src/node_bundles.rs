@@ -98,12 +98,11 @@ pub struct ImageBundle {
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `ImageBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
     /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -143,12 +142,11 @@ pub struct AtlasImageBundle {
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `AtlasImageBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
     /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -180,12 +178,11 @@ pub struct TextBundle {
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `TextBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
     /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -292,12 +289,11 @@ pub struct ButtonBundle {
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `ButtonBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
     /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
