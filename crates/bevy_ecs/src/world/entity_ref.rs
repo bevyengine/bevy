@@ -177,8 +177,11 @@ impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
 /// A mutable reference to a particular [`Entity`] and all of its components.
 ///
 /// This type provides mutable access to the entire world, which means only one
-/// [`EntityMut`] can exist at one time for a given world. See [`EntityBorrowMut`],
-/// which allows disjoint mutable access to multiple entities at once.
+/// [`EntityMut`] can exist at one time for a given world.
+///
+/// See also [`EntityBorrowMut`], which allows disjoint mutable access to multiple
+/// entities at once.  Unlike `EntityBorrowMut`, this type allows adding and
+/// removing components, and despawning the entity.
 ///
 /// [`EntityBorrowMut`]: super::EntityBorrowMut
 pub struct EntityMut<'w> {

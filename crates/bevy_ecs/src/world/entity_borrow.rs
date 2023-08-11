@@ -156,7 +156,8 @@ impl<'w> EntityBorrow<'w> {
 
 /// Provides mutable access to a single entity and all of its components.
 ///
-/// Unlike [`EntityMut`], this type allows disjoint accesses to multiple entities at once.
+/// See also [`EntityMut`], which allows adding and removing components, and despawning the entity.
+/// Unlike `EntityMut`, this type allows disjoint accesses to multiple entities at once.
 ///
 /// [`EntityMut`]: super::EntityMut
 pub struct EntityBorrowMut<'w>(UnsafeEntityCell<'w>);
