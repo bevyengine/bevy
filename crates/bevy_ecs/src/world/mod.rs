@@ -446,10 +446,24 @@ impl World {
         Some(unsafe { EntityMut::new(self, entity, location) })
     }
 
-    /// Returns disjoint mutable access to multiple entities at once.
+    /// Gets mutable access to multiple entities.
     ///
     /// Returns an `Err` if any entities do not exist in the world,
     /// or if the same entity is specified multiple times.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// // Disjoint mutable access.
+    /// let [entity1, entity2] = world.get_entities_mut([id1, id2]).unwrap();
+    ///
+    /// // Trying to access the same entity multiple times will fail.
+    /// assert!(world.get_entities_mut([id1, id1]).is_err());
+    /// ```
     pub fn get_entities_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
