@@ -294,6 +294,45 @@ impl World {
         }
     }
 
+    /// Gets an [`EntityRef`] for multiple entities at once.
+    ///
+    /// # Panics
+    ///
+    /// If any entity does not exist in the world.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// // Getting multiple entities.
+    /// let [entity1, entity2] = world.many_entities([id1, id2]);
+    ///
+    /// ```should_panic
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// // Trying to get a despawned entity will fail.
+    /// world.despawn(id2);
+    /// world.many_entities([id1, id2]);
+    /// ```
+    pub fn many_entities<const N: usize>(&mut self, entities: [Entity; N]) -> [EntityRef<'_>; N] {
+        #[inline(never)]
+        #[cold]
+        #[track_caller]
+        fn panic_no_entity(entity: Entity) -> ! {
+            panic!("Entity {entity:?} does not exist");
+        }
+
+        match self.get_many_entities(entities) {
+            Ok(refs) => refs,
+            Err(entity) => panic_no_entity(entity),
+        }
+    }
+
     /// Gets mutable access to multiple entities at once.
     ///
     /// # Panics
@@ -412,6 +451,41 @@ impl World {
         // Additionally, Entities::get(entity) returns the correct EntityLocation if the entity exists.
         let entity_ref = unsafe { EntityRef::new(self, entity, location) };
         Some(entity_ref)
+    }
+
+    /// Gets an [`EntityRef`] for multiple entities at once.
+    ///
+    /// # Errors
+    ///
+    /// If any entity does not exist in the world.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// // Getting multiple entities.
+    /// let [entity1, entity2] = world.get_many_entities([id1, id2]).unwrap();
+    ///
+    /// // Trying to get a despawned entity will fail.
+    /// world.despawn(id2);
+    /// assert_eq!(world.get_many_entities([id1, id2]), Err(id2));
+    /// ```
+    pub fn get_many_entities<const N: usize>(
+        &self,
+        entities: [Entity; N],
+    ) -> Result<[EntityRef<'_>; N], Entity> {
+        let mut refs = [MaybeUninit::uninit(); N];
+        for (r, id) in std::iter::zip(&mut refs, entities) {
+            *r = MaybeUninit::new(self.get_entity(id).ok_or(id)?);
+        }
+
+        // SAFETY: Each item was initialized in the above loop.
+        let refs = refs.map(|r| unsafe { MaybeUninit::assume_init(r) });
+
+        Ok(refs)
     }
 
     /// Returns an [`Entity`] iterator of current entities.
