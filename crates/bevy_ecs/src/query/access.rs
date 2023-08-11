@@ -183,7 +183,7 @@ impl<T: SparseSetIndex> Access<T> {
         }
 
         if other.reads_all {
-            return self.has_any_write();
+            return !self.has_any_write();
         }
 
         if self.writes_all {
@@ -191,7 +191,7 @@ impl<T: SparseSetIndex> Access<T> {
         }
 
         if other.writes_all {
-            return self.has_any_read();
+            return !self.has_any_read();
         }
 
         self.writes.is_disjoint(&other.reads_and_writes)
