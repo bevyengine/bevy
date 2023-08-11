@@ -27,6 +27,15 @@ impl<'w> From<EntityRef<'w>> for EntityBorrow<'w> {
     }
 }
 
+impl<'a> From<&'a EntityMut<'_>> for EntityBorrow<'a> {
+    fn from(value: &'a EntityMut<'_>) -> Self {
+        // SAFETY:
+        // - `EntityMut` guarantees exclusive access to the entire world.
+        // - `&self` ensures no mutable accesses are active.
+        unsafe { EntityBorrow::new(value.as_unsafe_entity_cell_readonly()) }
+    }
+}
+
 impl<'w> EntityBorrow<'w> {
     /// # Safety
     /// - `cell` must have permission to read every component of the entity.

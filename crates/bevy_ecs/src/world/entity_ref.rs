@@ -188,14 +188,14 @@ pub struct EntityMut<'w> {
 }
 
 impl<'w> EntityMut<'w> {
-    fn as_unsafe_entity_cell_readonly(&self) -> UnsafeEntityCell<'_> {
+    pub(crate) fn as_unsafe_entity_cell_readonly(&self) -> UnsafeEntityCell<'_> {
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell_readonly(),
             self.entity,
             self.location,
         )
     }
-    fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
+    pub(crate) fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell(),
             self.entity,
@@ -294,8 +294,16 @@ impl<'w> EntityMut<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
-        // SAFETY: &self implies shared access for duration of returned value
-        unsafe { self.as_unsafe_entity_cell_readonly().get::<T>() }
+        EntityBorrow::from(self).get()
+    }
+
+    /// Gets access to the component of type `T` for the current entity,
+    /// including change detection information as a [`Ref`].
+    ///
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn get_ref<T: Component>(&self) -> Option<Ref<'_, T>> {
+        EntityBorrow::from(self).get_ref()
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
@@ -310,11 +318,7 @@ impl<'w> EntityMut<'w> {
     /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        // SAFETY: &self implies shared access
-        unsafe {
-            self.as_unsafe_entity_cell_readonly()
-                .get_change_ticks::<T>()
-        }
+        EntityBorrow::from(self).get_change_ticks::<T>()
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -325,11 +329,7 @@ impl<'w> EntityMut<'w> {
     /// compile time.**
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
-        // SAFETY: &self implies shared access
-        unsafe {
-            self.as_unsafe_entity_cell_readonly()
-                .get_change_ticks_by_id(component_id)
-        }
+        EntityBorrow::from(self).get_change_ticks_by_id(component_id)
     }
 
     /// Adds a [`Bundle`] of components to the entity.
@@ -813,13 +813,7 @@ impl<'w> EntityMut<'w> {
     /// which is only valid while the [`EntityMut`] is alive.
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
-        // SAFETY:
-        // - `&self` ensures that no mutable references exist to this entity's components.
-        // - `as_unsafe_world_cell_readonly` gives read only permission for all components on this entity
-        unsafe {
-            self.as_unsafe_entity_cell_readonly()
-                .get_by_id(component_id)
-        }
+        EntityBorrow::from(self).get_by_id(component_id)
     }
 
     /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
