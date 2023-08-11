@@ -3,7 +3,7 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::color::Color;
 
-#[derive(Component, Debug, Default, Clone, Copy, Reflect)]
+#[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component, Default)]
 #[repr(C)]
 pub struct Sprite {
