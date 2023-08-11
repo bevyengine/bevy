@@ -84,13 +84,18 @@ impl<I: PhaseItem> RenderPhase<I> {
         let mut draw_functions = draw_functions.write();
         draw_functions.prepare(world);
 
-        self.items
-            .iter()
-            .filter(|item| !item.skip())
-            .for_each(|item| {
+        let mut index = 0;
+        while index < self.items.len() {
+            let item = &self.items[index];
+            let batch_size = item.batch_size();
+            if batch_size > 0 {
                 let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
                 draw_function.draw(world, render_pass, view, item);
-            });
+                index += batch_size;
+            } else {
+                index += 1;
+            }
+        }
     }
 
     /// Renders all [`PhaseItem`]s in the provided `range` (based on their index in `self.items`) using their corresponding draw functions.
@@ -105,15 +110,23 @@ impl<I: PhaseItem> RenderPhase<I> {
         let mut draw_functions = draw_functions.write();
         draw_functions.prepare(world);
 
-        self.items
+        let items = self
+            .items
             .get(range)
-            .expect("`Range` provided to `render_range()` is out of bounds")
-            .iter()
-            .filter(|item| !item.skip())
-            .for_each(|item| {
+            .expect("`Range` provided to `render_range()` is out of bounds");
+
+        let mut index = 0;
+        while index < items.len() {
+            let item = &items[index];
+            let batch_size = item.batch_size();
+            if batch_size > 0 {
                 let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
                 draw_function.draw(world, render_pass, view, item);
-            });
+                index += batch_size;
+            } else {
+                index += 1;
+            }
+        }
     }
 }
 
@@ -163,8 +176,8 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
         items.sort_unstable_by_key(|item| item.sort_key());
     }
 
-    fn skip(&self) -> bool {
-        false
+    fn batch_size(&self) -> usize {
+        1
     }
 }
 

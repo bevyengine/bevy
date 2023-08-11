@@ -472,7 +472,7 @@ const QUAD_UVS: [Vec2; 4] = [
 #[derive(Component)]
 pub struct SpriteBatch {
     range: Range<u32>,
-    image: Handle<Image>,
+    image_handle_id: HandleId,
     colored: bool,
 }
 
@@ -561,8 +561,8 @@ pub fn queue_sprites(
                     pipeline: colored_pipeline,
                     entity: *entity,
                     sort_key,
-                    // items will be batched in prepare_sprites
-                    skip: true,
+                    // batch_size will be calculated in prepare_sprites
+                    batch_size: 0,
                 });
             } else {
                 transparent_phase.add(Transparent2d {
@@ -570,8 +570,8 @@ pub fn queue_sprites(
                     pipeline,
                     entity: *entity,
                     sort_key,
-                    // items will be batched in prepare_sprites
-                    skip: true,
+                    // batch_size will be calculated in prepare_sprites
+                    batch_size: 0,
                 });
             }
         }
@@ -627,6 +627,7 @@ pub fn prepare_sprites(
         let image_bind_groups = &mut *image_bind_groups;
 
         for mut transparent_phase in &mut phases {
+            let mut batch_item_index = 0;
             let mut batch_image_size = Vec2::ZERO;
             let mut batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
             let mut batch_colored = false;
@@ -647,7 +648,7 @@ pub fn prepare_sprites(
                         if let Some(gpu_image) =
                             gpu_images.get(&Handle::weak(extracted_sprite.image_handle_id))
                         {
-                            item.skip = false;
+                            batch_item_index = item_index;
                             batch_image_size = Vec2::new(gpu_image.size.x, gpu_image.size.y);
                             batch_image_handle = extracted_sprite.image_handle_id;
                             batch_colored = extracted_sprite.color != Color::WHITE;
@@ -659,7 +660,7 @@ pub fn prepare_sprites(
                                     index..index
                                 },
                                 colored: batch_colored,
-                                image: Handle::weak(batch_image_handle),
+                                image_handle_id: batch_image_handle,
                             };
 
                             batches.push((item.entity, new_batch));
@@ -714,7 +715,7 @@ pub fn prepare_sprites(
                         quad_size = rect_size;
                     }
 
-                    // // Override the size if a custom one is specified
+                    // Override the size if a custom one is specified
                     if let Some(custom_size) = extracted_sprite.custom_size {
                         quad_size = custom_size;
                     }
@@ -751,6 +752,7 @@ pub fn prepare_sprites(
                         index += QUAD_INDICES.len() as u32;
                         existing_batch.unwrap().1.range.end = index;
                     }
+                    transparent_phase.items[batch_item_index].batch_size += 1;
                 } else {
                     batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
                 }
@@ -811,7 +813,14 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
 
-        pass.set_bind_group(I, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
+        pass.set_bind_group(
+            I,
+            image_bind_groups
+                .values
+                .get(&Handle::weak(batch.image_handle_id))
+                .unwrap(),
+            &[],
+        );
         RenderCommandResult::Success
     }
 }

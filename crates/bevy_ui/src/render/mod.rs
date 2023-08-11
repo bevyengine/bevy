@@ -638,7 +638,7 @@ const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 #[derive(Component)]
 pub struct UiBatch {
     pub range: Range<u32>,
-    pub image: Handle<Image>,
+    pub image_handle_id: HandleId,
 }
 
 const TEXTURED_QUAD: u32 = 0;
@@ -669,8 +669,8 @@ pub fn queue_uinodes(
                 pipeline,
                 entity: *entity,
                 sort_key: FloatOrd(extracted_uinode.stack_index as f32),
-                // batching will be done in prepare_uinodes
-                skip: true,
+                // batch_size will be calculated in prepare_uinodes
+                batch_size: 0,
             });
         }
     }
@@ -728,6 +728,7 @@ pub fn prepare_uinodes(
         let mut index = 0;
 
         for mut ui_phase in &mut phases {
+            let mut batch_item_index = 0;
             let mut batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
 
             for item_index in 0..ui_phase.items.len() {
@@ -739,12 +740,12 @@ pub fn prepare_uinodes(
 
                     if existing_batch.is_none() {
                         if let Some(gpu_image) = gpu_images.get(&extracted_uinode.image) {
-                            item.skip = false;
+                            batch_item_index = item_index;
                             batch_image_handle = extracted_uinode.image.id();
 
                             let new_batch = UiBatch {
                                 range: index..index,
-                                image: extracted_uinode.image.clone_weak(),
+                                image_handle_id: extracted_uinode.image.id(),
                             };
 
                             batches.push((item.entity, new_batch));
@@ -893,6 +894,7 @@ pub fn prepare_uinodes(
                     }
                     index += QUAD_INDICES.len() as u32;
                     existing_batch.unwrap().1.range.end = index;
+                    ui_phase.items[batch_item_index].batch_size += 1;
                 } else {
                     batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
                 }
