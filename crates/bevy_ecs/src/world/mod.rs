@@ -309,6 +309,7 @@ impl World {
     /// # let id2 = world.spawn_empty().id();
     /// // Getting multiple entities.
     /// let [entity1, entity2] = world.many_entities([id1, id2]);
+    /// ```
     ///
     /// ```should_panic
     /// # use bevy_ecs::prelude::*;
@@ -350,7 +351,7 @@ impl World {
     /// # let id1 = world.spawn_empty().id();
     /// # let id2 = world.spawn_empty().id();
     /// // Disjoint mutable access.
-    /// let [entity1, entity2] = world.entities_mut([id1, id2]);
+    /// let [entity1, entity2] = world.many_entities_mut([id1, id2]);
     /// ```
     ///
     /// Trying to access the same entity multiple times will fail.
@@ -359,7 +360,7 @@ impl World {
     /// # use bevy_ecs::prelude::*;
     /// # let mut world = World::new();
     /// # let id = world.spawn_empty().id();
-    /// world.entities_mut([id, id]);
+    /// world.many_entities_mut([id, id]);
     /// ```
     pub fn many_entities_mut<const N: usize>(
         &mut self,
@@ -471,7 +472,7 @@ impl World {
     ///
     /// // Trying to get a despawned entity will fail.
     /// world.despawn(id2);
-    /// assert_eq!(world.get_many_entities([id1, id2]), Err(id2));
+    /// assert!(world.get_many_entities([id1, id2]).is_err());
     /// ```
     pub fn get_many_entities<const N: usize>(
         &self,
