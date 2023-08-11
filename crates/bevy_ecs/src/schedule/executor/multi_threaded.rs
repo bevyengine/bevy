@@ -566,9 +566,7 @@ impl MultiThreadedExecutor {
         let system = unsafe { &mut *systems[system_index].get() };
 
         #[cfg(feature = "trace")]
-        let task_span = info_span!("system_task", name = &*system.name());
-        #[cfg(feature = "trace")]
-        let system_span = info_span!("system", name = &*system.name());
+        let system_span = self.system_task_metadata[system_index].system_span.clone();
 
         let sender = self.sender.clone();
         let panic_payload = self.panic_payload.clone();
@@ -597,7 +595,11 @@ impl MultiThreadedExecutor {
             };
 
             #[cfg(feature = "trace")]
-            let task = task.instrument(task_span);
+            let task = task.instrument(
+                self.system_task_metadata[system_index]
+                    .system_task_span
+                    .clone(),
+            );
             scope.spawn_on_scope(task);
         } else {
             let task = async move {
@@ -627,7 +629,11 @@ impl MultiThreadedExecutor {
             };
 
             #[cfg(feature = "trace")]
-            let task = task.instrument(task_span);
+            let task = task.instrument(
+                self.system_task_metadata[system_index]
+                    .system_task_span
+                    .clone(),
+            );
             scope.spawn_on_scope(task);
         }
 
