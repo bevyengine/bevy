@@ -38,7 +38,7 @@ mod identifier;
 
 pub use identifier::WorldId;
 
-use self::unsafe_world_cell::UnsafeWorldCell;
+use self::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
@@ -387,8 +387,34 @@ impl World {
                         table_row: archetype_entity.table_row(),
                     };
 
-                    // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored
+                    // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
                     unsafe { EntityRef::new(self, entity, location) }
+                })
+        })
+    }
+
+    /// Returns a mutable iterator over current entities.
+    pub fn iter_entities_mut(&mut self) -> impl Iterator<Item = EntityBorrowMut<'_>> + '_ {
+        let world_cell = self.as_unsafe_world_cell();
+        world_cell.archetypes().iter().flat_map(move |archetype| {
+            archetype
+                .entities()
+                .iter()
+                .enumerate()
+                .map(move |(archetype_row, archetype_entity)| {
+                    let entity = archetype_entity.entity();
+                    let location = EntityLocation {
+                        archetype_id: archetype.id(),
+                        archetype_row: ArchetypeRow::new(archetype_row),
+                        table_id: archetype.table_id(),
+                        table_row: archetype_entity.table_row(),
+                    };
+
+                    // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
+                    let cell = UnsafeEntityCell::new(world_cell, entity, location);
+                    // SAFETY: We have exclusive access to the entire world. We only create one borrow for each entity,
+                    // so none will conflict with one another.
+                    unsafe { EntityBorrowMut::new(cell) }
                 })
         })
     }
