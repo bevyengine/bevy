@@ -105,35 +105,25 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                         match settings.mode {
                             PlaybackMode::Loop => {
                                 sink.append(audio_source.decoder().repeat_infinite());
-                                commands
-                                    .entity(entity)
-                                    .insert(SpatialAudioSink { sink: Some(sink) });
+                                commands.entity(entity).insert(SpatialAudioSink { sink });
                             }
                             PlaybackMode::Once => {
                                 sink.append(audio_source.decoder());
-                                commands
-                                    .entity(entity)
-                                    .insert(SpatialAudioSink { sink: Some(sink) });
+                                commands.entity(entity).insert(SpatialAudioSink { sink });
                             }
                             PlaybackMode::Despawn => {
                                 sink.append(audio_source.decoder());
                                 commands
                                     .entity(entity)
                                     // PERF: insert as bundle to reduce archetype moves
-                                    .insert((
-                                        SpatialAudioSink { sink: Some(sink) },
-                                        PlaybackDespawnMarker,
-                                    ));
+                                    .insert((SpatialAudioSink { sink }, PlaybackDespawnMarker));
                             }
                             PlaybackMode::Remove => {
                                 sink.append(audio_source.decoder());
                                 commands
                                     .entity(entity)
                                     // PERF: insert as bundle to reduce archetype moves
-                                    .insert((
-                                        SpatialAudioSink { sink: Some(sink) },
-                                        PlaybackRemoveMarker,
-                                    ));
+                                    .insert((SpatialAudioSink { sink }, PlaybackRemoveMarker));
                             }
                         };
                     }
@@ -157,32 +147,25 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                         match settings.mode {
                             PlaybackMode::Loop => {
                                 sink.append(audio_source.decoder().repeat_infinite());
-                                commands
-                                    .entity(entity)
-                                    .insert(AudioSink { sink: Some(sink) });
+                                commands.entity(entity).insert(AudioSink { sink });
                             }
                             PlaybackMode::Once => {
                                 sink.append(audio_source.decoder());
-                                commands
-                                    .entity(entity)
-                                    .insert(AudioSink { sink: Some(sink) });
+                                commands.entity(entity).insert(AudioSink { sink });
                             }
                             PlaybackMode::Despawn => {
                                 sink.append(audio_source.decoder());
                                 commands
                                     .entity(entity)
                                     // PERF: insert as bundle to reduce archetype moves
-                                    .insert((
-                                        AudioSink { sink: Some(sink) },
-                                        PlaybackDespawnMarker,
-                                    ));
+                                    .insert((AudioSink { sink }, PlaybackDespawnMarker));
                             }
                             PlaybackMode::Remove => {
                                 sink.append(audio_source.decoder());
                                 commands
                                     .entity(entity)
                                     // PERF: insert as bundle to reduce archetype moves
-                                    .insert((AudioSink { sink: Some(sink) }, PlaybackRemoveMarker));
+                                    .insert((AudioSink { sink }, PlaybackRemoveMarker));
                             }
                         };
                     }
@@ -215,24 +198,24 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
     >,
 ) {
     for (entity, sink) in &query_nonspatial_despawn {
-        if sink.sink.as_ref().unwrap().empty() {
+        if sink.sink.empty() {
             commands.entity(entity).despawn();
         }
     }
     for (entity, sink) in &query_spatial_despawn {
-        if sink.sink.as_ref().unwrap().empty() {
+        if sink.sink.empty() {
             commands.entity(entity).despawn();
         }
     }
     for (entity, sink) in &query_nonspatial_remove {
-        if sink.sink.as_ref().unwrap().empty() {
+        if sink.sink.empty() {
             commands
                 .entity(entity)
                 .remove::<(AudioSourceBundle<T>, AudioSink, PlaybackRemoveMarker)>();
         }
     }
     for (entity, sink) in &query_spatial_remove {
-        if sink.sink.as_ref().unwrap().empty() {
+        if sink.sink.empty() {
             commands.entity(entity).remove::<(
                 SpatialAudioSourceBundle<T>,
                 SpatialAudioSink,
