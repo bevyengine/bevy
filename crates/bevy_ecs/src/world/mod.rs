@@ -294,6 +294,51 @@ impl World {
         }
     }
 
+    /// Gets mutable access to multiple entities at once.
+    ///
+    /// # Panics
+    ///
+    /// If any entities do not exist in the world,
+    /// or if the same entity is specified multiple times.
+    ///
+    /// # Examples
+    ///
+    /// Disjoint mutable access.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// // Disjoint mutable access.
+    /// let [entity1, entity2] = world.entities_mut([id1, id2]);
+    /// ```
+    ///
+    /// Trying to access the same entity multiple times will fail.
+    ///
+    /// ```should_panic
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let id = world.spawn_empty().id();
+    /// world.entities_mut([id, id]);
+    /// ```
+    pub fn many_entities_mut<const N: usize>(
+        &mut self,
+        entities: [Entity; N],
+    ) -> [EntityBorrowMut<'_>; N] {
+        #[inline(never)]
+        #[cold]
+        #[track_caller]
+        fn panic_on_err(e: QueryEntityError) -> ! {
+            panic!("{e}");
+        }
+
+        match self.get_many_entities_mut(entities) {
+            Ok(borrows) => borrows,
+            Err(e) => panic_on_err(e),
+        }
+    }
+
     /// Returns the components of an [`Entity`](crate::entity::Entity) through [`ComponentInfo`](crate::component::ComponentInfo).
     #[inline]
     pub fn inspect_entity(&self, entity: Entity) -> Vec<&ComponentInfo> {
@@ -448,7 +493,9 @@ impl World {
 
     /// Gets mutable access to multiple entities.
     ///
-    /// Returns an `Err` if any entities do not exist in the world,
+    /// # Errors
+    ///
+    /// If any entities do not exist in the world,
     /// or if the same entity is specified multiple times.
     ///
     /// # Examples
@@ -459,12 +506,12 @@ impl World {
     /// # let id1 = world.spawn_empty().id();
     /// # let id2 = world.spawn_empty().id();
     /// // Disjoint mutable access.
-    /// let [entity1, entity2] = world.get_entities_mut([id1, id2]).unwrap();
+    /// let [entity1, entity2] = world.get_many_entities_mut([id1, id2]).unwrap();
     ///
     /// // Trying to access the same entity multiple times will fail.
-    /// assert!(world.get_entities_mut([id1, id1]).is_err());
+    /// assert!(world.get_many_entities_mut([id1, id1]).is_err());
     /// ```
-    pub fn get_entities_mut<const N: usize>(
+    pub fn get_many_entities_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
     ) -> Result<[EntityBorrowMut<'_>; N], QueryEntityError> {
