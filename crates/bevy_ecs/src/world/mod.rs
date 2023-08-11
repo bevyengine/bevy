@@ -20,7 +20,7 @@ use crate::{
     component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, Events},
-    query::{DebugCheckedUnwrap, QueryState, ReadOnlyWorldQuery, WorldQuery},
+    query::{DebugCheckedUnwrap, QueryEntityError, QueryState, ReadOnlyWorldQuery, WorldQuery},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
@@ -32,6 +32,7 @@ use bevy_utils::tracing::warn;
 use std::{
     any::TypeId,
     fmt,
+    mem::MaybeUninit,
     sync::atomic::{AtomicU32, Ordering},
 };
 mod identifier;
@@ -443,6 +444,55 @@ impl World {
         let location = self.entities.get(entity)?;
         // SAFETY: `entity` exists and `location` is that entity's location
         Some(unsafe { EntityMut::new(self, entity, location) })
+    }
+
+    /// Returns disjoint mutable access to multiple entities at once.
+    ///
+    /// Returns an `Err` if any entities do not exist in the world,
+    /// or if the same entity is specified multiple times.
+    pub fn get_entities_mut<const N: usize>(
+        &mut self,
+        entities: [Entity; N],
+    ) -> Result<[EntityBorrowMut<'_>; N], QueryEntityError> {
+        // Ensure each entity is unique.
+        for i in 0..N {
+            for j in 0..i {
+                if entities[i] == entities[j] {
+                    return Err(QueryEntityError::AliasedMutability(entities[i]));
+                }
+            }
+        }
+
+        // SAFETY: Each entity is unique.
+        unsafe { self.get_entities_mut_unchecked(entities) }
+    }
+
+    /// # Safety
+    /// `entities` must contain no duplicate [`Entity`] IDs.
+    unsafe fn get_entities_mut_unchecked<const N: usize>(
+        &mut self,
+        entities: [Entity; N],
+    ) -> Result<[EntityBorrowMut<'_>; N], QueryEntityError> {
+        let world_cell = self.as_unsafe_world_cell();
+
+        let mut cells = [MaybeUninit::uninit(); N];
+        for (cell, id) in std::iter::zip(&mut cells, entities) {
+            *cell = MaybeUninit::new(
+                world_cell
+                    .get_entity(id)
+                    .ok_or_else(|| QueryEntityError::NoSuchEntity(id))?,
+            );
+        }
+        // SAFETY: Each item was initialized in the loop above.
+        let cells = cells.map(|c| unsafe { MaybeUninit::assume_init(c) });
+
+        // SAFETY:
+        // - `world_cell` has exclusive access to the entire world.
+        // - The caller ensures that each entity is unique, so none
+        //   of the borrows will conflict with one another.
+        let borrows = cells.map(|c| unsafe { EntityBorrowMut::new(c) });
+
+        Ok(borrows)
     }
 
     /// Spawns a new [`Entity`] and returns a corresponding [`EntityMut`], which can be used
