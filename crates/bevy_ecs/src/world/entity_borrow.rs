@@ -313,3 +313,30 @@ impl<'w> EntityBorrowMut<'w> {
         unsafe { self.0.get_mut_by_id(component_id) }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{self as bevy_ecs, prelude::*, system::assert_is_system};
+
+    #[test]
+    fn disjoint_access() {
+        #[derive(Component)]
+        struct A;
+
+        fn disjoint_readonly(
+            _: Query<EntityBorrow, With<A>>,
+            _: Query<EntityBorrowMut, Without<A>>,
+        ) {
+        }
+
+        fn disjoint_mutable(
+            _: Query<EntityBorrowMut, With<A>>,
+            _: Query<EntityBorrowMut, Without<A>>,
+        ) {
+        }
+
+        assert_is_system(disjoint_readonly);
+        assert_is_system(disjoint_mutable);
+    }
+}
