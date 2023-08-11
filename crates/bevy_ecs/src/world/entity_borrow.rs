@@ -36,6 +36,14 @@ impl<'a> From<&'a EntityMut<'_>> for EntityBorrow<'a> {
     }
 }
 
+impl<'w> From<EntityBorrowMut<'w>> for EntityBorrow<'w> {
+    fn from(value: EntityBorrowMut<'w>) -> Self {
+        // SAFETY:
+        // - `EntityBorrowMut` gurantees exclusive access to the world.
+        unsafe { EntityBorrow::new(value.0) }
+    }
+}
+
 impl<'w> EntityBorrow<'w> {
     /// # Safety
     /// - `cell` must have permission to read every component of the entity.
@@ -166,6 +174,13 @@ impl<'w> From<EntityMut<'w>> for EntityBorrowMut<'w> {
     fn from(value: EntityMut<'w>) -> Self {
         // SAFETY: `EntityMut` guarantees exclusive access to the entire world.
         unsafe { EntityBorrowMut::new(value.into_unsafe_entity_cell()) }
+    }
+}
+
+impl<'a> From<&'a mut EntityMut<'_>> for EntityBorrowMut<'a> {
+    fn from(value: &'a mut EntityMut<'_>) -> Self {
+        // SAFETY: `EntityMut` guarantees exclusive access to the entire world.
+        unsafe { EntityBorrowMut::new(value.as_unsafe_entity_cell()) }
     }
 }
 
