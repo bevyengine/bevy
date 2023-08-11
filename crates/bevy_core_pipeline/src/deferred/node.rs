@@ -93,7 +93,7 @@ impl ViewNode for DeferredNode {
                     load: if motion_vector_prepass.is_some() {
                         LoadOp::Load // load if the motion_vector_prepass has run
                     } else {
-                        LoadOp::Clear(Color::rgb_linear(0.0, 0.0, 0.0).into())
+                        LoadOp::Clear(Color::BLACK.into())
                     },
                     store: true,
                 },
