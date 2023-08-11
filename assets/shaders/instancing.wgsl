@@ -1,4 +1,4 @@
-#import bevy_pbr::mesh_functions  mesh_position_local_to_clip
+#import bevy_pbr::mesh_functions  affine_to_square, mesh_position_local_to_clip
 #import bevy_pbr::mesh_bindings   mesh
 
 struct Vertex {
@@ -24,7 +24,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     // This index could be passed in via another uniform instead but it's
     // unnecessary for the example.
     out.clip_position = mesh_position_local_to_clip(
-        mesh[0].model,
+        affine_to_square(mesh[0].model),
         vec4<f32>(position, 1.0)
     );
     out.color = vertex.i_color;
