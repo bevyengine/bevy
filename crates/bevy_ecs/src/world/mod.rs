@@ -514,7 +514,7 @@ impl World {
         })
     }
 
-    /// Returns a mutable iterator over current entities.
+    /// Returns a mutable iterator over all entities in the `World`.
     pub fn iter_entities_mut(&mut self) -> impl Iterator<Item = EntityBorrowMut<'_>> + '_ {
         let world_cell = self.as_unsafe_world_cell();
         world_cell.archetypes().iter().flat_map(move |archetype| {

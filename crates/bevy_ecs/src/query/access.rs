@@ -151,7 +151,7 @@ impl<T: SparseSetIndex> Access<T> {
         self.reads_all || self.writes_all
     }
 
-    /// Returns `true` if this has write access to all indexec elements (i.e `EntityBorrowMut`).
+    /// Returns `true` if this has write access to all indexed elements (i.e. `EntityBorrowMut`).
     pub fn has_write_all(&self) -> bool {
         self.writes_all
     }
