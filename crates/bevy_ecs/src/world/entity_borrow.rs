@@ -378,11 +378,11 @@ mod tests {
     use super::*;
     use crate::{self as bevy_ecs, prelude::*, system::assert_is_system};
 
+    #[derive(Component)]
+    struct A;
+
     #[test]
     fn disjoint_access() {
-        #[derive(Component)]
-        struct A;
-
         fn disjoint_readonly(
             _: Query<EntityBorrow, With<A>>,
             _: Query<EntityBorrowMut, Without<A>>,
@@ -397,5 +397,51 @@ mod tests {
 
         assert_is_system(disjoint_readonly);
         assert_is_system(disjoint_mutable);
+    }
+
+    #[test]
+    fn borrow_compatible() {
+        fn borrow_system(_: Query<(EntityBorrow, &A)>, _: Query<&A>) {}
+
+        assert_is_system(borrow_system);
+    }
+
+    #[test]
+    fn borrow_mut_compatible() {
+        fn borrow_mut_system(_: Query<(Entity, EntityBorrowMut)>) {}
+
+        assert_is_system(borrow_mut_system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn borrow_mut_incompatible1() {
+        fn incompatible_system(_: Query<(EntityBorrowMut, &A)>) {}
+
+        assert_is_system(incompatible_system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn borrow_mut_incompatible2() {
+        fn incompatible_system(_: Query<(EntityBorrowMut, &mut A)>) {}
+
+        assert_is_system(incompatible_system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn borrow_mut_incompatible3() {
+        fn incompatible_system(_: Query<EntityBorrowMut>, _: Query<&A>) {}
+
+        assert_is_system(incompatible_system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn borrow_mut_incompatible4() {
+        fn incompatible_system(_: Query<EntityBorrowMut>, _: Query<&mut A>) {}
+
+        assert_is_system(incompatible_system);
     }
 }
