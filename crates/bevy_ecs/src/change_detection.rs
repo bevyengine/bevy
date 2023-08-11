@@ -196,6 +196,7 @@ pub trait DetectChangesMut: DetectChanges {
     ///     // Set the score to zero, unless it is already zero.
     ///     let new_score = 0;
     ///     if let Some(Score(previous_score)) = score.replace_if_neq(Score(new_score)) {
+    ///         // If `score` change, emit a `ScoreChanged` event.
     ///         score_changed.send(ScoreChanged {
     ///             current: new_score,
     ///             previous: previous_score,
