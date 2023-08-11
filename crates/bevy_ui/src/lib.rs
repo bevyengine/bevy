@@ -66,7 +66,7 @@ pub enum UiSystem {
 /// The current scale of the UI.
 ///
 /// A multiplier to fixed-sized ui values.
-/// **Note:** This will only affect fixed ui values like [`AutoVal::Px`]
+/// **Note:** This will only affect fixed ui values like [`Val::Px`]
 #[derive(Debug, Resource)]
 pub struct UiScale {
     /// The scale to be applied.

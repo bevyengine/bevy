@@ -192,9 +192,9 @@ pub enum ValArithmeticError {
 }
 
 impl Val {
-    /// Tries to add the values of two [`AutoVal`]s.
-    /// Returns [`AutoValArithmeticError::NonIdenticalVariants`] if two [`AutoVal`]s are of different variants.
-    /// When adding non-numeric [`AutoVal`]s, it returns the value unchanged.
+    /// Tries to add the values of two [`Val`]s.
+    /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
+    /// When adding non-numeric [`Val`]s, it returns the value unchanged.
     pub fn try_add(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
         match (self, rhs) {
             (Val::Auto, Val::Auto) => Ok(*self),
@@ -204,15 +204,15 @@ impl Val {
         }
     }
 
-    /// Adds `rhs` to `self` and assigns the result to `self` (see [`AutoVal::try_add`])
+    /// Adds `rhs` to `self` and assigns the result to `self` (see [`Val::try_add`])
     pub fn try_add_assign(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
         *self = self.try_add(rhs)?;
         Ok(())
     }
 
-    /// Tries to subtract the values of two [`AutoVal`]s.
-    /// Returns [`AutoValArithmeticError::NonIdenticalVariants`] if two [`AutoVal`]s are of different variants.
-    /// When adding non-numeric [`AutoVal`]s, it returns the value unchanged.
+    /// Tries to subtract the values of two [`Val`]s.
+    /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
+    /// When adding non-numeric [`Val`]s, it returns the value unchanged.
     pub fn try_sub(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
         match (self, rhs) {
             (Val::Auto, Val::Auto) => Ok(*self),
@@ -222,17 +222,17 @@ impl Val {
         }
     }
 
-    /// Subtracts `rhs` from `self` and assigns the result to `self` (see [`AutoVal::try_sub`])
+    /// Subtracts `rhs` from `self` and assigns the result to `self` (see [`Val::try_sub`])
     pub fn try_sub_assign(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
         *self = self.try_sub(rhs)?;
         Ok(())
     }
 
-    /// A convenience function for simple evaluation of [`AutoVal::Percent`] variant into a concrete [`AutoVal::Px`] value.
-    /// Returns a [`AutoValArithmeticError::NonEvaluateable`] if the [`AutoVal`] is impossible to evaluate into [`AutoVal::Px`].
+    /// A convenience function for simple evaluation of [`Val::Percent`] variant into a concrete [`Val::Px`] value.
+    /// Returns a [`ValArithmeticError::NonEvaluateable`] if the [`Val`] is impossible to evaluate into [`Val::Px`].
     /// Otherwise it returns an [`f32`] containing the evaluated value in pixels.
     ///
-    /// **Note:** If a [`AutoVal::Px`] is evaluated, it's inner value returned unchanged.
+    /// **Note:** If a [`Val::Px`] is evaluated, it's inner value returned unchanged.
     pub fn evaluate(&self, size: f32) -> Result<f32, ValArithmeticError> {
         match self {
             Val::Percent(value) => Ok(size * value / 100.0),
@@ -241,7 +241,7 @@ impl Val {
         }
     }
 
-    /// Similar to [`AutoVal::try_add`], but performs [`AutoVal::evaluate`] on both values before adding.
+    /// Similar to [`Val::try_add`], but performs [`Val::evaluate`] on both values before adding.
     /// Returns an [`f32`] value in pixels.
     pub fn try_add_with_size(&self, rhs: Val, size: f32) -> Result<f32, ValArithmeticError> {
         let lhs = self.evaluate(size)?;
@@ -250,8 +250,8 @@ impl Val {
         Ok(lhs + rhs)
     }
 
-    /// Similar to [`AutoVal::try_add_assign`], but performs [`AutoVal::evaluate`] on both values before adding.
-    /// The value gets converted to [`AutoVal::Px`].
+    /// Similar to [`Val::try_add_assign`], but performs [`Val::evaluate`] on both values before adding.
+    /// The value gets converted to [`Val::Px`].
     pub fn try_add_assign_with_size(
         &mut self,
         rhs: Val,
@@ -261,7 +261,7 @@ impl Val {
         Ok(())
     }
 
-    /// Similar to [`AutoVal::try_sub`], but performs [`AutoVal::evaluate`] on both values before subtracting.
+    /// Similar to [`Val::try_sub`], but performs [`Val::evaluate`] on both values before subtracting.
     /// Returns an [`f32`] value in pixels.
     pub fn try_sub_with_size(&self, rhs: Val, size: f32) -> Result<f32, ValArithmeticError> {
         let lhs = self.evaluate(size)?;
@@ -270,8 +270,8 @@ impl Val {
         Ok(lhs - rhs)
     }
 
-    /// Similar to [`AutoVal::try_sub_assign`], but performs [`AutoVal::evaluate`] on both values before adding.
-    /// The value gets converted to [`AutoVal::Px`].
+    /// Similar to [`Val::try_sub_assign`], but performs [`Val::evaluate`] on both values before adding.
+    /// The value gets converted to [`Val::Px`].
     pub fn try_sub_assign_with_size(
         &mut self,
         rhs: Val,
@@ -287,10 +287,10 @@ impl Val {
 /// This enum allows specifying values for various [`Style`] properties in different units,
 /// such as logical pixels, percentages, or automatically determined values.
 ///
-/// `Val` is similar to the `Val` enum except that it has no non-evaluatable variants
+/// `Num` is similar to the `Val` enum except that it has no non-evaluatable variants
 /// and its methods have been adapted to to reflect that they always have a defined output.
-/// For example, [`AutoVal::try_add_with_size`] can return an error, but `Val`'s equivalent
-/// returns an `f32` and is renamed to [`Val::add_with_size`].
+/// For example, [`Val::try_add_with_size`] can return an error, but `Num`'s equivalent
+/// returns an `f32` and is called [`Num::add_with_size`].
 /// Represents the possible value types for layout properties.
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
@@ -416,7 +416,7 @@ impl DivAssign<f32> for Num {
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
 pub enum NumArithmeticError {
-    #[error("the variants of the Vals don't match")]
+    #[error("the variants of the Nums don't match")]
     NonIdenticalVariants,
 }
 
@@ -427,8 +427,8 @@ pub enum NumConversionError {
 }
 
 impl Num {
-    /// Tries to add the values of two [`Val`]s.
-    /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
+    /// Tries to add the values of two [`Num`]s.
+    /// Returns [`NumArithmeticError::NonIdenticalVariants`] if two [`Num`]s are of different variants.
     pub fn try_add(&self, rhs: Num) -> Result<Num, NumArithmeticError> {
         match (self, rhs) {
             (Num::Px(value), Num::Px(rhs_value)) => Ok(Num::Px(value + rhs_value)),
@@ -437,14 +437,14 @@ impl Num {
         }
     }
 
-    /// Adds `rhs` to `self` and assigns the result to `self` (see [`Val::try_add`])
+    /// Adds `rhs` to `self` and assigns the result to `self` (see [`Num::try_add`])
     pub fn try_add_assign(&mut self, rhs: Num) -> Result<(), NumArithmeticError> {
         *self = self.try_add(rhs)?;
         Ok(())
     }
 
-    /// Tries to subtract the values of two [`Val`]s.
-    /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
+    /// Tries to subtract the values of two [`Num`]s.
+    /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Num`]s are of different variants.
     pub fn try_sub(&self, rhs: Num) -> Result<Num, NumArithmeticError> {
         match (self, rhs) {
             (Num::Px(value), Num::Px(rhs_value)) => Ok(Num::Px(value - rhs_value)),
@@ -453,16 +453,16 @@ impl Num {
         }
     }
 
-    /// Subtracts `rhs` from `self` and assigns the result to `self` (see [`Val::try_sub`])
+    /// Subtracts `rhs` from `self` and assigns the result to `self` (see [`Num::try_sub`])
     pub fn try_sub_assign(&mut self, rhs: Num) -> Result<(), NumArithmeticError> {
         *self = self.try_sub(rhs)?;
         Ok(())
     }
 
-    /// A convenience function for simple evaluation of [`Val::Percent`] variant into a concrete [`Val::Px`] value.
+    /// A convenience function for simple evaluation of percentage variants into a concrete [`Num::Px`] value.
     /// Otherwise it returns an [`f32`] containing the evaluated value in pixels.
     ///
-    /// **Note:** If a [`Val::Px`] is evaluated, it's inner value returned unchanged.
+    /// **Note:** If a [`Num::Px`] is evaluated, it's inner value is returned unchanged.
     pub fn evaluate(&self, size: f32, viewport_size: Vec2) -> f32 {
         match self {
             Num::Percent(value) => size * value / 100.0,
@@ -474,26 +474,26 @@ impl Num {
         }
     }
 
-    /// Similar to [`Val::try_add`], but performs [`Val::evaluate`] on both values before adding.
+    /// Similar to [`Num::try_add`], but performs [`Num::evaluate`] on both values before adding.
     /// Returns an [`f32`] value in pixels.
     pub fn add_with_size(&self, rhs: Num, size: f32, viewport_size: Vec2) -> f32 {
         self.evaluate(size, viewport_size) + rhs.evaluate(size, viewport_size)
     }
 
-    /// Similar to [`Val::try_add_assign`], but performs [`Val::evaluate`] on both values before adding.
-    /// The value gets converted to [`Val::Px`].
+    /// Similar to [`Num::try_add_assign`], but performs [`Num::evaluate`] on both values before adding.
+    /// The value gets converted to [`Num::Px`].
     pub fn add_assign_with_size(&mut self, rhs: Num, size: f32, viewport_size: Vec2) {
         *self = Num::Px(self.evaluate(size, viewport_size) + rhs.evaluate(size, viewport_size));
     }
 
-    /// Similar to [`Val::try_sub`], but performs [`Val::evaluate`] on both values before subtracting.
+    /// Similar to [`Num::try_sub`], but performs [`Num::evaluate`] on both values before subtracting.
     /// Returns an [`f32`] value in pixels.
     pub fn sub_with_size(&self, rhs: Num, size: f32, viewport_size: Vec2) -> f32 {
         self.evaluate(size, viewport_size) - rhs.evaluate(size, viewport_size)
     }
 
-    /// Similar to [`Val::try_sub_assign`], but performs [`Val::evaluate`] on both values before adding.
-    /// The value gets converted to [`Val::Px`].
+    /// Similar to [`Num::try_sub_assign`], but performs [`Num::evaluate`] on both values before adding.
+    /// The value gets converted to [`Num::Px`].
     pub fn sub_assign_with_size(&mut self, rhs: Num, size: f32, viewport_size: Vec2) {
         *self = Num::Px(self.add_with_size(rhs, size, viewport_size));
     }

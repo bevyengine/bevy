@@ -148,9 +148,9 @@ macro_rules! uirect_impl {
 /// A margin is used to create space around UI elements, outside of any defined borders.
 ///
 /// ```
-/// # use bevy_ui::{Margin, AutoVal};
+/// # use bevy_ui::{Margin, Val};
 /// #
-/// let margin = Margin::all(AutoVal::Auto); // Centers the UI element
+/// let margin = Margin::all(Val::Auto); // Centers the UI element
 /// ```
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
@@ -166,13 +166,13 @@ uirect_impl!(Margin, Val, Val::Px(0.));
 /// A padding is used to create space around UI elements, inside of any defined borders.
 ///
 /// ```
-/// # use bevy_ui::{Padding, Val};
+/// # use bevy_ui::{Padding, Num};
 /// #
 /// let padding = Padding {
-///     left: Val::Px(10.0),
-///     right: Val::Px(20.0),
-///     top: Val::Px(30.0),
-///     bottom: Val::Px(40.0),
+///     left: Num::Px(10.0),
+///     right: Num::Px(20.0),
+///     top: Num::Px(30.0),
+///     bottom: Num::Px(40.0),
 /// };
 /// ```
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
@@ -191,13 +191,13 @@ uirect_impl!(Padding, Num, Num::Px(0.));
 /// A border is used to define the width of the border of a UI element.
 ///
 /// ```
-/// # use bevy_ui::{Border, Val};
+/// # use bevy_ui::{Border, Num};
 /// #
 /// let border = Border {
-///     left: Val::Px(10.0),
-///     right: Val::Px(20.0),
-///     top: Val::Px(30.0),
-///     bottom: Val::Px(40.0),
+///     left: Num::Px(10.0),
+///     right: Num::Px(20.0),
+///     top: Num::Px(30.0),
+///     bottom: Num::Px(40.0),
 /// };
 /// ```
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
@@ -231,12 +231,12 @@ impl Size {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{Size, AutoVal};
+    /// # use bevy_ui::{Size, Val};
     /// #
-    /// let size = Size::new(AutoVal::Px(100.0), AutoVal::Px(200.0));
+    /// let size = Size::new(Val::Px(100.0), Val::Px(200.0));
     ///
-    /// assert_eq!(size.width, AutoVal::Px(100.0));
-    /// assert_eq!(size.height, AutoVal::Px(200.0));
+    /// assert_eq!(size.width, Val::Px(100.0));
+    /// assert_eq!(size.height, Val::Px(200.0));
     /// ```
     #[inline]
     pub fn new(width: impl Into<Val>, height: impl Into<Val>) -> Self {
@@ -251,12 +251,12 @@ impl Size {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{Size, AutoVal};
+    /// # use bevy_ui::{Size, Val};
     /// #
-    /// let size = Size::all(AutoVal::Px(10.));
+    /// let size = Size::all(Val::Px(10.));
     ///
-    /// assert_eq!(size.width, AutoVal::Px(10.0));
-    /// assert_eq!(size.height, AutoVal::Px(10.0));
+    /// assert_eq!(size.width, Val::Px(10.0));
+    /// assert_eq!(size.height, Val::Px(10.0));
     /// ```
     #[inline]
     pub fn all(value: impl Into<Val> + Copy) -> Self {
@@ -267,17 +267,17 @@ impl Size {
     }
 
     /// Creates a new [`Size`] where `width` takes the given value,
-    /// and `height` is set to [`AutoVal::Auto`].
+    /// and `height` is set to [`Val::Auto`].
     ///
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{Size, AutoVal};
+    /// # use bevy_ui::{Size, Val};
     /// #
-    /// let size = Size::width(AutoVal::Px(10.));
+    /// let size = Size::width(Val::Px(10.));
     ///
-    /// assert_eq!(size.width, AutoVal::Px(10.0));
-    /// assert_eq!(size.height, AutoVal::Auto);
+    /// assert_eq!(size.width, Val::Px(10.0));
+    /// assert_eq!(size.height, Val::Auto);
     /// ```
     #[inline]
     pub fn width(width: impl Into<Val>) -> Self {
@@ -288,17 +288,17 @@ impl Size {
     }
 
     /// Creates a new [`Size`] where `height` takes the given value,
-    /// and `width` is set to [`AutoVal::Auto`].
+    /// and `width` is set to [`Val::Auto`].
     ///
     /// # Example
     ///
     /// ```
-    /// # use bevy_ui::{Size, AutoVal};
+    /// # use bevy_ui::{Size, Val};
     /// #
-    /// let size = Size::height(AutoVal::Px(10.));
+    /// let size = Size::height(Val::Px(10.));
     ///
-    /// assert_eq!(size.width, AutoVal::Auto);
-    /// assert_eq!(size.height, AutoVal::Px(10.));
+    /// assert_eq!(size.width, Val::Auto);
+    /// assert_eq!(size.height, Val::Px(10.));
     /// ```
     #[inline]
     pub fn height(height: impl Into<Val>) -> Self {
@@ -308,7 +308,7 @@ impl Size {
         }
     }
 
-    /// Creates a Size where both values are [`AutoVal::Auto`].
+    /// Creates a Size where both values are [`Val::Auto`].
     pub const AUTO: Self = Self {
         width: Val::Auto,
         height: Val::Auto,
