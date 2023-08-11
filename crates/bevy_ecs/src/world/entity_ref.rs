@@ -332,6 +332,35 @@ impl<'w> EntityMut<'w> {
         EntityBorrow::from(self).get_change_ticks_by_id(component_id)
     }
 
+    /// Gets the component of the given [`ComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API [`EntityMut::get`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Unlike [`EntityMut::get`], this returns a raw pointer to the component,
+    /// which is only valid while the [`EntityMut`] is alive.
+    #[inline]
+    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+        EntityBorrow::from(self).get_by_id(component_id)
+    }
+
+    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API [`EntityMut::get_mut`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Unlike [`EntityMut::get_mut`], this returns a raw pointer to the component,
+    /// which is only valid while the [`EntityMut`] is alive.
+    #[inline]
+    pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+        // SAFETY:
+        // - `&mut self` ensures that no references exist to this entity's components.
+        // - `as_unsafe_world_cell` gives mutable permission for all components on this entity
+        unsafe { self.as_unsafe_entity_cell().get_mut_by_id(component_id) }
+    }
+
     /// Adds a [`Bundle`] of components to the entity.
     ///
     /// This will overwrite any previous value(s) of the same component type.
@@ -799,37 +828,6 @@ impl<'w> EntityMut<'w> {
     /// which enables the location to change.
     pub fn update_location(&mut self) {
         self.location = self.world.entities().get(self.entity).unwrap();
-    }
-}
-
-impl<'w> EntityMut<'w> {
-    /// Gets the component of the given [`ComponentId`] from the entity.
-    ///
-    /// **You should prefer to use the typed API [`EntityMut::get`] where possible and only
-    /// use this in cases where the actual component types are not known at
-    /// compile time.**
-    ///
-    /// Unlike [`EntityMut::get`], this returns a raw pointer to the component,
-    /// which is only valid while the [`EntityMut`] is alive.
-    #[inline]
-    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
-        EntityBorrow::from(self).get_by_id(component_id)
-    }
-
-    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
-    ///
-    /// **You should prefer to use the typed API [`EntityMut::get_mut`] where possible and only
-    /// use this in cases where the actual component types are not known at
-    /// compile time.**
-    ///
-    /// Unlike [`EntityMut::get_mut`], this returns a raw pointer to the component,
-    /// which is only valid while the [`EntityMut`] is alive.
-    #[inline]
-    pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        // SAFETY:
-        // - `&mut self` ensures that no references exist to this entity's components.
-        // - `as_unsafe_world_cell` gives mutable permission for all components on this entity
-        unsafe { self.as_unsafe_entity_cell().get_mut_by_id(component_id) }
     }
 }
 
