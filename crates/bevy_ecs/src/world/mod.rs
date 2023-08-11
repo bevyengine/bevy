@@ -616,7 +616,7 @@ impl World {
             *cell = MaybeUninit::new(
                 world_cell
                     .get_entity(id)
-                    .ok_or_else(|| QueryEntityError::NoSuchEntity(id))?,
+                    .ok_or(QueryEntityError::NoSuchEntity(id))?,
             );
         }
         // SAFETY: Each item was initialized in the loop above.
