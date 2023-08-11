@@ -16,7 +16,27 @@ use super::{EntityMut, EntityRef, Mut};
 /// Provides read-only access to a single entity and all of its components.
 ///
 /// Contrast with [`EntityRef`], which provides access to the entire world
-/// in addition to an entity.
+/// in addition to an entity. Because of this, `EntityRef` can not be used
+/// in the same system as any mutable access (unless a [`ParamSet`] is used).
+///
+/// [`ParamSet`]: crate::system::ParamSet
+///
+/// # Examples
+///
+/// Read-only access disjoint with mutable access.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)] pub struct A;
+/// # #[derive(Component)] pub struct B;
+/// fn disjoint_system(
+///     query1: Query<EntityBorrow, With<A>>,
+///     query2: Query<&mut B, Without<A>>,
+/// ) {
+///     // ...
+/// }
+/// # bevy_ecs::system::assert_is_system(disjoint_system);
+/// ```
 #[derive(Clone, Copy)]
 pub struct EntityBorrow<'w>(UnsafeEntityCell<'w>);
 
@@ -164,10 +184,27 @@ impl<'w> EntityBorrow<'w> {
 
 /// Provides mutable access to a single entity and all of its components.
 ///
-/// See also [`EntityMut`], which allows adding and removing components, and despawning the entity.
-/// Unlike `EntityMut`, this type allows disjoint accesses to multiple entities at once.
+/// Contrast with [`EntityMut`], with allows adding adn removing components,
+/// despawning the entity, and provides mutable access to the eentire world.
+/// Because of this, `EntityMut` cannot coexist with any other world accesses.
 ///
 /// [`EntityMut`]: super::EntityMut
+///
+/// # Examples
+///
+/// Disjoint mutable access.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)] pub struct A;
+/// fn disjoint_system(
+///     query1: Query<EntityBorrow, With<A>>,
+///     query2: Query<EntityBorrow, Without<A>>,
+/// ) {
+///     // ...
+/// }
+/// # bevy_ecs::system::assert_is_system(disjoint_system);
+/// ```
 pub struct EntityBorrowMut<'w>(UnsafeEntityCell<'w>);
 
 impl<'w> From<EntityMut<'w>> for EntityBorrowMut<'w> {
