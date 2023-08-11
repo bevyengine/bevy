@@ -357,7 +357,7 @@ pub fn queue_colored_mesh2d(
                     // in order to get correct transparency
                     sort_key: FloatOrd(mesh_z),
                     // This material is not batched
-                    skip: false,
+                    batch_size: 1,
                 });
             }
         }
