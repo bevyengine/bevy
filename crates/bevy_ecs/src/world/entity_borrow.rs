@@ -22,7 +22,7 @@ pub struct EntityBorrow<'w>(UnsafeEntityCell<'w>);
 impl<'w> From<EntityRef<'w>> for EntityBorrow<'w> {
     fn from(value: EntityRef<'w>) -> Self {
         // SAFETY: `EntityRef` guarantees shared access to the entire world.
-        unsafe { EntityBorrow::new(value.as_unsafe_world_cell_readonly()) }
+        unsafe { EntityBorrow::new(value.as_unsafe_entity_cell()) }
     }
 }
 

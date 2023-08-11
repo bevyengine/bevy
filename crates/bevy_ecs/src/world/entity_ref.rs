@@ -48,7 +48,7 @@ impl<'w> EntityRef<'w> {
         }
     }
 
-    pub(crate) fn as_unsafe_world_cell_readonly(&self) -> UnsafeEntityCell<'w> {
+    pub(crate) fn as_unsafe_entity_cell(&self) -> UnsafeEntityCell<'w> {
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell_readonly(),
             self.entity,
@@ -103,8 +103,7 @@ impl<'w> EntityRef<'w> {
     /// [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
-        self.as_unsafe_world_cell_readonly()
-            .contains_id(component_id)
+        self.as_unsafe_entity_cell().contains_id(component_id)
     }
 
     /// Returns `true` if the current entity has a component with the type identified by `type_id`.
@@ -116,8 +115,7 @@ impl<'w> EntityRef<'w> {
     /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
-        self.as_unsafe_world_cell_readonly()
-            .contains_type_id(type_id)
+        self.as_unsafe_entity_cell().contains_type_id(type_id)
     }
 
     /// Gets access to the component of type `T` for the current entity.
@@ -190,14 +188,14 @@ pub struct EntityMut<'w> {
 }
 
 impl<'w> EntityMut<'w> {
-    fn as_unsafe_world_cell_readonly(&self) -> UnsafeEntityCell<'_> {
+    fn as_unsafe_entity_cell_readonly(&self) -> UnsafeEntityCell<'_> {
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell_readonly(),
             self.entity,
             self.location,
         )
     }
-    fn as_unsafe_world_cell(&mut self) -> UnsafeEntityCell<'_> {
+    fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell(),
             self.entity,
@@ -268,7 +266,7 @@ impl<'w> EntityMut<'w> {
     /// [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
-        self.as_unsafe_world_cell_readonly()
+        self.as_unsafe_entity_cell_readonly()
             .contains_id(component_id)
     }
 
@@ -281,7 +279,7 @@ impl<'w> EntityMut<'w> {
     /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
-        self.as_unsafe_world_cell_readonly()
+        self.as_unsafe_entity_cell_readonly()
             .contains_type_id(type_id)
     }
 
@@ -290,7 +288,7 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
         // SAFETY: &self implies shared access for duration of returned value
-        unsafe { self.as_unsafe_world_cell_readonly().get::<T>() }
+        unsafe { self.as_unsafe_entity_cell_readonly().get::<T>() }
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
@@ -298,7 +296,7 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
-        unsafe { self.as_unsafe_world_cell().get_mut() }
+        unsafe { self.as_unsafe_entity_cell().get_mut() }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -306,7 +304,10 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         // SAFETY: &self implies shared access
-        unsafe { self.as_unsafe_world_cell_readonly().get_change_ticks::<T>() }
+        unsafe {
+            self.as_unsafe_entity_cell_readonly()
+                .get_change_ticks::<T>()
+        }
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -319,7 +320,7 @@ impl<'w> EntityMut<'w> {
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
         // SAFETY: &self implies shared access
         unsafe {
-            self.as_unsafe_world_cell_readonly()
+            self.as_unsafe_entity_cell_readonly()
                 .get_change_ticks_by_id(component_id)
         }
     }
@@ -808,7 +809,10 @@ impl<'w> EntityMut<'w> {
         // SAFETY:
         // - `&self` ensures that no mutable references exist to this entity's components.
         // - `as_unsafe_world_cell_readonly` gives read only permission for all components on this entity
-        unsafe { self.as_unsafe_world_cell_readonly().get_by_id(component_id) }
+        unsafe {
+            self.as_unsafe_entity_cell_readonly()
+                .get_by_id(component_id)
+        }
     }
 
     /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
@@ -824,7 +828,7 @@ impl<'w> EntityMut<'w> {
         // SAFETY:
         // - `&mut self` ensures that no references exist to this entity's components.
         // - `as_unsafe_world_cell` gives mutable permission for all components on this entity
-        unsafe { self.as_unsafe_world_cell().get_mut_by_id(component_id) }
+        unsafe { self.as_unsafe_entity_cell().get_mut_by_id(component_id) }
     }
 }
 
