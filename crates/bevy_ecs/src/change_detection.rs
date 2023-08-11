@@ -130,6 +130,8 @@ pub trait DetectChangesMut: DetectChanges {
     /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time it is mutably accessed.
     ///
+    /// If you need to handle the previous value, use [`replace_if_neq`](DetectChangesMut::replace_if_neq).
+    ///
     /// # Examples
     ///
     /// ```
@@ -174,6 +176,8 @@ pub trait DetectChangesMut: DetectChanges {
     ///
     /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time it is mutably accessed.
+    ///
+    /// If you don't need to handle the previous value, use [`set_if_neq`](DetectChangesMut::set_if_neq).
     ///
     /// # Examples
     ///
@@ -222,6 +226,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// # assert!(!score_changed_event.run((), &mut world));
     /// ```
     #[inline]
+    #[must_use = "If you don't need to handle the previous value, use `set_if_neq` instead."]
     fn replace_if_neq(&mut self, value: Self::Inner) -> Option<Self::Inner>
     where
         Self::Inner: Sized + PartialEq,
