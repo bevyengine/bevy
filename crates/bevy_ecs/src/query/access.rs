@@ -202,10 +202,12 @@ impl<T: SparseSetIndex> Access<T> {
     pub fn get_conflicts(&self, other: &Access<T>) -> Vec<T> {
         let mut conflicts = FixedBitSet::default();
         if self.reads_all {
+            // QUESTION: How to handle `other.writes_all`?
             conflicts.extend(other.writes.ones());
         }
 
         if other.reads_all {
+            // QUESTION: How to handle `self.writes_all`.
             conflicts.extend(self.writes.ones());
         }
 
