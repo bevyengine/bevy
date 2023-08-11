@@ -12,7 +12,7 @@ use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
 use std::any::TypeId;
 
-use super::{unsafe_world_cell::UnsafeEntityCell, Ref};
+use super::{unsafe_world_cell::UnsafeEntityCell, EntityBorrow, Ref};
 
 /// A read-only reference to a particular [`Entity`] and all of its components.
 ///
@@ -48,7 +48,7 @@ impl<'w> EntityRef<'w> {
         }
     }
 
-    fn as_unsafe_world_cell_readonly(&self) -> UnsafeEntityCell<'w> {
+    pub(crate) fn as_unsafe_world_cell_readonly(&self) -> UnsafeEntityCell<'w> {
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell_readonly(),
             self.entity,
@@ -124,8 +124,7 @@ impl<'w> EntityRef<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'w T> {
-        // SAFETY: &self implies shared access for duration of returned value
-        unsafe { self.as_unsafe_world_cell_readonly().get::<T>() }
+        EntityBorrow::from(*self).get()
     }
 
     /// Gets access to the component of type `T` for the current entity,
@@ -134,16 +133,14 @@ impl<'w> EntityRef<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
-        // SAFETY: &self implies shared access for duration of returned value
-        unsafe { self.as_unsafe_world_cell_readonly().get_ref::<T>() }
+        EntityBorrow::from(*self).get_ref()
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
     /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        // SAFETY: &self implies shared access
-        unsafe { self.as_unsafe_world_cell_readonly().get_change_ticks::<T>() }
+        EntityBorrow::from(*self).get_change_ticks::<T>()
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -154,15 +151,9 @@ impl<'w> EntityRef<'w> {
     /// compile time.**
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
-        // SAFETY: &self implies shared access
-        unsafe {
-            self.as_unsafe_world_cell_readonly()
-                .get_change_ticks_by_id(component_id)
-        }
+        EntityBorrow::from(*self).get_change_ticks_by_id(component_id)
     }
-}
 
-impl<'w> EntityRef<'w> {
     /// Gets the component of the given [`ComponentId`] from the entity.
     ///
     /// **You should prefer to use the typed API where possible and only
@@ -173,8 +164,7 @@ impl<'w> EntityRef<'w> {
     /// which is only valid while the `'w` borrow of the lifetime is active.
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
-        // SAFETY: &self implies shared access for duration of returned value
-        unsafe { self.as_unsafe_world_cell_readonly().get_by_id(component_id) }
+        EntityBorrow::from(*self).get_by_id(component_id)
     }
 }
 
