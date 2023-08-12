@@ -5,7 +5,7 @@ use crate::{
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, EntityBorrow, EntityBorrowMut, Mut, Ref, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, EntityBorrowMut, EntityRef, Mut, Ref, World},
 };
 pub use bevy_ecs_macros::WorldQuery;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -524,9 +524,9 @@ unsafe impl WorldQuery for Entity {
 unsafe impl ReadOnlyWorldQuery for Entity {}
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl WorldQuery for EntityBorrow<'_> {
+unsafe impl WorldQuery for EntityRef<'_> {
     type Fetch<'w> = UnsafeWorldCell<'w>;
-    type Item<'w> = EntityBorrow<'w>;
+    type Item<'w> = EntityRef<'w>;
     type ReadOnly = Self;
     type State = ();
 
@@ -569,13 +569,13 @@ unsafe impl WorldQuery for EntityBorrow<'_> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
         let cell = world.get_entity(entity).debug_checked_unwrap();
         // SAFETY: Read-only access to every component has been registered.
-        EntityBorrow::new(cell)
+        EntityRef::new(cell)
     }
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
         assert!(
             !access.access().has_any_write(),
-            "EntityBorrow conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
+            "EntityRef conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
         );
         access.read_all();
     }
@@ -601,13 +601,13 @@ unsafe impl WorldQuery for EntityBorrow<'_> {
 }
 
 /// SAFETY: Access is read-only.
-unsafe impl ReadOnlyWorldQuery for EntityBorrow<'_> {}
+unsafe impl ReadOnlyWorldQuery for EntityRef<'_> {}
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for EntityBorrowMut<'a> {
     type Fetch<'w> = UnsafeWorldCell<'w>;
     type Item<'w> = EntityBorrowMut<'w>;
-    type ReadOnly = EntityBorrow<'a>;
+    type ReadOnly = EntityRef<'a>;
     type State = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {

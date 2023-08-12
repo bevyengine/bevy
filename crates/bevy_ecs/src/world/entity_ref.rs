@@ -12,73 +12,56 @@ use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
 use std::any::TypeId;
 
-use super::{unsafe_world_cell::UnsafeEntityCell, EntityBorrow, Ref};
+use super::{unsafe_world_cell::UnsafeEntityCell, EntityBorrowMut, Ref};
 
 /// A read-only reference to a particular [`Entity`] and all of its components.
 ///
-/// This type provides access to the entire world, which means it can not exist
-/// at the same time as any [`EntityMut`]. See [`EntityBorrow`] and [`EntityBorrowMut`],
-/// which allow disjoint access to multiple entities at once.
+/// # Examples
 ///
-/// [`EntityBorrow`]: super::EntityBorrow
-/// [`EntityBorrowMut`]: super::EntityBorrowMut
+/// Read-only access disjoint with mutable access.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)] pub struct A;
+/// # #[derive(Component)] pub struct B;
+/// fn disjoint_system(
+///     query1: Query<&mut A>,
+///     query2: Query<EntityRef, Without<A>>,
+/// ) {
+///     // ...
+/// }
+/// # bevy_ecs::system::assert_is_system(disjoint_system);
+/// ```
 #[derive(Copy, Clone)]
-pub struct EntityRef<'w> {
-    world: &'w World,
-    entity: Entity,
-    location: EntityLocation,
-}
+pub struct EntityRef<'w>(UnsafeEntityCell<'w>);
 
 impl<'w> EntityRef<'w> {
     /// # Safety
-    ///
-    ///  - `entity` must be valid for `world`: the generation should match that of the entity at the same index.
-    ///  - `location` must be sourced from `world`'s `Entities` and must exactly match the location for `entity`
-    ///
-    ///  The above is trivially satisfied if `location` was sourced from `world.entities().get(entity)`.
+    /// - `cell` must have permission to read every component of the entity.
+    /// - No mutable accesses to any of the entity's components may exist
+    ///   at the same time as the returned [`EntityRef`].
     #[inline]
-    pub(crate) unsafe fn new(world: &'w World, entity: Entity, location: EntityLocation) -> Self {
-        debug_assert!(world.entities().contains(entity));
-        debug_assert_eq!(world.entities().get(entity), Some(location));
-
-        Self {
-            world,
-            entity,
-            location,
-        }
-    }
-
-    pub(crate) fn as_unsafe_entity_cell(&self) -> UnsafeEntityCell<'w> {
-        UnsafeEntityCell::new(
-            self.world.as_unsafe_world_cell_readonly(),
-            self.entity,
-            self.location,
-        )
+    pub(crate) unsafe fn new(cell: UnsafeEntityCell<'w>) -> Self {
+        Self(cell)
     }
 
     /// Returns the [ID](Entity) of the current entity.
     #[inline]
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
-        self.entity
+        self.0.id()
     }
 
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
     pub fn location(&self) -> EntityLocation {
-        self.location
+        self.0.location()
     }
 
     /// Returns the archetype that the current entity belongs to.
     #[inline]
     pub fn archetype(&self) -> &Archetype {
-        &self.world.archetypes[self.location.archetype_id]
-    }
-
-    /// Gets read-only access to the world that the current entity belongs to.
-    #[inline]
-    pub fn world(&self) -> &'w World {
-        self.world
+        self.0.archetype()
     }
 
     /// Returns `true` if the current entity has a component of type `T`.
@@ -103,7 +86,7 @@ impl<'w> EntityRef<'w> {
     /// [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
-        self.as_unsafe_entity_cell().contains_id(component_id)
+        self.0.contains_id(component_id)
     }
 
     /// Returns `true` if the current entity has a component with the type identified by `type_id`.
@@ -115,14 +98,15 @@ impl<'w> EntityRef<'w> {
     /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
-        self.as_unsafe_entity_cell().contains_type_id(type_id)
+        self.0.contains_type_id(type_id)
     }
 
     /// Gets access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'w T> {
-        EntityBorrow::from(*self).get()
+        // SAFETY: We have read-only access to all components of this entity.
+        unsafe { self.0.get::<T>() }
     }
 
     /// Gets access to the component of type `T` for the current entity,
@@ -131,14 +115,16 @@ impl<'w> EntityRef<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
-        EntityBorrow::from(*self).get_ref()
+        // SAFETY: We have read-only access to all components of this entity.
+        unsafe { self.0.get_ref::<T>() }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
     /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        EntityBorrow::from(*self).get_change_ticks::<T>()
+        // SAFETY: We have read-only access to all components of this entity.
+        unsafe { self.0.get_change_ticks::<T>() }
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -149,7 +135,8 @@ impl<'w> EntityRef<'w> {
     /// compile time.**
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
-        EntityBorrow::from(*self).get_change_ticks_by_id(component_id)
+        // SAFETY: We have read-only access to all components of this entity.
+        unsafe { self.0.get_change_ticks_by_id(component_id) }
     }
 
     /// Gets the component of the given [`ComponentId`] from the entity.
@@ -162,15 +149,42 @@ impl<'w> EntityRef<'w> {
     /// which is only valid while the `'w` borrow of the lifetime is active.
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
-        EntityBorrow::from(*self).get_by_id(component_id)
+        // SAFETY: We have read-only access to all components of this entity.
+        unsafe { self.0.get_by_id(component_id) }
     }
 }
 
 impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
     fn from(entity_mut: EntityMut<'w>) -> EntityRef<'w> {
-        // SAFETY: the safety invariants on EntityMut and EntityRef are identical
-        // and EntityMut is promised to be valid by construction.
-        unsafe { EntityRef::new(entity_mut.world, entity_mut.entity, entity_mut.location) }
+        // SAFETY:
+        // - `EntityMut` guarantees exclusive access to the entire world.
+        unsafe { EntityRef::new(entity_mut.into_unsafe_entity_cell()) }
+    }
+}
+
+impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
+    fn from(value: &'a EntityMut<'_>) -> Self {
+        // SAFETY:
+        // - `EntityMut` guarantees exclusive access to the entire world.
+        // - `&self` ensures no mutable accesses are active.
+        unsafe { EntityRef::new(value.as_unsafe_entity_cell_readonly()) }
+    }
+}
+
+impl<'w> From<EntityBorrowMut<'w>> for EntityRef<'w> {
+    fn from(value: EntityBorrowMut<'w>) -> Self {
+        // SAFETY:
+        // - `EntityBorrowMut` gurantees exclusive access to the world.
+        unsafe { EntityRef::new(value.0) }
+    }
+}
+
+impl<'a> From<&'a EntityBorrowMut<'_>> for EntityRef<'a> {
+    fn from(value: &'a EntityBorrowMut<'_>) -> Self {
+        // SAFETY:
+        // - `EntityBorrowMut` gurantees exclusive access to the world.
+        // - `&value` ensures there are no mutable accesses.
+        unsafe { EntityRef::new(value.0) }
     }
 }
 
@@ -297,7 +311,7 @@ impl<'w> EntityMut<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
-        EntityBorrow::from(self).get()
+        EntityRef::from(self).get()
     }
 
     /// Gets access to the component of type `T` for the current entity,
@@ -306,7 +320,7 @@ impl<'w> EntityMut<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'_, T>> {
-        EntityBorrow::from(self).get_ref()
+        EntityRef::from(self).get_ref()
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
@@ -321,7 +335,7 @@ impl<'w> EntityMut<'w> {
     /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        EntityBorrow::from(self).get_change_ticks::<T>()
+        EntityRef::from(self).get_change_ticks::<T>()
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -332,7 +346,7 @@ impl<'w> EntityMut<'w> {
     /// compile time.**
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
-        EntityBorrow::from(self).get_change_ticks_by_id(component_id)
+        EntityRef::from(self).get_change_ticks_by_id(component_id)
     }
 
     /// Gets the component of the given [`ComponentId`] from the entity.
@@ -345,7 +359,7 @@ impl<'w> EntityMut<'w> {
     /// which is only valid while the [`EntityMut`] is alive.
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
-        EntityBorrow::from(self).get_by_id(component_id)
+        EntityRef::from(self).get_by_id(component_id)
     }
 
     /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.

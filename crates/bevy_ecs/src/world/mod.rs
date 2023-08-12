@@ -8,7 +8,7 @@ pub mod unsafe_world_cell;
 mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
-pub use entity_borrow::{EntityBorrow, EntityBorrowMut};
+pub use entity_borrow::EntityBorrowMut;
 pub use entity_ref::{EntityMut, EntityRef};
 pub use spawn_batch::*;
 pub use world_cell::*;
@@ -450,7 +450,10 @@ impl World {
         let location = self.entities.get(entity)?;
         // SAFETY: if the Entity is invalid, the function returns early.
         // Additionally, Entities::get(entity) returns the correct EntityLocation if the entity exists.
-        let entity_ref = unsafe { EntityRef::new(self, entity, location) };
+        let entity_cell =
+            UnsafeEntityCell::new(self.as_unsafe_world_cell_readonly(), entity, location);
+        // SAFETY: The UnsafeEntityCell has read access to the entire world.
+        let entity_ref = unsafe { EntityRef::new(entity_cell) };
         Some(entity_ref)
     }
 
@@ -509,7 +512,13 @@ impl World {
                     };
 
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
-                    unsafe { EntityRef::new(self, entity, location) }
+                    let cell = UnsafeEntityCell::new(
+                        self.as_unsafe_world_cell_readonly(),
+                        entity,
+                        location,
+                    );
+                    // SAFETY: `&self` gives read access to the entire world.
+                    unsafe { EntityRef::new(cell) }
                 })
         })
     }

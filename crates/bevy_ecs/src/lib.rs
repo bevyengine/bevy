@@ -50,7 +50,7 @@ pub mod prelude {
             Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
             ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemParamFunction,
         },
-        world::{EntityBorrow, EntityBorrowMut, EntityRef, FromWorld, World},
+        world::{EntityBorrowMut, EntityRef, FromWorld, World},
     };
 }
 
