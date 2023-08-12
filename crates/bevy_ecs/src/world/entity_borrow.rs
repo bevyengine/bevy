@@ -381,6 +381,9 @@ mod tests {
     #[derive(Component)]
     struct A;
 
+    #[derive(Resource)]
+    struct R;
+
     #[test]
     fn disjoint_access() {
         fn disjoint_readonly(
@@ -407,8 +410,39 @@ mod tests {
     }
 
     #[test]
-    fn borrow_mut_compatible() {
+    fn borrow_compatible_with_resource() {
+        fn borrow_system(_: Query<EntityBorrow>, _: Res<R>) {}
+
+        assert_is_system(borrow_system);
+    }
+
+    #[test]
+    #[ignore] // This should pass, but it currently fails due to limitations in our access model.
+    fn borrow_compatible_with_resource_mut() {
+        fn borrow_system(_: Query<EntityBorrow>, _: ResMut<R>) {}
+
+        assert_is_system(borrow_system);
+    }
+
+    #[test]
+    fn borrow_mut_compatible_with_entity() {
         fn borrow_mut_system(_: Query<(Entity, EntityBorrowMut)>) {}
+
+        assert_is_system(borrow_mut_system);
+    }
+
+    #[test]
+    #[ignore] // This should pass, but it currently fails due to limitations in our access model.
+    fn borrow_mut_compatible_with_resource() {
+        fn borrow_mut_system(_: Res<R>, _: Query<EntityBorrowMut>) {}
+
+        assert_is_system(borrow_mut_system);
+    }
+
+    #[test]
+    #[ignore] // This should pass, but it currently fails due to limitations in our access model.
+    fn borrow_mut_compatible_with_resource_mut() {
+        fn borrow_mut_system(_: ResMut<R>, _: Query<EntityBorrowMut>) {}
 
         assert_is_system(borrow_mut_system);
     }
