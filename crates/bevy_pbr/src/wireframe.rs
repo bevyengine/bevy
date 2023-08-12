@@ -164,7 +164,8 @@ fn queue_wireframes(
                     entity,
                     pipeline: pipeline_id,
                     draw_function: draw_custom,
-                    distance: rangefinder.distance_affine(&mesh_transforms.transform),
+                    distance: rangefinder
+                        .distance_translation(&mesh_transforms.transform.translation),
                     per_object_binding_dynamic_offset: batch_indices
                         .dynamic_offset
                         .unwrap_or_default(),

@@ -18,7 +18,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Affine3A, Mat4, Vec2, Vec3Swizzles, Vec4};
+use bevy_math::{Affine3, Affine3A, Mat4, Vec2, Vec3Swizzles, Vec4};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -170,8 +170,8 @@ impl Plugin for MeshRenderPlugin {
 
 #[derive(Component)]
 pub struct MeshTransforms {
-    pub transform: Affine3A,
-    pub previous_transform: Affine3A,
+    pub transform: Affine3,
+    pub previous_transform: Affine3,
     pub flags: u32,
 }
 
@@ -193,7 +193,11 @@ impl From<&MeshTransforms> for MeshUniform {
     fn from(mesh_transforms: &MeshTransforms) -> Self {
         let transpose_model_3x3 = mesh_transforms.transform.matrix3.transpose();
         let transpose_previous_model_3x3 = mesh_transforms.previous_transform.matrix3.transpose();
-        let inverse_transpose_model_3x3 = mesh_transforms.transform.inverse().matrix3.transpose();
+        let inverse_transpose_model_3x3 =
+            <&Affine3 as Into<Affine3A>>::into(&mesh_transforms.transform)
+                .inverse()
+                .matrix3
+                .transpose();
         Self {
             transform: [
                 transpose_model_3x3
@@ -282,9 +286,9 @@ pub fn extract_meshes(
             flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
         }
         let transforms = MeshTransforms {
+            transform: (&transform).into(),
+            previous_transform: (&previous_transform).into(),
             flags: flags.bits(),
-            transform,
-            previous_transform,
         };
         if not_caster.is_some() {
             not_caster_commands.push((entity, (handle.clone_weak(), transforms, NotShadowCaster)));
