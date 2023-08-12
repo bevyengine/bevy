@@ -44,7 +44,13 @@ impl Plugin for GltfPlugin {
             .add_asset::<Gltf>()
             .add_asset::<GltfNode>()
             .add_asset::<GltfPrimitive>()
-            .add_asset::<GltfMesh>();
+            .add_asset::<GltfMesh>()
+            // Add the gltf loader first without support for compressed formats. This will be overwritten
+            // once the render device is initialized.
+            .add_asset_loader::<GltfLoader>(GltfLoader {
+                supported_compressed_formats: CompressedImageFormats::NONE,
+                custom_vertex_attributes: self.custom_vertex_attributes.clone(),
+            });
     }
 
     fn finish(&self, app: &mut App) {
@@ -53,6 +59,7 @@ impl Plugin for GltfPlugin {
 
             None => CompressedImageFormats::NONE,
         };
+        // Overwrite the gltf loader with support for compressed formats.
         app.add_asset_loader::<GltfLoader>(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
