@@ -425,6 +425,22 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn borrow_incompatible_with_mutable_component() {
+        fn incompatible_system(_: Query<(EntityBorrow, &mut A)>) {}
+
+        assert_is_system(incompatible_system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn borrow_incompatible_with_mutable_query() {
+        fn incompatible_system(_: Query<EntityBorrow>, _: Query<&mut A>) {}
+
+        assert_is_system(incompatible_system);
+    }
+
+    #[test]
     fn borrow_mut_compatible_with_entity() {
         fn borrow_mut_system(_: Query<(Entity, EntityBorrowMut)>) {}
 
