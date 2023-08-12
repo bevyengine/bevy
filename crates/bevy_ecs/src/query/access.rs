@@ -57,6 +57,7 @@ pub struct Access<T: SparseSetIndex> {
     /// This field is a performance optimization for `&World` (also harder to mess up for soundness).
     reads_all: bool,
     /// Is `true` if this has mutable access to all elements in the collection.
+    /// If this is true, then `reads_all` must also be true.
     writes_all: bool,
     marker: PhantomData<T>,
 }
@@ -70,6 +71,7 @@ impl<T: SparseSetIndex + fmt::Debug> fmt::Debug for Access<T> {
             )
             .field("writes", &FormattedBitSet::<T>::new(&self.writes))
             .field("reads_all", &self.reads_all)
+            .field("writes_all", &self.writes_all)
             .finish()
     }
 }
@@ -116,14 +118,12 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns `true` if this can access the element given by `index`.
     pub fn has_read(&self, index: T) -> bool {
-        self.reads_all
-            || self.writes_all
-            || self.reads_and_writes.contains(index.sparse_set_index())
+        self.reads_all || self.reads_and_writes.contains(index.sparse_set_index())
     }
 
     /// Returns `true` if this can access anything.
     pub fn has_any_read(&self) -> bool {
-        self.reads_all || self.writes_all || !self.reads_and_writes.is_clear()
+        self.reads_all || !self.reads_and_writes.is_clear()
     }
 
     /// Returns `true` if this can exclusively access the element given by `index`.
@@ -143,12 +143,13 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Sets this as having mutable access to all indexed elements (i.e. `EntityBorrowMut`).
     pub fn write_all(&mut self) {
+        self.reads_all = true;
         self.writes_all = true;
     }
 
     /// Returns `true` if this has access to all indexed elements (i.e. `&World`).
     pub fn has_read_all(&self) -> bool {
-        self.reads_all || self.writes_all
+        self.reads_all
     }
 
     /// Returns `true` if this has write access to all indexed elements (i.e. `EntityBorrowMut`).
