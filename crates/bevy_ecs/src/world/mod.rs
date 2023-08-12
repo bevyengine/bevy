@@ -2501,6 +2501,54 @@ mod tests {
     }
 
     #[test]
+    fn iterate_entities_mut() {
+        #[derive(Component, PartialEq, Debug)]
+        struct A(i32);
+
+        #[derive(Component, PartialEq, Debug)]
+        struct B(i32);
+
+        let mut world = World::new();
+
+        let a1 = world.spawn(A(1)).id();
+        let a2 = world.spawn(A(2)).id();
+        let b1 = world.spawn(B(1)).id();
+        let b2 = world.spawn(B(2)).id();
+
+        for mut entity in world.iter_entities_mut() {
+            if let Some(mut a) = entity.get_mut::<A>() {
+                a.0 -= 1;
+            }
+        }
+        assert_eq!(world.entity(a1).get(), Some(&A(0)));
+        assert_eq!(world.entity(a2).get(), Some(&A(1)));
+        assert_eq!(world.entity(b1).get(), Some(&B(1)));
+        assert_eq!(world.entity(b2).get(), Some(&B(2)));
+
+        for mut entity in world.iter_entities_mut() {
+            if let Some(mut b) = entity.get_mut::<B>() {
+                b.0 *= 2;
+            }
+        }
+        assert_eq!(world.entity(a1).get(), Some(&A(0)));
+        assert_eq!(world.entity(a2).get(), Some(&A(1)));
+        assert_eq!(world.entity(b1).get(), Some(&B(2)));
+        assert_eq!(world.entity(b2).get(), Some(&B(4)));
+
+        let mut entities = world.iter_entities_mut().collect::<Vec<_>>();
+        entities.sort_by_key(|e| e.get::<A>().map(|a| a.0).or(e.get::<B>().map(|b| b.0)));
+        let (a, b) = entities.split_at_mut(2);
+        std::mem::swap(
+            &mut a[1].get_mut::<A>().unwrap().0,
+            &mut b[0].get_mut::<B>().unwrap().0,
+        );
+        assert_eq!(world.entity(a1).get(), Some(&A(0)));
+        assert_eq!(world.entity(a2).get(), Some(&A(2)));
+        assert_eq!(world.entity(b1).get(), Some(&B(1)));
+        assert_eq!(world.entity(b2).get(), Some(&B(4)));
+    }
+
+    #[test]
     fn spawn_empty_bundle() {
         let mut world = World::new();
         world.spawn(());
