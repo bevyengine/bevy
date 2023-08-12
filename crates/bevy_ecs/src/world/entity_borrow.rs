@@ -30,8 +30,8 @@ use super::{EntityMut, EntityRef, Mut};
 /// # #[derive(Component)] pub struct A;
 /// # #[derive(Component)] pub struct B;
 /// fn disjoint_system(
-///     query1: Query<EntityBorrow, With<A>>,
-///     query2: Query<&mut B, Without<A>>,
+///     query1: Query<&mut A>,
+///     query2: Query<EntityBorrow, Without<A>>,
 /// ) {
 ///     // ...
 /// }
