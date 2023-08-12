@@ -415,7 +415,7 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn borrow_mut_incompatible1() {
+    fn borrow_mut_incompatible_with_read_only_component() {
         fn incompatible_system(_: Query<(EntityBorrowMut, &A)>) {}
 
         assert_is_system(incompatible_system);
@@ -423,7 +423,7 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn borrow_mut_incompatible2() {
+    fn borrow_mut_incompatible_with_mutable_component() {
         fn incompatible_system(_: Query<(EntityBorrowMut, &mut A)>) {}
 
         assert_is_system(incompatible_system);
@@ -431,7 +431,7 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn borrow_mut_incompatible3() {
+    fn borrow_mut_incompatible_with_read_only_query() {
         fn incompatible_system(_: Query<EntityBorrowMut>, _: Query<&A>) {}
 
         assert_is_system(incompatible_system);
@@ -439,7 +439,7 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn borrow_mut_incompatible4() {
+    fn borrow_mut_incompatible_with_mutable_query() {
         fn incompatible_system(_: Query<EntityBorrowMut>, _: Query<&mut A>) {}
 
         assert_is_system(incompatible_system);
