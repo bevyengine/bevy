@@ -242,16 +242,10 @@ fn toggle_prepass_view(
             3 => "motion vectors",
             _ => unreachable!(),
         };
-        let text_color = if *prepass_view == 3 {
-            Color::BLACK
-        } else {
-            Color::WHITE
-        };
-
         let mut text = text.single_mut();
         text.sections[0].value = format!("Prepass Output: {label}\n");
         for section in &mut text.sections {
-            section.style.color = text_color;
+            section.style.color = Color::WHITE;
         }
 
         let handle = material_handle.single();

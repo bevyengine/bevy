@@ -1,49 +1,40 @@
 mod access;
+mod parse;
 
 use std::fmt;
-use std::num::ParseIntError;
 
 use crate::Reflect;
 use access::Access;
+use parse::PathParser;
 use thiserror::Error;
 
-type ParseResult<T> = Result<T, ReflectPathParseError>;
+pub use parse::ParseError;
 
 /// An error specific to accessing a field/index on a `Reflect`.
 #[derive(Debug, PartialEq, Eq, Error)]
 #[error(transparent)]
 pub struct AccessError<'a>(access::Error<'a>);
 
-/// A parse error for a path string.
-#[derive(Debug, PartialEq, Eq, Error)]
-pub enum ReflectPathParseError {
-    #[error("expected an identifier at offset {offset}")]
-    ExpectedIdent { offset: usize },
-
-    #[error("encountered an unexpected token `{token}`")]
-    UnexpectedToken { offset: usize, token: &'static str },
-
-    #[error("expected token `{token}`, but it wasn't there.")]
-    ExpectedToken { offset: usize, token: &'static str },
-
-    #[error("failed to parse a usize")]
-    IndexParseError(#[from] ParseIntError),
-}
-
 /// An error returned from a failed path string query.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ReflectPathError<'a> {
-    #[error("{error}")]
+    #[error("at {offset} in path specification: {error}")]
     InvalidAccess {
         /// Position in the path string.
         offset: usize,
         error: AccessError<'a>,
     },
+
     #[error("failed to downcast to the path result to the given type")]
     InvalidDowncast,
 
-    #[error(transparent)]
-    Parse(#[from] ReflectPathParseError),
+    #[error("at {offset} in '{path}': {error}")]
+    ParseError {
+        /// Position in `path`.
+        offset: usize,
+        path: &'a str,
+        error: ParseError<'a>,
+    },
 }
 
 /// A trait which allows nested [`Reflect`] values to be retrieved with path strings.
@@ -417,139 +408,6 @@ impl fmt::Display for ParsedPath {
         Ok(())
     }
 }
-
-struct PathParser<'a> {
-    path: &'a str,
-    index: usize,
-}
-
-impl<'a> PathParser<'a> {
-    fn new(path: &'a str) -> Self {
-        Self { path, index: 0 }
-    }
-
-    fn next_token(&mut self) -> Option<Token<'a>> {
-        if self.index >= self.path.len() {
-            return None;
-        }
-
-        match self.path[self.index..].chars().next().unwrap() {
-            Token::DOT => {
-                self.index += 1;
-                return Some(Token::Dot);
-            }
-            Token::CROSSHATCH => {
-                self.index += 1;
-                return Some(Token::CrossHatch);
-            }
-            Token::OPEN_BRACKET => {
-                self.index += 1;
-                return Some(Token::OpenBracket);
-            }
-            Token::CLOSE_BRACKET => {
-                self.index += 1;
-                return Some(Token::CloseBracket);
-            }
-            _ => {}
-        }
-
-        // we can assume we are parsing an ident now
-        for (char_index, character) in self.path[self.index..].chars().enumerate() {
-            match character {
-                Token::DOT | Token::CROSSHATCH | Token::OPEN_BRACKET | Token::CLOSE_BRACKET => {
-                    let ident = Token::Ident(&self.path[self.index..self.index + char_index]);
-                    self.index += char_index;
-                    return Some(ident);
-                }
-                _ => {}
-            }
-        }
-        let ident = Token::Ident(&self.path[self.index..]);
-        self.index = self.path.len();
-        Some(ident)
-    }
-
-    fn token_to_access(&mut self, token: Token<'a>) -> ParseResult<Access<'a>> {
-        let current_offset = self.index;
-        match token {
-            Token::Dot => {
-                if let Some(Token::Ident(value)) = self.next_token() {
-                    value
-                        .parse::<usize>()
-                        .map(Access::TupleIndex)
-                        .or(Ok(Access::Field(value.into())))
-                } else {
-                    Err(ReflectPathParseError::ExpectedIdent {
-                        offset: current_offset,
-                    })
-                }
-            }
-            Token::CrossHatch => {
-                if let Some(Token::Ident(value)) = self.next_token() {
-                    Ok(Access::FieldIndex(value.parse::<usize>()?))
-                } else {
-                    Err(ReflectPathParseError::ExpectedIdent {
-                        offset: current_offset,
-                    })
-                }
-            }
-            Token::OpenBracket => {
-                let access = if let Some(Token::Ident(value)) = self.next_token() {
-                    Access::ListIndex(value.parse::<usize>()?)
-                } else {
-                    return Err(ReflectPathParseError::ExpectedIdent {
-                        offset: current_offset,
-                    });
-                };
-
-                if !matches!(self.next_token(), Some(Token::CloseBracket)) {
-                    return Err(ReflectPathParseError::ExpectedToken {
-                        offset: current_offset,
-                        token: Token::OPEN_BRACKET_STR,
-                    });
-                }
-
-                Ok(access)
-            }
-            Token::CloseBracket => Err(ReflectPathParseError::UnexpectedToken {
-                offset: current_offset,
-                token: Token::CLOSE_BRACKET_STR,
-            }),
-            Token::Ident(value) => value
-                .parse::<usize>()
-                .map(Access::TupleIndex)
-                .or(Ok(Access::Field(value.into()))),
-        }
-    }
-}
-
-impl<'a> Iterator for PathParser<'a> {
-    type Item = (ParseResult<Access<'a>>, usize);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let token = self.next_token()?;
-        let index = self.index;
-        Some((self.token_to_access(token), index))
-    }
-}
-
-enum Token<'a> {
-    Dot,
-    CrossHatch,
-    OpenBracket,
-    CloseBracket,
-    Ident(&'a str),
-}
-
-impl<'a> Token<'a> {
-    const DOT: char = '.';
-    const CROSSHATCH: char = '#';
-    const OPEN_BRACKET: char = '[';
-    const CLOSE_BRACKET: char = ']';
-    const OPEN_BRACKET_STR: &'static str = "[";
-    const CLOSE_BRACKET_STR: &'static str = "]";
-}
-
 #[cfg(test)]
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
@@ -614,6 +472,13 @@ mod tests {
 
     fn access_field(field: &'static str) -> Access {
         Access::Field(field.into())
+    }
+
+    type StaticError = ReflectPathError<'static>;
+
+    fn invalid_access(offset: usize, actual: TypeShape, expected: TypeShape) -> StaticError {
+        let error = AccessError(access::Error::Type { actual, expected });
+        ReflectPathError::InvalidAccess { offset, error }
     }
 
     #[test]
@@ -791,40 +656,14 @@ mod tests {
                 }),
             }
         );
-
-        assert_eq!(
-            a.reflect_path("x..").err().unwrap(),
-            ReflectPathError::Parse(ReflectPathParseError::ExpectedIdent { offset: 2 })
-        );
-
         assert_eq!(
             a.reflect_path("x[0]").err().unwrap(),
-            ReflectPathError::InvalidAccess {
-                offset: 2,
-                error: AccessError(access::Error::Type {
-                    actual: TypeShape::Struct,
-                    expected: TypeShape::List
-                }),
-            }
+            invalid_access(2, TypeShape::Struct, TypeShape::List)
         );
-
         assert_eq!(
             a.reflect_path("y.x").err().unwrap(),
-            ReflectPathError::InvalidAccess {
-                offset: 2,
-                error: AccessError(access::Error::Type {
-                    actual: TypeShape::List,
-                    expected: TypeShape::Struct
-                }),
-            }
+            invalid_access(2, TypeShape::List, TypeShape::Struct)
         );
-
-        assert!(matches!(
-            a.reflect_path("y[badindex]"),
-            Err(ReflectPathError::Parse(
-                ReflectPathParseError::IndexParseError(_)
-            ))
-        ));
     }
 
     #[test]

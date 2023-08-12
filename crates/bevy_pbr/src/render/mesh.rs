@@ -325,6 +325,20 @@ pub struct MeshPipeline {
     pub dummy_white_gpu_image: GpuImage,
     pub clustered_forward_buffer_binding_type: BufferBindingType,
     pub mesh_layouts: MeshLayouts,
+    /// `MeshUniform`s are stored in arrays in buffers. If storage buffers are available, they
+    /// are used and this will be `None`, otherwise uniform buffers will be used with batches
+    /// of this many `MeshUniform`s, stored at dynamic offsets within the uniform buffer.
+    /// Use code like this in custom shaders:
+    /// ```wgsl
+    /// ##ifdef PER_OBJECT_BUFFER_BATCH_SIZE
+    /// @group(2) @binding(0)
+    /// var<uniform> mesh: array<Mesh, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
+    /// ##else
+    /// @group(2) @binding(0)
+    /// var<storage> mesh: array<Mesh>;
+    /// ##endif // PER_OBJECT_BUFFER_BATCH_SIZE
+    /// ```
+    pub per_object_buffer_batch_size: Option<u32>,
 }
 
 impl FromWorld for MeshPipeline {
@@ -564,6 +578,7 @@ impl FromWorld for MeshPipeline {
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device),
+            per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
         }
     }
 }
@@ -887,6 +902,24 @@ impl SpecializedMeshPipeline for MeshPipeline {
             TextureFormat::bevy_default()
         };
 
+        // This is defined here so that custom shaders that use something other than
+        // the mesh binding from bevy_pbr::mesh_bindings can easily make use of this
+        // in their own shaders.
+        if let Some(per_object_buffer_batch_size) = self.per_object_buffer_batch_size {
+            shader_defs.push(ShaderDefVal::UInt(
+                "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
+                per_object_buffer_batch_size,
+            ));
+        }
+
+        let mut push_constant_ranges = Vec::with_capacity(1);
+        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+            push_constant_ranges.push(PushConstantRange {
+                stages: ShaderStages::VERTEX,
+                range: 0..4,
+            });
+        }
+
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
@@ -905,7 +938,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 })],
             }),
             layout: bind_group_layout,
-            push_constant_ranges: Vec::new(),
+            push_constant_ranges,
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
@@ -1298,6 +1331,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
     ) -> RenderCommandResult {
         if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            pass.set_push_constants(
+                ShaderStages::VERTEX,
+                0,
+                &(batch_indices.index as i32).to_le_bytes(),
+            );
             match &gpu_mesh.buffer_info {
                 GpuBufferInfo::Indexed {
                     buffer,
