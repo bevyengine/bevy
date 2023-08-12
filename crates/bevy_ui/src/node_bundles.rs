@@ -4,8 +4,8 @@
 use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
-    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
-    UiTextureAtlasImage, ZIndex,
+    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Focusable, Interaction, Node, Style,
+    UiImage, UiTextureAtlasImage, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -281,6 +281,8 @@ pub struct ButtonBundle {
     pub interaction: Interaction,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
+    /// Describes whether the button is currently focused
+    pub focused_state: Focusable,
     /// The background color, which serves as a "fill" for this node
     ///
     /// When combined with `UiImage`, tints the provided image.
@@ -311,6 +313,7 @@ impl Default for ButtonBundle {
     fn default() -> Self {
         Self {
             focus_policy: FocusPolicy::Block,
+            focused_state: Default::default(),
             node: Default::default(),
             button: Default::default(),
             style: Default::default(),

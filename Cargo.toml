@@ -1977,6 +1977,17 @@ description = "Illustrates creating and updating a button"
 category = "UI (User Interface)"
 wasm = true
 
+
+[[example]]
+name = "keyboard_navigation"
+path = "examples/ui/keyboard_navigation.rs"
+
+[package.metadata.example.keyboard_navigation]
+name = "Keyboard Navigation"
+description = "A simple UI containing several buttons that modify a counter, to demonstrate keyboard navigation"
+category = "UI (User Interface)"
+wasm = true
+
 [[example]]
 name = "display_and_visibility"
 path = "examples/ui/display_and_visibility.rs"

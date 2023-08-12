@@ -1,4 +1,5 @@
 use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, UiScale, UiStack};
+use bevy_a11y::Focus;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -6,7 +7,7 @@ use bevy_ecs::{
     prelude::{Component, With},
     query::WorldQuery,
     reflect::ReflectComponent,
-    system::{Local, Query, Res},
+    system::{Local, Query, Res, ResMut},
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
@@ -142,6 +143,7 @@ pub fn ui_focus_system(
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
+    mut focus: ResMut<Focus>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -267,9 +269,17 @@ pub fn ui_focus_system(
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             if mouse_clicked {
+                if focus.entity != Some(node.entity) {
+                    *focus = Focus {
+                        entity: Some(node.entity),
+                        focus_visible: false,
+                    };
+                }
+
                 // only consider nodes with Interaction "pressed"
                 if *interaction != Interaction::Pressed {
                     *interaction = Interaction::Pressed;
+
                     // if the mouse was simultaneously released, reset this Interaction in the next
                     // frame
                     if mouse_released {

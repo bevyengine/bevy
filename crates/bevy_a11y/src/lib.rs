@@ -61,8 +61,14 @@ impl AccessKitEntityExt for Entity {
 }
 
 /// Resource representing which entity has keyboard focus, if any.
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct Focus(Option<Entity>);
+#[derive(PartialEq, Eq, Debug, Resource, Default)]
+pub struct Focus {
+    /// The entity that has keyboard focus.
+    pub entity: Option<Entity>,
+    /// Focus has been reached through keyboard navigation and so a focus style should be displayed.
+    /// This is similar to the `:focus-visible` pseudo-class in css.
+    pub focus_visible: bool,
+}
 
 /// Plugin managing non-GUI aspects of integrating with accessibility APIs.
 pub struct AccessibilityPlugin;
