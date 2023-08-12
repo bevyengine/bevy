@@ -16,8 +16,9 @@ use crate::CursorIcon;
 ///
 /// Currently this is assumed to only exist on 1 entity at a time.
 ///
-/// [`WindowPlugin`](crate::WindowPlugin) will spawn a window entity
-/// with this component if `primary_window` is `Some`.
+/// [`WindowPlugin`](crate::WindowPlugin) will spawn a [`Window`] entity
+/// with this component if [`primary_window`](crate::WindowPlugin::primary_window)
+/// is `Some`.
 #[derive(Default, Debug, Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Reflect)]
 #[reflect(Component)]
 pub struct PrimaryWindow;
@@ -217,7 +218,7 @@ pub struct Window {
 impl Default for Window {
     fn default() -> Self {
         Self {
-            title: "Bevy App".to_owned(),
+            title: "App".to_owned(),
             cursor: Default::default(),
             present_mode: Default::default(),
             mode: Default::default(),
@@ -243,16 +244,16 @@ impl Default for Window {
 }
 
 impl Window {
-    /// Setting this to true will attempt to maximize the window.
+    /// Setting to true will attempt to maximize the window.
     ///
-    /// Setting it to false will attempt to un-maximize the window.
+    /// Setting to false will attempt to un-maximize the window.
     pub fn set_maximized(&mut self, maximized: bool) {
         self.internal.maximize_request = Some(maximized);
     }
 
-    /// Setting this to true will attempt to minimize the window.
+    /// Setting to true will attempt to minimize the window.
     ///
-    /// Setting it to false will attempt to un-minimize the window.
+    /// Setting to false will attempt to un-minimize the window.
     pub fn set_minimized(&mut self, minimized: bool) {
         self.internal.minimize_request = Some(minimized);
     }

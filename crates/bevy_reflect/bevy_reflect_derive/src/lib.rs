@@ -128,6 +128,13 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 ///
 /// Note that in the latter case, `ReflectFromReflect` will no longer be automatically registered.
 ///
+/// ## `#[reflect(type_path = false)]`
+///
+/// This attribute will opt-out of the default `TypePath` implementation.
+///
+/// This is useful for when a type can't or shouldn't implement `TypePath`,
+/// or if a manual implementation is desired.
+///
 /// # Field Attributes
 ///
 /// Along with the container attributes, this macro comes with some attributes that may be applied
@@ -221,7 +228,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 ///
 /// By default, this attribute denotes that the field's type implements [`Default`].
 /// However, it can also take in a path string to a user-defined function that will return the default value.
-/// This takes the form: `#[reflect(default = "path::to::my_function)]` where `my_function` is a parameterless
+/// This takes the form: `#[reflect(default = "path::to::my_function")]` where `my_function` is a parameterless
 /// function that must return some default value for the type.
 ///
 /// Specifying a custom default can be used to give different fields their own specialized defaults,

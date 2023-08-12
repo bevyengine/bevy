@@ -390,58 +390,46 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/aspect-ratio>
     pub aspect_ratio: Option<f32>,
 
-    /// For Flexbox containers:
-    ///   - Sets default cross-axis alignment of the child items.
-    /// For CSS Grid containers:
-    ///   - Controls block (vertical) axis alignment of children of this grid container within their grid areas
+    /// - For Flexbox containers, sets default cross-axis alignment of the child items.
+    /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
     ///
     /// This value is overridden [`JustifySelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
     pub align_items: AlignItems,
 
-    /// For Flexbox containers:
-    ///   - This property has no effect. See `justify_content` for main-axis alignment of flex items.
-    /// For CSS Grid containers:
-    ///   - Sets default inline (horizontal) axis alignment of child items within their grid areas
+    /// - For Flexbox containers, this property has no effect. See `justify_content` for main-axis alignment of flex items.
+    /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
     ///
     /// This value is overridden [`JustifySelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
     pub justify_items: JustifyItems,
 
-    /// For Flexbox items:
-    ///   - Controls cross-axis alignment of the item.
-    /// For CSS Grid items:
-    ///   - Controls block (vertical) axis alignment of a grid item within it's grid area
+    /// - For Flexbox items, controls cross-axis alignment of the item.
+    /// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within it's grid area.
     ///
     /// If set to `Auto`, alignment is inherited from the value of [`AlignItems`] set on the parent node.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
     pub align_self: AlignSelf,
 
-    /// For Flexbox items:
-    ///   - This property has no effect. See `justify_content` for main-axis alignment of flex items.
-    /// For CSS Grid items:
-    ///   - Controls inline (horizontal) axis alignment of a grid item within it's grid area.
+    /// - For Flexbox items, this property has no effect. See `justify_content` for main-axis alignment of flex items.
+    /// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within it's grid area.
     ///
     /// If set to `Auto`, alignment is inherited from the value of [`JustifyItems`] set on the parent node.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
     pub justify_self: JustifySelf,
 
-    /// For Flexbox containers:
-    ///   - Controls alignment of lines if flex_wrap is set to [`FlexWrap::Wrap`] and there are multiple lines of items
-    /// For CSS Grid container:
-    ///   - Controls alignment of grid rows
+    /// - For Flexbox containers, controls alignment of lines if flex_wrap is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
+    /// - For CSS Grid containers, controls alignment of grid rows.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
     pub align_content: AlignContent,
 
-    /// For Flexbox containers:
-    ///   - Controls alignment of items in the main axis
-    /// For CSS Grid containers:
-    ///   - Controls alignment of grid columns
+    /// - For Flexbox containers, controls alignment of items in the main axis.
+    /// - For CSS Grid containers, controls alignment of grid columns.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
     pub justify_content: JustifyContent,
