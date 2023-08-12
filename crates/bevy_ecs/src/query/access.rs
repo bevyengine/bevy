@@ -178,21 +178,20 @@ impl<T: SparseSetIndex> Access<T> {
     /// [`Access`] instances are incompatible if one can write
     /// an element that the other can read or write.
     pub fn is_compatible(&self, other: &Access<T>) -> bool {
-        // Only systems that do not write data are compatible with systems that operate on `&World`.
-        if self.reads_all {
-            return !other.has_any_write();
-        }
-
-        if other.reads_all {
-            return !self.has_any_write();
-        }
-
         if self.writes_all {
             return !other.has_any_read();
         }
 
         if other.writes_all {
             return !self.has_any_read();
+        }
+
+        if self.reads_all {
+            return !other.has_any_write();
+        }
+
+        if other.reads_all {
+            return !self.has_any_write();
         }
 
         self.writes.is_disjoint(&other.reads_and_writes)
