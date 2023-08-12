@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-@group(0) @binding(0) var tex_hi_re: texture_cube<f32>;
+@group(0) @binding(0) var tex_hi_res: texture_cube<f32>;
 @group(0) @binding(1) var tex_los_res: texture_storage_2d_array<rg11b10float, write>;
 @group(0) @binding(2) var bilinear: sampler;
 
@@ -56,14 +56,15 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
         var weights = array(calc_weight(u0, v0), calc_weight(u1, v0), calc_weight(u0, v1), calc_weight(u1, v1));
         let wsum = 0.5 / (weights[0] + weights[1] + weights[2] + weights[3]);
-        for (var i = 0u; i < 4u; i++) {
-            weights[i] = weights[i] * wsum + 0.125;
-        }
+        weights[0u] = weights[0u] * wsum + 0.125;
+        weights[1u] = weights[1u] * wsum + 0.125;
+        weights[2u] = weights[2u] * wsum + 0.125;
+        weights[3u] = weights[3u] * wsum + 0.125;
 
-        var color = textureSampleLevel(tex_hi_re, bilinear, get_dir(u0, v0, id.z), 0.0) * weights[0];
-        color += textureSampleLevel(tex_hi_re, bilinear, get_dir(u1, v0, id.z), 0.0) * weights[1];
-        color += textureSampleLevel(tex_hi_re, bilinear, get_dir(u0, v1, id.z), 0.0) * weights[2];
-        color += textureSampleLevel(tex_hi_re, bilinear, get_dir(u1, v1, id.z), 0.0) * weights[3];
+        var color = textureSampleLevel(tex_hi_res, bilinear, get_dir(u0, v0, id.z), 0.0) * weights[0];
+        color += textureSampleLevel(tex_hi_res, bilinear, get_dir(u1, v0, id.z), 0.0) * weights[1];
+        color += textureSampleLevel(tex_hi_res, bilinear, get_dir(u0, v1, id.z), 0.0) * weights[2];
+        color += textureSampleLevel(tex_hi_res, bilinear, get_dir(u1, v1, id.z), 0.0) * weights[3];
 
         textureStore(tex_los_res, id.xy, id.z, color);
     }
