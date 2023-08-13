@@ -67,11 +67,7 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
 #else
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416 .
-    var model = mesh_functions::affine_to_square(
-        mesh[get_instance_index(
-            vertex_no_morph.instance_index
-        )].model
-    );
+    var model = mesh_functions::get_model_matrix(vertex_no_morph.instance_index);
 #endif
 
 #ifdef VERTEX_NORMALS

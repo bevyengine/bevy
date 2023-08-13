@@ -1,6 +1,5 @@
 #import bevy_pbr::mesh_bindings   mesh
-#import bevy_pbr::mesh_functions  affine_to_square, mesh_position_local_to_clip
-#import bevy_render::instance_index
+#import bevy_pbr::mesh_functions  get_model_matrix, mesh_position_local_to_clip
 
 struct CustomMaterial {
     color: vec4<f32>,
@@ -23,7 +22,7 @@ struct VertexOutput {
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     out.clip_position = mesh_position_local_to_clip(
-        affine_to_square(mesh[bevy_render::instance_index::get_instance_index(vertex.instance_index)].model),
+        get_model_matrix(vertex.instance_index),
         vec4<f32>(vertex.position, 1.0),
     );
     out.blend_color = vertex.blend_color;
