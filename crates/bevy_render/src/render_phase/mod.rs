@@ -73,6 +73,12 @@ impl<I: PhaseItem> RenderPhase<I> {
         I::sort(&mut self.items);
     }
 
+    /// An [`Iterator`] through the associated [`Entity`] for each [`PhaseItem`] in order.
+    #[inline]
+    pub fn iter_entities(&'_ self) -> impl Iterator<Item = Entity> + '_ {
+        self.items.iter().map(|item| item.entity())
+    }
+
     /// Renders all of its [`PhaseItem`]s using their corresponding draw functions.
     pub fn render<'w>(
         &self,

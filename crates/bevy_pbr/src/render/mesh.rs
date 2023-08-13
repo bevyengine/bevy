@@ -8,6 +8,7 @@ use crate::{
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleId, HandleUntyped};
 use bevy_core_pipeline::{
+    core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
     prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
@@ -22,7 +23,6 @@ use bevy_math::{Mat3A, Mat4, Vec2};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
-    gpu_component_array_buffer::GpuComponentArrayBufferPlugin,
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         GpuBufferInfo, InnerMeshVertexBufferLayout, Mesh, MeshVertexBufferLayout,
@@ -30,7 +30,7 @@ use bevy_render::{
     },
     prelude::Msaa,
     render_asset::RenderAssets,
-    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
@@ -42,6 +42,7 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, HashMap, Hashed};
+use fixedbitset::FixedBitSet;
 
 use crate::render::{
     morph::{extract_morphs, prepare_morphs, MorphIndex, MorphUniform},
@@ -115,8 +116,6 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, MORPH_HANDLE, "morph.wgsl", Shader::from_wgsl);
 
-        app.add_plugins(GpuComponentArrayBufferPlugin::<MeshUniform>::default());
-
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<SkinnedMeshUniform>()
@@ -137,6 +136,7 @@ impl Plugin for MeshRenderPlugin {
                         prepare_mesh_view_bind_groups
                             .in_set(RenderSet::Prepare)
                             .after(ViewSet::PrepareUniforms),
+                        prepare_mesh_uniform_buffer.in_set(RenderSet::Prepare),
                     ),
                 );
         }
@@ -155,7 +155,11 @@ impl Plugin for MeshRenderPlugin {
                 ));
             }
 
-            render_app.init_resource::<MeshPipeline>();
+            render_app
+                .insert_resource(GpuArrayBuffer::<MeshUniform>::new(
+                    render_app.world.resource::<RenderDevice>(),
+                ))
+                .init_resource::<MeshPipeline>();
         }
 
         // Load the mesh_bindings shader module here as it depends on runtime information about
@@ -1203,6 +1207,51 @@ pub fn prepare_mesh_view_bind_groups(
             });
         }
     }
+}
+
+fn prepare_mesh_uniform_buffer(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    mut gpu_array_buffer: ResMut<GpuArrayBuffer<MeshUniform>>,
+    views: Query<(
+        &RenderPhase<Opaque3d>,
+        &RenderPhase<Transparent3d>,
+        &RenderPhase<AlphaMask3d>,
+    )>,
+    meshes: Query<(Entity, &MeshUniform)>,
+) {
+    gpu_array_buffer.clear();
+
+    let seen = FixedBitSet::new();
+    let mut indices = Vec::with_capacity(*previous_len);
+    for (opaque_phase, transparent_phase, alpha_phase) in &views {
+        meshes
+            .iter_many(opaque_phase.iter_entities())
+            .filter(|(mesh, _)| !seen.contains(mesh.index() as usize))
+            .for_each(|(mesh, mesh_uniform)| {
+                indices.push((mesh, gpu_array_buffer.push(mesh_uniform.clone())));
+            });
+
+        meshes
+            .iter_many(transparent_phase.iter_entities())
+            .filter(|(mesh, _)| !seen.contains(mesh.index() as usize))
+            .for_each(|(mesh, mesh_uniform)| {
+                indices.push((mesh, gpu_array_buffer.push(mesh_uniform.clone())));
+            });
+
+        meshes
+            .iter_many(alpha_phase.iter_entities())
+            .filter(|(mesh, _)| !seen.contains(mesh.index() as usize))
+            .for_each(|(mesh, mesh_uniform)| {
+                indices.push((mesh, gpu_array_buffer.push(mesh_uniform.clone())));
+            });
+    }
+    *previous_len = indices.len();
+    commands.insert_or_spawn_batch(indices);
+
+    gpu_array_buffer.write_buffer(&render_device, &render_queue);
 }
 
 pub struct SetMeshViewBindGroup<const I: usize>;

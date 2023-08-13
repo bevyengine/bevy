@@ -139,6 +139,7 @@ pub struct Opaque3d {
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
+    pub batch_size: usize,
 }
 
 impl PhaseItem for Opaque3d {
@@ -165,6 +166,11 @@ impl PhaseItem for Opaque3d {
         // Key negated to match reversed SortKey ordering
         radsort::sort_by_key(items, |item| -item.distance);
     }
+
+    #[inline]
+    fn batch_size(&self) -> usize {
+        self.batch_size
+    }
 }
 
 impl CachedRenderPipelinePhaseItem for Opaque3d {
@@ -179,6 +185,7 @@ pub struct AlphaMask3d {
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
+    pub batch_size: usize,
 }
 
 impl PhaseItem for AlphaMask3d {
@@ -205,6 +212,11 @@ impl PhaseItem for AlphaMask3d {
         // Key negated to match reversed SortKey ordering
         radsort::sort_by_key(items, |item| -item.distance);
     }
+
+    #[inline]
+    fn batch_size(&self) -> usize {
+        self.batch_size
+    }
 }
 
 impl CachedRenderPipelinePhaseItem for AlphaMask3d {
@@ -219,6 +231,7 @@ pub struct Transparent3d {
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
+    pub batch_size: usize,
 }
 
 impl PhaseItem for Transparent3d {
@@ -243,6 +256,11 @@ impl PhaseItem for Transparent3d {
     #[inline]
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
+    }
+
+    #[inline]
+    fn batch_size(&self) -> usize {
+        self.batch_size
     }
 }
 

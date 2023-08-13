@@ -181,6 +181,7 @@ fn queue_line_gizmos_3d(
                 draw_function,
                 pipeline,
                 distance: 0.,
+                batch_size: 1,
             });
         }
     }
