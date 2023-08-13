@@ -3,6 +3,7 @@
 // Most of these attributes are not used in the default prepass fragment shader, but they are still needed so we can
 // pass them to custom prepass shaders like pbr_prepass.wgsl.
 struct Vertex {
+    @builtin(instance_index) instance_index: u32,
     @location(0) position: vec3<f32>,
 
 #ifdef VERTEX_UVS
@@ -48,6 +49,9 @@ struct VertexOutput {
 #ifdef DEPTH_CLAMP_ORTHO
     @location(5) clip_position_unclamped: vec4<f32>,
 #endif // DEPTH_CLAMP_ORTHO
+#ifdef VERTEX_OUTPUT_INSTANCE_INDEX
+    @location(6) instance_index: u32,
+#endif
 }
 
 struct FragmentInput {
@@ -71,6 +75,9 @@ struct FragmentInput {
 #ifdef DEPTH_CLAMP_ORTHO
     @location(5) clip_position_unclamped: vec4<f32>,
 #endif // DEPTH_CLAMP_ORTHO
+#ifdef VERTEX_OUTPUT_INSTANCE_INDEX
+    @location(6) instance_index: u32,
+#endif
 };
 
 #ifdef PREPASS_FRAGMENT
