@@ -853,7 +853,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             depth_write_enabled = false;
         } else {
             label = "opaque_mesh_pipeline".into();
-            blend = Some(BlendState::REPLACE);
+            blend = None;
             // For the opaque and alpha mask passes, fragments that are closer will replace
             // the current fragment value in the output and the depth is written to the
             // depth buffer

@@ -491,7 +491,7 @@ where
                 .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
                 .then_some(ColorTargetState {
                     format: MOTION_VECTOR_PREPASS_FORMAT,
-                    blend: Some(bevy_render::render_resource::BlendState::REPLACE),
+                    blend: None,
                     write_mask: ColorWrites::ALL,
                 }),
         );

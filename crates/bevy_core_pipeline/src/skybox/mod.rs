@@ -174,7 +174,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                     } else {
                         TextureFormat::bevy_default()
                     },
-                    blend: Some(BlendState::REPLACE),
+                    blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
             }),
