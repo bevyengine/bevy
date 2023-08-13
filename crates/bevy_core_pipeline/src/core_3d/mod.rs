@@ -36,7 +36,7 @@ pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
@@ -56,7 +56,7 @@ use bevy_render::{
     view::ViewDepthTexture,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{FloatOrd, HashMap};
+use bevy_utils::{tracing::warn, FloatOrd, HashMap};
 
 use crate::{
     deferred::{
@@ -78,7 +78,8 @@ impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera3d>()
             .register_type::<Camera3dDepthLoadOp>()
-            .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()));
+            .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
+            .add_systems(PostUpdate, check_msaa);
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -396,6 +397,22 @@ pub fn prepare_core_3d_depth_textures(
             texture: cached_texture.texture,
             view: cached_texture.default_view,
         });
+    }
+}
+
+// Disable msaa and warn if using deferred rendering
+pub fn check_msaa(
+    mut msaa: ResMut<Msaa>,
+    views_3d: Query<Entity, (With<Camera>, With<DeferredPrepass>)>,
+) {
+    if !views_3d.is_empty() {
+        match *msaa {
+            Msaa::Off => (),
+            _ => {
+                warn!("MSAA is incompatible with deferred rendering and has been disabled.");
+                *msaa = Msaa::Off;
+            }
+        };
     }
 }
 

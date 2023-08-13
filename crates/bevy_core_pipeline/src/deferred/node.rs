@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
-use bevy_render::view::Msaa;
+
 use bevy_render::{
     camera::ExtractedCamera,
     prelude::Color,
@@ -59,13 +59,6 @@ impl ViewNode for DeferredNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
-
-        if let Some(msaa) = world.get_resource::<Msaa>() {
-            match msaa {
-                Msaa::Off => (),
-                _ => panic!("MSAA not supported when using deferred rendering."),
-            }
-        }
 
         let mut color_attachments = vec![];
         color_attachments.push(
