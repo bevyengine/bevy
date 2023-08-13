@@ -20,6 +20,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+#import "./filter_coefficents.wgsl"
+
 @group(0) @binding(0) var tex_in: texture_cube<f32>;
 @group(0) @binding(1) var text_out0: texture_storage_2d_array<rg11b10float, write>;
 @group(0) @binding(2) var text_out1: texture_storage_2d_array<rg11b10float, write>;
@@ -125,7 +127,34 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let phi2 = phi * phi;
 
             for (var i_super_tap = 0u; i_super_tap < 8u; i_super_tap++) {
-                // TODO
+                let index = 8u * axis + i_super_tap;
+                var coeffs_dir0 = array(vec4(0.0), vec4(0.0), vec4(0.0));
+                var coeffs_dir1 = array(vec4(0.0), vec4(0.0), vec4(0.0));
+                var coeffs_dir2 = array(vec4(0.0), vec4(0.0), vec4(0.0));
+                var coeffs_level = array(vec4(0.0), vec4(0.0), vec4(0.0));
+                var coeffs_weight = array(vec4(0.0), vec4(0.0), vec4(0.0));
+
+                for (var i_coeff = 0u; i_coeff < 3u; i_coeff++) {
+                    coeffs_dir0[i_coeff] = coeffs[level][0u][i_coeff][index];
+                    coeffs_dir1[i_coeff] = coeffs[level][1u][i_coeff][index];
+                    coeffs_dir2[i_coeff] = coeffs[level][2u][i_coeff][index];
+                    coeffs_level[i_coeff] = coeffs[level][3u][i_coeff][index];
+                    coeffs_weight[i_coeff] = coeffs[level][4u][i_coeff][index];
+                }
+
+                for (var i_sub_tap = 0u; i_sub_tap < 4u; i_sub_tap++) {
+                    var sample_dir = frame_x * (coeffs_dir0[0u][i_sub_tap] + coeffs_dir0[1u][i_sub_tap] * theta2 + coeffs_dir0[2u][i_sub_tap * phi2]) + frame_y * (coeffs_dir1[0u][i_sub_tap] + coeffs_dir1[1u][i_sub_tap] * theta2 + coeffs_dir1[2u][i_sub_tap * phi2]) + frame_z * (coeffs_dir2[0u][i_sub_tap] + coeffs_dir2[1u][i_sub_tap] * theta2 + coeffs_dir2[2u][i_sub_tap * phi2]);
+
+                    var sample_level = coeffs_level[0u][i_sub_tap] + coeffs_level[1u][i_sub_tap] * theta2 + coeffs_level[2u][i_sub_tap] * phi2;
+
+                    var sample_weight = coeffs_weight[0u][i_sub_tap] + coeffs_weight[1u][i_sub_tap] * theta2 + coeffs_weight[2u][i_sub_tap] * phi2;
+                    sample_weight *= frame_weight;
+
+                    sample_dir /= max(abs(sample_dir[0u]), max(abs(sample_dir[1u]), abs(sample_dir[2u])));
+                    sample_level += 0.75 * log2(dot(sample_dir, sample_dir));
+
+                    color += vec4(textureSampleLevel(tex_in, trilinear, sample_dir, sample_level).rgb * sample_weight, sample_weight);
+                }
             }
         }
     }
