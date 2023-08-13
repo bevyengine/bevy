@@ -72,7 +72,7 @@ impl FixedTime {
 
     /// Returns the current amount of accumulated time.
     ///
-    /// Approximately, this is how far behind the fixed update schedule is from the main schedule.
+    /// Approximately, this represents how far behind the fixed update schedule is from the main schedule.
     pub fn accumulated(&self) -> Duration {
         self.accumulated
     }
