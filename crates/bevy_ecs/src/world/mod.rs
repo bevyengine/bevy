@@ -1,6 +1,5 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
-mod entity_borrow;
 mod entity_ref;
 pub mod error;
 mod spawn_batch;
@@ -8,8 +7,7 @@ pub mod unsafe_world_cell;
 mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
-pub use entity_borrow::EntityBorrowMut;
-pub use entity_ref::{EntityMut, EntityRef};
+pub use entity_ref::{EntityBorrowMut, EntityMut, EntityRef};
 pub use spawn_batch::*;
 pub use world_cell::*;
 

@@ -12,7 +12,7 @@ use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
 use std::any::TypeId;
 
-use super::{unsafe_world_cell::UnsafeEntityCell, EntityBorrowMut, Ref};
+use super::{unsafe_world_cell::UnsafeEntityCell, Ref};
 
 /// A read-only reference to a particular [`Entity`] and all of its components.
 ///
@@ -205,21 +205,21 @@ pub struct EntityMut<'w> {
 }
 
 impl<'w> EntityMut<'w> {
-    pub(crate) fn as_unsafe_entity_cell_readonly(&self) -> UnsafeEntityCell<'_> {
+    fn as_unsafe_entity_cell_readonly(&self) -> UnsafeEntityCell<'_> {
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell_readonly(),
             self.entity,
             self.location,
         )
     }
-    pub(crate) fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
+    fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell(),
             self.entity,
             self.location,
         )
     }
-    pub(crate) fn into_unsafe_entity_cell(self) -> UnsafeEntityCell<'w> {
+    fn into_unsafe_entity_cell(self) -> UnsafeEntityCell<'w> {
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell(),
             self.entity,
@@ -848,6 +848,194 @@ impl<'w> EntityMut<'w> {
     }
 }
 
+/// Provides mutable access to a single entity and all of its components.
+///
+/// Contrast with [`EntityMut`], with allows adding adn removing components,
+/// despawning the entity, and provides mutable access to the eentire world.
+/// Because of this, `EntityMut` cannot coexist with any other world accesses.
+///
+/// [`EntityMut`]: super::EntityMut
+///
+/// # Examples
+///
+/// Disjoint mutable access.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)] pub struct A;
+/// fn disjoint_system(
+///     query1: Query<EntityRef, With<A>>,
+///     query2: Query<EntityRef, Without<A>>,
+/// ) {
+///     // ...
+/// }
+/// # bevy_ecs::system::assert_is_system(disjoint_system);
+/// ```
+pub struct EntityBorrowMut<'w>(UnsafeEntityCell<'w>);
+
+impl<'w> EntityBorrowMut<'w> {
+    /// # Safety
+    /// - `cell` must have permission to mutate every component of the entity.
+    /// - No accesses to any of the entity's components may exist
+    ///   at the same time as the returned [`EntityBorrowMut`].
+    pub(crate) unsafe fn new(cell: UnsafeEntityCell<'w>) -> Self {
+        Self(cell)
+    }
+
+    /// Returns a new instance with a shorter lifetime.
+    /// This is useful if you have `&mut EntityBorrowMut`, but you need `EntityBorrowMut`.
+    pub fn reborrow(&mut self) -> EntityBorrowMut<'_> {
+        // SAFETY: We have exclusive access to the entire entity and its components.
+        unsafe { Self::new(self.0) }
+    }
+
+    /// Gets read-only access to all of the entity's components.
+    pub fn as_readonly(&self) -> EntityRef<'_> {
+        EntityRef::from(self)
+    }
+
+    /// Returns the [ID](Entity) of the current entity.
+    #[inline]
+    #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
+    pub fn id(&self) -> Entity {
+        self.0.id()
+    }
+
+    /// Gets metadata indicating the location where the current entity is stored.
+    #[inline]
+    pub fn location(&self) -> EntityLocation {
+        self.0.location()
+    }
+
+    /// Returns the archetype that the current entity belongs to.
+    #[inline]
+    pub fn archetype(&self) -> &Archetype {
+        self.0.archetype()
+    }
+
+    /// Returns `true` if the current entity has a component of type `T`.
+    /// Otherwise, this returns `false`.
+    ///
+    /// ## Notes
+    ///
+    /// If you do not know the concrete type of a component, consider using
+    /// [`Self::contains_id`] or [`Self::contains_type_id`].
+    #[inline]
+    pub fn contains<T: Component>(&self) -> bool {
+        self.contains_type_id(TypeId::of::<T>())
+    }
+
+    /// Returns `true` if the current entity has a component identified by `component_id`.
+    /// Otherwise, this returns false.
+    ///
+    /// ## Notes
+    ///
+    /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
+    /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
+    /// [`Self::contains_type_id`].
+    #[inline]
+    pub fn contains_id(&self, component_id: ComponentId) -> bool {
+        self.0.contains_id(component_id)
+    }
+
+    /// Returns `true` if the current entity has a component with the type identified by `type_id`.
+    /// Otherwise, this returns false.
+    ///
+    /// ## Notes
+    ///
+    /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
+    /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
+    #[inline]
+    pub fn contains_type_id(&self, type_id: TypeId) -> bool {
+        self.0.contains_type_id(type_id)
+    }
+
+    /// Gets access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn get<T: Component>(&self) -> Option<&'_ T> {
+        self.as_readonly().get()
+    }
+
+    /// Gets access to the component of type `T` for the current entity,
+    /// including change detection information as a [`Ref`].
+    ///
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn get_ref<T: Component>(&self) -> Option<Ref<'_, T>> {
+        self.as_readonly().get_ref()
+    }
+
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+        // SAFETY: &mut self implies exclusive access for duration of returned value
+        unsafe { self.0.get_mut() }
+    }
+
+    /// Retrieves the change ticks for the given component. This can be useful for implementing change
+    /// detection in custom runtimes.
+    #[inline]
+    pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
+        self.as_readonly().get_change_ticks::<T>()
+    }
+
+    /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
+    /// detection in custom runtimes.
+    ///
+    /// **You should prefer to use the typed API [`EntityMut::get_change_ticks`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    #[inline]
+    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
+        self.as_readonly().get_change_ticks_by_id(component_id)
+    }
+
+    /// Gets the component of the given [`ComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API [`EntityMut::get`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Unlike [`EntityBorrowMut::get`], this returns a raw pointer to the component,
+    /// which is only valid while the [`EntityBorrowMut`] is alive.
+    #[inline]
+    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+        self.as_readonly().get_by_id(component_id)
+    }
+
+    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API [`EntityMut::get_mut`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Unlike [`EntityMut::get_mut`], this returns a raw pointer to the component,
+    /// which is only valid while the [`EntityMut`] is alive.
+    #[inline]
+    pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+        // SAFETY:
+        // - `&mut self` ensures that no references exist to this entity's components.
+        // - `as_unsafe_world_cell` gives mutable permission for all components on this entity
+        unsafe { self.0.get_mut_by_id(component_id) }
+    }
+}
+
+impl<'w> From<EntityMut<'w>> for EntityBorrowMut<'w> {
+    fn from(value: EntityMut<'w>) -> Self {
+        // SAFETY: `EntityMut` guarantees exclusive access to the entire world.
+        unsafe { EntityBorrowMut::new(value.into_unsafe_entity_cell()) }
+    }
+}
+
+impl<'a> From<&'a mut EntityMut<'_>> for EntityBorrowMut<'a> {
+    fn from(value: &'a mut EntityMut<'_>) -> Self {
+        // SAFETY: `EntityMut` guarantees exclusive access to the entire world.
+        unsafe { EntityBorrowMut::new(value.as_unsafe_entity_cell()) }
+    }
+}
+
 /// Inserts a dynamic [`Bundle`] into the entity.
 ///
 /// # Safety
@@ -1050,9 +1238,7 @@ mod tests {
     use bevy_ptr::OwningPtr;
     use std::panic::AssertUnwindSafe;
 
-    use crate as bevy_ecs;
-    use crate::component::ComponentId;
-    use crate::prelude::*; // for the `#[derive(Component)]`
+    use crate::{self as bevy_ecs, component::ComponentId, prelude::*, system::assert_is_system};
 
     #[test]
     fn sorted_remove() {
@@ -1391,5 +1577,118 @@ mod tests {
             .collect();
 
         assert_eq!(dynamic_components, static_components);
+    }
+
+    #[derive(Component)]
+    struct A;
+
+    #[derive(Resource)]
+    struct R;
+
+    #[test]
+    fn disjoint_access() {
+        fn disjoint_readonly(_: Query<EntityRef, With<A>>, _: Query<EntityRef, Without<A>>) {}
+
+        fn disjoint_mutable(
+            _: Query<EntityBorrowMut, With<A>>,
+            _: Query<EntityBorrowMut, Without<A>>,
+        ) {
+        }
+
+        assert_is_system(disjoint_readonly);
+        assert_is_system(disjoint_mutable);
+    }
+
+    #[test]
+    fn ref_compatible() {
+        fn borrow_system(_: Query<(EntityRef, &A)>, _: Query<&A>) {}
+
+        assert_is_system(borrow_system);
+    }
+
+    #[test]
+    fn ref_compatible_with_resource() {
+        fn borrow_system(_: Query<EntityRef>, _: Res<R>) {}
+
+        assert_is_system(borrow_system);
+    }
+
+    #[test]
+    #[ignore] // This should pass, but it currently fails due to limitations in our access model.
+    fn ref_compatible_with_resource_mut() {
+        fn borrow_system(_: Query<EntityRef>, _: ResMut<R>) {}
+
+        assert_is_system(borrow_system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn ref_incompatible_with_mutable_component() {
+        fn incompatible_system(_: Query<(EntityRef, &mut A)>) {}
+
+        assert_is_system(incompatible_system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn ref_incompatible_with_mutable_query() {
+        fn incompatible_system(_: Query<EntityRef>, _: Query<&mut A>) {}
+
+        assert_is_system(incompatible_system);
+    }
+
+    #[test]
+    fn borrow_mut_compatible_with_entity() {
+        fn borrow_mut_system(_: Query<(Entity, EntityBorrowMut)>) {}
+
+        assert_is_system(borrow_mut_system);
+    }
+
+    #[test]
+    #[ignore] // This should pass, but it currently fails due to limitations in our access model.
+    fn borrow_mut_compatible_with_resource() {
+        fn borrow_mut_system(_: Res<R>, _: Query<EntityBorrowMut>) {}
+
+        assert_is_system(borrow_mut_system);
+    }
+
+    #[test]
+    #[ignore] // This should pass, but it currently fails due to limitations in our access model.
+    fn borrow_mut_compatible_with_resource_mut() {
+        fn borrow_mut_system(_: ResMut<R>, _: Query<EntityBorrowMut>) {}
+
+        assert_is_system(borrow_mut_system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn borrow_mut_incompatible_with_read_only_component() {
+        fn incompatible_system(_: Query<(EntityBorrowMut, &A)>) {}
+
+        assert_is_system(incompatible_system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn borrow_mut_incompatible_with_mutable_component() {
+        fn incompatible_system(_: Query<(EntityBorrowMut, &mut A)>) {}
+
+        assert_is_system(incompatible_system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn borrow_mut_incompatible_with_read_only_query() {
+        fn incompatible_system(_: Query<EntityBorrowMut>, _: Query<&A>) {}
+
+        assert_is_system(incompatible_system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn borrow_mut_incompatible_with_mutable_query() {
+        fn incompatible_system(_: Query<EntityBorrowMut>, _: Query<&mut A>) {}
+
+        assert_is_system(incompatible_system);
     }
 }
