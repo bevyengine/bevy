@@ -62,6 +62,15 @@ pub(crate) struct AssetRefCounter {
     pub(crate) mark_unused_assets: Arc<Mutex<Vec<HandleId>>>,
 }
 
+#[derive(Clone)]
+enum MaybeAssetLoader {
+    Ready(Arc<dyn AssetLoader>),
+    Pending {
+        sender: async_channel::Sender<()>,
+        receiver: async_channel::Receiver<()>,
+    },
+}
+
 /// Internal data for the asset server.
 ///
 /// [`AssetServer`] is the public API for interacting with the asset server.
@@ -70,7 +79,7 @@ pub struct AssetServerInternal {
     pub(crate) asset_ref_counter: AssetRefCounter,
     pub(crate) asset_sources: Arc<RwLock<HashMap<SourcePathId, SourceInfo>>>,
     pub(crate) asset_lifecycles: Arc<RwLock<HashMap<Uuid, Box<dyn AssetLifecycle>>>>,
-    loaders: RwLock<Vec<Arc<dyn AssetLoader>>>,
+    loaders: RwLock<Vec<MaybeAssetLoader>>,
     extension_to_loader_index: RwLock<HashMap<String, usize>>,
     handle_to_path: Arc<RwLock<HashMap<HandleId, AssetPath<'static>>>>,
 }
@@ -157,6 +166,23 @@ impl AssetServer {
         Assets::new(self.server.asset_ref_counter.channel.sender.clone())
     }
 
+    /// Pre-register a loader that will later be added.
+    ///
+    /// Assets loaded with matching extensions will be blocked until the
+    /// real loader is added.
+    pub fn preregister_loader(&self, extensions: &[&str]) {
+        let mut loaders = self.server.loaders.write();
+        let loader_index = loaders.len();
+        for extension in extensions {
+            self.server
+                .extension_to_loader_index
+                .write()
+                .insert(extension.to_string(), loader_index);
+        }
+        let (sender, receiver) = async_channel::bounded(1);
+        loaders.push(MaybeAssetLoader::Pending { sender, receiver });
+    }
+
     /// Adds the provided asset loader to the server.
     ///
     /// If `loader` has one or more supported extensions in conflict with loaders that came before
@@ -167,13 +193,44 @@ impl AssetServer {
     {
         let mut loaders = self.server.loaders.write();
         let loader_index = loaders.len();
+        let mut maybe_existing_loader_index = None;
+        let mut loader_map = self.server.extension_to_loader_index.write();
+        let mut senders = Vec::default();
         for extension in loader.extensions() {
-            self.server
-                .extension_to_loader_index
-                .write()
-                .insert(extension.to_string(), loader_index);
+            if let Some(&extension_index) = loader_map.get(*extension) {
+                if extension_index != loader_index {
+                    // replacing an existing loader
+                    match maybe_existing_loader_index {
+                        None => {
+                            match &loaders[extension_index] {
+                                MaybeAssetLoader::Ready(_) => (),
+                                MaybeAssetLoader::Pending { sender, .. } => {
+                                    // the loader was pre-registered, store the channel to notify pending assets
+                                    senders.push(sender.clone());
+                                }
+                            }
+                        }
+                        Some(index) => {
+                            // ensure the loader extensions are consistent
+                            assert_eq!(index, extension_index);
+                        }
+                    }
+
+                    maybe_existing_loader_index = Some(extension_index);
+                }
+            } else {
+                loader_map.insert(extension.to_string(), loader_index);
+            }
         }
-        loaders.push(Arc::new(loader));
+        if let Some(existing_index) = maybe_existing_loader_index {
+            loaders[existing_index] = MaybeAssetLoader::Ready(Arc::new(loader));
+            for sender in senders {
+                // notify after replacing the loader
+                sender.send_blocking(()).unwrap();
+            }
+        } else {
+            loaders.push(MaybeAssetLoader::Ready(Arc::new(loader)));
+        }
     }
 
     /// Gets a strong handle for an asset with the provided id.
@@ -188,7 +245,7 @@ impl AssetServer {
         HandleUntyped::strong(id.into(), sender)
     }
 
-    fn get_asset_loader(&self, extension: &str) -> Result<Arc<dyn AssetLoader>, AssetServerError> {
+    fn get_asset_loader(&self, extension: &str) -> Result<MaybeAssetLoader, AssetServerError> {
         let index = {
             // scope map to drop lock as soon as possible
             let map = self.server.extension_to_loader_index.read();
@@ -204,7 +261,7 @@ impl AssetServer {
     fn get_path_asset_loader<P: AsRef<Path>>(
         &self,
         path: P,
-    ) -> Result<Arc<dyn AssetLoader>, AssetServerError> {
+    ) -> Result<MaybeAssetLoader, AssetServerError> {
         let s = path
             .as_ref()
             .file_name()
@@ -354,13 +411,28 @@ impl AssetServer {
         };
 
         // get the according asset loader
-        let asset_loader = match self.get_path_asset_loader(asset_path.path()) {
+        let mut maybe_asset_loader = match self.get_path_asset_loader(asset_path.path()) {
             Ok(loader) => loader,
             Err(err) => {
                 set_asset_failed();
                 return Err(err);
             }
         };
+
+        while let MaybeAssetLoader::Pending { receiver, .. } = maybe_asset_loader {
+            println!("blocking asset");
+            let _ = receiver.recv().await;
+            println!("unblocked");
+            maybe_asset_loader = match self.get_path_asset_loader(asset_path.path()) {
+                Ok(loader) => loader,
+                Err(err) => {
+                    set_asset_failed();
+                    return Err(err);
+                }
+            };
+        }
+
+        let MaybeAssetLoader::Ready(asset_loader) = maybe_asset_loader else { panic!() };
 
         // load the asset bytes
         let bytes = match self.asset_io().load_path(asset_path.path()).await {
@@ -711,8 +783,11 @@ mod test {
         let asset_server = setup(".");
         asset_server.add_loader(FakePngLoader);
 
-        let t = asset_server.get_path_asset_loader("test.png");
-        assert_eq!(t.unwrap().extensions()[0], "png");
+        let Ok(MaybeAssetLoader::Ready(t)) = asset_server.get_path_asset_loader("test.png") else {
+            panic!();
+        };
+
+        assert_eq!(t.extensions()[0], "png");
     }
 
     #[test]
@@ -720,8 +795,10 @@ mod test {
         let asset_server = setup(".");
         asset_server.add_loader(FakePngLoader);
 
-        let t = asset_server.get_path_asset_loader("test.PNG");
-        assert_eq!(t.unwrap().extensions()[0], "png");
+        let Ok(MaybeAssetLoader::Ready(t)) = asset_server.get_path_asset_loader("test.PNG") else {
+            panic!();
+        };
+        assert_eq!(t.extensions()[0], "png");
     }
 
     #[test]
@@ -771,8 +848,10 @@ mod test {
         let asset_server = setup(".");
         asset_server.add_loader(FakePngLoader);
 
-        let t = asset_server.get_path_asset_loader("test-v1.2.3.png");
-        assert_eq!(t.unwrap().extensions()[0], "png");
+        let Ok(MaybeAssetLoader::Ready(t)) = asset_server.get_path_asset_loader("test-v1.2.3.png") else {
+            panic!();
+        };
+        assert_eq!(t.extensions()[0], "png");
     }
 
     #[test]
@@ -780,8 +859,10 @@ mod test {
         let asset_server = setup(".");
         asset_server.add_loader(FakeMultipleDotLoader);
 
-        let t = asset_server.get_path_asset_loader("test.test.png");
-        assert_eq!(t.unwrap().extensions()[0], "test.png");
+        let Ok(MaybeAssetLoader::Ready(t)) = asset_server.get_path_asset_loader("test.test.png") else {
+            panic!();
+        };
+        assert_eq!(t.extensions()[0], "test.png");
     }
 
     fn create_dir_and_file(file: impl AsRef<Path>) -> tempfile::TempDir {
