@@ -94,9 +94,12 @@ impl Default for FixedTime {
 /// An error returned when working with [`FixedTime`].
 #[derive(Debug, Error)]
 pub enum FixedUpdateError {
+    /// There is not enough accumulated time to advance the fixed update schedule.
     #[error("At least one period worth of time must be accumulated.")]
     NotEnoughTime {
+        /// The amount of time available to advance the fixed update schedule.
         accumulated: Duration,
+        /// The length of one fixed update.
         period: Duration,
     },
 }
