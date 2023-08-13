@@ -40,6 +40,8 @@ pub const DOWNSAMPLE_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 254476556247605696);
 pub const FILTER_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 354476556247605696);
+pub const DIFFUSE_CONVOLUTION_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 454476556247605696);
 
 pub struct EnvironmentMapLightPlugin;
 
@@ -58,6 +60,12 @@ impl Plugin for EnvironmentMapLightPlugin {
             Shader::from_wgsl
         );
         load_internal_asset!(app, FILTER_SHADER_HANDLE, "filter.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            DIFFUSE_CONVOLUTION_SHADER_HANDLE,
+            "diffuse_convolution.wgsl",
+            Shader::from_wgsl
+        );
 
         app.register_type::<EnvironmentMapLight>()
             .register_type::<GenerateEnvironmentMapLight>()

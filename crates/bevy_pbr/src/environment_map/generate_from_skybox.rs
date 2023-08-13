@@ -2,7 +2,8 @@
 
 use super::{
     filter_coefficents::{FilterCoefficentsType, FILTER_COEFFICENTS},
-    EnvironmentMapLight, DOWNSAMPLE_SHADER_HANDLE, FILTER_SHADER_HANDLE,
+    EnvironmentMapLight, DIFFUSE_CONVOLUTION_SHADER_HANDLE, DOWNSAMPLE_SHADER_HANDLE,
+    FILTER_SHADER_HANDLE,
 };
 use bevy_asset::{Assets, Handle};
 use bevy_core_pipeline::Skybox;
@@ -46,8 +47,10 @@ pub struct GenerateEnvironmentMapLight {
 pub struct GenerateEnvironmentMapLightResources {
     downsample_layout: BindGroupLayout,
     filter_layout: BindGroupLayout,
+    diffuse_convolution_layout: BindGroupLayout,
     downsample_pipeline: CachedComputePipelineId,
     filter_pipeline: CachedComputePipelineId,
+    diffuse_convolution_pipeline: CachedComputePipelineId,
     filter_coefficents: Buffer,
 }
 
@@ -101,6 +104,16 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
             ],
         });
 
+        let diffuse_convolution_layout =
+            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some("generate_environment_map_light_filter_bind_group_layout"),
+                entries: &[
+                    bgl_entry(0, read_texture),
+                    bgl_entry(1, write_texture),
+                    bgl_entry(2, BindingType::Sampler(SamplerBindingType::Filtering)),
+                ],
+            });
+
         let downsample_pipeline =
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("generate_environment_map_light_downsample_pipeline".into()),
@@ -120,6 +133,16 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
             entry_point: "main".into(),
         });
 
+        let diffuse_convolution_pipeline =
+            pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some("generate_environment_map_light_diffuse_convolution_pipeline".into()),
+                layout: vec![diffuse_convolution_layout.clone()],
+                push_constant_ranges: vec![],
+                shader: DIFFUSE_CONVOLUTION_SHADER_HANDLE.typed(),
+                shader_defs: vec![],
+                entry_point: "main".into(),
+            });
+
         let mut filter_coefficents = UniformBuffer::<FilterCoefficentsType>::default();
         *filter_coefficents.get_mut() = FILTER_COEFFICENTS;
         filter_coefficents.write_buffer(render_device, render_queue);
@@ -127,8 +150,10 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
         Self {
             downsample_layout,
             filter_layout,
+            diffuse_convolution_layout,
             downsample_pipeline,
             filter_pipeline,
+            diffuse_convolution_pipeline,
             filter_coefficents: filter_coefficents.buffer().unwrap().clone(),
         }
     }
@@ -158,11 +183,16 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
             None => continue,
         };
 
+        let difuse_size = Extent3d {
+            width: 64,
+            height: 64,
+            depth_or_array_layers: 6,
+        };
         let diffuse_map = Image {
-            data: vec![0; texture_byte_count(skybox_size, 1)],
+            data: vec![0; texture_byte_count(difuse_size, 1)],
             texture_descriptor: TextureDescriptor {
                 label: Some("generate_environment_map_light_diffuse_map_texture"),
-                size: skybox_size,
+                size: difuse_size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -257,6 +287,7 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
 pub struct GenerateEnvironmentMapLightBindGroups {
     downsample: [BindGroup; 6],
     filter: BindGroup,
+    diffuse_convolution: BindGroup,
     downsampled_cubemap_size: u32,
 }
 
@@ -439,6 +470,25 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
             ],
         });
 
+        let diffuse_convolution = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("generate_environment_map_light_diffuse_convolution_bind_group"),
+            layout: &resources.diffuse_convolution_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(&skybox.texture_view),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(&d2array_view(0, diffuse_map)),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::Sampler(&diffuse_map.sampler),
+                },
+            ],
+        });
+
         commands
             .entity(entity)
             .insert(GenerateEnvironmentMapLightBindGroups {
@@ -451,6 +501,7 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
                     downsample6,
                 ],
                 filter,
+                diffuse_convolution,
                 downsampled_cubemap_size: downsampled_cubemap.size.x as u32,
             });
     }
@@ -472,9 +523,10 @@ impl ViewNode for GenerateEnvironmentMapLightNode {
         let resources = world.resource::<GenerateEnvironmentMapLightResources>();
         let pipeline_cache = world.resource::<PipelineCache>();
 
-        let (Some(downsample_pipeline), Some(filter_pipeline)) = (
+        let (Some(downsample_pipeline), Some(filter_pipeline), Some(diffuse_convolution_pipeline)) = (
             pipeline_cache.get_compute_pipeline(resources.downsample_pipeline),
             pipeline_cache.get_compute_pipeline(resources.filter_pipeline),
+            pipeline_cache.get_compute_pipeline(resources.diffuse_convolution_pipeline),
         ) else {
             return Ok(());
         };
@@ -496,6 +548,10 @@ impl ViewNode for GenerateEnvironmentMapLightNode {
         pass.set_pipeline(filter_pipeline);
         pass.set_bind_group(0, &bind_groups.filter, &[]);
         pass.dispatch_workgroups(342, 6, 1);
+
+        pass.set_pipeline(diffuse_convolution_pipeline);
+        pass.set_bind_group(0, &bind_groups.diffuse_convolution, &[]);
+        pass.dispatch_workgroups(8, 8, 6);
 
         Ok(())
     }
