@@ -1,5 +1,7 @@
 // Original source: https://www.activision.com/cdn/research/coeffs_quad_32.txt
 
+#![allow(clippy::all)]
+
 use bevy_math::{vec4, Vec4};
 
 pub type FilterCoefficentsType = [[[[Vec4; 24]; 3]; 5]; 7];
