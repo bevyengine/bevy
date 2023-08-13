@@ -202,8 +202,8 @@ impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)] pub struct A;
 /// fn disjoint_system(
-///     query1: Query<EntityRef, With<A>>,
-///     query2: Query<EntityRef, Without<A>>,
+///     query1: Query<EntityMut, With<A>>,
+///     query2: Query<EntityMut, Without<A>>,
 /// ) {
 ///     // ...
 /// }
@@ -1585,7 +1585,7 @@ mod tests {
 
     #[test]
     fn disjoint_access() {
-        fn disjoint_readonly(_: Query<EntityRef, With<A>>, _: Query<EntityRef, Without<A>>) {}
+        fn disjoint_readonly(_: Query<EntityMut, With<A>>, _: Query<EntityRef, Without<A>>) {}
 
         fn disjoint_mutable(_: Query<EntityMut, With<A>>, _: Query<EntityMut, Without<A>>) {}
 
