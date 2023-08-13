@@ -135,6 +135,7 @@ fn queue_custom(
                     pipeline,
                     draw_function: draw_custom,
                     distance: rangefinder.distance(&mesh_uniform.transform),
+                    batch_size: 1,
                 });
             }
         }

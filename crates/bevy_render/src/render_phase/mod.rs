@@ -182,6 +182,9 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
         items.sort_unstable_by_key(|item| item.sort_key());
     }
 
+    /// The number of items to skip after rendering this [`PhaseItem`].
+    ///
+    /// Items with a batch_size of 0 will not be rendered.
     fn batch_size(&self) -> usize {
         1
     }
