@@ -26,10 +26,10 @@ use bevy_render::{
         TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
         UniformBuffer,
     },
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     texture::{GpuImage, Image, ImageSampler, Volume},
 };
-use bevy_utils::default;
+use bevy_utils::{default, tracing::warn};
 
 // PERF: [From the paper] A further optimization one could perform for any filtering algorithm,
 // but that we did not, is to copy the highest resolution level rather than filtering it.
@@ -141,8 +141,16 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
     >,
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
+    render_adapter: Res<RenderAdapter>,
 ) {
-    // TODO: Validate that Rg11b10Float can be used a storage texture format
+    if !render_adapter
+        .get_texture_format_features(TextureFormat::Rg11b10Float)
+        .allowed_usages
+        .contains(TextureUsages::STORAGE_BINDING)
+    {
+        warn!("GenerateEnvironmentMapLight will not run. GPU lacks support: TextureFormat::Rg11b10Float does not support TextureUsages::STORAGE_BINDING.");
+        return;
+    }
 
     for (entity, skybox, mut gen_env_map_light) in &mut skyboxes {
         let skybox_size = match images.get(&skybox.0) {
