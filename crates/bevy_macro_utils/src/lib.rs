@@ -170,16 +170,22 @@ pub fn ensure_no_collision(value: Ident, haystack: TokenStream) -> Ident {
 /// # Args
 ///
 /// - `input`: The [`syn::DeriveInput`] for struct that is deriving the label trait
-/// - `trait_path`: The path [`syn::Path`] to the label trait
-pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStream {
+/// - `trait_name`: Name of the label trait
+/// - `trait_path`: The [path](`syn::Path`) to the label trait
+/// - `dyn_eq_path`: The [path](`syn::Path`) to the `DynEq` trait
+pub fn derive_label(
+    input: syn::DeriveInput,
+    trait_name: &str,
+    trait_path: &syn::Path,
+    dyn_eq_path: &syn::Path,
+) -> TokenStream {
     if let syn::Data::Union(_) = &input.data {
+        let message = format!("Cannot derive {trait_name} for unions.");
         return quote_spanned! {
-            input.span() => compile_error!("Unions cannot be used as labels.");
+            input.span() => compile_error!(#message);
         }
         .into();
     }
-
-    let bevy_utils_path = BevyManifest::default().get_path("bevy_utils");
 
     let ident = input.ident.clone();
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -200,7 +206,7 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
                 ::std::boxed::Box::new(::std::clone::Clone::clone(self))
             }
 
-            fn as_dyn_eq(&self) -> &dyn #bevy_utils_path::label::DynEq {
+            fn as_dyn_eq(&self) -> &dyn #dyn_eq_path {
                 self
             }
 

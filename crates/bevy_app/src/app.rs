@@ -23,6 +23,8 @@ bevy_utils::define_label!(
     APP_LABEL_INTERNER
 );
 
+pub use bevy_utils::label::DynEq;
+
 /// A shorthand for `Interned<dyn AppLabel>`.
 pub type InternedAppLabel = Interned<dyn AppLabel>;
 

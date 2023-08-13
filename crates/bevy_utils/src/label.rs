@@ -71,6 +71,22 @@ where
 ///     MyNewLabelTrait,
 ///     MY_NEW_LABEL_TRAIT_INTERNER
 /// );
+///
+/// define_label!(
+///     /// Documentation of another label trait
+///     MyNewExtendedLabelTrait,
+///     MY_NEW_EXTENDED_LABEL_TRAIT_INTERNER,
+///     {
+///         // Extra methods for the trait can be defined here
+///         fn additional_method(&self) -> i32;
+///     },
+///     {
+///         // Implementation of the extra methods for Interned<dyn MyNewExtendedLabelTrait>
+///         fn additional_method(&self) -> i32 {
+///             0
+///         }
+///     }
+/// );
 /// ```
 #[macro_export]
 macro_rules! define_label {
@@ -79,9 +95,21 @@ macro_rules! define_label {
         $label_trait_name:ident,
         $interner_name:ident
     ) => {
+        $crate::define_label!($(#[$label_attr])* $label_trait_name, $interner_name, {}, {});
+    };
+    (
+        $(#[$label_attr:meta])*
+        $label_trait_name:ident,
+        $interner_name:ident,
+        { $($trait_extra_methods:tt)* },
+        { $($interned_extra_methods_impl:tt)* }
+    ) => {
 
         $(#[$label_attr])*
         pub trait $label_trait_name: 'static + Send + Sync + ::std::fmt::Debug {
+
+            $($trait_extra_methods)*
+
             /// Clones this `
             #[doc = stringify!($label_trait_name)]
             ///`.
@@ -137,6 +165,9 @@ macro_rules! define_label {
         }
 
         impl $label_trait_name for $crate::intern::Interned<dyn $label_trait_name> {
+
+            $($interned_extra_methods_impl)*
+
             fn dyn_clone(&self) -> ::std::boxed::Box<dyn $label_trait_name> {
                 (**self).dyn_clone()
             }

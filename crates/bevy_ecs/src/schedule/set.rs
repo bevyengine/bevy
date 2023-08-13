@@ -5,8 +5,8 @@ use std::marker::PhantomData;
 
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use bevy_utils::define_label;
-use bevy_utils::intern::{Interned, Interner, Leak};
-use bevy_utils::label::DynEq;
+use bevy_utils::intern::Interned;
+pub use bevy_utils::label::DynEq;
 
 use crate::system::{
     ExclusiveSystemParamFunction, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
@@ -18,129 +18,36 @@ define_label!(
     SCHEDULE_LABEL_INTERNER
 );
 
-static SYSTEM_SET_INTERNER: Interner<dyn SystemSet> = Interner::new();
+define_label!(
+    /// Types that identify logical groups of systems.
+    SystemSet,
+    SYSTEM_SET_INTERNER,
+    {
+        /// Returns `Some` if this system set is a [`SystemTypeSet`].
+        fn system_type(&self) -> Option<TypeId> {
+            None
+        }
+
+        /// Returns `true` if this system set is an [`AnonymousSet`].
+        fn is_anonymous(&self) -> bool {
+            false
+        }
+    },
+    {
+        fn system_type(&self) -> Option<TypeId> {
+            (**self).system_type()
+        }
+
+        fn is_anonymous(&self) -> bool {
+            (**self).is_anonymous()
+        }
+    }
+);
+
 /// A shorthand for `Interned<dyn SystemSet>`.
 pub type InternedSystemSet = Interned<dyn SystemSet>;
 /// A shorthand for `Interned<dyn ScheduleLabel>`.
 pub type InternedScheduleLabel = Interned<dyn ScheduleLabel>;
-
-/// Types that identify logical groups of systems.
-pub trait SystemSet: Debug + Send + Sync + 'static {
-    /// Returns `Some` if this system set is a [`SystemTypeSet`].
-    fn system_type(&self) -> Option<TypeId> {
-        None
-    }
-
-    /// Returns `true` if this system set is an [`AnonymousSet`].
-    fn is_anonymous(&self) -> bool {
-        false
-    }
-
-    /// Creates a boxed clone of the label corresponding to this system set.
-    fn dyn_clone(&self) -> Box<dyn SystemSet>;
-
-    /// Casts this value to a form where it can be compared with other type-erased values.
-    fn as_dyn_eq(&self) -> &dyn DynEq;
-
-    /// Feeds this value into the given [`Hasher`].
-    fn dyn_hash(&self, state: &mut dyn Hasher);
-
-    /// Returns a static reference to a value equal to `self`, if possible.
-    /// This method is used to optimize [interning](bevy_utils::intern).
-    ///
-    /// # Invariant
-    ///
-    /// The following invariants most hold:
-    ///
-    /// `ptr_eq(a.dyn_static_ref(), b.dyn_static_ref())` if `a.dyn_eq(b)`
-    /// `ptr_neq(a.dyn_static_ref(), b.dyn_static_ref())` if `!a.dyn_eq(b)`
-    ///
-    /// where `ptr_eq` and `ptr_neq` are defined as :
-    /// ```
-    /// fn ptr_eq<T>(x: Option<&'static T>, y: Option<&'static T>) -> bool {
-    ///     match (x, y) {
-    ///         (Some(x), Some(y)) => std::ptr::eq(x, y),
-    ///         (None, None) => true,
-    ///         _ => false,
-    ///     }
-    /// }
-    ///
-    /// fn ptr_neq<T>(x: Option<&'static T>, y: Option<&'static T>) -> bool {
-    ///     match (x, y) {
-    ///         (Some(x), Some(y)) => !std::ptr::eq(x, y),
-    ///         (None, None) => true,
-    ///         _ => false,
-    ///     }
-    /// }
-    /// ```
-    ///
-    /// The provided implementation always returns `None`.
-    fn dyn_static_ref(&self) -> Option<&'static dyn SystemSet> {
-        None
-    }
-
-    /// Returns an [`InternedSystemSet`] corresponding to `self`.
-    fn intern(&self) -> InternedSystemSet
-    where
-        Self: Sized,
-    {
-        SYSTEM_SET_INTERNER.intern(self)
-    }
-}
-
-impl SystemSet for InternedSystemSet {
-    fn system_type(&self) -> Option<TypeId> {
-        (**self).system_type()
-    }
-
-    fn is_anonymous(&self) -> bool {
-        (**self).is_anonymous()
-    }
-
-    fn dyn_clone(&self) -> Box<dyn SystemSet> {
-        (**self).dyn_clone()
-    }
-
-    fn as_dyn_eq(&self) -> &dyn DynEq {
-        (**self).as_dyn_eq()
-    }
-
-    fn dyn_hash(&self, state: &mut dyn Hasher) {
-        (**self).dyn_hash(state);
-    }
-
-    fn dyn_static_ref(&self) -> Option<&'static dyn SystemSet> {
-        Some(self.0)
-    }
-
-    fn intern(&self) -> Self {
-        *self
-    }
-}
-
-impl PartialEq for dyn SystemSet {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_dyn_eq().dyn_eq(other.as_dyn_eq())
-    }
-}
-
-impl Eq for dyn SystemSet {}
-
-impl Hash for dyn SystemSet {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.dyn_hash(state);
-    }
-}
-
-impl Leak for dyn SystemSet {
-    fn leak(&self) -> &'static Self {
-        Box::leak(self.dyn_clone())
-    }
-
-    fn static_ref(&self) -> Option<&'static dyn SystemSet> {
-        self.dyn_static_ref()
-    }
-}
 
 /// A [`SystemSet`] grouping instances of the same function.
 ///
