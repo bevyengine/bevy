@@ -39,6 +39,8 @@ use bevy_utils::default;
 /// * The first frame this component is added to the skybox entity, an [`EnvironmentMapLight`]
 /// component will be generated and added to the skybox entity.
 /// * For static (non-changing) skyboxes, remove this component 1 frame after adding it to the skybox entity to save performance.
+///
+/// This component does not work on WebGPU or WebGL2.
 #[derive(Component, ExtractComponent, Reflect, Default, Clone)]
 pub struct GenerateEnvironmentMapLight {
     downsampled_cubemap: Option<Handle<Image>>,
