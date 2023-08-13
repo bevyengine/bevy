@@ -96,7 +96,6 @@ impl Plugin for EnvironmentMapLightPlugin {
     }
 }
 
-/// TODO: Update docs to mention GenerateEnvironmentMapLight
 /// Environment map based ambient lighting representing light from distant scenery.
 ///
 /// When added to a 3D camera, this component adds indirect light
@@ -107,10 +106,10 @@ impl Plugin for EnvironmentMapLightPlugin {
 /// The environment map must be prefiltered into a diffuse and specular cubemap based on the
 /// [split-sum approximation](https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf).
 ///
-/// To prefilter your environment map, you can use `KhronosGroup`'s [glTF-IBL-Sampler](https://github.com/KhronosGroup/glTF-IBL-Sampler).
+/// To prefilter your environment map, you can either:
+/// * Use the [`GenerateEnvironmentMapLight`] component at runtime.
+/// * Use `KhronosGroup`'s [glTF-IBL-Sampler](https://github.com/KhronosGroup/glTF-IBL-Sampler) to prefilter it offline.
 /// The diffuse map uses the Lambertian distribution, and the specular map uses the GGX distribution.
-///
-/// `KhronosGroup` also has several prefiltered environment maps that can be found [here](https://github.com/KhronosGroup/glTF-Sample-Environments).
 #[derive(Component, Reflect, Clone)]
 pub struct EnvironmentMapLight {
     pub diffuse_map: Handle<Image>,

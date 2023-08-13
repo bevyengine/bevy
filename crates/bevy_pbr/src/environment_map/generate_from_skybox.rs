@@ -32,12 +32,13 @@ use bevy_render::{
 };
 use bevy_utils::{default, tracing::warn};
 
-// PERF: [From the paper] A further optimization one could perform for any filtering algorithm,
-// but that we did not, is to copy the highest resolution level rather than filtering it.
-// This would mean the highest resolution mip represents a perfect specular reflection and would
-// reduce the processing time of the second filtering stage by a factor of approximately four.
-
-/// TODO: Docs
+/// Automatically generate an [`EnvironmentMapLight`] from a [`Skybox`].
+///
+/// Usage:
+/// * Add this component via `GenerateEnvironmentMapLight::default()` to an entity with a [`Skybox`] component.
+/// * The first frame this component is added to the skybox entity, an [`EnvironmentMapLight`]
+/// component will be generated and added to the skybox entity.
+/// * For static (non-changing) skyboxes, remove this component 1 frame after adding it to the skybox entity to save performance.
 #[derive(Component, ExtractComponent, Reflect, Default, Clone)]
 pub struct GenerateEnvironmentMapLight {
     downsampled_cubemap: Option<Handle<Image>>,
@@ -545,6 +546,7 @@ impl ViewNode for GenerateEnvironmentMapLightNode {
             texture_size /= 2;
         }
 
+        // PERF: Don't filter to generate the first mip level, just downsample and copy the skybox texture directly
         pass.set_pipeline(filter_pipeline);
         pass.set_bind_group(0, &bind_groups.filter, &[]);
         pass.dispatch_workgroups(342, 6, 1);
