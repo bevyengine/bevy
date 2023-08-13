@@ -70,7 +70,7 @@ mod tests {
         entity::Entity,
         query::{Added, Changed, FilteredAccess, ReadOnlyWorldQuery, With, Without},
         system::Resource,
-        world::{Mut, World},
+        world::{EntityRef, Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use std::{
@@ -1325,9 +1325,23 @@ mod tests {
 
     #[test]
     #[should_panic]
+    fn entity_ref_and_mut_query_panic() {
+        let mut world = World::new();
+        world.query::<(EntityRef, &mut A)>();
+    }
+
+    #[test]
+    #[should_panic]
     fn mut_and_ref_query_panic() {
         let mut world = World::new();
         world.query::<(&mut A, &A)>();
+    }
+
+    #[test]
+    #[should_panic]
+    fn mut_and_entity_ref_query_panic() {
+        let mut world = World::new();
+        world.query::<(&mut A, EntityRef)>();
     }
 
     #[test]
