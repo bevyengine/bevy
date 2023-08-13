@@ -284,7 +284,7 @@ pub struct GenerateEnvironmentMapLightBindGroups {
     downsampled_cubemap_size: u32,
 }
 
-// PERF: Cache texture views
+// PERF: Cache bind groups
 pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
     environment_map_lights: Query<(
         Entity,
