@@ -70,11 +70,13 @@ impl Plugin for TimePlugin {
 /// you may prefer to set the next [`Time`] value manually.
 #[derive(Resource, Default)]
 pub enum TimeUpdateStrategy {
+    /// [`Time`] will be automatically updated according to the length of the previous frame.
     #[default]
     Automatic,
-    // Update [`Time`] with an exact `Instant` value
+    /// [`Time`] will be updated to the specified [`Instant`] value.
+    /// In order for time to progress, this value must be manually updated each frame.
     ManualInstant(Instant),
-    // Update [`Time`] with the last update time + a specified `Duration`
+    /// [`Time`] will be incremented by the specified [`Duration`] each frame.
     ManualDuration(Duration),
 }
 
