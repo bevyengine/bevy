@@ -80,15 +80,15 @@ pub enum TimeUpdateStrategy {
     ManualDuration(Duration),
 }
 
-/// Channel resource used to receive time from render world
+/// Channel resource used to receive time from the render world.
 #[derive(Resource)]
 pub struct TimeReceiver(pub Receiver<Instant>);
 
-/// Channel resource used to send time from render world
+/// Channel resource used to send time from the render world.
 #[derive(Resource)]
 pub struct TimeSender(pub Sender<Instant>);
 
-/// Creates channels used for sending time between render world and app world
+/// Creates channels used for sending time between the render world and the main world.
 pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
     // bound the channel to 2 since when pipelined the render phase can finish before
     // the time system runs.
