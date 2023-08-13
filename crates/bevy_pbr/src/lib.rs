@@ -69,6 +69,8 @@ use bevy_render::{
 use bevy_transform::TransformSystem;
 use environment_map::EnvironmentMapPlugin;
 
+use crate::deferred::PbrDeferredLightingPlugin;
+
 pub const PBR_TYPES_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1708015359337029744);
 pub const PBR_BINDINGS_SHADER_HANDLE: HandleUntyped =
@@ -105,12 +107,15 @@ pub struct PbrPlugin {
     /// Controls if the prepass is enabled for the StandardMaterial.
     /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
     pub prepass_enabled: bool,
+    /// Controls if [`PbrDeferredLightingPlugin`] is added.
+    pub add_default_deferred_lighting_plugin: bool,
 }
 
 impl Default for PbrPlugin {
     fn default() -> Self {
         Self {
             prepass_enabled: true,
+            add_default_deferred_lighting_plugin: true,
         }
     }
 }
@@ -286,6 +291,10 @@ impl Plugin for PbrPlugin {
                         .after(VisibilitySystems::CheckVisibility),
                 ),
             );
+
+        if self.add_default_deferred_lighting_plugin {
+            app.add_plugins(PbrDeferredLightingPlugin);
+        }
 
         app.world
             .resource_mut::<Assets<StandardMaterial>>()
