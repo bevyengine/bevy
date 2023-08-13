@@ -15,7 +15,6 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev", features = ["bevy_ref
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.12.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.12.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.12.0-dev", features = ["bevy"] }
-bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 serde = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
