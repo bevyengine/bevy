@@ -27,10 +27,10 @@ use bevy_render::{
         TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
         UniformBuffer,
     },
-    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{GpuImage, Image, ImageSampler, Volume},
 };
-use bevy_utils::{default, tracing::warn};
+use bevy_utils::default;
 
 /// Automatically generate an [`EnvironmentMapLight`] from a [`Skybox`].
 ///
@@ -167,17 +167,7 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
     >,
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
-    render_adapter: Res<RenderAdapter>,
 ) {
-    if !render_adapter
-        .get_texture_format_features(TextureFormat::Rg11b10Float)
-        .allowed_usages
-        .contains(TextureUsages::STORAGE_BINDING)
-    {
-        warn!("GenerateEnvironmentMapLight will not run. GPU lacks support: TextureFormat::Rg11b10Float does not support TextureUsages::STORAGE_BINDING.");
-        return;
-    }
-
     for (entity, skybox, mut gen_env_map_light) in &mut skyboxes {
         let skybox_size = match images.get(&skybox.0) {
             Some(skybox) => skybox.texture_descriptor.size,
