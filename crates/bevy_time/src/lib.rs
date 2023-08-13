@@ -76,6 +76,8 @@ pub enum TimeUpdateStrategy {
     Automatic,
     /// [`Time`] will be updated to the specified [`Instant`] value.
     /// In order for time to progress, this value must be manually updated each frame.
+    ///
+    /// Note that the `Time` resource will not be updated until [`TimeSystem`] runs.
     ManualInstant(Instant),
     /// [`Time`] will be incremented by the specified [`Duration`] each frame.
     ManualDuration(Duration),
