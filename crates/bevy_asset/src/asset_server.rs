@@ -11,7 +11,7 @@ use bevy_tasks::IoTaskPool;
 use bevy_utils::{Entry, HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
 use parking_lot::{Mutex, RwLock};
-use std::{path::Path, sync::Arc};
+use std::{ffi::OsStr, path::Path, sync::Arc};
 use thiserror::Error;
 
 /// Errors that occur while loading assets with an [`AssetServer`].
@@ -226,7 +226,7 @@ impl AssetServer {
             loaders[existing_index] = MaybeAssetLoader::Ready(Arc::new(loader));
             for sender in senders {
                 // notify after replacing the loader
-                sender.send_blocking(()).unwrap();
+                let _ = sender.send_blocking(());
             }
         } else {
             loaders.push(MaybeAssetLoader::Ready(Arc::new(loader)));
@@ -419,10 +419,8 @@ impl AssetServer {
             }
         };
 
-        while let MaybeAssetLoader::Pending { receiver, .. } = maybe_asset_loader {
-            println!("blocking asset");
+        if let MaybeAssetLoader::Pending { receiver, .. } = maybe_asset_loader {
             let _ = receiver.recv().await;
-            println!("unblocked");
             maybe_asset_loader = match self.get_path_asset_loader(asset_path.path()) {
                 Ok(loader) => loader,
                 Err(err) => {
@@ -432,7 +430,12 @@ impl AssetServer {
             };
         }
 
-        let MaybeAssetLoader::Ready(asset_loader) = maybe_asset_loader else { panic!() };
+        let MaybeAssetLoader::Ready(asset_loader) = maybe_asset_loader else {
+            set_asset_failed();
+            return Err(AssetServerError::MissingAssetLoader {
+                extensions: vec![asset_path.path().extension().and_then(OsStr::to_str).map(ToOwned::to_owned)].into_iter().flatten().collect(),
+            });
+        };
 
         // load the asset bytes
         let bytes = match self.asset_io().load_path(asset_path.path()).await {
