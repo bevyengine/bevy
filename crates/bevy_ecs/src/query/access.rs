@@ -141,7 +141,7 @@ impl<T: SparseSetIndex> Access<T> {
         self.reads_all = true;
     }
 
-    /// Sets this as having mutable access to all indexed elements (i.e. `EntityBorrowMut`).
+    /// Sets this as having mutable access to all indexed elements (i.e. `EntityMut`).
     pub fn write_all(&mut self) {
         self.reads_all = true;
         self.writes_all = true;
@@ -152,7 +152,7 @@ impl<T: SparseSetIndex> Access<T> {
         self.reads_all
     }
 
-    /// Returns `true` if this has write access to all indexed elements (i.e. `EntityBorrowMut`).
+    /// Returns `true` if this has write access to all indexed elements (i.e. `EntityMut`).
     pub fn has_write_all(&self) -> bool {
         self.writes_all
     }

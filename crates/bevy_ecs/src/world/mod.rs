@@ -7,7 +7,7 @@ pub mod unsafe_world_cell;
 mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
-pub use entity_ref::{EntityBorrowMut, EntityRef, EntityWorldMut};
+pub use entity_ref::{EntityMut, EntityRef, EntityWorldMut};
 pub use spawn_batch::*;
 pub use world_cell::*;
 
@@ -363,7 +363,7 @@ impl World {
     pub fn many_entities_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> [EntityBorrowMut<'_>; N] {
+    ) -> [EntityMut<'_>; N] {
         #[inline(never)]
         #[cold]
         #[track_caller]
@@ -522,7 +522,7 @@ impl World {
     }
 
     /// Returns a mutable iterator over all entities in the `World`.
-    pub fn iter_entities_mut(&mut self) -> impl Iterator<Item = EntityBorrowMut<'_>> + '_ {
+    pub fn iter_entities_mut(&mut self) -> impl Iterator<Item = EntityMut<'_>> + '_ {
         let world_cell = self.as_unsafe_world_cell();
         world_cell.archetypes().iter().flat_map(move |archetype| {
             archetype
@@ -542,7 +542,7 @@ impl World {
                     let cell = UnsafeEntityCell::new(world_cell, entity, location);
                     // SAFETY: We have exclusive access to the entire world. We only create one borrow for each entity,
                     // so none will conflict with one another.
-                    unsafe { EntityBorrowMut::new(cell) }
+                    unsafe { EntityMut::new(cell) }
                 })
         })
     }
@@ -596,7 +596,7 @@ impl World {
     pub fn get_many_entities_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> Result<[EntityBorrowMut<'_>; N], QueryEntityError> {
+    ) -> Result<[EntityMut<'_>; N], QueryEntityError> {
         // Ensure each entity is unique.
         for i in 0..N {
             for j in 0..i {
@@ -615,7 +615,7 @@ impl World {
     unsafe fn get_entities_mut_unchecked<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> Result<[EntityBorrowMut<'_>; N], QueryEntityError> {
+    ) -> Result<[EntityMut<'_>; N], QueryEntityError> {
         let world_cell = self.as_unsafe_world_cell();
 
         let mut cells = [MaybeUninit::uninit(); N];
@@ -633,7 +633,7 @@ impl World {
         // - `world_cell` has exclusive access to the entire world.
         // - The caller ensures that each entity is unique, so none
         //   of the borrows will conflict with one another.
-        let borrows = cells.map(|c| unsafe { EntityBorrowMut::new(c) });
+        let borrows = cells.map(|c| unsafe { EntityMut::new(c) });
 
         Ok(borrows)
     }

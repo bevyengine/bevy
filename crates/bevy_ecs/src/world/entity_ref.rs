@@ -166,23 +166,23 @@ impl<'a> From<&'a EntityWorldMut<'_>> for EntityRef<'a> {
     fn from(value: &'a EntityWorldMut<'_>) -> Self {
         // SAFETY:
         // - `EntityWorldMut` guarantees exclusive access to the entire world.
-        // - `&self` ensures no mutable accesses are active.
+        // - `&value` ensures no mutable accesses are active.
         unsafe { EntityRef::new(value.as_unsafe_entity_cell_readonly()) }
     }
 }
 
-impl<'w> From<EntityBorrowMut<'w>> for EntityRef<'w> {
-    fn from(value: EntityBorrowMut<'w>) -> Self {
+impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
+    fn from(value: EntityMut<'w>) -> Self {
         // SAFETY:
-        // - `EntityBorrowMut` gurantees exclusive access to the world.
+        // - `EntityMut` gurantees exclusive access to all of the entity's components.
         unsafe { EntityRef::new(value.0) }
     }
 }
 
-impl<'a> From<&'a EntityBorrowMut<'_>> for EntityRef<'a> {
-    fn from(value: &'a EntityBorrowMut<'_>) -> Self {
+impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
+    fn from(value: &'a EntityMut<'_>) -> Self {
         // SAFETY:
-        // - `EntityBorrowMut` gurantees exclusive access to the world.
+        // - `EntityMut` gurantees exclusive access to all of the entity's components.
         // - `&value` ensures there are no mutable accesses.
         unsafe { EntityRef::new(value.0) }
     }
@@ -190,7 +190,7 @@ impl<'a> From<&'a EntityBorrowMut<'_>> for EntityRef<'a> {
 
 /// Provides mutable access to a single entity and all of its components.
 ///
-/// Contrast with [`EntityWorldMut`], with allows adding adn removing components,
+/// Contrast with [`EntityWorldMut`], with allows adding and removing components,
 /// despawning the entity, and provides mutable access to the entire world.
 /// Because of this, `EntityWorldMut` cannot coexist with any other world accesses.
 ///
@@ -209,20 +209,20 @@ impl<'a> From<&'a EntityBorrowMut<'_>> for EntityRef<'a> {
 /// }
 /// # bevy_ecs::system::assert_is_system(disjoint_system);
 /// ```
-pub struct EntityBorrowMut<'w>(UnsafeEntityCell<'w>);
+pub struct EntityMut<'w>(UnsafeEntityCell<'w>);
 
-impl<'w> EntityBorrowMut<'w> {
+impl<'w> EntityMut<'w> {
     /// # Safety
     /// - `cell` must have permission to mutate every component of the entity.
     /// - No accesses to any of the entity's components may exist
-    ///   at the same time as the returned [`EntityBorrowMut`].
+    ///   at the same time as the returned [`EntityMut`].
     pub(crate) unsafe fn new(cell: UnsafeEntityCell<'w>) -> Self {
         Self(cell)
     }
 
     /// Returns a new instance with a shorter lifetime.
-    /// This is useful if you have `&mut EntityBorrowMut`, but you need `EntityBorrowMut`.
-    pub fn reborrow(&mut self) -> EntityBorrowMut<'_> {
+    /// This is useful if you have `&mut EntityMut`, but you need `EntityMut`.
+    pub fn reborrow(&mut self) -> EntityMut<'_> {
         // SAFETY: We have exclusive access to the entire entity and its components.
         unsafe { Self::new(self.0) }
     }
@@ -336,8 +336,8 @@ impl<'w> EntityBorrowMut<'w> {
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     ///
-    /// Unlike [`EntityBorrowMut::get`], this returns a raw pointer to the component,
-    /// which is only valid while the [`EntityBorrowMut`] is alive.
+    /// Unlike [`EntityMut::get`], this returns a raw pointer to the component,
+    /// which is only valid while the [`EntityMut`] is alive.
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
         self.as_readonly().get_by_id(component_id)
@@ -345,12 +345,12 @@ impl<'w> EntityBorrowMut<'w> {
 
     /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
     ///
-    /// **You should prefer to use the typed API [`EntityBorrowMut::get_mut`] where possible and only
+    /// **You should prefer to use the typed API [`EntityMut::get_mut`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     ///
-    /// Unlike [`EntityBorrowMut::get_mut`], this returns a raw pointer to the component,
-    /// which is only valid while the [`EntityBorrowMut`] is alive.
+    /// Unlike [`EntityMut::get_mut`], this returns a raw pointer to the component,
+    /// which is only valid while the [`EntityMut`] is alive.
     #[inline]
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         // SAFETY:
@@ -360,17 +360,17 @@ impl<'w> EntityBorrowMut<'w> {
     }
 }
 
-impl<'w> From<EntityWorldMut<'w>> for EntityBorrowMut<'w> {
+impl<'w> From<EntityWorldMut<'w>> for EntityMut<'w> {
     fn from(value: EntityWorldMut<'w>) -> Self {
         // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
-        unsafe { EntityBorrowMut::new(value.into_unsafe_entity_cell()) }
+        unsafe { EntityMut::new(value.into_unsafe_entity_cell()) }
     }
 }
 
-impl<'a> From<&'a mut EntityWorldMut<'_>> for EntityBorrowMut<'a> {
+impl<'a> From<&'a mut EntityWorldMut<'_>> for EntityMut<'a> {
     fn from(value: &'a mut EntityWorldMut<'_>) -> Self {
         // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
-        unsafe { EntityBorrowMut::new(value.as_unsafe_entity_cell()) }
+        unsafe { EntityMut::new(value.as_unsafe_entity_cell()) }
     }
 }
 
@@ -381,8 +381,8 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for EntityBorrowMut<'a> {
 /// Since this type provides mutable access to the entire world, only one
 /// [`EntityWorldMut`] can exist at a time for a given world.
 ///
-/// See also [`EntityBorrowMut`], which allows disjoint mutable access to multiple
-/// entities at once.  Unlike `EntityBorrowMut`, this type allows adding and
+/// See also [`EntityMut`], which allows disjoint mutable access to multiple
+/// entities at once.  Unlike `EntityMut`, this type allows adding and
 /// removing components, and despawning the entity.
 pub struct EntityWorldMut<'w> {
     world: &'w mut World,
@@ -1587,11 +1587,7 @@ mod tests {
     fn disjoint_access() {
         fn disjoint_readonly(_: Query<EntityRef, With<A>>, _: Query<EntityRef, Without<A>>) {}
 
-        fn disjoint_mutable(
-            _: Query<EntityBorrowMut, With<A>>,
-            _: Query<EntityBorrowMut, Without<A>>,
-        ) {
-        }
+        fn disjoint_mutable(_: Query<EntityMut, With<A>>, _: Query<EntityMut, Without<A>>) {}
 
         assert_is_system(disjoint_readonly);
         assert_is_system(disjoint_mutable);
@@ -1636,56 +1632,56 @@ mod tests {
     }
 
     #[test]
-    fn borrow_mut_compatible_with_entity() {
-        fn borrow_mut_system(_: Query<(Entity, EntityBorrowMut)>) {}
+    fn mut_compatible_with_entity() {
+        fn borrow_mut_system(_: Query<(Entity, EntityMut)>) {}
 
         assert_is_system(borrow_mut_system);
     }
 
     #[test]
     #[ignore] // This should pass, but it currently fails due to limitations in our access model.
-    fn borrow_mut_compatible_with_resource() {
-        fn borrow_mut_system(_: Res<R>, _: Query<EntityBorrowMut>) {}
+    fn mut_compatible_with_resource() {
+        fn borrow_mut_system(_: Res<R>, _: Query<EntityMut>) {}
 
         assert_is_system(borrow_mut_system);
     }
 
     #[test]
     #[ignore] // This should pass, but it currently fails due to limitations in our access model.
-    fn borrow_mut_compatible_with_resource_mut() {
-        fn borrow_mut_system(_: ResMut<R>, _: Query<EntityBorrowMut>) {}
+    fn mut_compatible_with_resource_mut() {
+        fn borrow_mut_system(_: ResMut<R>, _: Query<EntityMut>) {}
 
         assert_is_system(borrow_mut_system);
     }
 
     #[test]
     #[should_panic]
-    fn borrow_mut_incompatible_with_read_only_component() {
-        fn incompatible_system(_: Query<(EntityBorrowMut, &A)>) {}
+    fn mut_incompatible_with_read_only_component() {
+        fn incompatible_system(_: Query<(EntityMut, &A)>) {}
 
         assert_is_system(incompatible_system);
     }
 
     #[test]
     #[should_panic]
-    fn borrow_mut_incompatible_with_mutable_component() {
-        fn incompatible_system(_: Query<(EntityBorrowMut, &mut A)>) {}
+    fn mut_incompatible_with_mutable_component() {
+        fn incompatible_system(_: Query<(EntityMut, &mut A)>) {}
 
         assert_is_system(incompatible_system);
     }
 
     #[test]
     #[should_panic]
-    fn borrow_mut_incompatible_with_read_only_query() {
-        fn incompatible_system(_: Query<EntityBorrowMut>, _: Query<&A>) {}
+    fn mut_incompatible_with_read_only_query() {
+        fn incompatible_system(_: Query<EntityMut>, _: Query<&A>) {}
 
         assert_is_system(incompatible_system);
     }
 
     #[test]
     #[should_panic]
-    fn borrow_mut_incompatible_with_mutable_query() {
-        fn incompatible_system(_: Query<EntityBorrowMut>, _: Query<&mut A>) {}
+    fn mut_incompatible_with_mutable_query() {
+        fn incompatible_system(_: Query<EntityMut>, _: Query<&mut A>) {}
 
         assert_is_system(incompatible_system);
     }
