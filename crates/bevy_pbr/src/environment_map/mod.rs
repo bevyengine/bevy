@@ -75,7 +75,9 @@ impl Plugin for EnvironmentMapLightPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        app.sub_app_mut(RenderApp)
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+
+        render_app
             .add_render_graph_node::<ViewNodeRunner<GenerateEnvironmentMapLightNode>>(
                 CORE_3D,
                 draw_3d_graph::node::GENERATE_ENVIRONMENT_MAP_LIGHT,
