@@ -70,14 +70,17 @@ impl Plugin for EnvironmentMapLightPlugin {
         app.register_type::<EnvironmentMapLight>()
             .register_type::<GenerateEnvironmentMapLight>()
             .add_plugins(ExtractComponentPlugin::<EnvironmentMapLight>::default())
-            .add_plugins(ExtractComponentPlugin::<GenerateEnvironmentMapLight>::default())
-            .add_systems(Last, generate_dummy_environment_map_lights_for_skyboxes);
+            .add_plugins(ExtractComponentPlugin::<GenerateEnvironmentMapLight>::default());
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        if app.get_sub_app(RenderApp).is_err() {
+            return;
+        }
 
-        render_app
+        app.add_systems(Last, generate_dummy_environment_map_lights_for_skyboxes);
+
+        app.sub_app_mut(RenderApp)
             .add_render_graph_node::<ViewNodeRunner<GenerateEnvironmentMapLightNode>>(
                 CORE_3D,
                 draw_3d_graph::node::GENERATE_ENVIRONMENT_MAP_LIGHT,
