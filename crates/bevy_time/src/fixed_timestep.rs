@@ -30,6 +30,11 @@ use thiserror::Error;
 /// The amount of time that must pass before the fixed timestep schedule is run again.
 ///
 /// For more information, see the [module-level documentation](self).
+///
+/// When using bevy's default configuration, this will be updated using the [`Time`]
+/// resource. To customize how `Time` is updated each frame, see [`TimeUpdateStrategy`].
+///
+/// [`TimeUpdateStrategy`]: crate::TimeUpdateStrategy
 #[derive(Resource, Debug)]
 pub struct FixedTime {
     accumulated: Duration,
