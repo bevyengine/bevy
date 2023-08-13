@@ -31,6 +31,11 @@ use bevy_render::{
 };
 use bevy_utils::default;
 
+// PERF: [From the paper] A further optimization one could perform for any filtering algorithm,
+// but that we did not, is to copy the highest resolution level rather than filtering it.
+// This would mean the highest resolution mip represents a perfect specular reflection and would
+// reduce the processing time of the second filtering stage by a factor of approximately four.
+
 /// TODO: Docs
 #[derive(Component, ExtractComponent, Reflect, Default, Clone)]
 pub struct GenerateEnvironmentMapLight {
@@ -176,11 +181,16 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
             }),
         };
 
+        let specular_size = Extent3d {
+            width: 128,
+            height: 128,
+            depth_or_array_layers: 6,
+        };
         let specular_map = Image {
-            data: vec![0; texture_byte_count(skybox_size, 7)],
+            data: vec![0; texture_byte_count(specular_size, 7)],
             texture_descriptor: TextureDescriptor {
                 label: Some("generate_environment_map_light_specular_map_texture"),
-                size: skybox_size,
+                size: specular_size,
                 mip_level_count: 7,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -210,7 +220,7 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
         let downsampled_size = Extent3d {
             width: skybox_size.width / 2,
             height: skybox_size.height / 2,
-            depth_or_array_layers: skybox_size.depth_or_array_layers,
+            depth_or_array_layers: 6,
         };
         let downsampled_cubemap = Image {
             data: vec![0; texture_byte_count(downsampled_size, 6)],
@@ -242,7 +252,7 @@ pub struct GenerateEnvironmentMapLightBindGroups {
     downsampled_cubemap_size: u32,
 }
 
-// TODO: Cache texture views
+// PERF: Cache texture views
 pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
     environment_map_lights: Query<(
         Entity,
