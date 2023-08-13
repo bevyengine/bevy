@@ -28,6 +28,8 @@ use bevy_utils::Duration;
 use thiserror::Error;
 
 /// The amount of time that must pass before the fixed timestep schedule is run again.
+///
+/// For more information, see the [module-level documentation](self).
 #[derive(Resource, Debug)]
 pub struct FixedTime {
     accumulated: Duration,
@@ -105,6 +107,8 @@ pub enum FixedUpdateError {
 }
 
 /// Ticks the [`FixedTime`] resource then runs the [`FixedUpdate`].
+///
+/// For more information, see the [module-level documentation](self).
 pub fn run_fixed_update_schedule(world: &mut World) {
     // Tick the time
     let delta_time = world.resource::<Time>().delta();
