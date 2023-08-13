@@ -19,11 +19,11 @@ impl From<&Affine3A> for Affine3 {
     }
 }
 
-impl Into<Affine3A> for &Affine3 {
-    fn into(self) -> Affine3A {
-        Affine3A {
-            matrix3: self.matrix3.into(),
-            translation: self.translation.into(),
+impl From<&Affine3> for Affine3A {
+    fn from(affine3: &Affine3) -> Self {
+        Self {
+            matrix3: affine3.matrix3.into(),
+            translation: affine3.translation.into(),
         }
     }
 }

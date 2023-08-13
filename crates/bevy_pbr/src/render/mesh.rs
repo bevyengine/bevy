@@ -193,11 +193,10 @@ impl From<&MeshTransforms> for MeshUniform {
     fn from(mesh_transforms: &MeshTransforms) -> Self {
         let transpose_model_3x3 = mesh_transforms.transform.matrix3.transpose();
         let transpose_previous_model_3x3 = mesh_transforms.previous_transform.matrix3.transpose();
-        let inverse_transpose_model_3x3 =
-            <&Affine3 as Into<Affine3A>>::into(&mesh_transforms.transform)
-                .inverse()
-                .matrix3
-                .transpose();
+        let inverse_transpose_model_3x3 = Affine3A::from(&mesh_transforms.transform)
+            .inverse()
+            .matrix3
+            .transpose();
         Self {
             transform: [
                 transpose_model_3x3
