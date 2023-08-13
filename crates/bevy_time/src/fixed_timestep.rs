@@ -33,13 +33,15 @@ use thiserror::Error;
 #[derive(Resource, Debug)]
 pub struct FixedTime {
     accumulated: Duration,
+    /// The amount of time spanned by each fixed update.
     /// Defaults to 1/60th of a second.
-    /// To configure this value, simply mutate or overwrite this resource.
+    ///
+    /// To configure this value, simply mutate or overwrite this field.
     pub period: Duration,
 }
 
 impl FixedTime {
-    /// Creates a new [`FixedTime`] struct
+    /// Creates a new [`FixedTime`] struct with a specified period.
     pub fn new(period: Duration) -> Self {
         FixedTime {
             accumulated: Duration::ZERO,
@@ -47,7 +49,7 @@ impl FixedTime {
         }
     }
 
-    /// Creates a new [`FixedTime`] struct with a period specified in `f32` seconds
+    /// Creates a new [`FixedTime`] struct with a period specified in seconds.
     pub fn new_from_secs(period: f32) -> Self {
         FixedTime {
             accumulated: Duration::ZERO,
@@ -55,7 +57,10 @@ impl FixedTime {
         }
     }
 
-    /// Adds the `delta_time` to the accumulated time so far.
+    /// Adds to this instance's accumulated time. `delta_time` should be the amount of in-game time
+    /// that has passed since `tick` was last called.
+    ///
+    /// Note that if you are using the default configuration of bevy, this will be called for you.
     pub fn tick(&mut self, delta_time: Duration) {
         self.accumulated += delta_time;
     }
@@ -67,10 +72,11 @@ impl FixedTime {
         self.accumulated
     }
 
-    /// Expends one `period` of accumulated time.
+    /// Attempts to advance by a single period. This will return [`FixedUpdateError`] if there is not enough
+    /// accumulated time -- in other words, if advancing time would put the fixed update schedule
+    /// ahead of the main schedule.
     ///
-    /// [`Err(FixedUpdateError`)] will be returned if there is
-    /// not enough accumulated time to span an entire period.
+    /// Note that if you are using the default configuration of bevy, this will be called for you.
     pub fn expend(&mut self) -> Result<(), FixedUpdateError> {
         if let Some(new_value) = self.accumulated.checked_sub(self.period) {
             self.accumulated = new_value;
