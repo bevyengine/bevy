@@ -31,11 +31,12 @@ use bevy_render::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType, ColorTargetState,
         ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, DynamicUniformBuffer,
-        FragmentState, FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
-        RenderPipelineDescriptor, Shader, ShaderRef, ShaderStages, ShaderType,
-        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-        StencilFaceState, StencilOperation, StencilState, TextureAspect, TextureFormat,
-        TextureSampleType, TextureView, TextureViewDescriptor, TextureViewDimension, VertexState,
+        FragmentState, FrontFace, GpuArrayBufferIndex, MultisampleState, PipelineCache,
+        PolygonMode, PrimitiveState, PushConstantRange, RenderPipelineDescriptor, Shader,
+        ShaderRef, ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+        SpecializedMeshPipelines, StencilFaceState, StencilOperation, StencilState, TextureAspect,
+        TextureFormat, TextureSampleType, TextureView, TextureViewDescriptor, TextureViewDimension,
+        VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, FallbackImageMsaa},
@@ -386,6 +387,8 @@ where
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         shader_defs.push("WEBGL".into());
 
+        shader_defs.push("VERTEX_OUTPUT_INSTANCE_INDEX".into());
+
         if key.mesh_key.contains(MeshPipelineKey::DEPTH_PREPASS) {
             shader_defs.push("DEPTH_PREPASS".into());
         }
@@ -554,6 +557,14 @@ where
             PREPASS_SHADER_HANDLE.typed::<Shader>()
         };
 
+        let mut push_constant_ranges = Vec::with_capacity(1);
+        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+            push_constant_ranges.push(PushConstantRange {
+                stages: ShaderStages::VERTEX,
+                range: 0..4,
+            });
+        }
+
         let mut descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: vert_shader_handle,
@@ -581,7 +592,7 @@ where
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            push_constant_ranges: Vec::new(),
+            push_constant_ranges,
             label: Some("prepass_pipeline".into()),
         };
 
@@ -895,7 +906,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
-    material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
+    material_meshes: Query<(
+        &Handle<M>,
+        &Handle<Mesh>,
+        &MeshUniform,
+        &GpuArrayBufferIndex<MeshUniform>,
+    )>,
     depth_format: Res<Core3DDepthFormat>,
     mut views: Query<(
         &ExtractedView,
@@ -959,7 +975,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {
-            let Ok((material_handle, mesh_handle, mesh_uniform)) = material_meshes.get(*visible_entity) else {
+            let Ok((material_handle, mesh_handle, mesh_uniform, batch_indices)) = material_meshes.get(*visible_entity) else {
                 continue;
             };
 
@@ -1026,6 +1042,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 draw_function: opaque_draw_deferred,
                                 pipeline_id,
                                 distance,
+                                per_object_binding_dynamic_offset: batch_indices
+                                    .dynamic_offset
+                                    .unwrap_or_default(),
                             });
                     } else {
                         opaque_phase.add(Opaque3dPrepass {
@@ -1033,6 +1052,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             draw_function: opaque_draw_prepass,
                             pipeline_id,
                             distance,
+                            per_object_binding_dynamic_offset: batch_indices
+                                .dynamic_offset
+                                .unwrap_or_default(),
                         });
                     }
                 }
@@ -1046,6 +1068,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 draw_function: alpha_mask_draw_deferred,
                                 pipeline_id,
                                 distance,
+                                per_object_binding_dynamic_offset: batch_indices
+                                    .dynamic_offset
+                                    .unwrap_or_default(),
                             });
                     } else {
                         alpha_mask_phase.add(AlphaMask3dPrepass {
@@ -1053,6 +1078,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             draw_function: alpha_mask_draw_prepass,
                             pipeline_id,
                             distance,
+                            per_object_binding_dynamic_offset: batch_indices
+                                .dynamic_offset
+                                .unwrap_or_default(),
                         });
                     }
                 }

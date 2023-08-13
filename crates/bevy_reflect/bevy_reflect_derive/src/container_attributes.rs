@@ -13,7 +13,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{LitBool, Meta, Path};
+use syn::{Expr, LitBool, Meta, Path};
 
 // The "special" trait idents that are used internally for reflection.
 // Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
@@ -27,6 +27,9 @@ pub(crate) const REFLECT_DEFAULT: &str = "ReflectDefault";
 
 // Attributes for `FromReflect` implementation
 const FROM_REFLECT_ATTR: &str = "from_reflect";
+
+// Attributes for `TypePath` implementation
+const TYPE_PATH_ATTR: &str = "type_path";
 
 // The error message to show when a trait/type is specified multiple times
 const CONFLICTING_TYPE_DATA_MESSAGE: &str = "conflicting type data registration";
@@ -87,7 +90,48 @@ impl FromReflectAttrs {
                 if existing.value() != new.value() {
                     return Err(syn::Error::new(
                         new.span(),
-                        format!("`from_reflect` already set to {}", existing.value()),
+                        format!("`{FROM_REFLECT_ATTR}` already set to {}", existing.value()),
+                    ));
+                }
+            } else {
+                self.auto_derive = Some(new);
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// A collection of attributes used for deriving `TypePath` via the `Reflect` derive.
+///
+/// Note that this differs from the attributes used by the `TypePath` derive itself,
+/// which look like `[type_path = "my_crate::foo"]`.
+/// The attributes used by reflection take the form `#[reflect(type_path = false)]`.
+///
+/// These attributes should only be used for `TypePath` configuration specific to
+/// deriving `Reflect`.
+#[derive(Clone, Default)]
+pub(crate) struct TypePathAttrs {
+    auto_derive: Option<LitBool>,
+}
+
+impl TypePathAttrs {
+    /// Returns true if `TypePath` should be automatically derived as part of the `Reflect` derive.
+    pub fn should_auto_derive(&self) -> bool {
+        self.auto_derive
+            .as_ref()
+            .map(|lit| lit.value())
+            .unwrap_or(true)
+    }
+
+    /// Merges this [`TypePathAttrs`] with another.
+    pub fn merge(&mut self, other: TypePathAttrs) -> Result<(), syn::Error> {
+        if let Some(new) = other.auto_derive {
+            if let Some(existing) = &self.auto_derive {
+                if existing.value() != new.value() {
+                    return Err(syn::Error::new(
+                        new.span(),
+                        format!("`{TYPE_PATH_ATTR}` already set to {}", existing.value()),
                     ));
                 }
             } else {
@@ -165,7 +209,8 @@ pub(crate) struct ReflectTraits {
     debug: TraitImpl,
     hash: TraitImpl,
     partial_eq: TraitImpl,
-    from_reflect: FromReflectAttrs,
+    from_reflect_attrs: FromReflectAttrs,
+    type_path_attrs: TypePathAttrs,
     idents: Vec<Ident>,
 }
 
@@ -244,25 +289,18 @@ impl ReflectTraits {
                 }
                 Meta::NameValue(pair) => {
                     if pair.path.is_ident(FROM_REFLECT_ATTR) {
-                        traits.from_reflect.auto_derive = match &pair.value {
-                            syn::Expr::Lit(syn::ExprLit {
-                                lit: syn::Lit::Bool(lit),
-                                ..
-                            }) => {
+                        traits.from_reflect_attrs.auto_derive =
+                            Some(extract_bool(&pair.value, |lit| {
                                 // Override `lit` if this is a `FromReflect` derive.
                                 // This typically means a user is opting out of the default implementation
                                 // from the `Reflect` derive and using the `FromReflect` derive directly instead.
                                 is_from_reflect_derive
                                     .then(|| LitBool::new(true, Span::call_site()))
-                                    .or_else(|| Some(lit.clone()))
-                            }
-                            _ => {
-                                return Err(syn::Error::new(
-                                    pair.value.span(),
-                                    "Expected a boolean value",
-                                ))
-                            }
-                        };
+                                    .unwrap_or_else(|| lit.clone())
+                            })?);
+                    } else if pair.path.is_ident(TYPE_PATH_ATTR) {
+                        traits.type_path_attrs.auto_derive =
+                            Some(extract_bool(&pair.value, Clone::clone)?);
                     } else {
                         return Err(syn::Error::new(pair.path.span(), "Unknown attribute"));
                     }
@@ -284,10 +322,15 @@ impl ReflectTraits {
         &self.idents
     }
 
-    /// The `FromReflect` attributes on this type.
+    /// The `FromReflect` configuration found within `#[reflect(...)]` attributes on this type.
     #[allow(clippy::wrong_self_convention)]
-    pub fn from_reflect(&self) -> &FromReflectAttrs {
-        &self.from_reflect
+    pub fn from_reflect_attrs(&self) -> &FromReflectAttrs {
+        &self.from_reflect_attrs
+    }
+
+    /// The `TypePath` configuration found within `#[reflect(...)]` attributes on this type.
+    pub fn type_path_attrs(&self) -> &TypePathAttrs {
+        &self.type_path_attrs
     }
 
     /// Returns the implementation of `Reflect::reflect_hash` as a `TokenStream`.
@@ -366,7 +409,8 @@ impl ReflectTraits {
         self.debug.merge(other.debug)?;
         self.hash.merge(other.hash)?;
         self.partial_eq.merge(other.partial_eq)?;
-        self.from_reflect.merge(other.from_reflect)?;
+        self.from_reflect_attrs.merge(other.from_reflect_attrs)?;
+        self.type_path_attrs.merge(other.type_path_attrs)?;
         for ident in other.idents {
             add_unique_ident(&mut self.idents, ident)?;
         }
@@ -391,4 +435,21 @@ fn add_unique_ident(idents: &mut Vec<Ident>, ident: Ident) -> Result<(), syn::Er
 
     idents.push(ident);
     Ok(())
+}
+
+/// Extract a boolean value from an expression.
+///
+/// The mapper exists so that the caller can conditionally choose to use the given
+/// value or supply their own.
+fn extract_bool(
+    value: &Expr,
+    mut mapper: impl FnMut(&LitBool) -> LitBool,
+) -> Result<LitBool, syn::Error> {
+    match value {
+        syn::Expr::Lit(syn::ExprLit {
+            lit: syn::Lit::Bool(lit),
+            ..
+        }) => Ok(mapper(lit)),
+        _ => Err(syn::Error::new(value.span(), "Expected a boolean value")),
+    }
 }

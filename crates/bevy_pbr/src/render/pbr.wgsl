@@ -162,7 +162,7 @@ fn fragment(
         pbr_input.V = V;
         pbr_input.occlusion = occlusion;
 
-        pbr_input.flags = mesh.flags;
+        pbr_input.flags = mesh[in.instance_index].flags;
 #ifdef DEFERRED_PREPASS
         pbr_functions::alpha_discard(pbr_bindings::material, output_color);
         out.deferred = pbr_deferred_functions::deferred_gbuffer_from_pbr_input(pbr_input);

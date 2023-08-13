@@ -9,7 +9,7 @@ use crate::{IVec2, Rect, URect};
 /// methods instead, which will ensure this invariant is met, unless you already have
 /// the minimum and maximum corners.
 #[repr(C)]
-#[derive(Default, Clone, Copy, Debug, PartialEq)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct IRect {
     /// The minimum corner point of the rect.

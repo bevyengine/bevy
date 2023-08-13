@@ -62,7 +62,6 @@ impl FromWorld for UiPipeline {
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiPipelineKey {
     pub hdr: bool,
-    pub msaa_samples: u32,
 }
 
 impl SpecializedRenderPipeline for UiPipeline {
@@ -118,7 +117,7 @@ impl SpecializedRenderPipeline for UiPipeline {
             },
             depth_stencil: None,
             multisample: MultisampleState {
-                count: key.msaa_samples,
+                count: 1,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },

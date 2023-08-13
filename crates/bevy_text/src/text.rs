@@ -167,6 +167,13 @@ impl From<TextAlignment> for glyph_brush_layout::HorizontalAlign {
 #[derive(Clone, Debug, Reflect)]
 pub struct TextStyle {
     pub font: Handle<Font>,
+    /// The vertical height of rasterized glyphs in the font atlas in pixels.
+    ///
+    /// This is multiplied by the window scale factor and `UiScale`, but not the text entity
+    /// transform or camera projection.
+    ///
+    /// A new font atlas is generated for every combination of font handle and scaled font size
+    /// which can have a strong performance impact.
     pub font_size: f32,
     pub color: Color,
 }

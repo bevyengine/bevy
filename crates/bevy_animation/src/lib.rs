@@ -102,6 +102,12 @@ impl AnimationClip {
         self.duration
     }
 
+    /// The bone ids mapped by their [`EntityPath`].
+    #[inline]
+    pub fn paths(&self) -> &HashMap<EntityPath, usize> {
+        &self.paths
+    }
+
     /// Add a [`VariableCurve`] to an [`EntityPath`].
     pub fn add_curve_to_path(&mut self, path: EntityPath, curve: VariableCurve) {
         // Update the duration of the animation by this curve duration if it's longer
@@ -364,7 +370,7 @@ pub fn animation_player(
 ) {
     animation_players
         .par_iter_mut()
-        .for_each_mut(|(root, maybe_parent, mut player)| {
+        .for_each(|(root, maybe_parent, mut player)| {
             update_transitions(&mut player, &time);
             run_animation_player(
                 root,
