@@ -1,6 +1,9 @@
 // https://research.activision.com/publications/archives/fast-filtering-of-reflection-probes
 
-use super::{EnvironmentMapLight, DOWNSAMPLE_SHADER_HANDLE, FILTER_SHADER_HANDLE};
+use super::{
+    filter_coefficents::{FilterCoefficentsType, FILTER_COEFFICENTS},
+    EnvironmentMapLight, DOWNSAMPLE_SHADER_HANDLE, FILTER_SHADER_HANDLE,
+};
 use bevy_asset::{Assets, Handle};
 use bevy_core_pipeline::Skybox;
 use bevy_ecs::{
@@ -16,13 +19,14 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, CachedComputePipelineId,
-        ComputePassDescriptor, ComputePipelineDescriptor, Extent3d, FilterMode, PipelineCache,
-        SamplerBindingType, SamplerDescriptor, ShaderStages, StorageTextureAccess, TextureAspect,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-        TextureView, TextureViewDescriptor, TextureViewDimension,
+        BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBindingType,
+        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, Extent3d,
+        FilterMode, PipelineCache, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType,
+        StorageTextureAccess, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
+        UniformBuffer,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{GpuImage, Image, ImageSampler, Volume},
 };
 use bevy_utils::default;
@@ -39,11 +43,13 @@ pub struct GenerateEnvironmentMapLightResources {
     filter_layout: BindGroupLayout,
     downsample_pipeline: CachedComputePipelineId,
     filter_pipeline: CachedComputePipelineId,
+    filter_coefficents: Buffer,
 }
 
 impl FromWorld for GenerateEnvironmentMapLightResources {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
+        let render_queue = world.resource::<RenderQueue>();
         let pipeline_cache = world.resource::<PipelineCache>();
 
         let read_texture = BindingType::Texture {
@@ -79,6 +85,14 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
                 bgl_entry(6, write_texture),
                 bgl_entry(7, write_texture),
                 bgl_entry(8, BindingType::Sampler(SamplerBindingType::Filtering)),
+                bgl_entry(
+                    9,
+                    BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(FilterCoefficentsType::min_size()),
+                    },
+                ),
             ],
         });
 
@@ -101,11 +115,16 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
             entry_point: "main".into(),
         });
 
+        let mut filter_coefficents = UniformBuffer::<FilterCoefficentsType>::default();
+        *filter_coefficents.get_mut() = FILTER_COEFFICENTS;
+        filter_coefficents.write_buffer(render_device, render_queue);
+
         Self {
             downsample_layout,
             filter_layout,
             downsample_pipeline,
             filter_pipeline,
+            filter_coefficents: filter_coefficents.buffer().unwrap().clone(),
         }
     }
 }
@@ -394,6 +413,10 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
                 BindGroupEntry {
                     binding: 8,
                     resource: BindingResource::Sampler(&specular_map.sampler),
+                },
+                BindGroupEntry {
+                    binding: 9,
+                    resource: resources.filter_coefficents.as_entire_binding(),
                 },
             ],
         });

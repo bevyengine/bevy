@@ -1,3 +1,4 @@
+mod filter_coefficents;
 mod generate_from_skybox;
 
 use bevy_app::{App, Last, Plugin};

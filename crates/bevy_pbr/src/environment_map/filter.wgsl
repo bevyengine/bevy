@@ -20,8 +20,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#import "./filter_coefficents.wgsl"
-
 @group(0) @binding(0) var tex_in: texture_cube<f32>;
 @group(0) @binding(1) var text_out0: texture_storage_2d_array<rg11b10float, write>;
 @group(0) @binding(2) var text_out1: texture_storage_2d_array<rg11b10float, write>;
@@ -31,6 +29,7 @@
 @group(0) @binding(6) var text_out5: texture_storage_2d_array<rg11b10float, write>;
 @group(0) @binding(7) var text_out6: texture_storage_2d_array<rg11b10float, write>;
 @group(0) @binding(8) var trilinear: sampler;
+@group(0) @binding(9) var<uniform> coeffs: array<array<array<array<vec4<f32>, 24>, 3>, 5>, 7>;
 
 fn get_dir(u: f32, v: f32, face: u32) -> vec3<f32> {
     switch face {
@@ -143,7 +142,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 }
 
                 for (var i_sub_tap = 0u; i_sub_tap < 4u; i_sub_tap++) {
-                    var sample_dir = frame_x * (coeffs_dir0[0u][i_sub_tap] + coeffs_dir0[1u][i_sub_tap] * theta2 + coeffs_dir0[2u][i_sub_tap * phi2]) + frame_y * (coeffs_dir1[0u][i_sub_tap] + coeffs_dir1[1u][i_sub_tap] * theta2 + coeffs_dir1[2u][i_sub_tap * phi2]) + frame_z * (coeffs_dir2[0u][i_sub_tap] + coeffs_dir2[1u][i_sub_tap] * theta2 + coeffs_dir2[2u][i_sub_tap * phi2]);
+                    var sample_dir
+                        = frame_x * (coeffs_dir0[0u][i_sub_tap] + coeffs_dir0[1u][i_sub_tap] * theta2 + coeffs_dir0[2u][i_sub_tap] * phi2)
+                        + frame_y * (coeffs_dir1[0u][i_sub_tap] + coeffs_dir1[1u][i_sub_tap] * theta2 + coeffs_dir1[2u][i_sub_tap] * phi2)
+                        + frame_z * (coeffs_dir2[0u][i_sub_tap] + coeffs_dir2[1u][i_sub_tap] * theta2 + coeffs_dir2[2u][i_sub_tap] * phi2);
 
                     var sample_level = coeffs_level[0u][i_sub_tap] + coeffs_level[1u][i_sub_tap] * theta2 + coeffs_level[2u][i_sub_tap] * phi2;
 
