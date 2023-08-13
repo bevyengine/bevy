@@ -448,25 +448,26 @@ pub fn check_msaa(
 
 // Automatically selects a supported depth stencil format if required.
 pub fn check_depth_format(
-    render_device: Res<RenderDevice>,
+    render_device: Option<Res<RenderDevice>>,
     mut depth_format: ResMut<Core3DDepthFormat>,
     views_3d: Query<Entity, (With<Camera>, With<DeferredPrepass>)>,
 ) {
-    if !views_3d.is_empty() {
-        match depth_format.0 {
-            TextureFormat::Depth24PlusStencil8 => (),
-            TextureFormat::Depth32FloatStencil8 => (),
-            _ => {
-                let prev_depth_format = depth_format.0;
-                if render_device
-                    .features()
-                    .contains(WgpuFeatures::DEPTH32FLOAT_STENCIL8)
-                {
-                    depth_format.0 = TextureFormat::Depth32FloatStencil8
-                } else {
-                    depth_format.0 = TextureFormat::Depth24PlusStencil8
+    if let Some(render_device) = render_device {
+        if !views_3d.is_empty() {
+            match depth_format.0 {
+                TextureFormat::Depth24PlusStencil8 | TextureFormat::Depth32FloatStencil8 => (),
+                _ => {
+                    let prev_depth_format = depth_format.0;
+                    if render_device
+                        .features()
+                        .contains(WgpuFeatures::DEPTH32FLOAT_STENCIL8)
+                    {
+                        depth_format.0 = TextureFormat::Depth32FloatStencil8;
+                    } else {
+                        depth_format.0 = TextureFormat::Depth24PlusStencil8;
+                    }
+                    warn!("Deferred rendering requires a depth stencil format. Changing depth format from {:?} to {:?}.", prev_depth_format, depth_format.0);
                 }
-                warn!("Deferred rendering requires a depth stencil format. Changing depth format from {:?} to {:?}.", prev_depth_format, depth_format.0);
             }
         }
     }

@@ -674,7 +674,6 @@ impl MeshPipelineKey {
         match depth_format {
             TextureFormat::Depth24Plus => Self::DEPTH24PLUS,
             TextureFormat::Depth24PlusStencil8 => Self::DEPTH24PLUSSTENCIL8,
-            TextureFormat::Depth32Float => Self::DEPTH32FLOAT,
             TextureFormat::Depth32FloatStencil8 => Self::DEPTH32FLOATSTENCIL8,
             _ => Self::DEPTH32FLOAT,
         }
@@ -684,7 +683,6 @@ impl MeshPipelineKey {
         match self.intersection(Self::DEPTH_FORMAT_RESERVED_BITS) {
             Self::DEPTH24PLUS => TextureFormat::Depth24Plus,
             Self::DEPTH24PLUSSTENCIL8 => TextureFormat::Depth24PlusStencil8,
-            Self::DEPTH32FLOAT => TextureFormat::Depth32Float,
             Self::DEPTH32FLOATSTENCIL8 => TextureFormat::Depth32FloatStencil8,
             _ => TextureFormat::Depth32Float,
         }

@@ -12,7 +12,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
+        BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
         DepthStencilState, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
         RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages, ShaderType,
