@@ -475,9 +475,9 @@ impl ViewNode for GenerateEnvironmentMapLightNode {
             texture_size /= 2;
         }
 
-        // pass.set_pipeline(filter_pipeline);
-        // pass.set_bind_group(0, &bind_groups.filter, &[]);
-        // pass.dispatch_workgroups(todo!(), 6, 1);
+        pass.set_pipeline(filter_pipeline);
+        pass.set_bind_group(0, &bind_groups.filter, &[]);
+        pass.dispatch_workgroups(342, 6, 1);
 
         Ok(())
     }
