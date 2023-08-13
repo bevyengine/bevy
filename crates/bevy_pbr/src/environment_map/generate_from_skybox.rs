@@ -174,16 +174,16 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
             None => continue,
         };
 
-        let difuse_size = Extent3d {
+        let diffuse_size = Extent3d {
             width: 64,
             height: 64,
             depth_or_array_layers: 6,
         };
         let diffuse_map = Image {
-            data: vec![0; texture_byte_count(difuse_size, 1)],
+            data: vec![0; texture_byte_count(diffuse_size, 1)],
             texture_descriptor: TextureDescriptor {
                 label: Some("generate_environment_map_light_diffuse_map_texture"),
-                size: difuse_size,
+                size: diffuse_size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
