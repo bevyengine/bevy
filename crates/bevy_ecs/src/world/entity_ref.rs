@@ -154,18 +154,18 @@ impl<'w> EntityRef<'w> {
     }
 }
 
-impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
-    fn from(entity_mut: EntityMut<'w>) -> EntityRef<'w> {
+impl<'w> From<EntityWorldMut<'w>> for EntityRef<'w> {
+    fn from(entity_mut: EntityWorldMut<'w>) -> EntityRef<'w> {
         // SAFETY:
-        // - `EntityMut` guarantees exclusive access to the entire world.
+        // - `EntityWorldMut` guarantees exclusive access to the entire world.
         unsafe { EntityRef::new(entity_mut.into_unsafe_entity_cell()) }
     }
 }
 
-impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
-    fn from(value: &'a EntityMut<'_>) -> Self {
+impl<'a> From<&'a EntityWorldMut<'_>> for EntityRef<'a> {
+    fn from(value: &'a EntityWorldMut<'_>) -> Self {
         // SAFETY:
-        // - `EntityMut` guarantees exclusive access to the entire world.
+        // - `EntityWorldMut` guarantees exclusive access to the entire world.
         // - `&self` ensures no mutable accesses are active.
         unsafe { EntityRef::new(value.as_unsafe_entity_cell_readonly()) }
     }
@@ -190,11 +190,9 @@ impl<'a> From<&'a EntityBorrowMut<'_>> for EntityRef<'a> {
 
 /// Provides mutable access to a single entity and all of its components.
 ///
-/// Contrast with [`EntityMut`], with allows adding adn removing components,
-/// despawning the entity, and provides mutable access to the eentire world.
-/// Because of this, `EntityMut` cannot coexist with any other world accesses.
-///
-/// [`EntityMut`]: super::EntityMut
+/// Contrast with [`EntityWorldMut`], with allows adding adn removing components,
+/// despawning the entity, and provides mutable access to the entire world.
+/// Because of this, `EntityWorldMut` cannot coexist with any other world accesses.
 ///
 /// # Examples
 ///
@@ -324,7 +322,7 @@ impl<'w> EntityBorrowMut<'w> {
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
-    /// **You should prefer to use the typed API [`EntityMut::get_change_ticks`] where possible and only
+    /// **You should prefer to use the typed API [`EntityWorldMut::get_change_ticks`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     #[inline]
@@ -334,7 +332,7 @@ impl<'w> EntityBorrowMut<'w> {
 
     /// Gets the component of the given [`ComponentId`] from the entity.
     ///
-    /// **You should prefer to use the typed API [`EntityMut::get`] where possible and only
+    /// **You should prefer to use the typed API [`EntityWorldMut::get`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     ///
@@ -347,12 +345,12 @@ impl<'w> EntityBorrowMut<'w> {
 
     /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
     ///
-    /// **You should prefer to use the typed API [`EntityMut::get_mut`] where possible and only
+    /// **You should prefer to use the typed API [`EntityBorrowMut::get_mut`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     ///
-    /// Unlike [`EntityMut::get_mut`], this returns a raw pointer to the component,
-    /// which is only valid while the [`EntityMut`] is alive.
+    /// Unlike [`EntityBorrowMut::get_mut`], this returns a raw pointer to the component,
+    /// which is only valid while the [`EntityBorrowMut`] is alive.
     #[inline]
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         // SAFETY:
@@ -362,37 +360,37 @@ impl<'w> EntityBorrowMut<'w> {
     }
 }
 
-impl<'w> From<EntityMut<'w>> for EntityBorrowMut<'w> {
-    fn from(value: EntityMut<'w>) -> Self {
-        // SAFETY: `EntityMut` guarantees exclusive access to the entire world.
+impl<'w> From<EntityWorldMut<'w>> for EntityBorrowMut<'w> {
+    fn from(value: EntityWorldMut<'w>) -> Self {
+        // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
         unsafe { EntityBorrowMut::new(value.into_unsafe_entity_cell()) }
     }
 }
 
-impl<'a> From<&'a mut EntityMut<'_>> for EntityBorrowMut<'a> {
-    fn from(value: &'a mut EntityMut<'_>) -> Self {
-        // SAFETY: `EntityMut` guarantees exclusive access to the entire world.
+impl<'a> From<&'a mut EntityWorldMut<'_>> for EntityBorrowMut<'a> {
+    fn from(value: &'a mut EntityWorldMut<'_>) -> Self {
+        // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
         unsafe { EntityBorrowMut::new(value.as_unsafe_entity_cell()) }
     }
 }
 
-/// A mutable reference to a particular [`Entity`] and all of its components.
+/// A mutable reference to a particular [`Entity`], and the entire world.
+/// This is essentially a performance-optimized `(Entity, &mut World)` tuple,
+/// which caches the [`EntityLocation`] to reduce duplicate lookups.
 ///
-/// This type provides mutable access to the entire world, which means only one
-/// [`EntityMut`] can exist at one time for a given world.
+/// Since this type provides mutable access to the entire world, only one
+/// [`EntityWorldMut`] can exist at a time for a given world.
 ///
 /// See also [`EntityBorrowMut`], which allows disjoint mutable access to multiple
 /// entities at once.  Unlike `EntityBorrowMut`, this type allows adding and
 /// removing components, and despawning the entity.
-///
-/// [`EntityBorrowMut`]: super::EntityBorrowMut
-pub struct EntityMut<'w> {
+pub struct EntityWorldMut<'w> {
     world: &'w mut World,
     entity: Entity,
     location: EntityLocation,
 }
 
-impl<'w> EntityMut<'w> {
+impl<'w> EntityWorldMut<'w> {
     fn as_unsafe_entity_cell_readonly(&self) -> UnsafeEntityCell<'_> {
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell_readonly(),
@@ -430,7 +428,7 @@ impl<'w> EntityMut<'w> {
         debug_assert!(world.entities().contains(entity));
         debug_assert_eq!(world.entities().get(entity), Some(location));
 
-        EntityMut {
+        EntityWorldMut {
             world,
             entity,
             location,
@@ -529,7 +527,7 @@ impl<'w> EntityMut<'w> {
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
-    /// **You should prefer to use the typed API [`EntityMut::get_change_ticks`] where possible and only
+    /// **You should prefer to use the typed API [`EntityWorldMut::get_change_ticks`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     #[inline]
@@ -539,12 +537,12 @@ impl<'w> EntityMut<'w> {
 
     /// Gets the component of the given [`ComponentId`] from the entity.
     ///
-    /// **You should prefer to use the typed API [`EntityMut::get`] where possible and only
+    /// **You should prefer to use the typed API [`EntityWorldMut::get`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     ///
-    /// Unlike [`EntityMut::get`], this returns a raw pointer to the component,
-    /// which is only valid while the [`EntityMut`] is alive.
+    /// Unlike [`EntityWorldMut::get`], this returns a raw pointer to the component,
+    /// which is only valid while the [`EntityWorldMut`] is alive.
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
         EntityRef::from(self).get_by_id(component_id)
@@ -552,12 +550,12 @@ impl<'w> EntityMut<'w> {
 
     /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
     ///
-    /// **You should prefer to use the typed API [`EntityMut::get_mut`] where possible and only
+    /// **You should prefer to use the typed API [`EntityWorldMut::get_mut`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     ///
-    /// Unlike [`EntityMut::get_mut`], this returns a raw pointer to the component,
-    /// which is only valid while the [`EntityMut`] is alive.
+    /// Unlike [`EntityWorldMut::get_mut`], this returns a raw pointer to the component,
+    /// which is only valid while the [`EntityWorldMut`] is alive.
     #[inline]
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         // SAFETY:
@@ -595,11 +593,11 @@ impl<'w> EntityMut<'w> {
     ///
     /// This will overwrite any previous value(s) of the same component type.
     ///
-    /// You should prefer to use the typed API [`EntityMut::insert`] where possible.
+    /// You should prefer to use the typed API [`EntityWorldMut::insert`] where possible.
     ///
     /// # Safety
     ///
-    /// - [`ComponentId`] must be from the same world as [`EntityMut`]
+    /// - [`ComponentId`] must be from the same world as [`EntityWorldMut`]
     /// - [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
     pub unsafe fn insert_by_id(
         &mut self,
@@ -636,13 +634,13 @@ impl<'w> EntityMut<'w> {
     ///
     /// This will overwrite any previous value(s) of the same component type.
     ///
-    /// You should prefer to use the typed API [`EntityMut::insert`] where possible.
-    /// If your [`Bundle`] only has one component, use the cached API [`EntityMut::insert_by_id`].
+    /// You should prefer to use the typed API [`EntityWorldMut::insert`] where possible.
+    /// If your [`Bundle`] only has one component, use the cached API [`EntityWorldMut::insert_by_id`].
     ///
     /// If possible, pass a sorted slice of `ComponentId` to maximize caching potential.
     ///
     /// # Safety
-    /// - Each [`ComponentId`] must be from the same world as [`EntityMut`]
+    /// - Each [`ComponentId`] must be from the same world as [`EntityWorldMut`]
     /// - Each [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
     pub unsafe fn insert_by_ids<'a, I: Iterator<Item = OwningPtr<'a>>>(
         &mut self,
@@ -964,27 +962,27 @@ impl<'w> EntityMut<'w> {
         self.world
     }
 
-    /// Returns this `EntityMut`'s world.
+    /// Returns this entity's world.
     ///
-    /// See [`EntityMut::world_scope`] or [`EntityMut::into_world_mut`] for a safe alternative.
+    /// See [`EntityWorldMut::world_scope`] or [`EntityWorldMut::into_world_mut`] for a safe alternative.
     ///
     /// # Safety
     /// Caller must not modify the world in a way that changes the current entity's location
     /// If the caller _does_ do something that could change the location, `self.update_location()`
-    /// must be called before using any other methods on this [`EntityMut`].
+    /// must be called before using any other methods on this [`EntityWorldMut`].
     #[inline]
     pub unsafe fn world_mut(&mut self) -> &mut World {
         self.world
     }
 
-    /// Returns this `EntityMut`'s [`World`], consuming itself.
+    /// Returns this entity's [`World`], consuming itself.
     #[inline]
     pub fn into_world_mut(self) -> &'w mut World {
         self.world
     }
 
-    /// Gives mutable access to this `EntityMut`'s [`World`] in a temporary scope.
-    /// This is a safe alternative to using [`Self::world_mut`].
+    /// Gives mutable access to this entity's [`World`] in a temporary scope.
+    /// This is a safe alternative to using [`EntityWorldMut::world_mut`].
     ///
     /// # Examples
     ///
@@ -1002,14 +1000,14 @@ impl<'w> EntityMut<'w> {
     ///     let mut r = world.resource_mut::<R>();
     ///     r.0 += 1;
     ///
-    ///     // Return a value from the world before giving it back to the `EntityMut`.
+    ///     // Return a value from the world before giving it back to the `EntityWorldMut`.
     ///     *r
     /// });
     /// # assert_eq!(new_r.0, 1);
     /// ```
     pub fn world_scope<U>(&mut self, f: impl FnOnce(&mut World) -> U) -> U {
         struct Guard<'w, 'a> {
-            entity_mut: &'a mut EntityMut<'w>,
+            entity_mut: &'a mut EntityWorldMut<'w>,
         }
 
         impl Drop for Guard<'_, '_> {
@@ -1029,7 +1027,7 @@ impl<'w> EntityMut<'w> {
     /// Updates the internal entity location to match the current location in the internal
     /// [`World`].
     ///
-    /// This is *only* required when using the unsafe function [`EntityMut::world_mut`],
+    /// This is *only* required when using the unsafe function [`EntityWorldMut::world_mut`],
     /// which enables the location to change.
     pub fn update_location(&mut self) {
         self.location = self.world.entities().get(self.entity).unwrap();
@@ -1299,7 +1297,7 @@ mod tests {
         {
             test_component.set_changed();
             let test_component =
-                // SAFETY: `test_component` has unique access of the `EntityMut` and is not used afterwards
+                // SAFETY: `test_component` has unique access of the `EntityWorldMut` and is not used afterwards
                 unsafe { test_component.into_inner().deref_mut::<TestComponent>() };
             test_component.0 = 43;
         }
@@ -1342,7 +1340,7 @@ mod tests {
         let id = entity.id();
         let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
             entity.world_scope(|w| {
-                // Change the entity's `EntityLocation`, which invalidates the original `EntityMut`.
+                // Change the entity's `EntityLocation`, which invalidates the original `EntityWorldMut`.
                 // This will get updated at the end of the scope.
                 w.entity_mut(id).insert(TestComponent(0));
 

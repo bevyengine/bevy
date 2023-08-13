@@ -724,7 +724,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
     /// Removes a [`Bundle`] of components from the entity.
     ///
-    /// See [`EntityMut::remove`](crate::world::EntityMut::remove) for more
+    /// See [`EntityWorldMut::remove`](crate::world::EntityWorldMut::remove) for more
     /// details.
     ///
     /// # Example

@@ -7,7 +7,7 @@ pub mod unsafe_world_cell;
 mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
-pub use entity_ref::{EntityBorrowMut, EntityMut, EntityRef};
+pub use entity_ref::{EntityBorrowMut, EntityRef, EntityWorldMut};
 pub use spawn_batch::*;
 pub use world_cell::*;
 
@@ -257,7 +257,7 @@ impl World {
         }
     }
 
-    /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
+    /// Retrieves an [`EntityWorldMut`] that exposes read and write operations for the given `entity`.
     /// This will panic if the `entity` does not exist. Use [`World::get_entity_mut`] if you want
     /// to check for entity existence instead of implicitly panic-ing.
     ///
@@ -278,7 +278,7 @@ impl World {
     /// ```
     #[inline]
     #[track_caller]
-    pub fn entity_mut(&mut self, entity: Entity) -> EntityMut {
+    pub fn entity_mut(&mut self, entity: Entity) -> EntityWorldMut {
         #[inline(never)]
         #[cold]
         #[track_caller]
@@ -401,7 +401,7 @@ impl World {
             .collect()
     }
 
-    /// Returns an [`EntityMut`] for the given `entity` (if it exists) or spawns one if it doesn't exist.
+    /// Returns an [`EntityWorldMut`] for the given `entity` (if it exists) or spawns one if it doesn't exist.
     /// This will return [`None`] if the `entity` exists with a different generation.
     ///
     /// # Note
@@ -409,12 +409,12 @@ impl World {
     /// This method should generally only be used for sharing entities across apps, and only when they have a
     /// scheme worked out to share an ID space (which doesn't happen by default).
     #[inline]
-    pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityMut> {
+    pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityWorldMut> {
         self.flush();
         match self.entities.alloc_at_without_replacement(entity) {
             AllocAtWithoutReplacement::Exists(location) => {
                 // SAFETY: `entity` exists and `location` is that entity's location
-                Some(unsafe { EntityMut::new(self, entity, location) })
+                Some(unsafe { EntityWorldMut::new(self, entity, location) })
             }
             AllocAtWithoutReplacement::DidNotExist => {
                 // SAFETY: entity was just allocated
@@ -425,8 +425,8 @@ impl World {
     }
 
     /// Retrieves an [`EntityRef`] that exposes read-only operations for the given `entity`.
-    /// Returns [`None`] if the `entity` does not exist. Use [`World::entity`] if you don't want
-    /// to unwrap the [`EntityRef`] yourself.
+    /// Returns [`None`] if the `entity` does not exist.
+    /// Instead of unwrapping the value returned from this function, prefer [`World::entity`].
     ///
     /// ```
     /// use bevy_ecs::{component::Component, world::World};
@@ -547,9 +547,9 @@ impl World {
         })
     }
 
-    /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
-    /// Returns [`None`] if the `entity` does not exist. Use [`World::entity_mut`] if you don't want
-    /// to unwrap the [`EntityMut`] yourself.
+    /// Retrieves an [`EntityWorldMut`] that exposes read and write operations for the given `entity`.
+    /// Returns [`None`] if the `entity` does not exist.
+    /// Instead of unwrapping the value returned from this function, prefer [`World::entity_mut`].
     ///
     /// ```
     /// use bevy_ecs::{component::Component, world::World};
@@ -567,10 +567,10 @@ impl World {
     /// position.x = 1.0;
     /// ```
     #[inline]
-    pub fn get_entity_mut(&mut self, entity: Entity) -> Option<EntityMut> {
+    pub fn get_entity_mut(&mut self, entity: Entity) -> Option<EntityWorldMut> {
         let location = self.entities.get(entity)?;
         // SAFETY: `entity` exists and `location` is that entity's location
-        Some(unsafe { EntityMut::new(self, entity, location) })
+        Some(unsafe { EntityWorldMut::new(self, entity, location) })
     }
 
     /// Gets mutable access to multiple entities.
@@ -638,7 +638,7 @@ impl World {
         Ok(borrows)
     }
 
-    /// Spawns a new [`Entity`] and returns a corresponding [`EntityMut`], which can be used
+    /// Spawns a new [`Entity`] and returns a corresponding [`EntityWorldMut`], which can be used
     /// to add components to the entity or retrieve its id.
     ///
     /// ```
@@ -663,7 +663,7 @@ impl World {
     /// let position = world.entity(entity).get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
-    pub fn spawn_empty(&mut self) -> EntityMut {
+    pub fn spawn_empty(&mut self) -> EntityWorldMut {
         self.flush();
         let entity = self.entities.alloc();
         // SAFETY: entity was just allocated
@@ -671,7 +671,7 @@ impl World {
     }
 
     /// Spawns a new [`Entity`] with a given [`Bundle`] of [components](`Component`) and returns
-    /// a corresponding [`EntityMut`], which can be used to add components to the entity or
+    /// a corresponding [`EntityWorldMut`], which can be used to add components to the entity or
     /// retrieve its id.
     ///
     /// ```
@@ -729,7 +729,7 @@ impl World {
     /// let position = world.entity(entity).get::<Position>().unwrap();
     /// assert_eq!(position.x, 2.0);
     /// ```
-    pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityMut {
+    pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
@@ -750,12 +750,12 @@ impl World {
         };
 
         // SAFETY: entity and location are valid, as they were just created above
-        unsafe { EntityMut::new(self, entity, entity_location) }
+        unsafe { EntityWorldMut::new(self, entity, entity_location) }
     }
 
     /// # Safety
     /// must be called on an entity that was just allocated
-    unsafe fn spawn_at_empty_internal(&mut self, entity: Entity) -> EntityMut {
+    unsafe fn spawn_at_empty_internal(&mut self, entity: Entity) -> EntityWorldMut {
         let archetype = self.archetypes.empty_mut();
         // PERF: consider avoiding allocating entities in the empty archetype unless needed
         let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
@@ -764,7 +764,7 @@ impl World {
         let location = archetype.allocate(entity, table_row);
         // SAFETY: entity index was just allocated
         self.entities.set(entity.index(), location);
-        EntityMut::new(self, entity, location)
+        EntityWorldMut::new(self, entity, location)
     }
 
     /// Spawns a batch of entities with the same component [Bundle] type. Takes a given [Bundle]
