@@ -25,10 +25,14 @@ pub mod graph {
 }
 pub const CORE_3D: &str = graph::NAME;
 
-#[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
-pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32FloatStencil8;
-#[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth24PlusStencil8;
+#[derive(Resource, ExtractResource, Clone)]
+pub struct Core3DDepthFormat(pub TextureFormat);
+
+impl Default for Core3DDepthFormat {
+    fn default() -> Self {
+        Core3DDepthFormat(TextureFormat::Depth32Float)
+    }
+}
 
 use std::cmp::Reverse;
 
@@ -41,6 +45,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
@@ -52,6 +57,7 @@ use bevy_render::{
         TextureUsages,
     },
     renderer::RenderDevice,
+    settings::WgpuFeatures,
     texture::TextureCache,
     view::ViewDepthTexture,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -64,8 +70,8 @@ use crate::{
     },
     prepass::{
         node::PrepassNode, AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass,
-        NormalPrepass, Opaque3dPrepass, ViewPrepassTextures, DEPTH_PREPASS_FORMAT,
-        MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
+        NormalPrepass, Opaque3dPrepass, ViewPrepassTextures, MOTION_VECTOR_PREPASS_FORMAT,
+        NORMAL_PREPASS_FORMAT,
     },
     skybox::SkyboxPlugin,
     tonemapping::TonemappingNode,
@@ -76,10 +82,15 @@ pub struct Core3dPlugin;
 
 impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Camera3d>()
+        app.init_resource::<Core3DDepthFormat>()
+            .register_type::<Camera3d>()
             .register_type::<Camera3dDepthLoadOp>()
-            .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
-            .add_systems(PostUpdate, check_msaa);
+            .add_plugins((
+                SkyboxPlugin,
+                ExtractComponentPlugin::<Camera3d>::default(),
+                ExtractResourcePlugin::<Core3DDepthFormat>::default(),
+            ))
+            .add_systems(PostUpdate, (check_msaa, check_depth_format));
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -342,6 +353,7 @@ pub fn extract_camera_prepass_phase(
 
 pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
+    depth_format: Res<Core3DDepthFormat>,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
@@ -384,7 +396,7 @@ pub fn prepare_core_3d_depth_textures(
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,
                     // PERF: vulkan docs recommend using 24 bit depth for better performance
-                    format: CORE_3D_DEPTH_FORMAT,
+                    format: depth_format.0,
                     usage,
                     view_formats: &[],
                 };
@@ -416,9 +428,36 @@ pub fn check_msaa(
     }
 }
 
+// Automatically selects a supported depth stencil format if required.
+pub fn check_depth_format(
+    render_device: Res<RenderDevice>,
+    mut depth_format: ResMut<Core3DDepthFormat>,
+    views_3d: Query<Entity, (With<Camera>, With<DeferredPrepass>)>,
+) {
+    if !views_3d.is_empty() {
+        match depth_format.0 {
+            TextureFormat::Depth24PlusStencil8 => (),
+            TextureFormat::Depth32FloatStencil8 => (),
+            _ => {
+                let prev_depth_format = depth_format.0;
+                if render_device
+                    .features()
+                    .contains(WgpuFeatures::DEPTH32FLOAT_STENCIL8)
+                {
+                    depth_format.0 = TextureFormat::Depth32FloatStencil8
+                } else {
+                    depth_format.0 = TextureFormat::Depth24PlusStencil8
+                }
+                warn!("Deferred rendering requires a depth stencil format. Changing depth format from {:?} to {:?}.", prev_depth_format, depth_format.0);
+            }
+        }
+    }
+}
+
 // Prepares the textures used by the prepass
 pub fn prepare_prepass_textures(
     mut commands: Commands,
+    depth_format: Res<Core3DDepthFormat>,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
@@ -464,7 +503,7 @@ pub fn prepare_prepass_textures(
                         mip_level_count: 1,
                         sample_count: msaa.samples(),
                         dimension: TextureDimension::D2,
-                        format: DEPTH_PREPASS_FORMAT,
+                        format: depth_format.0,
                         usage: TextureUsages::COPY_DST
                             | TextureUsages::RENDER_ATTACHMENT
                             | TextureUsages::TEXTURE_BINDING,

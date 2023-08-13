@@ -2,7 +2,7 @@ use crate::MeshPipeline;
 use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
-use bevy_core_pipeline::core_3d::Opaque3d;
+use bevy_core_pipeline::core_3d::{Core3DDepthFormat, Opaque3d};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, TypeUuid};
@@ -121,13 +121,16 @@ fn queue_wireframes(
         Query<(Entity, &Handle<Mesh>, &MeshUniform), With<Wireframe>>,
     )>,
     mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<Opaque3d>)>,
+    depth_format: Res<Core3DDepthFormat>,
 ) {
     let draw_custom = opaque_3d_draw_functions.read().id::<DrawWireframes>();
-    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
+    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
+        | MeshPipelineKey::from_depth_format(depth_format.0);
     for (view, visible_entities, mut opaque_phase) in &mut views {
         let rangefinder = view.rangefinder3d();
 
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
+
         let add_render_phase =
             |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
                 if let Some(mesh) = render_meshes.get(mesh_handle) {

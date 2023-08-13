@@ -3,7 +3,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core_pipeline::{
     clear_color::ClearColorConfig,
-    core_3d::{self, CORE_3D_DEPTH_FORMAT},
+    core_3d::{self, Core3DDepthFormat},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::{Camera3d, ClearColor},
     prepass::DeferredPrepass,
@@ -258,7 +258,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             }),
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
-                format: CORE_3D_DEPTH_FORMAT,
+                format: key.depth_format(),
                 depth_write_enabled: false,
                 depth_compare: CompareFunction::Always,
                 stencil: StencilState {
@@ -302,6 +302,7 @@ pub fn prepare_deferred_lighting_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DeferredLightingLayout>>,
     differed_lighting_layout: Res<DeferredLightingLayout>,
+    depth_format: Res<Core3DDepthFormat>,
     views: Query<
         (
             Entity,
@@ -316,7 +317,8 @@ pub fn prepare_deferred_lighting_pipelines(
     images: Res<RenderAssets<Image>>,
 ) {
     for (entity, view, tonemapping, dither, environment_map, ssao) in &views {
-        let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = MeshPipelineKey::from_hdr(view.hdr)
+            | MeshPipelineKey::from_depth_format(depth_format.0);
 
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {

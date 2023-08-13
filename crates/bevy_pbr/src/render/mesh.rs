@@ -8,7 +8,7 @@ use crate::{
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleId, HandleUntyped};
 use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT,
+    core_3d::Core3DDepthFormat,
     prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
@@ -611,6 +611,11 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const DEPTH_FORMAT_RESERVED_BITS      = Self::DEPTH_FORMAT_MASK_BITS << Self::DEPTH_FORMAT_SHIFT_BITS;
+        const DEPTH32FLOAT = 0 << Self::DEPTH_FORMAT_SHIFT_BITS;
+        const DEPTH24PLUSSTENCIL8 = 1 << Self::DEPTH_FORMAT_SHIFT_BITS;
+        const DEPTH32FLOATSTENCIL8  = 2 << Self::DEPTH_FORMAT_SHIFT_BITS;
+        const DEPTH24PLUS = 3 << Self::DEPTH_FORMAT_SHIFT_BITS;
     }
 }
 
@@ -626,11 +631,34 @@ impl MeshPipelineKey {
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
         Self::BLEND_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
+    const DEPTH_FORMAT_MASK_BITS: u32 = 0b11;
+    const DEPTH_FORMAT_SHIFT_BITS: u32 =
+        Self::TONEMAP_METHOD_SHIFT_BITS - Self::DEPTH_FORMAT_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
         Self::from_bits_retain(msaa_bits)
+    }
+
+    pub fn from_depth_format(depth_format: TextureFormat) -> Self {
+        match depth_format {
+            TextureFormat::Depth24Plus => Self::DEPTH24PLUS,
+            TextureFormat::Depth24PlusStencil8 => Self::DEPTH24PLUSSTENCIL8,
+            TextureFormat::Depth32Float => Self::DEPTH32FLOAT,
+            TextureFormat::Depth32FloatStencil8 => Self::DEPTH32FLOATSTENCIL8,
+            _ => Self::DEPTH32FLOAT,
+        }
+    }
+
+    pub fn depth_format(&self) -> TextureFormat {
+        match self.intersection(Self::DEPTH_FORMAT_RESERVED_BITS) {
+            Self::DEPTH24PLUS => TextureFormat::Depth24Plus,
+            Self::DEPTH24PLUSSTENCIL8 => TextureFormat::Depth24PlusStencil8,
+            Self::DEPTH32FLOAT => TextureFormat::Depth32Float,
+            Self::DEPTH32FLOATSTENCIL8 => TextureFormat::Depth32FloatStencil8,
+            _ => TextureFormat::Depth32Float,
+        }
     }
 
     pub fn from_hdr(hdr: bool) -> Self {
@@ -882,7 +910,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 strip_index_format: None,
             },
             depth_stencil: Some(DepthStencilState {
-                format: CORE_3D_DEPTH_FORMAT,
+                format: key.depth_format(),
                 depth_write_enabled,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
@@ -1030,6 +1058,7 @@ pub fn queue_mesh_view_bind_groups(
     msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
     tonemapping_luts: Res<TonemappingLuts>,
+    depth_format: Res<Core3DDepthFormat>,
 ) {
     if let (
         Some(view_binding),
@@ -1136,8 +1165,12 @@ pub fn queue_mesh_view_bind_groups(
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, [15, 16]);
             entries.extend_from_slice(&tonemapping_luts);
 
-            let prepass_bindings =
-                prepass::get_bindings(prepass_textures, &mut fallback_images, &msaa);
+            let prepass_bindings = prepass::get_bindings(
+                prepass_textures,
+                &mut fallback_images,
+                &msaa,
+                depth_format.0,
+            );
             // When using WebGL, we can't have a depth texture with multisampling
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)

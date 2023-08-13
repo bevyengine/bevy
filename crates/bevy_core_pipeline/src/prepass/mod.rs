@@ -38,9 +38,6 @@ use bevy_render::{
 };
 use bevy_utils::FloatOrd;
 
-use crate::core_3d::CORE_3D_DEPTH_FORMAT;
-
-pub const DEPTH_PREPASS_FORMAT: TextureFormat = CORE_3D_DEPTH_FORMAT;
 pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;
 

@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
-use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
+use bevy_core_pipeline::core_3d::{Core3DDepthFormat, Transparent3d};
 
 use bevy_ecs::{
     prelude::Entity,
@@ -112,7 +112,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             layout,
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
-                format: CORE_3D_DEPTH_FORMAT,
+                format: key.mesh_key.depth_format(),
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::Greater,
                 stencil: StencilState::default(),
@@ -146,6 +146,7 @@ fn queue_line_gizmos_3d(
     config: Res<GizmoConfig>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>)>,
     line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
+    depth_format: Res<Core3DDepthFormat>,
     mut views: Query<(
         &ExtractedView,
         &mut RenderPhase<Transparent3d>,
@@ -161,7 +162,8 @@ fn queue_line_gizmos_3d(
         }
 
         let mesh_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+            | MeshPipelineKey::from_hdr(view.hdr)
+            | MeshPipelineKey::from_depth_format(depth_format.0);
 
         for (entity, handle) in &line_gizmos {
             let Some(line_gizmo) = line_gizmo_assets.get(handle) else { continue };

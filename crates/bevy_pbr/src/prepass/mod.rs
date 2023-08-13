@@ -1,13 +1,12 @@
 use bevy_app::{Plugin, PreUpdate};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT,
+    core_3d::Core3DDepthFormat,
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_PREPASS_FORMAT},
     prelude::Camera3d,
     prepass::{
         AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
-        Opaque3dPrepass, ViewPrepassTextures, DEPTH_PREPASS_FORMAT, MOTION_VECTOR_PREPASS_FORMAT,
-        NORMAL_PREPASS_FORMAT,
+        Opaque3dPrepass, ViewPrepassTextures, MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
     },
 };
 use bevy_ecs::{
@@ -575,6 +574,7 @@ where
             },
             depth_stencil: Some(get_depth_stencil_state(
                 key.mesh_key.contains(MeshPipelineKey::SHADOW_PASS),
+                key.mesh_key.depth_format(),
             )),
             multisample: MultisampleState {
                 count: key.mesh_key.msaa_samples(),
@@ -672,7 +672,7 @@ impl DepthBindingsSet {
     }
 }
 
-pub fn get_depth_stencil_state(shadow: bool) -> DepthStencilState {
+pub fn get_depth_stencil_state(shadow: bool, depth_format: TextureFormat) -> DepthStencilState {
     if shadow {
         DepthStencilState {
             format: SHADOW_FORMAT,
@@ -692,7 +692,7 @@ pub fn get_depth_stencil_state(shadow: bool) -> DepthStencilState {
         }
     } else {
         DepthStencilState {
-            format: DEPTH_PREPASS_FORMAT,
+            format: depth_format,
             depth_write_enabled: true,
             depth_compare: CompareFunction::GreaterEqual,
             stencil: StencilState {
@@ -724,6 +724,7 @@ pub fn get_bindings(
     prepass_textures: Option<&ViewPrepassTextures>,
     fallback_images: &mut FallbackImageMsaa,
     msaa: &Msaa,
+    depth_format: TextureFormat,
 ) -> DepthBindingsSet {
     let depth_desc = TextureViewDescriptor {
         label: Some("prepass_depth"),
@@ -733,7 +734,7 @@ pub fn get_bindings(
     let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
         Some(texture) => texture.texture.create_view(&depth_desc),
         None => fallback_images
-            .image_for_samplecount(msaa.samples(), CORE_3D_DEPTH_FORMAT)
+            .image_for_samplecount(msaa.samples(), depth_format)
             .texture
             .create_view(&depth_desc),
     };
@@ -895,6 +896,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
     material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
+    depth_format: Res<Core3DDepthFormat>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -939,7 +941,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
         deferred_prepass,
     ) in &mut views
     {
-        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
+        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
+            | MeshPipelineKey::from_depth_format(depth_format.0);
         if depth_prepass.is_some() {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
         }
