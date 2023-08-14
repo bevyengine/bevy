@@ -1237,7 +1237,8 @@ struct ProcessConfigsResult {
     /// if `ancestor_chained` is true
     nodes: Vec<NodeId>,
     /// True if and only if all nodes are "densely chained", meaning that all nested items
-    /// are linearly chained in the order they are defined
+    /// are linearly chained (as if `after` system ordering had been applied between each item)
+    /// in the order they are defined
     densely_chained: bool,
 }
 
