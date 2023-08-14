@@ -22,6 +22,7 @@ pub mod widget;
 #[cfg(feature = "bevy_text")]
 use bevy_render::camera::CameraUpdateSystem;
 use bevy_render::{extract_component::ExtractComponentPlugin, RenderApp};
+use bevy_derive::{Deref, DerefMut};
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
@@ -67,8 +68,8 @@ pub enum UiSystem {
 ///
 /// A multiplier to fixed-sized ui values.
 /// **Note:** This will only affect fixed ui values like [`Val::Px`]
-#[derive(Debug, Resource)]
-pub struct UiScale(pub f32);
+#[derive(Debug, Resource, Deref, DerefMut)]
+pub struct UiScale(pub f64);
 
 impl Default for UiScale {
     fn default() -> Self {

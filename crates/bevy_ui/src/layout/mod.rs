@@ -256,7 +256,7 @@ pub fn ui_layout_system(
         ui_surface.update_window(entity, &window.resolution);
     }
 
-    let scale_factor = logical_to_physical_factor * ui_scale.scale;
+    let scale_factor = logical_to_physical_factor * ui_scale.0;
 
     let layout_context = LayoutContext::new(scale_factor, physical_size);
 
