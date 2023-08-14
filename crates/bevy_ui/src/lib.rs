@@ -73,6 +73,12 @@ pub struct UiScale {
     pub scale: f64,
 }
 
+impl UiScale {
+    pub const fn new(scale: f64) -> Self {
+        UiScale { scale }
+    }
+}
+
 impl Default for UiScale {
     fn default() -> Self {
         Self { scale: 1.0 }
