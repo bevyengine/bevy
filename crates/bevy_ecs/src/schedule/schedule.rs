@@ -499,37 +499,41 @@ impl ScheduleGraph {
         &self.conflicting_systems
     }
 
-    /// Adds the systems to the graph. Returns a vector of all node ids contained in the nested `SystemConfigs`
-    /// if `ancestor_chained` is true. Also returns true if "densely chained", meaning that all nested items
-    /// are linearly chained in the order they are defined
+    /// Adds the systems to the graph.
+    ///
+    /// `collect_nodes` controls whether the `NodeId`s of the processed systems are stored in the returned [`ProcessConfigResult`].
+    ///
+    /// The fields on the returned [`ProcessConfigResult`] are:
+    /// - `nodes`: a vector of all node ids contained in the nested `SystemConfigs`
+    /// - `densely_chained`: a boolean that is true if all nested systems are linearly chained (with successive `after` orderings) in the order they are defined
     fn add_systems_inner(
         &mut self,
         configs: SystemConfigs,
-        ancestor_chained: bool,
+        collect_nodes: bool,
     ) -> ProcessConfigsResult {
-        self.process_configs(configs, ancestor_chained, &mut |this, config| {
+        self.process_configs(configs, collect_nodes, &mut |this, config| {
             this.add_system_inner(config).unwrap()
         })
     }
 
-    /// Adds the config items to the graph. 
+    /// Adds the config items to the graph.
     ///
-    /// `ancestor_chained` describes whether the provided ancestor are densely chained.
-    /// `process_config` is the function by which the `ItemConfigs`  are transformed into `NodeId`.
+    /// `collect_nodes` controls whether the `NodeId`s of the processed config items are stored in the returned [`ProcessConfigResult`].
+    /// `process_config` is the function which processes each individual config item and returns a corresponding `NodeId`.
     ///
     /// The fields on the returned [`ProcessConfigResult`] are:
     /// - `nodes`: a vector of all node ids contained in the nested `ItemConfigs`
-    /// - `densely_chained`: a boolean that controls whether all nested items should be linearly chained (with successive `after` system orderings) in the order they are defined
+    /// - `densely_chained`: a boolean that is true if all nested items are linearly chained (with successive `after` orderings) in the order they are defined
     fn process_configs<T>(
         &mut self,
         configs: ItemConfigs<T>,
-        ancestor_chained: bool,
+        collect_nodes: bool,
         process_config: &mut impl FnMut(&mut Self, ItemConfig<T>) -> NodeId,
     ) -> ProcessConfigsResult {
         match configs {
             ItemConfigs::ItemConfig(config) => {
                 let node_id = process_config(self, config);
-                if ancestor_chained {
+                if collect_nodes {
                     ProcessConfigsResult {
                         densely_chained: true,
                         nodes: vec![node_id],
@@ -631,7 +635,7 @@ impl ScheduleGraph {
                             }
                         }
 
-                        if ancestor_chained {
+                        if collect_nodes {
                             nodes_in_scope.append(&mut previous_result.nodes);
                         }
 
@@ -639,14 +643,14 @@ impl ScheduleGraph {
                     }
 
                     // ensure the last config's nodes are added
-                    if ancestor_chained {
+                    if collect_nodes {
                         nodes_in_scope.append(&mut previous_result.nodes);
                     }
                 } else {
                     for config in config_iter {
-                        let result = self.process_configs(config, ancestor_chained, process_config);
+                        let result = self.process_configs(config, collect_nodes, process_config);
                         densely_chained = densely_chained && result.densely_chained;
-                        if ancestor_chained {
+                        if collect_nodes {
                             nodes_in_scope.extend(result.nodes);
                         }
                     }
@@ -683,15 +687,19 @@ impl ScheduleGraph {
         self.configure_sets_inner(sets.into_configs(), false);
     }
 
-    /// Adds the system sets to the graph. Returns a vector of all node ids contained in the nested `SystemnSetConfigs`
-    /// if `ancestor_chained` is true. Also returns true if "densely chained", meaning that all nested items
-    /// are linearly chained in the order they are defined
+    /// Adds the systems sets to the graph.
+    ///
+    /// `collect_nodes` controls whether the `NodeId`s of the processed system sets are stored in the returned [`ProcessConfigResult`].
+    ///
+    /// The fields on the returned [`ProcessConfigResult`] are:
+    /// - `nodes`: a vector of all node ids contained in the nested `SystemSetConfigs`
+    /// - `densely_chained`: a boolean that is true if all nested system sets are linearly chained (with successive `after` orderings) in the order they are defined
     fn configure_sets_inner(
         &mut self,
         configs: SystemSetConfigs,
-        ancestor_chained: bool,
+        collect_nodes: bool,
     ) -> ProcessConfigsResult {
-        self.process_configs(configs, ancestor_chained, &mut |this, config| {
+        self.process_configs(configs, collect_nodes, &mut |this, config| {
             this.configure_set_inner(config).unwrap()
         })
     }
