@@ -10,8 +10,8 @@ use glyph_brush_layout::{
 };
 
 use crate::{
-    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning,
-    GlyphAtlasInfo, TextAlignment, TextSettings, YAxisOrientation,
+    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo,
+    TextAlignment, TextSettings, YAxisOrientation,
 };
 
 pub struct GlyphBrush {
@@ -84,11 +84,11 @@ impl GlyphBrush {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let text_bounds =
-            compute_text_bounds(&glyphs,
-                sections.iter().map(|section| section.text),
-                |index| &sections_data[index].3
-            );
+        let text_bounds = compute_text_bounds(
+            &glyphs,
+            sections.iter().map(|section| section.text),
+            |index| &sections_data[index].3,
+        );
 
         let mut positioned_glyphs = Vec::new();
         for sg in glyphs {
@@ -221,7 +221,8 @@ where
         for ch in line.chars().rev() {
             if ch == '\n' {
                 let scaled_font = get_scaled_font(i);
-                trailing_lines_space += scaled_font.line_gap() + scaled_font.ascent() - scaled_font.descent();
+                trailing_lines_space +=
+                    scaled_font.line_gap() + scaled_font.ascent() - scaled_font.descent();
             } else {
                 break 'outer;
             }
