@@ -26,7 +26,7 @@ impl Plugin for MsaaWritebackPlugin {
 
         render_app.add_systems(
             Render,
-            queue_msaa_writeback_pipelines.in_set(RenderSet::Queue),
+            prepare_msaa_writeback_pipelines.in_set(RenderSet::Prepare),
         );
         {
             use core_2d::graph::node::*;
@@ -123,7 +123,7 @@ impl Node for MsaaWritebackNode {
 #[derive(Component)]
 pub struct MsaaWritebackBlitPipeline(CachedRenderPipelineId);
 
-fn queue_msaa_writeback_pipelines(
+fn prepare_msaa_writeback_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,

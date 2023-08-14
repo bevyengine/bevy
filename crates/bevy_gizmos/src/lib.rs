@@ -100,7 +100,10 @@ impl Plugin for GizmoPlugin {
 
         render_app
             .add_systems(ExtractSchedule, extract_gizmo_data)
-            .add_systems(Render, queue_line_gizmo_bind_group.in_set(RenderSet::Queue));
+            .add_systems(
+                Render,
+                prepare_line_gizmo_bind_group.in_set(RenderSet::Prepare),
+            );
 
         #[cfg(feature = "bevy_sprite")]
         app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
@@ -409,7 +412,7 @@ struct LineGizmoUniformBindgroup {
     bindgroup: BindGroup,
 }
 
-fn queue_line_gizmo_bind_group(
+fn prepare_line_gizmo_bind_group(
     mut commands: Commands,
     line_gizmo_uniform_layout: Res<LineGizmoUniformBindgroupLayout>,
     render_device: Res<RenderDevice>,

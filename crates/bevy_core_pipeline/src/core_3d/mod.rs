@@ -88,10 +88,10 @@ impl Plugin for Core3dPlugin {
                 Render,
                 (
                     prepare_core_3d_depth_textures
-                        .in_set(RenderSet::Prepare)
+                        .in_set(RenderSet::ManageViews)
                         .after(bevy_render::view::prepare_windows),
                     prepare_prepass_textures
-                        .in_set(RenderSet::Prepare)
+                        .in_set(RenderSet::ManageViews)
                         .after(bevy_render::view::prepare_windows),
                     sort_phase_system::<Opaque3d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<AlphaMask3d>.in_set(RenderSet::PhaseSort),

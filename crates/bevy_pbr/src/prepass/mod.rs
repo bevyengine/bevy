@@ -105,7 +105,7 @@ where
         render_app
             .add_systems(
                 Render,
-                queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue),
+                prepare_prepass_view_bind_group::<M>.in_set(RenderSet::Prepare),
             )
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
@@ -697,7 +697,7 @@ pub struct PrepassViewBindGroup {
     no_motion_vectors: Option<BindGroup>,
 }
 
-pub fn queue_prepass_view_bind_group<M: Material>(
+pub fn prepare_prepass_view_bind_group<M: Material>(
     render_device: Res<RenderDevice>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     view_uniforms: Res<ViewUniforms>,
