@@ -1233,7 +1233,7 @@ impl ScheduleGraph {
 
 /// Values returned by `ScheduleGraph::process_configs`
 struct ProcessConfigsResult {
-    /// All nodes contained inside this process_configs call's ItemConfigs hierarchy,
+    /// All nodes contained inside this process_configs call's [`ItemConfigs`] hierarchy,
     /// if `ancestor_chained` is true
     nodes: Vec<NodeId>,
     /// True if and only if all nodes are "densely chained", meaning that all nested items
