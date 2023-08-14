@@ -23,10 +23,7 @@ use winit::{
 use crate::web_resize::{CanvasParentResizeEventChannel, WINIT_CANVAS_SELECTOR};
 use crate::{
     accessibility::{AccessKitAdapters, WinitActionHandlers},
-    converters::{
-        self, convert_enabled_buttons, convert_window_level, convert_window_theme,
-        convert_winit_theme,
-    },
+    converters::{self, convert_enabled_buttons, convert_window_level, convert_window_theme},
     get_best_videomode, get_fitting_videomode, WinitWindows,
 };
 
