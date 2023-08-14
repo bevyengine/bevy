@@ -71,7 +71,7 @@ pub struct AudioPlugin {
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(self.global_volume)
-            .configure_set(PostUpdate, AudioPlaySet.run_if(audio_output_available))
+            .configure_sets(PostUpdate, AudioPlaySet.run_if(audio_output_available))
             .init_resource::<AudioOutput>();
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]

@@ -55,7 +55,7 @@ impl Plugin for ViewPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ViewUniforms>()
-                .configure_set(Render, ViewSet::PrepareUniforms.in_set(RenderSet::Prepare))
+                .configure_sets(Render, ViewSet::PrepareUniforms.in_set(RenderSet::Prepare))
                 .add_systems(
                     Render,
                     (

@@ -181,9 +181,9 @@ impl Schedule {
     }
 
     /// Configures a system set in this schedule, adding it if it does not exist.
-    pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
-        self.graph.configure_set(set);
-        self
+    #[deprecated(since = "0.12.0", note = "Please use `configure_sets` instead.")]
+    pub fn configure_set(&mut self, set: impl IntoSystemSetConfigs) -> &mut Self {
+        self.configure_sets(set)
     }
 
     /// Configures a collection of system sets in this schedule, adding them if they does not exist.
@@ -499,30 +499,44 @@ impl ScheduleGraph {
         &self.conflicting_systems
     }
 
-    /// Adds the systems to the graph. Returns a vector of all node ids contained the nested `SystemConfigs`
+    /// Adds the systems to the graph. Returns a vector of all node ids contained in the nested `SystemConfigs`
     /// if `ancestor_chained` is true. Also returns true if "densely chained", meaning that all nested items
     /// are linearly chained in the order they are defined
     fn add_systems_inner(
         &mut self,
         configs: SystemConfigs,
         ancestor_chained: bool,
-    ) -> AddSystemsInnerResult {
+    ) -> ProcessConfigsResult {
+        self.process_configs(configs, ancestor_chained, &mut |this, config| {
+            this.add_system_inner(config).unwrap()
+        })
+    }
+
+    /// Adds the config items to the graph. Returns a vector of all node ids contained in the nested `ItemConfigs`
+    /// if `ancestor_chained` is true. Also returns true if "densely chained", meaning that all nested items
+    /// are linearly chained in the order they are defined
+    fn process_configs<T>(
+        &mut self,
+        configs: ItemConfigs<T>,
+        ancestor_chained: bool,
+        process_config: &mut impl FnMut(&mut Self, ItemConfig<T>) -> NodeId,
+    ) -> ProcessConfigsResult {
         match configs {
-            SystemConfigs::SystemConfig(config) => {
-                let node_id = self.add_system_inner(config).unwrap();
+            ItemConfigs::ItemConfig(config) => {
+                let node_id = process_config(self, config);
                 if ancestor_chained {
-                    AddSystemsInnerResult {
+                    ProcessConfigsResult {
                         densely_chained: true,
                         nodes: vec![node_id],
                     }
                 } else {
-                    AddSystemsInnerResult {
+                    ProcessConfigsResult {
                         densely_chained: true,
                         nodes: Vec::new(),
                     }
                 }
             }
-            SystemConfigs::Configs {
+            ItemConfigs::Configs {
                 mut configs,
                 collective_conditions,
                 chained,
@@ -534,9 +548,9 @@ impl ScheduleGraph {
                         for config in &mut configs {
                             config.in_set_inner(set.dyn_clone());
                         }
-                        let mut set_config = set.into_config();
+                        let mut set_config = SystemSetConfig::new(set.dyn_clone());
                         set_config.conditions.extend(collective_conditions);
-                        self.configure_set(set_config);
+                        self.configure_set_inner(set_config).unwrap();
                     } else {
                         for condition in collective_conditions {
                             configs[0].run_if_inner(condition);
@@ -548,15 +562,15 @@ impl ScheduleGraph {
                 let mut densely_chained = true;
                 if chained {
                     let Some(prev) = config_iter.next() else {
-                        return AddSystemsInnerResult {
+                        return ProcessConfigsResult {
                             nodes: Vec::new(),
                             densely_chained: true,
                         };
                     };
-                    let mut previous_result = self.add_systems_inner(prev, true);
+                    let mut previous_result = self.process_configs(prev, true, process_config);
                     densely_chained = previous_result.densely_chained;
                     for current in config_iter {
-                        let current_result = self.add_systems_inner(current, true);
+                        let current_result = self.process_configs(current, true, process_config);
                         densely_chained = densely_chained && current_result.densely_chained;
                         match (
                             previous_result.densely_chained,
@@ -625,7 +639,7 @@ impl ScheduleGraph {
                     }
                 } else {
                     for config in config_iter {
-                        let result = self.add_systems_inner(config, ancestor_chained);
+                        let result = self.process_configs(config, ancestor_chained, process_config);
                         densely_chained = densely_chained && result.densely_chained;
                         if ancestor_chained {
                             nodes_in_scope.extend(result.nodes);
@@ -638,7 +652,7 @@ impl ScheduleGraph {
                     }
                 }
 
-                AddSystemsInnerResult {
+                ProcessConfigsResult {
                     nodes: nodes_in_scope,
                     densely_chained,
                 }
@@ -654,43 +668,35 @@ impl ScheduleGraph {
 
         // system init has to be deferred (need `&mut World`)
         self.uninit.push((id, 0));
-        self.systems.push(SystemNode::new(config.system));
+        self.systems.push(SystemNode::new(config.item));
         self.system_conditions.push(config.conditions);
 
         Ok(id)
     }
 
     fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) {
-        let SystemSetConfigs { sets, chained } = sets.into_configs();
-        let mut set_iter = sets.into_iter();
-        if chained {
-            let Some(prev) = set_iter.next() else { return };
-            let mut prev_id = self.configure_set_inner(prev).unwrap();
-            for next in set_iter {
-                let next_id = self.configure_set_inner(next).unwrap();
-                self.dependency.graph.add_edge(prev_id, next_id, ());
-                prev_id = next_id;
-            }
-        } else {
-            for set in set_iter {
-                self.configure_set_inner(set).unwrap();
-            }
-        }
+        self.configure_sets_inner(sets.into_configs(), false);
     }
 
-    fn configure_set(&mut self, set: impl IntoSystemSetConfig) {
-        self.configure_set_inner(set).unwrap();
-    }
-
-    fn configure_set_inner(
+    /// Adds the system sets to the graph. Returns a vector of all node ids contained in the nested `SystemnSetConfigs`
+    /// if `ancestor_chained` is true. Also returns true if "densely chained", meaning that all nested items
+    /// are linearly chained in the order they are defined
+    fn configure_sets_inner(
         &mut self,
-        set: impl IntoSystemSetConfig,
-    ) -> Result<NodeId, ScheduleBuildError> {
+        configs: SystemSetConfigs,
+        ancestor_chained: bool,
+    ) -> ProcessConfigsResult {
+        self.process_configs(configs, ancestor_chained, &mut |this, config| {
+            this.configure_set_inner(config).unwrap()
+        })
+    }
+
+    fn configure_set_inner(&mut self, set: SystemSetConfig) -> Result<NodeId, ScheduleBuildError> {
         let SystemSetConfig {
-            set,
+            item: set,
             graph_info,
             mut conditions,
-        } = set.into_config();
+        } = set;
 
         let id = match self.system_set_ids.get(&set) {
             Some(&id) => id,
@@ -1225,11 +1231,13 @@ impl ScheduleGraph {
     }
 }
 
-/// Values returned by `ScheduleGraph::add_systems_inner`
-struct AddSystemsInnerResult {
-    /// All nodes contained inside this add_systems_inner call's SystemConfigs hierarchy
+/// Values returned by `ScheduleGraph::process_configs`
+struct ProcessConfigsResult {
+    /// All nodes contained inside this process_configs call's ItemConfigs hierarchy,
+    /// if `ancestor_chained` is true
     nodes: Vec<NodeId>,
-    /// True if and only if all nodes are "densely chained"
+    /// True if and only if all nodes are "densely chained", meaning that all nested items
+    /// are linearly chained in the order they are defined
     densely_chained: bool,
 }
 
@@ -1575,7 +1583,7 @@ impl ScheduleBuildSettings {
 mod tests {
     use crate::{
         self as bevy_ecs,
-        schedule::{IntoSystemConfigs, IntoSystemSetConfig, Schedule, SystemSet},
+        schedule::{IntoSystemConfigs, IntoSystemSetConfigs, Schedule, SystemSet},
         world::World,
     };
 
@@ -1588,7 +1596,7 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::new();
 
-        schedule.configure_set(Set.run_if(|| false));
+        schedule.configure_sets(Set.run_if(|| false));
         schedule.add_systems(
             (|| panic!("This system must not run"))
                 .ambiguous_with(|| ())

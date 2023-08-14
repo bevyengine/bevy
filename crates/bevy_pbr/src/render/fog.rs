@@ -144,7 +144,7 @@ impl Plugin for FogPlugin {
             render_app
                 .init_resource::<FogMeta>()
                 .add_systems(Render, prepare_fog.in_set(RenderFogSystems::PrepareFog))
-                .configure_set(
+                .configure_sets(
                     Render,
                     RenderFogSystems::PrepareFog.in_set(RenderSet::Prepare),
                 );
