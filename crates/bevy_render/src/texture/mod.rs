@@ -96,6 +96,17 @@ impl Plugin for ImagePlugin {
                 update_texture_cache_system.in_set(RenderSet::Cleanup),
             );
         }
+
+        #[cfg(any(
+            feature = "png",
+            feature = "dds",
+            feature = "tga",
+            feature = "jpeg",
+            feature = "bmp",
+            feature = "basis-universal",
+            feature = "ktx2",
+        ))]
+        app.preregister_asset_loader(IMG_FILE_EXTENSIONS);
     }
 
     fn finish(&self, app: &mut App) {
