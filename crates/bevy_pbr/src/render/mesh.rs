@@ -1217,6 +1217,7 @@ pub fn prepare_mesh_view_bind_groups(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh_uniform_buffer(
     mut commands: Commands,
     mut previous_len: Local<usize>,
