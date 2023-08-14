@@ -1,9 +1,9 @@
 use crate::{
     environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
     GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
-    ScreenSpaceAmbientOcclusionTextures, ShadowSamplers, ViewClusterBindings, ViewFogUniformOffset,
-    ViewLightsUniformOffset, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
-    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers, ViewClusterBindings,
+    ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleId, HandleUntyped};
@@ -1217,7 +1217,7 @@ pub fn prepare_mesh_view_bind_groups(
     }
 }
 
-fn prepare_mesh_uniform_buffer(
+pub fn prepare_mesh_uniform_buffer(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     render_device: Res<RenderDevice>,
@@ -1228,34 +1228,39 @@ fn prepare_mesh_uniform_buffer(
         &RenderPhase<Transparent3d>,
         &RenderPhase<AlphaMask3d>,
     )>,
+    shadow_views: Query<&RenderPhase<Shadow>>,
     meshes: Query<(Entity, &MeshUniform)>,
 ) {
     gpu_array_buffer.clear();
 
     let seen = FixedBitSet::new();
     let mut indices = Vec::with_capacity(*previous_len);
+    let mut push_indices = |(mesh, mesh_uniform): (Entity, &MeshUniform)| {
+        if !seen.contains(mesh.index() as usize) {
+            indices.push((mesh, gpu_array_buffer.push(mesh_uniform.clone())));
+        }
+    };
+
     for (opaque_phase, transparent_phase, alpha_phase) in &views {
         meshes
             .iter_many(opaque_phase.iter_entities())
-            .filter(|(mesh, _)| !seen.contains(mesh.index() as usize))
-            .for_each(|(mesh, mesh_uniform)| {
-                indices.push((mesh, gpu_array_buffer.push(mesh_uniform.clone())));
-            });
+            .for_each(&mut push_indices);
 
         meshes
             .iter_many(transparent_phase.iter_entities())
-            .filter(|(mesh, _)| !seen.contains(mesh.index() as usize))
-            .for_each(|(mesh, mesh_uniform)| {
-                indices.push((mesh, gpu_array_buffer.push(mesh_uniform.clone())));
-            });
+            .for_each(&mut push_indices);
 
         meshes
             .iter_many(alpha_phase.iter_entities())
-            .filter(|(mesh, _)| !seen.contains(mesh.index() as usize))
-            .for_each(|(mesh, mesh_uniform)| {
-                indices.push((mesh, gpu_array_buffer.push(mesh_uniform.clone())));
-            });
+            .for_each(&mut push_indices);
     }
+
+    for shadow_phase in &shadow_views {
+        meshes
+            .iter_many(shadow_phase.iter_entities())
+            .for_each(&mut push_indices);
+    }
+
     *previous_len = indices.len();
     commands.insert_or_spawn_batch(indices);
 
