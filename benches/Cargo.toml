@@ -8,13 +8,18 @@ license = "MIT OR Apache-2.0"
 
 [dev-dependencies]
 glam = "0.24"
-rand = "0.8"
+rand = { version = "0.8", features = ["small_rng"] }
 rand_chacha = "0.3"
 criterion = { version = "0.3", features = ["html_reports"] }
 bevy_app = { path = "../crates/bevy_app" }
+bevy_core_pipeline = { path = "../crates/bevy_core_pipeline" }
 bevy_ecs = { path = "../crates/bevy_ecs", features = ["multi-threaded"] }
+bevy_hierarchy = { path = "../crates/bevy_hierarchy" }
+bevy_log = { path = "../crates/bevy_log" }
 bevy_reflect = { path = "../crates/bevy_reflect" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
+bevy_time = { path = "../crates/bevy_time" }
+bevy_transform = { path = "../crates/bevy_transform" }
 bevy_utils = { path = "../crates/bevy_utils" }
 bevy_math = { path = "../crates/bevy_math" }
 
@@ -25,6 +30,11 @@ lto = true
 [[bench]]
 name = "change_detection"
 path = "benches/bevy_ecs/change_detection.rs"
+harness = false
+
+[[bench]]
+name = "transform_hierarchy"
+path = "benches/bevy_transform/benches.rs"
 harness = false
 
 [[bench]]
