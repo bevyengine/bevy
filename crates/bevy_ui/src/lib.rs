@@ -68,21 +68,11 @@ pub enum UiSystem {
 /// A multiplier to fixed-sized ui values.
 /// **Note:** This will only affect fixed ui values like [`Val::Px`]
 #[derive(Debug, Resource)]
-pub struct UiScale {
-    /// The scale to be applied.
-    pub scale: f64,
-}
-
-impl UiScale {
-    /// Creates a new [`UiScale`]
-    pub const fn new(scale: f64) -> Self {
-        UiScale { scale }
-    }
-}
+pub struct UiScale(pub f32);
 
 impl Default for UiScale {
     fn default() -> Self {
-        Self { scale: 1.0 }
+        Self(1.0)
     }
 }
 
