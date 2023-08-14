@@ -10,8 +10,8 @@ use glyph_brush_layout::{
 };
 
 use crate::{
-    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo,
-    TextAlignment, TextSettings, YAxisOrientation,
+    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning,
+    GlyphAtlasInfo, TextAlignment, TextSettings, YAxisOrientation,
 };
 
 pub struct GlyphBrush {
@@ -84,7 +84,11 @@ impl GlyphBrush {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let text_bounds = compute_text_bounds(&glyphs, |index| &sections_data[index].3);
+        let text_bounds =
+            compute_text_bounds(&glyphs,
+                sections.iter().map(|section| section.text),
+                |index| &sections_data[index].3
+            );
 
         let mut positioned_glyphs = Vec::new();
         for sg in glyphs {
@@ -203,29 +207,46 @@ impl GlyphPlacementAdjuster {
 
 /// Computes the minimal bounding rectangle for a block of text.
 /// Ignores empty trailing lines.
-pub(crate) fn compute_text_bounds<'a, T>(
+pub(crate) fn compute_text_bounds<'a, T, I>(
     section_glyphs: &[SectionGlyph],
+    sections: I,
     get_scaled_font: impl Fn(usize) -> &'a PxScaleFont<T>,
 ) -> bevy_math::Rect
 where
+    I: DoubleEndedIterator<Item = &'a str> + ExactSizeIterator,
     T: ab_glyph::Font + 'a,
 {
-    let mut text_bounds = Rect {
-        min: Vec2::splat(std::f32::MAX),
-        max: Vec2::splat(std::f32::MIN),
-    };
-
-    for sg in section_glyphs {
-        let scaled_font = get_scaled_font(sg.section_index);
-        let glyph = &sg.glyph;
-        text_bounds = text_bounds.union(Rect {
-            min: Vec2::new(glyph.position.x, 0.),
-            max: Vec2::new(
-                glyph.position.x + scaled_font.h_advance(glyph.id),
-                glyph.position.y - scaled_font.descent(),
-            ),
-        });
+    let mut trailing_lines_space = 0.;
+    'outer: for (i, line) in sections.enumerate().rev() {
+        for ch in line.chars().rev() {
+            if ch == '\n' {
+                let scaled_font = get_scaled_font(i);
+                trailing_lines_space += scaled_font.line_gap() + scaled_font.ascent() - scaled_font.descent();
+            } else {
+                break 'outer;
+            }
+        }
     }
 
-    text_bounds
+    if section_glyphs.is_empty() {
+        Rect::new(0., 0., 0., trailing_lines_space)
+    } else {
+        let mut text_bounds = Rect {
+            min: Vec2::splat(std::f32::MAX),
+            max: Vec2::splat(std::f32::MIN),
+        };
+        for sg in section_glyphs {
+            let scaled_font = get_scaled_font(sg.section_index);
+            let glyph = &sg.glyph;
+            text_bounds = text_bounds.union(Rect {
+                min: Vec2::new(glyph.position.x, 0.),
+                max: Vec2::new(
+                    glyph.position.x + scaled_font.h_advance(glyph.id),
+                    glyph.position.y - scaled_font.descent(),
+                ),
+            });
+        }
+        text_bounds.max.y += trailing_lines_space;
+        text_bounds
+    }
 }
