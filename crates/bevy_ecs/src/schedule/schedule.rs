@@ -1231,7 +1231,7 @@ impl ScheduleGraph {
     }
 }
 
-/// Values returned by `ScheduleGraph::process_configs`
+/// Values returned by [`ScheduleGraph::process_configs`]
 struct ProcessConfigsResult {
     /// All nodes contained inside this process_configs call's [`ItemConfigs`] hierarchy,
     /// if `ancestor_chained` is true
