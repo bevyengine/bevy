@@ -1,8 +1,8 @@
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin};
-use bevy_app::Plugin;
+use bevy_app::{Plugin, Update};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypeUuid};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath, TypeUuid};
 use bevy_render::{
     extract_resource::ExtractResource,
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -30,10 +30,11 @@ impl Plugin for WireframePlugin {
         app.register_type::<Wireframe>()
             .register_type::<WireframeConfig>()
             .init_resource::<WireframeConfig>()
-            .add_plugin(MaterialPlugin::<WireframeMaterial>::default())
-            .add_system(apply_global)
-            .add_system(apply_material);
+            .add_plugins(MaterialPlugin::<WireframeMaterial>::default())
+            .add_systems(Update, apply_global)
+            .add_systems(Update, apply_material);
     }
+}
 
 /// Toggles wireframe rendering for any entity it is attached to.
 ///
@@ -103,7 +104,7 @@ fn apply_global(
     }
 }
 
-#[derive(Default, AsBindGroup, TypeUuid, Debug, Clone)]
+#[derive(Default, AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
 #[uuid = "9e694f70-9963-4418-8bc1-3474c66b13b8"]
 struct WireframeMaterial {}
 
