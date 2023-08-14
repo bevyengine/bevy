@@ -512,9 +512,14 @@ impl ScheduleGraph {
         })
     }
 
-    /// Adds the config items to the graph. Returns a vector of all node ids contained in the nested `ItemConfigs`
-    /// if `ancestor_chained` is true. Also returns true if "densely chained", meaning that all nested items
-    /// are linearly chained in the order they are defined
+    /// Adds the config items to the graph. 
+    ///
+    /// `ancestor_chained` describes whether the provided ancestor are densely chained.
+    /// `process_config` is the function by which the `ItemConfigs`  are transformed into `NodeId`.
+    ///
+    /// The fields on the returned [`ProcessConfigResult`] are:
+    /// - `nodes`: a vector of all node ids contained in the nested `ItemConfigs`
+    /// - `densely_chained`: a boolean that controls whether all nested items should be linearly chained (with successive `after` system orderings) in the order they are defined
     fn process_configs<T>(
         &mut self,
         configs: ItemConfigs<T>,
