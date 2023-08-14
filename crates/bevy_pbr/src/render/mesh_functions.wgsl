@@ -14,7 +14,7 @@ fn affine_to_square(affine: mat3x4<f32>) -> mat4x4<f32> {
     ));
 }
 
-fn mat2x4_f32_to_mat3x3_(
+fn mat2x4_f32_to_mat3x3_unpack(
     a: mat2x4<f32>,
     b: f32,
 ) -> mat3x3<f32> {
@@ -57,7 +57,7 @@ fn mesh_normal_local_to_world(vertex_normal: vec3<f32>, instance_index: u32) -> 
     // unless you really know what you are doing.
     // http://www.mikktspace.com/
     return normalize(
-        mat2x4_f32_to_mat3x3_(
+        mat2x4_f32_to_mat3x3_unpack(
             mesh[instance_index].inverse_transpose_model_a,
             mesh[instance_index].inverse_transpose_model_b,
         ) * vertex_normal
