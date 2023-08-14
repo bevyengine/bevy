@@ -67,10 +67,6 @@ pub(crate) fn create_windows<'a>(
             &mut accessibility_requested,
         );
 
-        if let Some(theme) = winit_window.theme() {
-            window.window_theme = Some(convert_winit_theme(theme));
-        }
-
         window
             .resolution
             .set_scale_factor(winit_window.scale_factor());

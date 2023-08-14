@@ -137,6 +137,8 @@ fn toggle_theme(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
                 WindowTheme::Light => Some(WindowTheme::Dark),
                 WindowTheme::Dark => Some(WindowTheme::Light),
             };
+        } else {
+            window.window_theme = Some(WindowTheme::Dark);
         }
     }
 }
