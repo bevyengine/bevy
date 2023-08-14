@@ -74,7 +74,7 @@ pub struct UiScale {
 }
 
 impl UiScale {
-    /// Creates a new UiScale [`World`]
+    /// Creates a new [`UiScale`]
     pub const fn new(scale: f64) -> Self {
         UiScale { scale }
     }
