@@ -1,6 +1,6 @@
 use crate::{
     self as bevy_reflect, utility::reflect_hasher, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, TypePath, TypePathVtable,
+    TypeInfo, TypePath, TypePathTable,
 };
 use bevy_reflect_derive::impl_type_path;
 use std::{
@@ -77,9 +77,9 @@ pub trait Array: Reflect {
 /// A container for compile-time array info.
 #[derive(Clone, Debug)]
 pub struct ArrayInfo {
-    type_path: TypePathVtable,
+    type_path: TypePathTable,
     type_id: TypeId,
-    item_type_path: TypePathVtable,
+    item_type_path: TypePathTable,
     item_type_id: TypeId,
     capacity: usize,
     #[cfg(feature = "documentation")]
@@ -95,9 +95,9 @@ impl ArrayInfo {
     ///
     pub fn new<TArray: Array + TypePath, TItem: Reflect + TypePath>(capacity: usize) -> Self {
         Self {
-            type_path: TypePathVtable::of::<TArray>(),
+            type_path: TypePathTable::of::<TArray>(),
             type_id: TypeId::of::<TArray>(),
-            item_type_path: TypePathVtable::of::<TItem>(),
+            item_type_path: TypePathTable::of::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
             capacity,
             #[cfg(feature = "documentation")]
@@ -119,18 +119,18 @@ impl ArrayInfo {
     /// A representation of the type path of the array.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_vtable(&self) -> &TypePathVtable {
+    pub fn type_path_table(&self) -> &TypePathTable {
         &self.type_path
     }
 
     /// The [stable, full type path] of the array.
     ///
-    /// Use [`type_path_vtable`] if you need access to the other methods on [`TypePath`].
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
     ///
     /// [stable, full type path]: TypePath
-    /// [`type_path_vtable`]: Self::type_path_vtable
+    /// [`type_path_table`]: Self::type_path_table
     pub fn type_path(&self) -> &'static str {
-        self.type_path_vtable().path()
+        self.type_path_table().path()
     }
 
     /// The [`TypeId`] of the array.
@@ -146,7 +146,7 @@ impl ArrayInfo {
     /// A representation of the type path of the array item.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn item_type_path_vtable(&self) -> &TypePathVtable {
+    pub fn item_type_path_table(&self) -> &TypePathTable {
         &self.item_type_path
     }
 

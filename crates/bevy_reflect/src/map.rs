@@ -7,7 +7,7 @@ use bevy_utils::{Entry, HashMap};
 
 use crate::{
     self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
-    TypePathVtable,
+    TypePathTable,
 };
 
 /// A trait used to power [map-like] operations via [reflection].
@@ -96,11 +96,11 @@ pub trait Map: Reflect {
 /// A container for compile-time map info.
 #[derive(Clone, Debug)]
 pub struct MapInfo {
-    type_path: TypePathVtable,
+    type_path: TypePathTable,
     type_id: TypeId,
-    key_type_path: TypePathVtable,
+    key_type_path: TypePathTable,
     key_type_id: TypeId,
-    value_type_path: TypePathVtable,
+    value_type_path: TypePathTable,
     value_type_id: TypeId,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -114,11 +114,11 @@ impl MapInfo {
         TValue: Reflect + TypePath,
     >() -> Self {
         Self {
-            type_path: TypePathVtable::of::<TMap>(),
+            type_path: TypePathTable::of::<TMap>(),
             type_id: TypeId::of::<TMap>(),
-            key_type_path: TypePathVtable::of::<TKey>(),
+            key_type_path: TypePathTable::of::<TKey>(),
             key_type_id: TypeId::of::<TKey>(),
-            value_type_path: TypePathVtable::of::<TValue>(),
+            value_type_path: TypePathTable::of::<TValue>(),
             value_type_id: TypeId::of::<TValue>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -134,18 +134,18 @@ impl MapInfo {
     /// A representation of the type path of the map.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_vtable(&self) -> &TypePathVtable {
+    pub fn type_path_table(&self) -> &TypePathTable {
         &self.type_path
     }
 
     /// The [stable, full type path] of the map.
     ///
-    /// Use [`type_path_vtable`] if you need access to the other methods on [`TypePath`].
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
     ///
     /// [stable, full type path]: TypePath
-    /// [`type_path_vtable`]: Self::type_path_vtable
+    /// [`type_path_table`]: Self::type_path_table
     pub fn type_path(&self) -> &'static str {
-        self.type_path_vtable().path()
+        self.type_path_table().path()
     }
 
     /// The [`TypeId`] of the map.
@@ -161,7 +161,7 @@ impl MapInfo {
     /// A representation of the type path of the key type.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn key_type_path_vtable(&self) -> &TypePathVtable {
+    pub fn key_type_path_table(&self) -> &TypePathTable {
         &self.key_type_path
     }
 
@@ -178,7 +178,7 @@ impl MapInfo {
     /// A representation of the type path of the value type.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn value_type_path_vtable(&self) -> &TypePathVtable {
+    pub fn value_type_path_table(&self) -> &TypePathTable {
         &self.value_type_path
     }
 

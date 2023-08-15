@@ -191,7 +191,7 @@ impl<'a> Serialize for StructSerializer<'a> {
             .and_then(|registration| registration.data::<SerializationData>());
         let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
         let mut state = serializer.serialize_struct(
-            struct_info.type_path_vtable().ident().unwrap(),
+            struct_info.type_path_table().ident().unwrap(),
             self.struct_value.field_len() - ignored_len,
         )?;
 
@@ -244,7 +244,7 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
             .and_then(|registration| registration.data::<SerializationData>());
         let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
         let mut state = serializer.serialize_tuple_struct(
-            tuple_struct_info.type_path_vtable().ident().unwrap(),
+            tuple_struct_info.type_path_table().ident().unwrap(),
             self.tuple_struct.field_len() - ignored_len,
         )?;
 
@@ -287,7 +287,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
             }
         };
 
-        let enum_name = enum_info.type_path_vtable().ident().unwrap();
+        let enum_name = enum_info.type_path_table().ident().unwrap();
         let variant_index = self.enum_value.variant_index() as u32;
         let variant_info = enum_info
             .variant_at(variant_index as usize)

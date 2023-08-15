@@ -1,7 +1,7 @@
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::all_tuples;
 
-use crate::TypePathVtable;
+use crate::TypePathTable;
 use crate::{
     self as bevy_reflect, utility::GenericTypePathCell, FromReflect, GetTypeRegistration, Reflect,
     ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed,
@@ -139,7 +139,7 @@ impl GetTupleField for dyn Tuple {
 /// A container for compile-time tuple info.
 #[derive(Clone, Debug)]
 pub struct TupleInfo {
-    type_path: TypePathVtable,
+    type_path: TypePathTable,
     type_id: TypeId,
     fields: Box<[UnnamedField]>,
     #[cfg(feature = "documentation")]
@@ -155,7 +155,7 @@ impl TupleInfo {
     ///
     pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
-            type_path: TypePathVtable::of::<T>(),
+            type_path: TypePathTable::of::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
             #[cfg(feature = "documentation")]
@@ -187,18 +187,18 @@ impl TupleInfo {
     /// A representation of the type path of the tuple.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_vtable(&self) -> &TypePathVtable {
+    pub fn type_path_table(&self) -> &TypePathTable {
         &self.type_path
     }
 
     /// The [stable, full type path] of the tuple.
     ///
-    /// Use [`type_path_vtable`] if you need access to the other methods on [`TypePath`].
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
     ///
     /// [stable, full type path]: TypePath
-    /// [`type_path_vtable`]: Self::type_path_vtable
+    /// [`type_path_table`]: Self::type_path_table
     pub fn type_path(&self) -> &'static str {
-        self.type_path_vtable().path()
+        self.type_path_table().path()
     }
 
     /// The [`TypeId`] of the tuple.

@@ -170,7 +170,7 @@ impl<T: TypePath> DynamicTypePath for T {
 
 /// Provides dynamic access to all methods on [`TypePath`].
 #[derive(Clone, Copy)]
-pub struct TypePathVtable {
+pub struct TypePathTable {
     // Cache the type path as it is likely the only one that will be used.
     type_path: &'static str,
     short_type_path: fn() -> &'static str,
@@ -179,7 +179,7 @@ pub struct TypePathVtable {
     module_path: fn() -> Option<&'static str>,
 }
 
-impl fmt::Debug for TypePathVtable {
+impl fmt::Debug for TypePathTable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("TypePathVtable")
             .field("type_path", &self.type_path)
@@ -187,8 +187,8 @@ impl fmt::Debug for TypePathVtable {
     }
 }
 
-impl TypePathVtable {
-    /// Creates a new vtable from a type.
+impl TypePathTable {
+    /// Creates a new table from a type.
     pub fn of<T: TypePath + ?Sized>() -> Self {
         Self {
             type_path: T::type_path(),

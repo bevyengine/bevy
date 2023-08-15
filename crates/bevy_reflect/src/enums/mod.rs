@@ -26,13 +26,13 @@ mod tests {
         if let TypeInfo::Enum(info) = info {
             assert!(info.is::<MyEnum>(), "expected type to be `MyEnum`");
             assert_eq!(MyEnum::type_path(), info.type_path());
-            assert_eq!(MyEnum::type_path(), info.type_path_vtable().path());
-            assert_eq!(MyEnum::type_ident(), info.type_path_vtable().ident());
-            assert_eq!(MyEnum::module_path(), info.type_path_vtable().module_path());
-            assert_eq!(MyEnum::crate_name(), info.type_path_vtable().crate_name());
+            assert_eq!(MyEnum::type_path(), info.type_path_table().path());
+            assert_eq!(MyEnum::type_ident(), info.type_path_table().ident());
+            assert_eq!(MyEnum::module_path(), info.type_path_table().module_path());
+            assert_eq!(MyEnum::crate_name(), info.type_path_table().crate_name());
             assert_eq!(
                 MyEnum::short_type_path(),
-                info.type_path_vtable().short_path()
+                info.type_path_table().short_path()
             );
 
             // === MyEnum::A === //

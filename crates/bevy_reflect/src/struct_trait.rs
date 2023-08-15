@@ -1,6 +1,6 @@
 use crate::{
     self as bevy_reflect, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
-    TypePath, TypePathVtable,
+    TypePath, TypePathTable,
 };
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
@@ -76,7 +76,7 @@ pub trait Struct: Reflect {
 /// A container for compile-time named struct info.
 #[derive(Clone, Debug)]
 pub struct StructInfo {
-    type_path: TypePathVtable,
+    type_path: TypePathTable,
     type_id: TypeId,
     fields: Box<[NamedField]>,
     field_names: Box<[&'static str]>,
@@ -102,7 +102,7 @@ impl StructInfo {
         let field_names = fields.iter().map(|field| field.name()).collect();
 
         Self {
-            type_path: TypePathVtable::of::<T>(),
+            type_path: TypePathTable::of::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
             field_names,
@@ -153,18 +153,18 @@ impl StructInfo {
     /// A representation of the type path of the struct.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_vtable(&self) -> &TypePathVtable {
+    pub fn type_path_table(&self) -> &TypePathTable {
         &self.type_path
     }
 
     /// The [stable, full type path] of the struct.
     ///
-    /// Use [`type_path_vtable`] if you need access to the other methods on [`TypePath`].
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
     ///
     /// [stable, full type path]: TypePath
-    /// [`type_path_vtable`]: Self::type_path_vtable
+    /// [`type_path_table`]: Self::type_path_table
     pub fn type_path(&self) -> &'static str {
-        self.type_path_vtable().path()
+        self.type_path_table().path()
     }
 
     /// The [`TypeId`] of the struct.

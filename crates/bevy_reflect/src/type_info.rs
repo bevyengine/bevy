@@ -1,6 +1,6 @@
 use crate::{
     ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
-    TypePath, TypePathVtable,
+    TypePath, TypePathTable,
 };
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
@@ -129,27 +129,27 @@ impl TypeInfo {
     /// A representation of the type path of the underlying type.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_vtable(&self) -> &TypePathVtable {
+    pub fn type_path_table(&self) -> &TypePathTable {
         match self {
-            Self::Struct(info) => info.type_path_vtable(),
-            Self::TupleStruct(info) => info.type_path_vtable(),
-            Self::Tuple(info) => info.type_path_vtable(),
-            Self::List(info) => info.type_path_vtable(),
-            Self::Array(info) => info.type_path_vtable(),
-            Self::Map(info) => info.type_path_vtable(),
-            Self::Enum(info) => info.type_path_vtable(),
-            Self::Value(info) => info.type_path_vtable(),
+            Self::Struct(info) => info.type_path_table(),
+            Self::TupleStruct(info) => info.type_path_table(),
+            Self::Tuple(info) => info.type_path_table(),
+            Self::List(info) => info.type_path_table(),
+            Self::Array(info) => info.type_path_table(),
+            Self::Map(info) => info.type_path_table(),
+            Self::Enum(info) => info.type_path_table(),
+            Self::Value(info) => info.type_path_table(),
         }
     }
 
     /// The [stable, full type path] of the underlying type.
     ///
-    /// Use [`type_path_vtable`] if you need access to the other methods on [`TypePath`].
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
     ///
     /// [stable, full type path]: TypePath
-    /// [`type_path_vtable`]: Self::type_path_vtable
+    /// [`type_path_table`]: Self::type_path_table
     pub fn type_path(&self) -> &'static str {
-        self.type_path_vtable().path()
+        self.type_path_table().path()
     }
 
     /// Check if the given type matches the underlying type.
@@ -183,7 +183,7 @@ impl TypeInfo {
 /// it _as_ a struct. It therefore makes more sense to represent it as a [`ValueInfo`].
 #[derive(Debug, Clone)]
 pub struct ValueInfo {
-    type_path: TypePathVtable,
+    type_path: TypePathTable,
     type_id: TypeId,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -192,7 +192,7 @@ pub struct ValueInfo {
 impl ValueInfo {
     pub fn new<T: Reflect + TypePath + ?Sized>() -> Self {
         Self {
-            type_path: TypePathVtable::of::<T>(),
+            type_path: TypePathTable::of::<T>(),
             type_id: TypeId::of::<T>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -208,18 +208,18 @@ impl ValueInfo {
     /// A representation of the type path of the value.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_vtable(&self) -> &TypePathVtable {
+    pub fn type_path_table(&self) -> &TypePathTable {
         &self.type_path
     }
 
     /// The [stable, full type path] of the value.
     ///
-    /// Use [`type_path_vtable`] if you need access to the other methods on [`TypePath`].
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
     ///
     /// [stable, full type path]: TypePath
-    /// [`type_path_vtable`]: Self::type_path_vtable
+    /// [`type_path_table`]: Self::type_path_table
     pub fn type_path(&self) -> &'static str {
-        self.type_path_vtable().path()
+        self.type_path_table().path()
     }
 
     /// The [`TypeId`] of the value.

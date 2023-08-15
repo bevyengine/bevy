@@ -110,7 +110,7 @@ impl TypeRegistry {
             return;
         }
 
-        let short_name = registration.type_info().type_path_vtable().short_path();
+        let short_name = registration.type_info().type_path_table().short_path();
         if self.short_path_to_id.contains_key(short_name)
             || self.ambiguous_names.contains(short_name)
         {
@@ -302,7 +302,7 @@ impl TypeRegistryArc {
 /// let mut registration = TypeRegistration::of::<Option<String>>();
 ///
 /// assert_eq!("core::option::Option<alloc::string::String>", registration.type_info().type_path());
-/// assert_eq!("Option<String>", registration.type_info().type_path_vtable().short_path());
+/// assert_eq!("Option<String>", registration.type_info().type_path_table().short_path());
 ///
 /// registration.insert::<ReflectDefault>(FromType::<Option<String>>::from_type());
 /// assert!(registration.data::<ReflectDefault>().is_some())

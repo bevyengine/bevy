@@ -388,7 +388,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
         match self.registration.type_info() {
             TypeInfo::Struct(struct_info) => {
                 let mut dynamic_struct = deserializer.deserialize_struct(
-                    struct_info.type_path_vtable().ident().unwrap(),
+                    struct_info.type_path_table().ident().unwrap(),
                     struct_info.field_names(),
                     StructVisitor {
                         struct_info,
@@ -401,7 +401,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
             }
             TypeInfo::TupleStruct(tuple_struct_info) => {
                 let mut dynamic_tuple_struct = deserializer.deserialize_tuple_struct(
-                    tuple_struct_info.type_path_vtable().ident().unwrap(),
+                    tuple_struct_info.type_path_table().ident().unwrap(),
                     tuple_struct_info.field_len(),
                     TupleStructVisitor {
                         tuple_struct_info,
@@ -451,9 +451,9 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 Ok(Box::new(dynamic_tuple))
             }
             TypeInfo::Enum(enum_info) => {
-                let mut dynamic_enum = if enum_info.type_path_vtable().module_path()
+                let mut dynamic_enum = if enum_info.type_path_table().module_path()
                     == Some("core::option")
-                    && enum_info.type_path_vtable().ident() == Some("Option")
+                    && enum_info.type_path_table().ident() == Some("Option")
                 {
                     deserializer.deserialize_option(OptionVisitor {
                         enum_info,
@@ -461,7 +461,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                     })?
                 } else {
                     deserializer.deserialize_enum(
-                        enum_info.type_path_vtable().ident().unwrap(),
+                        enum_info.type_path_table().ident().unwrap(),
                         enum_info.variant_names(),
                         EnumVisitor {
                             enum_info,
@@ -652,7 +652,7 @@ impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
         let mut vec = Vec::with_capacity(seq.size_hint().unwrap_or_default());
         let registration = get_registration(
             self.array_info.item_type_id(),
-            self.array_info.item_type_path_vtable().path(),
+            self.array_info.item_type_path_table().path(),
             self.registry,
         )?;
         while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
@@ -692,7 +692,7 @@ impl<'a, 'de> Visitor<'de> for ListVisitor<'a> {
         let mut list = DynamicList::default();
         let registration = get_registration(
             self.list_info.item_type_id(),
-            self.list_info.item_type_path_vtable().path(),
+            self.list_info.item_type_path_table().path(),
             self.registry,
         )?;
         while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
@@ -724,12 +724,12 @@ impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
         let mut dynamic_map = DynamicMap::default();
         let key_registration = get_registration(
             self.map_info.key_type_id(),
-            self.map_info.key_type_path_vtable().path(),
+            self.map_info.key_type_path_table().path(),
             self.registry,
         )?;
         let value_registration = get_registration(
             self.map_info.value_type_id(),
-            self.map_info.value_type_path_vtable().path(),
+            self.map_info.value_type_path_table().path(),
             self.registry,
         )?;
         while let Some(key) = map.next_key_seed(TypedReflectDeserializer {

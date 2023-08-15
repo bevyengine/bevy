@@ -7,7 +7,7 @@ use bevy_reflect_derive::impl_type_path;
 use crate::utility::reflect_hasher;
 use crate::{
     self as bevy_reflect, FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
-    TypePath, TypePathVtable,
+    TypePath, TypePathTable,
 };
 
 /// A trait used to power [list-like] operations via [reflection].
@@ -109,9 +109,9 @@ pub trait List: Reflect {
 /// A container for compile-time list info.
 #[derive(Clone, Debug)]
 pub struct ListInfo {
-    type_path: TypePathVtable,
+    type_path: TypePathTable,
     type_id: TypeId,
-    item_type_path: TypePathVtable,
+    item_type_path: TypePathTable,
     item_type_id: TypeId,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -121,9 +121,9 @@ impl ListInfo {
     /// Create a new [`ListInfo`].
     pub fn new<TList: List + TypePath, TItem: FromReflect + TypePath>() -> Self {
         Self {
-            type_path: TypePathVtable::of::<TList>(),
+            type_path: TypePathTable::of::<TList>(),
             type_id: TypeId::of::<TList>(),
-            item_type_path: TypePathVtable::of::<TItem>(),
+            item_type_path: TypePathTable::of::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -139,18 +139,18 @@ impl ListInfo {
     /// A representation of the type path of the list.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_vtable(&self) -> &TypePathVtable {
+    pub fn type_path_table(&self) -> &TypePathTable {
         &self.type_path
     }
 
     /// The [stable, full type path] of the list.
     ///
-    /// Use [`type_path_vtable`] if you need access to the other methods on [`TypePath`].
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
     ///
     /// [stable, full type path]: TypePath
-    /// [`type_path_vtable`]: Self::type_path_vtable
+    /// [`type_path_table`]: Self::type_path_table
     pub fn type_path(&self) -> &'static str {
-        self.type_path_vtable().path()
+        self.type_path_table().path()
     }
 
     /// The [`TypeId`] of the list.
@@ -166,7 +166,7 @@ impl ListInfo {
     /// A representation of the type path of the list item.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn item_type_path_vtable(&self) -> &TypePathVtable {
+    pub fn item_type_path_table(&self) -> &TypePathTable {
         &self.item_type_path
     }
 

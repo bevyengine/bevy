@@ -1376,7 +1376,7 @@ mod tests {
             assert!(info.is::<MyList>());
             assert!(info.item_is::<usize>());
             assert_eq!(MyList::type_path(), info.type_path());
-            assert_eq!(usize::type_path(), info.item_type_path_vtable().path());
+            assert_eq!(usize::type_path(), info.item_type_path_table().path());
         } else {
             panic!("Expected `TypeInfo::List`");
         }
@@ -1395,7 +1395,7 @@ mod tests {
                 assert!(info.is::<MySmallVec>());
                 assert!(info.item_is::<String>());
                 assert_eq!(MySmallVec::type_path(), info.type_path());
-                assert_eq!(String::type_path(), info.item_type_path_vtable().path());
+                assert_eq!(String::type_path(), info.item_type_path_table().path());
             } else {
                 panic!("Expected `TypeInfo::List`");
             }
@@ -1414,7 +1414,7 @@ mod tests {
             assert!(info.is::<MyArray>());
             assert!(info.item_is::<usize>());
             assert_eq!(MyArray::type_path(), info.type_path());
-            assert_eq!(usize::type_path(), info.item_type_path_vtable().path());
+            assert_eq!(usize::type_path(), info.item_type_path_table().path());
             assert_eq!(3, info.capacity());
         } else {
             panic!("Expected `TypeInfo::Array`");
@@ -1449,7 +1449,7 @@ mod tests {
             assert_eq!(std::any::type_name::<MyCowSlice>(), info.type_path());
             assert_eq!(
                 std::any::type_name::<u8>(),
-                info.item_type_path_vtable().path()
+                info.item_type_path_table().path()
             );
         } else {
             panic!("Expected `TypeInfo::List`");
@@ -1468,8 +1468,8 @@ mod tests {
             assert!(info.key_is::<usize>());
             assert!(info.value_is::<f32>());
             assert_eq!(MyMap::type_path(), info.type_path());
-            assert_eq!(usize::type_path(), info.key_type_path_vtable().path());
-            assert_eq!(f32::type_path(), info.value_type_path_vtable().path());
+            assert_eq!(usize::type_path(), info.key_type_path_table().path());
+            assert_eq!(f32::type_path(), info.value_type_path_table().path());
         } else {
             panic!("Expected `TypeInfo::Map`");
         }
@@ -1928,7 +1928,7 @@ bevy_reflect::tests::Test {
         let registration = registry.get(TypeId::of::<Foo<NotTypePath>>()).unwrap();
         assert_eq!(
             "Foo<NotTypePath>",
-            registration.type_info().type_path_vtable().short_path()
+            registration.type_info().type_path_table().short_path()
         );
     }
 
