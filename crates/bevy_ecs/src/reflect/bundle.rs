@@ -176,14 +176,11 @@ fn insert_field<C: 'static>(entity: &mut EntityMut, field: &dyn Reflect, registr
         reflect_bundle.apply(entity, field, registry);
     } else {
         entity.world_scope(|world| {
-            if let Some(id) = world.bundles().get_id(TypeId::of::<C>()) {
-                let info = world.bundles().get(id).unwrap();
-                if info.components().is_empty() {
-                    panic!(
-                        "no `ReflectComponent` registration found for `{}`",
-                        field.type_name()
-                    );
-                }
+            if world.components().get_id(TypeId::of::<C>()).is_some() {
+                panic!(
+                    "no `ReflectComponent` registration found for `{}`",
+                    field.type_name()
+                );
             };
         });
 
@@ -205,14 +202,11 @@ fn apply_or_insert_field<C: 'static>(
         reflect_bundle.apply_or_insert(entity, field, registry);
     } else {
         entity.world_scope(|world| {
-            if let Some(id) = world.bundles().get_id(TypeId::of::<C>()) {
-                let info = world.bundles().get(id).unwrap();
-                if info.components().is_empty() {
-                    panic!(
-                        "no `ReflectComponent` registration found for `{}`",
-                        field.type_name()
-                    );
-                }
+            if world.components().get_id(TypeId::of::<C>()).is_some() {
+                panic!(
+                    "no `ReflectComponent` registration found for `{}`",
+                    field.type_name()
+                );
             };
         });
 
