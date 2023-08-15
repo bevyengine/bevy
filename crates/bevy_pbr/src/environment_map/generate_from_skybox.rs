@@ -43,8 +43,19 @@ use bevy_utils::default;
 /// This component does not work on `WebGL2`, and must use [`GenerateEnvironmentMapLightTextureFormat::Rgba16Float`] on `WebGPU`.
 #[derive(Component, ExtractComponent, Reflect, Default, Clone)]
 pub struct GenerateEnvironmentMapLight {
-    pub texture_format: GenerateEnvironmentMapLightTextureFormat,
+    texture_format: GenerateEnvironmentMapLightTextureFormat,
     downsampled_cubemap: Option<Handle<Image>>,
+}
+
+impl GenerateEnvironmentMapLight {
+    pub fn new_with_texture_format(
+        texture_format: GenerateEnvironmentMapLightTextureFormat,
+    ) -> Self {
+        Self {
+            texture_format,
+            downsampled_cubemap: None,
+        }
+    }
 }
 
 #[derive(Reflect, Clone, Copy)]
