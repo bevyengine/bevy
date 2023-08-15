@@ -21,13 +21,23 @@
 // SOFTWARE.
 
 @group(0) @binding(0) var tex_in: texture_cube<f32>;
-@group(0) @binding(1) var text_out0: texture_storage_2d_array<#ifdef RG11B10FLOAT rg11b10float #else rgba16float, write>;
-@group(0) @binding(2) var text_out1: texture_storage_2d_array<#ifdef RG11B10FLOAT rg11b10float #else rgba16float, write>;
-@group(0) @binding(3) var text_out2: texture_storage_2d_array<#ifdef RG11B10FLOAT rg11b10float #else rgba16float, write>;
-@group(0) @binding(4) var text_out3: texture_storage_2d_array<#ifdef RG11B10FLOAT rg11b10float #else rgba16float, write>;
-@group(0) @binding(5) var text_out4: texture_storage_2d_array<#ifdef RG11B10FLOAT rg11b10float #else rgba16float, write>;
-@group(0) @binding(6) var text_out5: texture_storage_2d_array<#ifdef RG11B10FLOAT rg11b10float #else rgba16float, write>;
-@group(0) @binding(7) var text_out6: texture_storage_2d_array<#ifdef RG11B10FLOAT rg11b10float #else rgba16float, write>;
+#ifdef RG11B10FLOAT
+@group(0) @binding(1) var text_out0: texture_storage_2d_array<rg11b10float, write>;
+@group(0) @binding(2) var text_out1: texture_storage_2d_array<rg11b10float, write>;
+@group(0) @binding(3) var text_out2: texture_storage_2d_array<rg11b10float, write>;
+@group(0) @binding(4) var text_out3: texture_storage_2d_array<rg11b10float, write>;
+@group(0) @binding(5) var text_out4: texture_storage_2d_array<rg11b10float, write>;
+@group(0) @binding(6) var text_out5: texture_storage_2d_array<rg11b10float, write>;
+@group(0) @binding(7) var text_out6: texture_storage_2d_array<rg11b10float, write>;
+#else
+@group(0) @binding(1) var text_out0: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(2) var text_out1: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(3) var text_out2: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(4) var text_out3: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(5) var text_out4: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(6) var text_out5: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(7) var text_out6: texture_storage_2d_array<rgba16float, write>;
+#endif
 @group(0) @binding(8) var trilinear: sampler;
 @group(0) @binding(9) var<uniform> coeffs: array<array<array<array<vec4<f32>, 24>, 3>, 5>, 7>;
 
