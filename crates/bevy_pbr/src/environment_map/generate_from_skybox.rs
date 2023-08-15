@@ -40,7 +40,7 @@ use bevy_utils::default;
 /// component will be generated and added to the skybox entity.
 /// * For static (non-changing) skyboxes, remove this component 1 frame after adding it to the skybox entity to save performance.
 ///
-/// This component does not work on WebGL2, and must use [`GenerateEnvironmentMapLightTextureFormat::Rgba16Float`] on WebGPU.
+/// This component does not work on `WebGL2`, and must use [`GenerateEnvironmentMapLightTextureFormat::Rgba16Float`] on `WebGPU`.
 #[derive(Component, ExtractComponent, Reflect, Default, Clone)]
 pub struct GenerateEnvironmentMapLight {
     pub texture_format: GenerateEnvironmentMapLightTextureFormat,
@@ -52,7 +52,7 @@ pub enum GenerateEnvironmentMapLightTextureFormat {
     /// 4 bytes per pixel (smaller and faster), but may not be able to represent as wide a range of lighting values.
     /// This is the [`Default`] on non-WASM platforms.
     Rg11b10Float,
-    /// 8 bytes per pixel. This is the [`Default`], and only supported option for WebGPU.
+    /// 8 bytes per pixel. This is the [`Default`], and only supported option for `WebGPU`.
     Rgba16Float,
 }
 
