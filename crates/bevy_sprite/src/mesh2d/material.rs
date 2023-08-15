@@ -125,7 +125,7 @@ pub trait Material2d: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + 
     }
 
     /// See [`RenderDevice::create_shader_module_unchecked`]. Defaults to true in release mode, and false in debug mode.
-    fn unchecked() -> bool {
+    fn unchecked_shader_code() -> bool {
         cfg!(not(debug_assertions))
     }
 
@@ -391,7 +391,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         let mut mesh_key = view_key
                             | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
 
-                        if M::unchecked() {
+                        if M::unchecked_shader_code() {
                             mesh_key |= Mesh2dPipelineKey::UNCHECKED;
                         }
 

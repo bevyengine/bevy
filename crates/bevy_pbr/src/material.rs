@@ -148,7 +148,7 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Si
     }
 
     /// See [`RenderDevice::create_shader_module_unchecked`]. Defaults to true in release mode, and false in debug mode.
-    fn unchecked() -> bool {
+    fn unchecked_shader_code() -> bool {
         cfg!(not(debug_assertions))
     }
 
@@ -484,7 +484,7 @@ pub fn queue_material_meshes<M: Material>(
                         MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                             | view_key;
 
-                    if M::unchecked() {
+                    if M::unchecked_shader_code() {
                         mesh_key |= MeshPipelineKey::UNCHECKED;
                     }
 
