@@ -141,12 +141,21 @@ enum Token<'a> {
 }
 impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Token::Dot => f.write_str("."),
-            Token::Pound => f.write_str("#"),
-            Token::OpenBracket => f.write_str("["),
-            Token::CloseBracket => f.write_str("]"),
-            Token::Ident(ident) => f.write_str(ident.0),
+        if let Token::Ident(ident) = self {
+            f.write_str(ident.0)
+        } else {
+            let byte = match self {
+                Token::Dot => b'.',
+                Token::Pound => b'#',
+                Token::OpenBracket => b'[',
+                Token::CloseBracket => b']',
+                Token::Ident(_) => unreachable!(),
+            };
+            let byte = &[byte];
+            // SAFETY: we just defined `byte`, it is indeed a single ASCII character,
+            // therefore valid utf8.
+            let str = unsafe { from_utf8_unchecked(byte) };
+            f.write_str(str)
         }
     }
 }
