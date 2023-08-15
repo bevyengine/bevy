@@ -3,7 +3,7 @@
 #import bevy_pbr::utils PI
 
 @group(0) @binding(0) var skybox: texture_cube<f32>;
-@group(0) @binding(1) var diffuse_map: texture_storage_2d_array<rg11b10float, write>;
+@group(0) @binding(1) var diffuse_map: texture_storage_2d_array<#ifdef RG11B10FLOAT rg11b10float #else rgba16float, write>;
 @group(0) @binding(2) var bilinear: sampler;
 
 fn get_dir(u: f32, v: f32, face: u32) -> vec3<f32> {

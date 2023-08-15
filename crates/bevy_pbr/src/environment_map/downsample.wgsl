@@ -21,7 +21,7 @@
 // SOFTWARE.
 
 @group(0) @binding(0) var tex_hi_res: texture_cube<f32>;
-@group(0) @binding(1) var tex_los_res: texture_storage_2d_array<rg11b10float, write>;
+@group(0) @binding(1) var tex_los_res: texture_storage_2d_array<#ifdef RG11B10FLOAT rg11b10float #else rgba16float, write>;
 @group(0) @binding(2) var bilinear: sampler;
 
 fn get_dir(u: f32, v: f32, face: u32) -> vec3<f32> {

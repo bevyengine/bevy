@@ -16,7 +16,9 @@ mod ssao;
 
 pub use alpha::*;
 pub use bundle::*;
-pub use environment_map::{EnvironmentMapLight, GenerateEnvironmentMapLight};
+pub use environment_map::{
+    EnvironmentMapLight, GenerateEnvironmentMapLight, GenerateEnvironmentMapLightTextureFormat,
+};
 pub use fog::*;
 pub use light::*;
 pub use material::*;

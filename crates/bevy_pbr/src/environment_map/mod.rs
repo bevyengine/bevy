@@ -15,19 +15,18 @@ use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{
         BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType, SamplerBindingType,
-        Shader, ShaderStages, TextureFormat, TextureSampleType, TextureUsages,
-        TextureViewDimension,
+        Shader, ShaderStages, TextureSampleType, TextureViewDimension,
     },
-    renderer::RenderAdapter,
     texture::{FallbackImageCubemap, Image},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::tracing::warn;
-pub use generate_from_skybox::GenerateEnvironmentMapLight;
 use generate_from_skybox::{
     generate_dummy_environment_map_lights_for_skyboxes,
     prepare_generate_environment_map_lights_for_skyboxes_bind_groups,
     GenerateEnvironmentMapLightNode, GenerateEnvironmentMapLightResources,
+};
+pub use generate_from_skybox::{
+    GenerateEnvironmentMapLight, GenerateEnvironmentMapLightTextureFormat,
 };
 
 pub mod draw_3d_graph {
@@ -72,23 +71,13 @@ impl Plugin for EnvironmentMapLightPlugin {
 
         app.register_type::<EnvironmentMapLight>()
             .register_type::<GenerateEnvironmentMapLight>()
+            .register_type::<GenerateEnvironmentMapLightTextureFormat>()
             .add_plugins(ExtractComponentPlugin::<EnvironmentMapLight>::default())
             .add_plugins(ExtractComponentPlugin::<GenerateEnvironmentMapLight>::default());
     }
 
     fn finish(&self, app: &mut App) {
         if app.get_sub_app(RenderApp).is_err() {
-            return;
-        }
-
-        if !app
-            .world
-            .resource::<RenderAdapter>()
-            .get_texture_format_features(TextureFormat::Rg11b10Float)
-            .allowed_usages
-            .contains(TextureUsages::STORAGE_BINDING)
-        {
-            warn!("GenerateEnvironmentMapLight will not run. GPU lacks support: TextureFormat::Rg11b10Float does not support TextureUsages::STORAGE_BINDING.");
             return;
         }
 

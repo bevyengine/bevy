@@ -40,20 +40,45 @@ use bevy_utils::default;
 /// component will be generated and added to the skybox entity.
 /// * For static (non-changing) skyboxes, remove this component 1 frame after adding it to the skybox entity to save performance.
 ///
-/// This component does not work on WebGPU or WebGL2.
+/// This component does not work on WebGL2, and must use [`GenerateEnvironmentMapLightTextureFormat::Rgba16Float`] on WebGPU.
 #[derive(Component, ExtractComponent, Reflect, Default, Clone)]
 pub struct GenerateEnvironmentMapLight {
+    pub texture_format: GenerateEnvironmentMapLightTextureFormat,
     downsampled_cubemap: Option<Handle<Image>>,
+}
+
+#[derive(Reflect, Clone, Copy)]
+pub enum GenerateEnvironmentMapLightTextureFormat {
+    /// 4 bytes per pixel (smaller and faster), but may not be able to represent as wide a range of lighting values.
+    /// This is the [`Default`] on non-WASM platforms.
+    Rg11b10Float,
+    /// 8 bytes per pixel. This is the [`Default`], and only supported option for WebGPU.
+    Rgba16Float,
+}
+
+impl Default for GenerateEnvironmentMapLightTextureFormat {
+    fn default() -> Self {
+        if cfg!(target_arch = "wasm32") {
+            Self::Rgba16Float
+        } else {
+            Self::Rg11b10Float
+        }
+    }
+}
+
+impl GenerateEnvironmentMapLightTextureFormat {
+    pub fn as_wgpu(&self) -> TextureFormat {
+        match self {
+            Self::Rg11b10Float => TextureFormat::Rg11b10Float,
+            Self::Rgba16Float => TextureFormat::Rgba16Float,
+        }
+    }
 }
 
 #[derive(Resource)]
 pub struct GenerateEnvironmentMapLightResources {
-    downsample_layout: BindGroupLayout,
-    filter_layout: BindGroupLayout,
-    diffuse_convolution_layout: BindGroupLayout,
-    downsample_pipeline: CachedComputePipelineId,
-    filter_pipeline: CachedComputePipelineId,
-    diffuse_convolution_pipeline: CachedComputePipelineId,
+    rg11b10float: GenerateEnvironmentMapLightResourcesSpecialized,
+    rgba16float: GenerateEnvironmentMapLightResourcesSpecialized,
     filter_coefficents: Buffer,
 }
 
@@ -63,6 +88,42 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
         let render_queue = world.resource::<RenderQueue>();
         let pipeline_cache = world.resource::<PipelineCache>();
 
+        let mut filter_coefficents = UniformBuffer::<FilterCoefficentsType>::default();
+        *filter_coefficents.get_mut() = FILTER_COEFFICENTS;
+        filter_coefficents.write_buffer(render_device, render_queue);
+        let filter_coefficents = filter_coefficents.buffer().unwrap().clone();
+
+        Self {
+            rg11b10float: GenerateEnvironmentMapLightResourcesSpecialized::new(
+                TextureFormat::Rg11b10Float,
+                render_device,
+                pipeline_cache,
+            ),
+            rgba16float: GenerateEnvironmentMapLightResourcesSpecialized::new(
+                TextureFormat::Rgba16Float,
+                render_device,
+                pipeline_cache,
+            ),
+            filter_coefficents,
+        }
+    }
+}
+
+struct GenerateEnvironmentMapLightResourcesSpecialized {
+    downsample_layout: BindGroupLayout,
+    filter_layout: BindGroupLayout,
+    diffuse_convolution_layout: BindGroupLayout,
+    downsample_pipeline: CachedComputePipelineId,
+    filter_pipeline: CachedComputePipelineId,
+    diffuse_convolution_pipeline: CachedComputePipelineId,
+}
+
+impl GenerateEnvironmentMapLightResourcesSpecialized {
+    fn new(
+        texture_format: TextureFormat,
+        render_device: &RenderDevice,
+        pipeline_cache: &PipelineCache,
+    ) -> Self {
         let read_texture = BindingType::Texture {
             sample_type: TextureSampleType::Float { filterable: true },
             view_dimension: TextureViewDimension::Cube,
@@ -70,7 +131,7 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
         };
         let write_texture = BindingType::StorageTexture {
             access: StorageTextureAccess::WriteOnly,
-            format: TextureFormat::Rg11b10Float,
+            format: texture_format,
             view_dimension: TextureViewDimension::D2Array,
         };
 
@@ -107,6 +168,12 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
             ],
         });
 
+        let shader_defs = match texture_format {
+            TextureFormat::Rg11b10Float => vec!["RG11B10FLOAT".into()],
+            TextureFormat::Rgba16Float => vec![],
+            _ => unreachable!(),
+        };
+
         let diffuse_convolution_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("generate_environment_map_light_filter_bind_group_layout"),
@@ -123,7 +190,7 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
                 layout: vec![downsample_layout.clone()],
                 push_constant_ranges: vec![],
                 shader: DOWNSAMPLE_SHADER_HANDLE.typed(),
-                shader_defs: vec![],
+                shader_defs: shader_defs.clone(),
                 entry_point: "main".into(),
             });
 
@@ -132,7 +199,7 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
             layout: vec![filter_layout.clone()],
             push_constant_ranges: vec![],
             shader: FILTER_SHADER_HANDLE.typed(),
-            shader_defs: vec![],
+            shader_defs: shader_defs.clone(),
             entry_point: "main".into(),
         });
 
@@ -142,13 +209,9 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
                 layout: vec![diffuse_convolution_layout.clone()],
                 push_constant_ranges: vec![],
                 shader: DIFFUSE_CONVOLUTION_SHADER_HANDLE.typed(),
-                shader_defs: vec![],
+                shader_defs,
                 entry_point: "main".into(),
             });
-
-        let mut filter_coefficents = UniformBuffer::<FilterCoefficentsType>::default();
-        *filter_coefficents.get_mut() = FILTER_COEFFICENTS;
-        filter_coefficents.write_buffer(render_device, render_queue);
 
         Self {
             downsample_layout,
@@ -157,7 +220,6 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
             downsample_pipeline,
             filter_pipeline,
             diffuse_convolution_pipeline,
-            filter_coefficents: filter_coefficents.buffer().unwrap().clone(),
         }
     }
 }
@@ -176,20 +238,22 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
             None => continue,
         };
 
+        let texture_format = gen_env_map_light.texture_format.as_wgpu();
+
         let diffuse_size = Extent3d {
             width: 64,
             height: 64,
             depth_or_array_layers: 6,
         };
         let diffuse_map = Image {
-            data: vec![0; texture_byte_count(diffuse_size, 1)],
+            data: vec![0; texture_byte_count(diffuse_size, 1, texture_format)],
             texture_descriptor: TextureDescriptor {
                 label: Some("generate_environment_map_light_diffuse_map_texture"),
                 size: diffuse_size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::Rg11b10Float,
+                format: texture_format,
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
                 view_formats: &[],
             },
@@ -202,7 +266,7 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
             }),
             texture_view_descriptor: Some(TextureViewDescriptor {
                 label: Some("generate_environment_map_light_diffuse_map_texture_view"),
-                format: Some(TextureFormat::Rg11b10Float),
+                format: Some(texture_format),
                 dimension: Some(TextureViewDimension::Cube),
                 aspect: TextureAspect::All,
                 base_mip_level: 0,
@@ -218,14 +282,14 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
             depth_or_array_layers: 6,
         };
         let specular_map = Image {
-            data: vec![0; texture_byte_count(specular_size, 7)],
+            data: vec![0; texture_byte_count(specular_size, 7, texture_format)],
             texture_descriptor: TextureDescriptor {
                 label: Some("generate_environment_map_light_specular_map_texture"),
                 size: specular_size,
                 mip_level_count: 7,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::Rg11b10Float,
+                format: texture_format,
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
                 view_formats: &[],
             },
@@ -238,7 +302,7 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
             }),
             texture_view_descriptor: Some(TextureViewDescriptor {
                 label: Some("generate_environment_map_light_specular_map_texture_view"),
-                format: Some(TextureFormat::Rg11b10Float),
+                format: Some(texture_format),
                 dimension: Some(TextureViewDimension::Cube),
                 aspect: TextureAspect::All,
                 base_mip_level: 0,
@@ -254,14 +318,14 @@ pub fn generate_dummy_environment_map_lights_for_skyboxes(
             depth_or_array_layers: 6,
         };
         let downsampled_cubemap = Image {
-            data: vec![0; texture_byte_count(downsampled_size, 6)],
+            data: vec![0; texture_byte_count(downsampled_size, 6, texture_format)],
             texture_descriptor: TextureDescriptor {
                 label: Some("generate_environment_map_light_downsampled_cubemap"),
                 size: downsampled_size,
                 mip_level_count: 6,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::Rg11b10Float,
+                format: texture_format,
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
                 view_formats: &[],
             },
@@ -282,6 +346,7 @@ pub struct GenerateEnvironmentMapLightBindGroups {
     filter: BindGroup,
     diffuse_convolution: BindGroup,
     downsampled_cubemap_size: u32,
+    texture_format: GenerateEnvironmentMapLightTextureFormat,
 }
 
 // PERF: Cache bind groups
@@ -305,6 +370,12 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
             gen_env_map.downsampled_cubemap.as_ref().and_then(|t| images.get(t)),
         ) else {
             continue;
+        };
+
+        let filter_coefficents = &resources.filter_coefficents;
+        let resources = match gen_env_map.texture_format {
+            GenerateEnvironmentMapLightTextureFormat::Rg11b10Float => &resources.rg11b10float,
+            GenerateEnvironmentMapLightTextureFormat::Rgba16Float => &resources.rgba16float,
         };
 
         let downsample1 = render_device.create_bind_group(&BindGroupDescriptor {
@@ -458,7 +529,7 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
                 },
                 BindGroupEntry {
                     binding: 9,
-                    resource: resources.filter_coefficents.as_entire_binding(),
+                    resource: filter_coefficents.as_entire_binding(),
                 },
             ],
         });
@@ -496,6 +567,7 @@ pub fn prepare_generate_environment_map_lights_for_skyboxes_bind_groups(
                 filter,
                 diffuse_convolution,
                 downsampled_cubemap_size: downsampled_cubemap.size.x as u32,
+                texture_format: gen_env_map.texture_format,
             });
     }
 }
@@ -513,8 +585,12 @@ impl ViewNode for GenerateEnvironmentMapLightNode {
         bind_groups: QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let resources = world.resource::<GenerateEnvironmentMapLightResources>();
         let pipeline_cache = world.resource::<PipelineCache>();
+        let resources = world.resource::<GenerateEnvironmentMapLightResources>();
+        let resources = match bind_groups.texture_format {
+            GenerateEnvironmentMapLightTextureFormat::Rg11b10Float => &resources.rg11b10float,
+            GenerateEnvironmentMapLightTextureFormat::Rgba16Float => &resources.rgba16float,
+        };
 
         let (Some(downsample_pipeline), Some(filter_pipeline), Some(diffuse_convolution_pipeline)) = (
             pipeline_cache.get_compute_pipeline(resources.downsample_pipeline),
@@ -551,11 +627,10 @@ impl ViewNode for GenerateEnvironmentMapLightNode {
     }
 }
 
-fn texture_byte_count(mut size: Extent3d, mip_count: u32) -> usize {
+fn texture_byte_count(mut size: Extent3d, mip_count: u32, texture_format: TextureFormat) -> usize {
     let mut total_size = 0;
     for _ in 0..mip_count {
-        total_size +=
-            size.volume() * TextureFormat::Rg11b10Float.block_size(None).unwrap() as usize;
+        total_size += size.volume() * texture_format.block_size(None).unwrap() as usize;
         size.width /= 2;
         size.height /= 2;
     }
@@ -574,7 +649,7 @@ fn bgl_entry(binding: u32, ty: BindingType) -> BindGroupLayoutEntry {
 fn cube_view(mip_level: u32, cubemap: &GpuImage) -> TextureView {
     cubemap.texture.create_view(&TextureViewDescriptor {
         label: Some("generate_environment_map_light_texture_view"),
-        format: Some(TextureFormat::Rg11b10Float),
+        format: Some(cubemap.texture_format),
         dimension: Some(TextureViewDimension::Cube),
         aspect: TextureAspect::All,
         base_mip_level: mip_level,
@@ -587,7 +662,7 @@ fn cube_view(mip_level: u32, cubemap: &GpuImage) -> TextureView {
 fn d2array_view(mip_level: u32, cubemap: &GpuImage) -> TextureView {
     cubemap.texture.create_view(&TextureViewDescriptor {
         label: Some("generate_environment_map_light_texture_view"),
-        format: Some(TextureFormat::Rg11b10Float),
+        format: Some(cubemap.texture_format),
         dimension: Some(TextureViewDimension::D2Array),
         aspect: TextureAspect::All,
         base_mip_level: mip_level,
