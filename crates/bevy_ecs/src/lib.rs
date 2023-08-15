@@ -248,6 +248,11 @@ mod tests {
                 b: B(2),
             }
         );
+    }
+
+    #[test]
+    fn bundle_derive_ignore() {
+        let mut world = World::new();
 
         #[derive(Default, Component, PartialEq, Debug)]
         struct Ignored;
@@ -270,22 +275,69 @@ mod tests {
 
         assert_eq!(ids, &[world.init_component::<C>(),]);
 
-        let e4 = world
+        let e = world
             .spawn(BundleWithIgnored {
                 c: C,
                 ignored: Ignored,
             })
             .id();
 
-        assert_eq!(world.get::<C>(e4).unwrap(), &C);
-        assert_eq!(world.get::<Ignored>(e4), None);
+        assert_eq!(world.get::<C>(e).unwrap(), &C);
+        assert_eq!(world.get::<Ignored>(e), None);
 
         assert_eq!(
-            world.entity_mut(e4).take::<BundleWithIgnored>().unwrap(),
+            world.entity_mut(e).take::<BundleWithIgnored>().unwrap(),
             BundleWithIgnored {
                 c: C,
                 ignored: Ignored,
             }
+        );
+    }
+
+    #[test]
+    fn bundle_derive_default() {
+        let mut world = World::new();
+
+        #[derive(Default, Component, Debug, PartialEq)]
+        struct D;
+
+        fn make_b() -> B {
+            B(500)
+        }
+
+        #[derive(Bundle, PartialEq, Debug)]
+        #[bundle(default(D, B = make_b))]
+        struct BundleWithDefaults {
+            a: A,
+        }
+
+        let mut ids = Vec::new();
+        <BundleWithDefaults as Bundle>::component_ids(
+            &mut world.components,
+            &mut world.storages,
+            &mut |id| {
+                ids.push(id);
+            },
+        );
+
+        assert_eq!(
+            ids,
+            &[
+                world.init_component::<D>(),
+                world.init_component::<B>(),
+                world.init_component::<A>()
+            ]
+        );
+
+        let e = world.spawn(BundleWithDefaults { a: A(100) }).id();
+
+        assert_eq!(world.get::<D>(e).unwrap(), &D);
+        assert_eq!(world.get::<B>(e).unwrap(), &B(500));
+        assert_eq!(world.get::<A>(e).unwrap(), &A(100));
+
+        assert_eq!(
+            world.entity_mut(e).take::<BundleWithDefaults>().unwrap(),
+            BundleWithDefaults { a: A(100) }
         );
     }
 

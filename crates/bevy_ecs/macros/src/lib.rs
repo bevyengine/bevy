@@ -13,8 +13,9 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
-    ConstParam, DeriveInput, GenericParam, Ident, Index, TypeParam,
+    parenthesized, parse::Parse, parse_macro_input, parse_quote, punctuated::Punctuated,
+    spanned::Spanned, token::Comma, ConstParam, DeriveInput, Expr, GenericParam, Ident, Index,
+    Token, Type, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -22,13 +23,57 @@ enum BundleFieldKind {
     Ignore,
 }
 
+struct BundleDefaultMember {
+    pub type_: Type,
+    pub initializer: Option<Expr>,
+}
+
+impl Parse for BundleDefaultMember {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let type_ = input.parse()?;
+        let mut initializer = None;
+        if input.peek(Token![=]) {
+            input.parse::<Token![=]>()?;
+            initializer = Some(input.parse()?);
+        }
+        Ok(BundleDefaultMember { type_, initializer })
+    }
+}
+
 const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
 const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
+const BUNDLE_ATTRIBUTE_DEFAULT_NAME: &str = "default";
 
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
+
+    let mut extra_members = Vec::new();
+    for attr in ast
+        .attrs
+        .iter()
+        .filter(|a| a.path().is_ident(BUNDLE_ATTRIBUTE_NAME))
+    {
+        let result = attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident(BUNDLE_ATTRIBUTE_DEFAULT_NAME) {
+                let content;
+                parenthesized!(content in meta.input);
+                let bundles = content
+                    .call(Punctuated::<BundleDefaultMember, Token![,]>::parse_separated_nonempty)?;
+                extra_members.extend(bundles);
+                Ok(())
+            } else {
+                Err(meta.error(format!(
+                    "Invalid bundle attribute. Use `{BUNDLE_ATTRIBUTE_DEFAULT_NAME}`"
+                )))
+            }
+        });
+
+        if let Err(error) = result {
+            return error.into_compile_error().into();
+        }
+    }
 
     let named_fields = match get_named_struct_fields(&ast.data) {
         Ok(fields) => &fields.named,
@@ -72,16 +117,36 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
+
+    for BundleDefaultMember { type_, initializer } in extra_members {
+        field_component_ids.push(quote! {
+            <#type_ as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
+        });
+
+        let expr = match initializer {
+            Some(func) => quote! {
+                {
+                    let __bundle_default_func_output: #type_ = (#func)();
+                    __bundle_default_func_output
+                }
+            },
+            None => quote!(<#type_ as ::std::default::Default>::default()),
+        };
+        field_get_components.push(quote! {
+            <#type_ as #ecs_path::bundle::DynamicBundle>::get_components(#expr, &mut *func);
+        });
+    }
+
     for ((field_type, field_kind), field) in
         field_type.iter().zip(field_kind.iter()).zip(field.iter())
     {
         match field_kind {
             BundleFieldKind::Component => {
                 field_component_ids.push(quote! {
-                <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
+                    <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
                 });
                 field_get_components.push(quote! {
-                    self.#field.get_components(&mut *func);
+                    <#field_type as #ecs_path::bundle::DynamicBundle>::get_components(self.#field, &mut *func);
                 });
                 field_from_components.push(quote! {
                     #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
@@ -101,8 +166,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         // SAFETY:
-        // - ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
-        // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
+        // - ComponentId is returned in member-definition-order. First, the members defined in `#[bundle(default(A, B, C = make_c))]`,
+        //   and then each field in definition order. [from_components] and [get_components] use the same order.
+        // - `Bundle::get_components` is exactly once for each member. Relies on the Component -> Bundle implementation to properly pass
         //   the correct `StorageType` into the callback.
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
