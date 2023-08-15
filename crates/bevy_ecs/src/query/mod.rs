@@ -778,7 +778,7 @@ mod tests {
         world.spawn((A(1), B(1)));
 
         fn propagate_system(mut query: Query<(&A, &mut B), Changed<A>>) {
-            query.par_iter_mut().for_each_mut(|(a, mut b)| {
+            query.par_iter_mut().for_each(|(a, mut b)| {
                 b.0 = a.0;
             });
         }

@@ -64,10 +64,12 @@ impl fmt::Debug for UiSurface {
 
 impl Default for UiSurface {
     fn default() -> Self {
+        let mut taffy = Taffy::new();
+        taffy.disable_rounding();
         Self {
             entity_to_taffy: Default::default(),
             window_nodes: Default::default(),
-            taffy: Taffy::new(),
+            taffy,
         }
     }
 }
@@ -223,9 +225,10 @@ pub fn ui_layout_system(
     style_query: Query<(Entity, Ref<Style>), With<Node>>,
     mut measure_query: Query<(Entity, &mut ContentSize)>,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
+    just_children_query: Query<&Children>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
-    mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
+    mut node_transform_query: Query<(&mut Node, &mut Transform)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
     // assume one window for time being...
@@ -301,33 +304,88 @@ pub fn ui_layout_system(
     // compute layouts
     ui_surface.compute_window_layouts();
 
-    let physical_to_logical_factor = 1. / logical_to_physical_factor;
+    let inverse_target_scale_factor = 1. / scale_factor;
 
-    let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
+    fn update_uinode_geometry_recursive(
+        entity: Entity,
+        ui_surface: &UiSurface,
+        node_transform_query: &mut Query<(&mut Node, &mut Transform)>,
+        children_query: &Query<&Children>,
+        inverse_target_scale_factor: f32,
+        parent_size: Vec2,
+        mut absolute_location: Vec2,
+    ) {
+        if let Ok((mut node, mut transform)) = node_transform_query.get_mut(entity) {
+            let layout = ui_surface.get_layout(entity).unwrap();
+            let layout_size = Vec2::new(layout.size.width, layout.size.height);
+            let layout_location = Vec2::new(layout.location.x, layout.location.y);
 
-    // PERF: try doing this incrementally
-    for (entity, mut node, mut transform, parent) in &mut node_transform_query {
-        let layout = ui_surface.get_layout(entity).unwrap();
-        let new_size = Vec2::new(
-            to_logical(layout.size.width),
-            to_logical(layout.size.height),
-        );
-        // only trigger change detection when the new value is different
-        if node.calculated_size != new_size {
-            node.calculated_size = new_size;
-        }
-        let mut new_position = transform.translation;
-        new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
-        new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
-        if let Some(parent) = parent {
-            if let Ok(parent_layout) = ui_surface.get_layout(**parent) {
-                new_position.x -= to_logical(parent_layout.size.width / 2.0);
-                new_position.y -= to_logical(parent_layout.size.height / 2.0);
+            absolute_location += layout_location;
+            let rounded_location = round_layout_coords(layout_location);
+            let rounded_size = round_layout_coords(absolute_location + layout_size)
+                - round_layout_coords(absolute_location);
+
+            let new_size = inverse_target_scale_factor * rounded_size;
+            let new_position =
+                inverse_target_scale_factor * rounded_location + 0.5 * (new_size - parent_size);
+
+            // only trigger change detection when the new values are different
+            if node.calculated_size != new_size {
+                node.calculated_size = new_size;
+            }
+            if transform.translation.truncate() != new_position {
+                transform.translation = new_position.extend(0.);
+            }
+            if let Ok(children) = children_query.get(entity) {
+                for &child_uinode in children {
+                    update_uinode_geometry_recursive(
+                        child_uinode,
+                        ui_surface,
+                        node_transform_query,
+                        children_query,
+                        inverse_target_scale_factor,
+                        new_size,
+                        absolute_location,
+                    );
+                }
             }
         }
-        // only trigger change detection when the new value is different
-        if transform.translation != new_position {
-            transform.translation = new_position;
-        }
+    }
+
+    for entity in root_node_query.iter() {
+        update_uinode_geometry_recursive(
+            entity,
+            &ui_surface,
+            &mut node_transform_query,
+            &just_children_query,
+            inverse_target_scale_factor as f32,
+            Vec2::ZERO,
+            Vec2::ZERO,
+        );
+    }
+}
+
+#[inline]
+/// Round `value` to the closest whole integer, with ties (values with a fractional part equal to 0.5) rounded towards positive infinity.
+fn round_ties_up(value: f32) -> f32 {
+    if 0. <= value || value.fract() != 0.5 {
+        // The `round` function rounds ties away from zero. For positive numbers "away from zero" is towards positive infinity.
+        // So for all positive values, and negative values with a fractional part not equal to 0.5, `round` returns the correct result.
+        value.round()
+    } else {
+        // In the remaining cases, where `value` is negative and its fractional part is equal to 0.5, we use `ceil` to round it up towards positive infinity.
+        value.ceil()
+    }
+}
+
+#[inline]
+/// Rust `f32` only has support for rounding ties away from zero.
+/// When rounding the layout coordinates we need to round ties up, otherwise we can gain a pixel.
+/// For example consider a node with left and right bounds of -50.5 and 49.5 (width: 49.5 - (-50.5) == 100).
+/// After rounding left and right away from zero we get -51 and 50 (width: 50 - (-51) == 101), gaining a pixel.
+fn round_layout_coords(value: Vec2) -> Vec2 {
+    Vec2 {
+        x: round_ties_up(value.x),
+        y: round_ties_up(value.y),
     }
 }

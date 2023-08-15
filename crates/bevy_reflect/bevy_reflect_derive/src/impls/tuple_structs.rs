@@ -2,12 +2,11 @@ use crate::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use crate::impls::{impl_type_path, impl_typed};
 use crate::utility::extend_where_clause;
 use crate::ReflectStruct;
-use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{Index, Member};
 
 /// Implements `TupleStruct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
-pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
+pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
     let fqoption = FQOption.into_token_stream();
 
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
@@ -83,7 +82,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         },
     );
 
-    let type_path_impl = impl_type_path(reflect_struct.meta());
+    let type_path_impl = impl_type_path(reflect_struct.meta(), &where_clause_options);
 
     let (impl_generics, ty_generics, where_clause) = reflect_struct
         .meta()
@@ -93,7 +92,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
     let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
 
-    TokenStream::from(quote! {
+    quote! {
         #get_type_registration_impl
 
         #typed_impl
@@ -207,5 +206,5 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
             #debug_fn
         }
-    })
+    }
 }

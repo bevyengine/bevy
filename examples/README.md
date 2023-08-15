@@ -120,6 +120,7 @@ Example | Description
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
+[Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
 [Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene
@@ -194,6 +195,7 @@ Example | Description
 [Audio](../examples/audio/audio.rs) | Shows how to load and play an audio file
 [Audio Control](../examples/audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
 [Decodable](../examples/audio/decodable.rs) | Shows how to create and register a custom audio source by implementing the `Decodable` type.
+[Pitch](../examples/audio/pitch.rs) | Shows how to directly play a simple pitch
 [Spatial Audio 2D](../examples/audio/spatial_audio_2d.rs) | Shows how to play spatial audio, and moving the emitter in 2D
 [Spatial Audio 3D](../examples/audio/spatial_audio_3d.rs) | Shows how to play spatial audio, and moving the emitter in 3D
 
@@ -505,7 +507,7 @@ Following is an example for `lighting`. For other examples, change the `lighting
 following commands.
 
 ```sh
-cargo build --release --example lighting --target wasm32-unknown-unknown --features webgl
+cargo build --release --example lighting --target wasm32-unknown-unknown
 wasm-bindgen --out-name wasm_example \
   --out-dir examples/wasm/target \
   --target web target/wasm32-unknown-unknown/release/examples/lighting.wasm
@@ -513,7 +515,7 @@ wasm-bindgen --out-name wasm_example \
 
 The first command will build the example for the wasm target, creating a binary. Then,
 [wasm-bindgen-cli](https://rustwasm.github.io/wasm-bindgen/reference/cli.html) is used to create
-javascript bindings to this wasm file, which can be loaded using this
+javascript bindings to this wasm file in the output file `examples/wasm/target/wasm_example.js`, which can be loaded using this
 [example HTML file](./wasm/index.html).
 
 Then serve `examples/wasm` directory to browser. i.e.

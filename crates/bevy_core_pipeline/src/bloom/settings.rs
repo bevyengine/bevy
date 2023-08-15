@@ -1,7 +1,7 @@
 use super::downsampling_pipeline::BloomUniforms;
 use bevy_ecs::{prelude::Component, query::QueryItem, reflect::ReflectComponent};
-use bevy_math::{UVec4, Vec4};
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
+use bevy_math::{URect, UVec4, Vec4};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
@@ -119,7 +119,7 @@ impl BloomSettings {
         composite_mode: BloomCompositeMode::EnergyConserving,
     };
 
-    /// A preset that's similiar to how older games did bloom.
+    /// A preset that's similar to how older games did bloom.
     pub const OLD_SCHOOL: Self = Self {
         intensity: 0.05,
         low_frequency_boost: 0.7,
@@ -159,9 +159,8 @@ impl Default for BloomSettings {
 /// # Considerations
 /// * Changing these settings creates a physically inaccurate image
 /// * Changing these settings makes it easy to make the final result look worse
-/// * Non-default prefilter settings should be used in conjuction with [`BloomCompositeMode::Additive`]
-#[derive(Default, Clone, Reflect, FromReflect)]
-#[reflect(FromReflect)]
+/// * Non-default prefilter settings should be used in conjunction with [`BloomCompositeMode::Additive`]
+#[derive(Default, Clone, Reflect)]
 pub struct BloomPrefilterSettings {
     /// Baseline of the quadratic threshold curve (default: 0.0).
     ///
@@ -197,7 +196,7 @@ impl ExtractComponent for BloomSettings {
             camera.is_active,
             camera.hdr,
         ) {
-            (Some((origin, _)), Some(size), Some(target_size), true, true) => {
+            (Some(URect { min: origin, .. }), Some(size), Some(target_size), true, true) => {
                 let threshold = settings.prefilter_settings.threshold;
                 let threshold_softness = settings.prefilter_settings.threshold_softness;
                 let knee = threshold * threshold_softness.clamp(0.0, 1.0);

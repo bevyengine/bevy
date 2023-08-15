@@ -1,4 +1,4 @@
-use bevy_app::{Plugin, PreUpdate, Update};
+use bevy_app::{Plugin, PreUpdate};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
@@ -30,11 +30,11 @@ use bevy_render::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
         ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
-        DynamicUniformBuffer, FragmentState, FrontFace, MultisampleState, PipelineCache,
-        PolygonMode, PrimitiveState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef,
-        ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-        SpecializedMeshPipelines, StencilFaceState, StencilState, TextureSampleType,
-        TextureViewDimension, VertexState,
+        DynamicUniformBuffer, FragmentState, FrontFace, GpuArrayBufferIndex, MultisampleState,
+        PipelineCache, PolygonMode, PrimitiveState, PushConstantRange, RenderPipelineDescriptor,
+        Shader, ShaderRef, ShaderStages, ShaderType, SpecializedMeshPipeline,
+        SpecializedMeshPipelineError, SpecializedMeshPipelines, StencilFaceState, StencilState,
+        TextureSampleType, TextureViewDimension, VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{FallbackImagesDepth, FallbackImagesMsaa},
@@ -47,7 +47,7 @@ use bevy_utils::tracing::error;
 use crate::{
     prepare_lights, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material, MaterialPipeline,
     MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, MeshUniform, RenderMaterials,
-    SetMaterialBindGroup, SetMeshBindGroup, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    SetMaterialBindGroup, SetMeshBindGroup,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -141,9 +141,15 @@ where
 
         if no_prepass_plugin_loaded {
             app.insert_resource(AnyPrepassPluginLoaded)
-                .add_systems(Update, update_previous_view_projections)
                 // At the start of each frame, last frame's GlobalTransforms become this frame's PreviousGlobalTransforms
-                .add_systems(PreUpdate, update_mesh_previous_global_transforms);
+                // and last frame's view projection matrices become this frame's PreviousViewProjections
+                .add_systems(
+                    PreUpdate,
+                    (
+                        update_mesh_previous_global_transforms,
+                        update_previous_view_projections,
+                    ),
+                );
         }
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -373,14 +379,6 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_DIRECTIONAL_LIGHTS".to_string(),
-            MAX_DIRECTIONAL_LIGHTS as u32,
-        ));
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_CASCADES_PER_LIGHT".to_string(),
-            MAX_CASCADES_PER_LIGHT as u32,
-        ));
         if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO) {
             shader_defs.push("DEPTH_CLAMP_ORTHO".into());
             // PERF: This line forces the "prepass fragment shader" to always run in
@@ -489,6 +487,14 @@ where
             PREPASS_SHADER_HANDLE.typed::<Shader>()
         };
 
+        let mut push_constant_ranges = Vec::with_capacity(1);
+        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+            push_constant_ranges.push(PushConstantRange {
+                stages: ShaderStages::VERTEX,
+                range: 0..4,
+            });
+        }
+
         let mut descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: vert_shader_handle,
@@ -528,7 +534,7 @@ where
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            push_constant_ranges: Vec::new(),
+            push_constant_ranges,
             label: Some("prepass_pipeline".into()),
         };
 
@@ -753,7 +759,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
-    material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
+    material_meshes: Query<(
+        &Handle<M>,
+        &Handle<Mesh>,
+        &MeshUniform,
+        &GpuArrayBufferIndex<MeshUniform>,
+    )>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -798,7 +809,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {
-            let Ok((material_handle, mesh_handle, mesh_uniform)) = material_meshes.get(*visible_entity) else {
+            let Ok((material_handle, mesh_handle, mesh_uniform, batch_indices)) = material_meshes.get(*visible_entity) else {
                 continue;
             };
 
@@ -850,6 +861,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         draw_function: opaque_draw_prepass,
                         pipeline_id,
                         distance,
+                        per_object_binding_dynamic_offset: batch_indices
+                            .dynamic_offset
+                            .unwrap_or_default(),
                     });
                 }
                 AlphaMode::Mask(_) => {
@@ -858,6 +872,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         draw_function: alpha_mask_draw_prepass,
                         pipeline_id,
                         distance,
+                        per_object_binding_dynamic_offset: batch_indices
+                            .dynamic_offset
+                            .unwrap_or_default(),
                     });
                 }
                 AlphaMode::Blend

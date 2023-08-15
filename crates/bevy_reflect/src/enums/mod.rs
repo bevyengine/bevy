@@ -371,7 +371,7 @@ mod tests {
             C { value: TestStruct },
         }
 
-        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        #[derive(Reflect, Debug, PartialEq)]
         struct TestStruct(usize);
 
         let mut value = TestEnum::A;
@@ -405,7 +405,7 @@ mod tests {
             C { value: OtherEnum },
         }
 
-        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        #[derive(Reflect, Debug, PartialEq)]
         enum OtherEnum {
             A,
             B(usize),

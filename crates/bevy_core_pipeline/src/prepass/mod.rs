@@ -30,7 +30,7 @@ pub mod node;
 use std::cmp::Reverse;
 
 use bevy_ecs::prelude::*;
-use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
+use bevy_reflect::Reflect;
 use bevy_render::{
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
     render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat},
@@ -43,19 +43,16 @@ pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;
 
 /// If added to a [`crate::prelude::Camera3d`] then depth values will be copied to a separate texture available to the main pass.
-#[derive(Component, Default, Reflect, FromReflect)]
-#[reflect(FromReflect)]
+#[derive(Component, Default, Reflect)]
 pub struct DepthPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass.
 /// Normals will have normal map textures already applied.
-#[derive(Component, Default, Reflect, FromReflect)]
-#[reflect(FromReflect)]
+#[derive(Component, Default, Reflect)]
 pub struct NormalPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then screen space motion vectors will be copied to a separate texture available to the main pass.
-#[derive(Component, Default, Reflect, FromReflect)]
-#[reflect(FromReflect)]
+#[derive(Component, Default, Reflect)]
 pub struct MotionVectorPrepass;
 
 /// Textures that are written to by the prepass.
@@ -83,14 +80,18 @@ pub struct ViewPrepassTextures {
 /// Used to render all 3D meshes with materials that have no transparency.
 pub struct Opaque3dPrepass {
     pub distance: f32,
+    // Per-object data may be bound at different dynamic offsets within a buffer. If it is, then
+    // each batch of per-object data starts at the same dynamic offset.
+    pub per_object_binding_dynamic_offset: u32,
     pub entity: Entity,
     pub pipeline_id: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
 impl PhaseItem for Opaque3dPrepass {
+    // NOTE: (dynamic offset, -distance)
     // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
-    type SortKey = Reverse<FloatOrd>;
+    type SortKey = (u32, Reverse<FloatOrd>);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -99,7 +100,10 @@ impl PhaseItem for Opaque3dPrepass {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        Reverse(FloatOrd(self.distance))
+        (
+            self.per_object_binding_dynamic_offset,
+            Reverse(FloatOrd(self.distance)),
+        )
     }
 
     #[inline]
@@ -110,7 +114,9 @@ impl PhaseItem for Opaque3dPrepass {
     #[inline]
     fn sort(items: &mut [Self]) {
         // Key negated to match reversed SortKey ordering
-        radsort::sort_by_key(items, |item| -item.distance);
+        radsort::sort_by_key(items, |item| {
+            (item.per_object_binding_dynamic_offset, -item.distance)
+        });
     }
 }
 
@@ -128,14 +134,18 @@ impl CachedRenderPipelinePhaseItem for Opaque3dPrepass {
 /// Used to render all meshes with a material with an alpha mask.
 pub struct AlphaMask3dPrepass {
     pub distance: f32,
+    // Per-object data may be bound at different dynamic offsets within a buffer. If it is, then
+    // each batch of per-object data starts at the same dynamic offset.
+    pub per_object_binding_dynamic_offset: u32,
     pub entity: Entity,
     pub pipeline_id: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
 impl PhaseItem for AlphaMask3dPrepass {
-    // NOTE: Values increase towards the camera. Front-to-back ordering for alpha mask means we need a descending sort.
-    type SortKey = Reverse<FloatOrd>;
+    // NOTE: (dynamic offset, -distance)
+    // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
+    type SortKey = (u32, Reverse<FloatOrd>);
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -144,7 +154,10 @@ impl PhaseItem for AlphaMask3dPrepass {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        Reverse(FloatOrd(self.distance))
+        (
+            self.per_object_binding_dynamic_offset,
+            Reverse(FloatOrd(self.distance)),
+        )
     }
 
     #[inline]
@@ -155,7 +168,9 @@ impl PhaseItem for AlphaMask3dPrepass {
     #[inline]
     fn sort(items: &mut [Self]) {
         // Key negated to match reversed SortKey ordering
-        radsort::sort_by_key(items, |item| -item.distance);
+        radsort::sort_by_key(items, |item| {
+            (item.per_object_binding_dynamic_offset, -item.distance)
+        });
     }
 }
 

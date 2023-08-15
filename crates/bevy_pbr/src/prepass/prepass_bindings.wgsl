@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::prepass_bindings
-
-#import bevy_pbr::mesh_view_types
+#import bevy_render::view View
+#import bevy_render::globals Globals
 #import bevy_pbr::mesh_types
 
 @group(0) @binding(0)
@@ -15,19 +15,4 @@ var<uniform> previous_view_proj: mat4x4<f32>;
 
 // Material bindings will be in @group(1)
 
-@group(2) @binding(0)
-var<uniform> mesh: Mesh;
-
-#ifdef SKINNED
-@group(2) @binding(1)
-var<uniform> joint_matrices: SkinnedMesh;
-#import bevy_pbr::skinning
-#endif
-
-#ifdef MORPH_TARGETS
-@group(2) @binding(2)
-var<uniform> morph_weights: MorphWeights;
-@group(2) @binding(3)
-var morph_targets: texture_3d<f32>;
-#import bevy_pbr::morph
-#endif
+#import bevy_pbr::mesh_bindings   mesh

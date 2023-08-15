@@ -1,6 +1,8 @@
 //! General-purpose utility functions for internal usage within this crate.
 
-use crate::{derive_data::ReflectMeta, field_attributes::ReflectIgnoreBehavior, fq_std::FQOption};
+use crate::derive_data::{ReflectMeta, StructField};
+use crate::field_attributes::ReflectIgnoreBehavior;
+use crate::fq_std::{FQAny, FQOption, FQSend, FQSync};
 use bevy_macro_utils::BevyManifest;
 use bit_set::BitSet;
 use proc_macro2::{Ident, Span};
@@ -60,60 +62,120 @@ pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
 
 /// Options defining how to extend the `where` clause in reflection with any additional bounds needed.
 pub(crate) struct WhereClauseOptions {
-    /// Lifetime parameters that need extra trait bounds.
-    pub(crate) parameter_lifetimes: Box<[Lifetime]>,
-    /// Bounds to add to the lifetime parameters.
-    pub(crate) parameter_lifetime_bounds: proc_macro2::TokenStream,
     /// Type parameters that need extra trait bounds.
-    pub(crate) parameter_types: Box<[Ident]>,
+    parameter_types: Box<[Ident]>,
     /// Trait bounds to add to the type parameters.
-    pub(crate) parameter_trait_bounds: proc_macro2::TokenStream,
+    parameter_trait_bounds: Box<[proc_macro2::TokenStream]>,
     /// Any types that will be reflected and need an extra trait bound
-    pub(crate) active_types: Box<[Type]>,
+    active_types: Box<[Type]>,
     /// Trait bounds to add to the active types
-    pub(crate) active_trait_bounds: proc_macro2::TokenStream,
+    active_trait_bounds: Box<[proc_macro2::TokenStream]>,
     /// Any types that won't be reflected and need an extra trait bound
-    pub(crate) ignored_types: Box<[Type]>,
+    ignored_types: Box<[Type]>,
     /// Trait bounds to add to the ignored types
-    pub(crate) ignored_trait_bounds: proc_macro2::TokenStream,
-}
-
-impl WhereClauseOptions {
-    /// Extends a where clause, adding a `TypePath` bound to each type parameter.
-    pub fn type_path_bounds(meta: &ReflectMeta) -> Self {
-        let bevy_reflect_path = meta.bevy_reflect_path();
-        Self {
-            parameter_lifetimes: meta
-                .type_path()
-                .generics()
-                .lifetimes()
-                .map(|param| param.lifetime.clone())
-                .collect(),
-            parameter_lifetime_bounds: quote! { 'static },
-            parameter_types: meta
-                .type_path()
-                .generics()
-                .type_params()
-                .map(|ty| ty.ident.clone())
-                .collect(),
-            parameter_trait_bounds: quote! { #bevy_reflect_path::TypePath },
-            ..Default::default()
-        }
-    }
+    ignored_trait_bounds: Box<[proc_macro2::TokenStream]>,
 }
 
 impl Default for WhereClauseOptions {
     /// By default, don't add any additional bounds to the `where` clause
     fn default() -> Self {
         Self {
-            parameter_lifetimes: Box::new([]),
             parameter_types: Box::new([]),
             active_types: Box::new([]),
             ignored_types: Box::new([]),
-            parameter_trait_bounds: quote! {},
-            parameter_lifetime_bounds: quote! {},
-            active_trait_bounds: quote! {},
-            ignored_trait_bounds: quote! {},
+            active_trait_bounds: Box::new([]),
+            ignored_trait_bounds: Box::new([]),
+            parameter_trait_bounds: Box::new([]),
+        }
+    }
+}
+
+impl WhereClauseOptions {
+    /// Create [`WhereClauseOptions`] for a struct or enum type.
+    pub fn new<'a: 'b, 'b>(
+        meta: &ReflectMeta,
+        active_fields: impl Iterator<Item = &'b StructField<'a>>,
+        ignored_fields: impl Iterator<Item = &'b StructField<'a>>,
+    ) -> Self {
+        Self::new_with_bounds(meta, active_fields, ignored_fields, |_| None, |_| None)
+    }
+
+    /// Create [`WhereClauseOptions`] for a simple value type.
+    pub fn new_value(meta: &ReflectMeta) -> Self {
+        Self::new_with_bounds(
+            meta,
+            std::iter::empty(),
+            std::iter::empty(),
+            |_| None,
+            |_| None,
+        )
+    }
+
+    /// Create [`WhereClauseOptions`] for a struct or enum type.
+    ///
+    /// Compared to [`WhereClauseOptions::new`], this version allows you to specify
+    /// custom trait bounds for each field.
+    pub fn new_with_bounds<'a: 'b, 'b>(
+        meta: &ReflectMeta,
+        active_fields: impl Iterator<Item = &'b StructField<'a>>,
+        ignored_fields: impl Iterator<Item = &'b StructField<'a>>,
+        active_bounds: impl Fn(&StructField<'a>) -> Option<proc_macro2::TokenStream>,
+        ignored_bounds: impl Fn(&StructField<'a>) -> Option<proc_macro2::TokenStream>,
+    ) -> Self {
+        let bevy_reflect_path = meta.bevy_reflect_path();
+        let is_from_reflect = meta.from_reflect().should_auto_derive();
+
+        let (active_types, active_trait_bounds): (Vec<_>, Vec<_>) = active_fields
+            .map(|field| {
+                let ty = field.data.ty.clone();
+
+                let custom_bounds = active_bounds(field).map(|bounds| quote!(+ #bounds));
+
+                let bounds = if is_from_reflect {
+                    quote!(#bevy_reflect_path::FromReflect #custom_bounds)
+                } else {
+                    quote!(#bevy_reflect_path::Reflect #custom_bounds)
+                };
+
+                (ty, bounds)
+            })
+            .unzip();
+
+        let (ignored_types, ignored_trait_bounds): (Vec<_>, Vec<_>) = ignored_fields
+            .map(|field| {
+                let ty = field.data.ty.clone();
+
+                let custom_bounds = ignored_bounds(field).map(|bounds| quote!(+ #bounds));
+                let bounds = quote!(#FQAny + #FQSend + #FQSync #custom_bounds);
+
+                (ty, bounds)
+            })
+            .unzip();
+
+        let (parameter_types, parameter_trait_bounds): (Vec<_>, Vec<_>) =
+            if meta.traits().type_path_attrs().should_auto_derive() {
+                meta.type_path()
+                    .generics()
+                    .type_params()
+                    .map(|param| {
+                        let ident = param.ident.clone();
+                        let bounds = quote!(#bevy_reflect_path::TypePath);
+                        (ident, bounds)
+                    })
+                    .unzip()
+            } else {
+                // If we don't need to derive `TypePath` for the type parameters,
+                // we can skip adding its bound to the `where` clause.
+                (Vec::new(), Vec::new())
+            };
+
+        Self {
+            active_types: active_types.into_boxed_slice(),
+            active_trait_bounds: active_trait_bounds.into_boxed_slice(),
+            ignored_types: ignored_types.into_boxed_slice(),
+            ignored_trait_bounds: ignored_trait_bounds.into_boxed_slice(),
+            parameter_types: parameter_types.into_boxed_slice(),
+            parameter_trait_bounds: parameter_trait_bounds.into_boxed_slice(),
         }
     }
 }
@@ -153,11 +215,9 @@ pub(crate) fn extend_where_clause(
     where_clause: Option<&WhereClause>,
     where_clause_options: &WhereClauseOptions,
 ) -> proc_macro2::TokenStream {
-    let parameter_lifetimes = &where_clause_options.parameter_lifetimes;
     let parameter_types = &where_clause_options.parameter_types;
     let active_types = &where_clause_options.active_types;
     let ignored_types = &where_clause_options.ignored_types;
-    let parameter_lifetime_bounds = &where_clause_options.parameter_lifetime_bounds;
     let parameter_trait_bounds = &where_clause_options.parameter_trait_bounds;
     let active_trait_bounds = &where_clause_options.active_trait_bounds;
     let ignored_trait_bounds = &where_clause_options.ignored_trait_bounds;
@@ -165,11 +225,7 @@ pub(crate) fn extend_where_clause(
     let mut generic_where_clause = if let Some(where_clause) = where_clause {
         let predicates = where_clause.predicates.iter();
         quote! {where #(#predicates,)*}
-    } else if !(parameter_lifetimes.is_empty()
-        && parameter_types.is_empty()
-        && active_types.is_empty()
-        && ignored_types.is_empty())
-    {
+    } else if !(parameter_types.is_empty() && active_types.is_empty() && ignored_types.is_empty()) {
         quote! {where}
     } else {
         quote!()
@@ -180,7 +236,6 @@ pub(crate) fn extend_where_clause(
     // the whole bound by default, resulting in a failure to prove trait
     // adherence.
     generic_where_clause.extend(quote! {
-        #(#parameter_lifetimes: #parameter_lifetime_bounds,)*
         #((#active_types): #active_trait_bounds,)*
         #((#ignored_types): #ignored_trait_bounds,)*
         // Leave parameter bounds to the end for more sane error messages.

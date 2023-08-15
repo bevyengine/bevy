@@ -114,7 +114,7 @@ pub trait TypePath: 'static {
         None
     }
 
-    /// Returns the path to the moudle the type is in, or [`None`] if it is [anonymous].
+    /// Returns the path to the module the type is in, or [`None`] if it is [anonymous].
     ///
     /// For `Option<Vec<usize>>`, this is `"core::option"`.
     ///

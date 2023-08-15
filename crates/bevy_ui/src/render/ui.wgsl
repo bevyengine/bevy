@@ -1,4 +1,4 @@
-#import bevy_render::view
+#import bevy_render::view  View
 
 const TEXTURED_QUAD: u32 = 0u;
 
@@ -8,7 +8,7 @@ var<uniform> view: View;
 struct VertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) color: vec4<f32>,
-    @location(3) mode: u32,
+    @location(3) @interpolate(flat) mode: u32,
     @builtin(position) position: vec4<f32>,
 };
 
@@ -39,7 +39,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     if in.mode == TEXTURED_QUAD {
         color = in.color * color;
     } else {
-        color = in.color;   
+        color = in.color;
     }
     return color;
 }

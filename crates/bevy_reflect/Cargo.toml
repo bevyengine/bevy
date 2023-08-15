@@ -1,6 +1,6 @@
 [package]
 name = "bevy_reflect"
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 edition = "2021"
 description = "Dynamically interact with rust types"
 homepage = "https://bevyengine.org"
@@ -18,12 +18,12 @@ documentation = ["bevy_reflect_derive/documentation"]
 
 [dependencies]
 # bevy
-bevy_math = { path = "../bevy_math", version = "0.11.0-dev", features = [
+bevy_math = { path = "../bevy_math", version = "0.12.0-dev", features = [
     "serialize",
 ], optional = true }
-bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.11.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
-bevy_ptr = { path = "../bevy_ptr", version = "0.11.0-dev" }
+bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.12.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
+bevy_ptr = { path = "../bevy_ptr", version = "0.12.0-dev" }
 
 # other
 erased-serde = "0.3"

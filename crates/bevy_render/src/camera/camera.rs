@@ -4,7 +4,7 @@ use crate::{
     prelude::Image,
     render_asset::RenderAssets,
     render_resource::TextureView,
-    view::{ColorGrading, ExtractedView, ExtractedWindows, VisibleEntities},
+    view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
     Extract,
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
@@ -19,9 +19,8 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_log::warn;
-use bevy_math::{Mat4, Ray, Rect, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{Mat4, Ray, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
-use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
@@ -35,7 +34,7 @@ use wgpu::{BlendState, Extent3d, LoadOp, TextureFormat};
 /// The viewport defines the area on the render target to which the camera renders its image.
 /// You can overlay multiple cameras in a single window using viewports to create effects like
 /// split screen, minimaps, and character viewers.
-#[derive(Reflect, FromReflect, Debug, Clone)]
+#[derive(Reflect, Debug, Clone)]
 #[reflect(Default)]
 pub struct Viewport {
     /// The physical position to render this viewport to within the [`RenderTarget`] of this [`Camera`].
@@ -86,7 +85,7 @@ pub struct ComputedCameraValues {
 ///
 /// Adding a camera is typically done by adding a bundle, either the `Camera2dBundle` or the
 /// `Camera3dBundle`.
-#[derive(Component, Debug, Reflect, FromReflect, Clone)]
+#[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component)]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
@@ -139,18 +138,18 @@ impl Camera {
         Some((physical_size.as_dvec2() / scale).as_vec2())
     }
 
-    /// The rendered physical bounds (minimum, maximum) of the camera. If the `viewport` field is
+    /// The rendered physical bounds [`URect`] of the camera. If the `viewport` field is
     /// set to [`Some`], this will be the rect of that custom viewport. Otherwise it will default to
     /// the full physical rect of the current [`RenderTarget`].
     #[inline]
-    pub fn physical_viewport_rect(&self) -> Option<(UVec2, UVec2)> {
+    pub fn physical_viewport_rect(&self) -> Option<URect> {
         let min = self
             .viewport
             .as_ref()
             .map(|v| v.physical_position)
             .unwrap_or(UVec2::ZERO);
         let max = min + self.physical_viewport_size()?;
-        Some((min, max))
+        Some(URect { min, max })
     }
 
     /// The rendered logical bounds [`Rect`] of the camera. If the `viewport` field is set to
@@ -158,7 +157,7 @@ impl Camera {
     /// full logical rect of the current [`RenderTarget`].
     #[inline]
     pub fn logical_viewport_rect(&self) -> Option<Rect> {
-        let (min, max) = self.physical_viewport_rect()?;
+        let URect { min, max } = self.physical_viewport_rect()?;
         Some(Rect {
             min: self.to_logical(min)?,
             max: self.to_logical(max)?,
@@ -170,6 +169,14 @@ impl Camera {
     /// of the current [`RenderTarget`].
     ///  For logic that requires the full logical size of the
     /// [`RenderTarget`], prefer [`Camera::logical_target_size`].
+    ///
+    /// Returns `None` if either:
+    /// - the function is called just after the `Camera` is created, before `camera_system` is executed,
+    /// - the [`RenderTarget`] isn't correctly set:
+    ///   - it references the [`PrimaryWindow`](RenderTarget::Window) when there is none,
+    ///   - it references a [`Window`](RenderTarget::Window) entity that doesn't exist or doesn't actually have a `Window` component,
+    ///   - it references an [`Image`](RenderTarget::Image) that doesn't exist (invalid handle),
+    ///   - it references a [`TextureView`](RenderTarget::TextureView) that doesn't exist (invalid handle).
     #[inline]
     pub fn logical_viewport_size(&self) -> Option<Vec2> {
         self.viewport
@@ -219,6 +226,12 @@ impl Camera {
     ///
     /// To get the coordinates in Normalized Device Coordinates, you should use
     /// [`world_to_ndc`](Self::world_to_ndc).
+    ///
+    /// Returns `None` if any of these conditions occur:
+    /// - The computed coordinates are beyond the near or far plane
+    /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
+    /// - The world coordinates cannot be mapped to the Normalized Device Coordinates. See [`world_to_ndc`](Camera::world_to_ndc)
+    /// May also panic if `glam_assert` is enabled. See [`world_to_ndc`](Camera::world_to_ndc).
     #[doc(alias = "world_to_screen")]
     pub fn world_to_viewport(
         &self,
@@ -227,7 +240,7 @@ impl Camera {
     ) -> Option<Vec2> {
         let target_size = self.logical_viewport_size()?;
         let ndc_space_coords = self.world_to_ndc(camera_transform, world_position)?;
-        // NDC z-values outside of 0 < z < 1 are outside the camera frustum and are thus not in viewport-space
+        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
         if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
             return None;
         }
@@ -247,6 +260,11 @@ impl Camera {
     ///
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
+    ///
+    /// Returns `None` if any of these conditions occur:
+    /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
+    /// - The near or far plane cannot be computed. This can happen if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
+    /// Panics if the projection matrix is null and `glam_assert` is enabled.
     pub fn viewport_to_world(
         &self,
         camera_transform: &GlobalTransform,
@@ -275,6 +293,11 @@ impl Camera {
     ///
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
+    ///
+    /// Returns `None` if any of these conditions occur:
+    /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
+    /// - The viewport position cannot be mapped to the world. See [`ndc_to_world`](Camera::ndc_to_world)
+    /// May panic. See [`ndc_to_world`](Camera::ndc_to_world).
     pub fn viewport_to_world_2d(
         &self,
         camera_transform: &GlobalTransform,
@@ -296,6 +319,9 @@ impl Camera {
     /// and between 0.0 and 1.0 on the Z axis.
     /// To get the coordinates in the render target's viewport dimensions, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
+    ///
+    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
+    /// Panics if the `camera_transform` contains `NAN` and the `glam_assert` feature is enabled.
     pub fn world_to_ndc(
         &self,
         camera_transform: &GlobalTransform,
@@ -316,6 +342,9 @@ impl Camera {
     /// and between 0.0 and 1.0 on the Z axis.
     /// To get the world space coordinates with the viewport position, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
+    ///
+    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
+    /// Panics if the projection matrix is null and `glam_assert` is enabled.
     pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
         // Build a transformation matrix to convert from NDC to world space using camera data
         let ndc_to_world =
@@ -377,8 +406,7 @@ impl CameraRenderGraph {
 
 /// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`](bevy_window::Window)
 /// swapchain or an [`Image`].
-#[derive(Debug, Clone, Reflect, FromReflect)]
-#[reflect(FromReflect)]
+#[derive(Debug, Clone, Reflect)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
     Window(WindowRef),
@@ -615,6 +643,7 @@ pub fn extract_cameras(
             &VisibleEntities,
             Option<&ColorGrading>,
             Option<&TemporalJitter>,
+            Option<&RenderLayers>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
@@ -628,6 +657,7 @@ pub fn extract_cameras(
         visible_entities,
         color_grading,
         temporal_jitter,
+        render_layers,
     ) in query.iter()
     {
         let color_grading = *color_grading.unwrap_or(&ColorGrading::default());
@@ -636,7 +666,14 @@ pub fn extract_cameras(
             continue;
         }
 
-        if let (Some((viewport_origin, _)), Some(viewport_size), Some(target_size)) = (
+        if let (
+            Some(URect {
+                min: viewport_origin,
+                ..
+            }),
+            Some(viewport_size),
+            Some(target_size),
+        ) = (
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
             camera.physical_target_size(),
@@ -678,6 +715,10 @@ pub fn extract_cameras(
 
             if let Some(temporal_jitter) = temporal_jitter {
                 commands.insert(temporal_jitter.clone());
+            }
+
+            if let Some(render_layers) = render_layers {
+                commands.insert(*render_layers);
             }
         }
     }

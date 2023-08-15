@@ -7,9 +7,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_derive::Deref;
 use bevy_ecs::prelude::*;
-use bevy_reflect::{
-    std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect, TypeUuid,
-};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypeUuid};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     prelude::Camera,
@@ -26,8 +24,8 @@ mod node;
 
 pub use node::FxaaNode;
 
-#[derive(Reflect, FromReflect, Eq, PartialEq, Hash, Clone, Copy)]
-#[reflect(FromReflect, PartialEq, Hash)]
+#[derive(Reflect, Eq, PartialEq, Hash, Clone, Copy)]
+#[reflect(PartialEq, Hash)]
 pub enum Sensitivity {
     Low,
     Medium,
@@ -48,8 +46,8 @@ impl Sensitivity {
     }
 }
 
-#[derive(Reflect, FromReflect, Component, Clone, ExtractComponent)]
-#[reflect(Component, FromReflect, Default)]
+#[derive(Reflect, Component, Clone, ExtractComponent)]
+#[reflect(Component, Default)]
 #[extract_component_filter(With<Camera>)]
 pub struct Fxaa {
     /// Enable render passes for FXAA.
