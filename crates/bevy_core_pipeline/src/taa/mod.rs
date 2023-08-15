@@ -69,7 +69,7 @@ impl Plugin for TemporalAntiAliasPlugin {
                         .chain()
                         .before(prepare_view_uniforms)
                         .in_set(RenderSet::Prepare),
-                    prepare_taa_history_textures.in_set(RenderSet::Prepare),
+                    prepare_taa_history_textures.in_set(RenderSet::ManageViews),
                     prepare_taa_pipelines.in_set(RenderSet::Prepare),
                 ),
             )
