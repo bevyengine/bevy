@@ -119,64 +119,64 @@ impl ReflectBundle {
     }
 }
 
-impl<C: Bundle + Reflect + FromWorld> FromType<C> for ReflectBundle {
+impl<B: Bundle + Reflect + FromWorld> FromType<B> for ReflectBundle {
     fn from_type() -> Self {
         ReflectBundle(ReflectBundleFns {
-            from_world: |world| Box::new(C::from_world(world)),
+            from_world: |world| Box::new(B::from_world(world)),
             insert: |entity, reflected_bundle| {
-                let mut bundle = entity.world_scope(|world| C::from_world(world));
+                let mut bundle = entity.world_scope(|world| B::from_world(world));
                 bundle.apply(reflected_bundle);
                 entity.insert(bundle);
             },
             apply: |entity, reflected_bundle, registry| {
-                let mut bundle = entity.world_scope(|world| C::from_world(world));
+                let mut bundle = entity.world_scope(|world| B::from_world(world));
                 bundle.apply(reflected_bundle);
 
                 match bundle.reflect_ref() {
                     ReflectRef::Struct(bundle) => bundle
                         .iter_fields()
-                        .for_each(|field| insert_field::<C>(entity, field, registry)),
+                        .for_each(|field| insert_field::<B>(entity, field, registry)),
                     ReflectRef::Tuple(bundle) => bundle
                         .iter_fields()
-                        .for_each(|field| insert_field::<C>(entity, field, registry)),
+                        .for_each(|field| insert_field::<B>(entity, field, registry)),
                     _ => panic!(
                         "expected bundle `{}` to be named struct or tuple",
-                        std::any::type_name::<C>()
+                        std::any::type_name::<B>()
                     ),
                 }
             },
             apply_or_insert: |entity, reflected_bundle, registry| {
-                let mut bundle = entity.world_scope(|world| C::from_world(world));
+                let mut bundle = entity.world_scope(|world| B::from_world(world));
                 bundle.apply(reflected_bundle);
 
                 match bundle.reflect_ref() {
                     ReflectRef::Struct(bundle) => bundle
                         .iter_fields()
-                        .for_each(|field| apply_or_insert_field::<C>(entity, field, registry)),
+                        .for_each(|field| apply_or_insert_field::<B>(entity, field, registry)),
                     ReflectRef::Tuple(bundle) => bundle
                         .iter_fields()
-                        .for_each(|field| apply_or_insert_field::<C>(entity, field, registry)),
+                        .for_each(|field| apply_or_insert_field::<B>(entity, field, registry)),
                     _ => panic!(
                         "expected bundle `{}` to be named struct or tuple",
-                        std::any::type_name::<C>()
+                        std::any::type_name::<B>()
                     ),
                 }
             },
             remove: |entity| {
-                entity.remove::<C>();
+                entity.remove::<B>();
             },
         })
     }
 }
 
-fn insert_field<C: 'static>(entity: &mut EntityMut, field: &dyn Reflect, registry: &TypeRegistry) {
+fn insert_field<B: 'static>(entity: &mut EntityMut, field: &dyn Reflect, registry: &TypeRegistry) {
     if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(field.type_id()) {
         reflect_component.apply(entity, field);
     } else if let Some(reflect_bundle) = registry.get_type_data::<ReflectBundle>(field.type_id()) {
         reflect_bundle.apply(entity, field, registry);
     } else {
         entity.world_scope(|world| {
-            if world.components().get_id(TypeId::of::<C>()).is_some() {
+            if world.components().get_id(TypeId::of::<B>()).is_some() {
                 panic!(
                     "no `ReflectComponent` registration found for `{}`",
                     field.type_name()
@@ -191,7 +191,7 @@ fn insert_field<C: 'static>(entity: &mut EntityMut, field: &dyn Reflect, registr
     }
 }
 
-fn apply_or_insert_field<C: 'static>(
+fn apply_or_insert_field<B: 'static>(
     entity: &mut EntityMut,
     field: &dyn Reflect,
     registry: &TypeRegistry,
@@ -202,7 +202,7 @@ fn apply_or_insert_field<C: 'static>(
         reflect_bundle.apply_or_insert(entity, field, registry);
     } else {
         entity.world_scope(|world| {
-            if world.components().get_id(TypeId::of::<C>()).is_some() {
+            if world.components().get_id(TypeId::of::<B>()).is_some() {
                 panic!(
                     "no `ReflectComponent` registration found for `{}`",
                     field.type_name()
