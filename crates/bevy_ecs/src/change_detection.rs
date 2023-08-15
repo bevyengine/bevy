@@ -71,7 +71,7 @@ pub trait DetectChanges {
 /// Using types that implement [`DetectChangesMut`], such as [`ResMut`], provide
 /// a way to query if a value has been mutated in another system.
 /// Normally change detection is triggered by either [`DerefMut`] or [`AsMut`], however
-/// it can be manually triggered via [`set_if_neq`](`DetectChangesMut::set_changed`).
+/// it can be manually triggered via [`set_changed`](DetectChangesMut::set_changed).
 ///
 /// To ensure that changes are only triggered when the value actually differs,
 /// check if the value would change before assignment, such as by checking that `new != old`.
