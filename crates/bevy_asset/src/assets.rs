@@ -317,6 +317,10 @@ pub trait AddAsset {
     fn add_asset_loader<T>(&mut self, loader: T) -> &mut Self
     where
         T: AssetLoader;
+
+    /// Preregisters a loader for the given extensions, that will block asset loads until a real loader
+    /// is registered.
+    fn preregister_asset_loader(&mut self, extensions: &[&str]) -> &mut Self;
 }
 
 impl AddAsset for App {
@@ -402,6 +406,13 @@ impl AddAsset for App {
         T: AssetLoader,
     {
         self.world.resource_mut::<AssetServer>().add_loader(loader);
+        self
+    }
+
+    fn preregister_asset_loader(&mut self, extensions: &[&str]) -> &mut Self {
+        self.world
+            .resource_mut::<AssetServer>()
+            .preregister_loader(extensions);
         self
     }
 }
