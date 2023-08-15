@@ -684,24 +684,7 @@ impl DepthBindingsSet {
 }
 
 pub fn get_depth_stencil_state(shadow: bool, depth_format: TextureFormat) -> DepthStencilState {
-    if shadow {
-        DepthStencilState {
-            format: SHADOW_FORMAT,
-            depth_write_enabled: true,
-            depth_compare: CompareFunction::GreaterEqual,
-            stencil: StencilState {
-                front: StencilFaceState::IGNORE,
-                back: StencilFaceState::IGNORE,
-                read_mask: 0,
-                write_mask: 0,
-            },
-            bias: DepthBiasState {
-                constant: 0,
-                slope_scale: 0.0,
-                clamp: 0.0,
-            },
-        }
-    } else {
+    if !shadow && depth_format.has_stencil_aspect() {
         DepthStencilState {
             format: depth_format,
             depth_write_enabled: true,
@@ -721,6 +704,23 @@ pub fn get_depth_stencil_state(shadow: bool, depth_format: TextureFormat) -> Dep
                 },
                 read_mask: 0,
                 write_mask: u32::MAX,
+            },
+            bias: DepthBiasState {
+                constant: 0,
+                slope_scale: 0.0,
+                clamp: 0.0,
+            },
+        }
+    } else {
+        DepthStencilState {
+            format: SHADOW_FORMAT,
+            depth_write_enabled: true,
+            depth_compare: CompareFunction::GreaterEqual,
+            stencil: StencilState {
+                front: StencilFaceState::IGNORE,
+                back: StencilFaceState::IGNORE,
+                read_mask: 0,
+                write_mask: 0,
             },
             bias: DepthBiasState {
                 constant: 0,
