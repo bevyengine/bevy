@@ -16,7 +16,7 @@ struct Output {
     @location(1) history: vec4<f32>,
 };
 
-// TAA is ideally applied after tonemapping, but before post processing
+// TAA is ideally applied after tonemapping (if not tonemapping in the main pass), but before post processing
 // Post processing wants to go before tonemapping, which conflicts
 // Solution: Put TAA before tonemapping, tonemap TAA input, apply TAA, invert-tonemap TAA output
 // https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 20
