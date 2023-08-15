@@ -794,7 +794,7 @@ pub fn sort_cameras(
 #[derive(Component, Clone, Default)]
 pub struct TemporalJitter {
     /// Offset is in range [-0.5, 0.5].
-    /// <https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/docs/techniques/media/super-resolution-temporal/jitter-space.svg#L4>
+    /// <https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/docs/techniques/media/super-resolution-temporal/jitter-space.svg>
     pub offset: Vec2,
 }
 
