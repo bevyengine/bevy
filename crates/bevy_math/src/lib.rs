@@ -7,10 +7,12 @@
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 
+mod affine3;
 pub mod cubic_splines;
 mod ray;
 mod rects;
 
+pub use affine3::*;
 pub use ray::Ray;
 pub use rects::*;
 
