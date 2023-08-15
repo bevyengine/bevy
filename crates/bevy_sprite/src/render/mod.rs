@@ -292,6 +292,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
             },
             label: Some("sprite_pipeline".into()),
             push_constant_ranges: Vec::new(),
+            unchecked: cfg!(not(debug_assertions)),
         }
     }
 }

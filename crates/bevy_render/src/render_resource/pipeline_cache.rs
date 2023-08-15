@@ -242,6 +242,7 @@ impl ShaderCache {
         pipeline: CachedPipelineId,
         handle: &Handle<Shader>,
         shader_defs: &[ShaderDefVal],
+        unchecked: bool,
     ) -> Result<ErasedShaderModule, PipelineCacheError> {
         let shader = self
             .shaders
@@ -337,7 +338,11 @@ impl ShaderCache {
                 render_device
                     .wgpu_device()
                     .push_error_scope(wgpu::ErrorFilter::Validation);
-                let shader_module = render_device.create_shader_module(module_descriptor);
+                let shader_module = if unchecked {
+                    unsafe { render_device.create_shader_module_unchecked(module_descriptor) }
+                } else {
+                    render_device.create_shader_module(module_descriptor)
+                };
                 let error = render_device.wgpu_device().pop_error_scope();
 
                 // `now_or_never` will return Some if the future is ready and None otherwise.
@@ -651,6 +656,7 @@ impl PipelineCache {
             id,
             &descriptor.vertex.shader,
             &descriptor.vertex.shader_defs,
+            descriptor.unchecked,
         ) {
             Ok(module) => module,
             Err(err) => {
@@ -664,6 +670,7 @@ impl PipelineCache {
                 id,
                 &fragment.shader,
                 &fragment.shader_defs,
+                descriptor.unchecked,
             ) {
                 Ok(module) => module,
                 Err(err) => {
@@ -736,6 +743,7 @@ impl PipelineCache {
             id,
             &descriptor.shader,
             &descriptor.shader_defs,
+            descriptor.unchecked,
         ) {
             Ok(module) => module,
             Err(err) => {

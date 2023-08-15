@@ -532,6 +532,7 @@ impl FromWorld for SsaoPipelines {
                 shader: PREPROCESS_DEPTH_SHADER_HANDLE.typed(),
                 shader_defs: Vec::new(),
                 entry_point: "preprocess_depth".into(),
+                unchecked: cfg!(not(debug_assertions)),
             });
 
         let spatial_denoise_pipeline =
@@ -545,6 +546,7 @@ impl FromWorld for SsaoPipelines {
                 shader: SPATIAL_DENOISE_SHADER_HANDLE.typed(),
                 shader_defs: Vec::new(),
                 entry_point: "spatial_denoise".into(),
+                unchecked: cfg!(not(debug_assertions)),
             });
 
         Self {
@@ -596,6 +598,7 @@ impl SpecializedComputePipeline for SsaoPipelines {
             shader: GTAO_SHADER_HANDLE.typed(),
             shader_defs,
             entry_point: "gtao".into(),
+            unchecked: cfg!(not(debug_assertions)),
         }
     }
 }

@@ -536,6 +536,7 @@ where
             },
             push_constant_ranges,
             label: Some("prepass_pipeline".into()),
+            unchecked: key.mesh_key.contains(MeshPipelineKey::UNCHECKED),
         };
 
         // This is a bit risky because it's possible to change something that would

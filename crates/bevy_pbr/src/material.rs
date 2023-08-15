@@ -147,6 +147,11 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Si
         ShaderRef::Default
     }
 
+    /// See [`RenderDevice::create_shader_module_unchecked`]. Defaults to true in release mode, and false in debug mode.
+    fn unchecked() -> bool {
+        cfg!(not(debug_assertions))
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
     /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
     #[allow(unused_variables)]
@@ -478,9 +483,15 @@ pub fn queue_material_meshes<M: Material>(
                     let mut mesh_key =
                         MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                             | view_key;
+
+                    if M::unchecked() {
+                        mesh_key |= MeshPipelineKey::UNCHECKED;
+                    }
+
                     if mesh.morph_targets.is_some() {
                         mesh_key |= MeshPipelineKey::MORPH_TARGETS;
                     }
+
                     match material.properties.alpha_mode {
                         AlphaMode::Blend => {
                             mesh_key |= MeshPipelineKey::BLEND_ALPHA;

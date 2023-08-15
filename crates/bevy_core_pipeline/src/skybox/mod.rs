@@ -175,6 +175,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
+            unchecked: cfg!(not(debug_assertions)),
         }
     }
 }

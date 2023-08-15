@@ -290,9 +290,10 @@ bitflags::bitflags! {
     // FIXME: make normals optional?
     pub struct Mesh2dPipelineKey: u32 {
         const NONE                              = 0;
-        const HDR                               = (1 << 0);
-        const TONEMAP_IN_SHADER                 = (1 << 1);
-        const DEBAND_DITHER                     = (1 << 2);
+        const UNCHECKED                         = (1 << 0);
+        const HDR                               = (1 << 1);
+        const TONEMAP_IN_SHADER                 = (1 << 2);
+        const DEBAND_DITHER                     = (1 << 3);
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -471,6 +472,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("transparent_mesh2d_pipeline".into()),
+            unchecked: key.contains(Mesh2dPipelineKey::UNCHECKED),
         })
     }
 }

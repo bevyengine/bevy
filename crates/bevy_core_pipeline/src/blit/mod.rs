@@ -102,6 +102,7 @@ impl SpecializedRenderPipeline for BlitPipeline {
                 ..Default::default()
             },
             push_constant_ranges: Vec::new(),
+            unchecked: cfg!(not(debug_assertions)),
         }
     }
 }

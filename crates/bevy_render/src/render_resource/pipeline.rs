@@ -107,6 +107,8 @@ pub struct RenderPipelineDescriptor {
     pub multisample: MultisampleState,
     /// The compiled fragment stage, its entry point, and the color targets.
     pub fragment: Option<FragmentState>,
+    /// See [`RenderDevice::create_shader_module_unchecked`].
+    pub unchecked: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -185,4 +187,6 @@ pub struct ComputePipelineDescriptor {
     /// The name of the entry point in the compiled shader. There must be a
     /// function with this name in the shader.
     pub entry_point: Cow<'static, str>,
+    /// See [`RenderDevice::create_shader_module_unchecked`].
+    pub unchecked: bool,
 }

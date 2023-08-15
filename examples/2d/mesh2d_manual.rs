@@ -194,6 +194,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("colored_mesh2d_pipeline".into()),
+            unchecked: cfg!(not(debug_assertions)),
         }
     }
 }

@@ -314,6 +314,7 @@ impl FromWorld for PostProcessPipeline {
                 depth_stencil: None,
                 multisample: MultisampleState::default(),
                 push_constant_ranges: vec![],
+                unchecked: cfg!(not(debug_assertions)),
             });
 
         Self {

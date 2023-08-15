@@ -124,6 +124,11 @@ pub trait Material2d: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + 
         ShaderRef::Default
     }
 
+    /// See [`RenderDevice::create_shader_module_unchecked`]. Defaults to true in release mode, and false in debug mode.
+    fn unchecked() -> bool {
+        cfg!(not(debug_assertions))
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`].
     #[allow(unused_variables)]
     #[inline]
@@ -383,8 +388,12 @@ pub fn queue_material2d_meshes<M: Material2d>(
             {
                 if let Some(material2d) = render_materials.get(material2d_handle) {
                     if let Some(mesh) = render_meshes.get(&mesh2d_handle.0) {
-                        let mesh_key = view_key
+                        let mut mesh_key = view_key
                             | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
+
+                        if M::unchecked() {
+                            mesh_key |= Mesh2dPipelineKey::UNCHECKED;
+                        }
 
                         let pipeline_id = pipelines.specialize(
                             &pipeline_cache,

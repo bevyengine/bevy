@@ -113,6 +113,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             },
             label: Some("LineGizmo Pipeline 2D".into()),
             push_constant_ranges: vec![],
+            unchecked: cfg!(not(debug_assertions)),
         }
     }
 }
