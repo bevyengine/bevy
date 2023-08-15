@@ -44,20 +44,22 @@ fn vec3_to_rgb9e5_(rgb_in: vec3<f32>) -> u32 {
     return (u32(exp_shared) << 27u) | (n.b << 18u) | (n.g << 9u) | (n.r << 0u);
 }
 
-#ifdef WEBGL
-fn extractBits(value: u32, offset: u32, bits: u32) -> u32 {
+// #ifdef WEBGL
+// Builtin extractBits() is not working on WEBGL or DX12
+// DX12: HLSL: Unimplemented("write_expr_math ExtractBits")
+fn extract_bits(value: u32, offset: u32, bits: u32) -> u32 {
     let mask = (1u << bits) - 1u;
     return (value >> offset) & mask;
 }
-#endif
+// #endif
 
 fn rgb9e5_to_vec3_(v: u32) -> vec3<f32> {
-    let exponent = i32(extractBits(v, 27u, RGB9E5_EXPONENT_BITS)) - RGB9E5_EXP_BIAS - RGB9E5_MANTISSA_BITS;
+    let exponent = i32(extract_bits(v, 27u, RGB9E5_EXPONENT_BITS)) - RGB9E5_EXP_BIAS - RGB9E5_MANTISSA_BITS;
     let scale = exp2(f32(exponent));
 
     return vec3(
-        f32(extractBits(v, 0u, RGB9E5_MANTISSA_BITSU)),
-        f32(extractBits(v, 9u, RGB9E5_MANTISSA_BITSU)),
-        f32(extractBits(v, 18u, RGB9E5_MANTISSA_BITSU))
+        f32(extract_bits(v, 0u, RGB9E5_MANTISSA_BITSU)),
+        f32(extract_bits(v, 9u, RGB9E5_MANTISSA_BITSU)),
+        f32(extract_bits(v, 18u, RGB9E5_MANTISSA_BITSU))
     ) * scale;
 }
