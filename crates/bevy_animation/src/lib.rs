@@ -163,7 +163,7 @@ impl Default for PlayingAnimation {
 impl PlayingAnimation {
     /// Predicate to check if the animation has finished, based on its repetition behavior and the number of times it has repeated.
     /// Note: An animation with `RepeatAnimation::Forever` will never finish.
-    pub fn finished(&self) -> bool {
+    pub fn is_finished(&self) -> bool {
         match self.repeat {
             RepeatAnimation::Forever => false,
             RepeatAnimation::Never => self.completions >= 1,
@@ -279,7 +279,7 @@ impl AnimationPlayer {
 
     /// Predicate to check if the playing animation has finished, according to the repetition behavior.
     pub fn is_finished(&self) -> bool {
-        self.animation.finished()
+        self.animation.is_finished()
     }
 
     /// Set the animation to repeat
@@ -553,7 +553,7 @@ fn apply_animation(
     if let Some(animation_clip) = animations.get(animation_clip_handle) {
         // Only update the elapsed time while the player is not paused and the animation is not complete.
         // We don't return early because set_elapsed() may have been called on the animation player.
-        if !animation.finished() && !paused {
+        if !animation.is_finished() && !paused {
             animation.elapsed += time.delta_seconds() * animation.speed;
         }
         let mut elapsed = animation.elapsed;
