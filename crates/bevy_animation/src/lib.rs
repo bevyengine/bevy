@@ -124,14 +124,15 @@ impl AnimationClip {
 }
 
 /// Repetition behavior of an animation.
-#[derive(Reflect, Copy, Clone)]
+#[derive(Reflect, Copy, Clone, Default)]
 pub enum RepeatAnimation {
-    /// The animation will never finish.
-    Forever,
     /// The animation will finish after running once.
+    #[default]
     Never,
     /// The animation will finish after running "n" times.
     Count(u32),
+    /// The animation will never finish.
+    Forever,
 }
 
 #[derive(Reflect)]
@@ -149,7 +150,7 @@ struct PlayingAnimation {
 impl Default for PlayingAnimation {
     fn default() -> Self {
         Self {
-            repeat: RepeatAnimation::Never,
+            repeat: RepeatAnimation::default(),
             speed: 1.0,
             elapsed: 0.0,
             animation_clip: Default::default(),
