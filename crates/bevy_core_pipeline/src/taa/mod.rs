@@ -73,7 +73,10 @@ impl Plugin for TemporalAntiAliasPlugin {
                     prepare_taa_pipelines.in_set(RenderSet::Prepare),
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<TAANode>>(CORE_3D, draw_3d_graph::node::TAA)
+            .add_render_graph_node::<ViewNodeRunner<TemporalAntiAliasNode>>(
+                CORE_3D,
+                draw_3d_graph::node::TAA,
+            )
             .add_render_graph_edges(
                 CORE_3D,
                 &[
@@ -162,15 +165,15 @@ impl Default for TemporalAntiAliasSettings {
 }
 
 #[derive(Default)]
-struct TAANode;
+pub struct TemporalAntiAliasNode;
 
-impl ViewNode for TAANode {
+impl ViewNode for TemporalAntiAliasNode {
     type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
-        &'static TAAHistoryTextures,
+        &'static TemporalAntiAliasHistoryTextures,
         &'static ViewPrepassTextures,
-        &'static TAAPipelineId,
+        &'static TemporalAntiAliasPipelineId,
     );
 
     fn run(
@@ -471,7 +474,7 @@ fn prepare_taa_jitter_and_mip_bias(
 }
 
 #[derive(Component)]
-struct TAAHistoryTextures {
+pub struct TemporalAntiAliasHistoryTextures {
     write: CachedTexture,
     read: CachedTexture,
 }
@@ -511,12 +514,12 @@ fn prepare_taa_history_textures(
             let history_2_texture = texture_cache.get(&render_device, texture_descriptor);
 
             let textures = if frame_count.0 % 2 == 0 {
-                TAAHistoryTextures {
+                TemporalAntiAliasHistoryTextures {
                     write: history_1_texture,
                     read: history_2_texture,
                 }
             } else {
-                TAAHistoryTextures {
+                TemporalAntiAliasHistoryTextures {
                     write: history_2_texture,
                     read: history_1_texture,
                 }
@@ -528,7 +531,7 @@ fn prepare_taa_history_textures(
 }
 
 #[derive(Component)]
-struct TAAPipelineId(CachedRenderPipelineId);
+pub struct TemporalAntiAliasPipelineId(CachedRenderPipelineId);
 
 fn prepare_taa_pipelines(
     mut commands: Commands,
@@ -550,6 +553,8 @@ fn prepare_taa_pipelines(
             pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key);
         }
 
-        commands.entity(entity).insert(TAAPipelineId(pipeline_id));
+        commands
+            .entity(entity)
+            .insert(TemporalAntiAliasPipelineId(pipeline_id));
     }
 }
