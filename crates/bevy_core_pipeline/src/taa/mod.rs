@@ -35,7 +35,7 @@ use bevy_render::{
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 
-mod draw_3d_graph {
+pub mod draw_3d_graph {
     pub mod node {
         /// Label for the TAA render node.
         pub const TAA: &str = "taa";
