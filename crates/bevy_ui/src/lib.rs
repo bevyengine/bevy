@@ -19,10 +19,10 @@ pub mod node_bundles;
 pub mod update;
 pub mod widget;
 
+use bevy_derive::{Deref, DerefMut};
 #[cfg(feature = "bevy_text")]
 use bevy_render::camera::CameraUpdateSystem;
 use bevy_render::{extract_component::ExtractComponentPlugin, RenderApp};
-use bevy_derive::{Deref, DerefMut};
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
