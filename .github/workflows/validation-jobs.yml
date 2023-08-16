@@ -21,12 +21,6 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/cache@v3
-        with:
-          path: |
-            target
-          key: ${{ runner.os }}-ios-install-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
-
       - name: Add iOS targets
         run: rustup target add aarch64-apple-ios x86_64-apple-ios
 
@@ -41,16 +35,6 @@ jobs:
       - uses: actions/checkout@v3
 
       - uses: dtolnay/rust-toolchain@stable
-
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-build-android-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Install Android targets
         run: rustup target add aarch64-linux-android armv7-linux-androideabi
@@ -73,12 +57,11 @@ jobs:
       - uses: actions/cache@v3
         with:
           path: |
-            ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-windows-run-examples-${{ hashFiles('**/Cargo.toml') }}
+          key: ${{ runner.os }}-examples-stable-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Build bevy
         shell: bash
@@ -96,6 +79,9 @@ jobs:
             sleep 10
           done
 
+      - name: Reduce cache size
+        run: rm -rf target/debug/examples  
+
   run-examples-on-wasm:
     if: ${{ github.event_name == 'merge_group' }}
     runs-on: ubuntu-latest
@@ -110,13 +96,12 @@ jobs:
       - uses: actions/cache@v3
         with:
           path: |
-            ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             ~/.github/start-wasm-example/node_modules
             target/
-          key: ${{ runner.os }}-wasm-run-examples-${{ hashFiles('**/Cargo.toml') }}
+          key: ${{ runner.os }}-wasm-stable-${{ hashFiles('**/Cargo.toml') }}
 
       - name: install xvfb, llvmpipe and lavapipe
         run: |
@@ -192,15 +177,6 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-check-unused-dependencies-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
