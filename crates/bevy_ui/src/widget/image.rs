@@ -87,7 +87,7 @@ pub fn update_image_content_size_system(
         .get_single()
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.)
-        * ui_scale.scale;
+        * ui_scale.0;
 
     for (mut content_size, image, mut image_size) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
@@ -129,7 +129,7 @@ pub fn update_atlas_content_size_system(
         .get_single()
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.)
-        * ui_scale.scale;
+        * ui_scale.0;
 
     for (mut content_size, atlas, atlas_image, mut image_size) in &mut atlas_query {
         if let Some(atlas) = atlases.get(atlas) {
