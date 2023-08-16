@@ -544,6 +544,10 @@ pub fn extract_text_uinodes(
 
             let mut color = Color::WHITE;
             let mut current_section = usize::MAX;
+            let Some(mut atlas) = text_layout_info.glyphs.get(0)
+            .map(|glyph| texture_atlases.get(&glyph.atlas_info.texture_atlas).unwrap()) else {
+            continue;
+            };
             for PositionedGlyph {
                 position,
                 atlas_info,
@@ -552,10 +556,10 @@ pub fn extract_text_uinodes(
             } in &text_layout_info.glyphs
             {
                 if *section_index != current_section {
+                    atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
                     color = text.sections[*section_index].style.color.as_rgba_linear();
                     current_section = *section_index;
                 }
-                let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
                 let mut rect = atlas.textures[atlas_info.glyph_index];
                 rect.min *= inverse_scale_factor;
