@@ -118,6 +118,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
 
+    let mut eat_from_components = Vec::new();
+
     for BundleDefaultMember { type_, initializer } in extra_members {
         field_component_ids.push(quote! {
             <#type_ as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
@@ -126,7 +128,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         let expr = match initializer {
             Some(func) => quote! {
                 {
-                    let __bundle_default_func_output: #type_ = (#func)();
+                    let __bundle_default_func_output: #type_ = (#func)(&self);
                     __bundle_default_func_output
                 }
             },
@@ -134,6 +136,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         };
         field_get_components.push(quote! {
             <#type_ as #ecs_path::bundle::DynamicBundle>::get_components(#expr, &mut *func);
+        });
+        eat_from_components.push(quote! {
+            <#type_ as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func);
         });
     }
 
@@ -184,6 +189,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             where
                 __F: FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
             {
+                #(#eat_from_components)*
                 Self {
                     #(#field_from_components)*
                 }

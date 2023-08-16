@@ -301,7 +301,7 @@ mod tests {
         #[derive(Default, Component, Debug, PartialEq)]
         struct D;
 
-        fn make_b() -> B {
+        fn make_b(_: &BundleWithDefaults) -> B {
             B(500)
         }
 
