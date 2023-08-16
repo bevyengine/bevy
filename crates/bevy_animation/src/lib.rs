@@ -139,7 +139,12 @@ pub enum RepeatAnimation {
 struct PlayingAnimation {
     repeat: RepeatAnimation,
     speed: f32,
+    /// Total time the animation has been played.
+    /// Note: Time does not increase when the animation is paused or after it has completed.
     elapsed: f32,
+    /// The timestamp inside of the animation clip.
+    /// Note: This will always be in the range [0.0, animation clip duration]
+    seek_time: f32,
     animation_clip: Handle<AnimationClip>,
     path_cache: Vec<Vec<Option<Entity>>>,
     /// Number of times the animation has completed.
@@ -153,6 +158,7 @@ impl Default for PlayingAnimation {
             repeat: RepeatAnimation::default(),
             speed: 1.0,
             elapsed: 0.0,
+            seek_time: 0.0,
             animation_clip: Default::default(),
             path_cache: Vec::new(),
             completions: 0,
@@ -168,6 +174,29 @@ impl PlayingAnimation {
             RepeatAnimation::Forever => false,
             RepeatAnimation::Never => self.completions >= 1,
             RepeatAnimation::Count(n) => self.completions >= n,
+        }
+    }
+
+    /// Update the animation given the delta time and the duration of the clip being played.
+    fn update(&mut self, delta: f32, clip_duration: f32) {
+        if self.is_finished() {
+            return;
+        }
+
+        self.elapsed += delta;
+        self.seek_time += delta * self.speed;
+
+        if (self.seek_time > clip_duration && self.speed > 0.0)
+            || (self.seek_time < 0.0 && self.speed < 0.0)
+        {
+            self.completions += 1;
+        }
+
+        if self.seek_time >= clip_duration {
+            self.seek_time %= clip_duration;
+        }
+        if self.seek_time < 0.0 {
+            self.seek_time += clip_duration;
         }
     }
 }
@@ -342,9 +371,15 @@ impl AnimationPlayer {
         self.animation.elapsed
     }
 
-    /// Seek to a specific time in the animation
-    pub fn set_elapsed(&mut self, elapsed: f32) -> &mut Self {
-        self.animation.elapsed = elapsed;
+    /// Seek time inside of the animation. Always within the range [0.0, clip duration].
+    pub fn seek_time(&self) -> f32 {
+        self.animation.seek_time
+    }
+
+    /// Seek to a specific time in the animation.
+    pub fn seek_to(&mut self, seek_time: f32) -> &mut Self {
+        assert!(0.0 >= seek_time);
+        self.animation.seek_time = seek_time;
         self
     }
 }
@@ -543,25 +578,12 @@ fn apply_animation(
     children: &Query<&Children>,
 ) {
     if let Some(animation_clip) = animations.get(&animation.animation_clip) {
-        // Only update the elapsed time while the player is not paused and the animation is not complete.
-        // We don't return early because set_elapsed() may have been called on the animation player.
-        if !animation.is_finished() && !paused {
-            animation.elapsed += time.delta_seconds() * animation.speed;
-        }
-        let mut elapsed = animation.elapsed;
+        // We don't return early because seek_to() may have been called on the animation player.
+        animation.update(
+            if paused { 0.0 } else { time.delta_seconds() },
+            animation_clip.duration,
+        );
 
-        if (elapsed > animation_clip.duration && animation.speed > 0.0)
-            || (elapsed < 0.0 && animation.speed < 0.0)
-        {
-            animation.completions += 1;
-        }
-
-        if elapsed >= animation_clip.duration {
-            elapsed %= animation_clip.duration;
-        }
-        if elapsed < 0.0 {
-            elapsed += animation_clip.duration;
-        }
         if animation.path_cache.len() != animation_clip.paths.len() {
             animation.path_cache = vec![Vec::new(); animation_clip.paths.len()];
         }
@@ -615,7 +637,7 @@ fn apply_animation(
                 // PERF: finding the current keyframe can be optimised
                 let step_start = match curve
                     .keyframe_timestamps
-                    .binary_search_by(|probe| probe.partial_cmp(&elapsed).unwrap())
+                    .binary_search_by(|probe| probe.partial_cmp(&animation.seek_time).unwrap())
                 {
                     Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
                     Ok(i) => i,
@@ -625,7 +647,7 @@ fn apply_animation(
                 };
                 let ts_start = curve.keyframe_timestamps[step_start];
                 let ts_end = curve.keyframe_timestamps[step_start + 1];
-                let lerp = (elapsed - ts_start) / (ts_end - ts_start);
+                let lerp = (animation.seek_time - ts_start) / (ts_end - ts_start);
 
                 // Apply the keyframe
                 match &curve.keyframes {
