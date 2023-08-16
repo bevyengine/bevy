@@ -140,7 +140,7 @@ struct PlayingAnimation {
     repeat: RepeatAnimation,
     speed: f32,
     elapsed: f32,
-    animation_clip: Option<Handle<AnimationClip>>,
+    animation_clip: Handle<AnimationClip>,
     path_cache: Vec<Vec<Option<Entity>>>,
     /// Number of times the animation has completed.
     /// If the animation is playing in reverse, this increments when the animation passes the start.
@@ -204,7 +204,7 @@ impl AnimationPlayer {
     /// This will use a linear blending between the previous and the new animation to make a smooth transition
     pub fn start(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
         self.animation = PlayingAnimation {
-            animation_clip: Some(handle),
+            animation_clip: handle,
             ..Default::default()
         };
 
@@ -223,7 +223,7 @@ impl AnimationPlayer {
         transition_duration: Duration,
     ) -> &mut Self {
         let mut animation = PlayingAnimation {
-            animation_clip: Some(handle),
+            animation_clip: handle,
             ..Default::default()
         };
         std::mem::swap(&mut animation, &mut self.animation);
@@ -264,17 +264,13 @@ impl AnimationPlayer {
     }
 
     /// Handle to the animation clip being played.
-    pub fn animation_clip(&self) -> Option<&Handle<AnimationClip>> {
-        self.animation.animation_clip.as_ref()
+    pub fn animation_clip(&self) -> &Handle<AnimationClip> {
+        &self.animation.animation_clip
     }
 
     /// Predicate to check if the given animation clip is being played.
     pub fn is_playing_clip(&self, handle: &Handle<AnimationClip>) -> bool {
-        if let Some(animation_clip_handle) = self.animation_clip() {
-            animation_clip_handle == handle
-        } else {
-            false
-        }
+        self.animation_clip() == handle
     }
 
     /// Predicate to check if the playing animation has finished, according to the repetition behavior.
@@ -546,11 +542,7 @@ fn apply_animation(
     parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
     children: &Query<&Children>,
 ) {
-    let Some(animation_clip_handle) = &animation.animation_clip else {
-        return;
-    };
-
-    if let Some(animation_clip) = animations.get(animation_clip_handle) {
+    if let Some(animation_clip) = animations.get(&animation.animation_clip) {
         // Only update the elapsed time while the player is not paused and the animation is not complete.
         // We don't return early because set_elapsed() may have been called on the animation player.
         if !animation.is_finished() && !paused {
