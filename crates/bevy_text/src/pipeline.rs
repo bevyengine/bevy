@@ -26,6 +26,7 @@ pub struct TextPipeline {
 ///  Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`].
 #[derive(Component, Clone, Default, Debug)]
 pub struct TextLayoutInfo {
+    pub atlases: Vec<(Handle<TextureAtlas>, usize)>,
     pub glyphs: Vec<PositionedGlyph>,
     pub size: Vec2,
 }

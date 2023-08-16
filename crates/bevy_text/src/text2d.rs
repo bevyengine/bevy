@@ -111,37 +111,35 @@ pub fn extract_text2d_sprite(
             * scaling
             * GlobalTransform::from_translation(alignment_translation.extend(0.));
         let mut color = Color::WHITE;
-        let mut current_section = usize::MAX;
+        let mut current_section = u32::MAX;
 
-        let Some(mut atlas) = text_layout_info.glyphs.get(0)
-            .map(|glyph| texture_atlases.get(&glyph.atlas_info.texture_atlas).unwrap()) else {
-            continue;
-        };
-
-        for PositionedGlyph {
-            position,
-            atlas_info,
-            section_index,
-            ..
-        } in &text_layout_info.glyphs
-        {
-            if *section_index != current_section {
-                atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
-                color = text.sections[*section_index].style.color.as_rgba_linear();
-                current_section = *section_index;
+        for (atlas_handle, count) in &text_layout_info.atlases {
+            let atlas =  texture_atlases.get(atlas_handle).unwrap();
+            for _ in 0..*count {
+                for PositionedGlyph {
+                    position,
+                    glyph_index,
+                    section_index,
+                    ..
+                } in &text_layout_info.glyphs {
+                    if *section_index != current_section {
+                        color = text.sections[*section_index as usize].style.color.as_rgba_linear();
+                        current_section = *section_index;
+                    }
+                    
+                    extracted_sprites.sprites.push(ExtractedSprite {
+                        entity,
+                        transform: transform * GlobalTransform::from_translation(position.extend(0.)),
+                        color,
+                        rect: Some(atlas.textures[*glyph_index as usize]),
+                        custom_size: None,
+                        image_handle_id: atlas.texture.id(),
+                        flip_x: false,
+                        flip_y: false,
+                        anchor: Anchor::Center.as_vec(),
+                    });
+                }
             }
-            
-            extracted_sprites.sprites.push(ExtractedSprite {
-                entity,
-                transform: transform * GlobalTransform::from_translation(position.extend(0.)),
-                color,
-                rect: Some(atlas.textures[atlas_info.glyph_index]),
-                custom_size: None,
-                image_handle_id: atlas.texture.id(),
-                flip_x: false,
-                flip_y: false,
-                anchor: Anchor::Center.as_vec(),
-            });
         }
     }
 }

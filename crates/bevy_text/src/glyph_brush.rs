@@ -135,13 +135,11 @@ impl GlyphBrush {
                 };
 
                 let position = adjust.position(Vec2::new(x, y));
-
                 positioned_glyphs.push(PositionedGlyph {
                     position,
-                    size,
-                    atlas_info,
-                    section_index: sg.section_index,
-                    byte_index,
+                    glyph_index: atlas_info.glyph_index as u32,
+                    section_index: sg.section_index as u32,
+                    byte_index: byte_index as u32,
                 });
             }
         }
@@ -160,10 +158,9 @@ impl GlyphBrush {
 #[derive(Debug, Clone)]
 pub struct PositionedGlyph {
     pub position: Vec2,
-    pub size: Vec2,
-    pub atlas_info: GlyphAtlasInfo,
-    pub section_index: usize,
-    pub byte_index: usize,
+    pub glyph_index: u32,
+    pub section_index: u32,
+    pub byte_index: u32,
 }
 
 #[cfg(feature = "subpixel_glyph_atlas")]
