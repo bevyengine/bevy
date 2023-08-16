@@ -1,6 +1,6 @@
 use crate::{
     render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
-    MeshUniform, PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems,
+    MeshTransforms, MeshUniform, PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems,
     ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, Plugin};
@@ -382,7 +382,7 @@ pub fn queue_material_meshes<M: Material>(
     material_meshes: Query<(
         &Handle<M>,
         &Handle<Mesh>,
-        &MeshUniform,
+        &MeshTransforms,
         &GpuArrayBufferIndex<MeshUniform>,
     )>,
     images: Res<RenderAssets<Image>>,
@@ -468,7 +468,7 @@ pub fn queue_material_meshes<M: Material>(
 
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
-            if let Ok((material_handle, mesh_handle, mesh_uniform, batch_indices)) =
+            if let Ok((material_handle, mesh_handle, mesh_transforms, batch_indices)) =
                 material_meshes.get(*visible_entity)
             {
                 if let (Some(mesh), Some(material)) = (
@@ -516,7 +516,8 @@ pub fn queue_material_meshes<M: Material>(
                         }
                     };
 
-                    let distance = rangefinder.distance(&mesh_uniform.transform)
+                    let distance = rangefinder
+                        .distance_translation(&mesh_transforms.transform.translation)
                         + material.properties.depth_bias;
                     match material.properties.alpha_mode {
                         AlphaMode::Opaque => {
