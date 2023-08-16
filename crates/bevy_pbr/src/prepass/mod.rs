@@ -15,7 +15,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_math::Mat4;
+use bevy_math::{Affine3A, Mat4};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -46,8 +46,8 @@ use bevy_utils::tracing::error;
 
 use crate::{
     prepare_lights, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material, MaterialPipeline,
-    MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, MeshUniform, RenderMaterials,
-    SetMaterialBindGroup, SetMeshBindGroup,
+    MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, MeshTransforms, MeshUniform,
+    RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -203,7 +203,7 @@ pub fn update_previous_view_projections(
 }
 
 #[derive(Component)]
-pub struct PreviousGlobalTransform(pub Mat4);
+pub struct PreviousGlobalTransform(pub Affine3A);
 
 pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,
@@ -216,7 +216,7 @@ pub fn update_mesh_previous_global_transforms(
         for (entity, transform) in &meshes {
             commands
                 .entity(entity)
-                .insert(PreviousGlobalTransform(transform.compute_matrix()));
+                .insert(PreviousGlobalTransform(transform.affine()));
         }
     }
 }
@@ -762,7 +762,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     material_meshes: Query<(
         &Handle<M>,
         &Handle<Mesh>,
-        &MeshUniform,
+        &MeshTransforms,
         &GpuArrayBufferIndex<MeshUniform>,
     )>,
     mut views: Query<(
@@ -809,7 +809,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {
-            let Ok((material_handle, mesh_handle, mesh_uniform, batch_indices)) = material_meshes.get(*visible_entity) else {
+            let Ok((material_handle, mesh_handle, mesh_transforms, batch_indices)) = material_meshes.get(*visible_entity) else {
                 continue;
             };
 
@@ -852,8 +852,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             };
 
-            let distance =
-                rangefinder.distance(&mesh_uniform.transform) + material.properties.depth_bias;
+            let distance = rangefinder.distance_translation(&mesh_transforms.transform.translation)
+                + material.properties.depth_bias;
             match alpha_mode {
                 AlphaMode::Opaque => {
                     opaque_phase.add(Opaque3dPrepass {
