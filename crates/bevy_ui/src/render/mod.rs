@@ -555,13 +555,10 @@ pub fn extract_text_uinodes(
                         ..
                     } = &text_layout_info.glyphs[i];
                     if *section_index != current_section {
-                        color = text.sections[*section_index as usize]
-                            .style
-                            .color
-                            .as_rgba_linear();
+                        color = text.sections[*section_index].style.color.as_rgba_linear();
                         current_section = *section_index;
                     }
-                    let mut rect = atlas.textures[*glyph_index as usize];
+                    let mut rect = atlas.textures[*glyph_index];
                     rect.min *= inverse_scale_factor;
                     rect.max *= inverse_scale_factor;
                     extracted_uinodes.uinodes.push(ExtractedUiNode {

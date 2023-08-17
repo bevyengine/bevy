@@ -123,10 +123,7 @@ pub fn extract_text2d_sprite(
                     ..
                 } = &text_layout_info.glyphs[i];
                 if *section_index != current_section {
-                    color = text.sections[*section_index]
-                        .style
-                        .color
-                        .as_rgba_linear();
+                    color = text.sections[*section_index].style.color.as_rgba_linear();
                     current_section = *section_index;
                 }
 
