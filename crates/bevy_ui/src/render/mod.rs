@@ -543,7 +543,7 @@ pub fn extract_text_uinodes(
                 * Mat4::from_translation(-0.5 * uinode.size().extend(0.));
 
             let mut color = Color::WHITE;
-            let mut current_section = u32::MAX;
+            let mut current_section = usize::MAX;
             let mut start = 0;
             for (atlas_handle, end) in &text_layout_info.atlases {
                 let atlas = texture_atlases.get(atlas_handle).unwrap();

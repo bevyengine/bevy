@@ -142,9 +142,9 @@ impl GlyphBrush {
                 positioned_glyphs.push(PositionedGlyph {
                     position,
                     size,
-                    glyph_index: atlas_info.glyph_index as u32,
-                    section_index: sg.section_index as u32,
-                    byte_index: byte_index as u32,
+                    glyph_index: atlas_info.glyph_index,
+                    section_index: sg.section_index,
+                    byte_index,
                 });
                 
                 if let Some((atlas, ref mut end)) = atlases.last_mut() {
@@ -178,9 +178,9 @@ impl GlyphBrush {
 pub struct PositionedGlyph {
     pub position: Vec2,
     pub size: Vec2,
-    pub glyph_index: u32,
-    pub section_index: u32,
-    pub byte_index: u32,
+    pub glyph_index: usize,
+    pub section_index: usize,
+    pub byte_index: usize,
 }
 
 #[cfg(feature = "subpixel_glyph_atlas")]

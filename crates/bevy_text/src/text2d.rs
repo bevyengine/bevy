@@ -111,7 +111,7 @@ pub fn extract_text2d_sprite(
             * scaling
             * GlobalTransform::from_translation(alignment_translation.extend(0.));
         let mut color = Color::WHITE;
-        let mut current_section = u32::MAX;
+        let mut current_section = usize::MAX;
         let mut start = 0;
         for (atlas_handle, end) in &text_layout_info.atlases {
             let atlas =  texture_atlases.get(atlas_handle).unwrap();
