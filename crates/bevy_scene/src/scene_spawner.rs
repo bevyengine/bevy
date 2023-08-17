@@ -120,7 +120,7 @@ impl SceneSpawner {
 
     pub fn despawn_instance_sync(&mut self, world: &mut World, instance_id: &InstanceId) {
         if let Some(instance) = self.spawned_instances.remove(instance_id) {
-            for entity in instance.entity_map.values() {
+            for &entity in instance.entity_map.values() {
                 let _ = world.despawn(entity);
             }
         }
@@ -277,7 +277,7 @@ impl SceneSpawner {
 
         for (instance_id, parent) in scenes_with_parent {
             if let Some(instance) = self.spawned_instances.get(&instance_id) {
-                for entity in instance.entity_map.values() {
+                for &entity in instance.entity_map.values() {
                     // Add the `Parent` component to the scene root, and update the `Children` component of
                     // the scene parent
                     if !world
@@ -322,6 +322,7 @@ impl SceneSpawner {
             .map(|instance| instance.entity_map.values())
             .into_iter()
             .flatten()
+            .copied()
     }
 }
 

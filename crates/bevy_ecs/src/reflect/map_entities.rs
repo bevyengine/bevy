@@ -27,7 +27,7 @@ impl ReflectMapEntities {
     /// to these entities after they have been loaded. If you reload the scene using [`map_all_entities`](Self::map_all_entities), those `Parent`
     /// components with already valid entity references could be updated to point at something else entirely.
     pub fn map_all_entities(&self, world: &mut World, entity_map: &mut EntityMap) {
-        entity_map.world_scope(world, self.map_all_entities);
+        world.world_scope(entity_map, self.map_all_entities);
     }
 
     /// A general method for applying [`MapEntities`] behavior to elements in an [`EntityMap`]. Unlike
@@ -37,7 +37,7 @@ impl ReflectMapEntities {
     /// This is useful mostly for when you need to be careful not to update components that already contain valid entity
     /// values. See [`map_all_entities`](Self::map_all_entities) for more details.
     pub fn map_entities(&self, world: &mut World, entity_map: &mut EntityMap, entities: &[Entity]) {
-        entity_map.world_scope(world, |world, mapper| {
+        world.world_scope(entity_map, |world, mapper| {
             (self.map_entities)(world, mapper, entities);
         });
     }
@@ -54,7 +54,11 @@ impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
                 }
             },
             map_all_entities: |world, entity_mapper| {
-                let entities = entity_mapper.get_map().values().collect::<Vec<Entity>>();
+                let entities = entity_mapper
+                    .get_map()
+                    .values()
+                    .copied()
+                    .collect::<Vec<Entity>>();
                 for entity in &entities {
                     if let Some(mut component) = world.get_mut::<C>(*entity) {
                         component.map_entities(entity_mapper);

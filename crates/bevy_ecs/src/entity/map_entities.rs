@@ -1,5 +1,5 @@
 use crate::{entity::Entity, world::World};
-use bevy_utils::{Entry, HashMap};
+use bevy_utils::HashMap;
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -41,8 +41,6 @@ pub trait MapEntities {
 
 /// A mapping from one set of entities to another.
 ///
-/// The API generally follows [`HashMap`], but each [`Entity`] is returned by value, as they are [`Copy`].
-///
 /// This is typically used to coordinate data transfer between sets of entities, such as between a scene and the world
 /// or over the network. This is required as [`Entity`] identifiers are opaque; you cannot and do not want to reuse
 /// identifiers directly.
@@ -50,84 +48,8 @@ pub trait MapEntities {
 /// On its own, an `EntityMap` is not capable of allocating new entity identifiers, which is needed to map references
 /// to entities that lie outside the source entity set. To do this, an `EntityMap` can be wrapped in an
 /// [`EntityMapper`] which scopes it to a particular destination [`World`] and allows new identifiers to be allocated.
-/// This functionality can be accessed through [`Self::world_scope()`].
-#[derive(Default, Debug)]
-pub struct EntityMap {
-    map: HashMap<Entity, Entity>,
-}
-
-impl EntityMap {
-    /// Inserts an entities pair into the map.
-    ///
-    /// If the map did not have `from` present, [`None`] is returned.
-    ///
-    /// If the map did have `from` present, the value is updated, and the old value is returned.
-    pub fn insert(&mut self, from: Entity, to: Entity) -> Option<Entity> {
-        self.map.insert(from, to)
-    }
-
-    /// Removes an `entity` from the map, returning the mapped value of it if the `entity` was previously in the map.
-    pub fn remove(&mut self, entity: Entity) -> Option<Entity> {
-        self.map.remove(&entity)
-    }
-
-    /// Gets the given entity's corresponding entry in the map for in-place manipulation.
-    pub fn entry(&mut self, entity: Entity) -> Entry<'_, Entity, Entity> {
-        self.map.entry(entity)
-    }
-
-    /// Returns the corresponding mapped entity.
-    pub fn get(&self, entity: Entity) -> Option<Entity> {
-        self.map.get(&entity).copied()
-    }
-
-    /// An iterator visiting all keys in arbitrary order.
-    pub fn keys(&self) -> impl Iterator<Item = Entity> + '_ {
-        self.map.keys().cloned()
-    }
-
-    /// An iterator visiting all values in arbitrary order.
-    pub fn values(&self) -> impl Iterator<Item = Entity> + '_ {
-        self.map.values().cloned()
-    }
-
-    /// Returns the number of elements in the map.
-    pub fn len(&self) -> usize {
-        self.map.len()
-    }
-
-    /// Returns true if the map contains no elements.
-    pub fn is_empty(&self) -> bool {
-        self.map.is_empty()
-    }
-
-    /// An iterator visiting all (key, value) pairs in arbitrary order.
-    pub fn iter(&self) -> impl Iterator<Item = (Entity, Entity)> + '_ {
-        self.map.iter().map(|(from, to)| (*from, *to))
-    }
-
-    /// Clears the map, removing all entity pairs. Keeps the allocated memory for reuse.
-    pub fn clear(&mut self) {
-        self.map.clear();
-    }
-
-    /// Creates an [`EntityMapper`] from this [`EntityMap`] and scoped to the provided [`World`], then calls the
-    /// provided function with it. This allows one to allocate new entity references in the provided `World` that are
-    /// guaranteed to never point at a living entity now or in the future. This functionality is useful for safely
-    /// mapping entity identifiers that point at entities outside the source world. The passed function, `f`, is called
-    /// within the scope of the passed world. Its return value is then returned from `world_scope` as the generic type
-    /// parameter `R`.
-    pub fn world_scope<R>(
-        &mut self,
-        world: &mut World,
-        f: impl FnOnce(&mut World, &mut EntityMapper) -> R,
-    ) -> R {
-        let mut mapper = EntityMapper::new(self, world);
-        let result = f(world, &mut mapper);
-        mapper.finish(world);
-        result
-    }
-}
+/// This functionality can be accessed through [`World::world_scope()`].
+pub type EntityMap = HashMap<Entity, Entity>;
 
 /// A wrapper for [`EntityMap`], augmenting it with the ability to allocate new [`Entity`] references in a destination
 /// world. These newly allocated references are guaranteed to never point to any living entity in that world.
@@ -147,7 +69,7 @@ pub struct EntityMapper<'m> {
 impl<'m> EntityMapper<'m> {
     /// Returns the corresponding mapped entity or reserves a new dead entity ID if it is absent.
     pub fn get_or_reserve(&mut self, entity: Entity) -> Entity {
-        if let Some(mapped) = self.map.get(entity) {
+        if let Some(&mapped) = self.map.get(&entity) {
             return mapped;
         }
 
@@ -174,7 +96,7 @@ impl<'m> EntityMapper<'m> {
     }
 
     /// Creates a new [`EntityMapper`], spawning a temporary base [`Entity`] in the provided [`World`]
-    fn new(map: &'m mut EntityMap, world: &mut World) -> Self {
+    pub(crate) fn new(map: &'m mut EntityMap, world: &mut World) -> Self {
         Self {
             map,
             // SAFETY: Entities data is kept in a valid state via `EntityMap::world_scope`
@@ -187,7 +109,7 @@ impl<'m> EntityMapper<'m> {
     /// [`Entity`] while reserving extra generations via [`crate::entity::Entities::reserve_generations`]. Because this
     /// renders the [`EntityMapper`] unable to safely allocate any more references, this method takes ownership of
     /// `self` in order to render it unusable.
-    fn finish(self, world: &mut World) {
+    pub(crate) fn finish(self, world: &mut World) {
         // SAFETY: Entities data is kept in a valid state via `EntityMap::world_scope`
         let entities = unsafe { world.entities_mut() };
         assert!(entities.free(self.dead_start).is_some());
@@ -235,7 +157,7 @@ mod tests {
         let mut map = EntityMap::default();
         let mut world = World::new();
 
-        let dead_ref = map.world_scope(&mut world, |_, mapper| {
+        let dead_ref = world.world_scope(&mut map, |_, mapper| {
             mapper.get_or_reserve(Entity::new(0, 0))
         });
 

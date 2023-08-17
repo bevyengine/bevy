@@ -216,8 +216,8 @@ mod tests {
         let mut entity_map = EntityMap::default();
         scene.write_to_world(&mut world, &mut entity_map).unwrap();
 
-        let from_scene_parent_entity = entity_map.get(original_parent_entity).unwrap();
-        let from_scene_child_entity = entity_map.get(original_child_entity).unwrap();
+        let &from_scene_parent_entity = entity_map.get(&original_parent_entity).unwrap();
+        let &from_scene_child_entity = entity_map.get(&original_child_entity).unwrap();
 
         // We then add the parent from the scene as a child of the original child
         // Hierarchy should look like:

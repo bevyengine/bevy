@@ -16,7 +16,9 @@ use crate::{
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, TicksMut},
     component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
-    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
+    entity::{
+        AllocAtWithoutReplacement, Entities, Entity, EntityLocation, EntityMap, EntityMapper,
+    },
     event::{Event, Events},
     query::{DebugCheckedUnwrap, QueryState, ReadOnlyWorldQuery, WorldQuery},
     removal_detection::RemovedComponentEvents,
@@ -1863,6 +1865,23 @@ impl World {
     /// If the requested schedule does not exist.
     pub fn run_schedule(&mut self, label: impl AsRef<dyn ScheduleLabel>) {
         self.schedule_scope(label, |world, sched| sched.run(world));
+    }
+
+    /// Creates an [`EntityMapper`] from this [`World`] and scoped to the provided [`EntityMap`], then calls the
+    /// provided function with it. This allows one to allocate new entity references in this `World` that are
+    /// guaranteed to never point at a living entity now or in the future. This functionality is useful for safely
+    /// mapping entity identifiers that point at entities outside the source world. The passed function, `f`, is called
+    /// within the scope of this world. Its return value is then returned from `world_scope` as the generic type
+    /// parameter `R`.
+    pub fn world_scope<R>(
+        &mut self,
+        entity_map: &mut EntityMap,
+        f: impl FnOnce(&mut World, &mut EntityMapper) -> R,
+    ) -> R {
+        let mut mapper = EntityMapper::new(entity_map, self);
+        let result = f(self, &mut mapper);
+        mapper.finish(self);
+        result
     }
 }
 
