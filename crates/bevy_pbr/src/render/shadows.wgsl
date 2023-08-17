@@ -97,7 +97,7 @@ fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: ve
     // 0.1 must match POINT_LIGHT_NEAR_Z
     let depth = 0.1 / -projected_position.z;
 
-    return sample_shadow_map(shadow_uv, depth, i32(light_id) + view_bindings::lights.spot_light_shadowmap_offset);
+    return sample_shadow_map(shadow_uv, depth, i32(light_id) + view_bindings::lights.spot_light_shadowmap_offset, 1.0);
 }
 
 fn get_cascade_index(light_id: u32, view_z: f32) -> u32 {
@@ -139,7 +139,7 @@ fn sample_directional_cascade(light_id: u32, cascade_index: u32, frag_position: 
     let depth = offset_position_ndc.z;
 
     let array_index = i32((*light).depth_texture_base_index + cascade_index);
-    return sample_shadow_map(light_local, depth, array_index);
+    return sample_shadow_map(light_local, depth, array_index, (*cascade).texel_size);
 }
 
 fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>, view_z: f32) -> f32 {
