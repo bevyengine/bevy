@@ -20,23 +20,21 @@ fn main() {
         let typed: String = line.unwrap_or_default();
         if typed == "exit" {
             return;
-        } else {
-            run_bevy(rx, end_tx);
-            println!("Spawned a bevy window!");
-            println!("Now - type things in the terminal, and they will show up in the bevy UI, or type 'exit' to exit");
         }
+        run_bevy(rx, end_tx);
+        println!("Spawned a bevy window!");
+        println!("Now - type things in the terminal, and they will show up in the bevy UI, or type 'exit' to exit");
     }
 
     for line in std::io::stdin().lines() {
         let typed: String = line.unwrap_or_default();
         if typed == "exit" {
             return;
-        } else {
+        }
             if end_rx.try_recv().is_ok() {
                 return;
             }
             tx.send(typed);
-        }
     }
 }
 
