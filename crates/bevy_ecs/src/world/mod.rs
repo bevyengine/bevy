@@ -1868,6 +1868,8 @@ impl World {
 
 impl fmt::Debug for World {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // SAFETY: `UnsafeWorldCell` requires that this must only access metadata.
+        // Accessing any data stored in the world would be unsound.
         f.debug_struct("World")
             .field("id", &self.id)
             .field("entity_count", &self.entities.len())

@@ -340,10 +340,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for Query<'w,
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f, "Query {{ matched entities: {}, world: {:?}, state: {:?}, last_run: {:?}, this_run: {:?} }}",
-            self.iter().count(),
-            // SAFETY: World's Debug implementation only accesses metadata.
-            unsafe { self.world.world_metadata() },
-            self.state, self.last_run, self.this_run)
+            self.iter().count(), self.world, self.state, self.last_run, self.this_run)
     }
 }
 
