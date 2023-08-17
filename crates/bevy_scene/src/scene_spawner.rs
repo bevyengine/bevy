@@ -1,7 +1,7 @@
 use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
-    entity::{Entity, EntityMap},
+    entity::Entity,
     event::{Event, Events, ManualEventReader},
     reflect::AppTypeRegistry,
     system::{Command, Resource},
@@ -25,7 +25,7 @@ pub struct SceneInstanceReady {
 #[derive(Debug)]
 pub struct InstanceInfo {
     /// Mapping of entities from the scene world to the instance world.
-    pub entity_map: EntityMap,
+    pub entity_map: HashMap<Entity, Entity>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -131,7 +131,7 @@ impl SceneSpawner {
         world: &mut World,
         scene_handle: &Handle<DynamicScene>,
     ) -> Result<(), SceneSpawnError> {
-        let mut entity_map = EntityMap::default();
+        let mut entity_map = Default::default();
         Self::spawn_dynamic_internal(world, scene_handle, &mut entity_map)?;
         let instance_id = InstanceId::new();
         self.spawned_instances
@@ -147,7 +147,7 @@ impl SceneSpawner {
     fn spawn_dynamic_internal(
         world: &mut World,
         scene_handle: &Handle<DynamicScene>,
-        entity_map: &mut EntityMap,
+        entity_map: &mut HashMap<Entity, Entity>,
     ) -> Result<(), SceneSpawnError> {
         world.resource_scope(|world, scenes: Mut<Assets<DynamicScene>>| {
             let scene =
@@ -237,7 +237,7 @@ impl SceneSpawner {
         let scenes_to_spawn = std::mem::take(&mut self.dynamic_scenes_to_spawn);
 
         for (scene_handle, instance_id) in scenes_to_spawn {
-            let mut entity_map = EntityMap::default();
+            let mut entity_map = Default::default();
 
             match Self::spawn_dynamic_internal(world, &scene_handle, &mut entity_map) {
                 Ok(_) => {
