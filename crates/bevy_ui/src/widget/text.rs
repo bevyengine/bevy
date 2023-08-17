@@ -135,7 +135,7 @@ pub fn measure_text_system(
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.);
 
-    let scale_factor = ui_scale.scale * window_scale_factor;
+    let scale_factor = ui_scale.0 * window_scale_factor;
 
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
@@ -252,7 +252,7 @@ pub fn text_system(
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.);
 
-    let scale_factor = ui_scale.scale * window_scale_factor;
+    let scale_factor = ui_scale.0 * window_scale_factor;
 
     if *last_scale_factor == scale_factor {
         // Scale factor unchanged, only recompute text for modified text nodes

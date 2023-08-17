@@ -1133,7 +1133,6 @@ pub fn gamepad_axis_event_system(
 pub fn gamepad_button_event_system(
     mut button_events: EventReader<GamepadButtonChangedEvent>,
     mut button_input: ResMut<Input<GamepadButton>>,
-    mut button_axis: ResMut<Axis<GamepadButton>>,
     settings: Res<GamepadSettings>,
 ) {
     for button_event in button_events.iter() {
@@ -1148,8 +1147,6 @@ pub fn gamepad_button_event_system(
         } else if button_property.is_pressed(value) {
             button_input.press(button);
         };
-
-        button_axis.set(button, value);
     }
 }
 
