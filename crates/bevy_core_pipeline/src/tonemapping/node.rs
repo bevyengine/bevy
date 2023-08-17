@@ -110,14 +110,11 @@ impl ViewNode for TonemappingNode {
                     [3, 4],
                 ));
 
-                let bind_group =
-                    render_context
-                        .render_device()
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: None,
-                            layout: &tonemapping_pipeline.texture_bind_group,
-                            entries: &entries,
-                        });
+                let bind_group = render_context.create_bind_group(&BindGroupDescriptor {
+                    label: None,
+                    layout: &tonemapping_pipeline.texture_bind_group,
+                    entries: &entries,
+                });
 
                 let (_, _, bind_group) =
                     cached_bind_group.insert((view_uniforms_id, source.id(), bind_group));

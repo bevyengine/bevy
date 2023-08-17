@@ -61,15 +61,12 @@ impl ViewNode for FxaaNode {
                         ..default()
                     });
 
-                let bind_group =
-                    render_context
-                        .render_device()
-                        .create_bind_group(bind_group_descriptor!(
-                            "fxaa_bind_group",
-                            &fxaa_pipeline.texture_bind_group,
-                            texture(source),
-                            sampler(&sampler),
-                        ));
+                let bind_group = render_context.create_bind_group(bind_group_descriptor!(
+                    "fxaa_bind_group",
+                    &fxaa_pipeline.texture_bind_group,
+                    texture(source),
+                    sampler(&sampler),
+                ));
 
                 let (_, bind_group) = cached_bind_group.insert((source.id(), bind_group));
                 bind_group

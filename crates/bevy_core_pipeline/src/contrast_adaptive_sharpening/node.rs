@@ -73,16 +73,13 @@ impl Node for CASNode {
                 bind_group
             }
             cached_bind_group => {
-                let bind_group =
-                    render_context
-                        .render_device()
-                        .create_bind_group(bind_group_descriptor!(
-                            "cas_bind_group",
-                            &sharpening_pipeline.texture_bind_group,
-                            texture(view_target.source),
-                            sampler(&sharpening_pipeline.sampler),
-                            buffer(uniforms),
-                        ));
+                let bind_group = render_context.create_bind_group(bind_group_descriptor!(
+                    "cas_bind_group",
+                    &sharpening_pipeline.texture_bind_group,
+                    texture(view_target.source),
+                    sampler(&sharpening_pipeline.sampler),
+                    buffer(uniforms),
+                ));
 
                 let (_, _, bind_group) =
                     cached_bind_group.insert((uniforms_id, source.id(), bind_group));
