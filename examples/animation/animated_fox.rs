@@ -135,10 +135,5 @@ fn keyboard_animation_control(
                 )
                 .repeat();
         }
-
-        if keyboard_input.just_pressed(KeyCode::I) {
-            player.set_repeat(RepeatAnimation::Count(1));
-            player.replay();
-        }
     }
 }
