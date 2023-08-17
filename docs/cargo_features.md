@@ -78,4 +78,5 @@ The default feature set enables most of the expected features of a game engine, 
 |wayland|Wayland display server support|
 |webp|WebP image format support|
 |wgpu_trace|Save a trace of all wgpu calls|
+|window-off-main|Enable running winit off the main thread on Windows or Linux|
 |zlib|For KTX2 supercompression|
