@@ -314,8 +314,9 @@ impl AnimationPlayer {
         self.animation.is_finished()
     }
 
-    /// Set the animation to repeat.
-    /// Equivalent to `animation_player.set_repeat(RepeatAnimation::Forever)`.
+    /// Sets repeat to [`RepeatAnimation::Forever`].
+    ///
+    /// See also [`Self::set_repeat`].
     pub fn repeat(&mut self) -> &mut Self {
         self.animation.repeat = RepeatAnimation::Forever;
         self
