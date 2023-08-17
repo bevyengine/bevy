@@ -112,16 +112,15 @@ pub fn extract_text2d_sprite(
             * GlobalTransform::from_translation(alignment_translation.extend(0.));
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
-        let mut start = 0;
-        for (atlas_handle, end) in &text_layout_info.atlases {
-            let atlas = texture_atlases.get(atlas_handle).unwrap();
-            for i in start..*end {
-                let PositionedGlyph {
-                    position,
-                    glyph_index,
-                    section_index,
-                    ..
-                } = &text_layout_info.glyphs[i];
+        for batch in &text_layout_info.batches {
+            let atlas = texture_atlases.get(&batch.texture_atlas).unwrap();
+            for PositionedGlyph {
+                position,
+                glyph_index,
+                section_index,
+                ..
+            } in &text_layout_info.glyphs[batch.range.start..batch.range.end]
+            {
                 if *section_index != current_section {
                     color = text.sections[*section_index].style.color.as_rgba_linear();
                     current_section = *section_index;
@@ -139,7 +138,6 @@ pub fn extract_text2d_sprite(
                     anchor: Anchor::Center.as_vec(),
                 });
             }
-            start = *end;
         }
     }
 }
