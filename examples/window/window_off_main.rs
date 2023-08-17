@@ -3,9 +3,7 @@
 use std::sync::mpsc;
 
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
 };
 use bevy_internal::winit::WinitSettings;
 
