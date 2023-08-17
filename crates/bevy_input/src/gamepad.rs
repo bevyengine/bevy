@@ -1269,16 +1269,16 @@ const ALL_AXIS_TYPES: [GamepadAxisType; 6] = [
 /// The intensity at which a gamepad's force-feedback motors may rumble.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GamepadRumbleIntensity {
-    /// The rumble intensity of the strong gamepad motor
+    /// The rumble intensity of the strong gamepad motor.
     ///
-    /// Ranges from 0.0 to 1.0
+    /// Ranges from `0.0` to `1.0`.
     ///
     /// By convention, this is usually a low-frequency motor on the left-hand
     /// side of the gamepad, though it may vary across platforms and hardware.
     pub strong_motor: f32,
-    /// The rumble intensity of the weak gamepad motor
+    /// The rumble intensity of the weak gamepad motor.
     ///
-    /// Ranges from 0.0 to 1.0
+    /// Ranges from `0.0` to `1.0`.
     ///
     /// By convention, this is usually a high-frequency motor on the right-hand
     /// side of the gamepad, though it may vary across platforms and hardware.
@@ -1286,27 +1286,27 @@ pub struct GamepadRumbleIntensity {
 }
 
 impl GamepadRumbleIntensity {
-    /// Rumble both gamepad motors at maximum intensity
+    /// Rumble both gamepad motors at maximum intensity.
     pub const MAX: Self = GamepadRumbleIntensity {
         strong_motor: 1.0,
         weak_motor: 1.0,
     };
 
-    /// Rumble the weak motor at maximum intensity
+    /// Rumble the weak motor at maximum intensity.
     pub const WEAK_MAX: Self = GamepadRumbleIntensity {
         strong_motor: 0.0,
         weak_motor: 1.0,
     };
 
-    /// Rumble the strong motor at maximum intensity
+    /// Rumble the strong motor at maximum intensity.
     pub const STRONG_MAX: Self = GamepadRumbleIntensity {
         strong_motor: 1.0,
         weak_motor: 0.0,
     };
 
-    /// Creates a new rumble intensity with weak motor intensity set to the given value
+    /// Creates a new rumble intensity with weak motor intensity set to the given value.
     ///
-    /// Clamped within the 0 to 1 range
+    /// Clamped within the 0 to 1 range.
     pub const fn weak_motor(intensity: f32) -> Self {
         Self {
             weak_motor: intensity,
@@ -1314,9 +1314,9 @@ impl GamepadRumbleIntensity {
         }
     }
 
-    /// Creates a new rumble intensity with strong motor intensity set to the given value
+    /// Creates a new rumble intensity with strong motor intensity set to the given value.
     ///
-    /// Clamped within the 0 to 1 range
+    /// Clamped within the 0 to 1 range.
     pub const fn strong_motor(intensity: f32) -> Self {
         Self {
             strong_motor: intensity,
@@ -1325,7 +1325,7 @@ impl GamepadRumbleIntensity {
     }
 }
 
-/// An event that controls force-feedback rumbling of a [`Gamepad`]
+/// An event that controls force-feedback rumbling of a [`Gamepad`].
 ///
 /// # Notes
 ///
@@ -1367,14 +1367,14 @@ pub enum GamepadRumbleRequest {
     ///
     /// To replace an existing rumble, send a [`GamepadRumbleRequest::Stop`] event first.
     Add {
-        /// How long the gamepad should rumble
+        /// How long the gamepad should rumble.
         duration: Duration,
-        /// How intense the rumble should be
+        /// How intense the rumble should be.
         intensity: GamepadRumbleIntensity,
-        /// The gamepad to rumble
+        /// The gamepad to rumble.
         gamepad: Gamepad,
     },
-    /// Stop all running rumbles on the given [`Gamepad`]
+    /// Stop all running rumbles on the given [`Gamepad`].
     Stop {
         /// The gamepad to stop rumble.
         gamepad: Gamepad,
@@ -1382,7 +1382,7 @@ pub enum GamepadRumbleRequest {
 }
 
 impl GamepadRumbleRequest {
-    /// Get the [`Gamepad`] associated with this request
+    /// Get the [`Gamepad`] associated with this request.
     pub fn gamepad(&self) -> Gamepad {
         match self {
             Self::Add { gamepad, .. } | Self::Stop { gamepad } => *gamepad,
