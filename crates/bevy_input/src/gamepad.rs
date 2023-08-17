@@ -27,13 +27,17 @@ pub enum AxisSettingsError {
     /// Parameter `livezone_lowerbound` was not less than or equal to parameter `deadzone_lowerbound`.
     #[error("invalid parameter values livezone_lowerbound {} deadzone_lowerbound {}, expected livezone_lowerbound <= deadzone_lowerbound", .livezone_lowerbound, .deadzone_lowerbound)]
     LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
+        /// The value of the `livezone_lowerbound` parameter.
         livezone_lowerbound: f32,
+        /// The value of the `deadzone_lowerbound` parameter.
         deadzone_lowerbound: f32,
     },
     ///  Parameter `deadzone_upperbound` was not less than or equal to parameter `livezone_upperbound`.
     #[error("invalid parameter values livezone_upperbound {} deadzone_upperbound {}, expected deadzone_upperbound <= livezone_upperbound", .livezone_upperbound, .deadzone_upperbound)]
     DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
+        /// The value of the `livezone_upperbound` parameter.
         livezone_upperbound: f32,
+        /// The value of the `deadzone_upperbound` parameter.
         deadzone_upperbound: f32,
     },
     /// The given parameter was not in range 0.0..=2.0.
@@ -53,7 +57,9 @@ pub enum ButtonSettingsError {
     /// Parameter `release_threshold` was not less than or equal to `press_threshold`.
     #[error("invalid parameter values release_threshold {} press_threshold {}, expected release_threshold <= press_threshold", .release_threshold, .press_threshold)]
     ReleaseThresholdGreaterThanPressThreshold {
+        /// The value of the `press_threshold` parameter.
         press_threshold: f32,
+        /// The value of the `release_threshold` parameter.
         release_threshold: f32,
     },
 }
@@ -100,6 +106,7 @@ impl Gamepad {
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadInfo {
+    /// The name of the gamepad.
     pub name: String,
 }
 
@@ -130,6 +137,7 @@ impl Gamepads {
         self.gamepads.keys().copied()
     }
 
+    /// The name of the gamepad if this one is connected.
     pub fn name(&self, gamepad: Gamepad) -> Option<&str> {
         self.gamepads.get(&gamepad).map(|g| g.name.as_str())
     }
@@ -1025,6 +1033,7 @@ pub fn gamepad_connection_system(
     }
 }
 
+/// The connection status of a gamepad.
 #[derive(Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -1033,7 +1042,9 @@ pub fn gamepad_connection_system(
     reflect(Serialize, Deserialize)
 )]
 pub enum GamepadConnection {
+    /// The gamepad is connected.
     Connected(GamepadInfo),
+    /// The gamepad is disconnected.
     Disconnected,
 }
 
@@ -1054,6 +1065,7 @@ pub struct GamepadConnectionEvent {
 }
 
 impl GamepadConnectionEvent {
+    /// Creates a [`GamepadConnectionEvent`].
     pub fn new(gamepad: Gamepad, connection: GamepadConnection) -> Self {
         Self {
             gamepad,
@@ -1061,15 +1073,19 @@ impl GamepadConnectionEvent {
         }
     }
 
+    /// Is the gamepad connected.
     pub fn connected(&self) -> bool {
         matches!(self.connection, GamepadConnection::Connected(_))
     }
 
+    /// Is the gamepad disconnected.
     pub fn disconnected(&self) -> bool {
         !self.connected()
     }
 }
 
+/// Gamepad event for when the "value" on the axis changes
+/// by an amount larger than the threshold defined in [`GamepadSettings`].
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -1078,12 +1094,16 @@ impl GamepadConnectionEvent {
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadAxisChangedEvent {
+    /// The gamepad on which the axis is triggered.
     pub gamepad: Gamepad,
+    /// The type of the triggered axis.
     pub axis_type: GamepadAxisType,
+    /// The value of the axis.
     pub value: f32,
 }
 
 impl GamepadAxisChangedEvent {
+    /// Creates a [`GamepadAxisChangedEvent`].
     pub fn new(gamepad: Gamepad, axis_type: GamepadAxisType, value: f32) -> Self {
         Self {
             gamepad,
@@ -1103,12 +1123,16 @@ impl GamepadAxisChangedEvent {
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadButtonChangedEvent {
+    /// The gamepad on which the button is triggered.
     pub gamepad: Gamepad,
+    /// The type of the triggered button.
     pub button_type: GamepadButtonType,
+    /// The value of the button.
     pub value: f32,
 }
 
 impl GamepadButtonChangedEvent {
+    /// Creates a [`GamepadButtonChangedEvent`].
     pub fn new(gamepad: Gamepad, button_type: GamepadButtonType, value: f32) -> Self {
         Self {
             gamepad,
@@ -1163,8 +1187,11 @@ pub fn gamepad_button_event_system(
     reflect(Serialize, Deserialize)
 )]
 pub enum GamepadEvent {
+    /// A gamepad has been connected or disconnected.
     Connection(GamepadConnectionEvent),
+    /// A button of the gamepad has been triggered.
     Button(GamepadButtonChangedEvent),
+    /// An axis of the gamepad has been triggered.
     Axis(GamepadAxisChangedEvent),
 }
 
@@ -1348,7 +1375,10 @@ pub enum GamepadRumbleRequest {
         gamepad: Gamepad,
     },
     /// Stop all running rumbles on the given [`Gamepad`]
-    Stop { gamepad: Gamepad },
+    Stop {
+        /// The gamepad to stop rumble.
+        gamepad: Gamepad,
+    },
 }
 
 impl GamepadRumbleRequest {
