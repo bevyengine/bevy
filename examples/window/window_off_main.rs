@@ -31,10 +31,10 @@ fn main() {
         if typed == "exit" {
             return;
         }
-            if end_rx.try_recv().is_ok() {
-                return;
-            }
-            tx.send(typed);
+        if end_rx.try_recv().is_ok() {
+            return;
+        }
+        let _ = tx.send(typed);
     }
 }
 
@@ -58,7 +58,7 @@ fn run_bevy(rx: mpsc::Receiver<String>, end_tx: mpsc::Sender<()>) {
             .add_systems(Update, system)
             .run();
         println!("Exited the window - press anything to exit the app");
-        end_tx.send(());
+        let _ = end_tx.send(());
     });
 }
 
