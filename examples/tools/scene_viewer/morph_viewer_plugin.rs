@@ -1,6 +1,6 @@
 //! Enable controls for morph targets detected in a loaded scene.
 //!
-//! Collect morph targets and assing keys to them,
+//! Collect morph targets and assign keys to them,
 //! shows on screen additional controls for morph targets.
 //!
 //! Illustrates how to access and modify individual morph target weights.

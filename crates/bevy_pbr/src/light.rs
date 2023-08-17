@@ -2025,7 +2025,7 @@ pub fn check_light_mesh_visibility(
                         view_frusta.iter().zip(view_visible_entities)
                     {
                         // Disable near-plane culling, as a shadow caster could lie before the near plane.
-                        if !frustum.intersects_obb(aabb, &transform.compute_matrix(), false, true) {
+                        if !frustum.intersects_obb(aabb, &transform.affine(), false, true) {
                             continue;
                         }
 
@@ -2098,7 +2098,7 @@ pub fn check_light_mesh_visibility(
 
                     // If we have an aabb and transform, do frustum culling
                     if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
-                        let model_to_world = transform.compute_matrix();
+                        let model_to_world = transform.affine();
                         // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
                         if !light_sphere.intersects_obb(aabb, &model_to_world) {
                             continue;
@@ -2162,7 +2162,7 @@ pub fn check_light_mesh_visibility(
 
                     // If we have an aabb and transform, do frustum culling
                     if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
-                        let model_to_world = transform.compute_matrix();
+                        let model_to_world = transform.affine();
                         // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
                         if !light_sphere.intersects_obb(aabb, &model_to_world) {
                             continue;

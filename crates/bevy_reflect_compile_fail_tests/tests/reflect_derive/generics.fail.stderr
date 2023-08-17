@@ -28,5 +28,5 @@ note: required for `Foo<NoReflect>` to implement `Reflect`
 4  | #[reflect(from_reflect = false)]
 5  | struct Foo<T> {
    |        ^^^^^^
-   = note: required for the cast from `Foo<NoReflect>` to the object type `dyn Reflect`
+   = note: required for the cast from `Box<Foo<NoReflect>>` to `Box<(dyn Reflect + 'static)>`
    = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)

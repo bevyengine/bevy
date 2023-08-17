@@ -43,13 +43,13 @@ impl PluginGroup for DefaultPlugins {
         group = group
             .add(bevy_log::LogPlugin::default())
             .add(bevy_core::TaskPoolPlugin::default())
-            .add(bevy_core::TypeRegistrationPlugin::default())
-            .add(bevy_core::FrameCountPlugin::default())
-            .add(bevy_time::TimePlugin::default())
-            .add(bevy_transform::TransformPlugin::default())
-            .add(bevy_hierarchy::HierarchyPlugin::default())
-            .add(bevy_diagnostic::DiagnosticsPlugin::default())
-            .add(bevy_input::InputPlugin::default())
+            .add(bevy_core::TypeRegistrationPlugin)
+            .add(bevy_core::FrameCountPlugin)
+            .add(bevy_time::TimePlugin)
+            .add(bevy_transform::TransformPlugin)
+            .add(bevy_hierarchy::HierarchyPlugin)
+            .add(bevy_diagnostic::DiagnosticsPlugin)
+            .add(bevy_input::InputPlugin)
             .add(bevy_window::WindowPlugin::default())
             .add(bevy_a11y::AccessibilityPlugin);
 
@@ -60,17 +60,17 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "debug_asset_server")]
         {
-            group = group.add(bevy_asset::debug_asset_server::DebugAssetServerPlugin::default());
+            group = group.add(bevy_asset::debug_asset_server::DebugAssetServerPlugin);
         }
 
         #[cfg(feature = "bevy_scene")]
         {
-            group = group.add(bevy_scene::ScenePlugin::default());
+            group = group.add(bevy_scene::ScenePlugin);
         }
 
         #[cfg(feature = "bevy_winit")]
         {
-            group = group.add(bevy_winit::WinitPlugin::default());
+            group = group.add(bevy_winit::WinitPlugin);
         }
 
         #[cfg(feature = "bevy_render")]
@@ -81,31 +81,30 @@ impl PluginGroup for DefaultPlugins {
                 // compressed texture formats
                 .add(bevy_render::texture::ImagePlugin::default());
 
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
             {
-                group = group
-                    .add(bevy_render::pipelined_rendering::PipelinedRenderingPlugin::default());
+                group = group.add(bevy_render::pipelined_rendering::PipelinedRenderingPlugin);
             }
         }
 
         #[cfg(feature = "bevy_core_pipeline")]
         {
-            group = group.add(bevy_core_pipeline::CorePipelinePlugin::default());
+            group = group.add(bevy_core_pipeline::CorePipelinePlugin);
         }
 
         #[cfg(feature = "bevy_sprite")]
         {
-            group = group.add(bevy_sprite::SpritePlugin::default());
+            group = group.add(bevy_sprite::SpritePlugin);
         }
 
         #[cfg(feature = "bevy_text")]
         {
-            group = group.add(bevy_text::TextPlugin::default());
+            group = group.add(bevy_text::TextPlugin);
         }
 
         #[cfg(feature = "bevy_ui")]
         {
-            group = group.add(bevy_ui::UiPlugin::default());
+            group = group.add(bevy_ui::UiPlugin);
         }
 
         #[cfg(feature = "bevy_pbr")]
@@ -127,12 +126,12 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_gilrs")]
         {
-            group = group.add(bevy_gilrs::GilrsPlugin::default());
+            group = group.add(bevy_gilrs::GilrsPlugin);
         }
 
         #[cfg(feature = "bevy_animation")]
         {
-            group = group.add(bevy_animation::AnimationPlugin::default());
+            group = group.add(bevy_animation::AnimationPlugin);
         }
 
         #[cfg(feature = "bevy_gizmos")]
@@ -165,9 +164,9 @@ impl PluginGroup for MinimalPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
             .add(bevy_core::TaskPoolPlugin::default())
-            .add(bevy_core::TypeRegistrationPlugin::default())
-            .add(bevy_core::FrameCountPlugin::default())
-            .add(bevy_time::TimePlugin::default())
+            .add(bevy_core::TypeRegistrationPlugin)
+            .add(bevy_core::FrameCountPlugin)
+            .add(bevy_time::TimePlugin)
             .add(bevy_app::ScheduleRunnerPlugin::default())
     }
 }

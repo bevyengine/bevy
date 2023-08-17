@@ -1207,7 +1207,7 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
     }
 
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
-        // into_owned() is not uneccessary here because it avoids cloning whenever you have a Cow::Owned already
+        // into_owned() is not unnecessary here because it avoids cloning whenever you have a Cow::Owned already
         #[allow(clippy::unnecessary_to_owned)]
         self.into_owned()
             .into_iter()
