@@ -370,9 +370,9 @@ Example | Description
 [Scale Factor Override](../examples/window/scale_factor_override.rs) | Illustrates how to customize the default window settings
 [Screenshot](../examples/window/screenshot.rs) | Shows how to save screenshots to disk
 [Transparent Window](../examples/window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration
+[Window Off Main](../examples/window/window_off_main.rs) | Illustrates running bevy on a secondary thread
 [Window Resizing](../examples/window/window_resizing.rs) | Demonstrates resizing and responding to resizing a window
 [Window Settings](../examples/window/window_settings.rs) | Demonstrates customizing default window settings
-[Window Off Main](../examples/window/window_off_main.rs) | Demonstrates running the window calls off the main thread, allowing Bevy to be launched in a secondary thread. Note that this only works on Windows & Linux.
 
 # Tests
 
