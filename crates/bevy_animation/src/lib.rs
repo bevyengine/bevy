@@ -314,19 +314,14 @@ impl AnimationPlayer {
         self.animation.is_finished()
     }
 
-    /// Set the animation to repeat
+    /// Set the animation to repeat.
+    /// Equivalent to `animation_player.set_repeat(RepeatAnimation::Forever)`.
     pub fn repeat(&mut self) -> &mut Self {
         self.animation.repeat = RepeatAnimation::Forever;
         self
     }
 
-    /// Stop the animation from repeating
-    pub fn stop_repeating(&mut self) -> &mut Self {
-        self.animation.repeat = RepeatAnimation::Never;
-        self
-    }
-
-    /// Set the repetition behaviour of the animation
+    /// Set the repetition behaviour of the animation.
     pub fn set_repeat(&mut self, repeat: RepeatAnimation) -> &mut Self {
         self.animation.repeat = repeat;
         self
