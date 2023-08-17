@@ -627,7 +627,7 @@ pub enum ShadowFilteringMethod {
     /// Good quality, good performance.
     #[default]
     Castano13,
-    /// Method  by Jorge Jimenez for Call of Duty: Advanced Warfare using 8
+    /// Method by Jorge Jimenez for Call of Duty: Advanced Warfare using 8
     /// samples in spiral pattern, randomly-rotated by interleaved gradient
     /// noise with spatial variation.
     ///
