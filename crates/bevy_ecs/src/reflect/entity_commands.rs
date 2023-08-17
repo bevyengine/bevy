@@ -52,8 +52,8 @@ pub trait ReflectCommandExt {
     ///     mut prefab: ResMut<Prefab>
     ///     ) {
     ///     // Create a set of new boxed reflect components to use
-    ///     let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn Reflect>;
-    ///     let boxed_reflect_component_b = Box::new(ComponentB("NineSixteen".to_string())) as Box<dyn Reflect>;
+    ///     let boxed_reflect_component_a: Box<dyn Reflect> = Box::new(ComponentA(916));
+    ///     let boxed_reflect_component_b: Box<dyn Reflect>  = Box::new(ComponentB("NineSixteen".to_string()));
     ///
     ///     // You can overwrite the component in the resource with either ComponentA or ComponentB
     ///     prefab.component = boxed_reflect_component_a;
@@ -84,7 +84,7 @@ pub trait ReflectCommandExt {
         component: Box<dyn Reflect>,
     ) -> &mut Self;
 
-    /// Removes from the entity the component with the given type name registered in [`AppTypeRegistry`]
+    /// Removes from the entity the component with the given type name registered in [`AppTypeRegistry`].
     ///
     /// Does nothing if the entity does not have a component of the same type, if [`AppTypeRegistry`]
     /// does not contain the reflection data for the given component, or if the entity does not exist.
@@ -181,6 +181,27 @@ impl<'w, 's, 'a> ReflectCommandExt for EntityCommands<'w, 's, 'a> {
     }
 }
 
+/// Helper function to add a reflect component to a given entity
+fn insert_reflect(
+    world: &mut World,
+    entity: Entity,
+    type_registry: &TypeRegistry,
+    component: Box<dyn Reflect>,
+) {
+    let type_info = component.type_name();
+    let Some(mut entity) = world.get_entity_mut(entity) else {
+        panic!("error[B0003]: Could not insert a reflected component (of type {}) for entity {:?} because it doesn't exist in this World.", component.type_name(), entity);
+
+    };
+    let Some(type_registration) = type_registry.get_with_name(type_info) else {
+        panic!("Could not get type registration (for component type {}) because it doesn't exist in the TypeRegistry.", component.type_name());
+    };
+    let Some(reflect_component) = type_registration.data::<ReflectComponent>() else {
+        panic!("Could not get ReflectComponent data (for component type {}) because it doesn't exist in this TypeRegistration.", component.type_name());
+    };
+    reflect_component.insert(&mut entity, &*component);
+}
+
 /// A [`Command`] that adds the boxed reflect component to an entity using the data in
 /// [`AppTypeRegistry`].
 ///
@@ -195,20 +216,7 @@ pub struct InsertReflect {
 impl Command for InsertReflect {
     fn apply(self, world: &mut World) {
         let registry = world.get_resource::<AppTypeRegistry>().unwrap().clone();
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
-            let type_info = self.component.type_name();
-            if let Some(type_registration) = registry.read().get_with_name(type_info) {
-                if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
-                    reflect_component.insert(&mut entity, &*self.component);
-                } else {
-                    panic!("Could not get ReflectComponent data (for component type {}) because it doesn't exist in this TypeRegistration.", self.component.type_name());
-                }
-            } else {
-                panic!("Could not get type registration (for component type {}) because it doesn't exist in the TypeRegistry.", self.component.type_name());
-            }
-        } else {
-            panic!("error[B0003]: Could not insert a reflected component (of type {}) for entity {:?} because it doesn't exist in this World.", self.component.type_name(), self.entity);
-        }
+        insert_reflect(world, self.entity, &registry.read(), self.component);
     }
 }
 
@@ -228,22 +236,29 @@ impl<T: Resource + AsRef<TypeRegistry>> Command for InsertReflectWithRegistry<T>
     fn apply(self, world: &mut World) {
         let registry = world.remove_resource::<T>().unwrap();
         let registry: &TypeRegistry = registry.as_ref();
-
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
-            let type_info = self.component.type_name();
-            if let Some(type_registration) = registry.get_with_name(type_info) {
-                if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
-                    reflect_component.insert(&mut entity, &*self.component);
-                } else {
-                    panic!("Could not get ReflectComponent data (for component type {}) because it doesn't exist in this TypeRegistration.", self.component.type_name());
-                }
-            } else {
-                panic!("Could not get type registration (for component type {}) because it doesn't exist in the TypeRegistry.", self.component.type_name());
-            }
-        } else {
-            panic!("error[B0003]: Could not insert a reflected component (of type {}) for entity {:?} because it doesn't exist in this World.", self.component.type_name(), self.entity);
-        }
+        insert_reflect(world, self.entity, registry, self.component);
     }
+}
+
+/// Helper function to remove a reflect component from a given entity
+fn remove_reflect(
+    world: &mut World,
+    entity: Entity,
+    type_registry: &TypeRegistry,
+    component_type_name: Cow<'static, str>,
+) {
+    let Some(mut entity) = world.get_entity_mut(entity) else {
+        return;
+    };
+    let Some(type_registration) = type_registry.get_with_name(&component_type_name) else {
+        return;
+
+    };
+    let Some(reflect_component) = type_registration.data::<ReflectComponent>() else {
+        return;
+
+    };
+    reflect_component.remove(&mut entity);
 }
 
 /// A [`Command`] that removes the component of the same type as the given component type name from
@@ -261,15 +276,12 @@ pub struct RemoveReflect {
 impl Command for RemoveReflect {
     fn apply(self, world: &mut World) {
         let registry = world.get_resource::<AppTypeRegistry>().unwrap().clone();
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
-            if let Some(type_registration) =
-                registry.read().get_with_name(&self.component_type_name)
-            {
-                if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
-                    reflect_component.remove(&mut entity);
-                }
-            }
-        }
+        remove_reflect(
+            world,
+            self.entity,
+            &registry.read(),
+            self.component_type_name,
+        );
     }
 }
 
@@ -290,14 +302,7 @@ impl<T: Resource + AsRef<TypeRegistry>> Command for RemoveReflectWithRegistry<T>
     fn apply(self, world: &mut World) {
         let registry = world.remove_resource::<T>().unwrap();
         let registry: &TypeRegistry = registry.as_ref();
-
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
-            if let Some(type_registration) = registry.get_with_name(&self.component_type_name) {
-                if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
-                    reflect_component.remove(&mut entity);
-                }
-            }
-        }
+        remove_reflect(world, self.entity, registry, self.component_type_name);
     }
 }
 
@@ -308,7 +313,7 @@ mod tests {
     use crate::system::{Commands, SystemState};
     use crate::{self as bevy_ecs, component::Component, world::World};
     use bevy_ecs_macros::Resource;
-    use bevy_reflect::{FromType, Reflect, TypeRegistry};
+    use bevy_reflect::{Reflect, TypeRegistry};
 
     #[derive(Resource)]
     struct TypeRegistryResource {
@@ -321,7 +326,7 @@ mod tests {
         }
     }
 
-    #[derive(Component, Reflect, Default)]
+    #[derive(Component, Reflect, Default, PartialEq, Eq, Debug)]
     #[reflect(Component)]
     struct ComponentA(u32);
 
@@ -330,13 +335,11 @@ mod tests {
         let mut world = World::new();
 
         let type_registry = AppTypeRegistry::default();
-        let mut registry = type_registry.write();
-        registry.register::<ComponentA>();
-        let registration = registry
-            .get_mut(std::any::TypeId::of::<ComponentA>())
-            .unwrap();
-        registration.insert(<ReflectComponent as FromType<ComponentA>>::from_type());
-        drop(registry);
+        {
+            let mut registry = type_registry.write();
+            registry.register::<ComponentA>();
+            registry.register_type_data::<ComponentA, ReflectComponent>();
+        }
         world.insert_resource(type_registry);
 
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
@@ -351,8 +354,10 @@ mod tests {
             .insert_reflect(boxed_reflect_component_a);
         system_state.apply(&mut world);
 
-        assert!(world.entity(entity).get::<ComponentA>().is_some());
-        assert_eq!(world.entity(entity).get::<ComponentA>().unwrap().0, 916);
+        assert_eq!(
+            world.entity(entity).get::<ComponentA>(),
+            Some(&ComponentA(916))
+        );
     }
 
     #[test]
@@ -364,11 +369,9 @@ mod tests {
         };
 
         type_registry.type_registry.register::<ComponentA>();
-        let registration = type_registry
+        type_registry
             .type_registry
-            .get_mut(std::any::TypeId::of::<ComponentA>())
-            .unwrap();
-        registration.insert(<ReflectComponent as FromType<ComponentA>>::from_type());
+            .register_type_data::<ComponentA, ReflectComponent>();
         world.insert_resource(type_registry);
 
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
@@ -383,8 +386,10 @@ mod tests {
             .insert_reflect_with_registry::<TypeRegistryResource>(boxed_reflect_component_a);
         system_state.apply(&mut world);
 
-        assert!(world.entity(entity).get::<ComponentA>().is_some());
-        assert_eq!(world.entity(entity).get::<ComponentA>().unwrap().0, 916);
+        assert_eq!(
+            world.entity(entity).get::<ComponentA>(),
+            Some(&ComponentA(916))
+        );
     }
 
     #[test]
@@ -392,13 +397,11 @@ mod tests {
         let mut world = World::new();
 
         let type_registry = AppTypeRegistry::default();
-        let mut registry = type_registry.write();
-        registry.register::<ComponentA>();
-        let registration = registry
-            .get_mut(std::any::TypeId::of::<ComponentA>())
-            .unwrap();
-        registration.insert(<ReflectComponent as FromType<ComponentA>>::from_type());
-        drop(registry);
+        {
+            let mut registry = type_registry.write();
+            registry.register::<ComponentA>();
+            registry.register_type_data::<ComponentA, ReflectComponent>();
+        }
         world.insert_resource(type_registry);
 
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
@@ -413,7 +416,7 @@ mod tests {
             .remove_reflect(boxed_reflect_component_a.type_name().to_owned());
         system_state.apply(&mut world);
 
-        assert!(world.entity(entity).get::<ComponentA>().is_none());
+        assert_eq!(world.entity(entity).get::<ComponentA>(), None);
     }
 
     #[test]
@@ -425,11 +428,9 @@ mod tests {
         };
 
         type_registry.type_registry.register::<ComponentA>();
-        let registration = type_registry
+        type_registry
             .type_registry
-            .get_mut(std::any::TypeId::of::<ComponentA>())
-            .unwrap();
-        registration.insert(<ReflectComponent as FromType<ComponentA>>::from_type());
+            .register_type_data::<ComponentA, ReflectComponent>();
         world.insert_resource(type_registry);
 
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
@@ -446,6 +447,6 @@ mod tests {
             );
         system_state.apply(&mut world);
 
-        assert!(world.entity(entity).get::<ComponentA>().is_none());
+        assert_eq!(world.entity(entity).get::<ComponentA>(), None);
     }
 }
