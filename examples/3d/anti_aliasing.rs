@@ -10,7 +10,7 @@ use bevy::{
         },
         fxaa::{Fxaa, Sensitivity},
     },
-    pbr::{CascadeShadowConfigBuilder, ShadowFilteringMethod},
+    pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
         render_resource::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
@@ -48,7 +48,6 @@ fn modify_aa(
         *msaa = Msaa::Off;
         camera.remove::<Fxaa>();
         camera.remove::<TemporalAntiAliasBundle>();
-        camera.insert(ShadowFilteringMethod::Castano13);
     }
 
     // MSAA
@@ -57,7 +56,6 @@ fn modify_aa(
         camera.remove::<TemporalAntiAliasBundle>();
 
         *msaa = Msaa::Sample4;
-        camera.insert(ShadowFilteringMethod::Castano13);
     }
 
     // MSAA Sample Count
@@ -78,7 +76,7 @@ fn modify_aa(
         *msaa = Msaa::Off;
         camera.remove::<TemporalAntiAliasBundle>();
 
-        camera.insert((Fxaa::default(), ShadowFilteringMethod::Castano13));
+        camera.insert(Fxaa::default());
     }
 
     // FXAA Settings
@@ -110,10 +108,7 @@ fn modify_aa(
         *msaa = Msaa::Off;
         camera.remove::<Fxaa>();
 
-        camera.insert((
-            TemporalAntiAliasBundle::default(),
-            ShadowFilteringMethod::Jimenez14,
-        ));
+        camera.insert(TemporalAntiAliasBundle::default());
     }
 }
 
