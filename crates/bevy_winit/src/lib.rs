@@ -100,7 +100,7 @@ impl Plugin for WinitPlugin {
 
         #[cfg(all(target_os = "linux", feature = "window-off-main", feature = "x11"))]
         {
-            use winit::platform::wayland::EventLoopBuilderExtX11;
+            use winit::platform::x11::EventLoopBuilderExtX11;
             event_loop_builder.with_any_thread(true);
         }
 
