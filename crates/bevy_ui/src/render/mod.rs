@@ -543,26 +543,22 @@ pub fn extract_text_uinodes(
                 * Mat4::from_translation(-0.5 * uinode.size().extend(0.));
 
             let mut color = Color::WHITE;
-            let mut current_section = usize::MAX;
-            let Some(mut atlas) = text_layout_info.glyphs.get(0)
-            .map(|glyph| texture_atlases.get(&glyph.atlas_info.texture_atlas).unwrap()) else {
-            continue;
-            };
-            for (atlas_handle, count) in &text_layout_info.atlases {
-                let atlas =  texture_atlases.get(atlas_handle).unwrap();
-                for PositionedGlyph {
-                    position,
-                    glyph_index,
-                    section_index,
-                    ..
-                } in &text_layout_info.glyphs
-                {
+            let mut current_section = u32::MAX;
+            let mut start = 0;
+            for (atlas_handle, end) in &text_layout_info.atlases {
+                let atlas = texture_atlases.get(atlas_handle).unwrap();
+                for i in start..*end {
+                    let PositionedGlyph {
+                        position,
+                        glyph_index,
+                        section_index,
+                        ..
+                    } = &text_layout_info.glyphs[i];
                     if *section_index != current_section {
                         color = text.sections[*section_index as usize].style.color.as_rgba_linear();
                         current_section = *section_index;
                     }
-
-                    let mut rect = atlas.textures[glyph_index as usize];
+                    let mut rect = atlas.textures[*glyph_index as usize];
                     rect.min *= inverse_scale_factor;
                     rect.max *= inverse_scale_factor;
                     extracted_uinodes.uinodes.push(ExtractedUiNode {
@@ -577,7 +573,8 @@ pub fn extract_text_uinodes(
                         flip_x: false,
                         flip_y: false,
                     });
-                }
+                }      
+                start = *end;      
             }
         }
     }

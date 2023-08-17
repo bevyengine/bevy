@@ -10,8 +10,8 @@ use glyph_brush_layout::{
 };
 
 use crate::{
-    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo,
-    TextAlignment, TextSettings, YAxisOrientation,
+    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, 
+    TextAlignment, TextSettings, YAxisOrientation, 
 };
 
 pub struct GlyphBrush {
@@ -64,9 +64,9 @@ impl GlyphBrush {
         text_settings: &TextSettings,
         font_atlas_warning: &mut FontAtlasWarning,
         y_axis_orientation: YAxisOrientation,
-    ) -> Result<Vec<PositionedGlyph>, TextError> {
+    ) -> Result<(Vec<(Handle<TextureAtlas>, usize)>, Vec<PositionedGlyph>), TextError> {
         if glyphs.is_empty() {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), Vec::new()));
         }
 
         let sections_data = sections
@@ -85,8 +85,9 @@ impl GlyphBrush {
             .collect::<Result<Vec<_>, _>>()?;
 
         let text_bounds = compute_text_bounds(&glyphs, |index| &sections_data[index].3);
-
+        let mut atlases: Vec<(Handle<TextureAtlas>, usize)> = Vec::new();
         let mut positioned_glyphs = Vec::new();
+        
         for sg in glyphs {
             let SectionGlyph {
                 section_index: _,
@@ -98,6 +99,7 @@ impl GlyphBrush {
             let glyph_position = glyph.position;
             let adjust = GlyphPlacementAdjuster::new(&mut glyph);
             let section_data = sections_data[sg.section_index];
+            
             if let Some(outlined_glyph) = section_data.1.font.outline_glyph(glyph) {
                 let bounds = outlined_glyph.px_bounds();
                 let handle_font_atlas: Handle<FontAtlasSet> = section_data.0.cast_weak();
@@ -110,7 +112,7 @@ impl GlyphBrush {
                     .unwrap_or_else(|| {
                         font_atlas_set.add_glyph_to_atlas(texture_atlases, textures, outlined_glyph)
                     })?;
-
+                
                 if !text_settings.allow_dynamic_font_size
                     && !font_atlas_warning.warned
                     && font_atlas_set.num_font_atlases() > text_settings.max_font_atlases.get()
@@ -119,7 +121,9 @@ impl GlyphBrush {
                     font_atlas_warning.warned = true;
                 }
 
+
                 let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+                
                 let glyph_rect = texture_atlas.textures[atlas_info.glyph_index];
                 let size = Vec2::new(glyph_rect.width(), glyph_rect.height());
 
@@ -137,13 +141,28 @@ impl GlyphBrush {
                 let position = adjust.position(Vec2::new(x, y));
                 positioned_glyphs.push(PositionedGlyph {
                     position,
+                    size,
                     glyph_index: atlas_info.glyph_index as u32,
                     section_index: sg.section_index as u32,
                     byte_index: byte_index as u32,
                 });
+                
+                if let Some((atlas, ref mut end)) = atlases.last_mut() {
+                    if atlas_info.texture_atlas.id() == atlas.id() {
+                        
+                        // glyph from same texture atlas as last glyph
+                        *end = positioned_glyphs.len();
+                    } else {
+                        // glyph from different texture atlas
+                        atlases.push((atlas_info.texture_atlas.clone(), positioned_glyphs.len()));
+                    }
+                } else {
+                    // not added any atlases to the list yet.
+                    atlases.push((atlas_info.texture_atlas.clone(), positioned_glyphs.len()));
+                };
             }
         }
-        Ok(positioned_glyphs)
+        Ok((atlases, positioned_glyphs))
     }
 
     pub fn add_font(&mut self, handle: Handle<Font>, font: FontArc) -> FontId {
@@ -158,6 +177,7 @@ impl GlyphBrush {
 #[derive(Debug, Clone)]
 pub struct PositionedGlyph {
     pub position: Vec2,
+    pub size: Vec2,
     pub glyph_index: u32,
     pub section_index: u32,
     pub byte_index: u32,

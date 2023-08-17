@@ -112,34 +112,34 @@ pub fn extract_text2d_sprite(
             * GlobalTransform::from_translation(alignment_translation.extend(0.));
         let mut color = Color::WHITE;
         let mut current_section = u32::MAX;
-
-        for (atlas_handle, count) in &text_layout_info.atlases {
+        let mut start = 0;
+        for (atlas_handle, end) in &text_layout_info.atlases {
             let atlas =  texture_atlases.get(atlas_handle).unwrap();
-            for _ in 0..*count {
-                for PositionedGlyph {
+            for i in start..*end {
+                let PositionedGlyph {
                     position,
                     glyph_index,
                     section_index,
                     ..
-                } in &text_layout_info.glyphs {
-                    if *section_index != current_section {
-                        color = text.sections[*section_index as usize].style.color.as_rgba_linear();
-                        current_section = *section_index;
-                    }
-                    
-                    extracted_sprites.sprites.push(ExtractedSprite {
-                        entity,
-                        transform: transform * GlobalTransform::from_translation(position.extend(0.)),
-                        color,
-                        rect: Some(atlas.textures[*glyph_index as usize]),
-                        custom_size: None,
-                        image_handle_id: atlas.texture.id(),
-                        flip_x: false,
-                        flip_y: false,
-                        anchor: Anchor::Center.as_vec(),
-                    });
+                } = &text_layout_info.glyphs[i];
+                if *section_index != current_section {
+                    color = text.sections[*section_index as usize].style.color.as_rgba_linear();
+                    current_section = *section_index;
                 }
+                
+                extracted_sprites.sprites.push(ExtractedSprite {
+                    entity,
+                    transform: transform * GlobalTransform::from_translation(position.extend(0.)),
+                    color,
+                    rect: Some(atlas.textures[*glyph_index as usize]),
+                    custom_size: None,
+                    image_handle_id: atlas.texture.id(),
+                    flip_x: false,
+                    flip_y: false,
+                    anchor: Anchor::Center.as_vec(),
+                });
             }
+            start = *end;   
         }
     }
 }

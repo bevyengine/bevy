@@ -88,7 +88,7 @@ impl TextPipeline {
 
         let size = compute_text_bounds(&section_glyphs, |index| &scaled_fonts[index]).size();
 
-        let glyphs = self.brush.process_glyphs(
+        let (atlases, glyphs) = self.brush.process_glyphs(
             section_glyphs,
             &sections,
             font_atlas_set_storage,
@@ -100,7 +100,7 @@ impl TextPipeline {
             y_axis_orientation,
         )?;
 
-        Ok(TextLayoutInfo { glyphs, size })
+        Ok(TextLayoutInfo { atlases, glyphs,  size })
     }
 
     pub fn create_text_measure(
