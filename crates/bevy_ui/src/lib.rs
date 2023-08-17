@@ -10,6 +10,7 @@ mod layout;
 mod render;
 mod stack;
 mod ui_node;
+mod material;
 
 #[cfg(feature = "bevy_text")]
 mod accessibility;
