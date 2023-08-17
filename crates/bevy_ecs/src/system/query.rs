@@ -338,9 +338,13 @@ pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for Query<'w, 's, Q, F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f, "Query {{ matched entities: {}, world: {:?}, state: {:?}, last_run: {:?}, this_run: {:?} }}",
-            self.iter().count(), self.world, self.state, self.last_run, self.this_run)
+        f.debug_struct("Query")
+            .field("matched_entities", &self.iter().count())
+            .field("state", &self.state)
+            .field("last_run", &self.last_run)
+            .field("this_run", &self.this_run)
+            .field("world", &self.world)
+            .finish()
     }
 }
 
