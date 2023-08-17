@@ -1073,7 +1073,7 @@ impl GamepadConnectionEvent {
         }
     }
 
-    /// Is the gamepad connected.
+    /// Is the gamepad connected?
     pub fn connected(&self) -> bool {
         matches!(self.connection, GamepadConnection::Connected(_))
     }
