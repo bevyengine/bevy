@@ -1,3 +1,5 @@
+//! The gamepad input functionality.
+
 use crate::{Axis, Input};
 use bevy_ecs::event::{Event, EventReader, EventWriter};
 use bevy_ecs::{

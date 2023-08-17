@@ -1,5 +1,11 @@
 #![allow(clippy::type_complexity)]
 
+//! Input functionality for the [Bevy game engine](https://bevyengine.org/).
+//!
+//! # Supported input devices
+//!
+//! `bevy` currently supports keyboard, mouse, gamepad, and touch inputs.
+
 mod axis;
 /// Common run conditions
 pub mod common_conditions;
@@ -13,6 +19,7 @@ pub mod touchpad;
 pub use axis::*;
 pub use input::*;
 
+/// Most commonly used re-exported types.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
