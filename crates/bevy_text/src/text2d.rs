@@ -123,7 +123,7 @@ pub fn extract_text2d_sprite(
                     ..
                 } = &text_layout_info.glyphs[i];
                 if *section_index != current_section {
-                    color = text.sections[*section_index as usize]
+                    color = text.sections[*section_index]
                         .style
                         .color
                         .as_rgba_linear();
@@ -134,7 +134,7 @@ pub fn extract_text2d_sprite(
                     entity,
                     transform: transform * GlobalTransform::from_translation(position.extend(0.)),
                     color,
-                    rect: Some(atlas.textures[*glyph_index as usize]),
+                    rect: Some(atlas.textures[*glyph_index]),
                     custom_size: None,
                     image_handle_id: atlas.texture.id(),
                     flip_x: false,
