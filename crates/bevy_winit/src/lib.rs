@@ -86,6 +86,24 @@ impl Plugin for WinitPlugin {
             );
         }
 
+        #[cfg(all(target_os = "windows", feature = "window-off-main"))]
+        {
+            use winit::platform::windows::EventLoopBuilderExtWindows;
+            event_loop_builder.with_any_thread(true);
+        }
+
+        #[cfg(all(target_os = "linux", feature = "window-off-main", feature = "wayland"))]
+        {
+            use winit::platform::wayland::EventLoopBuilderExtWayland;
+            event_loop_builder.with_any_thread(true);
+        }
+
+        #[cfg(all(target_os = "linux", feature = "window-off-main", feature = "x11"))]
+        {
+            use winit::platform::wayland::EventLoopBuilderExtX11;
+            event_loop_builder.with_any_thread(true);
+        }
+
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitSettings>()
             .set_runner(winit_runner)
@@ -422,20 +440,20 @@ pub fn winit_runner(mut app: App) {
                     event_writer_system_state.get_mut(&mut app.world);
 
                 let Some(window_entity) = winit_windows.get_window_entity(window_id) else {
-                        warn!(
-                            "Skipped event {:?} for unknown winit Window Id {:?}",
-                            event, window_id
-                        );
-                        return;
-                    };
+                    warn!(
+                        "Skipped event {:?} for unknown winit Window Id {:?}",
+                        event, window_id
+                    );
+                    return;
+                };
 
                 let Ok((mut window, mut cache)) = windows.get_mut(window_entity) else {
-                        warn!(
-                            "Window {:?} is missing `Window` component, skipping event {:?}",
-                            window_entity, event
-                        );
-                        return;
-                    };
+                    warn!(
+                        "Window {:?} is missing `Window` component, skipping event {:?}",
+                        window_entity, event
+                    );
+                    return;
+                };
 
                 runner_state.window_event_received = true;
 

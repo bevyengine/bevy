@@ -72,7 +72,11 @@ bevy_asset = ["bevy_internal/bevy_asset"]
 bevy_audio = ["bevy_internal/bevy_audio"]
 
 # Provides cameras and other basic render pipeline features
-bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline", "bevy_asset", "bevy_render"]
+bevy_core_pipeline = [
+  "bevy_internal/bevy_core_pipeline",
+  "bevy_asset",
+  "bevy_render",
+]
 
 # Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
@@ -84,7 +88,12 @@ bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf", "bevy_asset", "bevy_scene", "bevy_pbr"]
 
 # Adds PBR rendering
-bevy_pbr = ["bevy_internal/bevy_pbr", "bevy_asset", "bevy_render", "bevy_core_pipeline"]
+bevy_pbr = [
+  "bevy_internal/bevy_pbr",
+  "bevy_asset",
+  "bevy_render",
+  "bevy_core_pipeline",
+]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render"]
@@ -99,7 +108,12 @@ bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_render", "bevy_core_pipeline"]
 bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
 
 # A custom ECS-driven UI framework
-bevy_ui = ["bevy_internal/bevy_ui", "bevy_core_pipeline", "bevy_text", "bevy_sprite"]
+bevy_ui = [
+  "bevy_internal/bevy_ui",
+  "bevy_core_pipeline",
+  "bevy_text",
+  "bevy_sprite",
+]
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
@@ -114,7 +128,11 @@ trace_chrome = ["trace", "bevy_internal/trace_chrome"]
 trace_tracy = ["trace", "bevy_internal/trace_tracy"]
 
 # Tracing support, with memory profiling, exposing a port for Tracy
-trace_tracy_memory = ["trace", "bevy_internal/trace_tracy", "bevy_internal/trace_tracy_memory"]
+trace_tracy_memory = [
+  "trace",
+  "bevy_internal/trace_tracy",
+  "bevy_internal/trace_tracy_memory",
+]
 
 # Tracing support
 trace = ["bevy_internal/trace"]
@@ -202,6 +220,9 @@ serialize = ["bevy_internal/serialize"]
 
 # Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.
 multi-threaded = ["bevy_internal/multi-threaded"]
+
+# Enable running winit off the main thread on Windows or Linux
+window-off-main = ["bevy_internal/window-off-main"]
 
 # Wayland display server support
 wayland = ["bevy_internal/wayland"]
@@ -2274,6 +2295,19 @@ hidden = true
 name = "window_resizing"
 path = "examples/window/window_resizing.rs"
 doc-scrape-examples = true
+
+
+[[example]]
+name = "window_off_main"
+path = "examples/window/window_off_main.rs"
+doc-scrape-examples = true
+required-features = ["window-off-main"]
+
+[package.metadata.example.window_off_main]
+name = "Window Off Main"
+description = "Illustrates running bevy on a secondary thread"
+category = "Window"
+wasm = false
 
 [[example]]
 name = "fallback_image"

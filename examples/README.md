@@ -372,6 +372,7 @@ Example | Description
 [Transparent Window](../examples/window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration
 [Window Resizing](../examples/window/window_resizing.rs) | Demonstrates resizing and responding to resizing a window
 [Window Settings](../examples/window/window_settings.rs) | Demonstrates customizing default window settings
+[Window Off Main](../examples/window/window_off_main.rs) | Demonstrates running the window calls off the main thread, allowing Bevy to be launched in a secondary thread. Note that this only works on Windows & Linux.
 
 # Tests
 
