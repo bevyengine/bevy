@@ -630,6 +630,8 @@ impl ViewNode for GenerateEnvironmentMapLightNode {
         pass.set_bind_group(0, &bind_groups.filter, &[]);
         pass.dispatch_workgroups(342, 6, 1);
 
+        // PERF: At this point, may want to copy the specular map to a compressed texture format
+
         pass.set_pipeline(diffuse_convolution_pipeline);
         pass.set_bind_group(0, &bind_groups.diffuse_convolution, &[]);
         pass.dispatch_workgroups(8, 8, 6);
