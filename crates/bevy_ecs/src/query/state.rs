@@ -128,6 +128,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     }
 
     /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
+    ///
+    /// # Panics
+    ///
+    /// If `world` does not match the one used to call `QueryState::new` for this instance.
     #[inline]
     pub fn is_empty(&self, world: &World, last_run: Tick, this_run: Tick) -> bool {
         self.is_empty_unsafe_world_cell(world.as_unsafe_world_cell_readonly(), last_run, this_run)
@@ -141,9 +145,14 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         last_run: Tick,
         this_run: Tick,
     ) -> bool {
+        // Since this method never accesses any world data, it is not unsound
+        // to call this with a mismatched world. It is, however, definitely a bug to do so.
+        #[cfg(debug_assertions)]
+        self.validate_world(world.id());
         // SAFETY:
         // - `as_nop()` ensures no world data is accessed.
         // - `&self` ensures no one has exclusive access.
+        // - Since world data is never accessed, the world does not need to match.
         unsafe {
             self.as_nop()
                 .iter_unchecked_manual(world, last_run, this_run)
