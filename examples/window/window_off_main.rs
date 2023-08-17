@@ -2,9 +2,7 @@
 
 use std::sync::mpsc;
 
-use bevy::{
-    prelude::*,
-};
+use bevy::prelude::*;
 use bevy_internal::winit::WinitSettings;
 
 fn main() {
