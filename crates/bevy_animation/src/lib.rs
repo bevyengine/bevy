@@ -199,6 +199,13 @@ impl PlayingAnimation {
             self.seek_time += clip_duration;
         }
     }
+
+    /// Reset back to the initial state as if no time has elapsed.
+    fn replay(&mut self) {
+        self.completions = 0;
+        self.elapsed = 0.0;
+        self.seek_time = 0.0;
+    }
 }
 
 /// An animation that is being faded out as part of a transition
@@ -378,9 +385,13 @@ impl AnimationPlayer {
 
     /// Seek to a specific time in the animation.
     pub fn seek_to(&mut self, seek_time: f32) -> &mut Self {
-        assert!(0.0 >= seek_time);
         self.animation.seek_time = seek_time;
         self
+    }
+
+    /// Reset the animation to its initial state, as if no no time has elapsed.
+    pub fn replay(&mut self) {
+        self.animation.replay();
     }
 }
 
