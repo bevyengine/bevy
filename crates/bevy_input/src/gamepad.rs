@@ -107,6 +107,10 @@ impl Gamepad {
 )]
 pub struct GamepadInfo {
     /// The name of the gamepad.
+    ///
+    /// This name is generally defined by the OS.
+    ///
+    /// For example on Windows the name may be "HID-compliant game controller".
     pub name: String,
 }
 
