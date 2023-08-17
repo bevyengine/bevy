@@ -97,7 +97,7 @@ impl Plugin for PbrDeferredLightingPlugin {
 pub const DEFERRED_LIGHTING_PASS: &str = "deferred_lighting";
 
 #[derive(Default)]
-struct DeferredLightingNode;
+pub struct DeferredLightingNode;
 
 impl ViewNode for DeferredLightingNode {
     type ViewQuery = (
