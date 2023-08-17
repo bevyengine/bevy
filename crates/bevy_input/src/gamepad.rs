@@ -1078,7 +1078,7 @@ impl GamepadConnectionEvent {
         matches!(self.connection, GamepadConnection::Connected(_))
     }
 
-    /// Is the gamepad disconnected.
+    /// Is the gamepad disconnected?
     pub fn disconnected(&self) -> bool {
         !self.connected()
     }
