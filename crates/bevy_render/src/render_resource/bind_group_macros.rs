@@ -26,7 +26,19 @@ macro_rules! bind_group_descriptor_acc {
     );
 }
 
-/// TODO: Docs
+/// A helper for creating a [`crate::render_resource::BindGroupDescriptor`].
+///
+/// # Example
+///
+/// ```no_compile
+/// let bind_group = render_device.create_bind_group(bind_group_descriptor!(
+///     "my_bind_group_label",
+///     &my_bind_group_layout,
+///     texture(&my_texture_view),
+///     sampler(&my_sampler),
+///     buffer(my_uniform_buffer.binding()),
+/// ));
+/// ```
 #[macro_export]
 macro_rules! bind_group_descriptor {
     ($label:expr, $layout:expr, $($fun:tt)*) => {{
