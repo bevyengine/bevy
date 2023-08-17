@@ -28,6 +28,8 @@ macro_rules! bind_group_descriptor_acc {
 
 /// A helper for creating a [`crate::render_resource::BindGroupDescriptor`].
 ///
+/// Binding indices are automatically assigned from 0-N in the order that you declare the bindings.
+///
 /// # Example
 ///
 /// ```no_compile
@@ -37,6 +39,7 @@ macro_rules! bind_group_descriptor_acc {
 ///     texture(&my_texture_view),
 ///     sampler(&my_sampler),
 ///     buffer(my_uniform_buffer.binding()),
+///     // ...
 /// ));
 /// ```
 #[macro_export]
