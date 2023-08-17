@@ -216,8 +216,17 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Asserts that the [`SystemState`] matches the provided world.
     #[inline]
+    #[track_caller]
     fn validate_world(&self, world_id: WorldId) {
-        assert!(self.matches_world(world_id), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
+        #[inline(never)]
+        #[track_caller]
+        #[cold]
+        fn panic_mismatched(this: WorldId, other: WorldId) -> ! {
+            panic!("Encountered a mismatched World. This SystemState was created from {this:?}, but a method was called using {other:?}.");
+        }
+        if !self.matches_world(world_id) {
+            panic_mismatched(self.world_id, world_id);
+        }
     }
 
     /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before fetching the parameters,
