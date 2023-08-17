@@ -130,10 +130,23 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
     #[inline]
     pub fn is_empty(&self, world: &World, last_run: Tick, this_run: Tick) -> bool {
-        // SAFETY: NopFetch does not access any members while &self ensures no one has exclusive access
+        self.is_empty_unsafe_world_cell(world.as_unsafe_world_cell_readonly(), last_run, this_run)
+    }
+
+    /// Checks if the query is empty for the given [`UnsafeWorldCell`].
+    #[inline]
+    pub(crate) fn is_empty_unsafe_world_cell(
+        &self,
+        world: UnsafeWorldCell,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> bool {
+        // SAFETY:
+        // - `as_nop()` ensures no world data is accessed.
+        // - `&self` ensures no one has exclusive access.
         unsafe {
             self.as_nop()
-                .iter_unchecked_manual(world.as_unsafe_world_cell_readonly(), last_run, this_run)
+                .iter_unchecked_manual(world, last_run, this_run)
                 .next()
                 .is_none()
         }
