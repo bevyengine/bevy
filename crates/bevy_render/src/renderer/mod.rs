@@ -350,8 +350,7 @@ impl RenderContext {
     /// Creates a new [`BindGroup`](wgpu::BindGroup).
     #[inline]
     pub fn create_bind_group(&self, desc: &wgpu::BindGroupDescriptor) -> BindGroup {
-        let wgpu_bind_group = self.render_device.create_bind_group(desc);
-        BindGroup::from(wgpu_bind_group)
+        self.render_device.create_bind_group(desc)
     }
 
     fn flush_encoder(&mut self) {
