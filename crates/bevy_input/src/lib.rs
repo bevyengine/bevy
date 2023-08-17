@@ -52,6 +52,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[derive(Default)]
 pub struct InputPlugin;
 
+/// Label for systems that update the input data.
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 pub struct InputSystem;
 
@@ -148,11 +149,14 @@ impl Plugin for InputPlugin {
     reflect(Serialize, Deserialize)
 )]
 pub enum ButtonState {
+    /// The button is pressed.
     Pressed,
+    /// The button is not pressed.
     Released,
 }
 
 impl ButtonState {
+    /// Either or not the button is pressed.
     pub fn is_pressed(&self) -> bool {
         matches!(self, ButtonState::Pressed)
     }
