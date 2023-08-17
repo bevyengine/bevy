@@ -117,7 +117,7 @@ impl AssetIo for FileAssetIo {
         Ok(Box::new(fs::read_dir(root_path.join(path))?.map(
             move |entry| {
                 let path = entry.unwrap().path();
-                path.strip_prefix(&root_path).unwrap().to_owned()
+                pathdiff::diff_paths(path, root_path.as_path()).unwrap()
             },
         )))
     }
