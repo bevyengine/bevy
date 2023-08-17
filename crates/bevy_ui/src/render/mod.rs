@@ -555,7 +555,10 @@ pub fn extract_text_uinodes(
                         ..
                     } = &text_layout_info.glyphs[i];
                     if *section_index != current_section {
-                        color = text.sections[*section_index as usize].style.color.as_rgba_linear();
+                        color = text.sections[*section_index as usize]
+                            .style
+                            .color
+                            .as_rgba_linear();
                         current_section = *section_index;
                     }
                     let mut rect = atlas.textures[*glyph_index as usize];
@@ -573,8 +576,8 @@ pub fn extract_text_uinodes(
                         flip_x: false,
                         flip_y: false,
                     });
-                }      
-                start = *end;      
+                }
+                start = *end;
             }
         }
     }

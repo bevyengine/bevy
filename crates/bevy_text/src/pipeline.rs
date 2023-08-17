@@ -100,7 +100,11 @@ impl TextPipeline {
             y_axis_orientation,
         )?;
 
-        Ok(TextLayoutInfo { atlases, glyphs,  size })
+        Ok(TextLayoutInfo {
+            atlases,
+            glyphs,
+            size,
+        })
     }
 
     pub fn create_text_measure(
