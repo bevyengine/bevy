@@ -1,12 +1,12 @@
 use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
+    bind_group_descriptor,
     camera::{CameraOutputMode, ExtractedCamera},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, LoadOp, Operations,
-        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
-        TextureViewId,
+        BindGroup, LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor, SamplerDescriptor, TextureViewId,
     },
     renderer::RenderContext,
     view::ViewTarget,
@@ -57,23 +57,12 @@ impl ViewNode for UpscalingNode {
                     .render_device()
                     .create_sampler(&SamplerDescriptor::default());
 
-                let bind_group =
-                    render_context
-                        .render_device()
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: None,
-                            layout: &blit_pipeline.texture_bind_group,
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(upscaled_texture),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&sampler),
-                                },
-                            ],
-                        });
+                let bind_group = render_context.create_bind_group(bind_group_descriptor!(
+                    "upscaling_bind_group",
+                    &blit_pipeline.texture_bind_group,
+                    texture(upscaled_texture),
+                    sampler(&sampler),
+                ));
 
                 let (_, bind_group) = cached_bind_group.insert((upscaled_texture.id(), bind_group));
                 bind_group

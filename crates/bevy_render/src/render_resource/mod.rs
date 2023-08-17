@@ -1,6 +1,7 @@
 mod batched_uniform_buffer;
 mod bind_group;
 mod bind_group_layout;
+pub mod bind_group_macros;
 mod buffer;
 mod buffer_vec;
 mod gpu_array_buffer;

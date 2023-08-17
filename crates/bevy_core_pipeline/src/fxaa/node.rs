@@ -4,11 +4,11 @@ use crate::fxaa::{CameraFxaaPipeline, Fxaa, FxaaPipeline};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::{
+    bind_group_descriptor,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, FilterMode, Operations,
-        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
-        TextureViewId,
+        BindGroup, FilterMode, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor, SamplerDescriptor, TextureViewId,
     },
     renderer::RenderContext,
     view::ViewTarget,
@@ -64,20 +64,12 @@ impl ViewNode for FxaaNode {
                 let bind_group =
                     render_context
                         .render_device()
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: None,
-                            layout: &fxaa_pipeline.texture_bind_group,
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(source),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&sampler),
-                                },
-                            ],
-                        });
+                        .create_bind_group(bind_group_descriptor!(
+                            "fxaa_bind_group",
+                            &fxaa_pipeline.texture_bind_group,
+                            texture(source),
+                            sampler(&sampler),
+                        ));
 
                 let (_, bind_group) = cached_bind_group.insert((source.id(), bind_group));
                 bind_group

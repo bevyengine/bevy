@@ -9,7 +9,7 @@ pub use render_device::*;
 use crate::{
     render_graph::RenderGraph,
     render_phase::TrackedRenderPass,
-    render_resource::RenderPassDescriptor,
+    render_resource::{BindGroup, RenderPassDescriptor},
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
@@ -345,6 +345,13 @@ impl RenderContext {
     pub fn finish(mut self) -> Vec<CommandBuffer> {
         self.flush_encoder();
         self.command_buffers
+    }
+
+    /// Creates a new [`BindGroup`](wgpu::BindGroup).
+    #[inline]
+    pub fn create_bind_group(&self, desc: &wgpu::BindGroupDescriptor) -> BindGroup {
+        let wgpu_bind_group = self.render_device.create_bind_group(desc);
+        BindGroup::from(wgpu_bind_group)
     }
 
     fn flush_encoder(&mut self) {

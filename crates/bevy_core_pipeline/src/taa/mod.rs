@@ -17,17 +17,18 @@ use bevy_ecs::{
 use bevy_math::vec2;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
+    bind_group_descriptor,
     camera::{ExtractedCamera, MipBias, TemporalJitter},
     prelude::{Camera, Projection},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
-        BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState, MultisampleState,
-        Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
-        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
+        BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
+        CachedRenderPipelineId, ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState,
+        MultisampleState, Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment,
+        RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType,
+        SamplerDescriptor, Shader, ShaderStages, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsages, TextureViewDimension,
     },
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
@@ -201,45 +202,16 @@ impl ViewNode for TAANode {
         };
         let view_target = view_target.post_process_write();
 
-        let taa_bind_group =
-            render_context
-                .render_device()
-                .create_bind_group(&BindGroupDescriptor {
-                    label: Some("taa_bind_group"),
-                    layout: &pipelines.taa_bind_group_layout,
-                    entries: &[
-                        BindGroupEntry {
-                            binding: 0,
-                            resource: BindingResource::TextureView(view_target.source),
-                        },
-                        BindGroupEntry {
-                            binding: 1,
-                            resource: BindingResource::TextureView(
-                                &taa_history_textures.read.default_view,
-                            ),
-                        },
-                        BindGroupEntry {
-                            binding: 2,
-                            resource: BindingResource::TextureView(
-                                &prepass_motion_vectors_texture.default_view,
-                            ),
-                        },
-                        BindGroupEntry {
-                            binding: 3,
-                            resource: BindingResource::TextureView(
-                                &prepass_depth_texture.default_view,
-                            ),
-                        },
-                        BindGroupEntry {
-                            binding: 4,
-                            resource: BindingResource::Sampler(&pipelines.nearest_sampler),
-                        },
-                        BindGroupEntry {
-                            binding: 5,
-                            resource: BindingResource::Sampler(&pipelines.linear_sampler),
-                        },
-                    ],
-                });
+        let taa_bind_group = render_context.create_bind_group(bind_group_descriptor!(
+            "taa_bind_group",
+            &pipelines.taa_bind_group_layout,
+            texture(view_target.source),
+            texture(&taa_history_textures.read.default_view),
+            texture(&prepass_motion_vectors_texture.default_view),
+            texture(&prepass_depth_texture.default_view),
+            sampler(&pipelines.nearest_sampler),
+            sampler(&pipelines.linear_sampler),
+        ));
 
         {
             let mut taa_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {

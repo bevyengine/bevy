@@ -4,11 +4,12 @@ use crate::contrast_adaptive_sharpening::ViewCASPipeline;
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
+    bind_group_descriptor,
     extract_component::{ComponentUniforms, DynamicUniformIndex},
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, BufferId, Operations,
-        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, TextureViewId,
+        BindGroup, BufferId, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor, TextureViewId,
     },
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
@@ -75,26 +76,13 @@ impl Node for CASNode {
                 let bind_group =
                     render_context
                         .render_device()
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: Some("cas_bind_group"),
-                            layout: &sharpening_pipeline.texture_bind_group,
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(view_target.source),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(
-                                        &sharpening_pipeline.sampler,
-                                    ),
-                                },
-                                BindGroupEntry {
-                                    binding: 2,
-                                    resource: uniforms,
-                                },
-                            ],
-                        });
+                        .create_bind_group(bind_group_descriptor!(
+                            "cas_bind_group",
+                            &sharpening_pipeline.texture_bind_group,
+                            texture(view_target.source),
+                            sampler(&sharpening_pipeline.sampler),
+                            buffer(uniforms),
+                        ));
 
                 let (_, _, bind_group) =
                     cached_bind_group.insert((uniforms_id, source.id(), bind_group));
