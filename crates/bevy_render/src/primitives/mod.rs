@@ -127,7 +127,7 @@ impl Sphere {
 /// It includes all the points from the bisecting plane towards `NEG_Z`, and the distance
 /// from the plane to the origin is `-8.0` along `NEG_Z`.
 ///
-/// It is used to define a [`Frustum`], and for light computation, for example.
+/// It is used to define a [`Frustum`], but is also a useful mathematical primitive for rendering tasks such as  light computation.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct HalfSpace {
     normal_d: Vec4,
@@ -166,16 +166,16 @@ impl HalfSpace {
     }
 }
 
-/// A frustum defined as the intersection of 6 [`HalfSpace`].
+/// A region of 3D space defined by the intersection of 6 [`HalfSpace`].
 ///
-/// Usually an apex-truncated square pyramid (a pyramid without the top) or a cuboid.
+/// Frustums are typically an apex-truncated square pyramid (a pyramid without the top) or a cuboid.
 ///
 /// Half spaces are ordered left, right, top, bottom, near, far. The normal vectors
 /// of the half-spaces point towards the interior of the frustum.
 ///
 /// A frustum component is used on an entity with a [`Camera`] component
 /// to determine which entities will be considered for rendering by this camera.
-/// All entities with an [`Aabb`] component that does not intersect with the frustum
+/// All entities with an [`Aabb`] component that are not contained by (or overlapping the boundary of) the frustum
 /// will not be rendered, and not be used in rendering computations.
 ///
 /// This process is called frustum culling, and entities can opt out of it using
