@@ -166,17 +166,17 @@ impl HalfSpace {
     }
 }
 
-/// A region of 3D space defined by the intersection of 6 [`HalfSpace`].
+/// A region of 3D space defined by the intersection of 6 [`HalfSpace`]s.
 ///
 /// Frustums are typically an apex-truncated square pyramid (a pyramid without the top) or a cuboid.
 ///
 /// Half spaces are ordered left, right, top, bottom, near, far. The normal vectors
 /// of the half-spaces point towards the interior of the frustum.
 ///
-/// A frustum component is used on an entity with a [`Camera`] component
-/// to determine which entities will be considered for rendering by this camera.
-/// All entities with an [`Aabb`] component that are not contained by (or overlapping the boundary of) the frustum
-/// will not be rendered, and not be used in rendering computations.
+/// A frustum component is used on an entity with a [`Camera`] component to
+/// determine which entities will be considered for rendering by this camera.
+/// All entities with an [`Aabb`] component that are not contained by (or crossing
+/// the boundary of) the frustum will not be rendered, and not be used in rendering computations.
 ///
 /// This process is called frustum culling, and entities can opt out of it using
 /// the [`NoFrustumCulling`] component.
