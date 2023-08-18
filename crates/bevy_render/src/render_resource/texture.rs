@@ -1,3 +1,5 @@
+use wgpu::{BindGroupEntry, BindingResource};
+
 use crate::define_atomic_id;
 use std::ops::Deref;
 
@@ -74,6 +76,14 @@ impl TextureView {
     pub fn id(&self) -> TextureViewId {
         self.id
     }
+
+    #[inline]
+    pub fn binding(&self, binding_index: u32) -> BindGroupEntry {
+        BindGroupEntry {
+            binding: binding_index,
+            resource: BindingResource::TextureView(self),
+        }
+    }
 }
 
 impl From<wgpu::TextureView> for TextureView {
@@ -130,6 +140,16 @@ impl Sampler {
     #[inline]
     pub fn id(&self) -> SamplerId {
         self.id
+    }
+}
+
+impl Sampler {
+    #[inline]
+    pub fn binding(&self, binding_index: u32) -> BindGroupEntry {
+        BindGroupEntry {
+            binding: binding_index,
+            resource: BindingResource::Sampler(self),
+        }
     }
 }
 

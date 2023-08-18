@@ -8,7 +8,7 @@ use encase::{
     ShaderType,
 };
 use std::{marker::PhantomData, num::NonZeroU64};
-use wgpu::{BindingResource, Limits};
+use wgpu::{BindGroupEntry, BindingResource, BufferBinding, Limits};
 
 // 1MB else we will make really large arrays on macOS which reports very large
 // `max_uniform_buffer_binding_size`. On macOS this ends up being the minimum
@@ -104,13 +104,16 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
-        let mut binding = self.uniforms.binding();
-        if let Some(BindingResource::Buffer(binding)) = &mut binding {
-            // MaxCapacityArray is runtime-sized so can't use T::min_size()
-            binding.size = Some(self.size());
-        }
-        binding
+    pub fn binding(&self, binding_index: u32) -> Option<BindGroupEntry> {
+        Some(BindGroupEntry {
+            binding: binding_index,
+            resource: BindingResource::Buffer(BufferBinding {
+                buffer: self.uniforms.buffer()?,
+                offset: 0,
+                // MaxCapacityArray is runtime-sized so can't use T::min_size()
+                size: Some(self.size()),
+            }),
+        })
     }
 }
 

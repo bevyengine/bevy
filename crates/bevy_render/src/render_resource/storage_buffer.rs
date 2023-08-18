@@ -8,7 +8,9 @@ use encase::{
     internal::WriteInto, DynamicStorageBuffer as DynamicStorageBufferWrapper, ShaderType,
     StorageBuffer as StorageBufferWrapper,
 };
-use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
+use wgpu::{
+    util::BufferInitDescriptor, BindGroupEntry, BindingResource, BufferBinding, BufferUsages,
+};
 
 /// Stores data to be transferred to the GPU and made accessible to shaders as a storage buffer.
 ///
@@ -72,10 +74,11 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
-        Some(BindingResource::Buffer(
-            self.buffer()?.as_entire_buffer_binding(),
-        ))
+    pub fn binding(&self, binding_index: u32) -> Option<BindGroupEntry> {
+        Some(BindGroupEntry {
+            binding: binding_index,
+            resource: BindingResource::Buffer(self.buffer()?.as_entire_buffer_binding()),
+        })
     }
 
     pub fn set(&mut self, value: T) {

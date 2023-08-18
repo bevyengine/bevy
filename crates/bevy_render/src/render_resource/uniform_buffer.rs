@@ -8,7 +8,9 @@ use encase::{
     internal::WriteInto, DynamicUniformBuffer as DynamicUniformBufferWrapper, ShaderType,
     UniformBuffer as UniformBufferWrapper,
 };
-use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
+use wgpu::{
+    util::BufferInitDescriptor, BindGroupEntry, BindingResource, BufferBinding, BufferUsages,
+};
 
 /// Stores data to be transferred to the GPU and made accessible to shaders as a uniform buffer.
 ///
@@ -72,10 +74,11 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
-        Some(BindingResource::Buffer(
-            self.buffer()?.as_entire_buffer_binding(),
-        ))
+    pub fn binding(&self, binding_index: u32) -> Option<BindGroupEntry> {
+        Some(BindGroupEntry {
+            binding: binding_index,
+            resource: BindingResource::Buffer(self.buffer()?.as_entire_buffer_binding()),
+        })
     }
 
     /// Set the data the buffer stores.
@@ -197,12 +200,15 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
-        Some(BindingResource::Buffer(BufferBinding {
-            buffer: self.buffer()?,
-            offset: 0,
-            size: Some(T::min_size()),
-        }))
+    pub fn binding(&self, binding_index: u32) -> Option<BindGroupEntry> {
+        Some(BindGroupEntry {
+            binding: binding_index,
+            resource: BindingResource::Buffer(BufferBinding {
+                buffer: self.buffer()?,
+                offset: 0,
+                size: Some(T::min_size()),
+            }),
+        })
     }
 
     #[inline]

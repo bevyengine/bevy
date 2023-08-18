@@ -9,7 +9,7 @@ pub use render_device::*;
 use crate::{
     render_graph::RenderGraph,
     render_phase::TrackedRenderPass,
-    render_resource::{BindGroup, RenderPassDescriptor},
+    render_resource::{BindGroup, BindGroupLayout, RenderPassDescriptor},
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
@@ -18,7 +18,8 @@ use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
 use wgpu::{
-    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Instance, Queue, RequestAdapterOptions,
+    Adapter, AdapterInfo, BindGroupDescriptor, BindGroupEntry, CommandBuffer, CommandEncoder,
+    Instance, Queue, RequestAdapterOptions,
 };
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
@@ -349,8 +350,17 @@ impl RenderContext {
 
     /// Creates a new [`BindGroup`](wgpu::BindGroup).
     #[inline]
-    pub fn create_bind_group(&self, desc: &wgpu::BindGroupDescriptor) -> BindGroup {
-        self.render_device.create_bind_group(desc)
+    pub fn create_bind_group(
+        &self,
+        label: &'static str,
+        layout: &BindGroupLayout,
+        entries: &[BindGroupEntry],
+    ) -> BindGroup {
+        self.render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some(label),
+            layout,
+            entries,
+        })
     }
 
     fn flush_encoder(&mut self) {

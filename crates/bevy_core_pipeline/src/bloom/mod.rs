@@ -163,7 +163,7 @@ impl ViewNode for BloomNode {
             Some(upsampling_pipeline),
             Some(upsampling_final_pipeline),
         ) = (
-            uniforms.binding(),
+            uniforms.binding(2),
             pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.first),
             pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.main),
             pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_main),
@@ -174,14 +174,15 @@ impl ViewNode for BloomNode {
 
         // First downsample pass
         {
-            let downsampling_first_bind_group =
-                render_context.create_bind_group(bind_group_descriptor!(
-                    "bloom_downsampling_first_bind_group",
-                    &downsampling_pipeline_res.bind_group_layout,
-                    texture(view_target.main_texture_view()),
-                    sampler(&bind_groups.sampler),
-                    buffer(uniforms.clone()),
-                ));
+            let downsampling_first_bind_group = render_context.create_bind_group(
+                "bloom_downsampling_first_bind_group",
+                &downsampling_pipeline_res.bind_group_layout,
+                &[
+                    view_target.main_texture_view().binding(0),
+                    bind_groups.sampler.binding(1),
+                    uniforms,
+                ],
+            );
 
             let view = &bloom_texture.view(0);
             let mut downsampling_first_pass =
@@ -401,28 +402,32 @@ fn queue_bloom_bind_groups(
 
     for (entity, bloom_texture) in &views {
         let bind_group_count = bloom_texture.mip_count as usize - 1;
-        let uniforms = uniforms.binding().unwrap();
+        let uniforms = uniforms.binding(2).unwrap();
 
         let mut downsampling_bind_groups = Vec::with_capacity(bind_group_count);
         for mip in 1..bloom_texture.mip_count {
-            downsampling_bind_groups.push(render_device.create_bind_group(bind_group_descriptor!(
+            downsampling_bind_groups.push(render_device.create_bind_group(
                 "bloom_downsampling_bind_group",
                 &downsampling_pipeline.bind_group_layout,
-                texture(&bloom_texture.view(mip - 1)),
-                sampler(sampler),
-                buffer(uniforms.clone()),
-            )));
+                &[
+                    bloom_texture.view(mip - 1).binding(0),
+                    sampler.binding(1),
+                    uniforms.clone(),
+                ],
+            ));
         }
 
         let mut upsampling_bind_groups = Vec::with_capacity(bind_group_count);
         for mip in (0..bloom_texture.mip_count).rev() {
-            upsampling_bind_groups.push(render_device.create_bind_group(bind_group_descriptor!(
+            upsampling_bind_groups.push(render_device.create_bind_group(
                 "bloom_upsampling_bind_group",
                 &upsampling_pipeline.bind_group_layout,
-                texture(&bloom_texture.view(mip)),
-                sampler(sampler),
-                buffer(uniforms.clone()),
-            )));
+                &[
+                    &bloom_texture.view(mip).binding(0),
+                    sampler.binding(1),
+                    uniforms.clone(),
+                ],
+            ));
         }
 
         commands.entity(entity).insert(BloomBindGroups {

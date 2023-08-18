@@ -6,7 +6,7 @@ use crate::{
 use bevy_ecs::{prelude::Component, system::Resource};
 use encase::{private::WriteInto, ShaderSize, ShaderType};
 use std::{marker::PhantomData, mem};
-use wgpu::{BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType, ShaderStages};
+use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BindingType, BufferBindingType, ShaderStages};
 
 /// Trait for types able to go in a [`GpuArrayBuffer`].
 pub trait GpuArrayBufferable: ShaderType + ShaderSize + WriteInto + Clone {}
@@ -100,10 +100,10 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
         }
     }
 
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self, binding_index: u32) -> Option<BindGroupEntry> {
         match self {
-            GpuArrayBuffer::Uniform(buffer) => buffer.binding(),
-            GpuArrayBuffer::Storage((buffer, _)) => buffer.binding(),
+            GpuArrayBuffer::Uniform(buffer) => buffer.binding(binding_index),
+            GpuArrayBuffer::Storage((buffer, _)) => buffer.binding(binding_index),
         }
     }
 
