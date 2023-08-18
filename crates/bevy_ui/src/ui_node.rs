@@ -1450,73 +1450,73 @@ impl GridPlacement {
     }
 
     /// Place the grid item automatically, specifying how many tracks it should `span`.
-    pub fn span(span: u16) -> Result<Self, GridPlacementError> {
-        Ok(Self {
+    pub fn span(span: u16) -> Self {
+        Self {
             start: None,
             end: None,
-            span: try_into_span(span)?,
-        })
+            span: try_into_span(span).unwrap(),
+        }
     }
 
     /// Place the grid item specifying the `start` grid line (letting the `span` default to `1`).
-    pub fn start(start: i16) -> Result<Self, GridPlacementError> {
-        Ok(Self {
-            start: Some(NonZeroI16::new(start).ok_or(GridPlacementError::InvalidZeroIndex)?),
+    pub fn start(start: i16) -> Self {
+        Self {
+            start: try_into_index(start).unwrap(),
             ..Self::DEFAULT
-        })
+        }
     }
 
     /// Place the grid item specifying the `end` grid line (letting the `span` default to `1`).
-    pub fn end(end: i16) -> Result<Self, GridPlacementError> {
-        Ok(Self {
-            end: try_into_index(end)?,
+    pub fn end(end: i16) -> Self {
+        Self {
+            end: try_into_index(end).unwrap(),
             ..Self::DEFAULT
-        })
+        }
     }
 
     /// Place the grid item specifying the `start` grid line and how many tracks it should `span`.
-    pub fn start_span(start: i16, span: u16) -> Result<Self, GridPlacementError> {
-        Ok(Self {
-            start: try_into_index(start)?,
+    pub fn start_span(start: i16, span: u16) -> Self {
+        Self {
+            start: try_into_index(start).unwrap(),
             end: None,
-            span: try_into_span(span)?,
-        })
+            span: try_into_span(span).unwrap(),
+        }
     }
 
     /// Place the grid item specifying `start` and `end` grid lines (`span` will be inferred)
-    pub fn start_end(start: i16, end: i16) -> Result<Self, GridPlacementError> {
-        Ok(Self {
-            start: try_into_index(start)?,
-            end: try_into_index(end)?,
+    pub fn start_end(start: i16, end: i16) -> Self {
+        Self {
+            start: try_into_index(start).unwrap(),
+            end: try_into_index(end).unwrap(),
             span: None,
-        })
+        }
     }
 
     /// Place the grid item specifying the `end` grid line and how many tracks it should `span`.
-    pub fn end_span(end: i16, span: u16) -> Result<Self, GridPlacementError> {
-        Ok(Self {
+    pub fn end_span(end: i16, span: u16) -> Self {
+        Self {
             start: None,
-            end: try_into_index(end)?,
-            span: try_into_span(span)?,
-        })
+            end: try_into_index(end).unwrap(),
+            span: try_into_span(span).unwrap(),
+        }
     }
 
     /// Mutate the item, setting the `start` grid line
-    pub fn set_start(mut self, start: i16) -> Result<Self, GridPlacementError> {
-        self.start = try_into_index(start)?;
-        Ok(self)
+    pub fn set_start(mut self, start: i16) -> Self {
+        self.start = try_into_index(start).unwrap();
+        self
     }
 
     /// Mutate the item, setting the `end` grid line
-    pub fn set_end(mut self, end: i16) -> Result<Self, GridPlacementError> {
-        self.end = try_into_index(end)?;
-        Ok(self)
+    pub fn set_end(mut self, end: i16) -> Self {
+        self.end = try_into_index(end).unwrap();
+        self
     }
 
     /// Mutate the item, setting the number of tracks the item should `span`
-    pub fn set_span(mut self, span: u16) -> Result<Self, GridPlacementError> {
-        self.span = try_into_span(span)?;
-        Ok(self)
+    pub fn set_span(mut self, span: u16) -> Self {
+        self.span = try_into_span(span).unwrap();
+        self
     }
 
     pub fn get_start(self) -> Option<i16> {

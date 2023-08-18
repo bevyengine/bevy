@@ -463,8 +463,8 @@ mod tests {
                 GridTrack::min_content(),
                 GridTrack::max_content(),
             ],
-            grid_column: GridPlacement::start(4).unwrap(),
-            grid_row: GridPlacement::span(3).unwrap(),
+            grid_column: GridPlacement::start(4),
+            grid_row: GridPlacement::span(3),
         };
         let viewport_values = LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.));
         let taffy_style = from_style(&viewport_values, &bevy_style);
