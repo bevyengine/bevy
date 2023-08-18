@@ -1,6 +1,20 @@
 #import bevy_render::view  View
 
-const TEXTURED_QUAD: u32 = 0u;
+const TEXTURED_QUAD: u32 = 1u;
+
+struct UiMaterialDefault {
+    color: vec4<f32>,
+    // mode is a field indicating wheter this is a textured quad or not.
+    // (0 = untextured, 1 = textured)
+    mode: u32
+}
+
+@group(1) @binding(0)
+var<uniform> color: vec4<f32>;
+@group(1) @binding(1)
+var texture: texture_2d<f32>;
+@group(1) @binding(2)
+var texture_sampler: sampler;
 
 @group(0) @binding(0)
 var<uniform> view: View;
@@ -26,11 +40,6 @@ fn vertex(
     out.mode = mode;
     return out;
 }
-
-@group(1) @binding(0)
-var sprite_texture: texture_2d<f32>;
-@group(1) @binding(1)
-var sprite_sampler: sampler;
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
