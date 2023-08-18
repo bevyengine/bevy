@@ -1,14 +1,31 @@
 # Profiling
 
-## Runtime Flame Graph: `tracing` spans
+## Table of Contents
+
+- [Runtime](#runtime)
+  - [Chrome tracing format](#chrome-tracing-format)
+  - [Tracy profiler](#tracy-profiler)
+  - [Adding your own spans](#adding-your-own-spans)
+  - [Perf flame graph](#perf-flame-graph)
+- [Compile time](#compile-time)
+
+# Runtime
 
 Bevy has built-in [tracing](https://github.com/tokio-rs/tracing) spans to make it cheap and easy to profile Bevy ECS systems, render logic, engine internals, and user app code. Enable the `trace` cargo feature to enable Bevy's built-in spans.
 
 If you also want to include `wgpu` tracing spans when profiling, they are emitted at the `tracing` `info` level so you will need to make sure they are not filtered out by the `LogSettings` resource's `filter` member which defaults to `wgpu=error`. You can do this by setting the `RUST_LOG=info` environment variable when running your application.
 
-You also need to select a `tracing` backend using the following cargo features:
+You also need to select a `tracing` backend using the following cargo features.
 
-### Backend: trace_chrome
+**⚠️ Note: for users of span based profilers**
+
+When GPU bottlenecked you may encounter frames that have multiple prepare-set systems all taking an unusually long time to complete, and all finishing at about the same time.
+
+Improvements are planned to resolve this issue, you can find more details in the doc comment for [`prepare_systems`](../crates/bevy_render/src/view/window/mod.rs).
+
+![prepare_windows span bug](https://github.com/bevyengine/bevy/assets/2771466/15c0819b-0e07-4665-aa1e-579caa24fece)
+
+## Chrome tracing format
 
 `cargo run --release --features bevy/trace_chrome`
 
@@ -16,7 +33,7 @@ After running your app a `json` file in the "chrome tracing format" will be prod
 
 ![image](https://user-images.githubusercontent.com/2694663/141657409-6f4a3ad3-59b6-4378-95ba-66c0dafecd8e.png)
 
-### Backend: trace_tracy
+## Tracy profiler
 
 The [Tracy profiling tool](https://github.com/wolfpld/tracy) is:
 > A real time, nanosecond resolution, remote telemetry, hybrid frame and sampling profiler for games and other applications.
@@ -52,7 +69,7 @@ If you save more than one trace, you can compare the spans between both of them 
 
 ![A graph and statistics in the Tracy GUI comparing the distribution of execution times of an instrumented span across two traces](https://user-images.githubusercontent.com/3137680/205834698-84405b2f-97b5-43a3-9dba-385167ac1db5.png)
 
-### Adding your own spans
+## Adding your own spans
 
 Add spans to your app like this (these are in `bevy::prelude::*` and `bevy::log::*`, just like the normal logging macros).
 
@@ -78,7 +95,7 @@ Search for `info_span!` in this repo for some real-world examples.
 
 For more details, check out the [tracing span docs](https://docs.rs/tracing/*/tracing/span/index.html).
 
-## `perf` Runtime Flame Graph
+## `perf` Flame Graph
 
 This approach requires no extra instrumentation and shows finer-grained flame graphs of actual code call trees. This is useful when you want to identify the specific function of a "hot spot". The downside is that it has higher overhead, so your app will run slower than it normally does.
 
@@ -90,7 +107,7 @@ Install [cargo-flamegraph](https://github.com/flamegraph-rs/flamegraph), [enable
 After closing your app, an interactive `svg` file will be produced:
 ![image](https://user-images.githubusercontent.com/2694663/141657609-0089675d-fb6a-4dc4-9a59-871e95e31c8a.png)
 
-## Project Compile Times
+# Compile time
 
 Append `--timings` to your app's cargo command (ex: `cargo build --timings`).
 If you want a "full" profile, make sure you run `cargo clean` first (note: this will clear previously generated reports).
