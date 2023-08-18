@@ -16,7 +16,7 @@ pub trait AudioSinkPlayback {
     /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0`
     /// will multiply each sample by this value.
     ///
-    /// Note on Audio Volume:
+    /// # Note on Audio Volume
     /// Our perception of audio volume is based on a logarithmic scale. As such, setting the volume to 0.01
     /// doesn't mean it's 100 times quieter. Instead, it's exactly two times quieter than the default.
     /// Mathematically, if 10^x = 0.01, then x = -2, representing a factor of two.
