@@ -430,6 +430,7 @@ mod tests {
     use bevy_ecs::reflect::{AppTypeRegistry, ReflectMapEntities};
     use bevy_ecs::world::FromWorld;
     use bevy_reflect::{Reflect, ReflectSerialize};
+    use bevy_utils::HashMap;
     use bincode::Options;
     use serde::de::DeserializeSeed;
     use serde::Serialize;
@@ -603,7 +604,7 @@ mod tests {
             "expected `entities` to contain 3 entities"
         );
 
-        let mut map = Default::default();
+        let mut map = HashMap::default();
         let mut dst_world = create_world();
         scene.write_to_world(&mut dst_world, &mut map).unwrap();
 
@@ -642,7 +643,7 @@ mod tests {
 
         let deserialized_scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let mut map = Default::default();
+        let mut map = HashMap::default();
         let mut dst_world = create_world();
         deserialized_scene
             .write_to_world(&mut dst_world, &mut map)

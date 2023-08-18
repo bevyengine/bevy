@@ -185,6 +185,7 @@ where
 mod tests {
     use bevy_ecs::{reflect::AppTypeRegistry, system::Command, world::World};
     use bevy_hierarchy::{AddChild, Parent};
+    use bevy_utils::HashMap;
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
 
@@ -213,7 +214,7 @@ mod tests {
         scene_builder.extract_entity(original_parent_entity);
         scene_builder.extract_entity(original_child_entity);
         let scene = scene_builder.build();
-        let mut entity_map = Default::default();
+        let mut entity_map = HashMap::default();
         scene.write_to_world(&mut world, &mut entity_map).unwrap();
 
         let &from_scene_parent_entity = entity_map.get(&original_parent_entity).unwrap();

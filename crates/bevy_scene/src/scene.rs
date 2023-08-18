@@ -3,6 +3,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_reflect::{TypePath, TypeUuid};
+use bevy_utils::HashMap;
 
 use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
 
@@ -29,7 +30,7 @@ impl Scene {
         type_registry: &AppTypeRegistry,
     ) -> Result<Scene, SceneSpawnError> {
         let mut world = World::new();
-        let mut entity_map = Default::default();
+        let mut entity_map = HashMap::default();
         dynamic_scene.write_to_world_with(&mut world, &mut entity_map, type_registry)?;
 
         Ok(Self { world })
@@ -55,7 +56,7 @@ impl Scene {
         type_registry: &AppTypeRegistry,
     ) -> Result<InstanceInfo, SceneSpawnError> {
         let mut instance_info = InstanceInfo {
-            entity_map: Default::default(),
+            entity_map: HashMap::default(),
         };
 
         let type_registry = type_registry.read();

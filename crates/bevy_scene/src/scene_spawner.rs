@@ -131,7 +131,7 @@ impl SceneSpawner {
         world: &mut World,
         scene_handle: &Handle<DynamicScene>,
     ) -> Result<(), SceneSpawnError> {
-        let mut entity_map = Default::default();
+        let mut entity_map = HashMap::default();
         Self::spawn_dynamic_internal(world, scene_handle, &mut entity_map)?;
         let instance_id = InstanceId::new();
         self.spawned_instances
@@ -237,7 +237,7 @@ impl SceneSpawner {
         let scenes_to_spawn = std::mem::take(&mut self.dynamic_scenes_to_spawn);
 
         for (scene_handle, instance_id) in scenes_to_spawn {
-            let mut entity_map = Default::default();
+            let mut entity_map = HashMap::default();
 
             match Self::spawn_dynamic_internal(world, &scene_handle, &mut entity_map) {
                 Ok(_) => {

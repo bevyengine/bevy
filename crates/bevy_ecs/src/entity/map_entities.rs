@@ -131,6 +131,8 @@ impl<'m> EntityMapper<'m> {
 
 #[cfg(test)]
 mod tests {
+    use bevy_utils::HashMap;
+
     use crate::{
         entity::{Entity, EntityMapper},
         world::World,
@@ -141,7 +143,7 @@ mod tests {
         const FIRST_IDX: u32 = 1;
         const SECOND_IDX: u32 = 2;
 
-        let mut map = Default::default();
+        let mut map = HashMap::default();
         let mut world = World::new();
         let mut mapper = EntityMapper::new(&mut map, &mut world);
 
@@ -168,7 +170,7 @@ mod tests {
 
     #[test]
     fn world_scope_reserves_generations() {
-        let mut map = Default::default();
+        let mut map = HashMap::default();
         let mut world = World::new();
 
         let dead_ref = EntityMapper::world_scope(&mut map, &mut world, |_, mapper| {
