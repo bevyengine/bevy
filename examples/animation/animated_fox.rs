@@ -147,7 +147,7 @@ fn keyboard_animation_control(
             player.set_repeat(RepeatAnimation::Count(3));
             player.replay();
         }
-        
+
         if keyboard_input.just_pressed(KeyCode::Key5) {
             player.set_repeat(RepeatAnimation::Count(5));
             player.replay();
