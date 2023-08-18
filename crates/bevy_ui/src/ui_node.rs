@@ -10,7 +10,10 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use std::ops::{Div, DivAssign, Mul, MulAssign};
+use std::{
+    num::{NonZeroI16, NonZeroU16},
+    ops::{Div, DivAssign, Mul, MulAssign},
+};
 use thiserror::Error;
 
 /// Describes the size of a UI node
@@ -1427,99 +1430,105 @@ impl From<RepeatedGridTrack> for Vec<RepeatedGridTrack> {
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Line-based_Placement_with_CSS_Grid>
 pub struct GridPlacement {
     /// The grid line at which the item should start. Lines are 1-indexed. Negative indexes count backwards from the end of the grid. Zero is not a valid index.
-    pub(crate) start: Option<i16>,
+    pub(crate) start: Option<NonZeroI16>,
     /// How many grid tracks the item should span. Defaults to 1.
-    pub(crate) span: Option<u16>,
+    pub(crate) span: Option<NonZeroU16>,
     /// The grid line at which the node should end. Lines are 1-indexed. Negative indexes count backwards from the end of the grid. Zero is not a valid index.
-    pub(crate) end: Option<i16>,
+    pub(crate) end: Option<NonZeroI16>,
 }
 
 impl GridPlacement {
     const DEFAULT: Self = Self {
         start: None,
-        span: Some(1),
+        span: Some(unsafe { NonZeroU16::new_unchecked(1) }),
         end: None,
     };
 
     /// Place the grid item automatically (letting the `span` default to `1`).
     pub fn auto() -> Self {
-        Self {
-            start: None,
-            end: None,
-            span: Some(1),
-        }
+        Self::DEFAULT
     }
 
     /// Place the grid item automatically, specifying how many tracks it should `span`.
-    pub fn span(span: u16) -> Self {
-        Self {
+    pub fn span(span: u16) -> Result<Self, GridPlacementError> {
+        Ok(Self {
             start: None,
             end: None,
-            span: Some(span),
-        }
+            span: try_into_span(span)?,
+        })
     }
 
     /// Place the grid item specifying the `start` grid line (letting the `span` default to `1`).
-    pub fn start(start: i16) -> Self {
-        Self {
-            start: Some(start),
-            end: None,
-            span: Some(1),
-        }
+    pub fn start(start: i16) -> Result<Self, GridPlacementError> {
+        Ok(Self {
+            start: Some(NonZeroI16::new(start).ok_or(GridPlacementError::InvalidZeroIndex)?),
+            ..Self::DEFAULT
+        })
     }
 
     /// Place the grid item specifying the `end` grid line (letting the `span` default to `1`).
-    pub fn end(end: i16) -> Self {
-        Self {
-            start: None,
-            end: Some(end),
-            span: Some(1),
-        }
+    pub fn end(end: i16) -> Result<Self, GridPlacementError> {
+        Ok(Self {
+            end: try_into_index(end)?,
+            ..Self::DEFAULT
+        })
     }
 
     /// Place the grid item specifying the `start` grid line and how many tracks it should `span`.
-    pub fn start_span(start: i16, span: u16) -> Self {
-        Self {
-            start: Some(start),
+    pub fn start_span(start: i16, span: u16) -> Result<Self, GridPlacementError> {
+        Ok(Self {
+            start: try_into_index(start)?,
             end: None,
-            span: Some(span),
-        }
+            span: try_into_span(span)?,
+        })
     }
 
     /// Place the grid item specifying `start` and `end` grid lines (`span` will be inferred)
-    pub fn start_end(start: i16, end: i16) -> Self {
-        Self {
-            start: Some(start),
-            end: Some(end),
+    pub fn start_end(start: i16, end: i16) -> Result<Self, GridPlacementError> {
+        Ok(Self {
+            start: try_into_index(start)?,
+            end: try_into_index(end)?,
             span: None,
-        }
+        })
     }
 
     /// Place the grid item specifying the `end` grid line and how many tracks it should `span`.
-    pub fn end_span(end: i16, span: u16) -> Self {
-        Self {
+    pub fn end_span(end: i16, span: u16) -> Result<Self, GridPlacementError> {
+        Ok(Self {
             start: None,
-            end: Some(end),
-            span: Some(span),
-        }
+            end: try_into_index(end)?,
+            span: try_into_span(span)?,
+        })
     }
 
     /// Mutate the item, setting the `start` grid line
-    pub fn set_start(mut self, start: i16) -> Self {
-        self.start = Some(start);
-        self
+    pub fn set_start(mut self, start: i16) -> Result<Self, GridPlacementError> {
+        self.start = try_into_index(start)?;
+        Ok(self)
     }
 
     /// Mutate the item, setting the `end` grid line
-    pub fn set_end(mut self, end: i16) -> Self {
-        self.end = Some(end);
-        self
+    pub fn set_end(mut self, end: i16) -> Result<Self, GridPlacementError> {
+        self.end = try_into_index(end)?;
+        Ok(self)
     }
 
     /// Mutate the item, setting the number of tracks the item should `span`
-    pub fn set_span(mut self, span: u16) -> Self {
-        self.span = Some(span);
-        self
+    pub fn set_span(mut self, span: u16) -> Result<Self, GridPlacementError> {
+        self.span = try_into_span(span)?;
+        Ok(self)
+    }
+
+    pub fn get_start(self) -> Option<i16> {
+        self.start.map(NonZeroI16::get)
+    }
+
+    pub fn get_end(self) -> Option<i16> {
+        self.end.map(NonZeroI16::get)
+    }
+
+    pub fn get_span(self) -> Option<u16> {
+        self.span.map(NonZeroU16::get)
     }
 }
 
@@ -1527,6 +1536,26 @@ impl Default for GridPlacement {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+fn try_into_index(index: i16) -> Result<Option<NonZeroI16>, GridPlacementError> {
+    Ok(Some(
+        NonZeroI16::new(index).ok_or(GridPlacementError::InvalidZeroIndex)?,
+    ))
+}
+
+fn try_into_span(span: u16) -> Result<Option<NonZeroU16>, GridPlacementError> {
+    Ok(Some(
+        NonZeroU16::new(span).ok_or(GridPlacementError::InvalidZeroSpan)?,
+    ))
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
+pub enum GridPlacementError {
+    #[error("Zero is not a valid grid position")]
+    InvalidZeroIndex,
+    #[error("Spans cannot be zero length")]
+    InvalidZeroSpan,
 }
 
 /// The background color of the node

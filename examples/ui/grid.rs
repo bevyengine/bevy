@@ -53,7 +53,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         display: Display::Grid,
                         /// Make this node span two grid columns so that it takes up the entire top tow
-                        grid_column: GridPlacement::span(2),
+                        grid_column: GridPlacement::span(2).unwrap(),
                         padding: UiRect::all(Val::Px(6.0)),
                         ..default()
                     },
@@ -162,7 +162,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             builder.spawn(NodeBundle {
                 style: Style {
                     // Make this node span two grid column so that it takes up the entire bottom row
-                    grid_column: GridPlacement::span(2),
+                    grid_column: GridPlacement::span(2).unwrap(),
                     ..default()
                 },
                 background_color: BackgroundColor(Color::WHITE),
