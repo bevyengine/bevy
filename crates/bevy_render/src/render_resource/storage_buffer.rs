@@ -74,11 +74,16 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self, binding_index: u32) -> Option<BindGroupEntry> {
+    pub fn binding_index(&self, binding_index: u32) -> Option<BindGroupEntry> {
         Some(BindGroupEntry {
             binding: binding_index,
             resource: BindingResource::Buffer(self.buffer()?.as_entire_buffer_binding()),
         })
+    }
+
+    #[inline]
+    pub fn binding(&self, binding_index: u32) -> Option<BindGroupEntry> {
+        self.binding_index(u32::MAX)
     }
 
     pub fn set(&mut self, value: T) {

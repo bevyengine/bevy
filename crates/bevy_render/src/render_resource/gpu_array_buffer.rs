@@ -100,11 +100,15 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
         }
     }
 
-    pub fn binding(&self, binding_index: u32) -> Option<BindGroupEntry> {
+    pub fn binding_index(&self, binding_index: u32) -> Option<BindGroupEntry> {
         match self {
-            GpuArrayBuffer::Uniform(buffer) => buffer.binding(binding_index),
-            GpuArrayBuffer::Storage((buffer, _)) => buffer.binding(binding_index),
+            GpuArrayBuffer::Uniform(buffer) => buffer.binding_index(binding_index),
+            GpuArrayBuffer::Storage((buffer, _)) => buffer.binding_index(binding_index),
         }
+    }
+
+    pub fn binding(&self) -> Option<BindGroupEntry> {
+        self.binding_index(u32::MAX)
     }
 
     pub fn batch_size(device: &RenderDevice) -> Option<u32> {

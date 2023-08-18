@@ -74,11 +74,16 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self, binding_index: u32) -> Option<BindGroupEntry> {
+    pub fn binding_index(&self, binding_index: u32) -> Option<BindGroupEntry> {
         Some(BindGroupEntry {
             binding: binding_index,
             resource: BindingResource::Buffer(self.buffer()?.as_entire_buffer_binding()),
         })
+    }
+
+    #[inline]
+    pub fn binding(&self) -> Option<BindGroupEntry> {
+        self.binding_index(u32::MAX)
     }
 
     /// Set the data the buffer stores.
@@ -200,7 +205,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self, binding_index: u32) -> Option<BindGroupEntry> {
+    pub fn binding_index(&self, binding_index: u32) -> Option<BindGroupEntry> {
         Some(BindGroupEntry {
             binding: binding_index,
             resource: BindingResource::Buffer(BufferBinding {
@@ -209,6 +214,11 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
                 size: Some(T::min_size()),
             }),
         })
+    }
+
+    #[inline]
+    pub fn binding(&self) -> Option<BindGroupEntry> {
+        self.binding_index(u32::MAX)
     }
 
     #[inline]

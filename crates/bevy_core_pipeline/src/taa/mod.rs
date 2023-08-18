@@ -17,7 +17,6 @@ use bevy_ecs::{
 use bevy_math::vec2;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
-    bind_group_descriptor,
     camera::{ExtractedCamera, MipBias, TemporalJitter},
     prelude::{Camera, Projection},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
@@ -202,16 +201,18 @@ impl ViewNode for TAANode {
         };
         let view_target = view_target.post_process_write();
 
-        let taa_bind_group = render_context.create_bind_group(bind_group_descriptor!(
+        let taa_bind_group = render_context.create_bind_group(
             "taa_bind_group",
             &pipelines.taa_bind_group_layout,
-            texture(view_target.source),
-            texture(&taa_history_textures.read.default_view),
-            texture(&prepass_motion_vectors_texture.default_view),
-            texture(&prepass_depth_texture.default_view),
-            sampler(&pipelines.nearest_sampler),
-            sampler(&pipelines.linear_sampler),
-        ));
+            [
+                view_target.source.binding(),
+                taa_history_textures.read.default_view.binding(),
+                prepass_motion_vectors_texture.default_view.binding(),
+                prepass_depth_texture.default_view.binding(),
+                pipelines.nearest_sampler.binding(),
+                pipelines.linear_sampler.binding(),
+            ],
+        );
 
         {
             let mut taa_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {

@@ -84,16 +84,25 @@ impl RenderDevice {
 
     /// Creates a new [`BindGroup`](wgpu::BindGroup).
     #[inline]
-    pub fn create_bind_group(
+    pub fn create_bind_group<const S: usize>(
         &self,
         label: &'static str,
         layout: &BindGroupLayout,
-        entries: &[BindGroupEntry],
+        mut entries: [BindGroupEntry; S],
     ) -> BindGroup {
+        let mut auto = false;
+        for (index, entry) in entries.iter_mut().enumerate() {
+            if entry.binding == u32::MAX {
+                entry.binding = index as u32;
+                auto = true;
+            } else if auto == true {
+                panic!("Cannot mix manual binding indices with automatic indices");
+            }
+        }
         BindGroup::from(self.device.create_bind_group(&BindGroupDescriptor {
             label: Some(label),
             layout,
-            entries,
+            entries: &entries,
         }))
     }
 

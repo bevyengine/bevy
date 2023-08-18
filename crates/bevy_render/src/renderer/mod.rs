@@ -350,17 +350,13 @@ impl RenderContext {
 
     /// Creates a new [`BindGroup`](wgpu::BindGroup).
     #[inline]
-    pub fn create_bind_group(
+    pub fn create_bind_group<const S: usize>(
         &self,
         label: &'static str,
         layout: &BindGroupLayout,
-        entries: &[BindGroupEntry],
+        entries: [BindGroupEntry; S],
     ) -> BindGroup {
-        self.render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some(label),
-            layout,
-            entries,
-        })
+        self.render_device.create_bind_group(label, layout, entries)
     }
 
     fn flush_encoder(&mut self) {

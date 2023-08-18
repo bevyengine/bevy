@@ -78,11 +78,16 @@ impl TextureView {
     }
 
     #[inline]
-    pub fn binding(&self, binding_index: u32) -> BindGroupEntry {
+    pub fn binding_index(&self, binding_index: u32) -> BindGroupEntry {
         BindGroupEntry {
             binding: binding_index,
             resource: BindingResource::TextureView(self),
         }
+    }
+
+    #[inline]
+    pub fn binding(&self) -> BindGroupEntry {
+        self.binding_index(u32::MAX)
     }
 }
 
@@ -145,11 +150,16 @@ impl Sampler {
 
 impl Sampler {
     #[inline]
-    pub fn binding(&self, binding_index: u32) -> BindGroupEntry {
+    pub fn binding_index(&self, binding_index: u32) -> BindGroupEntry {
         BindGroupEntry {
             binding: binding_index,
             resource: BindingResource::Sampler(self),
         }
+    }
+
+    #[inline]
+    pub fn binding(&self) -> BindGroupEntry {
+        self.binding_index(u32::MAX)
     }
 }
 

@@ -163,7 +163,7 @@ impl ViewNode for BloomNode {
             Some(upsampling_pipeline),
             Some(upsampling_final_pipeline),
         ) = (
-            uniforms.binding(2),
+            uniforms.binding(),
             pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.first),
             pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.main),
             pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_main),
@@ -177,9 +177,9 @@ impl ViewNode for BloomNode {
             let downsampling_first_bind_group = render_context.create_bind_group(
                 "bloom_downsampling_first_bind_group",
                 &downsampling_pipeline_res.bind_group_layout,
-                &[
-                    view_target.main_texture_view().binding(0),
-                    bind_groups.sampler.binding(1),
+                [
+                    view_target.main_texture_view().binding(),
+                    bind_groups.sampler.binding(),
                     uniforms,
                 ],
             );
@@ -409,9 +409,9 @@ fn queue_bloom_bind_groups(
             downsampling_bind_groups.push(render_device.create_bind_group(
                 "bloom_downsampling_bind_group",
                 &downsampling_pipeline.bind_group_layout,
-                &[
-                    bloom_texture.view(mip - 1).binding(0),
-                    sampler.binding(1),
+                [
+                    bloom_texture.view(mip - 1).binding(),
+                    sampler.binding(),
                     uniforms.clone(),
                 ],
             ));
@@ -422,9 +422,9 @@ fn queue_bloom_bind_groups(
             upsampling_bind_groups.push(render_device.create_bind_group(
                 "bloom_upsampling_bind_group",
                 &upsampling_pipeline.bind_group_layout,
-                &[
-                    &bloom_texture.view(mip).binding(0),
-                    sampler.binding(1),
+                [
+                    &bloom_texture.view(mip).binding(),
+                    sampler.binding(),
                     uniforms.clone(),
                 ],
             ));

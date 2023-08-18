@@ -57,12 +57,11 @@ impl ViewNode for UpscalingNode {
                     .render_device()
                     .create_sampler(&SamplerDescriptor::default());
 
-                let bind_group = render_context.create_bind_group(bind_group_descriptor!(
+                let bind_group = render_context.create_bind_group(
                     "upscaling_bind_group",
                     &blit_pipeline.texture_bind_group,
-                    texture(upscaled_texture),
-                    sampler(&sampler),
-                ));
+                    [upscaled_texture.binding(), sampler.binding()],
+                );
 
                 let (_, bind_group) = cached_bind_group.insert((upscaled_texture.id(), bind_group));
                 bind_group

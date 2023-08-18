@@ -104,7 +104,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self, binding_index: u32) -> Option<BindGroupEntry> {
+    pub fn binding_index(&self, binding_index: u32) -> Option<BindGroupEntry> {
         Some(BindGroupEntry {
             binding: binding_index,
             resource: BindingResource::Buffer(BufferBinding {
@@ -114,6 +114,11 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
                 size: Some(self.size()),
             }),
         })
+    }
+
+    #[inline]
+    pub fn binding(&self) -> Option<BindGroupEntry> {
+        self.binding_index(u32::MAX)
     }
 }
 
