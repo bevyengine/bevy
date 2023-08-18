@@ -25,6 +25,11 @@ struct FpsText;
 #[derive(Component)]
 struct ColorText;
 
+// A unit struct to help identify the default font Text component
+#[cfg(feature = "default_font")]
+#[derive(Component)]
+struct DefaultFontText;
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn(Camera2dBundle::default());
@@ -45,7 +50,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
-            right: Val::Px(15.0),
+            right: Val::Px(5.0),
             ..default()
         }),
         ColorText,
@@ -70,6 +75,30 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ]),
         FpsText,
     ));
+    // Fallback to Bevy's default font using the 'default_font' feature flag
+    if cfg!(feature = "default_font") {
+        commands.spawn((
+            TextBundle::from_sections([
+                // Here we are able to call the into method instead of creating a new TextSection.
+                // This will default the font to a minimal version of FiraMono and apply the default styling.
+                "Hello from the ".into(),
+                TextSection::new(
+                    "default font!".to_string(),
+                    TextStyle {
+                        color: Color::BLUE,
+                        ..default()
+                    },
+                ),
+            ])
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(5.0),
+                left: Val::Px(15.0),
+                ..default()
+            }),
+            DefaultFontText,
+        ));
+    }
 }
 
 fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText>>) {
