@@ -82,7 +82,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(NodeBundle {
             style: Style {
                 width: Val::Percent(100.),
-                height: Val::Percent(100.),
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
