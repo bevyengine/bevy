@@ -5,7 +5,7 @@ use bevy_utils::HashMap;
 ///
 /// As entity IDs are valid only for the [`World`] they're sourced from, using [`Entity`]
 /// as references in components copied from another world will be invalid. This trait
-/// allows defining custom mappings for these references via [`HashMap`].
+/// allows defining custom mappings for these references via [`HashMap<Entity, Entity>`]
 ///
 /// Implementing this trait correctly is required for properly loading components
 /// with entity references from scenes.
@@ -32,7 +32,7 @@ use bevy_utils::HashMap;
 ///
 /// [`World`]: crate::world::World
 pub trait MapEntities {
-    /// Updates all [`Entity`] references stored inside using `entity_map`.
+    /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///
     /// Implementors should look up any and all [`Entity`] values stored within and
     /// update them to the mapped values via `entity_mapper`.
@@ -52,7 +52,7 @@ pub struct EntityMapper<'m> {
     /// or over the network. This is required as [`Entity`] identifiers are opaque; you cannot and do not want to reuse
     /// identifiers directly.
     ///
-    /// On its own, a `HashMap` is not capable of allocating new entity identifiers, which is needed to map references
+    /// On its own, a [`HashMap<Entity, Entity>`] is not capable of allocating new entity identifiers, which is needed to map references
     /// to entities that lie outside the source entity set. This functionality can be accessed through [`EntityMapper::world_scope()`].
     map: &'m mut HashMap<Entity, Entity>,
     /// A base [`Entity`] used to allocate new references.
@@ -80,12 +80,12 @@ impl<'m> EntityMapper<'m> {
         new
     }
 
-    /// Gets a reference to the underlying map.
+    /// Gets a reference to the underlying [`HashMap<Entity, Entity>`].
     pub fn get_map(&'m self) -> &'m HashMap<Entity, Entity> {
         self.map
     }
 
-    /// Gets a mutable reference to the underlying map.
+    /// Gets a mutable reference to the underlying [`HashMap<Entity, Entity>`].
     pub fn get_map_mut(&'m mut self) -> &'m mut HashMap<Entity, Entity> {
         self.map
     }
@@ -112,7 +112,7 @@ impl<'m> EntityMapper<'m> {
     }
 
     /// Creates an [`EntityMapper`] from a provided [`World`] and [`HashMap<Entity, Entity>`], then calls the
-    /// provided function with it. This allows one to allocate new entity references in this `World` that are
+    /// provided function with it. This allows one to allocate new entity references in this [`World`] that are
     /// guaranteed to never point at a living entity now or in the future. This functionality is useful for safely
     /// mapping entity identifiers that point at entities outside the source world. The passed function, `f`, is called
     /// within the scope of this world. Its return value is then returned from `world_scope` as the generic type
