@@ -30,6 +30,7 @@ pub use layout::*;
 pub use measurement::*;
 pub use render::*;
 pub use ui_node::*;
+pub use material::*;
 use widget::UiImageSize;
 
 #[doc(hidden)]
