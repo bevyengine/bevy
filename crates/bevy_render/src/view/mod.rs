@@ -375,11 +375,17 @@ pub fn prepare_view_uniforms(
         let view = camera.transform.compute_matrix();
         let inverse_view = view.inverse();
 
+        let view_proj = if temporal_jitter.is_some() {
+            projection * inverse_view
+        } else {
+            camera
+                .view_projection
+                .unwrap_or_else(|| projection * inverse_view)
+        };
+
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
-                view_proj: camera
-                    .view_projection
-                    .unwrap_or_else(|| projection * inverse_view),
+                view_proj,
                 unjittered_view_proj: unjittered_projection * inverse_view,
                 inverse_view_proj: view * inverse_projection,
                 view,
