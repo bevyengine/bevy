@@ -652,6 +652,87 @@ mod test {
     }
 
     #[test]
+    fn visibility_progation_change_detection() {
+        let mut world = World::new();
+        let mut schedule = Schedule::new();
+        schedule.add_systems(visibility_propagate_system);
+
+        // Set up an entity hierarchy.
+
+        let id1 = world.spawn(VisibilityBundle::default()).id();
+
+        let id2 = world.spawn(VisibilityBundle::default()).id();
+        world.entity_mut(id1).push_children(&[id2]);
+
+        let id3 = world
+            .spawn(VisibilityBundle {
+                visibility: Visibility::Hidden,
+                ..Default::default()
+            })
+            .id();
+        world.entity_mut(id2).push_children(&[id3]);
+
+        let id4 = world.spawn(VisibilityBundle::default()).id();
+        world.entity_mut(id3).push_children(&[id4]);
+
+        // Test the hierarchy.
+
+        // Make sure the hierarchy is up-to-date.
+        schedule.run(&mut world);
+        world.clear_trackers();
+
+        let mut q = world.query::<Ref<InheritedVisibility>>();
+
+        assert!(!q.get(&world, id1).unwrap().is_changed());
+        assert!(!q.get(&world, id2).unwrap().is_changed());
+        assert!(!q.get(&world, id3).unwrap().is_changed());
+        assert!(!q.get(&world, id4).unwrap().is_changed());
+
+        world.clear_trackers();
+        world.entity_mut(id1).insert(Visibility::Hidden);
+        schedule.run(&mut world);
+
+        assert!(q.get(&world, id1).unwrap().is_changed());
+        assert!(q.get(&world, id2).unwrap().is_changed());
+        assert!(!q.get(&world, id3).unwrap().is_changed());
+        assert!(!q.get(&world, id4).unwrap().is_changed());
+
+        world.clear_trackers();
+        schedule.run(&mut world);
+
+        assert!(!q.get(&world, id1).unwrap().is_changed());
+        assert!(!q.get(&world, id2).unwrap().is_changed());
+        assert!(!q.get(&world, id3).unwrap().is_changed());
+        assert!(!q.get(&world, id4).unwrap().is_changed());
+
+        world.clear_trackers();
+        world.entity_mut(id3).insert(Visibility::Inherited);
+        schedule.run(&mut world);
+
+        assert!(!q.get(&world, id1).unwrap().is_changed());
+        assert!(!q.get(&world, id2).unwrap().is_changed());
+        assert!(!q.get(&world, id3).unwrap().is_changed());
+        assert!(!q.get(&world, id4).unwrap().is_changed());
+
+        world.clear_trackers();
+        world.entity_mut(id2).insert(Visibility::Visible);
+        schedule.run(&mut world);
+
+        assert!(!q.get(&world, id1).unwrap().is_changed());
+        assert!(q.get(&world, id2).unwrap().is_changed());
+        assert!(q.get(&world, id3).unwrap().is_changed());
+        assert!(q.get(&world, id4).unwrap().is_changed());
+
+        world.clear_trackers();
+        schedule.run(&mut world);
+
+        assert!(!q.get(&world, id1).unwrap().is_changed());
+        assert!(!q.get(&world, id2).unwrap().is_changed());
+        assert!(!q.get(&world, id3).unwrap().is_changed());
+        assert!(!q.get(&world, id4).unwrap().is_changed());
+    }
+
+    #[test]
     fn ensure_visibility_enum_size() {
         use std::mem;
         assert_eq!(1, mem::size_of::<Visibility>());
