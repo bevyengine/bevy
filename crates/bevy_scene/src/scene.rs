@@ -77,11 +77,11 @@ impl Scene {
                 type_registry
                     .get(type_id)
                     .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                        type_path: component_info.name().to_string(),
+                        std_type_name: component_info.name().to_string(),
                     })?;
             let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
                 SceneSpawnError::UnregisteredResource {
-                    type_path: component_info.name().to_string(),
+                    type_path: registration.type_info().type_path().to_string(),
                 }
             })?;
             reflect_resource.copy(&self.world, world);
@@ -103,7 +103,7 @@ impl Scene {
                     let reflect_component = type_registry
                         .get(component_info.type_id().unwrap())
                         .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                            type_path: component_info.name().to_string(),
+                            std_type_name: component_info.name().to_string(),
                         })
                         .and_then(|registration| {
                             registration.data::<ReflectComponent>().ok_or_else(|| {

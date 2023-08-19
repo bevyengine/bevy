@@ -47,8 +47,17 @@ pub enum SceneSpawnError {
     UnregisteredComponent { type_path: String },
     #[error("scene contains the unregistered resource `{type_path}`. consider adding `#[reflect(Resource)]` to your type")]
     UnregisteredResource { type_path: String },
-    #[error("scene contains the unregistered type `{type_path}`. consider registering the type using `app.register_type::<T>()`")]
-    UnregisteredType { type_path: String },
+    #[error(
+        "scene contains the unregistered type `{std_type_name}`. \
+        consider reflecting it with `#[derive(Reflect)]` \
+        and registering the type using `app.register_type::<T>()`"
+    )]
+    UnregisteredType { std_type_name: String },
+    #[error(
+        "scene contains the reflected type `{type_path}` but it was not found in the type registry. \
+        consider registering the type using `app.register_type::<T>()``"
+    )]
+    UnregisteredButReflectedType { type_path: String },
     #[error("scene contains dynamic type `{type_path}` without a represented type. consider changing this using `set_represented_type`.")]
     NoRepresentedType { type_path: String },
     #[error("scene does not exist")]

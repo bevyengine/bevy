@@ -79,7 +79,7 @@ impl DynamicScene {
                 }
             })?;
             let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
-                SceneSpawnError::UnregisteredType {
+                SceneSpawnError::UnregisteredButReflectedType {
                     type_path: type_info.type_path().to_string(),
                 }
             })?;
@@ -117,7 +117,7 @@ impl DynamicScene {
                     }
                 })?;
                 let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
-                    SceneSpawnError::UnregisteredType {
+                    SceneSpawnError::UnregisteredButReflectedType {
                         type_path: type_info.type_path().to_string(),
                     }
                 })?;
