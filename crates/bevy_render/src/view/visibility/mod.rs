@@ -68,6 +68,7 @@ impl std::cmp::PartialEq<&Visibility> for Visibility {
 ///
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 #[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
+#[reflect(Component, Default)]
 pub struct InheritedVisibility(bool);
 
 impl InheritedVisibility {
@@ -91,6 +92,7 @@ impl InheritedVisibility {
 ///
 /// [`VisibilitySystems::CheckVisibility`]
 #[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
+#[reflect(Component, Default)]
 pub struct ViewVisibility(bool);
 
 impl ViewVisibility {
