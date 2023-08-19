@@ -1433,7 +1433,7 @@ pub struct GridPlacement {
     pub(crate) start: Option<NonZeroI16>,
     /// How many grid tracks the item should span. Defaults to 1.
     pub(crate) span: Option<NonZeroU16>,
-    /// The grid line at which the node should end. Lines are 1-indexed. Negative indexes count backwards from the end of the grid. Zero is not a valid index.
+    /// The grid line at which the item should end. Lines are 1-indexed. Negative indexes count backwards from the end of the grid. Zero is not a valid index.
     pub(crate) end: Option<NonZeroI16>,
 }
 
@@ -1450,83 +1450,122 @@ impl GridPlacement {
     }
 
     /// Place the grid item automatically, specifying how many tracks it should `span`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `span` is `0`
     pub fn span(span: u16) -> Self {
         Self {
             start: None,
             end: None,
-            span: try_into_span(span).unwrap(),
+            span: try_into_grid_span(span).expect("Invalid span value of 0."),
         }
     }
 
     /// Place the grid item specifying the `start` grid line (letting the `span` default to `1`).
+    ///
+    /// # Panics
+    ///
+    /// Panics if `start` is `0`
     pub fn start(start: i16) -> Self {
         Self {
-            start: try_into_index(start).unwrap(),
+            start: try_into_grid_index(start).expect("Invalid start value of 0."),
             ..Self::DEFAULT
         }
     }
 
     /// Place the grid item specifying the `end` grid line (letting the `span` default to `1`).
+    ///
+    /// # Panics
+    ///
+    /// Panics if `end` is `0`
     pub fn end(end: i16) -> Self {
         Self {
-            end: try_into_index(end).unwrap(),
+            end: try_into_grid_index(end).expect("Invalid end value of 0."),
             ..Self::DEFAULT
         }
     }
 
     /// Place the grid item specifying the `start` grid line and how many tracks it should `span`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `start` or `span` is `0`
     pub fn start_span(start: i16, span: u16) -> Self {
         Self {
-            start: try_into_index(start).unwrap(),
+            start: try_into_grid_index(start).expect("Invalid start value of 0."),
             end: None,
-            span: try_into_span(span).unwrap(),
+            span: try_into_grid_span(span).expect("Invalid span value of 0."),
         }
     }
 
     /// Place the grid item specifying `start` and `end` grid lines (`span` will be inferred)
+    ///
+    /// # Panics
+    ///
+    /// Panics if `start` or `end` is `0`
     pub fn start_end(start: i16, end: i16) -> Self {
         Self {
-            start: try_into_index(start).unwrap(),
-            end: try_into_index(end).unwrap(),
+            start: try_into_grid_index(start).expect("Invalid start value of 0."),
+            end: try_into_grid_index(end).expect("Invalid end value of 0."),
             span: None,
         }
     }
 
     /// Place the grid item specifying the `end` grid line and how many tracks it should `span`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `end` or `span` is `0`
     pub fn end_span(end: i16, span: u16) -> Self {
         Self {
             start: None,
-            end: try_into_index(end).unwrap(),
-            span: try_into_span(span).unwrap(),
+            end: try_into_grid_index(end).expect("Invalid end value of 0."),
+            span: try_into_grid_span(span).expect("Invalid span value of 0."),
         }
     }
 
     /// Mutate the item, setting the `start` grid line
+    ///
+    /// # Panics
+    ///
+    /// Panics if `start` is `0`
     pub fn set_start(mut self, start: i16) -> Self {
-        self.start = try_into_index(start).unwrap();
+        self.start = try_into_grid_index(start).expect("Invalid start value of 0.");
         self
     }
 
     /// Mutate the item, setting the `end` grid line
+    ///
+    /// # Panics
+    ///
+    /// Panics if `end` is `0`
     pub fn set_end(mut self, end: i16) -> Self {
-        self.end = try_into_index(end).unwrap();
+        self.end = try_into_grid_index(end).expect("Invalid end value of 0.");
         self
     }
 
     /// Mutate the item, setting the number of tracks the item should `span`
+    ///
+    /// # Panics
+    ///
+    /// Panics if `span` is `0`
     pub fn set_span(mut self, span: u16) -> Self {
-        self.span = try_into_span(span).unwrap();
+        self.span = try_into_grid_span(span).expect("Invalid span value of 0.");
         self
     }
 
+    /// Returns the grid line at which the item should start, or `None` if not set.
     pub fn get_start(self) -> Option<i16> {
         self.start.map(NonZeroI16::get)
     }
 
+    /// Returns the grid line at which the item should end, or `None` if not set.
     pub fn get_end(self) -> Option<i16> {
         self.end.map(NonZeroI16::get)
     }
 
+    /// Returns span for this grid item, or `None` if not set.
     pub fn get_span(self) -> Option<u16> {
         self.span.map(NonZeroU16::get)
     }
@@ -1538,13 +1577,13 @@ impl Default for GridPlacement {
     }
 }
 
-fn try_into_index(index: i16) -> Result<Option<NonZeroI16>, GridPlacementError> {
+fn try_into_grid_index(index: i16) -> Result<Option<NonZeroI16>, GridPlacementError> {
     Ok(Some(
         NonZeroI16::new(index).ok_or(GridPlacementError::InvalidZeroIndex)?,
     ))
 }
 
-fn try_into_span(span: u16) -> Result<Option<NonZeroU16>, GridPlacementError> {
+fn try_into_grid_span(span: u16) -> Result<Option<NonZeroU16>, GridPlacementError> {
     Ok(Some(
         NonZeroU16::new(span).ok_or(GridPlacementError::InvalidZeroSpan)?,
     ))
