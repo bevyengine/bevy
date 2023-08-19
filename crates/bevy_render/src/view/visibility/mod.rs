@@ -384,8 +384,8 @@ pub fn check_visibility(
                 transform,
                 maybe_no_frustum_culling,
             )| {
-                // skip computing visibility for entities that are configured to be hidden. is_view_visibility has already been set to false
-                // in visibility_propagate_system
+                // Skip computing visibility for entities that are configured to be hidden.
+                // ViewVisibility has already been reset in `reset_view_visibility`.
                 if !inherited_visibility.get() {
                     return;
                 }
@@ -422,8 +422,8 @@ pub fn check_visibility(
 
         visible_no_aabb_query.par_iter_mut().for_each(
             |(entity, inherited_visibility, mut view_visibility, maybe_entity_mask)| {
-                // skip computing visibility for entities that are configured to be hidden. is_view_visibility has already been set to false
-                // in visibility_propagate_system
+                // Skip computing visibility for entities that are configured to be hidden.
+                // ViewVisiblity has already been reset in `reset_view_visibility`.
                 if !inherited_visibility.get() {
                     return;
                 }
