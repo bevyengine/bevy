@@ -11,7 +11,7 @@ use bevy_render::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
-    view::{RenderLayers, VisibleEntities, VisibleInHierarchy, VisibleInView},
+    view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::{tracing::warn, HashMap};
@@ -1178,8 +1178,8 @@ pub(crate) fn assign_lights_to_clusters(
         &mut Clusters,
         Option<&mut VisiblePointLights>,
     )>,
-    point_lights_query: Query<(Entity, &GlobalTransform, &PointLight, &VisibleInView)>,
-    spot_lights_query: Query<(Entity, &GlobalTransform, &SpotLight, &VisibleInView)>,
+    point_lights_query: Query<(Entity, &GlobalTransform, &PointLight, &ViewVisibility)>,
+    spot_lights_query: Query<(Entity, &GlobalTransform, &SpotLight, &ViewVisibility)>,
     mut lights: Local<Vec<PointLightAssignmentData>>,
     mut cluster_aabb_spheres: Local<Vec<Option<Sphere>>>,
     mut max_point_lights_warning_emitted: Local<bool>,
@@ -1797,7 +1797,7 @@ pub fn update_directional_light_frusta(
         (
             &Cascades,
             &DirectionalLight,
-            &VisibleInView,
+            &ViewVisibility,
             &mut CascadesFrusta,
         ),
         (
@@ -1931,15 +1931,15 @@ pub fn check_light_mesh_visibility(
             &CascadesFrusta,
             &mut CascadesVisibleEntities,
             Option<&RenderLayers>,
-            &mut VisibleInView,
+            &mut ViewVisibility,
         ),
         Without<SpotLight>,
     >,
     mut visible_entity_query: Query<
         (
             Entity,
-            &VisibleInHierarchy,
-            &mut VisibleInView,
+            &InheritedVisibility,
+            &mut ViewVisibility,
             Option<&RenderLayers>,
             Option<&Aabb>,
             Option<&GlobalTransform>,
@@ -1964,7 +1964,7 @@ pub fn check_light_mesh_visibility(
     }
 
     // Directional lights
-    for (directional_light, frusta, mut visible_entities, maybe_view_mask, light_visible_in_view) in
+    for (directional_light, frusta, mut visible_entities, maybe_view_mask, light_view_visibility) in
         &mut directional_lights
     {
         // Re-use already allocated entries where possible.
@@ -1991,7 +1991,7 @@ pub fn check_light_mesh_visibility(
         }
 
         // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
-        if !directional_light.shadows_enabled || !light_visible_in_view.get() {
+        if !directional_light.shadows_enabled || !light_view_visibility.get() {
             continue;
         }
 
@@ -1999,14 +1999,14 @@ pub fn check_light_mesh_visibility(
 
         for (
             entity,
-            visible_in_hierarchy,
-            mut visible_in_view,
+            inherited_visibility,
+            mut view_visibility,
             maybe_entity_mask,
             maybe_aabb,
             maybe_transform,
         ) in &mut visible_entity_query
         {
-            if !visible_in_hierarchy.get() {
+            if !inherited_visibility.get() {
                 continue;
             }
 
@@ -2031,12 +2031,12 @@ pub fn check_light_mesh_visibility(
                             continue;
                         }
 
-                        visible_in_view.set();
+                        view_visibility.set();
                         frustum_visible_entities.entities.push(entity);
                     }
                 }
             } else {
-                visible_in_view.set();
+                view_visibility.set();
                 for view in frusta.frusta.keys() {
                     let view_visible_entities = visible_entities
                         .entities
@@ -2083,14 +2083,14 @@ pub fn check_light_mesh_visibility(
 
                 for (
                     entity,
-                    visible_in_hierarchy,
-                    mut visible_in_view,
+                    inherited_visibility,
+                    mut view_visibility,
                     maybe_entity_mask,
                     maybe_aabb,
                     maybe_transform,
                 ) in &mut visible_entity_query
                 {
-                    if !visible_in_hierarchy.get() {
+                    if !inherited_visibility.get() {
                         continue;
                     }
 
@@ -2112,12 +2112,12 @@ pub fn check_light_mesh_visibility(
                             .zip(cubemap_visible_entities.iter_mut())
                         {
                             if frustum.intersects_obb(aabb, &model_to_world, true, true) {
-                                visible_in_view.set();
+                                view_visibility.set();
                                 visible_entities.entities.push(entity);
                             }
                         }
                     } else {
-                        visible_in_view.set();
+                        view_visibility.set();
                         for visible_entities in cubemap_visible_entities.iter_mut() {
                             visible_entities.entities.push(entity);
                         }
@@ -2148,14 +2148,14 @@ pub fn check_light_mesh_visibility(
 
                 for (
                     entity,
-                    visible_in_hierarchy,
-                    mut visible_in_view,
+                    inherited_visibility,
+                    mut view_visibility,
                     maybe_entity_mask,
                     maybe_aabb,
                     maybe_transform,
                 ) in visible_entity_query.iter_mut()
                 {
-                    if !visible_in_hierarchy.get() {
+                    if !inherited_visibility.get() {
                         continue;
                     }
 
@@ -2173,11 +2173,11 @@ pub fn check_light_mesh_visibility(
                         }
 
                         if frustum.intersects_obb(aabb, &model_to_world, true, true) {
-                            visible_in_view.set();
+                            view_visibility.set();
                             visible_entities.entities.push(entity);
                         }
                     } else {
-                        visible_in_view.set();
+                        view_visibility.set();
                         visible_entities.entities.push(entity);
                     }
                 }

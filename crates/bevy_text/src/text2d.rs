@@ -14,7 +14,7 @@ use bevy_reflect::Reflect;
 use bevy_render::{
     prelude::Color,
     texture::Image,
-    view::{Visibility, VisibleInHierarchy, VisibleInView},
+    view::{InheritedVisibility, ViewVisibility, Visibility},
     Extract,
 };
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
@@ -71,9 +71,9 @@ pub struct Text2dBundle {
     /// The visibility properties of the text.
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
-    pub visible_in_hierarchy: VisibleInHierarchy,
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub visible_in_view: VisibleInView,
+    pub view_visibility: ViewVisibility,
     /// Contains the size of the text and its glyph's position and scale data. Generated via [`TextPipeline::queue_text`]
     pub text_layout_info: TextLayoutInfo,
 }
@@ -85,7 +85,7 @@ pub fn extract_text2d_sprite(
     text2d_query: Extract<
         Query<(
             Entity,
-            &VisibleInView,
+            &ViewVisibility,
             &Text,
             &TextLayoutInfo,
             &Anchor,
@@ -100,10 +100,10 @@ pub fn extract_text2d_sprite(
         .unwrap_or(1.0);
     let scaling = GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()));
 
-    for (entity, visible_in_view, text, text_layout_info, anchor, global_transform) in
+    for (entity, view_visibility, text, text_layout_info, anchor, global_transform) in
         text2d_query.iter()
     {
-        if !visible_in_view.get() {
+        if !view_visibility.get() {
             continue;
         }
 

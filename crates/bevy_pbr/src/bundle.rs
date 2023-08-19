@@ -8,7 +8,7 @@ use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::Mesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
-    view::{Visibility, VisibleEntities, VisibleInHierarchy, VisibleInView},
+    view::{InheritedVisibility, ViewVisibility, Visibility, VisibleEntities},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::HashMap;
@@ -26,9 +26,9 @@ pub struct MaterialMeshBundle<M: Material> {
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
-    pub visible_in_hierarchy: VisibleInHierarchy,
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub visible_in_view: VisibleInView,
+    pub view_visibility: ViewVisibility,
 }
 
 impl<M: Material> Default for MaterialMeshBundle<M> {
@@ -39,8 +39,8 @@ impl<M: Material> Default for MaterialMeshBundle<M> {
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
-            visible_in_hierarchy: Default::default(),
-            visible_in_view: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
         }
     }
 }
@@ -89,9 +89,9 @@ pub struct PointLightBundle {
     /// Enables or disables the light
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
-    pub visible_in_hierarchy: VisibleInHierarchy,
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub visible_in_view: VisibleInView,
+    pub view_visibility: ViewVisibility,
 }
 
 /// A component bundle for spot light entities
@@ -105,9 +105,9 @@ pub struct SpotLightBundle {
     /// Enables or disables the light
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
-    pub visible_in_hierarchy: VisibleInHierarchy,
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub visible_in_view: VisibleInView,
+    pub view_visibility: ViewVisibility,
 }
 
 /// A component bundle for [`DirectionalLight`] entities.
@@ -123,7 +123,7 @@ pub struct DirectionalLightBundle {
     /// Enables or disables the light
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
-    pub visible_in_hieararchy: VisibleInHierarchy,
+    pub visible_in_hieararchy: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub visible_in_view: VisibleInView,
+    pub view_visibility: ViewVisibility,
 }

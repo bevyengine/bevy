@@ -170,7 +170,7 @@ fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Cam
 fn print_mesh_count(
     time: Res<Time>,
     mut timer: Local<PrintingTimer>,
-    sprites: Query<(&Handle<Mesh>, &VisibleInView)>,
+    sprites: Query<(&Handle<Mesh>, &ViewVisibility)>,
 ) {
     timer.tick(time.delta());
 

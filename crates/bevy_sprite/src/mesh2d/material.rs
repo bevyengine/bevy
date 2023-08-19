@@ -31,7 +31,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::FallbackImage,
-    view::{ExtractedView, Msaa, Visibility, VisibleEntities, VisibleInHierarchy, VisibleInView},
+    view::{ExtractedView, InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -584,9 +584,9 @@ pub struct MaterialMesh2dBundle<M: Material2d> {
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
     // Inherited visibility of an entity.
-    pub visible_in_hierarchy: VisibleInHierarchy,
+    pub inherited_visibility: InheritedVisibility,
     // Indication of whether an entity is visible in any view.
-    pub visible_in_view: VisibleInView,
+    pub view_visibility: ViewVisibility,
 }
 
 impl<M: Material2d> Default for MaterialMesh2dBundle<M> {
@@ -597,8 +597,8 @@ impl<M: Material2d> Default for MaterialMesh2dBundle<M> {
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
-            visible_in_hierarchy: Default::default(),
-            visible_in_view: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
         }
     }
 }

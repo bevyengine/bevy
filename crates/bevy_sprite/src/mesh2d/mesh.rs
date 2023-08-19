@@ -20,7 +20,7 @@ use bevy_render::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
     view::{
-        ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleInView,
+        ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -139,11 +139,11 @@ bitflags::bitflags! {
 pub fn extract_mesh2d(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, &VisibleInView, &GlobalTransform, &Mesh2dHandle)>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &GlobalTransform, &Mesh2dHandle)>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, visible_in_view, transform, handle) in &query {
-        if !visible_in_view.get() {
+    for (entity, view_visibility, transform, handle) in &query {
+        if !view_visibility.get() {
             continue;
         }
         let transform = transform.compute_matrix();

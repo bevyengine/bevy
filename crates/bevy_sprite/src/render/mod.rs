@@ -29,7 +29,7 @@ use bevy_render::{
     },
     view::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
-        VisibleEntities, VisibleInView,
+        ViewVisibility, VisibleEntities,
     },
     Extract,
 };
@@ -352,7 +352,7 @@ pub fn extract_sprites(
     sprite_query: Extract<
         Query<(
             Entity,
-            &VisibleInView,
+            &ViewVisibility,
             &Sprite,
             &GlobalTransform,
             &Handle<Image>,
@@ -361,7 +361,7 @@ pub fn extract_sprites(
     atlas_query: Extract<
         Query<(
             Entity,
-            &VisibleInView,
+            &ViewVisibility,
             &TextureAtlasSprite,
             &GlobalTransform,
             &Handle<TextureAtlas>,
@@ -369,8 +369,8 @@ pub fn extract_sprites(
     >,
 ) {
     extracted_sprites.sprites.clear();
-    for (entity, visible_in_view, sprite, transform, handle) in sprite_query.iter() {
-        if !visible_in_view.get() {
+    for (entity, view_visibility, sprite, transform, handle) in sprite_query.iter() {
+        if !view_visibility.get() {
             continue;
         }
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
@@ -387,10 +387,10 @@ pub fn extract_sprites(
             anchor: sprite.anchor.as_vec(),
         });
     }
-    for (entity, visible_in_view, atlas_sprite, transform, texture_atlas_handle) in
+    for (entity, view_visibility, atlas_sprite, transform, texture_atlas_handle) in
         atlas_query.iter()
     {
-        if !visible_in_view.get() {
+        if !view_visibility.get() {
             continue;
         }
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {

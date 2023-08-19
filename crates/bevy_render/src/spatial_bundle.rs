@@ -1,14 +1,14 @@
 use bevy_ecs::prelude::Bundle;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-use crate::view::{Visibility, VisibleInHierarchy, VisibleInView};
+use crate::view::{InheritedVisibility, ViewVisibility, Visibility};
 
 /// A [`Bundle`] with the following [`Component`](bevy_ecs::component::Component)s:
-/// * [`Visibility`], and [`VisibleInHierarchy`], which describe the visibility of an entity
+/// * [`Visibility`], and [`InheritedVisibility`], which describe the visibility of an entity
 /// * [`Transform`] and [`GlobalTransform`], which describe the position of an entity
 ///
 /// * To show or hide an entity, you should set its [`Visibility`].
-/// * To get the computed visibility of an entity, you should get its [`VisibleInHierarchy`] or [`VisibleInView`] components.
+/// * To get the computed visibility of an entity, you should get its [`InheritedVisibility`] or [`ViewVisibility`] components.
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * For hierarchies to work correctly, you must have all four components.
@@ -18,9 +18,9 @@ pub struct SpatialBundle {
     /// The visibility of the entity.
     pub visibility: Visibility,
     /// The inherited visibility of the entity.
-    pub visible_in_hierarchy: VisibleInHierarchy,
+    pub inherited_visibility: InheritedVisibility,
     /// The view visibility of the entity.
-    pub visible_in_view: VisibleInView,
+    pub view_visibility: ViewVisibility,
     /// The transform of the entity.
     pub transform: Transform,
     /// The global transform of the entity.
@@ -42,8 +42,8 @@ impl SpatialBundle {
     /// A visible [`SpatialBundle`], with no translation, rotation, and a scale of 1 on all axes.
     pub const INHERITED_IDENTITY: Self = SpatialBundle {
         visibility: Visibility::Inherited,
-        visible_in_hierarchy: VisibleInHierarchy::HIDDEN,
-        visible_in_view: VisibleInView::HIDDEN,
+        inherited_visibility: InheritedVisibility::HIDDEN,
+        view_visibility: ViewVisibility::HIDDEN,
         transform: Transform::IDENTITY,
         global_transform: GlobalTransform::IDENTITY,
     };

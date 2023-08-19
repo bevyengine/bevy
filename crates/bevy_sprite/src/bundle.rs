@@ -6,7 +6,7 @@ use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
     texture::{Image, DEFAULT_IMAGE_HANDLE},
-    view::{Visibility, VisibleInHierarchy, VisibleInView},
+    view::{InheritedVisibility, ViewVisibility, Visibility},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
@@ -19,9 +19,9 @@ pub struct SpriteBundle {
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
-    pub visible_in_hierarchy: VisibleInHierarchy,
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub visible_in_view: VisibleInView,
+    pub view_visibility: ViewVisibility,
 }
 
 impl Default for SpriteBundle {
@@ -32,8 +32,8 @@ impl Default for SpriteBundle {
             global_transform: Default::default(),
             texture: DEFAULT_IMAGE_HANDLE.typed(),
             visibility: Default::default(),
-            visible_in_hierarchy: Default::default(),
-            visible_in_view: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
         }
     }
 }
@@ -50,7 +50,7 @@ pub struct SpriteSheetBundle {
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
-    pub visible_in_hierarchy: VisibleInHierarchy,
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub visible_in_view: VisibleInView,
+    pub view_visibility: ViewVisibility,
 }

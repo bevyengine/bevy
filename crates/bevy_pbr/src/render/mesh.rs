@@ -37,7 +37,7 @@ use bevy_render::{
         BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImagesDepth,
         FallbackImagesMsaa, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
-    view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleInView},
+    view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
@@ -194,7 +194,7 @@ pub fn extract_meshes(
     meshes_query: Extract<
         Query<(
             Entity,
-            &VisibleInView,
+            &ViewVisibility,
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
@@ -287,7 +287,7 @@ pub fn extract_skinned_meshes(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut uniform: ResMut<SkinnedMeshUniform>,
-    query: Extract<Query<(Entity, &VisibleInView, &SkinnedMesh)>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &SkinnedMesh)>>,
     inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
     joint_query: Extract<Query<&GlobalTransform>>,
 ) {
@@ -295,8 +295,8 @@ pub fn extract_skinned_meshes(
     let mut values = Vec::with_capacity(*previous_len);
     let mut last_start = 0;
 
-    for (entity, visible_in_view, skin) in &query {
-        if !visible_in_view.get() {
+    for (entity, view_visibility, skin) in &query {
+        if !view_visibility.get() {
             continue;
         }
         // PERF: This can be expensive, can we move this to prepare?

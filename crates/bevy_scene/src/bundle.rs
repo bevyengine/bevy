@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 #[cfg(feature = "bevy_render")]
-use bevy_render::prelude::{Visibility, VisibleInHierarchy, VisibleInView};
+use bevy_render::prelude::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_transform::components::{GlobalTransform, Transform};
 
 use crate::{DynamicScene, InstanceId, Scene, SceneSpawner};
@@ -32,9 +32,9 @@ pub struct SceneBundle {
     #[cfg(feature = "bevy_render")]
     pub visibility: Visibility,
     #[cfg(feature = "bevy_render")]
-    pub visible_in_hierarchy: VisibleInHierarchy,
+    pub inherited_visibility: InheritedVisibility,
     #[cfg(feature = "bevy_render")]
-    pub visible_in_view: VisibleInView,
+    pub view_visibility: ViewVisibility,
 }
 
 /// A component bundle for a [`DynamicScene`] root.
@@ -51,9 +51,9 @@ pub struct DynamicSceneBundle {
     #[cfg(feature = "bevy_render")]
     pub visibility: Visibility,
     #[cfg(feature = "bevy_render")]
-    pub visible_in_hierarchy: VisibleInHierarchy,
+    pub inherited_visibility: InheritedVisibility,
     #[cfg(feature = "bevy_render")]
-    pub visible_in_view: VisibleInView,
+    pub view_visibility: ViewVisibility,
 }
 
 /// System that will spawn scenes from [`SceneBundle`].
