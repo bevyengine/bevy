@@ -38,7 +38,7 @@ pub mod prelude {
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
-        view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
+        view::{Msaa, Visibility, VisibilityBundle, VisibleInHierarchy, VisibleInView},
         ExtractSchedule,
     };
 }
@@ -334,7 +334,7 @@ impl Plugin for RenderPlugin {
         }
 
         app.add_plugins((
-            ValidParentCheckPlugin::<view::ComputedVisibility>::default(),
+            ValidParentCheckPlugin::<view::VisibleInHierarchy>::default(),
             WindowRenderPlugin,
             CameraPlugin,
             ViewPlugin,

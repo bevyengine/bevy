@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::Bundle;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-use crate::view::{ComputedVisibility, Visibility};
+use crate::view::{Visibility, VisibleInHierarchy, VisibleInView};
 
 /// A [`Bundle`] with the following [`Component`](bevy_ecs::component::Component)s:
 /// * [`Visibility`] and [`ComputedVisibility`], which describe the visibility of an entity
@@ -17,8 +17,10 @@ use crate::view::{ComputedVisibility, Visibility};
 pub struct SpatialBundle {
     /// The visibility of the entity.
     pub visibility: Visibility,
-    /// The computed visibility of the entity.
-    pub computed: ComputedVisibility,
+    /// The inherited visibility of the entity.
+    pub visible_in_hierarchy: VisibleInHierarchy,
+    /// The view visibility of the entity.
+    pub visible_in_view: VisibleInView,
     /// The transform of the entity.
     pub transform: Transform,
     /// The global transform of the entity.
@@ -40,7 +42,8 @@ impl SpatialBundle {
     /// A visible [`SpatialBundle`], with no translation, rotation, and a scale of 1 on all axes.
     pub const INHERITED_IDENTITY: Self = SpatialBundle {
         visibility: Visibility::Inherited,
-        computed: ComputedVisibility::HIDDEN,
+        visible_in_hierarchy: VisibleInHierarchy::HIDDEN,
+        visible_in_view: VisibleInView::HIDDEN,
         transform: Transform::IDENTITY,
         global_transform: GlobalTransform::IDENTITY,
     };

@@ -3,6 +3,7 @@ mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
+use bevy_render::view::VisibleInView;
 use bevy_render::{ExtractSchedule, Render};
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
@@ -28,7 +29,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
-    view::{ComputedVisibility, ExtractedView, ViewUniforms},
+    view::{ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };
 use bevy_sprite::SpriteAssetEvents;
@@ -180,7 +181,7 @@ pub fn extract_atlas_uinodes(
                 &Node,
                 &GlobalTransform,
                 &BackgroundColor,
-                &ComputedVisibility,
+                &VisibleInView,
                 Option<&CalculatedClip>,
                 &Handle<TextureAtlas>,
                 &UiTextureAtlasImage,
@@ -190,11 +191,18 @@ pub fn extract_atlas_uinodes(
     >,
 ) {
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, visibility, clip, texture_atlas_handle, atlas_image)) =
-            uinode_query.get(*entity)
+        if let Ok((
+            uinode,
+            transform,
+            color,
+            visible_in_view,
+            clip,
+            texture_atlas_handle,
+            atlas_image,
+        )) = uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
-            if !visibility.is_visible() || color.0.a() == 0.0 {
+            if !visible_in_view.get() || color.0.a() == 0.0 {
                 continue;
             }
 
@@ -270,7 +278,7 @@ pub fn extract_uinode_borders(
                 &Style,
                 &BorderColor,
                 Option<&Parent>,
-                &ComputedVisibility,
+                &VisibleInView,
                 Option<&CalculatedClip>,
             ),
             Without<ContentSize>,
@@ -289,11 +297,11 @@ pub fn extract_uinode_borders(
         / ui_scale.scale as f32;
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((node, global_transform, style, border_color, parent, visibility, clip)) =
+        if let Ok((node, global_transform, style, border_color, parent, visible_in_view, clip)) =
             uinode_query.get(*entity)
         {
             // Skip invisible borders
-            if !visibility.is_visible()
+            if !visible_in_view.get()
                 || border_color.0.a() == 0.0
                 || node.size().x <= 0.
                 || node.size().y <= 0.
@@ -387,7 +395,7 @@ pub fn extract_uinodes(
                 &GlobalTransform,
                 &BackgroundColor,
                 Option<&UiImage>,
-                &ComputedVisibility,
+                &VisibleInView,
                 Option<&CalculatedClip>,
             ),
             Without<UiTextureAtlasImage>,
@@ -395,11 +403,11 @@ pub fn extract_uinodes(
     >,
 ) {
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
+        if let Ok((uinode, transform, color, maybe_image, visible_in_view, clip)) =
             uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
-            if !visibility.is_visible() || color.0.a() == 0.0 {
+            if !visible_in_view.get() || color.0.a() == 0.0 {
                 continue;
             }
 
@@ -517,7 +525,7 @@ pub fn extract_text_uinodes(
             &GlobalTransform,
             &Text,
             &TextLayoutInfo,
-            &ComputedVisibility,
+            &VisibleInView,
             Option<&CalculatedClip>,
         )>,
     >,
@@ -532,11 +540,11 @@ pub fn extract_text_uinodes(
     let inverse_scale_factor = (scale_factor as f32).recip();
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
+        if let Ok((uinode, global_transform, text, text_layout_info, visible_in_view, clip)) =
             uinode_query.get(*entity)
         {
             // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
-            if !visibility.is_visible() || uinode.size().x == 0. || uinode.size().y == 0. {
+            if !visible_in_view.get() || uinode.size().x == 0. || uinode.size().y == 0. {
                 continue;
             }
             let transform = global_transform.compute_matrix()

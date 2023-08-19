@@ -14,7 +14,7 @@ use bevy_reflect::Reflect;
 use bevy_render::{
     prelude::Color,
     texture::Image,
-    view::{ComputedVisibility, Visibility},
+    view::{Visibility, VisibleInHierarchy, VisibleInView},
     Extract,
 };
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
@@ -70,8 +70,10 @@ pub struct Text2dBundle {
     pub global_transform: GlobalTransform,
     /// The visibility properties of the text.
     pub visibility: Visibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
-    pub computed_visibility: ComputedVisibility,
+    /// Inherited visibility of an entity.
+    pub visible_in_hierarchy: VisibleInHierarchy,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub visible_in_view: VisibleInView,
     /// Contains the size of the text and its glyph's position and scale data. Generated via [`TextPipeline::queue_text`]
     pub text_layout_info: TextLayoutInfo,
 }
@@ -83,7 +85,7 @@ pub fn extract_text2d_sprite(
     text2d_query: Extract<
         Query<(
             Entity,
-            &ComputedVisibility,
+            &VisibleInView,
             &Text,
             &TextLayoutInfo,
             &Anchor,
@@ -98,10 +100,10 @@ pub fn extract_text2d_sprite(
         .unwrap_or(1.0);
     let scaling = GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()));
 
-    for (entity, computed_visibility, text, text_layout_info, anchor, global_transform) in
+    for (entity, visible_in_view, text, text_layout_info, anchor, global_transform) in
         text2d_query.iter()
     {
-        if !computed_visibility.is_visible() {
+        if !visible_in_view.get() {
             continue;
         }
 
