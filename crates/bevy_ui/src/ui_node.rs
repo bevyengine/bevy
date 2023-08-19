@@ -1577,18 +1577,21 @@ impl Default for GridPlacement {
     }
 }
 
+/// Convert an i16 to NonZeroI16, fails on zero and returns the `InvalidZeroIndex` error.
 fn try_into_grid_index(index: i16) -> Result<Option<NonZeroI16>, GridPlacementError> {
     Ok(Some(
         NonZeroI16::new(index).ok_or(GridPlacementError::InvalidZeroIndex)?,
     ))
 }
 
+/// Convert a U16 to NonZeroI16, fails on zero and returns the `InvalidZeroSpan` error.
 fn try_into_grid_span(span: u16) -> Result<Option<NonZeroU16>, GridPlacementError> {
     Ok(Some(
         NonZeroU16::new(span).ok_or(GridPlacementError::InvalidZeroSpan)?,
     ))
 }
 
+/// Errors that occur when setting contraints for a `GridPlacement`
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
 pub enum GridPlacementError {
     #[error("Zero is not a valid grid position")]
