@@ -59,9 +59,11 @@ image = { version = "0.24", default-features = false }
 # misc
 # `fragile-send-sync-non-atomic-wasm` feature means we can't use WASM threads for rendering
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm
-wgpu = { version = "0.17.0", features=["naga", "fragile-send-sync-non-atomic-wasm"] }
+wgpu = { version = "0.17.0", features = ["naga", "fragile-send-sync-non-atomic-wasm"] }
 codespan-reporting = "0.11.0"
 naga = { version = "0.13.0", features = ["wgsl-in"] }
+# naga_oil = "0.8"
+naga_oil = { git = "https://github.com/robtfm/naga_oil.git", branch = "0.13" }
 serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"
 bytemuck = { version = "1.5", features = ["derive"] }
@@ -73,8 +75,6 @@ futures-lite = "1.4.0"
 hexasphere = "9.0"
 ddsfile = { version = "0.5.0", optional = true }
 ktx2 = { version = "0.3.0", optional = true }
-# naga_oil = "0.8"
-naga_oil = { git = "https://github.com/robtfm/naga_oil.git", branch = "0.13" }
 # For ktx2 supercompression
 flate2 = { version = "1.0.22", optional = true }
 ruzstd = { version = "0.4.0", optional = true }
