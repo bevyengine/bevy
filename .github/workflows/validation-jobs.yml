@@ -117,12 +117,6 @@ jobs:
         with:
           name: screenshots.zip
           path: screenshots.zip
-      # - name: Save PR number
-      #   if: ${{ failure() && github.event_name == 'pull_request' }}
-      #   run: |
-      #     mkdir -p ./example-run
-      #     echo ${{ github.event.number }} > ./example-run/NR
-      #     mv last_example_run ./example-run/
       - uses: actions/upload-artifact@v2
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
