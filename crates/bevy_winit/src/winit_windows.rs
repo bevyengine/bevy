@@ -96,7 +96,8 @@ impl WinitWindows {
             .with_resizable(window.resizable)
             .with_enabled_buttons(convert_enabled_buttons(window.enabled_buttons))
             .with_decorations(window.decorations)
-            .with_transparent(window.transparent);
+            .with_transparent(window.transparent)
+            .with_active(window.focused);
 
         let constraints = window.resize_constraints.check_constraints();
         let min_inner_size = LogicalSize {
