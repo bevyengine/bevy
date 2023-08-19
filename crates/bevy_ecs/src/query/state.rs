@@ -149,7 +149,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// # Safety
     ///
-    /// `world` must match the one used to create this [`QuerySate`].
+    /// `world` must match the one used to create this [`QueryState`].
     #[inline]
     pub(crate) unsafe fn is_empty_unsafe_world_cell(
         &self,
