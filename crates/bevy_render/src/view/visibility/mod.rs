@@ -303,18 +303,16 @@ fn propagate_recursive(
     // BLOCKED: https://github.com/rust-lang/rust/issues/31436
     // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) -> Result<(), ()> {
-    let is_visible = {
-        let (visibility, mut inherited_visibility, child_parent) =
-            visibility_query.get_mut(entity).map_err(drop)?;
-        assert_eq!(
+    let (visibility, mut inherited_visibility, child_parent) =
+        visibility_query.get_mut(entity).map_err(drop)?;
+    assert_eq!(
             child_parent.get(), expected_parent,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
-        let is_visible = (parent_visible && visibility == Visibility::Inherited)
-            || visibility == Visibility::Visible;
-        inherited_visibility.set_if_neq(InheritedVisibility(is_visible));
-        is_visible
-    };
+
+    let is_visible = (parent_visible && visibility == Visibility::Inherited)
+        || visibility == Visibility::Visible;
+    inherited_visibility.set_if_neq(InheritedVisibility(is_visible));
 
     for child in children_query.get(entity).map_err(drop)?.iter() {
         let _ = propagate_recursive(is_visible, visibility_query, children_query, *child, entity);
