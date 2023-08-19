@@ -7,7 +7,7 @@ use bevy_macro_utils::BevyManifest;
 use bit_set::BitSet;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use syn::{spanned::Spanned, Lifetime, LitStr, Member, Path, Type, WhereClause};
+use syn::{spanned::Spanned, LitStr, Member, Path, Type, WhereClause};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
