@@ -118,7 +118,7 @@ impl AssetIo for FileAssetIo {
             move |entry| {
                 let path = entry.unwrap().path();
                 pathdiff::diff_paths(path, root_path.as_path())
-                    .expect("Cannot create a relative path from 'root_path' to 'path'")
+                    .unwrap_or_else(|_| panic!("Cannot create a relative path from 'root_path' `{root_path}` to 'path' `{path}`"))
             },
         )))
     }
