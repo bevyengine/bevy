@@ -86,11 +86,14 @@ impl InheritedVisibility {
 
 /// Algorithmically-computed indication or whether an entity is visible and should be extracted for rendering.
 ///
-/// This will be reset to `false` at the beginning of [`PostUpdate`], and then set to true by
-/// [`CheckVisibility`] systems. Because of this, values of this type will be marked as changed on
-/// nearly every frame, even when they do not change.
+/// Each frame, this will be reset to `false` during [`VisibilityPropagate`] systems in [`PostUpdate`].
+/// Later in the frame, systems in [`CheckVisibility`] will mark any visible entities using [`ViewVisibility::set`].
+/// Because of this, values of this type will be marked as changed every frame, even when they do not change.
 ///
-/// [`VisibilitySystems::CheckVisibility`]
+/// If you wish to add custom visibility system that sets this value, make sure you add it to the [`CheckVisibility`] set.
+///
+/// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
+/// [`CheckVisibility`]: VisibilitySystems::CheckVisibility
 #[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default)]
 pub struct ViewVisibility(bool);
@@ -105,12 +108,18 @@ impl ViewVisibility {
         self.0
     }
 
-    /// Sets the visibility to `true`. This is not reversible for a given frame, as it encodes whether or not this is visible in
-    /// _any_ view. This will be automatically reset to `false` every frame in [`VisibilitySystems::VisibilityPropagate`] and then set
-    /// to the proper value in [`VisibilitySystems::CheckVisibility`]. This should _only_ be set in systems with the [`VisibilitySystems::CheckVisibility`]
-    /// label. Don't call this unless you are defining a custom visibility system.
+    /// Sets the visibility to `true`. This should not be considered reversible for a given frame,
+    /// as this component tracks whether or not the entity visible in _any_ view.
     ///
+    /// This will be automatically reset to `false` every frame in [`VisibilityPropagate`] and then set
+    /// to the proper value in [`CheckVisibility`].
+    ///
+    /// You should only manaully set this if you are defining a custom visibility system,
+    /// in which case the system should be placed in the [`CheckVisibility`] set.
     /// For normal user-defined entity visibility, see [`Visibility`].
+    ///
+    /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
+    /// [`CheckVisibility`]: VisibilitySystems::CheckVisibility
     pub fn set(&mut self) {
         self.0 = true;
     }
