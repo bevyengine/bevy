@@ -99,6 +99,12 @@ impl ViewVisibility {
         self.0
     }
 
+    /// Sets the visibility to `true`. This is not reversible for a given frame, as it encodes whether or not this is visible in
+    /// _any_ view. This will be automatically reset to `false` every frame in [`VisibilitySystems::VisibilityPropagate`] and then set
+    /// to the proper value in [`VisibilitySystems::CheckVisibility`]. This should _only_ be set in systems with the [`VisibilitySystems::CheckVisibility`]
+    /// label. Don't call this unless you are defining a custom visibility system.
+    ///
+    /// For normal user-defined entity visibility, see [`Visibility`].
     pub fn set(&mut self) {
         self.0 = true;
     }
