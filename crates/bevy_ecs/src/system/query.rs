@@ -1366,8 +1366,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// ```
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.state
-            .is_empty_unsafe_world_cell(self.world, self.last_run, self.this_run)
+        // SAFETY: `self.world` matches `self.state`.
+        unsafe {
+            self.state
+                .is_empty_unsafe_world_cell(self.world, self.last_run, self.this_run)
+        }
     }
 
     /// Returns `true` if the given [`Entity`] matches the query.
