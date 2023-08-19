@@ -1,6 +1,6 @@
 mod render_layers;
 
-use bevy_derive::{Deref, DerefMut};
+use bevy_derive::Deref;
 pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
@@ -67,11 +67,14 @@ impl std::cmp::PartialEq<&Visibility> for Visibility {
 /// If this is false, then [`ViewVisibility`] should also be false.
 ///
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
-#[derive(Component, Deref, DerefMut, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
+#[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
 pub struct InheritedVisibility(bool);
 
 impl InheritedVisibility {
+    /// An entity that is invisible in the hierarchy.
     pub const HIDDEN: Self = Self(false);
+    /// An entity that is visible in the hierarchy.
+    pub const VISIBLE: Self = Self(true);
 
     /// Returns `true` if the entity is visible in the hierarchy.
     /// Otherwise, returns `false`.
@@ -91,6 +94,7 @@ impl InheritedVisibility {
 pub struct ViewVisibility(bool);
 
 impl ViewVisibility {
+    /// An entity that cannot be seen from any views.
     pub const HIDDEN: Self = Self(false);
 
     /// Returns `true` if the entity is visible in any view.
