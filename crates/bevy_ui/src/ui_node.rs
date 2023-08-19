@@ -1577,7 +1577,7 @@ impl Default for GridPlacement {
     }
 }
 
-/// Convert an `i16` to NonZeroI16`, fails on `0` and returns the `InvalidZeroIndex` error.
+/// Convert an `i16` to `NonZeroI16`, fails on `0` and returns the `InvalidZeroIndex` error.
 fn try_into_grid_index(index: i16) -> Result<Option<NonZeroI16>, GridPlacementError> {
     Ok(Some(
         NonZeroI16::new(index).ok_or(GridPlacementError::InvalidZeroIndex)?,
