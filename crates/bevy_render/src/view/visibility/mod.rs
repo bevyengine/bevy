@@ -281,12 +281,12 @@ fn visibility_propagate_system(
         let is_visible = matches!(visibility, Visibility::Inherited | Visibility::Visible);
         inherited_visibility.set_if_neq(InheritedVisibility(is_visible));
         if let Some(children) = children {
-            for child in children.iter() {
+            for &child in children.iter() {
                 let _ = propagate_recursive(
                     is_visible,
                     &mut visibility_query,
                     &children_query,
-                    *child,
+                    child,
                     entity,
                 );
             }
@@ -314,8 +314,8 @@ fn propagate_recursive(
         || visibility == Visibility::Visible;
     inherited_visibility.set_if_neq(InheritedVisibility(is_visible));
 
-    for child in children_query.get(entity).map_err(drop)?.iter() {
-        let _ = propagate_recursive(is_visible, visibility_query, children_query, *child, entity);
+    for &child in children_query.get(entity).map_err(drop)?.iter() {
+        let _ = propagate_recursive(is_visible, visibility_query, children_query, child, entity);
     }
     Ok(())
 }
