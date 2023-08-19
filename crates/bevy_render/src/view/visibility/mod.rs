@@ -27,7 +27,7 @@ use crate::{
 /// are set to [`Inherited`](Self::Inherited) will also be hidden.
 ///
 /// This is done by the `visibility_propagate_system` which uses the entity hierarchy and
-/// `Visibility` to set the values of each entity's [`ComputedVisibility`] component.
+/// `Visibility` to set the values of each entity's [`VisibleInHierarchy`] component.
 #[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default)]
 #[reflect(Component, Default)]
 pub enum Visibility {
@@ -104,12 +104,12 @@ impl VisibleInView {
     }
 }
 
-/// A [`Bundle`] of the [`Visibility`] and [`ComputedVisibility`]
+/// A [`Bundle`] of the [`Visibility`], [`VisibleInHierarchy`], and [`VisibleInView`]
 /// [`Component`](bevy_ecs::component::Component)s, which describe the visibility of an entity.
 ///
 /// * To show or hide an entity, you should set its [`Visibility`].
-/// * To get the computed visibility of an entity, you should get its [`ComputedVisibility`].
-/// * For visibility hierarchies to work correctly, you must have both a [`Visibility`] and a [`ComputedVisibility`].
+/// * To get the inherited visibility of an entity, you should get its [`VisibleInHierarchy`].
+/// * For visibility hierarchies to work correctly, you must have both all of [`Visibility`], [`VisibleInHierarchy`], and [`VisibleInView`].
 ///   * You may use the [`VisibilityBundle`] to guarantee this.
 #[derive(Bundle, Debug, Default)]
 pub struct VisibilityBundle {
@@ -167,7 +167,7 @@ pub enum VisibilitySystems {
     UpdatePerspectiveFrusta,
     UpdateProjectionFrusta,
     VisibilityPropagate,
-    /// Label for the [`check_visibility()`] system updating each frame the [`ComputedVisibility`]
+    /// Label for the [`check_visibility()`] system updating each frame the [`VisibleInView`]
     /// of each entity and the [`VisibleEntities`] of each view.
     CheckVisibility,
 }
@@ -345,7 +345,7 @@ fn propagate_recursive(
 /// System updating the visibility of entities each frame.
 ///
 /// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each frame, it updates the
-/// [`ComputedVisibility`] of all entities, and for each view also compute the [`VisibleEntities`]
+/// [`VisibleInView`] of all entities, and for each view also compute the [`VisibleEntities`]
 /// for that view.
 pub fn check_visibility(
     mut thread_queues: Local<ThreadLocal<Cell<Vec<Entity>>>>,

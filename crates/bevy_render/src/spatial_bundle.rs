@@ -4,11 +4,11 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 use crate::view::{Visibility, VisibleInHierarchy, VisibleInView};
 
 /// A [`Bundle`] with the following [`Component`](bevy_ecs::component::Component)s:
-/// * [`Visibility`] and [`ComputedVisibility`], which describe the visibility of an entity
+/// * [`Visibility`], and [`VisibleInHierarchy`], which describe the visibility of an entity
 /// * [`Transform`] and [`GlobalTransform`], which describe the position of an entity
 ///
 /// * To show or hide an entity, you should set its [`Visibility`].
-/// * To get the computed visibility of an entity, you should get its [`ComputedVisibility`].
+/// * To get the computed visibility of an entity, you should get its [`VisibleInHierarchy`] or [`VisibleInView`] components.
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * For hierarchies to work correctly, you must have all four components.

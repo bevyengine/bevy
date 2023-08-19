@@ -24,9 +24,9 @@ use smallvec::SmallVec;
 ///
 /// Updated in [`ui_focus_system`].
 ///
-/// If a UI node has both [`Interaction`] and [`ComputedVisibility`] components,
+/// If a UI node has both [`Interaction`] and [`VisibleInView`] components,
 /// [`Interaction`] will always be [`Interaction::None`]
-/// when [`ComputedVisibility::is_visible()`] is false.
+/// when [`VisibleInView::get()`] is false.
 /// This ensures that hidden UI nodes are not interactable,
 /// and do not end up stuck in an active state if hidden at the wrong time.
 ///
@@ -130,7 +130,7 @@ pub struct NodeQuery {
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
-/// Entities with a hidden [`ComputedVisibility`] are always treated as released.
+/// Entities with a hidden [`VisibleInView`] are always treated as released.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_focus_system(
     mut state: Local<State>,
