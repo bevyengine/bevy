@@ -217,7 +217,8 @@ impl Plugin for VisibilityPlugin {
                         .in_set(UpdateProjectionFrusta)
                         .after(camera_system::<Projection>)
                         .after(TransformSystem::TransformPropagate),
-                    visibility_propagate_system.in_set(VisibilityPropagate),
+                    (visibility_propagate_system, reset_view_visibility)
+                        .in_set(VisibilityPropagate),
                     check_visibility
                         .in_set(CheckVisibility)
                         .after(CalculateBoundsFlush)
@@ -269,33 +270,16 @@ fn visibility_propagate_system(
             Option<&Children>,
             &Visibility,
             &mut InheritedVisibility,
-            &mut ViewVisibility,
             Entity,
         ),
         Without<Parent>,
     >,
-    mut visibility_query: Query<(
-        &Visibility,
-        &mut InheritedVisibility,
-        &mut ViewVisibility,
-        &Parent,
-    )>,
-    children_query: Query<
-        &Children,
-        (
-            With<Parent>,
-            With<Visibility>,
-            (With<InheritedVisibility>, With<ViewVisibility>),
-        ),
-    >,
+    mut visibility_query: Query<(&Visibility, &mut InheritedVisibility, &Parent)>,
+    children_query: Query<&Children, (With<Parent>, With<Visibility>, With<InheritedVisibility>)>,
 ) {
-    for (children, visibility, mut inherited_visibility, mut view_visibility, entity) in
-        root_query.iter_mut()
-    {
+    for (children, visibility, mut inherited_visibility, entity) in root_query.iter_mut() {
         let is_visible = matches!(visibility, Visibility::Inherited | Visibility::Visible);
         inherited_visibility.set_if_neq(InheritedVisibility(is_visible));
-        // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        view_visibility.set_if_neq(ViewVisibility(false));
         if let Some(children) = children {
             for child in children.iter() {
                 let _ = propagate_recursive(
@@ -312,27 +296,15 @@ fn visibility_propagate_system(
 
 fn propagate_recursive(
     parent_visible: bool,
-    visibility_query: &mut Query<(
-        &Visibility,
-        &mut InheritedVisibility,
-        &mut ViewVisibility,
-        &Parent,
-    )>,
-    children_query: &Query<
-        &Children,
-        (
-            With<Parent>,
-            With<Visibility>,
-            (With<InheritedVisibility>, With<ViewVisibility>),
-        ),
-    >,
+    visibility_query: &mut Query<(&Visibility, &mut InheritedVisibility, &Parent)>,
+    children_query: &Query<&Children, (With<Parent>, With<Visibility>, With<InheritedVisibility>)>,
     entity: Entity,
     expected_parent: Entity,
     // BLOCKED: https://github.com/rust-lang/rust/issues/31436
     // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) -> Result<(), ()> {
     let is_visible = {
-        let (visibility, mut inherited_visibility, mut view_visibility, child_parent) =
+        let (visibility, mut inherited_visibility, child_parent) =
             visibility_query.get_mut(entity).map_err(drop)?;
         assert_eq!(
             child_parent.get(), expected_parent,
@@ -341,8 +313,6 @@ fn propagate_recursive(
         let is_visible = (parent_visible && visibility == Visibility::Inherited)
             || visibility == Visibility::Visible;
         inherited_visibility.set_if_neq(InheritedVisibility(is_visible));
-        // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        view_visibility.set_if_neq(ViewVisibility(false));
         is_visible
     };
 
@@ -350,6 +320,18 @@ fn propagate_recursive(
         let _ = propagate_recursive(is_visible, visibility_query, children_query, *child, entity);
     }
     Ok(())
+}
+
+/// Resets the view visibility of every entity.
+/// Entities that are visible will be marked as such later this frame
+/// by a [`VisibilitySystems::CheckVisibility`] system.
+fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
+    for mut view_visibility in &mut query {
+        // NOTE: We do not use `set_if_neq` here, as we don't care about
+        // change detection for view visibility, and adding a branch to every
+        // loop iteration would pessimize performance.
+        *view_visibility = ViewVisibility::HIDDEN;
+    }
 }
 
 /// System updating the visibility of entities each frame.
