@@ -101,7 +101,7 @@ pub(crate) fn impl_type_path(
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
 
     // Add Typed bound for each active field
-    let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
+    let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
 
     quote! {
         #primitive_assert
