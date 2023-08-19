@@ -1747,6 +1747,7 @@ impl Default for ZIndex {
 
 #[cfg(test)]
 mod tests {
+    use crate::GridPlacement;
     use crate::ValArithmeticError;
 
     use super::Val;
@@ -1894,5 +1895,31 @@ mod tests {
     #[test]
     fn default_val_equals_const_default_val() {
         assert_eq!(Val::default(), Val::DEFAULT);
+    }
+
+    #[test]
+    fn invalid_grid_placement_values() {
+        assert!(std::panic::catch_unwind(|| GridPlacement::span(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(-1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_start(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_end(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_span(0)).is_err());
+    }
+
+    #[test]
+    fn grid_placement_accessors() {
+        assert_eq!(GridPlacement::start(5).get_start(), Some(5));
+        assert_eq!(GridPlacement::end(-4).get_end(), Some(-4));
+        assert_eq!(GridPlacement::span(2).get_span(), Some(2));
+        assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
+        assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
+        assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
     }
 }
