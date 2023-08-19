@@ -117,8 +117,9 @@ impl AssetIo for FileAssetIo {
         Ok(Box::new(fs::read_dir(root_path.join(path))?.map(
             move |entry| {
                 let path = entry.unwrap().path();
-                pathdiff::diff_paths(path, root_path.as_path())
-                    .unwrap_or_else(|_| panic!("Cannot create a relative path from 'root_path' `{root_path}` to 'path' `{path}`"))
+                pathdiff::diff_paths(path, root_path.as_path()).unwrap_or_else(|| {
+                    panic!("Cannot create a relative path from root to provided path.")
+                })
             },
         )))
     }
