@@ -5,7 +5,7 @@ use bevy_ecs::{
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, BoxedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleLabel,
+        ScheduleBuildSettings, ScheduleLabel,
     },
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
@@ -847,6 +847,13 @@ impl App {
         f(schedule);
 
         self
+    }
+
+    /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
+    pub fn configure_schedules(&mut self, schedule_build_settings: ScheduleBuildSettings) {
+        self.world
+            .resource_mut::<Schedules>()
+            .configure_schedules(schedule_build_settings);
     }
 }
 
