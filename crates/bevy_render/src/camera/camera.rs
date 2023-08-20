@@ -19,7 +19,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_log::warn;
-use bevy_math::{Mat4, Ray, Rect, URect, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{vec2, Mat4, Ray, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
@@ -806,7 +806,8 @@ impl TemporalJitter {
             return;
         }
 
-        let jitter = self.offset / view_size;
+        // https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/docs/techniques/media/super-resolution-temporal/jitter-space.svg
+        let jitter = (self.offset * vec2(2.0, -2.0)) / view_size;
 
         projection.z_axis.x += jitter.x;
         projection.z_axis.y += jitter.y;

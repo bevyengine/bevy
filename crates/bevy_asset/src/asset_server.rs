@@ -236,7 +236,7 @@ impl AssetServer {
             loaders[existing_index] = MaybeAssetLoader::Ready(Arc::new(loader));
             if let Some(sender) = maybe_sender {
                 // notify after replacing the loader
-                let _ = sender.send_blocking(());
+                let _ = sender.close();
             }
         } else {
             loaders.push(MaybeAssetLoader::Ready(Arc::new(loader)));
