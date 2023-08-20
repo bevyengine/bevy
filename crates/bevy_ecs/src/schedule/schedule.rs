@@ -169,8 +169,9 @@ pub struct Schedule {
 struct DefaultSchedule;
 
 /// Creates a schedule with a default label. Only use in situations where
-/// you want a standalone schedule. If you're inserting the schedule into the world
-/// use [`Schedule::new`] instead.
+/// where you don't care about the [`ScheduleLabel`]. Inserting a default schedule
+/// into the world risks overwriting another schedule. For most situations you should use
+/// [`Schedule::new`].
 impl Default for Schedule {
     fn default() -> Self {
         Self::new(DefaultSchedule)
