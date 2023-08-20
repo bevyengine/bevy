@@ -1,10 +1,12 @@
-use crate::{serde::Serializable, Reflect, TypeInfo, Typed};
+use std::{any::TypeId, borrow::Cow, fmt::Debug, sync::Arc};
+
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use serde::Deserialize;
-use std::{any::TypeId, fmt::Debug, sync::Arc};
+
+use crate::{serde::Serializable, Reflect, TypeInfo, Typed};
 
 /// A registry of [reflected] types.
 ///
@@ -303,7 +305,7 @@ impl TypeRegistryArc {
 /// [short name]: bevy_utils::get_short_name
 /// [crate-level documentation]: crate
 pub struct TypeRegistration {
-    short_name: String,
+    short_name: Cow<'static, str>,
     data: HashMap<TypeId, Box<dyn TypeData>>,
     type_info: &'static TypeInfo,
 }
