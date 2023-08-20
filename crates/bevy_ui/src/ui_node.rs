@@ -81,7 +81,7 @@ impl Default for Node {
 /// The position of the Ui Node in the [`UiStack`](`crate::UiStack`).
 /// UI nodes with a higher `UiStackIndex` are drawn in front of those with a lower `UiStackIndex`.
 ///
-/// This component  is automatically managed by [`ui_stack_system`](`crate::stack::ui_stack_system`).
+/// This component  is automatically managed by `ui_stack_system`.
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct UiStackIndex(pub(crate) u32);
