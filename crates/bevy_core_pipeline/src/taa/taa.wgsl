@@ -86,7 +86,8 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let texture_size = vec2<f32>(textureDimensions(view_target));
     let texel_size = 1.0 / texture_size;
 
-    // TODO: Docs
+    // Loop over 3x3 neighborhood of the pre-TAA rendered texture
+    // https://alextardif.com/TAA.html
     var current_color = vec3(0.0);
     var weight_sum = 0.0;
     var moment_1 = vec3(0.0);
@@ -98,14 +99,17 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
             let sample_uv = uv + (vec2(x, y) * texel_size);
             let sample = sample_view_target(sample_uv);
 
-            // TODO: Precalculate
+            // Apply Mitchell-Netravali kernel over the jittered 3x3 neighborhood to reduce softness
+            // PERF: Precalculate
             let weight = cubic_filter(x, 1.0 / 3.0, 1.0 / 3.0) * cubic_filter(y, 1.0 / 3.0, 1.0 / 3.0);
             weight_sum += weight;
             current_color += sample * weight;
 
+            // Calculate first and second color moments for use with variance clipping
             moment_1 += sample;
             moment_2 += sample * sample;
 
+            // Find closest pixel to take motion vectors from (reduces aliasing on the edges of moving entities)
             let sample_depth = textureSampleLevel(depth, nearest_sampler, sample_uv, 0.0);
             if sample_depth > closest_depth {
                 closest_depth = sample_depth;
@@ -149,8 +153,9 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     history_color = YCoCg_to_RGB(history_color);
     current_color = YCoCg_to_RGB(current_color);
 
-    // Use more of the history if we're confident in it (reduces noise)
+    // Use more of the history if it's been visible for a few frames (reduces noise)
     var accumulated_samples = textureSampleLevel(history, nearest_sampler, history_uv, 0.0).a;
+    // If the history_uv is pointing off-screen, reset accumulated sample count
     accumulated_samples *= f32(all(saturate(history_uv) == history_uv));
 #ifdef RESET
     accumulated_samples = 0.0;
