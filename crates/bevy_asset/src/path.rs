@@ -3,6 +3,7 @@ use bevy_utils::{AHasher, RandomState};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
+    fmt::Write,
     hash::{BuildHasher, Hash, Hasher},
     path::{Path, PathBuf},
 };
@@ -62,6 +63,19 @@ impl<'a> AssetPath<'a> {
                 .as_ref()
                 .map(|value| Cow::Owned(value.to_string())),
         }
+    }
+}
+
+impl<'a> std::fmt::Display for AssetPath<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.path.display().fmt(f)?;
+
+        if let Some(label) = self.label.as_ref() {
+            f.write_char('#')?;
+            label.fmt(f)?;
+        }
+
+        Ok(())
     }
 }
 
