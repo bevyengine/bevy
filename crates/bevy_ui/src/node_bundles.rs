@@ -53,7 +53,7 @@ pub struct NodeBundle {
     /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
     ///
-    /// This component is automatically managed by `ui_stack_system`.
+    /// This component  is automatically managed by [`ui_stack_system`](`crate::stack::ui_stack_system`).
     pub stack_index: UiStackIndex,
 }
 
@@ -120,7 +120,7 @@ pub struct ImageBundle {
     /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
     ///
-    /// This component is automatically managed by `ui_stack_system`.
+    /// This component  is automatically managed by [`ui_stack_system`](`crate::stack::ui_stack_system`).
     pub stack_index: UiStackIndex,
 }
 
@@ -170,7 +170,7 @@ pub struct AtlasImageBundle {
     /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
     ///
-    /// This component is automatically managed by `ui_stack_system`.
+    /// This component  is automatically managed by [`ui_stack_system`](`crate::stack::ui_stack_system`).
     pub stack_index: UiStackIndex,
 }
 
@@ -212,7 +212,7 @@ pub struct TextBundle {
     /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
     ///
-    /// This component is automatically managed by `ui_stack_system`.
+    /// This component  is automatically managed by [`ui_stack_system`](`crate::stack::ui_stack_system`).
     pub stack_index: UiStackIndex,
     /// The background color that will fill the containing node    
     pub background_color: BackgroundColor,
@@ -330,7 +330,7 @@ pub struct ButtonBundle {
     /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
     /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
     ///
-    /// This component is automatically managed by `ui_stack_system`.
+    /// This component  is automatically managed by [`ui_stack_system`](`crate::stack::ui_stack_system`).
     pub stack_index: UiStackIndex,
 }
 
