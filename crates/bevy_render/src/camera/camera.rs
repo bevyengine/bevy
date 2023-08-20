@@ -807,6 +807,7 @@ impl TemporalJitter {
             return;
         }
 
+        // https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/docs/techniques/media/super-resolution-temporal/jitter-space.svg
         let jitter = (self.offset * vec2(2.0, -2.0)) / view_size;
 
         projection.z_axis.x += jitter.x;

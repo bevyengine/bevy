@@ -79,6 +79,11 @@ pub struct FixedUpdate;
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Update;
 
+/// The schedule that contains scene spawning.
+/// This is run by the [`Main`] schedule.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct SpawnScene;
+
 /// The schedule that contains logic that must run after [`Update`]. For example, synchronizing "local transforms" in a hierarchy
 /// to "global" absolute transforms. This enables the [`PostUpdate`] transform-sync system to react to "local transform" changes in
 /// [`Update`] without the [`Update`] systems needing to know about (or add scheduler dependencies for) the "global transform sync system".
@@ -112,6 +117,7 @@ impl Default for MainScheduleOrder {
                 Box::new(StateTransition),
                 Box::new(RunFixedUpdateLoop),
                 Box::new(Update),
+                Box::new(SpawnScene),
                 Box::new(PostUpdate),
                 Box::new(Last),
             ],

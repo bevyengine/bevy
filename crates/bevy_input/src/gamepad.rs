@@ -27,13 +27,17 @@ pub enum AxisSettingsError {
     /// Parameter `livezone_lowerbound` was not less than or equal to parameter `deadzone_lowerbound`.
     #[error("invalid parameter values livezone_lowerbound {} deadzone_lowerbound {}, expected livezone_lowerbound <= deadzone_lowerbound", .livezone_lowerbound, .deadzone_lowerbound)]
     LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
+        /// The value of the `livezone_lowerbound` parameter.
         livezone_lowerbound: f32,
+        /// The value of the `deadzone_lowerbound` parameter.
         deadzone_lowerbound: f32,
     },
     ///  Parameter `deadzone_upperbound` was not less than or equal to parameter `livezone_upperbound`.
     #[error("invalid parameter values livezone_upperbound {} deadzone_upperbound {}, expected deadzone_upperbound <= livezone_upperbound", .livezone_upperbound, .deadzone_upperbound)]
     DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
+        /// The value of the `livezone_upperbound` parameter.
         livezone_upperbound: f32,
+        /// The value of the `deadzone_upperbound` parameter.
         deadzone_upperbound: f32,
     },
     /// The given parameter was not in range 0.0..=2.0.
@@ -53,7 +57,9 @@ pub enum ButtonSettingsError {
     /// Parameter `release_threshold` was not less than or equal to `press_threshold`.
     #[error("invalid parameter values release_threshold {} press_threshold {}, expected release_threshold <= press_threshold", .release_threshold, .press_threshold)]
     ReleaseThresholdGreaterThanPressThreshold {
+        /// The value of the `press_threshold` parameter.
         press_threshold: f32,
+        /// The value of the `release_threshold` parameter.
         release_threshold: f32,
     },
 }
@@ -100,6 +106,11 @@ impl Gamepad {
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadInfo {
+    /// The name of the gamepad.
+    ///
+    /// This name is generally defined by the OS.
+    ///
+    /// For example on Windows the name may be "HID-compliant game controller".
     pub name: String,
 }
 
@@ -130,6 +141,7 @@ impl Gamepads {
         self.gamepads.keys().copied()
     }
 
+    /// The name of the gamepad if this one is connected.
     pub fn name(&self, gamepad: Gamepad) -> Option<&str> {
         self.gamepads.get(&gamepad).map(|g| g.name.as_str())
     }
@@ -1025,6 +1037,7 @@ pub fn gamepad_connection_system(
     }
 }
 
+/// The connection status of a gamepad.
 #[derive(Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -1033,7 +1046,9 @@ pub fn gamepad_connection_system(
     reflect(Serialize, Deserialize)
 )]
 pub enum GamepadConnection {
+    /// The gamepad is connected.
     Connected(GamepadInfo),
+    /// The gamepad is disconnected.
     Disconnected,
 }
 
@@ -1054,6 +1069,7 @@ pub struct GamepadConnectionEvent {
 }
 
 impl GamepadConnectionEvent {
+    /// Creates a [`GamepadConnectionEvent`].
     pub fn new(gamepad: Gamepad, connection: GamepadConnection) -> Self {
         Self {
             gamepad,
@@ -1061,15 +1077,19 @@ impl GamepadConnectionEvent {
         }
     }
 
+    /// Is the gamepad connected?
     pub fn connected(&self) -> bool {
         matches!(self.connection, GamepadConnection::Connected(_))
     }
 
+    /// Is the gamepad disconnected?
     pub fn disconnected(&self) -> bool {
         !self.connected()
     }
 }
 
+/// Gamepad event for when the "value" on the axis changes
+/// by an amount larger than the threshold defined in [`GamepadSettings`].
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -1078,12 +1098,16 @@ impl GamepadConnectionEvent {
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadAxisChangedEvent {
+    /// The gamepad on which the axis is triggered.
     pub gamepad: Gamepad,
+    /// The type of the triggered axis.
     pub axis_type: GamepadAxisType,
+    /// The value of the axis.
     pub value: f32,
 }
 
 impl GamepadAxisChangedEvent {
+    /// Creates a [`GamepadAxisChangedEvent`].
     pub fn new(gamepad: Gamepad, axis_type: GamepadAxisType, value: f32) -> Self {
         Self {
             gamepad,
@@ -1103,12 +1127,16 @@ impl GamepadAxisChangedEvent {
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadButtonChangedEvent {
+    /// The gamepad on which the button is triggered.
     pub gamepad: Gamepad,
+    /// The type of the triggered button.
     pub button_type: GamepadButtonType,
+    /// The value of the button.
     pub value: f32,
 }
 
 impl GamepadButtonChangedEvent {
+    /// Creates a [`GamepadButtonChangedEvent`].
     pub fn new(gamepad: Gamepad, button_type: GamepadButtonType, value: f32) -> Self {
         Self {
             gamepad,
@@ -1133,7 +1161,6 @@ pub fn gamepad_axis_event_system(
 pub fn gamepad_button_event_system(
     mut button_events: EventReader<GamepadButtonChangedEvent>,
     mut button_input: ResMut<Input<GamepadButton>>,
-    mut button_axis: ResMut<Axis<GamepadButton>>,
     settings: Res<GamepadSettings>,
 ) {
     for button_event in button_events.iter() {
@@ -1148,8 +1175,6 @@ pub fn gamepad_button_event_system(
         } else if button_property.is_pressed(value) {
             button_input.press(button);
         };
-
-        button_axis.set(button, value);
     }
 }
 
@@ -1166,8 +1191,11 @@ pub fn gamepad_button_event_system(
     reflect(Serialize, Deserialize)
 )]
 pub enum GamepadEvent {
+    /// A gamepad has been connected or disconnected.
     Connection(GamepadConnectionEvent),
+    /// A button of the gamepad has been triggered.
     Button(GamepadButtonChangedEvent),
+    /// An axis of the gamepad has been triggered.
     Axis(GamepadAxisChangedEvent),
 }
 
@@ -1245,16 +1273,16 @@ const ALL_AXIS_TYPES: [GamepadAxisType; 6] = [
 /// The intensity at which a gamepad's force-feedback motors may rumble.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GamepadRumbleIntensity {
-    /// The rumble intensity of the strong gamepad motor
+    /// The rumble intensity of the strong gamepad motor.
     ///
-    /// Ranges from 0.0 to 1.0
+    /// Ranges from `0.0` to `1.0`.
     ///
     /// By convention, this is usually a low-frequency motor on the left-hand
     /// side of the gamepad, though it may vary across platforms and hardware.
     pub strong_motor: f32,
-    /// The rumble intensity of the weak gamepad motor
+    /// The rumble intensity of the weak gamepad motor.
     ///
-    /// Ranges from 0.0 to 1.0
+    /// Ranges from `0.0` to `1.0`.
     ///
     /// By convention, this is usually a high-frequency motor on the right-hand
     /// side of the gamepad, though it may vary across platforms and hardware.
@@ -1262,27 +1290,27 @@ pub struct GamepadRumbleIntensity {
 }
 
 impl GamepadRumbleIntensity {
-    /// Rumble both gamepad motors at maximum intensity
+    /// Rumble both gamepad motors at maximum intensity.
     pub const MAX: Self = GamepadRumbleIntensity {
         strong_motor: 1.0,
         weak_motor: 1.0,
     };
 
-    /// Rumble the weak motor at maximum intensity
+    /// Rumble the weak motor at maximum intensity.
     pub const WEAK_MAX: Self = GamepadRumbleIntensity {
         strong_motor: 0.0,
         weak_motor: 1.0,
     };
 
-    /// Rumble the strong motor at maximum intensity
+    /// Rumble the strong motor at maximum intensity.
     pub const STRONG_MAX: Self = GamepadRumbleIntensity {
         strong_motor: 1.0,
         weak_motor: 0.0,
     };
 
-    /// Creates a new rumble intensity with weak motor intensity set to the given value
+    /// Creates a new rumble intensity with weak motor intensity set to the given value.
     ///
-    /// Clamped within the 0 to 1 range
+    /// Clamped within the `0.0` to `1.0` range.
     pub const fn weak_motor(intensity: f32) -> Self {
         Self {
             weak_motor: intensity,
@@ -1290,9 +1318,9 @@ impl GamepadRumbleIntensity {
         }
     }
 
-    /// Creates a new rumble intensity with strong motor intensity set to the given value
+    /// Creates a new rumble intensity with strong motor intensity set to the given value.
     ///
-    /// Clamped within the 0 to 1 range
+    /// Clamped within the `0.0` to `1.0` range.
     pub const fn strong_motor(intensity: f32) -> Self {
         Self {
             strong_motor: intensity,
@@ -1301,7 +1329,7 @@ impl GamepadRumbleIntensity {
     }
 }
 
-/// An event that controls force-feedback rumbling of a [`Gamepad`]
+/// An event that controls force-feedback rumbling of a [`Gamepad`].
 ///
 /// # Notes
 ///
@@ -1343,19 +1371,22 @@ pub enum GamepadRumbleRequest {
     ///
     /// To replace an existing rumble, send a [`GamepadRumbleRequest::Stop`] event first.
     Add {
-        /// How long the gamepad should rumble
+        /// How long the gamepad should rumble.
         duration: Duration,
-        /// How intense the rumble should be
+        /// How intense the rumble should be.
         intensity: GamepadRumbleIntensity,
-        /// The gamepad to rumble
+        /// The gamepad to rumble.
         gamepad: Gamepad,
     },
-    /// Stop all running rumbles on the given [`Gamepad`]
-    Stop { gamepad: Gamepad },
+    /// Stop all running rumbles on the given [`Gamepad`].
+    Stop {
+        /// The gamepad to stop rumble.
+        gamepad: Gamepad,
+    },
 }
 
 impl GamepadRumbleRequest {
-    /// Get the [`Gamepad`] associated with this request
+    /// Get the [`Gamepad`] associated with this request.
     pub fn gamepad(&self) -> Gamepad {
         match self {
             Self::Add { gamepad, .. } | Self::Stop { gamepad } => *gamepad,
