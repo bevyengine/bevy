@@ -2000,7 +2000,7 @@ bevy_reflect::tests::Test {
             fn short_type_path() -> &'static str {
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
-                    bevy_utils::get_short_name(std::any::type_name::<Self>())
+                    bevy_utils::get_short_name(std::any::type_name::<Self>()).to_string()
                 })
             }
 

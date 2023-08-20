@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::BTreeSet,
     fmt::{Debug, Write},
 };
@@ -23,6 +24,8 @@ use crate::{
     system::{BoxedSystem, IntoSystem, Resource, System},
     world::World,
 };
+
+type CowStr = Cow<'static, str>;
 
 pub use stepping::Stepping;
 
@@ -1530,23 +1533,23 @@ enum ReportCycles {
 
 // methods for reporting errors
 impl ScheduleGraph {
-    fn get_node_name(&self, id: &NodeId) -> String {
+    fn get_node_name(&self, id: &NodeId) -> CowStr {
         self.get_node_name_inner(id, self.settings.report_sets)
     }
 
     #[inline]
-    fn get_node_name_inner(&self, id: &NodeId, report_sets: bool) -> String {
-        let mut name = match id {
+    fn get_node_name_inner(&self, id: &NodeId, report_sets: bool) -> CowStr {
+        let mut name: CowStr = match id {
             NodeId::System(_) => {
-                let name = self.systems[id.index()].get().unwrap().name().to_string();
+                let name = self.systems[id.index()].get().unwrap().name();
                 if report_sets {
                     let sets = self.names_of_sets_containing_node(id);
                     if sets.is_empty() {
                         name
                     } else if sets.len() == 1 {
-                        format!("{name} (in set {})", sets[0])
+                        format!("{name} (in set {})", sets[0]).into()
                     } else {
-                        format!("{name} (in sets {})", sets.join(", "))
+                        format!("{name} (in sets {})", sets.join(", ")).into()
                     }
                 } else {
                     name
@@ -1555,14 +1558,17 @@ impl ScheduleGraph {
             NodeId::Set(_) => {
                 let set = &self.system_sets[id.index()];
                 if set.is_anonymous() {
-                    self.anonymous_set_name(id)
+                    self.anonymous_set_name(id).into()
                 } else {
-                    set.name()
+                    set.name().into()
                 }
             }
         };
         if self.settings.use_shortnames {
-            name = bevy_utils::get_short_name(&name);
+            name = match name {
+                Cow::Borrowed(borrowed) => bevy_utils::get_short_name(borrowed),
+                Cow::Owned(string) => Cow::Owned(bevy_utils::get_short_name(&string).to_string()),
+            };
         }
         name
     }
@@ -1575,7 +1581,12 @@ impl ScheduleGraph {
                 .edges_directed(*id, Outgoing)
                 // never get the sets of the members or this will infinite recurse when the report_sets setting is on.
                 .map(|(_, member_id, _)| self.get_node_name_inner(&member_id, false))
-                .reduce(|a, b| format!("{a}, {b}"))
+                .reduce(|mut a, b| {
+                    let a_mut = a.to_mut();
+                    *a_mut += ", ";
+                    *a_mut += &b;
+                    a
+                })
                 .unwrap_or_default()
         )
     }
@@ -1847,7 +1858,7 @@ impl ScheduleGraph {
         &'a self,
         ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
         components: &'a Components,
-    ) -> impl Iterator<Item = (String, String, Vec<&str>)> + 'a {
+    ) -> impl Iterator<Item = (CowStr, CowStr, Vec<&str>)> + 'a {
         ambiguities
             .iter()
             .map(move |(system_a, system_b, conflicts)| {
@@ -1874,7 +1885,7 @@ impl ScheduleGraph {
         }
     }
 
-    fn names_of_sets_containing_node(&self, id: &NodeId) -> Vec<String> {
+    fn names_of_sets_containing_node(&self, id: &NodeId) -> Vec<CowStr> {
         let mut sets = HashSet::new();
         self.traverse_sets_containing_node(*id, &mut |set_id| {
             !self.system_sets[set_id.index()].is_system_type() && sets.insert(set_id)
@@ -1894,7 +1905,7 @@ impl ScheduleGraph {
 pub enum ScheduleBuildError {
     /// A system set contains itself.
     #[error("System set `{0}` contains itself.")]
-    HierarchyLoop(String),
+    HierarchyLoop(CowStr),
     /// The hierarchy of system sets contains a cycle.
     #[error("System set hierarchy contains cycle(s).\n{0}")]
     HierarchyCycle(String),
@@ -1905,19 +1916,19 @@ pub enum ScheduleBuildError {
     HierarchyRedundancy(String),
     /// A system (set) has been told to run before itself.
     #[error("System set `{0}` depends on itself.")]
-    DependencyLoop(String),
+    DependencyLoop(CowStr),
     /// The dependency graph contains a cycle.
     #[error("System dependencies contain cycle(s).\n{0}")]
     DependencyCycle(String),
     /// Tried to order a system (set) relative to a system set it belongs to.
     #[error("`{0}` and `{1}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
-    CrossDependency(String, String),
+    CrossDependency(CowStr, CowStr),
     /// Tried to order system sets that share systems.
     #[error("`{0}` and `{1}` have a `before`-`after` relationship (which may be transitive) but share systems.")]
-    SetsHaveOrderButIntersect(String, String),
+    SetsHaveOrderButIntersect(CowStr, CowStr),
     /// Tried to order a system (set) relative to all instances of some system function.
     #[error("Tried to order against `{0}` in a schedule that has more than one `{0}` instance. `{0}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
-    SystemTypeSetAmbiguity(String),
+    SystemTypeSetAmbiguity(CowStr),
     /// Systems with conflicting access have indeterminate run order.
     ///
     /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].

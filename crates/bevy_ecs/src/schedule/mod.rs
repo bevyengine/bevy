@@ -1023,23 +1023,23 @@ mod tests {
 
             let expected = &[
                 (
-                    "system_d".to_string(),
-                    "system_a".to_string(),
+                    "system_d".into(),
+                    "system_a".into(),
                     vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
                 ),
                 (
-                    "system_d".to_string(),
-                    "system_e".to_string(),
+                    "system_d".into(),
+                    "system_e".into(),
                     vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
                 ),
                 (
-                    "system_b".to_string(),
-                    "system_a".to_string(),
+                    "system_b".into(),
+                    "system_a".into(),
                     vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
                 ),
                 (
-                    "system_b".to_string(),
-                    "system_e".to_string(),
+                    "system_b".into(),
+                    "system_e".into(),
                     vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
                 ),
             ];
@@ -1073,8 +1073,8 @@ mod tests {
             assert_eq!(
                 ambiguities[0],
                 (
-                    "resmut_system (in set (resmut_system, resmut_system))".to_string(),
-                    "resmut_system (in set (resmut_system, resmut_system))".to_string(),
+                    "resmut_system (in set (resmut_system, resmut_system))".into(),
+                    "resmut_system (in set (resmut_system, resmut_system))".into(),
                     vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
                 )
             );
