@@ -213,6 +213,16 @@ pub struct Window {
     ///
     /// - iOS / Android / Web: Unsupported.
     pub window_theme: Option<WindowTheme>,
+    /// Sets the window's visibility.
+    ///
+    /// If `false`, this will hide the window the window completely, it won't appear on the screen or in the task bar.
+    /// If `true`, this will show the window.
+    /// Note that this doesn't change its focused or minimized state.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **Android / Wayland / Web:** Unsupported.
+    pub visible: bool,
 }
 
 impl Default for Window {
@@ -239,6 +249,7 @@ impl Default for Window {
             prevent_default_event_handling: true,
             canvas: None,
             window_theme: None,
+            visible: true,
         }
     }
 }
@@ -1016,7 +1027,7 @@ pub enum WindowTheme {
 ///
 /// ## Platform-specific
 ///
-/// **`iOS`**, **`Android`**, and the **`Web`** do not have window control buttons.  
+/// **`iOS`**, **`Android`**, and the **`Web`** do not have window control buttons.
 ///
 /// On some **`Linux`** environments these values have no effect.
 #[derive(Debug, Copy, Clone, PartialEq, Reflect)]
