@@ -3,26 +3,67 @@
 //! For the configurations, see the stress test documentation.
 
 use bevy_transform::prelude::*;
-use bevy_app::prelude::*;
+use bevy_app::{App, Update};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
-use bevy_math::prelude::*;
+use bevy_math::Vec3;
 use bevy_core_pipeline::prelude::Camera2dBundle;
+use bevy_core::{TaskPoolPlugin, TaskPoolOptions};
 use bevy_time::{Time, TimePlugin};
 use bevy_hierarchy::{Children, Parent, BuildWorldChildren};
 use bevy_utils::default;
 
 use rand::{Rng, rngs::SmallRng, SeedableRng};
 
-use std::time::{Instant, Duration};
+#[derive(PartialEq, Clone, Copy)]
+pub enum TransformUpdates { Enabled, Disabled }
 
-use criterion::black_box;
-// Available replacement for criterion::black_box from Rust 1.66
-// use std::hint::black_box;
+pub fn build_app(cfg: &Cfg, enable_update: TransformUpdates) -> (InsertResult, App) {
+    let mut app = App::new();
 
-use criterion::*;
+    app.add_plugins((
+        TaskPoolPlugin {
+            task_pool_options: TaskPoolOptions {
+                max_total_threads: 1,
+                ..default()
+            },
+        },
+        TransformPlugin,
+    ));
+
+    if enable_update == TransformUpdates::Enabled {
+        app
+            .add_plugins(TimePlugin)
+            .add_systems(Update, update);
+    }
+
+    // Finish Plugin setup - identical to what the ScheduleRunnerPlugin runner does
+    // We can't use the ScheduleRunnerPlugin since we run app.update() ourselves,
+    // and app.run() can't be called repeatedly when using RunMode::Once
+
+    // Do any of the plugins we use in the benchmarks require any asynchronous
+    // initialization using task pools?
+    // Currently, this is never the case, but the code is kept here as a reference
+    // in case it becomes necessary in the future.
+    const ASYNC_PLUGIN_INIT: bool = true;
+    if ASYNC_PLUGIN_INIT {
+        while !app.ready() {
+            #[cfg(not(target_arch = "wasm32"))]
+            bevy_tasks::tick_global_task_pools_on_main_thread();
+        }
+    }
+    // assert!(app.ready());
+
+    app.finish();
+    app.cleanup();
+
+    // Run setup (what would normally happen in the Startup schedule)
+    let result = setup(&mut app.world, cfg);
+
+    (result, app)
+}
 
 /// pre-defined benchmark configurations with name
-const CONFIGS: [(&str, Cfg); 9] = [
+pub const CONFIGS: [(&str, Cfg); 9] = [
     (
         "large_tree",
         Cfg {
@@ -69,7 +110,7 @@ const CONFIGS: [(&str, Cfg); 9] = [
         "chain",
         Cfg {
             test_case: TestCase::Tree {
-                depth: 2500,
+                depth: 5000, // 2500,
                 branch_width: 1,
             },
             update_filter: UpdateFilter {
@@ -155,157 +196,18 @@ const CONFIGS: [(&str, Cfg); 9] = [
 // (kept constant to make benchmark results comparable)
 const SEED: u64 = 0x94eb0d25004f5f17;
 
-#[derive(PartialEq, Clone, Copy)]
-enum TransformUpdates { Enabled, Disabled }
-
-fn build_app(cfg: &Cfg, enable_update: TransformUpdates) -> App {
-    let mut app = App::new();
-
-    app.add_plugins(TransformPlugin);
-
-    if enable_update == TransformUpdates::Enabled {
-        app
-            .add_plugins(TimePlugin)
-            .add_systems(Update, update);
-    }
-
-    // Finish Plugin setup - identical to what the ScheduleRunnerPlugin runner does
-    // We can't use the ScheduleRunnerPlugin since we run app.update() ourselves,
-    // and app.run() can't be called repeatedly when using RunMode::Once
-
-    // Do any of the plugins we use in the benchmarks require any asynchronous
-    // initialization using task pools?
-    // Currently, this is never the case, but the code is kept here as a reference
-    // in case it becomes necessary in the future.
-    const ASYNC_PLUGIN_INIT: bool = false;
-    if ASYNC_PLUGIN_INIT {
-        while !app.ready() {
-            #[cfg(not(target_arch = "wasm32"))]
-            bevy_tasks::tick_global_task_pools_on_main_thread();
-        }
-    }
-    assert!(app.ready());
-
-    app.finish();
-    app.cleanup();
-
-    // Run setup (what would normally happen in the Startup schedule)
-    setup(&mut app.world, cfg);
-
-    app
-}
-
-criterion_group!{
-    name = transform_hierarchy_benches;
-    config = Criterion::default()
-        .warm_up_time(std::time::Duration::from_secs(3))
-        .measurement_time(std::time::Duration::from_secs(20));
-    targets = transform_init, transform_propagation
-}
-
-/// This benchmark tries to measure the cost of the initial transform propagation,
-/// i.e. the first time transform propagation runs after we just added all our entities.
-fn transform_init(c: &mut Criterion) {
-    let mut group = c.benchmark_group("transform_init");
-
-    for (name, cfg) in &CONFIGS {
-        // Simplified benchmark for the initial propagation
-        group.bench_with_input(BenchmarkId::new("reset", name), cfg, |b, cfg| {
-            // Building the World (in setup) takes a lot of time, so we shouldn't do that on every
-            // iteration.
-            // Unfortunately, we can't re-use an App directly in iter() because the World would no
-            // longer be in its pristine, just initialized state from the second iteration onwards.
-            // Furthermore, it's not possible to clone a pristine World since World doesn't implement
-            // Clone.
-            // As an alternative, we reuse the same App and reset it to a pseudo-pristine state by
-            // simply marking all Parent, Children and Transform components as changed.
-            // This should look like a pristine state to the propagation systems.
-
-            let mut app = build_app(cfg, TransformUpdates::Disabled);
-
-            app.add_schedule(ResetSchedule, reset_schedule());
-
-            // Run Main schedule once to ensure initial updates are done
-            // This is a little counterintuitive since the initial delay is exactly what we want to
-            // measure - however, we have the ResetSchedule in place to hopefully replicate the
-            // World in its pristine state on every iteration.
-            // We therefore run update here to prevent the first iteration having additional work
-            // due to possible incompleteness of the reset mechanism
-            app.update();
-
-            b.iter_custom(|iters| {
-                let mut total = Duration::ZERO;
-
-                for _i in 0..iters {
-                    black_box(app.world.run_schedule(ResetSchedule));
-
-                    let start = Instant::now();
-                    black_box(app.world.run_schedule(bevy_app::Main));
-                    let elapsed = start.elapsed();
-
-                    total += elapsed;
-                }
-
-                total
-            });
-        });
-
-        // Reference benchmark for the initial propagation - needs to rebuild the App
-        // on every iteration, which makes the benchmark quite slow and results
-        // in less precise results in the same time compared to the simplified benchmark.
-        
-        // Reduce sample size and enable flat sampling to make sure this benchmark doesn't
-        // take a lot longer than the simplified benchmark.
-        group.sample_size(50);
-        group.sampling_mode(SamplingMode::Flat);
-        group.bench_with_input(BenchmarkId::new("reference", name), cfg, |b, cfg| {
-            // Use iter_batched_ref to prevent influence of Drop
-            b.iter_batched_ref(
-                || {
-                    build_app(cfg, TransformUpdates::Disabled)
-                },
-                App::update,
-                BatchSize::PerIteration,
-            );
-        });
-    }
-}
-
-
-fn transform_propagation(c: &mut Criterion) {
-    let mut group = c.benchmark_group("transform_propagation");
-
-    let do_bench = |b: &mut Bencher<_>, &(cfg, enable_update): &(&Cfg, TransformUpdates)| {
-        let mut app = build_app(cfg, enable_update);
-
-        // Run Main schedule once to ensure initial updates are done
-        app.update();
-
-        b.iter(move || { app.update(); });
-    };
-
-    for (name, cfg) in &CONFIGS {
-        // Measures hierarchy propagation systems when some transforms are updated.
-        group.bench_with_input(BenchmarkId::new("transform_updates", name), &(cfg, TransformUpdates::Enabled), do_bench);
-
-        // Measures hierarchy propagation systems when there are no changes
-        // during the Update schedule.
-        group.bench_with_input(BenchmarkId::new("noop", name), &(cfg, TransformUpdates::Disabled), do_bench);
-    }
-}
-
 /// test configuration
 #[derive(Resource, Debug, Clone)]
-struct Cfg {
+pub struct Cfg {
     /// which test case should be inserted
-    test_case: TestCase,
+    pub test_case: TestCase,
     /// which entities should be updated
-    update_filter: UpdateFilter,
+    pub update_filter: UpdateFilter,
 }
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
-enum TestCase {
+pub enum TestCase {
     /// a uniform tree, exponentially growing with depth
     Tree {
         /// total depth
@@ -332,7 +234,7 @@ enum TestCase {
 
 /// a filter to restrict which nodes are updated
 #[derive(Debug, Clone)]
-struct UpdateFilter {
+pub struct UpdateFilter {
     /// starting depth (inclusive)
     min_depth: u32,
     /// end depth (inclusive)
@@ -340,6 +242,16 @@ struct UpdateFilter {
     /// probability of a node to get updated (evaluated at insertion time, not during update)
     /// 0 (never) .. 1 (always)
     probability: f32,
+}
+
+impl Default for UpdateFilter {
+    fn default() -> Self {
+        UpdateFilter {
+            probability: 0.5,
+            min_depth: 0,
+            max_depth: u32::MAX,
+        }
+    }
 }
 
 /// update component with some per-component value
@@ -378,14 +290,14 @@ fn reset_children(mut children_query: Query<&mut Children>) {
 /// create a Schedule that resets all that Components that are tracked
 /// by transform propagation, such that the World appears as it had just
 /// been created
-fn reset_schedule() -> Schedule {
+pub fn reset_schedule() -> Schedule {
     let mut schedule = Schedule::new();
     schedule.add_systems((reset_transforms, reset_parents, reset_children));
     schedule
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash, ScheduleLabel)]
-struct ResetSchedule;
+pub struct ResetSchedule;
 
 /// set translation based on the angle `a`
 fn set_translation(translation: &mut Vec3, a: f32) {
@@ -393,7 +305,7 @@ fn set_translation(translation: &mut Vec3, a: f32) {
     translation.y = a.sin() * 32.0;
 }
 
-fn setup(world: &mut World, cfg: &Cfg) -> InsertResult {
+pub fn setup(world: &mut World, cfg: &Cfg) -> InsertResult {
     let mut cam = Camera2dBundle::default();
 
     cam.transform.translation.z = 100.0;
@@ -464,13 +376,13 @@ fn setup(world: &mut World, cfg: &Cfg) -> InsertResult {
 
 /// overview of the inserted hierarchy
 #[derive(Default, Debug)]
-struct InsertResult {
+pub struct InsertResult {
     /// total number of nodes inserted
-    inserted_nodes: usize,
+    pub inserted_nodes: usize,
     /// number of nodes that get updated each frame
-    active_nodes: usize,
+    pub active_nodes: usize,
     /// maximum depth of the hierarchy tree
-    maximum_depth: usize,
+    pub maximum_depth: usize,
 }
 
 impl InsertResult {

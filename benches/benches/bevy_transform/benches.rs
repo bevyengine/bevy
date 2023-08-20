@@ -1,7 +1,11 @@
 use criterion::criterion_main;
 
-mod transform_hierarchy;
+mod hierarchy;
+
+mod world_gen;
 
 criterion_main!(
-    transform_hierarchy::transform_hierarchy_benches,
+    hierarchy::init::transform_hierarchy_init,
+    hierarchy::propagation::transform_hierarchy_configurations,
+    hierarchy::propagation::transform_hierarchy_sizes,
 );
