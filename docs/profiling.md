@@ -19,7 +19,7 @@ You also need to select a `tracing` backend using the following cargo features.
 
 **⚠️ Note: for users of span based profilers**
 
-When GPU bottlenecked you may encounter frames that have multiple prepare-set systems all taking an unusually long time to complete, and all finishing at about the same time.
+When your app is bottlenecked by the GPU, you may encounter frames that have multiple prepare-set systems all taking an unusually long time to complete, and all finishing at about the same time.
 
 Improvements are planned to resolve this issue, you can find more details in the doc comment for [`prepare_systems`](../crates/bevy_render/src/view/window/mod.rs).
 
