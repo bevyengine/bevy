@@ -70,6 +70,7 @@ mod tests {
     mod system_execution {
         use super::*;
 
+
         #[test]
         fn run_system() {
             let mut world = World::default();
@@ -180,7 +181,7 @@ mod tests {
         #[test]
         fn add_systems_correct_order() {
             let mut world = World::new();
-            let mut schedule = Schedule::new();
+            let mut schedule = Schedule::default();
 
             world.init_resource::<SystemOrder>();
 
@@ -201,7 +202,7 @@ mod tests {
         #[test]
         fn add_systems_correct_order_nested() {
             let mut world = World::new();
-            let mut schedule = Schedule::new();
+            let mut schedule = Schedule::default();
 
             world.init_resource::<SystemOrder>();
 
@@ -528,14 +529,14 @@ mod tests {
         #[test]
         #[should_panic]
         fn dependency_loop() {
-            let mut schedule = Schedule::new();
+            let mut schedule = Schedule::default();
             schedule.configure_set(TestSet::X.after(TestSet::X));
         }
 
         #[test]
         fn dependency_cycle() {
             let mut world = World::new();
-            let mut schedule = Schedule::new();
+            let mut schedule = Schedule::default();
 
             schedule.configure_set(TestSet::A.after(TestSet::B));
             schedule.configure_set(TestSet::B.after(TestSet::A));
@@ -550,7 +551,7 @@ mod tests {
             fn bar() {}
 
             let mut world = World::new();
-            let mut schedule = Schedule::new();
+            let mut schedule = Schedule::default();
 
             schedule.add_systems((foo.after(bar), bar.after(foo)));
             let result = schedule.initialize(&mut world);
@@ -563,14 +564,14 @@ mod tests {
         #[test]
         #[should_panic]
         fn hierarchy_loop() {
-            let mut schedule = Schedule::new();
+            let mut schedule = Schedule::default();
             schedule.configure_set(TestSet::X.in_set(TestSet::X));
         }
 
         #[test]
         fn hierarchy_cycle() {
             let mut world = World::new();
-            let mut schedule = Schedule::new();
+            let mut schedule = Schedule::default();
 
             schedule.configure_set(TestSet::A.in_set(TestSet::B));
             schedule.configure_set(TestSet::B.in_set(TestSet::A));
@@ -586,7 +587,7 @@ mod tests {
             fn bar() {}
 
             let mut world = World::new();
-            let mut schedule = Schedule::new();
+            let mut schedule = Schedule::default();
 
             // Schedule `bar` to run after `foo`.
             schedule.add_systems((foo, bar.after(foo)));
@@ -607,7 +608,7 @@ mod tests {
             ));
 
             // same goes for `ambiguous_with`
-            let mut schedule = Schedule::new();
+            let mut schedule = Schedule::default();
             schedule.add_systems(foo);
             schedule.add_systems(bar.ambiguous_with(foo));
             let result = schedule.initialize(&mut world);
@@ -624,14 +625,14 @@ mod tests {
         #[should_panic]
         fn configure_system_type_set() {
             fn foo() {}
-            let mut schedule = Schedule::new();
+            let mut schedule = Schedule::default();
             schedule.configure_set(foo.into_system_set());
         }
 
         #[test]
         fn hierarchy_redundancy() {
             let mut world = World::new();
-            let mut schedule = Schedule::new();
+            let mut schedule = Schedule::default();
 
             schedule.set_build_settings(ScheduleBuildSettings {
                 hierarchy_detection: LogLevel::Error,
@@ -658,7 +659,7 @@ mod tests {
         #[test]
         fn cross_dependency() {
             let mut world = World::new();
-            let mut schedule = Schedule::new();
+            let mut schedule = Schedule::default();
 
             // Add `B` and give it both kinds of relationships with `A`.
             schedule.configure_set(TestSet::B.in_set(TestSet::A));
@@ -673,7 +674,7 @@ mod tests {
         #[test]
         fn sets_have_order_but_intersect() {
             let mut world = World::new();
-            let mut schedule = Schedule::new();
+            let mut schedule = Schedule::default();
 
             fn foo() {}
 
@@ -704,7 +705,7 @@ mod tests {
             fn res_mut(_x: ResMut<X>) {}
 
             let mut world = World::new();
-            let mut schedule = Schedule::new();
+            let mut schedule = Schedule::default();
 
             schedule.set_build_settings(ScheduleBuildSettings {
                 ambiguity_detection: LogLevel::Error,

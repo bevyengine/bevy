@@ -1748,9 +1748,9 @@ impl World {
     /// accessing the [`Schedules`] resource.
     ///
     /// The `Schedules` resource will be initialized if it does not already exist.
-    pub fn add_schedule(&mut self, schedule: Schedule, label: impl ScheduleLabel) {
+    pub fn add_schedule(&mut self, schedule: Schedule) {
         let mut schedules = self.get_resource_or_insert_with(Schedules::default);
-        schedules.insert(label, schedule);
+        schedules.insert(schedule);
     }
 
     /// Temporarily removes the schedule associated with `label` from the world,
@@ -1784,7 +1784,7 @@ impl World {
 
         let old = self
             .resource_mut::<Schedules>()
-            .insert(extracted_label, schedule);
+            .insert(schedule);
         if old.is_some() {
             warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten");
         }

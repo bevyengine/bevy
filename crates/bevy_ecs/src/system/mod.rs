@@ -1916,7 +1916,7 @@ mod tests {
 
         world.insert_resource(A);
         world.insert_resource(C(0));
-        let mut sched = Schedule::new();
+        let mut sched = Schedule::default();
         sched.add_systems(
             (
                 (|mut res: ResMut<C>| {

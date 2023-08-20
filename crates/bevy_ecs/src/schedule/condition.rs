@@ -1067,7 +1067,7 @@ mod tests {
     use crate::{change_detection::ResMut, schedule::Schedule, world::World};
     use bevy_ecs_macros::Event;
     use bevy_ecs_macros::Resource;
-
+    
     #[derive(Resource, Default)]
     struct Counter(usize);
 
@@ -1084,7 +1084,7 @@ mod tests {
     fn run_condition() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         // Run every other cycle
         schedule.add_systems(increment_counter.run_if(every_other_time));
@@ -1111,7 +1111,7 @@ mod tests {
     fn run_condition_combinators() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         // Always run
         schedule.add_systems(increment_counter.run_if(every_other_time.or_else(|| true)));
@@ -1128,7 +1128,7 @@ mod tests {
     fn multiple_run_conditions() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         // Run every other cycle
         schedule.add_systems(increment_counter.run_if(every_other_time).run_if(|| true));
@@ -1146,7 +1146,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Counter>();
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         // This should never run, if multiple run conditions worked
         // like an OR condition then it would always run

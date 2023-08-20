@@ -200,7 +200,7 @@ mod test {
         let offset_transform =
             |offset| TransformBundle::from_transform(Transform::from_xyz(offset, offset, offset));
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         schedule.add_systems((sync_simple_transforms, propagate_transforms));
 
         let mut command_queue = CommandQueue::default();
@@ -251,7 +251,7 @@ mod test {
         ComputeTaskPool::init(TaskPool::default);
         let mut world = World::default();
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         schedule.add_systems((sync_simple_transforms, propagate_transforms));
 
         // Root entity
@@ -289,7 +289,7 @@ mod test {
     fn did_propagate_command_buffer() {
         let mut world = World::default();
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         schedule.add_systems((sync_simple_transforms, propagate_transforms));
 
         // Root entity
@@ -329,7 +329,7 @@ mod test {
         ComputeTaskPool::init(TaskPool::default);
         let mut world = World::default();
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         schedule.add_systems((sync_simple_transforms, propagate_transforms));
 
         // Add parent entities

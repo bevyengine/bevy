@@ -41,8 +41,8 @@ impl Schedules {
     ///
     /// If the map already had an entry for `label`, `schedule` is inserted,
     /// and the old schedule is returned. Otherwise, `None` is returned.
-    pub fn insert(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> Option<Schedule> {
-        let label = label.dyn_clone();
+    pub fn insert(&mut self, schedule: Schedule) -> Option<Schedule> {
+        let label = schedule.name.dyn_clone();
         self.inner.insert(label, schedule)
     }
 
@@ -158,22 +158,31 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 /// }
 /// ```
 pub struct Schedule {
+    name: BoxedScheduleLabel,
     graph: ScheduleGraph,
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
     executor_initialized: bool,
 }
 
+
+#[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
+struct DefaultSchedule;
+
+/// Creates a schedule with a default label. Only use in situations where
+/// you want a standalone schedule. If you're inserting the schedule into the world
+/// use [`Schedule::new`] instead.
 impl Default for Schedule {
     fn default() -> Self {
-        Self::new()
+        Self::new(DefaultSchedule)
     }
 }
 
 impl Schedule {
     /// Constructs an empty `Schedule`.
-    pub fn new() -> Self {
+    pub fn new(label: impl ScheduleLabel) -> Self {
         Self {
+            name: label.dyn_clone(),
             graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
             executor: make_executor(ExecutorKind::default()),
@@ -1689,7 +1698,7 @@ mod tests {
         struct Set;
 
         let mut world = World::new();
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         schedule.configure_set(Set.run_if(|| false));
         schedule.add_systems(
