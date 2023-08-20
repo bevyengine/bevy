@@ -1,7 +1,6 @@
 // https://research.activision.com/publications/archives/fast-filtering-of-reflection-probes
 
 use super::{
-    filter_coefficents::{FilterCoefficentsType, FILTER_COEFFICENTS},
     EnvironmentMapLight, DIFFUSE_CONVOLUTION_SHADER_HANDLE, DOWNSAMPLE_SHADER_HANDLE,
     FILTER_SHADER_HANDLE,
 };
@@ -21,16 +20,17 @@ use bevy_render::{
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBindingType,
-        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, Extent3d,
-        FilterMode, PipelineCache, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType,
-        StorageTextureAccess, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
-        UniformBuffer,
+        BufferInitDescriptor, BufferUsages, CachedComputePipelineId, ComputePassDescriptor,
+        ComputePipelineDescriptor, Extent3d, FilterMode, PipelineCache, SamplerBindingType,
+        SamplerDescriptor, ShaderStages, StorageTextureAccess, TextureAspect, TextureDescriptor,
+        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
+        TextureViewDescriptor, TextureViewDimension,
     },
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderContext, RenderDevice},
     texture::{GpuImage, Image, ImageSampler, Volume},
 };
 use bevy_utils::default;
+use std::num::NonZeroU64;
 
 /// Automatically generate an [`EnvironmentMapLight`] from a [`Skybox`].
 ///
@@ -96,13 +96,7 @@ pub struct GenerateEnvironmentMapLightResources {
 impl FromWorld for GenerateEnvironmentMapLightResources {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-        let render_queue = world.resource::<RenderQueue>();
         let pipeline_cache = world.resource::<PipelineCache>();
-
-        let mut filter_coefficents = UniformBuffer::<FilterCoefficentsType>::default();
-        *filter_coefficents.get_mut() = FILTER_COEFFICENTS;
-        filter_coefficents.write_buffer(render_device, render_queue);
-        let filter_coefficents = filter_coefficents.buffer().unwrap().clone();
 
         Self {
             rg11b10float: GenerateEnvironmentMapLightResourcesSpecialized::new(
@@ -115,7 +109,11 @@ impl FromWorld for GenerateEnvironmentMapLightResources {
                 render_device,
                 pipeline_cache,
             ),
-            filter_coefficents,
+            filter_coefficents: render_device.create_buffer_with_data(&BufferInitDescriptor {
+                label: Some("generate_environment_map_light_filter_coefficents"),
+                contents: include_bytes!("filter_coefficents.bin"),
+                usage: BufferUsages::UNIFORM,
+            }),
         }
     }
 }
@@ -173,7 +171,7 @@ impl GenerateEnvironmentMapLightResourcesSpecialized {
                     BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: Some(FilterCoefficentsType::min_size()),
+                        min_binding_size: Some(unsafe { NonZeroU64::new_unchecked(40320) }),
                     },
                 ),
             ],

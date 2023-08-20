@@ -6,6 +6,7 @@ use bevy_math::{vec4, Vec4};
 
 pub type FilterCoefficentsType = [[[[Vec4; 24]; 3]; 5]; 7];
 
+/// Serialized data stored in filter_coefficents.bin
 pub const FILTER_COEFFICENTS: FilterCoefficentsType = [
     [
         [
