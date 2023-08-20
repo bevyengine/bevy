@@ -7,10 +7,10 @@
 mod focus;
 mod geometry;
 mod layout;
+mod material;
 mod render;
 mod stack;
 mod ui_node;
-mod material;
 
 #[cfg(feature = "bevy_text")]
 mod accessibility;
@@ -27,10 +27,10 @@ use bevy_render::{extract_component::ExtractComponentPlugin, RenderApp};
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
+pub use material::*;
 pub use measurement::*;
 pub use render::*;
 pub use ui_node::*;
-pub use material::*;
 use widget::UiImageSize;
 
 #[doc(hidden)]

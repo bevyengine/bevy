@@ -25,21 +25,21 @@ use bevy_render::{
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupDescriptor, BindGroupEntry,
-        BindGroupLayout, OwnedBindingResource, PipelineCache, RenderPipelineDescriptor, Shader,
-        ShaderRef, SpecializedRenderPipeline, SpecializedRenderPipelines, BufferVec, BufferUsages, BindingResource,
+        BindGroupLayout, BindingResource, BufferUsages, BufferVec, OwnedBindingResource,
+        PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef, SpecializedRenderPipeline,
+        SpecializedRenderPipelines,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{FallbackImage, Image, DEFAULT_IMAGE_HANDLE},
-    view::{ComputedVisibility, ExtractedView, ViewUniforms, Visibility, ViewUniformOffset},
+    view::{ComputedVisibility, ExtractedView, ViewUniformOffset, ViewUniforms, Visibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::{FloatOrd, HashMap, HashSet};
 
 use crate::{
-    CalculatedClip, FocusPolicy, Node, RenderUiSystem, SetUiViewBindGroup,
-    Style, TransparentUi, UiMeta, UiPipeline, UiPipelineKey, UiStack,
-    ZIndex, QUAD_INDICES, QUAD_VERTEX_POSITIONS, UiVertex, SetUiTextureBindGroup, UiImageBindGroups,
+    CalculatedClip, FocusPolicy, Node, RenderUiSystem, Style, TransparentUi, UiImageBindGroups,
+    UiPipeline, UiPipelineKey, UiStack, UiVertex, ZIndex, QUAD_INDICES, QUAD_VERTEX_POSITIONS,
 };
 
 pub trait UiMaterial: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Sized {
@@ -72,9 +72,9 @@ impl<M: UiMaterial> Default for UiMaterialPlugin<M> {
 
 #[derive(Resource)]
 pub struct UiMatMeta<M: UiMaterial> {
-    pub vertices: BufferVec<UiVertex>,
-    pub view_bind_group: Option<BindGroup>,
-    marker: PhantomData<M>
+    vertices: BufferVec<UiVertex>,
+    view_bind_group: Option<BindGroup>,
+    marker: PhantomData<M>,
 }
 
 impl<M: UiMaterial> Default for UiMatMeta<M> {
@@ -82,7 +82,7 @@ impl<M: UiMaterial> Default for UiMatMeta<M> {
         Self {
             vertices: BufferVec::new(BufferUsages::VERTEX),
             view_bind_group: Default::default(),
-            marker: PhantomData
+            marker: PhantomData,
         }
     }
 }
@@ -107,7 +107,7 @@ where
                     ExtractSchedule,
                     (
                         extract_ui_materials::<M>,
-                        extract_uinodes::<M>.in_set(RenderUiSystem::ExtractNode),
+                        extract_material_uinodes::<M>.in_set(RenderUiSystem::ExtractNode),
                     ),
                 )
                 .add_systems(
@@ -246,7 +246,9 @@ type DrawUiMaterial<M> = (
 );
 
 pub struct SetMatUiTextureBindGroup<M: UiMaterial, const I: usize>(PhantomData<M>);
-impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P> for SetMatUiTextureBindGroup<M, I> {
+impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
+    for SetMatUiTextureBindGroup<M, I>
+{
     type Param = SRes<UiImageBindGroups>;
     type ViewWorldQuery = ();
     type ItemWorldQuery = Read<MatUiBatch<M>>;
@@ -255,17 +257,24 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P> for SetMatUiT
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'w MatUiBatch<M>,
+        _batch: &'w MatUiBatch<M>,
         image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
-        pass.set_bind_group(I, image_bind_groups.values.get(&DEFAULT_IMAGE_HANDLE.typed()).unwrap(), &[]);
+        pass.set_bind_group(
+            I,
+            image_bind_groups
+                .values
+                .get(&DEFAULT_IMAGE_HANDLE.typed())
+                .unwrap(),
+            &[],
+        );
         RenderCommandResult::Success
     }
 }
 
-pub struct SetMatUiViewBindGroup<M: UiMaterial ,const I: usize>(PhantomData<M>);
+pub struct SetMatUiViewBindGroup<M: UiMaterial, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P> for SetMatUiViewBindGroup<M, I> {
     type Param = SRes<UiMatMeta<M>>;
     type ViewWorldQuery = Read<ViewUniformOffset>;
@@ -322,7 +331,10 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material = materials.into_inner().get(&material_handle.material).unwrap();
+        let material = materials
+            .into_inner()
+            .get(&material_handle.material)
+            .unwrap();
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
     }
@@ -349,7 +361,7 @@ impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
     }
 }
 
-pub fn extract_uinodes<M: UiMaterial>(
+pub fn extract_material_uinodes<M: UiMaterial>(
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
@@ -364,6 +376,9 @@ pub fn extract_uinodes<M: UiMaterial>(
 ) {
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, handle, visibility, clip)) = uinode_query.get(*entity) {
+            if !visibility.is_visible() {
+                continue;
+            }
             // Skip invisible and completely transparent nodes
             extracted_uinodes.uinodes.push(ExtractedUiMaterialNode {
                 stack_index,
@@ -392,14 +407,14 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
         .uinodes
         .sort_by_key(|node| node.stack_index);
     for extracted_uinode in extracted_uinodes.uinodes.drain(..) {
-        let mut uinode_rect = extracted_uinode.rect;
+        let uinode_rect = extracted_uinode.rect;
 
         let rect_size = uinode_rect.size().extend(1.0);
 
         let positions = QUAD_VERTEX_POSITIONS
             .map(|pos| (extracted_uinode.transform * (pos * rect_size).extend(1.)).xyz());
 
-        let mut positions_diff = if let Some(clip) = extracted_uinode.clip {
+        let positions_diff = if let Some(clip) = extracted_uinode.clip {
             [
                 Vec2::new(
                     f32::max(clip.min.x - positions[0].x, 0.),
@@ -505,7 +520,6 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
         let draw_ui_function = draw_functions.read().id::<DrawUiMaterial<M>>();
         for (view, mut transparent_phase) in &mut views {
             for (entity, batch) in &ui_batches {
-
                 if let Some(material) = render_materials.get(&batch.material) {
                     let pipeline = pipelines.specialize(
                         &pipeline_cache,
@@ -515,26 +529,28 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                             bind_group_data: material.key.clone(),
                         },
                     );
-                image_bind_groups
-                    .values
-                    .entry(DEFAULT_IMAGE_HANDLE.typed().clone_weak())
-                    .or_insert_with(|| {
-                        let gpu_image = gpu_images.get(&DEFAULT_IMAGE_HANDLE.typed()).unwrap();
-                        render_device.create_bind_group(&BindGroupDescriptor {
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(&gpu_image.texture_view),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&gpu_image.sampler),
-                                },
-                            ],
-                            label: Some("ui_material_bind_group"),
-                            layout: &ui_material_pipeline.ui_pipeline.image_layout,
-                        })
-                    });
+                    image_bind_groups
+                        .values
+                        .entry(DEFAULT_IMAGE_HANDLE.typed().clone_weak())
+                        .or_insert_with(|| {
+                            let gpu_image = gpu_images.get(&DEFAULT_IMAGE_HANDLE.typed()).unwrap();
+                            render_device.create_bind_group(&BindGroupDescriptor {
+                                entries: &[
+                                    BindGroupEntry {
+                                        binding: 0,
+                                        resource: BindingResource::TextureView(
+                                            &gpu_image.texture_view,
+                                        ),
+                                    },
+                                    BindGroupEntry {
+                                        binding: 1,
+                                        resource: BindingResource::Sampler(&gpu_image.sampler),
+                                    },
+                                ],
+                                label: Some("ui_material_bind_group"),
+                                layout: &ui_material_pipeline.ui_pipeline.image_layout,
+                            })
+                        });
 
                     transparent_phase.add(TransparentUi {
                         sort_key: FloatOrd(batch.z),

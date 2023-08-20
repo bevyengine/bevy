@@ -588,8 +588,8 @@ pub struct UiVertex {
 
 #[derive(Resource)]
 pub struct UiMeta {
-    pub vertices: BufferVec<UiVertex>,
-    pub view_bind_group: Option<BindGroup>,
+    vertices: BufferVec<UiVertex>,
+    view_bind_group: Option<BindGroup>,
 }
 
 impl Default for UiMeta {
