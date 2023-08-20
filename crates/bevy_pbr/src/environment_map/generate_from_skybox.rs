@@ -171,7 +171,7 @@ impl GenerateEnvironmentMapLightResourcesSpecialized {
                     BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: Some(unsafe { NonZeroU64::new_unchecked(40320) }),
+                        min_binding_size: NonZeroU64::new(40320),
                     },
                 ),
             ],
