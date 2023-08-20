@@ -579,7 +579,7 @@ pub fn extract_text_uinodes(
 
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
-struct UiVertex {
+pub struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub color: [f32; 4],
@@ -588,8 +588,8 @@ struct UiVertex {
 
 #[derive(Resource)]
 pub struct UiMeta {
-    vertices: BufferVec<UiVertex>,
-    view_bind_group: Option<BindGroup>,
+    pub vertices: BufferVec<UiVertex>,
+    pub view_bind_group: Option<BindGroup>,
 }
 
 impl Default for UiMeta {
@@ -601,14 +601,14 @@ impl Default for UiMeta {
     }
 }
 
-const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
+pub const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
     Vec3::new(-0.5, -0.5, 0.0),
     Vec3::new(0.5, -0.5, 0.0),
     Vec3::new(0.5, 0.5, 0.0),
     Vec3::new(-0.5, 0.5, 0.0),
 ];
 
-const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
+pub const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
 #[derive(Component)]
 pub struct UiBatch {
