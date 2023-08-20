@@ -148,14 +148,14 @@ fn concrete_struct_type_info(criterion: &mut Criterion) {
             BenchmarkId::new("NonGeneric", field_count),
             &standard,
             |bencher, s| {
-                bencher.iter(|| black_box(s.get_type_info()));
+                bencher.iter(|| black_box(s.get_represented_type_info()));
             },
         );
         group.bench_with_input(
             BenchmarkId::new("Generic", field_count),
             &generic,
             |bencher, s| {
-                bencher.iter(|| black_box(s.get_type_info()));
+                bencher.iter(|| black_box(s.get_represented_type_info()));
             },
         );
     }

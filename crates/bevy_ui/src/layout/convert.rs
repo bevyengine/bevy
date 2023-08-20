@@ -3,8 +3,8 @@ use taffy::style_helpers;
 use crate::{
     AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, GridAutoFlow,
     GridPlacement, GridTrack, GridTrackRepetition, JustifyContent, JustifyItems, JustifySelf,
-    MaxTrackSizingFunction, MinTrackSizingFunction, PositionType, RepeatedGridTrack, Size, Style,
-    UiRect, Val,
+    MaxTrackSizingFunction, MinTrackSizingFunction, PositionType, RepeatedGridTrack, Style, UiRect,
+    Val,
 };
 
 use super::LayoutContext;
@@ -63,15 +63,6 @@ impl UiRect {
     }
 }
 
-impl Size {
-    fn map_to_taffy_size<T>(self, map_fn: impl Fn(Val) -> T) -> taffy::geometry::Size<T> {
-        taffy::geometry::Size {
-            width: map_fn(self.width),
-            height: map_fn(self.height),
-        }
-    }
-}
-
 pub fn from_style(context: &LayoutContext, style: &Style) -> taffy::style::Style {
     taffy::style::Style {
         display: style.display.into(),
@@ -102,17 +93,23 @@ pub fn from_style(context: &LayoutContext, style: &Style) -> taffy::style::Style
         flex_grow: style.flex_grow,
         flex_shrink: style.flex_shrink,
         flex_basis: style.flex_basis.into_dimension(context),
-        size: style.size.map_to_taffy_size(|s| s.into_dimension(context)),
-        min_size: style
-            .min_size
-            .map_to_taffy_size(|s| s.into_dimension(context)),
-        max_size: style
-            .max_size
-            .map_to_taffy_size(|s| s.into_dimension(context)),
+        size: taffy::prelude::Size {
+            width: style.width.into_dimension(context),
+            height: style.height.into_dimension(context),
+        },
+        min_size: taffy::prelude::Size {
+            width: style.min_width.into_dimension(context),
+            height: style.min_height.into_dimension(context),
+        },
+        max_size: taffy::prelude::Size {
+            width: style.max_width.into_dimension(context),
+            height: style.max_height.into_dimension(context),
+        },
         aspect_ratio: style.aspect_ratio,
-        gap: style
-            .gap
-            .map_to_taffy_size(|s| s.into_length_percentage(context)),
+        gap: taffy::prelude::Size {
+            width: style.column_gap.into_length_percentage(context),
+            height: style.row_gap.into_length_percentage(context),
+        },
         grid_auto_flow: style.grid_auto_flow.into(),
         grid_template_rows: style
             .grid_template_rows
@@ -439,24 +436,16 @@ mod tests {
             flex_grow: 1.,
             flex_shrink: 0.,
             flex_basis: Val::Px(0.),
-            size: Size {
-                width: Val::Px(0.),
-                height: Val::Auto,
-            },
-            min_size: Size {
-                width: Val::Px(0.),
-                height: Val::Percent(0.),
-            },
-            max_size: Size {
-                width: Val::Auto,
-                height: Val::Px(0.),
-            },
+            width: Val::Px(0.),
+            height: Val::Auto,
+            min_width: Val::Px(0.),
+            min_height: Val::Percent(0.),
+            max_width: Val::Auto,
+            max_height: Val::Px(0.),
             aspect_ratio: None,
             overflow: crate::Overflow::clip(),
-            gap: Size {
-                width: Val::Px(0.),
-                height: Val::Percent(0.),
-            },
+            column_gap: Val::Px(0.),
+            row_gap: Val::Percent(0.),
             grid_auto_flow: GridAutoFlow::ColumnDense,
             grid_template_rows: vec![
                 GridTrack::px(10.0),

@@ -35,7 +35,7 @@ use std::ops::Mul;
 /// [`global_vs_local_translation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs
 /// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 /// [`Transform`]: super::Transform
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
+#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Component, Default, PartialEq)]
 pub struct Transform {
@@ -337,7 +337,7 @@ impl Transform {
     /// and [`Transform::up`] points towards `up`.
     ///
     /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
-    /// * if `target` is the same as the transtorm translation, `Vec3::Z` is used instead
+    /// * if `target` is the same as the transform translation, `Vec3::Z` is used instead
     /// * if `up` is zero, `Vec3::Y` is used instead
     /// * if the resulting forward direction is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
@@ -349,19 +349,19 @@ impl Transform {
     /// and [`Transform::up`] points towards `up`.
     ///
     /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
-    /// * if `direction` is zero, `Vec3::Z` is used instead
+    /// * if `direction` is zero, `Vec3::NEG_Z` is used instead
     /// * if `up` is zero, `Vec3::Y` is used instead
     /// * if `direction` is parallel with `up`, an orthogonal vector is used as the "right" direction
     #[inline]
     pub fn look_to(&mut self, direction: Vec3, up: Vec3) {
-        let forward = -direction.try_normalize().unwrap_or(Vec3::Z);
+        let back = -direction.try_normalize().unwrap_or(Vec3::NEG_Z);
         let up = up.try_normalize().unwrap_or(Vec3::Y);
         let right = up
-            .cross(forward)
+            .cross(back)
             .try_normalize()
             .unwrap_or_else(|| up.any_orthonormal_vector());
-        let up = forward.cross(right);
-        self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, forward));
+        let up = back.cross(right);
+        self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, back));
     }
 
     /// Multiplies `self` with `transform` component by component, returning the

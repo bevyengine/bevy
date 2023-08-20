@@ -101,7 +101,7 @@ impl Plugin for TransformPlugin {
 
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
-            .add_plugin(ValidParentCheckPlugin::<GlobalTransform>::default())
+            .add_plugins(ValidParentCheckPlugin::<GlobalTransform>::default())
             .configure_set(
                 PostStartup,
                 PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),

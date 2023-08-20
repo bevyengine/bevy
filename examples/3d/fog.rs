@@ -138,20 +138,21 @@ fn setup_pyramid_scene(
 }
 
 fn setup_instructions(mut commands: Commands) {
-    commands.spawn((TextBundle::from_section(
-        "",
-        TextStyle {
-            font_size: 15.0,
-            color: Color::WHITE,
+    commands.spawn(
+        TextBundle::from_section(
+            "",
+            TextStyle {
+                font_size: 20.0,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
-        },
-    )
-    .with_style(Style {
-        position_type: PositionType::Absolute,
-        top: Val::Px(10.0),
-        left: Val::Px(10.0),
-        ..default()
-    }),));
+        }),
+    );
 }
 
 fn update_system(
@@ -283,12 +284,12 @@ fn update_system(
         fog.color.set_r(r);
     }
 
-    if keycode.pressed(KeyCode::LBracket) {
+    if keycode.pressed(KeyCode::BracketLeft) {
         let g = (fog.color.g() - 0.1 * delta).max(0.0);
         fog.color.set_g(g);
     }
 
-    if keycode.pressed(KeyCode::RBracket) {
+    if keycode.pressed(KeyCode::BracketRight) {
         let g = (fog.color.g() + 0.1 * delta).min(1.0);
         fog.color.set_g(g);
     }

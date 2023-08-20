@@ -70,6 +70,46 @@ impl ImagePlugin {
 
 impl Plugin for ImagePlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(feature = "exr")]
+        {
+            app.init_asset_loader::<ExrTextureLoader>();
+        }
+
+        #[cfg(feature = "hdr")]
+        {
+            app.init_asset_loader::<HdrTextureLoader>();
+        }
+
+        app.add_plugins(RenderAssetPlugin::<Image>::with_prepare_asset_set(
+            PrepareAssetSet::PreAssetPrepare,
+        ))
+        .register_type::<Image>()
+        .add_asset::<Image>()
+        .register_asset_reflect::<Image>();
+        app.world
+            .resource_mut::<Assets<Image>>()
+            .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());
+
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<TextureCache>().add_systems(
+                Render,
+                update_texture_cache_system.in_set(RenderSet::Cleanup),
+            );
+        }
+
+        #[cfg(any(
+            feature = "png",
+            feature = "dds",
+            feature = "tga",
+            feature = "jpeg",
+            feature = "bmp",
+            feature = "basis-universal",
+            feature = "ktx2",
+        ))]
+        app.preregister_asset_loader(IMG_FILE_EXTENSIONS);
+    }
+
+    fn finish(&self, app: &mut App) {
         #[cfg(any(
             feature = "png",
             feature = "dds",
@@ -83,26 +123,6 @@ impl Plugin for ImagePlugin {
             app.init_asset_loader::<ImageTextureLoader>();
         }
 
-        #[cfg(feature = "exr")]
-        {
-            app.init_asset_loader::<ExrTextureLoader>();
-        }
-
-        #[cfg(feature = "hdr")]
-        {
-            app.init_asset_loader::<HdrTextureLoader>();
-        }
-
-        app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_set(
-            PrepareAssetSet::PreAssetPrepare,
-        ))
-        .register_type::<Image>()
-        .add_asset::<Image>()
-        .register_asset_reflect::<Image>();
-        app.world
-            .resource_mut::<Assets<Image>>()
-            .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());
-
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             let default_sampler = {
                 let device = render_app.world.resource::<RenderDevice>();
@@ -110,15 +130,11 @@ impl Plugin for ImagePlugin {
             };
             render_app
                 .insert_resource(DefaultImageSampler(default_sampler))
-                .init_resource::<TextureCache>()
                 .init_resource::<FallbackImage>()
+                .init_resource::<FallbackImageZero>()
                 .init_resource::<FallbackImageCubemap>()
                 .init_resource::<FallbackImageMsaaCache>()
-                .init_resource::<FallbackImageDepthCache>()
-                .add_systems(
-                    Render,
-                    update_texture_cache_system.in_set(RenderSet::Cleanup),
-                );
+                .init_resource::<FallbackImageDepthCache>();
         }
     }
 }

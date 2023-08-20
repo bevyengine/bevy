@@ -286,6 +286,7 @@ Events offer a communication channel between one or more systems. Events can be 
 ```rust
 use bevy_ecs::prelude::*;
 
+#[derive(Event)]
 struct MyEvent {
     message: String,
 }

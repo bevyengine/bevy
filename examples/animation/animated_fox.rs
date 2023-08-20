@@ -83,24 +83,20 @@ fn setup(
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
     animations: Res<Animations>,
-    mut player: Query<&mut AnimationPlayer>,
-    mut done: Local<bool>,
+    mut players: Query<&mut AnimationPlayer, Added<AnimationPlayer>>,
 ) {
-    if !*done {
-        if let Ok(mut player) = player.get_single_mut() {
-            player.play(animations.0[0].clone_weak()).repeat();
-            *done = true;
-        }
+    for mut player in &mut players {
+        player.play(animations.0[0].clone_weak()).repeat();
     }
 }
 
 fn keyboard_animation_control(
     keyboard_input: Res<Input<KeyCode>>,
-    mut animation_player: Query<&mut AnimationPlayer>,
+    mut animation_players: Query<&mut AnimationPlayer>,
     animations: Res<Animations>,
     mut current_animation: Local<usize>,
 ) {
-    if let Ok(mut player) = animation_player.get_single_mut() {
+    for mut player in &mut animation_players {
         if keyboard_input.just_pressed(KeyCode::Space) {
             if player.is_paused() {
                 player.resume();

@@ -5,10 +5,12 @@ use bevy::{app::PluginGroupBuilder, prelude::*};
 
 fn main() {
     App::new()
-        // Two PluginGroups that are included with bevy are DefaultPlugins and MinimalPlugins
-        .add_plugins(DefaultPlugins)
-        // Adding a plugin group adds all plugins in the group by default
-        .add_plugins(HelloWorldPlugins)
+        .add_plugins((
+            // Two PluginGroups that are included with bevy are DefaultPlugins and MinimalPlugins
+            DefaultPlugins,
+            // Adding a plugin group adds all plugins in the group by default
+            HelloWorldPlugins,
+        ))
         // You can also modify a PluginGroup (such as disabling plugins) like this:
         // .add_plugins(
         //     HelloWorldPlugins

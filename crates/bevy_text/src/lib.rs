@@ -41,9 +41,9 @@ pub struct TextPlugin;
 /// [`TextPlugin`] settings
 #[derive(Resource)]
 pub struct TextSettings {
-    /// Maximum number of font atlases supported in a ['FontAtlasSet']
+    /// Maximum number of font atlases supported in a [`FontAtlasSet`].
     pub max_font_atlases: NonZeroUsize,
-    /// Allows font size to be set dynamically exceeding the amount set in max_font_atlases.
+    /// Allows font size to be set dynamically exceeding the amount set in `max_font_atlases`.
     /// Note each font size has to be generated which can have a strong performance impact.
     pub allow_dynamic_font_size: bool,
 }
@@ -76,6 +76,7 @@ pub const DEFAULT_FONT_HANDLE: HandleUntyped =
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<Font>()
+            .add_debug_asset::<Font>()
             .add_asset::<FontAtlasSet>()
             .register_type::<Text>()
             .register_type::<Text2dBounds>()
@@ -110,7 +111,7 @@ impl Plugin for TextPlugin {
             app,
             DEFAULT_FONT_HANDLE,
             "FiraMono-subset.ttf",
-            |bytes: &[u8]| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
+            |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );
     }
 }

@@ -5,6 +5,10 @@ use crate::{
 };
 use std::iter::FusedIterator;
 
+/// An iterator that spawns a series of entities and returns the [ID](Entity) of
+/// each spawned entity.
+///
+/// If this iterator is not fully exhausted, any remaining entities will be spawned when this type is dropped.
 pub struct SpawnBatchIter<'w, I>
 where
     I: Iterator,

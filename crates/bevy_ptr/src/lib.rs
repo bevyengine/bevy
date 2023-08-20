@@ -8,11 +8,12 @@ use core::{
     cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, num::NonZeroUsize, ptr::NonNull,
 };
 
-#[derive(Copy, Clone)]
 /// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is aligned.
-pub struct Aligned;
 #[derive(Copy, Clone)]
+pub struct Aligned;
+
 /// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is not aligned.
+#[derive(Copy, Clone)]
 pub struct Unaligned;
 
 /// Trait that is only implemented for [`Aligned`] and [`Unaligned`] to work around the lack of ability
@@ -38,6 +39,7 @@ mod sealed {
 /// It may be helpful to think of this type as similar to `&'a dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
 #[derive(Copy, Clone)]
+#[repr(transparent)]
 pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>);
 
 /// Type-erased mutable borrow of some unknown type chosen when constructing this type.
@@ -51,6 +53,7 @@ pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>
 ///
 /// It may be helpful to think of this type as similar to `&'a mut dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
+#[repr(transparent)]
 pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
 /// Type-erased Box-like pointer to some unknown type chosen when constructing this type.
@@ -68,6 +71,7 @@ pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut 
 ///
 /// It may be helpful to think of this type as similar to `&'a mut ManuallyDrop<dyn Any>` but
 /// without the metadata and able to point to data that does not correspond to a Rust type.
+#[repr(transparent)]
 pub struct OwningPtr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
 macro_rules! impl_ptr {

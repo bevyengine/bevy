@@ -1,0 +1,11 @@
+error: `#[deref]` attribute can only be used on a single field
+ --> tests/deref_derive/multiple_attributes.fail.rs:4:36
+  |
+4 | struct TupleStruct(#[deref] usize, #[deref] String);
+  |                                    ^^^^^^^^
+
+error: `#[deref]` attribute can only be used on a single field
+  --> tests/deref_derive/multiple_attributes.fail.rs:10:5
+   |
+10 |     #[deref]
+   |     ^^^^^^^^

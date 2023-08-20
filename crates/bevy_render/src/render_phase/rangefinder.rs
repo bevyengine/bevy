@@ -1,4 +1,4 @@
-use bevy_math::{Mat4, Vec4};
+use bevy_math::{Mat4, Vec3, Vec4};
 
 /// A distance calculator for the draw order of [`PhaseItem`](crate::render_phase::PhaseItem)s.
 pub struct ViewRangefinder3d {
@@ -13,6 +13,14 @@ impl ViewRangefinder3d {
         ViewRangefinder3d {
             inverse_view_row_2: inverse_view_matrix.row(2),
         }
+    }
+
+    /// Calculates the distance, or view-space `Z` value, for the given `translation`.
+    #[inline]
+    pub fn distance_translation(&self, translation: &Vec3) -> f32 {
+        // NOTE: row 2 of the inverse view matrix dotted with the translation from the model matrix
+        // gives the z component of translation of the mesh in view-space
+        self.inverse_view_row_2.dot(translation.extend(1.0))
     }
 
     /// Calculates the distance, or view-space `Z` value, for the given `transform`.

@@ -28,7 +28,7 @@ struct Foo {
 #[derive(Reflect)]
 struct Bar(String);
 
-#[derive(Reflect, FromReflect)]
+#[derive(Reflect)]
 struct Baz {
     value: f32,
 }

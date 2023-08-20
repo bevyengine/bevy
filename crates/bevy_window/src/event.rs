@@ -1,14 +1,17 @@
 use std::path::PathBuf;
 
 use bevy_ecs::entity::Entity;
+use bevy_ecs::event::Event;
 use bevy_math::{IVec2, Vec2};
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::Reflect;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
+use crate::WindowTheme;
+
 /// A window event that is sent whenever a window's logical size has changed.
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -24,10 +27,9 @@ pub struct WindowResized {
     pub height: f32,
 }
 
-// TODO: This would redraw all windows ? If yes, update docs to reflect this
-/// An event that indicates the window should redraw, even if its control flow is set to `Wait` and
-/// there have been no window events.
-#[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
+/// An event that indicates all of the application's windows should be redrawn,
+/// even if their control flow is set to `Wait` and there have been no window events.
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -39,7 +41,7 @@ pub struct RequestRedraw;
 /// An event that is sent whenever a new window is created.
 ///
 /// To create a new window, spawn an entity with a [`crate::Window`] on it.
-#[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -61,7 +63,7 @@ pub struct WindowCreated {
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
 /// [`Window`]: crate::Window
-#[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -75,7 +77,7 @@ pub struct WindowCloseRequested {
 
 /// An event that is sent whenever a window is closed. This will be sent when
 /// the window entity loses its [`Window`](crate::window::Window) component or is despawned.
-#[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -89,6 +91,26 @@ pub struct WindowClosed {
     /// by the time this event is received.
     pub window: Entity,
 }
+
+/// An event that is sent whenever a window is destroyed by the underlying window system.
+///
+/// Note that if your application only has a single window, this event may be your last chance to
+/// persist state before the application terminates.
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct WindowDestroyed {
+    /// Window that has been destroyed.
+    ///
+    /// Note that this entity probably no longer exists
+    /// by the time this event is received.
+    pub window: Entity,
+}
+
 /// An event reporting that the mouse cursor has moved inside a window.
 ///
 /// The event is sent only if the cursor is over one of the application's windows.
@@ -98,7 +120,7 @@ pub struct WindowClosed {
 ///
 /// [`WindowEvent::CursorMoved`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.CursorMoved
 /// [`MouseMotion`]: bevy_input::mouse::MouseMotion
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -113,7 +135,7 @@ pub struct CursorMoved {
 }
 
 /// An event that is sent whenever the user's cursor enters a window.
-#[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -126,7 +148,7 @@ pub struct CursorEntered {
 }
 
 /// An event that is sent whenever the user's cursor leaves a window.
-#[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -139,7 +161,7 @@ pub struct CursorLeft {
 }
 
 /// An event that is sent whenever a window receives a character from the OS or underlying system.
-#[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -158,7 +180,7 @@ pub struct ReceivedCharacter {
 /// This event is the translated version of the `WindowEvent::Ime` from the `winit` crate.
 ///
 /// It is only sent if IME was enabled on the window with [`Window::ime_enabled`](crate::window::Window::ime_enabled).
-#[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -200,7 +222,7 @@ pub enum Ime {
 }
 
 /// An event that indicates a window has received or lost focus.
-#[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -215,7 +237,7 @@ pub struct WindowFocused {
 }
 
 /// An event that indicates a window's scale factor has changed.
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -230,7 +252,7 @@ pub struct WindowScaleFactorChanged {
 }
 
 /// An event that indicates a window's OS-reported scale factor has changed.
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -245,7 +267,7 @@ pub struct WindowBackendScaleFactorChanged {
 }
 
 /// Events related to files being dragged and dropped on a window.
-#[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -277,7 +299,7 @@ pub enum FileDragAndDrop {
 }
 
 /// An event that is sent when a window is repositioned in physical pixels.
-#[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -289,4 +311,20 @@ pub struct WindowMoved {
     pub entity: Entity,
     /// Where the window moved to in physical pixels.
     pub position: IVec2,
+}
+
+/// An event sent when system changed window theme.
+///
+/// This event is only sent when the window is relying on the system theme to control its appearance.
+/// i.e. It is only sent when [`Window::window_theme`](crate::window::Window::window_theme) is `None` and the system theme changes.
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct WindowThemeChanged {
+    pub window: Entity,
+    pub theme: WindowTheme,
 }

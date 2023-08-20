@@ -42,4 +42,4 @@ error[E0502]: cannot borrow `query` as mutable because it is also borrowed as im
    |                           ^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
 56 |
 57 |         println!("{ref_foo:?}");
-   |                    ------- immutable borrow later used here
+   |                   ----------- immutable borrow later used here

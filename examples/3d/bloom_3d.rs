@@ -65,8 +65,8 @@ fn setup_scene(
         .unwrap(),
     );
 
-    for x in -10..10 {
-        for z in -10..10 {
+    for x in -5..5 {
+        for z in -5..5 {
             let mut hasher = DefaultHasher::new();
             (x, z).hash(&mut hasher);
             let rand = (hasher.finish() - 2) % 6;
@@ -91,19 +91,20 @@ fn setup_scene(
         }
     }
 
+    // example instructions
     commands.spawn(
         TextBundle::from_section(
             "",
             TextStyle {
-                font_size: 18.0,
+                font_size: 20.0,
                 color: Color::BLACK,
                 ..default()
             },
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );

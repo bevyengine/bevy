@@ -94,7 +94,7 @@ impl TableRow {
     }
 }
 
-/// A type-erased contiguous container for data of a homogenous type.
+/// A type-erased contiguous container for data of a homogeneous type.
 ///
 /// Conceptually, a [`Column`] is very similar to a type-erased `Vec<T>`.
 /// It also stores the change detection ticks for its components, kept in two separate

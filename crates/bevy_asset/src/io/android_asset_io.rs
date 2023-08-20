@@ -1,4 +1,4 @@
-use crate::{AssetIo, AssetIoError, Metadata};
+use crate::{AssetIo, AssetIoError, ChangeWatcher, Metadata};
 use anyhow::Result;
 use bevy_utils::BoxedFuture;
 use std::{
@@ -22,6 +22,7 @@ pub struct AndroidAssetIo {
 }
 
 impl AndroidAssetIo {
+    /// Creates a new [`AndroidAssetIo`] at the given root path
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
         AndroidAssetIo {
             root_path: path.as_ref().to_owned(),
@@ -59,7 +60,7 @@ impl AssetIo for AndroidAssetIo {
         Ok(())
     }
 
-    fn watch_for_changes(&self) -> Result<(), AssetIoError> {
+    fn watch_for_changes(&self, _configuration: &ChangeWatcher) -> Result<(), AssetIoError> {
         bevy_log::warn!("Watching for changes is not supported on Android");
         Ok(())
     }

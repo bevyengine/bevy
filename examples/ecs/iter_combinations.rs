@@ -1,7 +1,7 @@
 //! Shows how to iterate over combinations of query results.
 
 use bevy::{pbr::AmbientLight, prelude::*};
-use rand::{thread_rng, Rng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 const DELTA_TIME: f32 = 0.01;
 
@@ -56,7 +56,7 @@ fn generate_bodies(
     let color_range = 0.5..1.0;
     let vel_range = -0.5..0.5;
 
-    let mut rng = thread_rng();
+    let mut rng = StdRng::seed_from_u64(19878367467713);
     for _ in 0..NUM_BODIES {
         let radius: f32 = rng.gen_range(0.1..0.7);
         let mass_value = radius.powi(3) * 10.;

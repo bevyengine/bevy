@@ -1,6 +1,6 @@
-use ab_glyph::{Font as _, FontArc, Glyph, ScaleFont as _};
+use ab_glyph::{Font as _, FontArc, Glyph, PxScaleFont, ScaleFont as _};
 use bevy_asset::{Assets, Handle};
-use bevy_math::Vec2;
+use bevy_math::{Rect, Vec2};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::tracing::warn;
@@ -84,20 +84,7 @@ impl GlyphBrush {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let mut min_x = std::f32::MAX;
-        let mut min_y = std::f32::MAX;
-        let mut max_y = std::f32::MIN;
-        for sg in &glyphs {
-            let glyph = &sg.glyph;
-
-            let scaled_font = sections_data[sg.section_index].3;
-            min_x = min_x.min(glyph.position.x);
-            min_y = min_y.min(glyph.position.y - scaled_font.ascent());
-            max_y = max_y.max(glyph.position.y - scaled_font.descent());
-        }
-        min_x = min_x.floor();
-        min_y = min_y.floor();
-        max_y = max_y.floor();
+        let text_bounds = compute_text_bounds(&glyphs, |index| &sections_data[index].3);
 
         let mut positioned_glyphs = Vec::new();
         for sg in glyphs {
@@ -136,11 +123,15 @@ impl GlyphBrush {
                 let glyph_rect = texture_atlas.textures[atlas_info.glyph_index];
                 let size = Vec2::new(glyph_rect.width(), glyph_rect.height());
 
-                let x = bounds.min.x + size.x / 2.0 - min_x;
+                let x = bounds.min.x + size.x / 2.0 - text_bounds.min.x;
 
                 let y = match y_axis_orientation {
-                    YAxisOrientation::BottomToTop => max_y - bounds.max.y + size.y / 2.0,
-                    YAxisOrientation::TopToBottom => bounds.min.y + size.y / 2.0 - min_y,
+                    YAxisOrientation::BottomToTop => {
+                        text_bounds.max.y - bounds.max.y + size.y / 2.0
+                    }
+                    YAxisOrientation::TopToBottom => {
+                        bounds.min.y + size.y / 2.0 - text_bounds.min.y
+                    }
                 };
 
                 let position = adjust.position(Vec2::new(x, y));
@@ -208,4 +199,33 @@ impl GlyphPlacementAdjuster {
     pub fn position(&self, v: Vec2) -> Vec2 {
         Vec2::new(self.0, 0.) + v
     }
+}
+
+/// Computes the minimal bounding rectangle for a block of text.
+/// Ignores empty trailing lines.
+pub(crate) fn compute_text_bounds<'a, T>(
+    section_glyphs: &[SectionGlyph],
+    get_scaled_font: impl Fn(usize) -> &'a PxScaleFont<T>,
+) -> bevy_math::Rect
+where
+    T: ab_glyph::Font + 'a,
+{
+    let mut text_bounds = Rect {
+        min: Vec2::splat(std::f32::MAX),
+        max: Vec2::splat(std::f32::MIN),
+    };
+
+    for sg in section_glyphs {
+        let scaled_font = get_scaled_font(sg.section_index);
+        let glyph = &sg.glyph;
+        text_bounds = text_bounds.union(Rect {
+            min: Vec2::new(glyph.position.x, 0.),
+            max: Vec2::new(
+                glyph.position.x + scaled_font.h_advance(glyph.id),
+                glyph.position.y - scaled_font.descent(),
+            ),
+        });
+    }
+
+    text_bounds
 }

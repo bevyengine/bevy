@@ -14,7 +14,7 @@ use crate::{FromType, PartialReflect, Reflect};
 /// Additionally, some complex types like `Vec<T>` require that their element types
 /// implement this trait.
 /// The reason for such requirements is that some operations require new data to be constructed,
-/// such as swapping to a new variant or pushing data to a homogenous list.
+/// such as swapping to a new variant or pushing data to a homogeneous list.
 ///
 /// See the [crate-level documentation] to see how this trait can be used.
 ///
@@ -58,7 +58,7 @@ pub trait FromReflect: Reflect + Sized {
 ///
 /// ```
 /// # use bevy_reflect::{DynamicTupleStruct, FromReflect, Reflect};
-/// #[derive(Reflect, FromReflect, PartialEq, Eq, Debug)]
+/// #[derive(Reflect, PartialEq, Eq, Debug)]
 /// struct Foo(#[reflect(default = "default_value")] usize);
 ///
 /// fn default_value() -> usize { 123 }
@@ -77,16 +77,15 @@ pub trait FromReflect: Reflect + Sized {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{DynamicTupleStruct, FromReflect, Reflect, PartialReflect, ReflectFromReflect, TypeRegistry};
-/// # #[derive(Reflect, FromReflect, PartialEq, Eq, Debug)]
-/// # #[reflect(FromReflect)]
+/// # use bevy_reflect::{DynamicTupleStruct, PartialReflect, Reflect, ReflectFromReflect, Typed, TypeRegistry};
+/// # #[derive(Reflect, PartialEq, Eq, Debug)]
 /// # struct Foo(#[reflect(default = "default_value")] usize);
 /// # fn default_value() -> usize { 123 }
 /// # let mut registry = TypeRegistry::new();
 /// # registry.register::<Foo>();
 ///
 /// let mut reflected = DynamicTupleStruct::default();
-/// reflected.set_name(std::any::type_name::<Foo>().to_string());
+/// reflected.set_represented_type(Some(<Foo as Typed>::type_info()));
 ///
 /// let registration = registry.get_with_name(reflected.type_name()).unwrap();
 /// let rfr = registration.data::<ReflectFromReflect>().unwrap();

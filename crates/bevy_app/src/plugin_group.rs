@@ -144,7 +144,7 @@ impl PluginGroupBuilder {
     /// opt back in to a [`Plugin`] after [disabling](Self::disable) it. If there are no plugins
     /// of type `T` in this group, it will panic.
     pub fn enable<T: Plugin>(mut self) -> Self {
-        let mut plugin_entry = self
+        let plugin_entry = self
             .plugins
             .get_mut(&TypeId::of::<T>())
             .expect("Cannot enable a plugin that does not exist.");
@@ -158,7 +158,7 @@ impl PluginGroupBuilder {
     /// [`add_after`](Self::add_after), or it can be [re-enabled](Self::enable). If there are no
     /// plugins of type `T` in this group, it will panic.
     pub fn disable<T: Plugin>(mut self) -> Self {
-        let mut plugin_entry = self
+        let plugin_entry = self
             .plugins
             .get_mut(&TypeId::of::<T>())
             .expect("Cannot disable a plugin that does not exist.");
@@ -172,6 +172,7 @@ impl PluginGroupBuilder {
     /// # Panics
     ///
     /// Panics if one of the plugin in the group was already added to the application.
+    #[track_caller]
     pub fn finish(mut self, app: &mut App) {
         for ty in &self.order {
             if let Some(entry) = self.plugins.remove(ty) {

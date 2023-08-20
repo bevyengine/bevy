@@ -93,8 +93,16 @@ impl TaskPoolBuilder {
     }
 }
 
-/// A thread pool for executing tasks. Tasks are futures that are being automatically driven by
-/// the pool on threads owned by the pool.
+/// A thread pool for executing tasks.
+///
+/// While futures usually need to be polled to be executed, Bevy tasks are being
+/// automatically driven by the pool on threads owned by the pool. The [`Task`]
+/// future only needs to be polled in order to receive the result. (For that
+/// purpose, it is often stored in a component or resource, see the
+/// `async_compute` example.)
+///
+/// If the result is not required, one may also use [`Task::detach`] and the pool
+/// will still execute a task, even if it is dropped.
 #[derive(Debug)]
 pub struct TaskPool {
     /// The executor for the pool
@@ -509,11 +517,14 @@ impl TaskPool {
         execute_forever.or(get_results).await
     }
 
-    /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
-    /// canceled and "detached" allowing it to continue running without having to be polled by the
+    /// Spawns a static future onto the thread pool. The returned [`Task`] is a
+    /// future that can be polled for the result. It can also be canceled and
+    /// "detached", allowing the task to continue running even if dropped. In
+    /// any case, the pool will execute the task even without polling by the
     /// end-user.
     ///
-    /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
+    /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should
+    /// be used instead.
     pub fn spawn<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
     where
         T: Send + 'static,
@@ -521,11 +532,17 @@ impl TaskPool {
         Task::new(self.executor.spawn(future))
     }
 
-    /// Spawns a static future on the thread-local async executor for the current thread. The task
-    /// will run entirely on the thread the task was spawned on.  The returned Task is a future.
-    /// It can also be canceled and "detached" allowing it to continue running without having
-    /// to be polled by the end-user. Users should generally prefer to use [`TaskPool::spawn`]
-    /// instead, unless the provided future is not `Send`.
+    /// Spawns a static future on the thread-local async executor for the
+    /// current thread. The task will run entirely on the thread the task was
+    /// spawned on.
+    ///
+    /// The returned [`Task`] is a future that can be polled for the
+    /// result. It can also be canceled and "detached", allowing the task to
+    /// continue running even if dropped. In any case, the pool will execute the
+    /// task even without polling by the end-user.
+    ///
+    /// Users should generally prefer to use [`TaskPool::spawn`] instead,
+    /// unless the provided future is not `Send`.
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
     where
         T: 'static,

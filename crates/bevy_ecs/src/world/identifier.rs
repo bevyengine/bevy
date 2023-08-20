@@ -44,10 +44,10 @@ impl FromWorld for WorldId {
     }
 }
 
-// SAFETY: Has read-only access to shared World metadata
+// SAFETY: No world data is accessed.
 unsafe impl ReadOnlySystemParam for WorldId {}
 
-// SAFETY: A World's ID is immutable and fetching it from the World does not borrow anything
+// SAFETY: No world data is accessed.
 unsafe impl SystemParam for WorldId {
     type State = ();
 
@@ -61,7 +61,7 @@ unsafe impl SystemParam for WorldId {
         world: UnsafeWorldCell<'world>,
         _: Tick,
     ) -> Self::Item<'world, 'state> {
-        world.world_metadata().id()
+        world.id()
     }
 }
 

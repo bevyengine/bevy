@@ -247,10 +247,16 @@ macro_rules! tuple_impl {
 
 all_tuples!(tuple_impl, 0, 15, B);
 
+/// For a specific [`World`], this stores a unique value identifying a type of a registered [`Bundle`].
+///
+/// [`World`]: crate::world::World
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct BundleId(usize);
 
 impl BundleId {
+    /// Returns the index of the associated [`Bundle`] type.
+    ///
+    /// Note that this is unique per-world, and should not be reused across them.
     #[inline]
     pub fn index(self) -> usize {
         self.0
@@ -269,6 +275,9 @@ impl SparseSetIndex for BundleId {
     }
 }
 
+/// Stores metadata associated with a specific type of [`Bundle`] for a given [`World`].
+///
+/// [`World`]: crate::world::World
 pub struct BundleInfo {
     id: BundleId,
     // SAFETY: Every ID in this list must be valid within the World that owns the BundleInfo,
@@ -324,11 +333,13 @@ impl BundleInfo {
         BundleInfo { id, component_ids }
     }
 
+    /// Returns a value identifying the associated [`Bundle`] type.
     #[inline]
     pub const fn id(&self) -> BundleId {
         self.id
     }
 
+    /// Returns the [ID](ComponentId) of each component stored in this bundle.
     #[inline]
     pub fn components(&self) -> &[ComponentId] {
         &self.component_ids
@@ -782,6 +793,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
     }
 }
 
+/// Metadata for bundles. Stores a [`BundleInfo`] for each type of [`Bundle`] in a given world.
 #[derive(Default)]
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
@@ -794,11 +806,16 @@ pub struct Bundles {
 }
 
 impl Bundles {
+    /// Gets the metadata associated with a specific type of bundle.
+    /// Returns `None` if the bundle is not registered with the world.
     #[inline]
     pub fn get(&self, bundle_id: BundleId) -> Option<&BundleInfo> {
         self.bundle_infos.get(bundle_id.index())
     }
 
+    /// Gets the value identifying a specific type of bundle.
+    /// Returns `None` if the bundle does not exist in the world,
+    /// or if `type_id` does not correspond to a type of bundle.
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<BundleId> {
         self.bundle_ids.get(&type_id).cloned()

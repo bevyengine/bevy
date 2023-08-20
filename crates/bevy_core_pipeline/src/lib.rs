@@ -68,15 +68,17 @@ impl Plugin for CorePipelinePlugin {
             .register_type::<DepthPrepass>()
             .register_type::<NormalPrepass>()
             .init_resource::<ClearColor>()
-            .add_plugin(ExtractResourcePlugin::<ClearColor>::default())
-            .add_plugin(Core2dPlugin)
-            .add_plugin(Core3dPlugin)
-            .add_plugin(BlitPlugin)
-            .add_plugin(MsaaWritebackPlugin)
-            .add_plugin(TonemappingPlugin)
-            .add_plugin(UpscalingPlugin)
-            .add_plugin(BloomPlugin)
-            .add_plugin(FxaaPlugin)
-            .add_plugin(CASPlugin);
+            .add_plugins((
+                ExtractResourcePlugin::<ClearColor>::default(),
+                Core2dPlugin,
+                Core3dPlugin,
+                BlitPlugin,
+                MsaaWritebackPlugin,
+                TonemappingPlugin,
+                UpscalingPlugin,
+                BloomPlugin,
+                FxaaPlugin,
+                CASPlugin,
+            ));
     }
 }

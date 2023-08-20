@@ -215,7 +215,7 @@ pub fn dds_format_to_texture_format(
             }
 
             DxgiFormat::BC6H_Typeless | DxgiFormat::BC6H_UF16 => TextureFormat::Bc6hRgbUfloat,
-            DxgiFormat::BC6H_SF16 => TextureFormat::Bc6hRgbSfloat,
+            DxgiFormat::BC6H_SF16 => TextureFormat::Bc6hRgbFloat,
             DxgiFormat::BC7_Typeless | DxgiFormat::BC7_UNorm | DxgiFormat::BC7_UNorm_sRGB => {
                 if is_srgb {
                     TextureFormat::Bc7RgbaUnormSrgb

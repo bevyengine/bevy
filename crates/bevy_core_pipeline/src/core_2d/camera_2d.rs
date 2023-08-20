@@ -35,7 +35,32 @@ pub struct Camera2dBundle {
 
 impl Default for Camera2dBundle {
     fn default() -> Self {
-        Self::new_with_far(1000.0)
+        let projection = OrthographicProjection {
+            far: 1000.,
+            near: -1000.,
+            ..Default::default()
+        };
+        let transform = Transform::default();
+        let view_projection =
+            projection.get_projection_matrix() * transform.compute_matrix().inverse();
+        let frustum = Frustum::from_view_projection_custom_far(
+            &view_projection,
+            &transform.translation,
+            &transform.back(),
+            projection.far(),
+        );
+        Self {
+            camera_render_graph: CameraRenderGraph::new(crate::core_2d::graph::NAME),
+            projection,
+            visible_entities: VisibleEntities::default(),
+            frustum,
+            transform,
+            global_transform: Default::default(),
+            camera: Camera::default(),
+            camera_2d: Camera2d::default(),
+            tonemapping: Tonemapping::None,
+            deband_dither: DebandDither::Disabled,
+        }
     }
 }
 

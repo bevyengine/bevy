@@ -1,5 +1,6 @@
 #[allow(clippy::module_inception)]
 mod mesh;
+pub mod morph;
 /// Generation for some primitive shape meshes.
 pub mod shape;
 
@@ -19,6 +20,6 @@ impl Plugin for MeshPlugin {
             .add_asset::<skinning::SkinnedMeshInverseBindposes>()
             .register_type::<skinning::SkinnedMesh>()
             .register_type::<Vec<Entity>>()
-            .add_plugin(RenderAssetPlugin::<Mesh>::default());
+            .add_plugins(RenderAssetPlugin::<Mesh>::default());
     }
 }

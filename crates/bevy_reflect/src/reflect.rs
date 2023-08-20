@@ -1,7 +1,7 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed,
-    ValueInfo,
+    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Struct, Tuple, TupleStruct,
+    TypeInfo, Typed, ValueInfo,
 };
 use std::{
     any::{self, Any, TypeId},
@@ -71,19 +71,26 @@ pub enum ReflectOwned {
 /// [`bevy_reflect`]: crate
 /// [partially reflected]: crate#partialreflect-and-reflect
 /// [crate-level documentation]: crate
-pub trait PartialReflect: Any + Send + Sync {
+pub trait PartialReflect: DynamicTypePath + Any + Send + Sync {
     /// Returns the [type name][std::any::type_name] of the underlying type.
     fn type_name(&self) -> &str;
 
-    /// Returns the [`TypeInfo`] of the underlying type.
+    /// Returns the [`TypeInfo`] of the type _represented_ by this value.
+    ///
+    /// For most types, this will simply return their own `TypeInfo`.
+    /// However, for dynamic types, such as [`DynamicStruct`] or [`DynamicList`],
+    /// this will return the type they represent
+    /// (or `None` if they don't represent any particular type).
     ///
     /// This method is great if you have an instance of a type or a `dyn PartialReflect`,
     /// and want to access its [`TypeInfo`]. However, if this method is to be called
     /// frequently, consider using [`TypeRegistry::get_type_info`] as it can be more
     /// performant for such use cases.
     ///
+    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicList`]: crate::DynamicList
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
-    fn get_type_info(&self) -> &'static TypeInfo;
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
 
     /// Returns the value as a fully-reflected [`&dyn Reflect`](Reflect),
     /// or [`None`] if the value does not implement it.
@@ -211,6 +218,22 @@ pub trait PartialReflect: Any + Send + Sync {
     /// If the underlying type does not support serialization, returns `None`.
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+
+    /// Indicates whether or not this type is a _dynamic_ type.
+    ///
+    /// Dynamic types include the ones built-in to this [crate],
+    /// such as [`DynamicStruct`], [`DynamicList`], and [`DynamicTuple`].
+    /// However, they may be custom types used as proxies for other types
+    /// or to facilitate scripting capabilities.
+    ///
+    /// By default, this method will return `false`.
+    ///
+    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicList`]: crate::DynamicList
+    /// [`DynamicTuple`]: crate::DynamicTuple
+    fn is_dynamic(&self) -> bool {
+        false
     }
 }
 

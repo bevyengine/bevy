@@ -1,4 +1,4 @@
-use crate::Vec2;
+use crate::{IRect, URect, Vec2};
 
 /// A rectangle defined by two opposite corners.
 ///
@@ -52,7 +52,7 @@ impl Rect {
     /// ```
     #[inline]
     pub fn from_corners(p0: Vec2, p1: Vec2) -> Self {
-        Rect {
+        Self {
             min: p0.min(p1),
             max: p0.max(p1),
         }
@@ -74,7 +74,7 @@ impl Rect {
     /// ```
     #[inline]
     pub fn from_center_size(origin: Vec2, size: Vec2) -> Self {
-        assert!(size.cmpge(Vec2::ZERO).all());
+        assert!(size.cmpge(Vec2::ZERO).all(), "Rect size must be positive");
         let half_size = size / 2.;
         Self::from_center_half_size(origin, half_size)
     }
@@ -95,7 +95,10 @@ impl Rect {
     /// ```
     #[inline]
     pub fn from_center_half_size(origin: Vec2, half_size: Vec2) -> Self {
-        assert!(half_size.cmpge(Vec2::ZERO).all());
+        assert!(
+            half_size.cmpge(Vec2::ZERO).all(),
+            "Rect half_size must be positive"
+        );
         Self {
             min: origin - half_size,
             max: origin + half_size,
@@ -217,8 +220,8 @@ impl Rect {
     /// assert!(r.max.abs_diff_eq(Vec2::new(5., 3.), 1e-5));
     /// ```
     #[inline]
-    pub fn union(&self, other: Rect) -> Rect {
-        Rect {
+    pub fn union(&self, other: Self) -> Self {
+        Self {
             min: self.min.min(other.min),
             max: self.max.max(other.max),
         }
@@ -239,8 +242,8 @@ impl Rect {
     /// assert!(u.max.abs_diff_eq(Vec2::new(5., 6.), 1e-5));
     /// ```
     #[inline]
-    pub fn union_point(&self, other: Vec2) -> Rect {
-        Rect {
+    pub fn union_point(&self, other: Vec2) -> Self {
+        Self {
             min: self.min.min(other),
             max: self.max.max(other),
         }
@@ -263,8 +266,8 @@ impl Rect {
     /// assert!(r.max.abs_diff_eq(Vec2::new(3., 1.), 1e-5));
     /// ```
     #[inline]
-    pub fn intersect(&self, other: Rect) -> Rect {
-        let mut r = Rect {
+    pub fn intersect(&self, other: Self) -> Self {
+        let mut r = Self {
             min: self.min.max(other.min),
             max: self.max.min(other.max),
         };
@@ -288,10 +291,15 @@ impl Rect {
     /// let r2 = r.inset(3.); // w=11 h=7
     /// assert!(r2.min.abs_diff_eq(Vec2::splat(-3.), 1e-5));
     /// assert!(r2.max.abs_diff_eq(Vec2::new(8., 4.), 1e-5));
+    ///
+    /// let r = Rect::new(0., -1., 6., 7.); // w=6 h=8
+    /// let r2 = r.inset(-2.); // w=11 h=7
+    /// assert!(r2.min.abs_diff_eq(Vec2::new(2., 1.), 1e-5));
+    /// assert!(r2.max.abs_diff_eq(Vec2::new(4., 5.), 1e-5));
     /// ```
     #[inline]
-    pub fn inset(&self, inset: f32) -> Rect {
-        let mut r = Rect {
+    pub fn inset(&self, inset: f32) -> Self {
+        let mut r = Self {
             min: self.min - inset,
             max: self.max + inset,
         };
@@ -299,6 +307,18 @@ impl Rect {
         // height() never return a negative value.
         r.min = r.min.min(r.max);
         r
+    }
+
+    /// Returns self as [`IRect`] (i32)
+    #[inline]
+    pub fn as_irect(&self) -> IRect {
+        IRect::from_corners(self.min.as_ivec2(), self.max.as_ivec2())
+    }
+
+    /// Returns self as [`URect`] (u32)
+    #[inline]
+    pub fn as_urect(&self) -> URect {
+        URect::from_corners(self.min.as_uvec2(), self.max.as_uvec2())
     }
 }
 

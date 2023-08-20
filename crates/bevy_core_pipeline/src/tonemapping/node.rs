@@ -2,11 +2,10 @@ use std::sync::Mutex;
 
 use crate::tonemapping::{TonemappingLuts, TonemappingPipeline, ViewTonemappingPipeline};
 
-use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryState;
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext},
+    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, BufferId, LoadOp,
         Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
@@ -14,59 +13,40 @@ use bevy_render::{
     },
     renderer::RenderContext,
     texture::Image,
-    view::{ExtractedView, ViewTarget, ViewUniformOffset, ViewUniforms},
+    view::{ViewTarget, ViewUniformOffset, ViewUniforms},
 };
 
 use super::{get_lut_bindings, Tonemapping};
 
+#[derive(Default)]
 pub struct TonemappingNode {
-    query: QueryState<
-        (
-            &'static ViewUniformOffset,
-            &'static ViewTarget,
-            &'static ViewTonemappingPipeline,
-            &'static Tonemapping,
-        ),
-        With<ExtractedView>,
-    >,
     cached_bind_group: Mutex<Option<(BufferId, TextureViewId, BindGroup)>>,
     last_tonemapping: Mutex<Option<Tonemapping>>,
 }
 
-impl FromWorld for TonemappingNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            query: QueryState::new(world),
-            cached_bind_group: Mutex::new(None),
-            last_tonemapping: Mutex::new(None),
-        }
-    }
-}
-
-impl Node for TonemappingNode {
-    fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
-    }
+impl ViewNode for TonemappingNode {
+    type ViewQuery = (
+        &'static ViewUniformOffset,
+        &'static ViewTarget,
+        &'static ViewTonemappingPipeline,
+        &'static Tonemapping,
+    );
 
     fn run(
         &self,
-        graph: &mut RenderGraphContext,
+        _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
+        (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping): QueryItem<
+            Self::ViewQuery,
+        >,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.view_entity();
         let pipeline_cache = world.resource::<PipelineCache>();
         let tonemapping_pipeline = world.resource::<TonemappingPipeline>();
         let gpu_images = world.get_resource::<RenderAssets<Image>>().unwrap();
         let view_uniforms_resource = world.resource::<ViewUniforms>();
         let view_uniforms = &view_uniforms_resource.uniforms;
         let view_uniforms_id = view_uniforms.buffer().unwrap().id();
-
-        let (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping) =
-            match self.query.get_manual(world, view_entity) {
-                Ok(result) => result,
-                Err(_) => return Ok(()),
-            };
 
         if !target.is_hdr() {
             return Ok(());

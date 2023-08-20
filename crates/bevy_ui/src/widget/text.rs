@@ -1,22 +1,42 @@
-use crate::{CalculatedSize, Measure, Node, UiScale};
+use crate::{ContentSize, FixedMeasure, Measure, Node, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
-    entity::Entity,
-    query::{Changed, Or, With},
-    system::{Local, ParamSet, Query, Res, ResMut},
+    prelude::{Component, DetectChanges},
+    query::With,
+    reflect::ReflectComponent,
+    system::{Local, Query, Res, ResMut},
+    world::{Mut, Ref},
 };
 use bevy_math::Vec2;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
-    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextSettings, YAxisOrientation,
+    BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo,
+    TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
 };
 use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
 
-fn scale_value(value: f32, factor: f64) -> f32 {
-    (value as f64 * factor) as f32
+/// Text system flags
+///
+/// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component, Default)]
+pub struct TextFlags {
+    /// If set a new measure function for the text node will be created
+    needs_new_measure_func: bool,
+    /// If set the text will be recomputed
+    needs_recompute: bool,
+}
+
+impl Default for TextFlags {
+    fn default() -> Self {
+        Self {
+            needs_new_measure_func: true,
+            needs_recompute: true,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -52,82 +72,161 @@ impl Measure for TextMeasure {
             )
             .ceil()
     }
-
-    fn dyn_clone(&self) -> Box<dyn Measure> {
-        Box::new(self.clone())
-    }
 }
 
-/// Creates a `Measure` for text nodes that allows the UI to determine the appropriate amount of space
+#[inline]
+fn create_text_measure(
+    fonts: &Assets<Font>,
+    text_pipeline: &mut TextPipeline,
+    scale_factor: f64,
+    text: Ref<Text>,
+    mut content_size: Mut<ContentSize>,
+    mut text_flags: Mut<TextFlags>,
+) {
+    match text_pipeline.create_text_measure(
+        fonts,
+        &text.sections,
+        scale_factor,
+        text.alignment,
+        text.linebreak_behavior,
+    ) {
+        Ok(measure) => {
+            if text.linebreak_behavior == BreakLineOn::NoWrap {
+                content_size.set(FixedMeasure {
+                    size: measure.max_width_content_size,
+                });
+            } else {
+                content_size.set(TextMeasure { info: measure });
+            }
+
+            // Text measure func created successfully, so set `TextFlags` to schedule a recompute
+            text_flags.needs_new_measure_func = false;
+            text_flags.needs_recompute = true;
+        }
+        Err(TextError::NoSuchFont) => {
+            // Try again next frame
+            text_flags.needs_new_measure_func = true;
+        }
+        Err(e @ TextError::FailedToAddGlyph(_)) => {
+            panic!("Fatal error when processing text: {e}.");
+        }
+    };
+}
+
+/// Generates a new [`Measure`] for a text node on changes to its [`Text`] component.
+/// A `Measure` is used by the UI's layout algorithm to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
+///
+/// * All measures are regenerated if the primary window's scale factor or [`UiScale`] is changed.
+/// * Changes that only modify the colors of a `Text` do not require a new `Measure`. This system
+/// is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
+/// color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
+/// method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
-    mut queued_text: Local<Vec<Entity>>,
     mut last_scale_factor: Local<f64>,
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_queries: ParamSet<(
-        Query<Entity, (Changed<Text>, With<Node>)>,
-        Query<Entity, (With<Text>, With<Node>)>,
-        Query<(&Text, &mut CalculatedSize)>,
-    )>,
+    mut text_query: Query<(Ref<Text>, &mut ContentSize, &mut TextFlags), With<Node>>,
 ) {
     let window_scale_factor = windows
         .get_single()
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.);
 
-    let scale_factor = ui_scale.scale * window_scale_factor;
+    let scale_factor = ui_scale.0 * window_scale_factor;
 
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
-        // Adds all entities where the text has changed to the local queue
-        for entity in text_queries.p0().iter() {
-            if !queued_text.contains(&entity) {
-                queued_text.push(entity);
+        // scale factor unchanged, only create new measure funcs for modified text
+        for (text, content_size, text_flags) in text_query.iter_mut() {
+            if text.is_changed() || text_flags.needs_new_measure_func {
+                create_text_measure(
+                    &fonts,
+                    &mut text_pipeline,
+                    scale_factor,
+                    text,
+                    content_size,
+                    text_flags,
+                );
             }
         }
     } else {
-        // If the scale factor has changed, queue all text
-        for entity in text_queries.p1().iter() {
-            queued_text.push(entity);
-        }
+        // scale factor changed, create new measure funcs for all text
         *last_scale_factor = scale_factor;
-    }
 
-    if queued_text.is_empty() {
-        return;
-    }
-
-    let mut new_queue = Vec::new();
-    let mut query = text_queries.p2();
-    for entity in queued_text.drain(..) {
-        if let Ok((text, mut calculated_size)) = query.get_mut(entity) {
-            match text_pipeline.create_text_measure(
+        for (text, content_size, text_flags) in text_query.iter_mut() {
+            create_text_measure(
                 &fonts,
-                &text.sections,
+                &mut text_pipeline,
                 scale_factor,
-                text.alignment,
-                text.linebreak_behavior,
-            ) {
-                Ok(measure) => {
-                    calculated_size.measure = Box::new(TextMeasure { info: measure });
-                }
-                Err(TextError::NoSuchFont) => {
-                    new_queue.push(entity);
-                }
-                Err(e @ TextError::FailedToAddGlyph(_)) => {
-                    panic!("Fatal error when processing text: {e}.");
-                }
-            };
+                text,
+                content_size,
+                text_flags,
+            );
         }
     }
-    *queued_text = new_queue;
 }
 
-/// Updates the layout and size information whenever the text or style is changed.
-/// This information is computed by the `TextPipeline` on insertion, then stored.
+#[allow(clippy::too_many_arguments)]
+#[inline]
+fn queue_text(
+    fonts: &Assets<Font>,
+    text_pipeline: &mut TextPipeline,
+    font_atlas_warning: &mut FontAtlasWarning,
+    font_atlas_set_storage: &mut Assets<FontAtlasSet>,
+    texture_atlases: &mut Assets<TextureAtlas>,
+    textures: &mut Assets<Image>,
+    text_settings: &TextSettings,
+    scale_factor: f64,
+    text: &Text,
+    node: Ref<Node>,
+    mut text_flags: Mut<TextFlags>,
+    mut text_layout_info: Mut<TextLayoutInfo>,
+) {
+    // Skip the text node if it is waiting for a new measure func
+    if !text_flags.needs_new_measure_func {
+        let physical_node_size = if text.linebreak_behavior == BreakLineOn::NoWrap {
+            // With `NoWrap` set, no constraints are placed on the width of the text.
+            Vec2::splat(f32::INFINITY)
+        } else {
+            // `scale_factor` is already multiplied by `UiScale`
+            node.physical_size(scale_factor, 1.)
+        };
+
+        match text_pipeline.queue_text(
+            fonts,
+            &text.sections,
+            scale_factor,
+            text.alignment,
+            text.linebreak_behavior,
+            physical_node_size,
+            font_atlas_set_storage,
+            texture_atlases,
+            textures,
+            text_settings,
+            font_atlas_warning,
+            YAxisOrientation::TopToBottom,
+        ) {
+            Err(TextError::NoSuchFont) => {
+                // There was an error processing the text layout, try again next frame
+                text_flags.needs_recompute = true;
+            }
+            Err(e @ TextError::FailedToAddGlyph(_)) => {
+                panic!("Fatal error when processing text: {e}.");
+            }
+            Ok(info) => {
+                *text_layout_info = info;
+                text_flags.needs_recompute = false;
+            }
+        }
+    }
+}
+
+/// Updates the layout and size information for a UI text node on changes to the size value of its [`Node`] component,
+/// or when the `needs_recompute` field of [`TextFlags`] is set to true.
+/// This information is computed by the [`TextPipeline`] and then stored in [`TextLayoutInfo`].
 ///
 /// ## World Resources
 ///
@@ -135,7 +234,6 @@ pub fn measure_text_system(
 /// It does not modify or observe existing ones.
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
-    mut queued_text: Local<Vec<Entity>>,
     mut textures: ResMut<Assets<Image>>,
     mut last_scale_factor: Local<f64>,
     fonts: Res<Assets<Font>>,
@@ -146,11 +244,7 @@ pub fn text_system(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_queries: ParamSet<(
-        Query<Entity, Or<(Changed<Text>, Changed<Node>)>>,
-        Query<Entity, (With<Text>, With<Node>)>,
-        Query<(&Node, &Text, &mut TextLayoutInfo)>,
-    )>,
+    mut text_query: Query<(Ref<Node>, &Text, &mut TextLayoutInfo, &mut TextFlags)>,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let window_scale_factor = windows
@@ -158,60 +252,47 @@ pub fn text_system(
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.);
 
-    let scale_factor = ui_scale.scale * window_scale_factor;
+    let scale_factor = ui_scale.0 * window_scale_factor;
 
-    #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
-        // Adds all entities where the text or the style has changed to the local queue
-        for entity in text_queries.p0().iter() {
-            if !queued_text.contains(&entity) {
-                queued_text.push(entity);
+        // Scale factor unchanged, only recompute text for modified text nodes
+        for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
+            if node.is_changed() || text_flags.needs_recompute {
+                queue_text(
+                    &fonts,
+                    &mut text_pipeline,
+                    &mut font_atlas_warning,
+                    &mut font_atlas_set_storage,
+                    &mut texture_atlases,
+                    &mut textures,
+                    &text_settings,
+                    scale_factor,
+                    text,
+                    node,
+                    text_flags,
+                    text_layout_info,
+                );
             }
         }
     } else {
-        // If the scale factor has changed, queue all text
-        for entity in text_queries.p1().iter() {
-            queued_text.push(entity);
-        }
+        // Scale factor changed, recompute text for all text nodes
         *last_scale_factor = scale_factor;
-    }
 
-    let mut new_queue = Vec::new();
-    let mut text_query = text_queries.p2();
-    for entity in queued_text.drain(..) {
-        if let Ok((node, text, mut text_layout_info)) = text_query.get_mut(entity) {
-            let node_size = Vec2::new(
-                scale_value(node.size().x, scale_factor),
-                scale_value(node.size().y, scale_factor),
-            );
-
-            match text_pipeline.queue_text(
+        for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
+            queue_text(
                 &fonts,
-                &text.sections,
-                scale_factor,
-                text.alignment,
-                text.linebreak_behavior,
-                node_size,
+                &mut text_pipeline,
+                &mut font_atlas_warning,
                 &mut font_atlas_set_storage,
                 &mut texture_atlases,
                 &mut textures,
-                text_settings.as_ref(),
-                &mut font_atlas_warning,
-                YAxisOrientation::TopToBottom,
-            ) {
-                Err(TextError::NoSuchFont) => {
-                    // There was an error processing the text layout, let's add this entity to the
-                    // queue for further processing
-                    new_queue.push(entity);
-                }
-                Err(e @ TextError::FailedToAddGlyph(_)) => {
-                    panic!("Fatal error when processing text: {e}.");
-                }
-                Ok(info) => {
-                    *text_layout_info = info;
-                }
-            }
+                &text_settings,
+                scale_factor,
+                text,
+                node,
+                text_flags,
+                text_layout_info,
+            );
         }
     }
-    *queued_text = new_queue;
 }

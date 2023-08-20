@@ -1,13 +1,15 @@
+use bevy_reflect_derive::impl_type_path;
 use smallvec::SmallVec;
 use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
-    FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter, PartialReflect, Reflect,
-    ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeRegistration, Typed,
+    self as bevy_reflect, FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter,
+    PartialReflect, Reflect, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    TypePath, TypeRegistration, Typed,
 };
 
-impl<T: smallvec::Array + Send + Sync + 'static> List for SmallVec<T>
+impl<T: smallvec::Array + TypePath + Send + Sync> List for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -75,7 +77,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> PartialReflect for SmallVec<T>
+impl<T: smallvec::Array + TypePath + Send + Sync> PartialReflect for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -83,8 +85,8 @@ where
         std::any::type_name::<Self>()
     }
 
-    fn get_type_info(&self) -> &'static TypeInfo {
-        <Self as Typed>::type_info()
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(<Self as Typed>::type_info())
     }
 
     fn try_as_reflect(&self) -> Option<&dyn Reflect> {
@@ -136,7 +138,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> Reflect for SmallVec<T>
+impl<T: smallvec::Array + TypePath + Send + Sync> Reflect for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -170,7 +172,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> Typed for SmallVec<T>
+impl<T: smallvec::Array + TypePath + Send + Sync> Typed for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -180,7 +182,9 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> FromReflect for SmallVec<T>
+impl_type_path!(::smallvec::SmallVec<T: smallvec::Array + TypePath + Send + Sync>);
+
+impl<T: smallvec::Array + TypePath + Send + Sync> FromReflect for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -197,7 +201,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> GetTypeRegistration for SmallVec<T>
+impl<T: smallvec::Array + TypePath + Send + Sync> GetTypeRegistration for SmallVec<T>
 where
     T::Item: FromReflect,
 {

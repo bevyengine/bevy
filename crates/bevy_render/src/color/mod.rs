@@ -3,12 +3,12 @@ mod colorspace;
 pub use colorspace::*;
 
 use bevy_math::{Vec3, Vec4};
-use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
 use thiserror::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect, FromReflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Color {
     /// sRGBA color
@@ -681,6 +681,17 @@ impl Color {
             }
             Color::Lcha { .. } => *self,
         }
+    }
+
+    /// Converts a `Color` to a `[u8; 4]` from sRGB colorspace
+    pub fn as_rgba_u8(&self) -> [u8; 4] {
+        let [r, g, b, a] = self.as_rgba_f32();
+        [
+            (r * u8::MAX as f32) as u8,
+            (g * u8::MAX as f32) as u8,
+            (b * u8::MAX as f32) as u8,
+            (a * u8::MAX as f32) as u8,
+        ]
     }
 
     /// Converts a `Color` to a `[f32; 4]` from sRGB colorspace

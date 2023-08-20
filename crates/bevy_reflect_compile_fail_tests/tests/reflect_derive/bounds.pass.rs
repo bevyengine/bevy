@@ -17,14 +17,14 @@ mod structs {
         _ignored: NonReflect,
     }
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     struct FromReflectGeneric<T> {
         foo: T,
         #[reflect(ignore)]
         _ignored: NonReflect,
     }
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     #[reflect(Default)]
     struct DefaultGeneric<T> {
         foo: Option<T>,
@@ -48,14 +48,14 @@ mod structs {
         _ignored: NonReflect,
     }
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     struct FromReflectBoundGeneric<T: Clone> {
         foo: T,
         #[reflect(ignore)]
         _ignored: NonReflect,
     }
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     #[reflect(Default)]
     struct DefaultBoundGeneric<T: Clone> {
         foo: Option<T>,
@@ -82,7 +82,7 @@ mod structs {
         _ignored: NonReflect,
     }
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     struct FromReflectGenericWithWhere<T>
     where
         T: Clone,
@@ -92,7 +92,7 @@ mod structs {
         _ignored: NonReflect,
     }
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     #[reflect(Default)]
     struct DefaultGenericWithWhere<T>
     where
@@ -126,7 +126,7 @@ mod structs {
         _ignored: NonReflect,
     }
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     #[rustfmt::skip]
     struct FromReflectGenericWithWhereNoTrailingComma<T>
         where
@@ -137,7 +137,7 @@ mod structs {
         _ignored: NonReflect,
     }
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     #[reflect(Default)]
     #[rustfmt::skip]
     struct DefaultGenericWithWhereNoTrailingComma<T>
@@ -168,10 +168,10 @@ mod tuple_structs {
     #[derive(Reflect)]
     struct ReflectGeneric<T>(T, #[reflect(ignore)] NonReflect);
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     struct FromReflectGeneric<T>(T, #[reflect(ignore)] NonReflect);
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     #[reflect(Default)]
     struct DefaultGeneric<T>(Option<T>, #[reflect(ignore)] NonReflectNonDefault);
 
@@ -184,10 +184,10 @@ mod tuple_structs {
     #[derive(Reflect)]
     struct ReflectBoundGeneric<T: Clone>(T, #[reflect(ignore)] NonReflect);
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     struct FromReflectBoundGeneric<T: Clone>(T, #[reflect(ignore)] NonReflect);
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     #[reflect(Default)]
     struct DefaultBoundGeneric<T: Clone>(Option<T>, #[reflect(ignore)] NonReflectNonDefault);
 
@@ -202,12 +202,12 @@ mod tuple_structs {
     where
         T: Clone;
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     struct FromReflectGenericWithWhere<T>(T, #[reflect(ignore)] NonReflect)
     where
         T: Clone;
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     #[reflect(Default)]
     struct DefaultGenericWithWhere<T>(Option<T>, #[reflect(ignore)] NonReflectNonDefault)
     where
@@ -231,7 +231,7 @@ mod enums {
         Foo(T, #[reflect(ignore)] NonReflect),
     }
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     enum FromReflectGeneric<T> {
         Foo(T, #[reflect(ignore)] NonReflect),
     }
@@ -241,7 +241,7 @@ mod enums {
         Foo(T, #[reflect(ignore)] NonReflect),
     }
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     enum FromReflectBoundGeneric<T: Clone> {
         Foo(T, #[reflect(ignore)] NonReflect),
     }
@@ -254,7 +254,7 @@ mod enums {
         Foo(T, #[reflect(ignore)] NonReflect),
     }
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     enum FromReflectGenericWithWhere<T>
     where
         T: Clone,
@@ -271,7 +271,7 @@ mod enums {
         Foo(T, #[reflect(ignore)] NonReflect),
     }
 
-    #[derive(Reflect, FromReflect)]
+    #[derive(Reflect)]
     #[rustfmt::skip]
     enum FromReflectGenericWithWhereNoTrailingComma<T>
         where

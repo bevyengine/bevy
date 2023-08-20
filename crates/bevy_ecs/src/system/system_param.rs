@@ -118,13 +118,17 @@ pub unsafe trait SystemParam: Sized {
     }
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
-    /// This is used to apply [`Commands`] during [`apply_system_buffers`](crate::prelude::apply_system_buffers).
+    /// This is used to apply [`Commands`] during [`apply_deferred`](crate::prelude::apply_deferred).
     ///
     /// [`Commands`]: crate::prelude::Commands
     #[inline]
     #[allow(unused_variables)]
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
 
+    /// Creates a parameter to be passed into a [`SystemParamFunction`].
+    ///
+    /// [`SystemParamFunction`]: super::SystemParamFunction
+    ///
     /// # Safety
     ///
     /// - The passed [`UnsafeWorldCell`] must have access to any world data
@@ -194,16 +198,10 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        Query::new(
-            // SAFETY: We have registered all of the query's world accesses,
-            // so the caller ensures that `world` has permission to access any
-            // world data that the query needs.
-            world.unsafe_world(),
-            state,
-            system_meta.last_run,
-            change_tick,
-            false,
-        )
+        // SAFETY: We have registered all of the query's world accesses,
+        // so the caller ensures that `world` has permission to access any
+        // world data that the query needs.
+        Query::new(world, state, system_meta.last_run, change_tick, false)
     }
 }
 
@@ -308,6 +306,7 @@ fn assert_component_access_compatibility(
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
+/// # #[derive(Event)]
 /// # struct MyEvent;
 /// # impl MyEvent {
 /// #   pub fn new() -> Self { Self }
@@ -628,7 +627,7 @@ unsafe impl SystemParam for &'_ World {
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        // SAFETY: Read-only access to the entire world was registerd in `init_state`.
+        // SAFETY: Read-only access to the entire world was registered in `init_state`.
         world.world()
     }
 }
@@ -766,7 +765,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 }
 
 /// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] during
-/// [`apply_system_buffers`](crate::schedule::apply_system_buffers).
+/// [`apply_deferred`](crate::schedule::apply_deferred).
 /// This is used internally by [`Commands`] to defer `World` mutations.
 ///
 /// [`Commands`]: crate::system::Commands
@@ -809,7 +808,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// struct AlarmFlag(bool);
 ///
 /// impl AlarmFlag {
-///     /// Sounds the alarm the next time buffers are applied via apply_system_buffers.
+///     /// Sounds the alarm the next time buffers are applied via apply_deferred.
 ///     pub fn flag(&mut self) {
 ///         self.0 = true;
 ///     }
@@ -817,7 +816,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// impl SystemBuffer for AlarmFlag {
 ///     // When `AlarmFlag` is used in a system, this function will get
-///     // called the next time buffers are applied via apply_system_buffers.
+///     // called the next time buffers are applied via apply_deferred.
 ///     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
 ///         if self.0 {
 ///             world.resource_mut::<Alarm>().0 = true;
@@ -1306,6 +1305,7 @@ pub struct SystemName<'s> {
 }
 
 impl<'s> SystemName<'s> {
+    /// Gets the name of the system.
     pub fn name(&self) -> &str {
         self.name
     }
@@ -1412,12 +1412,30 @@ macro_rules! impl_system_param_tuple {
 
 all_tuples!(impl_system_param_tuple, 0, 16, P);
 
+/// Contains type aliases for built-in [`SystemParam`]s with `'static` lifetimes.
+/// This makes it more convenient to refer to these types in contexts where
+/// explicit lifetime annotations are required.
+///
+/// Note that this is entirely safe and tracks lifetimes correctly.
+/// This purely exists for convenience.
+///
+/// You can't instantiate a static `SystemParam`, you'll always end up with
+/// `Res<'w, T>`, `ResMut<'w, T>` or `&'w T` bound to the lifetime of the provided
+/// `&'w World`.
+///
+/// [`SystemParam`]: super::SystemParam
 pub mod lifetimeless {
+    /// A [`Query`](super::Query) with `'static` lifetimes.
     pub type SQuery<Q, F = ()> = super::Query<'static, 'static, Q, F>;
+    /// A shorthand for writing `&'static T`.
     pub type Read<T> = &'static T;
+    /// A shorthand for writing `&'static mut T`.
     pub type Write<T> = &'static mut T;
+    /// A [`Res`](super::Res) with `'static` lifetimes.
     pub type SRes<T> = super::Res<'static, T>;
+    /// A [`ResMut`](super::ResMut) with `'static` lifetimes.
     pub type SResMut<T> = super::ResMut<'static, T>;
+    /// [`Commands`](crate::system::Commands) with `'static` lifetimes.
     pub type SCommands = crate::system::Commands<'static, 'static>;
 }
 

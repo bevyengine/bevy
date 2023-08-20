@@ -1,4 +1,4 @@
-use crate::{Size, UiRect};
+use crate::UiRect;
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
@@ -14,7 +14,7 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
 
 /// Describes the size of a UI node
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
     /// The size of the node as width and height in logical pixels
@@ -25,8 +25,17 @@ pub struct Node {
 impl Node {
     /// The calculated node size as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
-    pub fn size(&self) -> Vec2 {
+    pub const fn size(&self) -> Vec2 {
         self.calculated_size
+    }
+
+    /// Returns the size of the node in physical pixels based on the given scale factor and `UiScale`.
+    #[inline]
+    pub fn physical_size(&self, scale_factor: f64, ui_scale: f64) -> Vec2 {
+        Vec2::new(
+            (self.calculated_size.x as f64 * scale_factor * ui_scale) as f32,
+            (self.calculated_size.y as f64 * scale_factor * ui_scale) as f32,
+        )
     }
 
     /// Returns the logical pixel coordinates of the UI node, based on its [`GlobalTransform`].
@@ -37,11 +46,22 @@ impl Node {
 
     /// Returns the physical pixel coordinates of the UI node, based on its [`GlobalTransform`] and the scale factor.
     #[inline]
-    pub fn physical_rect(&self, transform: &GlobalTransform, scale_factor: f32) -> Rect {
+    pub fn physical_rect(
+        &self,
+        transform: &GlobalTransform,
+        scale_factor: f64,
+        ui_scale: f64,
+    ) -> Rect {
         let rect = self.logical_rect(transform);
         Rect {
-            min: rect.min / scale_factor,
-            max: rect.max / scale_factor,
+            min: Vec2::new(
+                (rect.min.x as f64 * scale_factor * ui_scale) as f32,
+                (rect.min.y as f64 * scale_factor * ui_scale) as f32,
+            ),
+            max: Vec2::new(
+                (rect.max.x as f64 * scale_factor * ui_scale) as f32,
+                (rect.max.y as f64 * scale_factor * ui_scale) as f32,
+            ),
         }
     }
 }
@@ -65,7 +85,7 @@ impl Default for Node {
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Val {
-    /// Automatically determine the value based on the context and other `Style` properties.
+    /// Automatically determine the value based on the context and other [`Style`] properties.
     Auto,
     /// Set this value in logical pixels.
     Px(f32),
@@ -269,13 +289,13 @@ impl Val {
 /// ### Flexbox
 ///
 /// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
-/// - [A Complete Guide To Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/) by CSS Tricks. This is detailed guide with illustrations and comphrehensive written explanation of the different Flexbox properties and how they work.
+/// - [A Complete Guide To Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.
 /// - [Flexbox Froggy](https://flexboxfroggy.com/). An interactive tutorial/game that teaches the essential parts of Flebox in a fun engaging way.
 ///
 /// ### CSS Grid
 ///
 /// - [MDN: Basic Concepts of Flexbox](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flexible_Box_Layout/Basic_Concepts_of_Flexbox)
-/// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comphrehensive written explanation of the different CSS Grid properties and how they work.
+/// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
@@ -335,90 +355,81 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/bottom>
     pub bottom: Val,
 
-    /// The ideal size of the node
+    /// The ideal width of the node. `width` is used when it is within the bounds defined by `min_width` and `max_width`.
     ///
-    /// `size.width` is used when it is within the bounds defined by `min_size.width` and `max_size.width`.
-    /// `size.height` is used when it is within the bounds defined by `min_size.height` and `max_size.height`.
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/width>
+    pub width: Val,
+
+    /// The ideal height of the node. `height` is used when it is within the bounds defined by `min_height` and `max_height`.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/width> <br />
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/height>
-    pub size: Size,
+    pub height: Val,
 
-    /// The minimum size of the node
+    /// The minimum width of the node. `min_width` is used if it is greater than either `width` and/or `max_width`.
     ///
-    /// `min_size.width` is used if it is greater than either `size.width` or `max_size.width`, or both.
-    /// `min_size.height` is used if it is greater than either `size.height` or `max_size.height`, or both.
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/min-width>
+    pub min_width: Val,
+
+    /// The minimum height of the node. `min_height` is used if it is greater than either `height` and/or `max_height`.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/min-width> <br />
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/min-height>
-    pub min_size: Size,
+    pub min_height: Val,
 
-    /// The maximum size of the node
+    /// The maximum width of the node. `max_width` is used if it is within the bounds defined by `min_width` and `width`.
     ///
-    /// `max_size.width` is used if it is within the bounds defined by `min_size.width` and `size.width`.
-    /// `max_size.height` is used if it is within the bounds defined by `min_size.height` and `size.height.
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/max-width>
+    pub max_width: Val,
+
+    /// The maximum height of the node. `max_height` is used if it is within the bounds defined by `min_height` and `height`.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/max-width> <br />
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/max-height>
-    pub max_size: Size,
+    pub max_height: Val,
 
     /// The aspect ratio of the node (defined as `width / height`)
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/aspect-ratio>
     pub aspect_ratio: Option<f32>,
 
-    /// For Flexbox containers:
-    ///   - Sets default cross-axis alignment of the child items.
-    /// For CSS Grid containers:
-    ///   - Controls block (vertical) axis alignment of children of this grid container within their grid areas
+    /// - For Flexbox containers, sets default cross-axis alignment of the child items.
+    /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
     ///
-    /// This value is overriden [`JustifySelf`] on the child node is set.
+    /// This value is overridden [`JustifySelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
     pub align_items: AlignItems,
 
-    /// For Flexbox containers:
-    ///   - This property has no effect. See `justify_content` for main-axis alignment of flex items.
-    /// For CSS Grid containers:
-    ///   - Sets default inline (horizontal) axis alignment of child items within their grid areas
+    /// - For Flexbox containers, this property has no effect. See `justify_content` for main-axis alignment of flex items.
+    /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
     ///
-    /// This value is overriden [`JustifySelf`] on the child node is set.
+    /// This value is overridden [`JustifySelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
     pub justify_items: JustifyItems,
 
-    /// For Flexbox items:
-    ///   - Controls cross-axis alignment of the item.
-    /// For CSS Grid items:
-    ///   - Controls block (vertical) axis alignment of a grid item within it's grid area
+    /// - For Flexbox items, controls cross-axis alignment of the item.
+    /// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within it's grid area.
     ///
     /// If set to `Auto`, alignment is inherited from the value of [`AlignItems`] set on the parent node.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
     pub align_self: AlignSelf,
 
-    /// For Flexbox items:
-    ///   - This property has no effect. See `justify_content` for main-axis alignment of flex items.
-    /// For CSS Grid items:
-    ///   - Controls inline (horizontal) axis alignment of a grid item within it's grid area.
+    /// - For Flexbox items, this property has no effect. See `justify_content` for main-axis alignment of flex items.
+    /// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within it's grid area.
     ///
     /// If set to `Auto`, alignment is inherited from the value of [`JustifyItems`] set on the parent node.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
     pub justify_self: JustifySelf,
 
-    /// For Flexbox containers:
-    ///   - Controls alignment of lines if flex_wrap is set to [`FlexWrap::Wrap`] and there are multiple lines of items
-    /// For CSS Grid container:
-    ///   - Controls alignment of grid rows
+    /// - For Flexbox containers, controls alignment of lines if flex_wrap is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
+    /// - For CSS Grid containers, controls alignment of grid rows.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
     pub align_content: AlignContent,
 
-    /// For Flexbox containers:
-    ///   - Controls alignment of items in the main axis
-    /// For CSS Grid containers:
-    ///   - Controls alignment of grid columns
+    /// - For Flexbox containers, controls alignment of items in the main axis.
+    /// - For CSS Grid containers, controls alignment of grid columns.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
     pub justify_content: JustifyContent,
@@ -473,8 +484,6 @@ pub struct Style {
     ///
     /// The size of the node will be expanded if there are constraints that prevent the layout algorithm from placing the border within the existing node boundary.
     ///
-    /// Rendering for borders is not yet implemented.
-    ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
     pub border: UiRect,
 
@@ -505,12 +514,19 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-basis>
     pub flex_basis: Val,
 
-    /// The size of the gutters between items in flexbox layout or rows/columns in a grid layout
+    /// The size of the gutters between items in a vertical flexbox layout or between rows in a grid layout
     ///
     /// Note: Values of `Val::Auto` are not valid and are treated as zero.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gap>
-    pub gap: Size,
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/row-gap>
+    pub row_gap: Val,
+
+    /// The size of the gutters between items in a horizontal flexbox layout or between column in a grid layout
+    ///
+    /// Note: Values of `Val::Auto` are not valid and are treated as zero.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/column-gap>
+    pub column_gap: Val,
 
     /// Controls whether automatically placed grid items are placed row-wise or column-wise. And whether the sparse or dense packing algorithm is used.
     /// Only affect Grid layouts
@@ -536,7 +552,7 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-rows>
     pub grid_auto_rows: Vec<GridTrack>,
     /// Defines the size of implicitly created columns. Columns are created implicitly when grid items are given explicit placements that are out of bounds
-    /// of the columns explicitly created using `grid_template_columms`.
+    /// of the columns explicitly created using `grid_template_columns`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-template-columns>
     pub grid_auto_columns: Vec<GridTrack>,
@@ -575,12 +591,16 @@ impl Style {
         flex_grow: 0.0,
         flex_shrink: 1.0,
         flex_basis: Val::Auto,
-        size: Size::AUTO,
-        min_size: Size::AUTO,
-        max_size: Size::AUTO,
+        width: Val::Auto,
+        height: Val::Auto,
+        min_width: Val::Auto,
+        min_height: Val::Auto,
+        max_width: Val::Auto,
+        max_height: Val::Auto,
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
-        gap: Size::all(Val::Px(0.0)),
+        row_gap: Val::Px(0.0),
+        column_gap: Val::Px(0.0),
         grid_auto_flow: GridAutoFlow::DEFAULT,
         grid_template_rows: Vec::new(),
         grid_template_columns: Vec::new(),
@@ -1032,7 +1052,7 @@ impl Default for GridAutoFlow {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum MinTrackSizingFunction {
     /// Track minimum size should be a fixed pixel value
@@ -1047,7 +1067,7 @@ pub enum MinTrackSizingFunction {
     Auto,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum MaxTrackSizingFunction {
     /// Track maximum size should be a fixed pixel value
@@ -1072,7 +1092,7 @@ pub enum MaxTrackSizingFunction {
 
 /// A [`GridTrack`] is a Row or Column of a CSS Grid. This struct specifies what size the track should be.
 /// See below for the different "track sizing functions" you can specify.
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct GridTrack {
     pub(crate) min_sizing_function: MinTrackSizingFunction,
@@ -1190,7 +1210,7 @@ impl Default for GridTrack {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 /// How many times to repeat a repeated grid track
 ///
@@ -1240,7 +1260,7 @@ impl From<usize> for GridTrackRepetition {
 /// You may only use one auto-repetition per track list. And if your track list contains an auto repetition
 /// then all track (in and outside of the repetition) must be fixed size (px or percent). Integer repetitions are just shorthand for writing out
 /// N tracks longhand and are not subject to the same limitations.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Reflect, FromReflect)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct RepeatedGridTrack {
     pub(crate) repetition: GridTrackRepetition,
@@ -1401,7 +1421,7 @@ impl From<RepeatedGridTrack> for Vec<RepeatedGridTrack> {
 ///
 /// The default `span` is 1. If neither `start` or `end` is set then the item will be placed automatically.
 ///
-/// Generally, at most two fields should be set. If all three fields are specifed then `span` will be ignored. If `end` specifies an earlier
+/// Generally, at most two fields should be set. If all three fields are specified then `span` will be ignored. If `end` specifies an earlier
 /// grid line than `start` then `end` will be ignored and the item will have a span of 1.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Line-based_Placement_with_CSS_Grid>
@@ -1530,6 +1550,39 @@ impl Default for BackgroundColor {
 impl From<Color> for BackgroundColor {
     fn from(color: Color) -> Self {
         Self(color)
+    }
+}
+
+/// The atlas sprite to be used in a UI Texture Atlas Node
+#[derive(Component, Clone, Debug, Reflect, Default)]
+#[reflect(Component, Default)]
+pub struct UiTextureAtlasImage {
+    /// Texture index in the TextureAtlas
+    pub index: usize,
+    /// Whether to flip the sprite in the X axis
+    pub flip_x: bool,
+    /// Whether to flip the sprite in the Y axis
+    pub flip_y: bool,
+}
+
+/// The border color of the UI node.
+#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[reflect(Component, Default)]
+pub struct BorderColor(pub Color);
+
+impl From<Color> for BorderColor {
+    fn from(color: Color) -> Self {
+        Self(color)
+    }
+}
+
+impl BorderColor {
+    pub const DEFAULT: Self = BorderColor(Color::WHITE);
+}
+
+impl Default for BorderColor {
+    fn default() -> Self {
+        Self::DEFAULT
     }
 }
 
