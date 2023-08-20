@@ -353,7 +353,7 @@ impl_param_set!();
 ///
 /// ```
 /// # let mut world = World::default();
-/// # let mut schedule = Schedule::new();
+/// # let mut schedule = Schedule::default();
 /// # use bevy_ecs::prelude::*;
 /// #[derive(Resource)]
 /// struct MyResource { value: u32 }
@@ -854,7 +854,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///     // ...
 /// });
 ///
-/// let mut schedule = Schedule::new();
+/// let mut schedule = Schedule::default();
 /// // These two systems have no conflicts and will run in parallel.
 /// schedule.add_systems((alert_criminal, alert_monster));
 ///

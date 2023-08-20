@@ -1777,14 +1777,9 @@ impl World {
             return Err(TryRunScheduleError(label.dyn_clone()));
         };
 
-        // TODO: move this span to Schedule::run
-        #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("schedule", name = ?extracted_label).entered();
         let value = f(self, &mut schedule);
 
-        let old = self
-            .resource_mut::<Schedules>()
-            .insert(schedule);
+        let old = self.resource_mut::<Schedules>().insert(schedule);
         if old.is_some() {
             warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten");
         }
@@ -1809,7 +1804,7 @@ impl World {
     /// #
     /// # let mut world = World::new();
     /// # world.insert_resource(Counter(0));
-    /// # let mut schedule = Schedule::new();
+    /// # let mut schedule = Schedule::default();
     /// # schedule.add_systems(tick_counter);
     /// # world.init_resource::<Schedules>();
     /// # world.add_schedule(schedule, MySchedule);

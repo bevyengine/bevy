@@ -165,7 +165,6 @@ pub struct Schedule {
     executor_initialized: bool,
 }
 
-
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
 struct DefaultSchedule;
 
@@ -184,7 +183,7 @@ impl Schedule {
         Self {
             name: label.dyn_clone(),
             graph: ScheduleGraph::new(),
-            executable: SystemSchedule::new(),
+            executable: SystemSchedule::default(),
             executor: make_executor(ExecutorKind::default()),
             executor_initialized: false,
         }
@@ -246,6 +245,9 @@ impl Schedule {
 
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("schedule", name = ?self.name).entered();
+
         world.check_change_ticks();
         self.initialize(world).unwrap_or_else(|e| panic!("{e}"));
         self.executor.run(&mut self.executable, world);

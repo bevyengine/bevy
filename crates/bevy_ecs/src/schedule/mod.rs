@@ -70,7 +70,6 @@ mod tests {
     mod system_execution {
         use super::*;
 
-
         #[test]
         fn run_system() {
             let mut world = World::default();

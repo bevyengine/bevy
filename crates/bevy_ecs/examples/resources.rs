@@ -1,4 +1,4 @@
-use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
+use bevy_ecs::prelude::*;
 use rand::Rng;
 use std::ops::Deref;
 
