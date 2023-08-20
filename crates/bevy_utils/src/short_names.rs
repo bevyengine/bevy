@@ -118,6 +118,14 @@ mod name_formatting_tests {
     }
 
     #[test]
+    fn utf8_generics() {
+        assert_eq!(
+            get_short_name("bévï::camérą::łørđ::_öñîòñ<ķràźÿ::Москва::東京>"),
+            "_öñîòñ<東京>".to_string()
+        );
+    }
+
+    #[test]
     fn nested_generics() {
         assert_eq!(
             get_short_name("bevy::mad_science::do_mad_science<mad_science::Test<mad_science::Tube>, bavy::TypeSystemAbuse>"),
