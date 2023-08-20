@@ -108,7 +108,7 @@ fn fill_stack_recursively(result: &mut Vec<Entity>, stack: &mut StackingContext)
     stack.entries.sort_by_key(|e| e.z_index);
 
     for entry in &mut stack.entries {
-        // Parent node renders before/behind childs nodes
+        // Parent node renders before/behind child nodes
         result.push(entry.entity);
         fill_stack_recursively(result, &mut entry.stack);
     }

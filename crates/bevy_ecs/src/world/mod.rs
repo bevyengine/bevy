@@ -1864,23 +1864,6 @@ impl World {
     pub fn run_schedule(&mut self, label: impl AsRef<dyn ScheduleLabel>) {
         self.schedule_scope(label, |world, sched| sched.run(world));
     }
-
-    /// Runs the [`Schedule`] associated with the `label` a single time.
-    ///
-    /// Unlike the `run_schedule` method, this method takes the label by reference, which can save a clone.
-    ///
-    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
-    /// and system state is cached.
-    ///
-    /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
-    ///
-    /// # Panics
-    ///
-    /// If the requested schedule does not exist.
-    #[deprecated = "Use `World::run_schedule` instead."]
-    pub fn run_schedule_ref(&mut self, label: &dyn ScheduleLabel) {
-        self.schedule_scope(label, |world, sched| sched.run(world));
-    }
 }
 
 impl fmt::Debug for World {

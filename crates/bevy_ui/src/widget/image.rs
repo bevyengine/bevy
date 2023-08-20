@@ -3,7 +3,6 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle};
 
-#[cfg(feature = "bevy_text")]
 use bevy_ecs::query::Without;
 use bevy_ecs::{
     prelude::Component,
@@ -15,8 +14,6 @@ use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
-#[cfg(feature = "bevy_text")]
-use bevy_text::Text;
 use bevy_window::{PrimaryWindow, Window};
 
 /// The size of the image's texture
@@ -73,26 +70,24 @@ impl Measure for ImageMeasure {
     }
 }
 
+#[cfg(feature = "bevy_text")]
+type UpdateImageFilter = (With<Node>, Without<bevy_text::Text>);
+#[cfg(not(feature = "bevy_text"))]
+type UpdateImageFilter = With<Node>;
+
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(
     mut previous_combined_scale_factor: Local<f64>,
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     textures: Res<Assets<Image>>,
-    #[cfg(feature = "bevy_text")] mut query: Query<
-        (&mut ContentSize, &UiImage, &mut UiImageSize),
-        (With<Node>, Without<Text>),
-    >,
-    #[cfg(not(feature = "bevy_text"))] mut query: Query<
-        (&mut ContentSize, &UiImage, &mut UiImageSize),
-        With<Node>,
-    >,
+    mut query: Query<(&mut ContentSize, &UiImage, &mut UiImageSize), UpdateImageFilter>,
 ) {
     let combined_scale_factor = windows
         .get_single()
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.)
-        * ui_scale.scale;
+        * ui_scale.0;
 
     for (mut content_size, image, mut image_size) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
@@ -120,30 +115,21 @@ pub fn update_atlas_content_size_system(
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     atlases: Res<Assets<TextureAtlas>>,
-    #[cfg(feature = "bevy_text")] mut atlas_query: Query<
+    mut atlas_query: Query<
         (
             &mut ContentSize,
             &Handle<TextureAtlas>,
             &UiTextureAtlasImage,
             &mut UiImageSize,
         ),
-        (With<Node>, Without<Text>, Without<UiImage>),
-    >,
-    #[cfg(not(feature = "bevy_text"))] mut atlas_query: Query<
-        (
-            &mut ContentSize,
-            &Handle<TextureAtlas>,
-            &UiTextureAtlasImage,
-            &mut UiImageSize,
-        ),
-        (With<Node>, Without<UiImage>),
+        (UpdateImageFilter, Without<UiImage>),
     >,
 ) {
     let combined_scale_factor = windows
         .get_single()
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.)
-        * ui_scale.scale;
+        * ui_scale.0;
 
     for (mut content_size, atlas, atlas_image, mut image_size) in &mut atlas_query {
         if let Some(atlas) = atlases.get(atlas) {

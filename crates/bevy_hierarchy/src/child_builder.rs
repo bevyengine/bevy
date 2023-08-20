@@ -289,7 +289,7 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
 
 /// Trait for removing, adding and replacing children and parents of an entity.
 pub trait BuildChildren {
-    /// Takes a clousre which builds children for this entity using [`ChildBuilder`].
+    /// Takes a closure which builds children for this entity using [`ChildBuilder`].
     fn with_children(&mut self, f: impl FnOnce(&mut ChildBuilder)) -> &mut Self;
     /// Pushes children to the back of the builder's children. For any entities that are
     /// already a child of this one, this method does nothing.
@@ -297,12 +297,20 @@ pub trait BuildChildren {
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the children are the same as the parent.
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Inserts children at the given index.
     ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the children are the same as the parent.
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
     /// Removes the given children
     ///
@@ -313,18 +321,30 @@ pub trait BuildChildren {
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the child is the same as the parent.
     fn add_child(&mut self, child: Entity) -> &mut Self;
     /// Removes all children from this entity. The [`Children`] component will be removed if it exists, otherwise this does nothing.
     fn clear_children(&mut self) -> &mut Self;
     /// Removes all current children from this entity, replacing them with the specified list of entities.
     ///
     /// The removed children will have their [`Parent`] component removed.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the children are the same as the parent.
     fn replace_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Sets the parent of this entity.
     ///
     /// If this entity already had a parent, the parent's [`Children`] component will have this
     /// child removed from its list. Removing all children from a parent causes its [`Children`]
     /// component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the parent is the same as the child.
     fn set_parent(&mut self, parent: Entity) -> &mut Self;
     /// Removes the [`Parent`] of this entity.
     ///
@@ -346,12 +366,18 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
         spawn_children(&mut builder);
         let children = builder.push_children;
+        if children.children.contains(&parent) {
+            panic!("Entity cannot be a child of itself.");
+        }
         self.commands().add(children);
         self
     }
 
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
+        if children.contains(&parent) {
+            panic!("Cannot push entity as a child of itself.");
+        }
         self.commands().add(PushChildren {
             children: SmallVec::from(children),
             parent,
@@ -361,6 +387,9 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
         let parent = self.id();
+        if children.contains(&parent) {
+            panic!("Cannot insert entity as a child of itself.");
+        }
         self.commands().add(InsertChildren {
             children: SmallVec::from(children),
             index,
@@ -380,6 +409,9 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn add_child(&mut self, child: Entity) -> &mut Self {
         let parent = self.id();
+        if child == parent {
+            panic!("Cannot add entity as a child of itself.");
+        }
         self.commands().add(AddChild { child, parent });
         self
     }
@@ -392,6 +424,9 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
+        if children.contains(&parent) {
+            panic!("Cannot replace entity as a child of itself.");
+        }
         self.commands().add(ReplaceChildren {
             children: SmallVec::from(children),
             parent,
@@ -401,6 +436,9 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn set_parent(&mut self, parent: Entity) -> &mut Self {
         let child = self.id();
+        if child == parent {
+            panic!("Cannot set parent to itself");
+        }
         self.commands().add(AddChild { child, parent });
         self
     }
@@ -458,7 +496,7 @@ impl<'w> WorldChildBuilder<'w> {
 
 /// Trait that defines adding, changing and children and parents of an entity directly through the [`World`].
 pub trait BuildWorldChildren {
-    /// Takes a clousre which builds children for this entity using [`WorldChildBuilder`].
+    /// Takes a closure which builds children for this entity using [`WorldChildBuilder`].
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self;
 
     /// Adds a single child.
@@ -466,6 +504,10 @@ pub trait BuildWorldChildren {
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the child is the same as the parent.
     fn add_child(&mut self, child: Entity) -> &mut Self;
 
     /// Pushes children to the back of the builder's children. For any entities that are
@@ -474,12 +516,20 @@ pub trait BuildWorldChildren {
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the children are the same as the parent.
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Inserts children at the given index.
     ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the children are the same as the parent.
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
     /// Removes the given children
     ///
@@ -491,6 +541,10 @@ pub trait BuildWorldChildren {
     /// If this entity already had a parent, the parent's [`Children`] component will have this
     /// child removed from its list. Removing all children from a parent causes its [`Children`]
     /// component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the parent is the same as the child.
     fn set_parent(&mut self, parent: Entity) -> &mut Self;
 
     /// Removes the [`Parent`] of this entity.
@@ -511,6 +565,9 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 
     fn add_child(&mut self, child: Entity) -> &mut Self {
         let parent = self.id();
+        if child == parent {
+            panic!("Cannot add entity as a child of itself.");
+        }
         self.world_scope(|world| {
             update_old_parent(world, child, parent);
         });
@@ -525,6 +582,9 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
+        if children.contains(&parent) {
+            panic!("Cannot push entity as a child of itself.");
+        }
         self.world_scope(|world| {
             update_old_parents(world, parent, children);
         });
@@ -541,6 +601,9 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
         let parent = self.id();
+        if children.contains(&parent) {
+            panic!("Cannot insert entity as a child of itself.");
+        }
         self.world_scope(|world| {
             update_old_parents(world, parent, children);
         });

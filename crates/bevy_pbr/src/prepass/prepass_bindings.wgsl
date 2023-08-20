@@ -15,5 +15,4 @@ var<uniform> previous_view_proj: mat4x4<f32>;
 
 // Material bindings will be in @group(1)
 
-@group(2) @binding(0)
-var<uniform> mesh: bevy_pbr::mesh_types::Mesh;
+#import bevy_pbr::mesh_bindings   mesh

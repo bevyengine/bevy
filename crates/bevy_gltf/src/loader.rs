@@ -70,8 +70,8 @@ pub enum GltfError {
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
 pub struct GltfLoader {
-    pub(crate) supported_compressed_formats: CompressedImageFormats,
-    pub(crate) custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
+    pub supported_compressed_formats: CompressedImageFormats,
+    pub custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
 }
 
 impl AssetLoader for GltfLoader {
@@ -858,7 +858,7 @@ fn load_node(
                             // For a point light, luminous power = 4 * pi * luminous intensity
                             intensity: light.intensity() * std::f32::consts::PI * 4.0,
                             range: light.range().unwrap_or(20.0),
-                            radius: light.range().unwrap_or(0.0),
+                            radius: 0.0,
                             ..Default::default()
                         },
                         ..Default::default()
