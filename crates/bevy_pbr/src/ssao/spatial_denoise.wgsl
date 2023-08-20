@@ -9,11 +9,12 @@
 // XeGTAO does a 3x3 filter, on two pixels at a time per compute thread, applied twice
 // We do a 3x3 filter, on 1 pixel per compute thread, applied once
 
+#import bevy_pbr::gtao_utils pack_ssao, unpack_ssao
 #import bevy_render::view View
 
-@group(0) @binding(0) var ambient_occlusion_noisy: texture_2d<f32>;
+@group(0) @binding(0) var ambient_occlusion_noisy: texture_2d<u32>;
 @group(0) @binding(1) var depth_differences: texture_2d<u32>;
-@group(0) @binding(2) var ambient_occlusion: texture_storage_2d<r16float, write>;
+@group(0) @binding(2) var ambient_occlusion: texture_storage_2d<r32uint, write>;
 @group(1) @binding(0) var point_clamp_sampler: sampler;
 @group(1) @binding(1) var<uniform> view: View;
 
@@ -26,16 +27,16 @@ fn spatial_denoise(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let edges0 = textureGather(0, depth_differences, point_clamp_sampler, uv);
     let edges1 = textureGather(0, depth_differences, point_clamp_sampler, uv, vec2<i32>(2i, 0i));
     let edges2 = textureGather(0, depth_differences, point_clamp_sampler, uv, vec2<i32>(1i, 2i));
-    let visibility0 = textureGather(0, ambient_occlusion_noisy, point_clamp_sampler, uv);
-    let visibility1 = textureGather(0, ambient_occlusion_noisy, point_clamp_sampler, uv, vec2<i32>(2i, 0i));
-    let visibility2 = textureGather(0, ambient_occlusion_noisy, point_clamp_sampler, uv, vec2<i32>(0i, 2i));
-    let visibility3 = textureGather(0, ambient_occlusion_noisy, point_clamp_sampler, uv, vec2<i32>(2i, 2i));
+    let ssao0 = textureGather(0, ambient_occlusion_noisy, point_clamp_sampler, uv);
+    let ssao1 = textureGather(0, ambient_occlusion_noisy, point_clamp_sampler, uv, vec2<i32>(2i, 0i));
+    let ssao2 = textureGather(0, ambient_occlusion_noisy, point_clamp_sampler, uv, vec2<i32>(0i, 2i));
+    let ssao3 = textureGather(0, ambient_occlusion_noisy, point_clamp_sampler, uv, vec2<i32>(2i, 2i));
 
-    let left_edges = myunpack4x8unorm(edges0.x);
-    let right_edges = myunpack4x8unorm(edges1.x);
-    let top_edges = myunpack4x8unorm(edges0.z);
-    let bottom_edges = myunpack4x8unorm(edges2.w);
-    var center_edges = myunpack4x8unorm(edges0.y);
+    let left_edges = unpack4x8unorm(edges0.x);
+    let right_edges = unpack4x8unorm(edges1.x);
+    let top_edges = unpack4x8unorm(edges0.z);
+    let bottom_edges = unpack4x8unorm(edges2.w);
+    var center_edges = unpack4x8unorm(edges0.y);
     center_edges *= vec4<f32>(left_edges.y, right_edges.x, top_edges.w, bottom_edges.z);
 
     let center_weight = 1.2;
@@ -48,25 +49,25 @@ fn spatial_denoise(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let bottom_left_weight = 0.425 * (bottom_weight * bottom_edges.x + left_weight * left_edges.w);
     let bottom_right_weight = 0.425 * (bottom_weight * bottom_edges.y + right_weight * right_edges.w);
 
-    let center_visibility = visibility0.y;
-    let left_visibility = visibility0.x;
-    let right_visibility = visibility0.z;
-    let top_visibility = visibility1.x;
-    let bottom_visibility = visibility2.z;
-    let top_left_visibility = visibility0.w;
-    let top_right_visibility = visibility1.w;
-    let bottom_left_visibility = visibility2.w;
-    let bottom_right_visibility = visibility3.w;
+    let center_ssao = unpack_ssao(ssao0.y);
+    let left_ssao = unpack_ssao(ssao0.x);
+    let right_ssao = unpack_ssao(ssao0.z);
+    let top_ssao = unpack_ssao(ssao1.x);
+    let bottom_ssao = unpack_ssao(ssao2.z);
+    let top_left_ssao = unpack_ssao(ssao0.w);
+    let top_right_ssao = unpack_ssao(ssao1.w);
+    let bottom_left_ssao = unpack_ssao(ssao2.w);
+    let bottom_right_ssao = unpack_ssao(ssao3.w);
 
-    var sum = center_visibility;
-    sum += left_visibility * left_weight;
-    sum += right_visibility * right_weight;
-    sum += top_visibility * top_weight;
-    sum += bottom_visibility * bottom_weight;
-    sum += top_left_visibility * top_left_weight;
-    sum += top_right_visibility * top_right_weight;
-    sum += bottom_left_visibility * bottom_left_weight;
-    sum += bottom_right_visibility * bottom_right_weight;
+    var sum = center_ssao;
+    sum += left_ssao * left_weight;
+    sum += right_ssao * right_weight;
+    sum += top_ssao * top_weight;
+    sum += bottom_ssao * bottom_weight;
+    sum += top_left_ssao * top_left_weight;
+    sum += top_right_ssao * top_right_weight;
+    sum += bottom_left_ssao * bottom_left_weight;
+    sum += bottom_right_ssao * bottom_right_weight;
 
     var sum_weight = center_weight;
     sum_weight += left_weight;
@@ -78,15 +79,8 @@ fn spatial_denoise(@builtin(global_invocation_id) global_id: vec3<u32>) {
     sum_weight += bottom_left_weight;
     sum_weight += bottom_right_weight;
 
-    let denoised_visibility = sum / sum_weight;
+    let denoised_ssao = sum / sum_weight;
 
-    textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(denoised_visibility, 0.0, 0.0, 0.0));
-}
-
-// TODO: Remove this once https://github.com/gfx-rs/naga/pull/2353 lands in Bevy
-fn myunpack4x8unorm(e: u32) -> vec4<f32> {
-    return vec4<f32>(clamp(f32(e & 0xFFu) / 255.0, 0.0, 1.0),
-        clamp(f32((e >> 8u) & 0xFFu) / 255.0, 0.0, 1.0),
-        clamp(f32((e >> 16u) & 0xFFu) / 255.0, 0.0, 1.0),
-        clamp(f32((e >> 24u) & 0xFFu) / 255.0, 0.0, 1.0));
+    let packed_output = vec4<u32>(pack_ssao(denoised_ssao.w, denoised_ssao.xyz), 0u, 0u, 0u);
+    textureStore(ambient_occlusion, pixel_coordinates, packed_output);
 }

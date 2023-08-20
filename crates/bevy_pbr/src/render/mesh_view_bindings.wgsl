@@ -49,7 +49,7 @@ var<uniform> globals: Globals;
 var<uniform> fog: types::Fog;
 
 @group(0) @binding(11)
-var screen_space_ambient_occlusion_texture: texture_2d<f32>;
+var screen_space_ambient_occlusion_texture: texture_2d<u32>;
 
 @group(0) @binding(12)
 var environment_map_diffuse: texture_cube<f32>;

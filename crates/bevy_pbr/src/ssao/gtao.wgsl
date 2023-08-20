@@ -5,7 +5,7 @@
 // Source code heavily based on XeGTAO v1.30 from Intel
 // https://github.com/GameTechDev/XeGTAO/blob/0d177ce06bfa642f64d8af4de1197ad1bcb862d4/Source/Rendering/Shaders/XeGTAO.hlsli
 
-#import bevy_pbr::gtao_utils fast_acos
+#import bevy_pbr::gtao_utils pack_ssao, fast_acos
 #import bevy_pbr::utils PI, HALF_PI
 #import bevy_render::view View
 #import bevy_render::globals Globals
@@ -13,7 +13,7 @@
 @group(0) @binding(0) var preprocessed_depth: texture_2d<f32>;
 @group(0) @binding(1) var normals: texture_2d<f32>;
 @group(0) @binding(2) var hilbert_index_lut: texture_2d<u32>;
-@group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r16float, write>;
+@group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r32uint, write>;
 @group(0) @binding(4) var depth_differences: texture_storage_2d<r32uint, write>;
 @group(0) @binding(5) var<uniform> globals: Globals;
 @group(1) @binding(0) var point_clamp_sampler: sampler;
@@ -53,18 +53,10 @@ fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 
     edge_info = saturate((1.0 + bias) - edge_info / scale); // Apply the bias and scale, and invert edge_info so that small values become large, and vice versa
 
     // Pack the edge info into the texture
-    let edge_info_packed = vec4<u32>(mypack4x8unorm(edge_info), 0u, 0u, 0u);
+    let edge_info_packed = vec4<u32>(pack4x8unorm(edge_info), 0u, 0u, 0u);
     textureStore(depth_differences, pixel_coordinates, edge_info_packed);
 
     return depth_center;
-}
-
-// TODO: Remove this once https://github.com/gfx-rs/naga/pull/2353 lands
-fn mypack4x8unorm(e: vec4<f32>) -> u32 {
-    return u32(clamp(e.x, 0.0, 1.0) * 255.0 + 0.5) |
-    u32(clamp(e.y, 0.0, 1.0) * 255.0 + 0.5) << 8u |
-    u32(clamp(e.z, 0.0, 1.0) * 255.0 + 0.5) << 16u |
-    u32(clamp(e.w, 0.0, 1.0) * 255.0 + 0.5) << 24u;
 }
 
 fn load_normal_view_space(uv: vec2<f32>) -> vec3<f32> {
@@ -88,6 +80,38 @@ fn reconstruct_view_space_position(depth: f32, uv: vec2<f32>) -> vec3<f32> {
 fn load_and_reconstruct_view_space_position(uv: vec2<f32>, sample_mip_level: f32) -> vec3<f32> {
     let depth = textureSampleLevel(preprocessed_depth, point_clamp_sampler, uv, sample_mip_level).r;
     return reconstruct_view_space_position(depth, uv);
+}
+
+// https://github.com/GameTechDev/XeGTAO/blob/master/Source/Rendering/Shaders/XeGTAO.hlsli#L211
+fn generate_rotation_matrix(from_vec: vec3<f32>, to_vec: vec3<f32>) -> mat3x3<f32> {
+    let e = dot(from_vec, to_vec);
+    let f = abs(e);
+
+    // WARNING: This has not been tested/worked through, seems to work in our special use case (from is always {0, 0, -1}) but wouldn't use it in general
+    if f > 0.9997 { return mat3x3<f32>(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0); }
+
+    let v = cross(from_vec, to_vec);
+    let h = 1.0 / (1.0 + e);
+    let hvx = h * v.x;
+    let hvz = h * v.z;
+    let hvxy = hvx * v.y;
+    let hvxz = hvx * v.z;
+    let hvyz = hvz * v.y;
+
+    var mtx: mat3x3<f32>;
+    mtx[0][0] = e + hvx * v.x;
+    mtx[0][1] = hvxy - v.z;
+    mtx[0][2] = hvxz + v.y;
+
+    mtx[1][0] = hvxy + v.z;
+    mtx[1][1] = e + h * v.y * v.y;
+    mtx[1][2] = hvyz - v.x;
+
+    mtx[2][0] = hvxz - v.y;
+    mtx[2][1] = hvyz + v.x;
+    mtx[2][2] = e + hvz * v.z;
+
+    return mtx;
 }
 
 @compute
@@ -115,6 +139,7 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let sample_scale = (-0.5 * effect_radius * view.projection[0][0]) / pixel_position.z;
 
     var visibility = 0.0;
+    var bent_normal = vec3(0.0);
     for (var slice_t = 0.0; slice_t < slice_count; slice_t += 1.0) {
         let slice = slice_t + noise.x;
         let phi = (PI / slice_count) * slice;
@@ -168,9 +193,17 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let v1 = (cos_norm + 2.0 * horizon_1 * sin(n) - cos(2.0 * horizon_1 - n)) / 4.0;
         let v2 = (cos_norm + 2.0 * horizon_2 * sin(n) - cos(2.0 * horizon_2 - n)) / 4.0;
         visibility += projected_normal_length * (v1 + v2);
+
+        let t0 = (6.0 * sin(horizon_2 - n) - sin(3.0 * horizon_2 - n) + 6.0 * sin(horizon_1 - n) - sin(3.0 * horizon_1 - n) + 16.0 * sin(n) - 3.0 * (sin(horizon_2 + n) + sin(horizon_1 + n))) / 12.0;
+        let t1 = (-cos(3.0 * horizon_2 - n) - cos(3.0 * horizon_1 - n) + 8.0 * cos(n) - 3.0 * (cos(horizon_2 + n) + cos(horizon_1 + n))) / 12.0;
+        var local_bent_normal = vec3(direction.x * t0, direction.y * t0, -t1);
+        local_bent_normal = (generate_rotation_matrix(vec3(0.0, 0.0, -1.0), view_vec) * local_bent_normal) * projected_normal_length;
+        bent_normal += local_bent_normal;
     }
     visibility /= slice_count;
     visibility = clamp(visibility, 0.03, 1.0);
+    bent_normal = normalize(bent_normal);
 
-    textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(visibility, 0.0, 0.0, 0.0));
+    let packed_output = vec4<u32>(pack_ssao(visibility, bent_normal), 0u, 0u, 0u);
+    textureStore(ambient_occlusion, pixel_coordinates, packed_output);
 }

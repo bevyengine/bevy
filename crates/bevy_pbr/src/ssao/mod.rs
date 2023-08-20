@@ -30,7 +30,7 @@ use bevy_render::{
         TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
         TextureView, TextureViewDescriptor, TextureViewDimension,
     },
-    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -87,17 +87,6 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
 
     fn finish(&self, app: &mut App) {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
-
-        if !render_app
-            .world
-            .resource::<RenderAdapter>()
-            .get_texture_format_features(TextureFormat::R16Float)
-            .allowed_usages
-            .contains(TextureUsages::STORAGE_BINDING)
-        {
-            warn!("ScreenSpaceAmbientOcclusionPlugin not loaded. GPU lacks support: TextureFormat::R16Float does not support TextureUsages::STORAGE_BINDING.");
-            return;
-        }
 
         if render_app
             .world
@@ -159,7 +148,7 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 /// TAA ([`bevy_core_pipeline::experimental::taa::TemporalAntiAliasSettings`]).
 /// Doing so greatly reduces SSAO noise.
 ///
-/// SSAO is not supported on `WebGL2`, and is not currently supported on `WebGPU` or `DirectX12`.
+/// SSAO is not supported on `WebGL2`.
 #[derive(Component, ExtractComponent, Reflect, PartialEq, Eq, Hash, Clone, Default)]
 #[reflect(Component)]
 pub struct ScreenSpaceAmbientOcclusionSettings {
@@ -456,7 +445,7 @@ impl FromWorld for SsaoPipelines {
                         visibility: ShaderStages::COMPUTE,
                         ty: BindingType::StorageTexture {
                             access: StorageTextureAccess::WriteOnly,
-                            format: TextureFormat::R16Float,
+                            format: TextureFormat::R32Uint,
                             view_dimension: TextureViewDimension::D2,
                         },
                         count: None,
@@ -492,7 +481,7 @@ impl FromWorld for SsaoPipelines {
                         binding: 0,
                         visibility: ShaderStages::COMPUTE,
                         ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: false },
+                            sample_type: TextureSampleType::Uint,
                             view_dimension: TextureViewDimension::D2,
                             multisampled: false,
                         },
@@ -513,7 +502,7 @@ impl FromWorld for SsaoPipelines {
                         visibility: ShaderStages::COMPUTE,
                         ty: BindingType::StorageTexture {
                             access: StorageTextureAccess::WriteOnly,
-                            format: TextureFormat::R16Float,
+                            format: TextureFormat::R32Uint,
                             view_dimension: TextureViewDimension::D2,
                         },
                         count: None,
@@ -669,7 +658,7 @@ fn prepare_ssao_textures(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::R16Float,
+                format: TextureFormat::R32Uint,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
             },
@@ -683,7 +672,7 @@ fn prepare_ssao_textures(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::R16Float,
+                format: TextureFormat::R32Uint,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
             },
