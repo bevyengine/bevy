@@ -484,24 +484,40 @@ mod type_uuid_impl;
 mod impls {
     #[cfg(feature = "glam")]
     mod glam;
+    #[cfg(feature = "rand_chacha")]
+    mod rand_chacha;
+    #[cfg(feature = "rand_pcg")]
+    mod rand_pcg;
+    #[cfg(feature = "rand_xoshiro")]
+    mod rand_xoshiro;
     #[cfg(feature = "bevy_math")]
     mod rect;
     #[cfg(feature = "smallvec")]
     mod smallvec;
     #[cfg(feature = "smol_str")]
     mod smol_str;
+    #[cfg(feature = "wyrand")]
+    mod wyrand;
 
     mod std;
     mod uuid;
 
     #[cfg(feature = "glam")]
     pub use self::glam::*;
+    #[cfg(feature = "rand_chacha")]
+    pub use self::rand_chacha::*;
+    #[cfg(feature = "rand_pcg")]
+    pub use self::rand_pcg::*;
+    #[cfg(feature = "rand_xoshiro")]
+    pub use self::rand_xoshiro::*;
     #[cfg(feature = "bevy_math")]
     pub use self::rect::*;
     #[cfg(feature = "smallvec")]
     pub use self::smallvec::*;
     pub use self::std::*;
     pub use self::uuid::*;
+    #[cfg(feature = "wyrand")]
+    pub use self::wyrand::*;
 }
 
 mod enums;
