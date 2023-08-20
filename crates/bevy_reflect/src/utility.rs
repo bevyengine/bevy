@@ -50,7 +50,7 @@ mod sealed {
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo, TypePath};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
 /// struct Foo {
@@ -189,7 +189,7 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath};
+/// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath};
 /// use bevy_reflect::utility::GenericTypePathCell;
 ///
 /// struct Foo<T>(T);

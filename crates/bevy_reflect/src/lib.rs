@@ -325,8 +325,8 @@
 //! let registration = registry.get(std::any::TypeId::of::<MyStruct>()).unwrap();
 //! let reflect_default = registration.data::<ReflectDefault>().unwrap();
 //!
-//! let new_value: Box<dyn PartialReflect> = reflect_default.default();
-//! assert!(new_value.try_take::<MyStruct>().is_ok());
+//! let new_value: Box<dyn Reflect> = reflect_default.default();
+//! assert!(new_value.take::<MyStruct>().is_ok());
 //! ```
 //!
 //! Because this operation is so common, the derive macro actually has a shorthand for it.
@@ -1346,7 +1346,6 @@ mod tests {
         // TypeInfo (instance)
         let value: &dyn PartialReflect = &123_i32;
         let info = value.get_represented_type_info().unwrap();
-        let value: &dyn Reflect = &123_i32;
         assert!(info.is::<i32>());
 
         // Struct
@@ -1584,9 +1583,6 @@ mod tests {
             _hrl: for<'a> fn(&'a str) -> &'a str,
         }
 
-        let value: &dyn PartialReflect = &DynamicList::default();
-        let info = value.get_represented_type_info().unwrap();
-        assert!(info.is::<MyDynamic>());
         impl Default for TestStruct {
             fn default() -> Self {
                 TestStruct {

@@ -509,7 +509,7 @@ pub fn map_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) {
 mod tests {
     use super::DynamicMap;
     use super::Map;
-    use crate::reflect::Reflect;
+    use crate::PartialReflect;
 
     #[test]
     fn test_into_iter() {
@@ -544,16 +544,16 @@ mod tests {
 
         let (key_r, value_r) = map.get_at(1).expect("Item wasn't found");
         let value = value_r
-            .downcast_ref::<String>()
+            .try_downcast_ref::<String>()
             .expect("Couldn't downcast to String");
         let key = key_r
-            .downcast_ref::<usize>()
+            .try_downcast_ref::<usize>()
             .expect("Couldn't downcast to usize");
         assert_eq!(key, &1usize);
         assert_eq!(value, &values[2].to_owned());
 
         assert!(map.get_at(2).is_none());
-        map.remove(&1usize as &dyn Reflect);
+        map.remove(&1usize as &dyn PartialReflect);
         assert!(map.get_at(1).is_none());
     }
 
@@ -567,10 +567,10 @@ mod tests {
 
         let (key_r, value_r) = map.get_at_mut(1).expect("Item wasn't found");
         let value = value_r
-            .downcast_mut::<String>()
+            .try_downcast_mut::<String>()
             .expect("Couldn't downcast to String");
         let key = key_r
-            .downcast_ref::<usize>()
+            .try_downcast_ref::<usize>()
             .expect("Couldn't downcast to usize");
         assert_eq!(key, &1usize);
         assert_eq!(value, &mut values[2].to_owned());
@@ -578,9 +578,9 @@ mod tests {
         *value = values[0].to_owned();
 
         assert_eq!(
-            map.get(&1usize as &dyn Reflect)
+            map.get(&1usize as &dyn PartialReflect)
                 .expect("Item wasn't found")
-                .downcast_ref::<String>()
+                .try_downcast_ref::<String>()
                 .expect("Couldn't downcast to String"),
             &values[0].to_owned()
         );
