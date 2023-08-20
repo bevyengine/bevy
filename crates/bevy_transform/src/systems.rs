@@ -21,7 +21,7 @@ pub fn sync_simple_transforms(
                 Without<Children>,
             ),
         >,
-        Query<(Ref<Transform>, &mut GlobalTransform), Without<Children>>,
+        Query<(Ref<Transform>, &mut GlobalTransform), (Without<Parent>, Without<Children>)>,
     )>,
     mut orphaned: RemovedComponents<Parent>,
 ) {
