@@ -15,7 +15,7 @@ Bevy has built-in [tracing](https://github.com/tokio-rs/tracing) spans to make i
 
 If you also want to include `wgpu` tracing spans when profiling, they are emitted at the `tracing` `info` level so you will need to make sure they are not filtered out by the `LogSettings` resource's `filter` member which defaults to `wgpu=error`. You can do this by setting the `RUST_LOG=info` environment variable when running your application.
 
-You also need to select a `tracing` backend using the following cargo features.
+You also need to select a `tracing` backend using one of the following cargo features.
 
 **⚠️ Note: for users of span based profilers**
 
