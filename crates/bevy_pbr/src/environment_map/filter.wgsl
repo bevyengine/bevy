@@ -1,3 +1,4 @@
+// Step 2/2 in generating a specular lighting cubemap from a skybox: Importance sample the GGX distribution based on the downsampled cubemap
 // Original source: https://www.activision.com/cdn/research/filter_using_table_128.txt
 
 // Copyright 2016 Activision Publishing, Inc.
@@ -153,10 +154,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 }
 
                 for (var i_sub_tap = 0u; i_sub_tap < 4u; i_sub_tap++) {
-                    var sample_dir
-                        = frame_x * (coeffs_dir0[0u][i_sub_tap] + coeffs_dir0[1u][i_sub_tap] * theta2 + coeffs_dir0[2u][i_sub_tap] * phi2)
-                        + frame_y * (coeffs_dir1[0u][i_sub_tap] + coeffs_dir1[1u][i_sub_tap] * theta2 + coeffs_dir1[2u][i_sub_tap] * phi2)
-                        + frame_z * (coeffs_dir2[0u][i_sub_tap] + coeffs_dir2[1u][i_sub_tap] * theta2 + coeffs_dir2[2u][i_sub_tap] * phi2);
+                    var sample_dir = frame_x * (coeffs_dir0[0u][i_sub_tap] + coeffs_dir0[1u][i_sub_tap] * theta2 + coeffs_dir0[2u][i_sub_tap] * phi2) + frame_y * (coeffs_dir1[0u][i_sub_tap] + coeffs_dir1[1u][i_sub_tap] * theta2 + coeffs_dir1[2u][i_sub_tap] * phi2) + frame_z * (coeffs_dir2[0u][i_sub_tap] + coeffs_dir2[1u][i_sub_tap] * theta2 + coeffs_dir2[2u][i_sub_tap] * phi2);
 
                     var sample_level = coeffs_level[0u][i_sub_tap] + coeffs_level[1u][i_sub_tap] * theta2 + coeffs_level[2u][i_sub_tap] * phi2;
 

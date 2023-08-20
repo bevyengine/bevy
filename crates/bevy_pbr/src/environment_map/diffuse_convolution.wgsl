@@ -1,3 +1,4 @@
+// Importance samples (Lambertian distribution) a skybox to produce a diffuse lighting cubemap
 // Based on https://github.com/KhronosGroup/glTF-IBL-Sampler/blob/master/lib/source/shaders/filter.frag
 
 #import bevy_pbr::utils PI

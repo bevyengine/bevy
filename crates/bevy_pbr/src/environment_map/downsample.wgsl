@@ -1,3 +1,4 @@
+// Step 1/2 in generating a specular lighting cubemap from a skybox: Downsamples a skybox into multiple mips
 // Original source: https://www.activision.com/cdn/research/downsample_cubemap.txt
 
 // Copyright 2016 Activision Publishing, Inc.
@@ -40,8 +41,8 @@ fn get_dir(u: f32, v: f32, face: u32) -> vec3<f32> {
 }
 
 fn calc_weight(u: f32, v: f32) -> f32 {
-	let val = u * u + v * v + 1.0;
-	return val * sqrt(val);
+    let val = u * u + v * v + 1.0;
+    return val * sqrt(val);
 }
 
 @compute
@@ -53,10 +54,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let inv_res_lo = 1.0 / f32(res_lo);
 
         let u0 = (f32(id.x) * 2.0 + 1.0 - 0.75) * inv_res_lo - 1.0;
-		let u1 = (f32(id.x) * 2.0 + 1.0 + 0.75) * inv_res_lo - 1.0;
+        let u1 = (f32(id.x) * 2.0 + 1.0 + 0.75) * inv_res_lo - 1.0;
 
-		let v0 = (f32(id.y) * 2.0 + 1.0 - 0.75) * -inv_res_lo + 1.0;
-		let v1 = (f32(id.y) * 2.0 + 1.0 + 0.75) * -inv_res_lo + 1.0;
+        let v0 = (f32(id.y) * 2.0 + 1.0 - 0.75) * -inv_res_lo + 1.0;
+        let v1 = (f32(id.y) * 2.0 + 1.0 + 0.75) * -inv_res_lo + 1.0;
 
         var weights = array(calc_weight(u0, v0), calc_weight(u1, v0), calc_weight(u0, v1), calc_weight(u1, v1));
         let wsum = 0.5 / (weights[0] + weights[1] + weights[2] + weights[3]);
