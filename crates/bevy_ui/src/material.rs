@@ -208,7 +208,7 @@ where
 
         M::specialize(&mut descriptor, key);
 
-        return descriptor;
+        descriptor
     }
 }
 
@@ -446,12 +446,11 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
 
         let transformed_rect_size = extracted_uinode.transform.transform_vector3(rect_size);
 
-        if extracted_uinode.transform.x_axis[1] == 0.0 {
-            if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-                || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
-            {
-                continue;
-            }
+        if extracted_uinode.transform.x_axis[1] == 0.0
+            && positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
+            || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
+        {
+            continue;
         }
         let extent = uinode_rect.max;
         let uvs = [
