@@ -103,6 +103,13 @@ impl Schedules {
             schedule.check_change_ticks(change_tick);
         }
     }
+
+    /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
+    pub fn configure_schedules(&mut self, schedule_build_settings: ScheduleBuildSettings) {
+        for (_, schedule) in self.inner.iter_mut() {
+            schedule.set_build_settings(schedule_build_settings.clone());
+        }
+    }
 }
 
 fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
