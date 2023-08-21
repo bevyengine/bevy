@@ -25,11 +25,6 @@ struct FpsText;
 #[derive(Component)]
 struct ColorText;
 
-// A unit struct to help identify the default font Text component
-#[cfg(feature = "default_font")]
-#[derive(Component)]
-struct DefaultFontText;
-
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn(Camera2dBundle::default());
@@ -81,10 +76,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextBundle::from_sections([
                 // Here we are able to call the into method instead of creating a new TextSection.
                 // This will default the font to a minimal version of FiraMono and apply the default styling.
-                "Hello from the ".into(),
+                "From an &str into the ".into(),
                 TextSection::new(
                     "default font!".to_string(),
                     TextStyle {
+                        font_size: 20.0,
                         color: Color::BLUE,
                         ..default()
                     },
@@ -96,7 +92,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 left: Val::Px(15.0),
                 ..default()
             }),
-            DefaultFontText,
         ));
     }
 }
