@@ -74,27 +74,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
     // Fallback to Bevy's default font using the 'default_font' feature flag
     if cfg!(feature = "default_font") {
-        commands.spawn((
-            TextBundle::from_sections([
-                // Here we are able to call the into method instead of creating a new TextSection.
-                // This will default the font to a minimal version of FiraMono and apply the default styling.
-                "From an &str into the ".into(),
-                TextSection::new(
-                    "default font!".to_string(),
-                    TextStyle {
-                        font_size: 20.0,
-                        color: Color::BLUE,
-                        ..default()
-                    },
-                ),
-            ])
-            .with_style(Style {
-                position_type: PositionType::Absolute,
-                bottom: Val::Px(5.0),
-                left: Val::Px(15.0),
-                ..default()
-            }),
-        ));
+        commands.spawn((TextBundle::from_sections([
+            // Here we are able to call the into method instead of creating a new TextSection.
+            // This will default the font to a minimal version of FiraMono and apply the default styling.
+            "From an &str into the ".into(),
+            TextSection::new(
+                "default font!".to_string(),
+                TextStyle {
+                    font_size: 20.0,
+                    color: Color::BLUE,
+                    ..default()
+                },
+            ),
+        ])
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(5.0),
+            left: Val::Px(15.0),
+            ..default()
+        }),));
     }
 }
 
