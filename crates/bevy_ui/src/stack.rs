@@ -124,21 +124,30 @@ fn fill_stack_recursively(result: &mut Vec<Entity>, stack: &mut StackingContext)
 mod tests {
     use bevy_ecs::{
         component::Component,
+        entity::Entity,
         schedule::Schedule,
         system::{CommandQueue, Commands},
-        world::World, entity::Entity,
+        world::World,
     };
     use bevy_hierarchy::BuildChildren;
 
-    use crate::{Node, UiStack, ZIndex, UiStackIndex};
+    use crate::{Node, UiStack, UiStackIndex, ZIndex};
 
     use super::ui_stack_system;
 
     #[derive(Component, PartialEq, Debug, Clone)]
     struct Label(&'static str);
 
-    fn node_with_zindex(name: &'static str, z_index: ZIndex) -> (Label, Node, UiStackIndex, ZIndex) {
-        (Label(name), Node::default(), UiStackIndex::default(), z_index)
+    fn node_with_zindex(
+        name: &'static str,
+        z_index: ZIndex,
+    ) -> (Label, Node, UiStackIndex, ZIndex) {
+        (
+            Label(name),
+            Node::default(),
+            UiStackIndex::default(),
+            z_index,
+        )
     }
 
     fn node_without_zindex(name: &'static str) -> (Label, Node, UiStackIndex) {
@@ -213,7 +222,8 @@ mod tests {
             .map(|entity| {
                 let (label, ui_stack_index) = query.get(&world, *entity).unwrap();
                 (label.clone(), ui_stack_index.0)
-            }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
         let expected_result: Vec<_> = [
             (Label("1-2-1")), // ZIndex::Global(-3)
             (Label("3")),     // ZIndex::Global(-2)
@@ -233,7 +243,11 @@ mod tests {
             (Label("1-1")),
             (Label("1-3")),
             (Label("0")), // ZIndex::Global(2)
-        ].into_iter().enumerate().map(|(i, label)| { (label, i as u32) }).collect();
-        assert_eq!(actual_result, expected_result);    
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(i, label)| (label, i as u32))
+        .collect();
+        assert_eq!(actual_result, expected_result);
     }
 }
