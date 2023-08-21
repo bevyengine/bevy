@@ -24,7 +24,7 @@ use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
 use crate::{
     BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, PositionedGlyph, Text, TextError,
-    TextLayoutInfo, TextPipeline, TextSettings, YAxisOrientation,
+    TextLayoutInfo, TextPipeline, TextSettings, YAxisOrientation, DefaultFontSize,
 };
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
@@ -161,15 +161,16 @@ pub fn update_text2d_layout(
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(Entity, Ref<Text>, Ref<Text2dBounds>, &mut TextLayoutInfo)>,
+    default_font_size: Res<DefaultFontSize>,
 ) {
     // We need to consume the entire iterator, hence `last`
     let factor_changed = scale_factor_changed.iter().last().is_some();
 
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let scale_factor = windows
+    let (scale_factor, view_height) = windows
         .get_single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.0);
+        .map(|window| (window.resolution.scale_factor(), window.resolution.height()))
+        .unwrap_or((1.0, 600.));
 
     for (entity, text, bounds, mut text_layout_info) in &mut text_query {
         if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
@@ -195,6 +196,8 @@ pub fn update_text2d_layout(
                 text_settings.as_ref(),
                 &mut font_atlas_warning,
                 YAxisOrientation::BottomToTop,
+                view_height,
+                *default_font_size,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the

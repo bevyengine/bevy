@@ -36,7 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextStyle {
                 // This font is loaded and will be used instead of the default font.
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 100.0,
+                font_size: FontSize::Vh(50.0),
                 color: Color::WHITE,
             },
         ) // Set the alignment of the Text
@@ -59,12 +59,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     // This font is loaded and will be used instead of the default font.
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 60.0,
+                    font_size: FontSize::Px(60.0),
                     color: Color::WHITE,
                 },
             ),
             TextSection::from_style(TextStyle {
-                font_size: 60.0,
+                font_size: FontSize::Px(60.0),
                 color: Color::GOLD,
                 // If no font is specified, it will use the default font.
                 ..default()
