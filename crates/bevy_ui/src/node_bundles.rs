@@ -261,7 +261,10 @@ impl TextBundle {
     }
 }
 
-impl <I> From<I> for TextBundle where I: Into<TextSection> {
+impl<I> From<I> for TextBundle
+where
+    I: Into<TextSection>,
+{
     fn from(value: I) -> Self {
         Self::from_sections(vec![value.into()])
     }
