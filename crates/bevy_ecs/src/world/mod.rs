@@ -1807,7 +1807,7 @@ impl World {
     /// # let mut schedule = Schedule::default();
     /// # schedule.add_systems(tick_counter);
     /// # world.init_resource::<Schedules>();
-    /// # world.add_schedule(schedule, MySchedule);
+    /// # world.add_schedule(schedule);
     /// # fn tick_counter(mut counter: ResMut<Counter>) { counter.0 += 1; }
     /// // Run the schedule five times.
     /// world.schedule_scope(MySchedule, |world, schedule| {
