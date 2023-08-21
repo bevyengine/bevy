@@ -1081,8 +1081,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// # #[derive(Component)]
     /// # struct Character { name: String }
     /// #
+    /// # #[derive(Component)]
+    /// # struct IrrelevantComponent;
+    ///
     /// fn print_selected_character_name_system(
-    ///        query: Query<&Character>,
+    ///        query: Query<(&Character, &IrrelevantComponent)>,
     ///        selection: Res<SelectedCharacter>
     /// )
     /// {
@@ -1143,7 +1146,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// # #[derive(Component)]
     /// # struct Health(u32);
     /// #
-    /// fn poison_system(mut query: Query<&mut Health>, poisoned: Res<PoisonedCharacter>) {
+    /// #[derive(Component)]
+    /// # struct IrrelevantComponent;
+
+    ///
+    /// fn poison_system(mut query: Query<(&mut Health, &IrrelevantComponent)>, poisoned: Res<PoisonedCharacter>) {
     ///     if let Ok(mut health) = query.get_component_mut::<Health>(poisoned.character_id) {
     ///         health.0 -= 1;
     ///     }
