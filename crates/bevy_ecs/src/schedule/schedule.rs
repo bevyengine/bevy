@@ -250,7 +250,7 @@ impl Schedule {
         let _span = bevy_utils::tracing::info_span!("schedule", name = ?self.name).entered();
 
         world.check_change_ticks();
-        self.initialize(world).unwrap_or_else(|e| panic!("{e}"));
+        self.initialize(world).unwrap_or_else(|e| panic!("Error when intializing schedule {:?}: {e}", self.name));
         self.executor.run(&mut self.executable, world);
     }
 
