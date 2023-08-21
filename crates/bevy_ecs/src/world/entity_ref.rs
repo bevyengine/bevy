@@ -346,6 +346,31 @@ impl<'w> EntityMut<'w> {
         self
     }
 
+    /// Adds a [`Bundle`] of components to the entity.
+    ///
+    /// This will preserve any previous value(s) of the same component type.
+    pub fn insert_unique<T: Bundle>(&mut self, bundle: T) -> &mut Self {
+        let change_tick = self.world.change_tick();
+        let bundle_info = self
+            .world
+            .bundles
+            .init_info::<T>(&mut self.world.components, &mut self.world.storages);
+        let mut bundle_inserter = bundle_info.get_bundle_inserter(
+            &mut self.world.entities,
+            &mut self.world.archetypes,
+            &mut self.world.components,
+            &mut self.world.storages,
+            self.location.archetype_id,
+            change_tick,
+        );
+        // SAFETY: location matches current entity. `T` matches `bundle_info`
+        unsafe {
+            self.location = bundle_inserter.insert_unique(self.entity, self.location, bundle);
+        }
+
+        self
+    }
+
     /// Inserts a dynamic [`Component`] into the entity.
     ///
     /// This will overwrite any previous value(s) of the same component type.
@@ -1368,5 +1393,26 @@ mod tests {
             .collect();
 
         assert_eq!(dynamic_components, static_components);
+    }
+
+    #[test]
+    fn entity_mut_insert_bundle_unique() {
+        #[derive(Component)]
+        struct TableComponent(u8);
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct SparseComponent(u8);
+
+        let mut world = World::new();
+        let mut test_entity = world.spawn_empty();
+
+        // First time inserting a component type should succeed, any further inserts of the same type should be dropped
+        test_entity.insert_unique(TableComponent(7));
+        test_entity.insert_unique((TableComponent(3), SparseComponent(7)));
+        test_entity.insert_unique((TableComponent(1), SparseComponent(1)));
+        test_entity.insert_unique((TableComponent(5), SparseComponent(5)));
+
+        assert_eq!(test_entity.get::<TableComponent>().unwrap().0, 7);
+        assert_eq!(test_entity.get::<SparseComponent>().unwrap().0, 7);
     }
 }
