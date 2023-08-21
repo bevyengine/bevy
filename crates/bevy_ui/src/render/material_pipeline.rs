@@ -24,22 +24,26 @@ use bevy_render::{
     },
     render_resource::{
         AsBindGroupError, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-        BindingResource, BufferUsages, BufferVec, OwnedBindingResource, PipelineCache,
-        RenderPipelineDescriptor, Shader, ShaderRef, SpecializedRenderPipeline,
-        SpecializedRenderPipelines,
+        BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState,
+        BufferBindingType, BufferUsages, BufferVec, ColorTargetState, ColorWrites, FragmentState,
+        FrontFace, MultisampleState, OwnedBindingResource, PipelineCache, PolygonMode,
+        PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor, Shader, ShaderRef,
+        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
+        TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
     },
     renderer::{RenderDevice, RenderQueue},
-    texture::{FallbackImage, Image, DEFAULT_IMAGE_HANDLE},
-    view::{ComputedVisibility, ExtractedView, ViewUniformOffset, ViewUniforms},
+    texture::{BevyDefault, FallbackImage, Image},
+    view::{
+        ComputedVisibility, ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
+    },
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{FloatOrd, HashMap, HashSet};
 
 use crate::{
-    CalculatedClip, Node, RenderUiSystem, TransparentUi, UiImageBindGroups, UiMaterial,
-    UiMaterialKey, UiPipeline, UiPipelineKey, UiStack, UiVertex, QUAD_INDICES,
-    QUAD_VERTEX_POSITIONS,
+    CalculatedClip, Node, RenderUiSystem, TransparentUi, UiMaterial, UiMaterialKey, UiStack,
+    UiVertex, QUAD_INDICES, QUAD_VERTEX_POSITIONS,
 };
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given
@@ -121,8 +125,8 @@ pub struct MatUiBatch<M: UiMaterial> {
 
 #[derive(Resource)]
 pub struct UiMaterialPipeline<M: UiMaterial> {
-    pub ui_pipeline: UiPipeline,
     pub ui_layout: BindGroupLayout,
+    pub view_layout: BindGroupLayout,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
     marker: PhantomData<M>,
@@ -135,7 +139,61 @@ where
     type Key = UiMaterialKey<M>;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut descriptor = self.ui_pipeline.specialize(UiPipelineKey { hdr: key.hdr });
+        let vertex_layout = VertexBufferLayout::from_vertex_formats(
+            VertexStepMode::Vertex,
+            vec![
+                // position
+                VertexFormat::Float32x3,
+                // uv
+                VertexFormat::Float32x2,
+                // color
+                VertexFormat::Float32x4,
+                // mode
+                VertexFormat::Uint32,
+            ],
+        );
+        let shader_defs = Vec::new();
+
+        let mut descriptor = RenderPipelineDescriptor {
+            vertex: VertexState {
+                shader: super::UI_SHADER_HANDLE.typed::<Shader>(),
+                entry_point: "vertex".into(),
+                shader_defs: shader_defs.clone(),
+                buffers: vec![vertex_layout],
+            },
+            fragment: Some(FragmentState {
+                shader: super::UI_SHADER_HANDLE.typed::<Shader>(),
+                shader_defs,
+                entry_point: "fragment".into(),
+                targets: vec![Some(ColorTargetState {
+                    format: if key.hdr {
+                        ViewTarget::TEXTURE_FORMAT_HDR
+                    } else {
+                        TextureFormat::bevy_default()
+                    },
+                    blend: Some(BlendState::ALPHA_BLENDING),
+                    write_mask: ColorWrites::ALL,
+                })],
+            }),
+            layout: vec![],
+            push_constant_ranges: Vec::new(),
+            primitive: PrimitiveState {
+                front_face: FrontFace::Ccw,
+                cull_mode: None,
+                unclipped_depth: false,
+                polygon_mode: PolygonMode::Fill,
+                conservative: false,
+                topology: PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+            },
+            depth_stencil: None,
+            multisample: MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            label: Some("material_ui_pipeline".into()),
+        };
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
@@ -144,11 +202,7 @@ where
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
 
-        descriptor.layout = vec![
-            self.ui_pipeline.view_layout.clone(),
-            self.ui_pipeline.image_layout.clone(),
-            self.ui_layout.clone(),
-        ];
+        descriptor.layout = vec![self.view_layout.clone(), self.ui_layout.clone()];
 
         M::specialize(&mut descriptor, key);
 
@@ -162,9 +216,23 @@ impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
         let render_device = world.resource::<RenderDevice>();
         let ui_layout = M::bind_group_layout(render_device);
 
+        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    min_binding_size: Some(ViewUniform::min_size()),
+                },
+                count: None,
+            }],
+            label: Some("ui_view_layout"),
+        });
+
         UiMaterialPipeline {
-            ui_pipeline: world.resource::<UiPipeline>().clone(),
             ui_layout,
+            view_layout,
             vertex_shader: match M::vertex_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),
@@ -183,39 +251,9 @@ impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
 pub type DrawUiMaterial<M> = (
     SetItemPipeline,
     SetMatUiViewBindGroup<M, 0>,
-    SetMatUiTextureBindGroup<M, 1>,
-    SetUiMaterialBindGroup<M, 2>,
+    SetUiMaterialBindGroup<M, 1>,
     DrawUiMatNode<M>,
 );
-
-pub struct SetMatUiTextureBindGroup<M: UiMaterial, const I: usize>(PhantomData<M>);
-impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
-    for SetMatUiTextureBindGroup<M, I>
-{
-    type Param = SRes<UiImageBindGroups>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<MatUiBatch<M>>;
-
-    #[inline]
-    fn render<'w>(
-        _item: &P,
-        _view: (),
-        _batch: &'w MatUiBatch<M>,
-        image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        let image_bind_groups = image_bind_groups.into_inner();
-        pass.set_bind_group(
-            I,
-            image_bind_groups
-                .values
-                .get(&DEFAULT_IMAGE_HANDLE.typed())
-                .unwrap(),
-            &[],
-        );
-        RenderCommandResult::Success
-    }
-}
 
 pub struct SetMatUiViewBindGroup<M: UiMaterial, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P> for SetMatUiViewBindGroup<M, I> {
@@ -439,11 +477,9 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     render_device: Res<RenderDevice>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
     mut ui_meta: ResMut<UiMatMeta<M>>,
-    mut image_bind_groups: ResMut<UiImageBindGroups>,
     view_uniforms: Res<ViewUniforms>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiMaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    gpu_images: Res<RenderAssets<Image>>,
     render_materials: Res<RenderUiMaterials<M>>,
     ui_batches: Query<(Entity, &MatUiBatch<M>)>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
@@ -457,7 +493,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 resource: view_binding,
             }],
             label: Some("ui_view_bind_group"),
-            layout: &ui_material_pipeline.ui_pipeline.view_layout,
+            layout: &ui_material_pipeline.view_layout,
         }));
         let draw_ui_function = draw_functions.read().id::<DrawUiMaterial<M>>();
         for (view, mut transparent_phase) in &mut views {
@@ -471,29 +507,6 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                             bind_group_data: material.key.clone(),
                         },
                     );
-                    image_bind_groups
-                        .values
-                        .entry(DEFAULT_IMAGE_HANDLE.typed().clone_weak())
-                        .or_insert_with(|| {
-                            let gpu_image = gpu_images.get(&DEFAULT_IMAGE_HANDLE.typed()).unwrap();
-                            render_device.create_bind_group(&BindGroupDescriptor {
-                                entries: &[
-                                    BindGroupEntry {
-                                        binding: 0,
-                                        resource: BindingResource::TextureView(
-                                            &gpu_image.texture_view,
-                                        ),
-                                    },
-                                    BindGroupEntry {
-                                        binding: 1,
-                                        resource: BindingResource::Sampler(&gpu_image.sampler),
-                                    },
-                                ],
-                                label: Some("ui_material_bind_group"),
-                                layout: &ui_material_pipeline.ui_pipeline.image_layout,
-                            })
-                        });
-
                     transparent_phase.add(TransparentUi {
                         sort_key: FloatOrd(batch.z),
                         entity,

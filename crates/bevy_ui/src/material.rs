@@ -7,7 +7,7 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
 /// way to render [`Node`] entities with custom shader logic.
 ///
-/// UiMaterials must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
+/// `UiMaterials` must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
 /// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
 ///
 /// Materials must also implement [`TypeUuid`] so they can be treated as an [`Asset`](bevy_asset::Asset).

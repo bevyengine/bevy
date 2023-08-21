@@ -14,7 +14,7 @@ struct CustomUiMaterial {
     @location(1) color: vec4<f32>
 }
 
-@group(2) @binding(0)
+@group(1) @binding(0)
 var<uniform> input: CustomUiMaterial;
 
 // How smooth the border of the gradient should be

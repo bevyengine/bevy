@@ -6,7 +6,7 @@ use bevy_render::{
     view::{ViewTarget, ViewUniform},
 };
 
-#[derive(Resource, Clone)]
+#[derive(Resource)]
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
