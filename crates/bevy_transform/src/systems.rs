@@ -484,6 +484,7 @@ mod test {
 
     #[test]
     fn global_transform_should_not_be_overwritten_after_reparenting() {
+        let translation = Vec3::ONE;
         let mut world = World::new();
 
         // Create transform propagation schedule
@@ -494,12 +495,12 @@ mod test {
         let mut spawn_transform_bundle = || {
             world
                 .spawn(TransformBundle::from_transform(
-                    Transform::from_translation(Vec3::ONE),
+                    Transform::from_translation(translation),
                 ))
                 .id()
         };
 
-        // Spawn parent and child with the same transform
+        // Spawn parent and child with identical transform bundles
         let parent = spawn_transform_bundle();
         let child = spawn_transform_bundle();
         world.entity_mut(parent).add_child(child);
@@ -507,19 +508,12 @@ mod test {
         // Run schedule to propagate transforms
         schedule.run(&mut world);
 
-        let check_translation = |world: &World, entity, translation: Vec3| {
-            assert!(world
-                .entity(entity)
-                .get::<GlobalTransform>()
-                .unwrap()
-                .translation()
-                .abs_diff_eq(translation, 0.001))
-        };
-
         // Child should be positioned relative to its parent
-        check_translation(&world, parent, Vec3::ONE);
-        check_translation(&world, child, 2. * Vec3::ONE);
-
+        let parent_global_transform = *world.entity(parent).get::<GlobalTransform>().unwrap();
+        let child_global_transform = *world.entity(child).get::<GlobalTransform>().unwrap();
+        assert!(parent_global_transform.translation().abs_diff_eq(translation, 0.1));
+        assert!(child_global_transform.translation().abs_diff_eq(2.* translation, 0.1));
+        
         // Reparent child
         world.entity_mut(child).remove_parent();
         world.entity_mut(parent).add_child(child);
@@ -528,7 +522,7 @@ mod test {
         schedule.run(&mut world);
 
         // Translations should be unchanged after update
-        check_translation(&world, parent, Vec3::ONE);
-        check_translation(&world, child, 2. * Vec3::ONE);
+        assert_eq!(parent_global_transform, *world.entity(parent).get::<GlobalTransform>().unwrap());
+        assert_eq!(child_global_transform, *world.entity(child).get::<GlobalTransform>().unwrap());
     }
 }
