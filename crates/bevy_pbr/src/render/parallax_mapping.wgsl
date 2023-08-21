@@ -1,5 +1,7 @@
 #define_import_path bevy_pbr::parallax_mapping
 
+#import bevy_pbr::pbr_bindings  depth_map_texture, depth_map_sampler
+
 fn sample_depth_map(uv: vec2<f32>) -> f32 {
     // We use `textureSampleLevel` over `textureSample` because the wgpu DX12
     // backend (Fxc) panics when using "gradient instructions" inside a loop.

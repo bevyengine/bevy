@@ -40,24 +40,29 @@ impl GltfPlugin {
 
 impl Plugin for GltfPlugin {
     fn build(&self, app: &mut App) {
+        app.register_type::<GltfExtras>()
+            .add_asset::<Gltf>()
+            .add_asset::<GltfNode>()
+            .add_asset::<GltfPrimitive>()
+            .add_asset::<GltfMesh>()
+            .preregister_asset_loader(&["gltf", "glb"]);
+    }
+
+    fn finish(&self, app: &mut App) {
         let supported_compressed_formats = match app.world.get_resource::<RenderDevice>() {
             Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
 
-            None => CompressedImageFormats::all(),
+            None => CompressedImageFormats::NONE,
         };
         app.add_asset_loader::<GltfLoader>(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
-        })
-        .register_type::<GltfExtras>()
-        .add_asset::<Gltf>()
-        .add_asset::<GltfNode>()
-        .add_asset::<GltfPrimitive>()
-        .add_asset::<GltfMesh>();
+        });
     }
 }
 
-/// Representation of a loaded glTF file.
+/// Representation of a loaded glTF file
+/// (file loaded via the `AssetServer` with the extension `.glb` or `.gltf`).
 #[derive(Debug, TypeUuid, TypePath)]
 #[uuid = "5c7d5f8a-f7b0-4e45-a09e-406c0372fea2"]
 pub struct Gltf {

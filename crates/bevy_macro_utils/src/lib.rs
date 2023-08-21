@@ -28,10 +28,20 @@ impl Default for BevyManifest {
                 .map(PathBuf::from)
                 .map(|mut path| {
                     path.push("Cargo.toml");
-                    let manifest = std::fs::read_to_string(path).unwrap();
-                    manifest.parse::<Document>().unwrap()
+                    if !path.exists() {
+                        panic!(
+                            "No Cargo manifest found for crate. Expected: {}",
+                            path.display()
+                        );
+                    }
+                    let manifest = std::fs::read_to_string(path.clone()).unwrap_or_else(|_| {
+                        panic!("Unable to read cargo manifest: {}", path.display())
+                    });
+                    manifest.parse::<Document>().unwrap_or_else(|_| {
+                        panic!("Failed to parse cargo manifest: {}", path.display())
+                    })
                 })
-                .unwrap(),
+                .expect("CARGO_MANIFEST_DIR is not defined."),
         }
     }
 }

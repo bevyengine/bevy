@@ -71,6 +71,13 @@ impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut App) {
         let run_mode = self.run_mode;
         app.set_runner(move |mut app: App| {
+            while !app.ready() {
+                #[cfg(not(target_arch = "wasm32"))]
+                bevy_tasks::tick_global_task_pools_on_main_thread();
+            }
+            app.finish();
+            app.cleanup();
+
             let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
             match run_mode {
                 RunMode::Once => {

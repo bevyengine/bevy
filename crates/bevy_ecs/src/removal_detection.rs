@@ -136,7 +136,7 @@ impl RemovedComponentEvents {
 /// ```
 #[derive(SystemParam)]
 pub struct RemovedComponents<'w, 's, T: Component> {
-    component_id: Local<'s, ComponentIdFor<T>>,
+    component_id: ComponentIdFor<'s, T>,
     reader: Local<'s, RemovedComponentReader<T>>,
     event_sets: &'w RemovedComponentEvents,
 }
@@ -180,7 +180,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
 
     /// Fetch underlying [`Events`].
     pub fn events(&self) -> Option<&Events<RemovedComponentEntity>> {
-        self.event_sets.get(**self.component_id)
+        self.event_sets.get(self.component_id.get())
     }
 
     /// Destructures to get a mutable reference to the `ManualEventReader`
@@ -195,7 +195,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
         &Events<RemovedComponentEntity>,
     )> {
         self.event_sets
-            .get(**self.component_id)
+            .get(self.component_id.get())
             .map(|events| (&mut *self.reader, events))
     }
 

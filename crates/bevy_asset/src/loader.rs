@@ -14,8 +14,8 @@ use std::path::Path;
 
 /// A loader for an asset source.
 ///
-/// Types implementing this trait are used by the asset server to load assets into their respective
-/// asset storages.
+/// Types implementing this trait are used by the [`AssetServer`] to load assets
+/// into their respective asset storages.
 pub trait AssetLoader: Send + Sync + 'static {
     /// Processes the asset in an asynchronous closure.
     fn load<'a>(
@@ -34,14 +34,16 @@ pub trait AssetLoader: Send + Sync + 'static {
 /// and scripts. In Bevy, an asset is any struct that has an unique type id, as shown below:
 ///
 /// ```rust
-/// use bevy_reflect::TypeUuid;
+/// use bevy_reflect::{TypePath, TypeUuid};
 /// use serde::Deserialize;
 ///
-/// #[derive(Debug, Deserialize, TypeUuid)]
+/// #[derive(Debug, Deserialize, TypeUuid, TypePath)]
 /// #[uuid = "39cadc56-aa9c-4543-8640-a018b74b5052"]
 /// pub struct CustomAsset {
 ///     pub value: i32,
 /// }
+/// # fn is_asset<T: bevy_asset::Asset>() {}
+/// # is_asset::<CustomAsset>();
 /// ```
 ///
 /// See the `assets/custom_asset.rs` example in the repository for more details.

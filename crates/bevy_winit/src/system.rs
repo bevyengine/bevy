@@ -23,18 +23,22 @@ use winit::{
 use crate::web_resize::{CanvasParentResizeEventChannel, WINIT_CANVAS_SELECTOR};
 use crate::{
     accessibility::{AccessKitAdapters, WinitActionHandlers},
-    converters::{self, convert_window_level, convert_window_theme, convert_winit_theme},
+    converters::{
+        self, convert_enabled_buttons, convert_window_level, convert_window_theme,
+        convert_winit_theme,
+    },
     get_best_videomode, get_fitting_videomode, WinitWindows,
 };
 
-/// System responsible for creating new windows whenever a [`Window`] component is added
-/// to an entity.
+/// Creates new windows on the [`winit`] backend for each entity with a newly-added
+/// [`Window`] component.
 ///
-/// This will default any necessary components if they are not already added.
+/// If any of these entities are missing required components, those will be added with their
+/// default values.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn create_window<'a>(
-    mut commands: Commands,
+pub(crate) fn create_windows<'a>(
     event_loop: &EventLoopWindowTarget<()>,
+    mut commands: Commands,
     created_windows: impl Iterator<Item = (Entity, Mut<'a, Window>)>,
     mut event_writer: EventWriter<WindowCreated>,
     mut winit_windows: NonSendMut<WinitWindows>,
@@ -100,7 +104,7 @@ pub(crate) fn create_window<'a>(
 #[derive(Debug, Clone, Resource)]
 pub struct WindowTitleCache(HashMap<Entity, String>);
 
-pub(crate) fn despawn_window(
+pub(crate) fn despawn_windows(
     mut closed: RemovedComponents<Window>,
     window_entities: Query<&Window>,
     mut close_events: EventWriter<WindowClosed>,
@@ -123,14 +127,15 @@ pub struct CachedWindow {
     pub window: Window,
 }
 
-// Detect changes to the window and update the winit window accordingly.
-//
-// Notes:
-// - [`Window::present_mode`] and [`Window::composite_alpha_mode`] updating should be handled in the bevy render crate.
-// - [`Window::transparent`] currently cannot be updated after startup for winit.
-// - [`Window::canvas`] currently cannot be updated after startup, not entirely sure if it would work well with the
-//   event channel stuff.
-pub(crate) fn changed_window(
+/// Propagates changes from [`Window`] entities to the [`winit`] backend.
+///
+/// # Notes
+///
+/// - [`Window::present_mode`] and [`Window::composite_alpha_mode`] changes are handled by the `bevy_render` crate.
+/// - [`Window::transparent`] cannot be changed after the window is created.
+/// - [`Window::canvas`] cannot be changed after the window is created.
+/// - [`Window::focused`] cannot be manually changed to `false` after the window is created.
+pub(crate) fn changed_windows(
     mut changed_windows: Query<(Entity, &mut Window, &mut CachedWindow), Changed<Window>>,
     winit_windows: NonSendMut<WinitWindows>,
 ) {
@@ -174,13 +179,7 @@ pub(crate) fn changed_window(
 
             if window.physical_cursor_position() != cache.window.physical_cursor_position() {
                 if let Some(physical_position) = window.physical_cursor_position() {
-                    let inner_size = winit_window.inner_size();
-
-                    let position = PhysicalPosition::new(
-                        physical_position.x,
-                        // Flip the coordinate space back to winit's context.
-                        inner_size.height as f32 - physical_position.y,
-                    );
+                    let position = PhysicalPosition::new(physical_position.x, physical_position.y);
 
                     if let Err(err) = winit_window.set_cursor_position(position) {
                         error!("could not set cursor position: {:?}", err);
@@ -220,6 +219,10 @@ pub(crate) fn changed_window(
                 && window.resizable != winit_window.is_resizable()
             {
                 winit_window.set_resizable(window.resizable);
+            }
+
+            if window.enabled_buttons != cache.window.enabled_buttons {
+                winit_window.set_enabled_buttons(convert_enabled_buttons(window.enabled_buttons));
             }
 
             if window.resize_constraints != cache.window.resize_constraints {
@@ -303,6 +306,10 @@ pub(crate) fn changed_window(
 
             if window.window_theme != cache.window.window_theme {
                 winit_window.set_theme(window.window_theme.map(convert_window_theme));
+            }
+
+            if window.visible != cache.window.visible {
+                winit_window.set_visible(window.visible);
             }
 
             cache.window = window.clone();
