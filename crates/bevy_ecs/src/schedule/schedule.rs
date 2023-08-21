@@ -878,7 +878,8 @@ impl ScheduleGraph {
 
         // map all system sets to their systems
         // go in reverse topological order (bottom-up) for efficiency
-        let (set_systems, set_system_bitsets) = self.map_sets_to_systems();
+        let (set_systems, set_system_bitsets) =
+            self.map_sets_to_systems(&self.hierarchy.topsort, &self.hierarchy.graph);
         self.check_order_but_intersect(&dep_results.connected, &set_system_bitsets)?;
 
         // check that there are no edges to system-type sets that have multiple instances
@@ -915,11 +916,15 @@ impl ScheduleGraph {
         Ok(self.build_schedule_inner(dependency_flattened_dag, hier_results.reachable))
     }
 
-    fn map_sets_to_systems(&self) -> (HashMap<NodeId, Vec<NodeId>>, HashMap<NodeId, FixedBitSet>) {
+    fn map_sets_to_systems(
+        &self,
+        hierarchy_topsort: &Vec<NodeId>,
+        hierarchy_graph: &GraphMap<NodeId, (), Directed>,
+    ) -> (HashMap<NodeId, Vec<NodeId>>, HashMap<NodeId, FixedBitSet>) {
         let mut set_systems: HashMap<NodeId, Vec<NodeId>> =
             HashMap::with_capacity(self.system_sets.len());
         let mut set_system_bitsets = HashMap::with_capacity(self.system_sets.len());
-        for &id in self.hierarchy.topsort.iter().rev() {
+        for &id in hierarchy_topsort.iter().rev() {
             if id.is_system() {
                 continue;
             }
@@ -927,11 +932,7 @@ impl ScheduleGraph {
             let mut systems = Vec::new();
             let mut system_bitset = FixedBitSet::with_capacity(self.systems.len());
 
-            for child in self
-                .hierarchy
-                .graph
-                .neighbors_directed(id, Direction::Outgoing)
-            {
+            for child in hierarchy_graph.neighbors_directed(id, Direction::Outgoing) {
                 match child {
                     NodeId::System(_) => {
                         systems.push(child);
@@ -1274,7 +1275,7 @@ impl ScheduleGraph {
             return Ok(());
         }
 
-        let message = self.report_hierarchy_conflicts(transitive_edges);
+        let message = self.get_hierarchy_conflicts_error_message(transitive_edges);
         match self.settings.hierarchy_detection {
             LogLevel::Ignore => unreachable!(),
             LogLevel::Warn => {
@@ -1285,7 +1286,10 @@ impl ScheduleGraph {
         }
     }
 
-    fn report_hierarchy_conflicts(&self, transitive_edges: &[(NodeId, NodeId)]) -> String {
+    fn get_hierarchy_conflicts_error_message(
+        &self,
+        transitive_edges: &[(NodeId, NodeId)],
+    ) -> String {
         let mut message = String::from("hierarchy contains redundant edge(s)");
         for (parent, child) in transitive_edges {
             writeln!(
@@ -1341,12 +1345,12 @@ impl ScheduleGraph {
             }
 
             let error = match report {
-                ReportCycles::Hierarchy => {
-                    ScheduleBuildError::HierarchyCycle(self.report_hierarchy_cycles(&cycles))
-                }
-                ReportCycles::Dependency => {
-                    ScheduleBuildError::DependencyCycle(self.report_dependency_cycles(&cycles))
-                }
+                ReportCycles::Hierarchy => ScheduleBuildError::HierarchyCycle(
+                    self.get_hierarchy_cycles_error_message(&cycles),
+                ),
+                ReportCycles::Dependency => ScheduleBuildError::DependencyCycle(
+                    self.get_dependency_cycles_error_message(&cycles),
+                ),
             };
 
             Err(error)
@@ -1354,7 +1358,7 @@ impl ScheduleGraph {
     }
 
     /// Logs details of cycles in the hierarchy graph.
-    fn report_hierarchy_cycles(&self, cycles: &[Vec<NodeId>]) -> String {
+    fn get_hierarchy_cycles_error_message(&self, cycles: &[Vec<NodeId>]) -> String {
         let mut message = format!("schedule has {} in_set cycle(s):\n", cycles.len());
         for (i, cycle) in cycles.iter().enumerate() {
             let mut names = cycle.iter().map(|id| self.get_node_name(id));
@@ -1376,7 +1380,7 @@ impl ScheduleGraph {
     }
 
     /// Logs details of cycles in the dependency graph.
-    fn report_dependency_cycles(&self, cycles: &[Vec<NodeId>]) -> String {
+    fn get_dependency_cycles_error_message(&self, cycles: &[Vec<NodeId>]) -> String {
         let mut message = format!("schedule has {} before/after cycle(s):\n", cycles.len());
         for (i, cycle) in cycles.iter().enumerate() {
             let mut names = cycle
@@ -1478,7 +1482,7 @@ impl ScheduleGraph {
             return Ok(());
         }
 
-        let message = self.report_conflicts(conflicts, components);
+        let message = self.get_conflicts_error_message(conflicts, components);
         match self.settings.ambiguity_detection {
             LogLevel::Ignore => Ok(()),
             LogLevel::Warn => {
@@ -1489,7 +1493,7 @@ impl ScheduleGraph {
         }
     }
 
-    fn report_conflicts(
+    fn get_conflicts_error_message(
         &self,
         ambiguities: &[(NodeId, NodeId, Vec<ComponentId>)],
         components: &Components,
