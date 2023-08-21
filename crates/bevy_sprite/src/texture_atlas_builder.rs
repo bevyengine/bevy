@@ -96,6 +96,8 @@ impl TextureAtlasBuilder {
     }
 
     /// Sets the amount of padding in pixels to add between the textures in the texture atlas.
+    ///
+    /// The `x` value provide will be added to the right edge, while the `y` value will be added to the bottom edge.
     pub fn padding(mut self, padding: UVec2) -> Self {
         self.padding = padding;
         self
