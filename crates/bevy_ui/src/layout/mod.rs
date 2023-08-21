@@ -247,17 +247,6 @@ pub fn ui_layout_system(
             Query<&Children, With<UiKey>>,
         ),
     )>,
-// =======
-//     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-//     style_query: Query<(Entity, Ref<Style>), With<Node>>,
-//     mut measure_query: Query<(Entity, &mut ContentSize)>,
-//     children_query: Query<(Entity, Ref<Children>), With<Node>>,
-//     just_children_query: Query<&Children>,
-//     mut removed_children: RemovedComponents<Children>,
-//     mut removed_content_sizes: RemovedComponents<ContentSize>,
-//     mut node_transform_query: Query<(&mut Node, &mut Transform)>,
-//     mut removed_nodes: RemovedComponents<Node>,
-// >>>>>>> main
 ) {
     // assume one window for time being...
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
@@ -282,7 +271,6 @@ pub fn ui_layout_system(
         .chain(window_created_events.iter().map(|created| created.window))
         .any(|window| window == primary_window_entity);
 
-//<<<<<<< HEAD
     // clean up removed nodes first
     ui_surface.remove_entities(removed_nodes.iter());
 
@@ -313,40 +301,6 @@ pub fn ui_layout_system(
             ui_surface.update_children(uikey.get(), &children);
         }
     }
-
-// =======
-//     // update window root nodes
-//     for (entity, window) in windows.iter() {
-//         ui_surface.update_window(entity, &window.resolution);
-//     }
-
-//     let scale_factor = logical_to_physical_factor * ui_scale.0;
-
-//     let layout_context = LayoutContext::new(scale_factor, physical_size);
-
-//     if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
-//         scale_factor_events.clear();
-//         // update all nodes
-//         for (entity, style) in style_query.iter() {
-//             ui_surface.upsert_node(entity, &style, &layout_context);
-//         }
-//     } else {
-//         for (entity, style) in style_query.iter() {
-//             if style.is_changed() {
-//                 ui_surface.upsert_node(entity, &style, &layout_context);
-//             }
-//         }
-//     }
-
-//     for (entity, mut content_size) in measure_query.iter_mut() {
-//         if let Some(measure_func) = content_size.measure_func.take() {
-//             ui_surface.update_measure(entity, measure_func);
-//         }
-//     }
-
-//     // clean up removed nodes
-// >>>>>>> main
-    
 
     // update window root nodes
     for (entity, window) in windows.iter() {
