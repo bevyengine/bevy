@@ -2,7 +2,10 @@
 //! it
 
 use bevy::prelude::*;
-use bevy_internal::{render::render_resource::*, reflect::{TypePath, TypeUuid}};
+use bevy_internal::{
+    reflect::{TypePath, TypeUuid},
+    render::render_resource::*,
+};
 
 fn main() {
     App::new()
@@ -42,7 +45,10 @@ fn setup(mut commands: Commands, mut ui_materials: ResMut<Assets<CustomUiMateria
                     height: Val::Px(250.0),
                     ..default()
                 },
-                material: ui_materials.add(CustomUiMaterial { fill_amount: 0.0, color: Color::WHITE.into() }),
+                material: ui_materials.add(CustomUiMaterial {
+                    fill_amount: 0.0,
+                    color: Color::WHITE.into(),
+                }),
                 ..default()
             });
         });
