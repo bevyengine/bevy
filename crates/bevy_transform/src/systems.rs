@@ -511,9 +511,13 @@ mod test {
         // Child should be positioned relative to its parent
         let parent_global_transform = *world.entity(parent).get::<GlobalTransform>().unwrap();
         let child_global_transform = *world.entity(child).get::<GlobalTransform>().unwrap();
-        assert!(parent_global_transform.translation().abs_diff_eq(translation, 0.1));
-        assert!(child_global_transform.translation().abs_diff_eq(2.* translation, 0.1));
-        
+        assert!(parent_global_transform
+            .translation()
+            .abs_diff_eq(translation, 0.1));
+        assert!(child_global_transform
+            .translation()
+            .abs_diff_eq(2. * translation, 0.1));
+
         // Reparent child
         world.entity_mut(child).remove_parent();
         world.entity_mut(parent).add_child(child);
@@ -522,7 +526,13 @@ mod test {
         schedule.run(&mut world);
 
         // Translations should be unchanged after update
-        assert_eq!(parent_global_transform, *world.entity(parent).get::<GlobalTransform>().unwrap());
-        assert_eq!(child_global_transform, *world.entity(child).get::<GlobalTransform>().unwrap());
+        assert_eq!(
+            parent_global_transform,
+            *world.entity(parent).get::<GlobalTransform>().unwrap()
+        );
+        assert_eq!(
+            child_global_transform,
+            *world.entity(child).get::<GlobalTransform>().unwrap()
+        );
     }
 }
