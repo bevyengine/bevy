@@ -1,10 +1,10 @@
 use bevy_ecs::{component::Component, prelude::Entity, reflect::ReflectComponent};
-use bevy_math::{Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
+use bevy_reflect::Reflect;
 use bevy_utils::HashMap;
 
 /// An axis-aligned bounding box.
-#[derive(Component, Clone, Copy, Debug, Default, Reflect, FromReflect)]
+#[derive(Component, Clone, Copy, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct Aabb {
     pub center: Vec3A,
@@ -26,13 +26,13 @@ impl Aabb {
 
     /// Calculate the relative radius of the AABB with respect to a plane
     #[inline]
-    pub fn relative_radius(&self, p_normal: &Vec3A, axes: &[Vec3A]) -> f32 {
+    pub fn relative_radius(&self, p_normal: &Vec3A, model: &Mat3A) -> f32 {
         // NOTE: dot products on Vec3A use SIMD and even with the overhead of conversion are net faster than Vec3
         let half_extents = self.half_extents;
         Vec3A::new(
-            p_normal.dot(axes[0]),
-            p_normal.dot(axes[1]),
-            p_normal.dot(axes[2]),
+            p_normal.dot(model.x_axis),
+            p_normal.dot(model.y_axis),
+            p_normal.dot(model.z_axis),
         )
         .abs()
         .dot(half_extents)
@@ -67,16 +67,11 @@ pub struct Sphere {
 
 impl Sphere {
     #[inline]
-    pub fn intersects_obb(&self, aabb: &Aabb, local_to_world: &Mat4) -> bool {
-        let aabb_center_world = *local_to_world * aabb.center.extend(1.0);
-        let axes = [
-            Vec3A::from(local_to_world.x_axis),
-            Vec3A::from(local_to_world.y_axis),
-            Vec3A::from(local_to_world.z_axis),
-        ];
-        let v = Vec3A::from(aabb_center_world) - self.center;
+    pub fn intersects_obb(&self, aabb: &Aabb, local_to_world: &Affine3A) -> bool {
+        let aabb_center_world = local_to_world.transform_point3a(aabb.center);
+        let v = aabb_center_world - self.center;
         let d = v.length();
-        let relative_radius = aabb.relative_radius(&(v / d), &axes);
+        let relative_radius = aabb.relative_radius(&(v / d), &local_to_world.matrix3);
         d < self.radius + relative_radius
     }
 }
@@ -195,17 +190,11 @@ impl Frustum {
     pub fn intersects_obb(
         &self,
         aabb: &Aabb,
-        model_to_world: &Mat4,
+        model_to_world: &Affine3A,
         intersect_near: bool,
         intersect_far: bool,
     ) -> bool {
         let aabb_center_world = model_to_world.transform_point3a(aabb.center).extend(1.0);
-        let axes = [
-            Vec3A::from(model_to_world.x_axis),
-            Vec3A::from(model_to_world.y_axis),
-            Vec3A::from(model_to_world.z_axis),
-        ];
-
         for (idx, half_space) in self.half_spaces.into_iter().enumerate() {
             if idx == 4 && !intersect_near {
                 continue;
@@ -214,7 +203,7 @@ impl Frustum {
                 continue;
             }
             let p_normal = half_space.normal();
-            let relative_radius = aabb.relative_radius(&p_normal, &axes);
+            let relative_radius = aabb.relative_radius(&p_normal, &model_to_world.matrix3);
             if half_space.normal_d().dot(aabb_center_world) + relative_radius <= 0.0 {
                 return false;
             }

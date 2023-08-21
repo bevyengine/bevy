@@ -165,6 +165,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         border: UiRect::all(Val::Px(20.)),
                         ..default()
                     },
+                    border_color: Color::GREEN.into(),
                     background_color: Color::rgb(0.4, 0.4, 1.).into(),
                     ..default()
                 })
@@ -289,7 +290,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ))
                         .with_children(|parent| {
                             // alt text
-                            // This UI node takes up no space in the layout and the `Text` component is used by the accessiblity module
+                            // This UI node takes up no space in the layout and the `Text` component is used by the accessibility module
                             // and is not rendered.
                             parent.spawn((
                                 NodeBundle {

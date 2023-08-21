@@ -233,13 +233,13 @@ impl From<Plane> for Mesh {
         let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(num_vertices);
         let mut indices: Vec<u32> = Vec::with_capacity(num_indices);
 
-        for y in 0..z_vertex_count {
+        for z in 0..z_vertex_count {
             for x in 0..x_vertex_count {
                 let tx = x as f32 / (x_vertex_count - 1) as f32;
-                let ty = y as f32 / (z_vertex_count - 1) as f32;
-                positions.push([(-0.5 + tx) * plane.size, 0.0, (-0.5 + ty) * plane.size]);
+                let tz = z as f32 / (z_vertex_count - 1) as f32;
+                positions.push([(-0.5 + tx) * plane.size, 0.0, (-0.5 + tz) * plane.size]);
                 normals.push(up);
-                uvs.push([tx, 1.0 - ty]);
+                uvs.push([tx, tz]);
             }
         }
 

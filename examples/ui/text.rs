@@ -10,8 +10,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(FrameTimeDiagnosticsPlugin)
+        .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, (text_update_system, text_color_system))
         .run();
@@ -35,6 +34,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // Accepts a `String` or any type that converts into a `String`, such as `&str`
             "hello\nbevy!",
             TextStyle {
+                // This font is loaded and will be used instead of the default font.
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 100.0,
                 color: Color::WHITE,
@@ -57,15 +57,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextSection::new(
                 "FPS: ",
                 TextStyle {
+                    // This font is loaded and will be used instead of the default font.
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 60.0,
                     color: Color::WHITE,
                 },
             ),
             TextSection::from_style(TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 60.0,
                 color: Color::GOLD,
+                // If no font is specified, it will use the default font.
+                ..default()
             }),
         ]),
         FpsText,
