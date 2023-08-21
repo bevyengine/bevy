@@ -28,7 +28,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::Reflect;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
 use mouse::{
     mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseScrollUnit,
@@ -41,7 +41,7 @@ use gamepad::{
     gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
     gamepad_event_system, AxisSettings, ButtonAxisSettings, ButtonSettings, Gamepad, GamepadAxis,
     GamepadAxisChangedEvent, GamepadAxisType, GamepadButton, GamepadButtonChangedEvent,
-    GamepadButtonType, GamepadConnection, GamepadConnectionEvent, GamepadEvent,
+    GamepadButtonInput, GamepadButtonType, GamepadConnection, GamepadConnectionEvent, GamepadEvent,
     GamepadRumbleRequest, GamepadSettings, Gamepads,
 };
 
@@ -52,6 +52,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[derive(Default)]
 pub struct InputPlugin;
 
+/// Label for systems that update the input data.
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 pub struct InputSystem;
 
@@ -74,6 +75,7 @@ impl Plugin for InputPlugin {
             // gamepad
             .add_event::<GamepadConnectionEvent>()
             .add_event::<GamepadButtonChangedEvent>()
+            .add_event::<GamepadButtonInput>()
             .add_event::<GamepadAxisChangedEvent>()
             .add_event::<GamepadEvent>()
             .add_event::<GamepadRumbleRequest>()
@@ -130,6 +132,7 @@ impl Plugin for InputPlugin {
             .register_type::<GamepadConnection>()
             .register_type::<GamepadButtonType>()
             .register_type::<GamepadButton>()
+            .register_type::<GamepadButtonInput>()
             .register_type::<GamepadAxisType>()
             .register_type::<GamepadAxis>()
             .register_type::<GamepadSettings>()
@@ -140,7 +143,7 @@ impl Plugin for InputPlugin {
 }
 
 /// The current "press" state of an element
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Reflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -148,11 +151,14 @@ impl Plugin for InputPlugin {
     reflect(Serialize, Deserialize)
 )]
 pub enum ButtonState {
+    /// The button is pressed.
     Pressed,
+    /// The button is not pressed.
     Released,
 }
 
 impl ButtonState {
+    /// Is this button pressed?
     pub fn is_pressed(&self) -> bool {
         matches!(self, ButtonState::Pressed)
     }

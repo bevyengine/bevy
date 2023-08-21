@@ -76,7 +76,6 @@ pub(crate) struct GraphInfo {
     pub(crate) sets: Vec<BoxedSystemSet>,
     pub(crate) dependencies: Vec<Dependency>,
     pub(crate) ambiguous_with: Ambiguity,
-    pub(crate) base_set: Option<BoxedSystemSet>,
 }
 
 /// Converts 2D row-major pair of indices into a 1D array index.

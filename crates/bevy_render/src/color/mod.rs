@@ -3,12 +3,12 @@ mod colorspace;
 pub use colorspace::*;
 
 use bevy_math::{Vec3, Vec4};
-use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
 use thiserror::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect, FromReflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Color {
     /// sRGBA color
@@ -368,7 +368,7 @@ impl Color {
         )
     }
 
-    /// Get red in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and return red in sRGB colorspace
     pub fn r(&self) -> f32 {
         match self.as_rgba() {
             Color::Rgba { red, .. } => red,
@@ -376,7 +376,7 @@ impl Color {
         }
     }
 
-    /// Get green in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and return green in sRGB colorspace
     pub fn g(&self) -> f32 {
         match self.as_rgba() {
             Color::Rgba { green, .. } => green,
@@ -384,7 +384,7 @@ impl Color {
         }
     }
 
-    /// Get blue in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and return blue in sRGB colorspace
     pub fn b(&self) -> f32 {
         match self.as_rgba() {
             Color::Rgba { blue, .. } => blue,
@@ -392,7 +392,7 @@ impl Color {
         }
     }
 
-    /// Set red in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and set red
     pub fn set_r(&mut self, r: f32) -> &mut Self {
         *self = self.as_rgba();
         match self {
@@ -402,14 +402,14 @@ impl Color {
         self
     }
 
-    /// Returns this color with red set to a new value in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and return this color with red set to a new value
     #[must_use]
     pub fn with_r(mut self, r: f32) -> Self {
         self.set_r(r);
         self
     }
 
-    /// Set green in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and set green
     pub fn set_g(&mut self, g: f32) -> &mut Self {
         *self = self.as_rgba();
         match self {
@@ -419,14 +419,14 @@ impl Color {
         self
     }
 
-    /// Returns this color with green set to a new value in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and return this color with green set to a new value
     #[must_use]
     pub fn with_g(mut self, g: f32) -> Self {
         self.set_g(g);
         self
     }
 
-    /// Set blue in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and set blue
     pub fn set_b(&mut self, b: f32) -> &mut Self {
         *self = self.as_rgba();
         match self {
@@ -436,10 +436,85 @@ impl Color {
         self
     }
 
-    /// Returns this color with blue set to a new value in sRGB colorspace.
+    /// Converts a Color to variant [`Color::Rgba`] and return this color with blue set to a new value
     #[must_use]
     pub fn with_b(mut self, b: f32) -> Self {
         self.set_b(b);
+        self
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and return hue
+    pub fn h(&self) -> f32 {
+        match self.as_hsla() {
+            Color::Hsla { hue, .. } => hue,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and return saturation
+    pub fn s(&self) -> f32 {
+        match self.as_hsla() {
+            Color::Hsla { saturation, .. } => saturation,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and return lightness
+    pub fn l(&self) -> f32 {
+        match self.as_hsla() {
+            Color::Hsla { lightness, .. } => lightness,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and set hue
+    pub fn set_h(&mut self, h: f32) -> &mut Self {
+        *self = self.as_hsla();
+        match self {
+            Color::Hsla { hue, .. } => *hue = h,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and return this color with hue set to a new value
+    #[must_use]
+    pub fn with_h(mut self, h: f32) -> Self {
+        self.set_h(h);
+        self
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and set saturation
+    pub fn set_s(&mut self, s: f32) -> &mut Self {
+        *self = self.as_hsla();
+        match self {
+            Color::Hsla { saturation, .. } => *saturation = s,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and return this color with saturation set to a new value
+    #[must_use]
+    pub fn with_s(mut self, s: f32) -> Self {
+        self.set_s(s);
+        self
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and set lightness
+    pub fn set_l(&mut self, l: f32) -> &mut Self {
+        *self = self.as_hsla();
+        match self {
+            Color::Hsla { lightness, .. } => *lightness = l,
+            _ => unreachable!(),
+        }
+        self
+    }
+
+    /// Converts a Color to variant [`Color::Hsla`] and return this color with lightness set to a new value
+    #[must_use]
+    pub fn with_l(mut self, l: f32) -> Self {
+        self.set_l(l);
         self
     }
 

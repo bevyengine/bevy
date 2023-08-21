@@ -166,6 +166,7 @@ impl Plugin for PbrPlugin {
         );
 
         app.register_asset_reflect::<StandardMaterial>()
+            .register_type::<AlphaMode>()
             .register_type::<AmbientLight>()
             .register_type::<Cascade>()
             .register_type::<CascadeShadowConfig>()
@@ -182,18 +183,21 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
-            .add_plugin(MeshRenderPlugin)
-            .add_plugin(MaterialPlugin::<StandardMaterial> {
-                prepass_enabled: self.prepass_enabled,
-                ..Default::default()
-            })
-            .add_plugin(ScreenSpaceAmbientOcclusionPlugin)
-            .add_plugin(EnvironmentMapPlugin)
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
-            .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
+            .add_plugins((
+                MeshRenderPlugin,
+                MaterialPlugin::<StandardMaterial> {
+                    prepass_enabled: self.prepass_enabled,
+                    ..Default::default()
+                },
+                ScreenSpaceAmbientOcclusionPlugin,
+                EnvironmentMapPlugin,
+                ExtractResourcePlugin::<AmbientLight>::default(),
+                FogPlugin,
+            ))
             .configure_sets(
                 PostUpdate,
                 (
@@ -203,7 +207,6 @@ impl Plugin for PbrPlugin {
                 )
                     .chain(),
             )
-            .add_plugin(FogPlugin)
             .add_systems(
                 PostUpdate,
                 (

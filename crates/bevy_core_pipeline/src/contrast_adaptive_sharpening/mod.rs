@@ -108,8 +108,10 @@ impl Plugin for CASPlugin {
         );
 
         app.register_type::<ContrastAdaptiveSharpeningSettings>();
-        app.add_plugin(ExtractComponentPlugin::<ContrastAdaptiveSharpeningSettings>::default());
-        app.add_plugin(UniformComponentPlugin::<CASUniform>::default());
+        app.add_plugins((
+            ExtractComponentPlugin::<ContrastAdaptiveSharpeningSettings>::default(),
+            UniformComponentPlugin::<CASUniform>::default(),
+        ));
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,

@@ -387,7 +387,7 @@ pub struct Cascades {
     pub(crate) cascades: HashMap<Entity, Vec<Cascade>>,
 }
 
-#[derive(Clone, Debug, Default, Reflect, FromReflect)]
+#[derive(Clone, Debug, Default, Reflect)]
 pub struct Cascade {
     /// The transform of the light, i.e. the view to world matrix.
     pub(crate) view_transform: Mat4,
@@ -627,7 +627,7 @@ pub enum SimulationLightSystems {
 
 /// Configure the far z-plane mode used for the furthest depth slice for clustered forward
 /// rendering
-#[derive(Debug, Copy, Clone, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, Reflect)]
 pub enum ClusterFarZMode {
     /// Calculate the required maximum z-depth based on currently visible lights.
     /// Makes better use of available clusters, speeding up GPU lighting operations
@@ -639,7 +639,7 @@ pub enum ClusterFarZMode {
 }
 
 /// Configure the depth-slicing strategy for clustered forward rendering
-#[derive(Debug, Copy, Clone, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, Reflect)]
 #[reflect(Default)]
 pub struct ClusterZConfig {
     /// Far `Z` plane of the first depth slice
@@ -2025,7 +2025,7 @@ pub fn check_light_mesh_visibility(
                         view_frusta.iter().zip(view_visible_entities)
                     {
                         // Disable near-plane culling, as a shadow caster could lie before the near plane.
-                        if !frustum.intersects_obb(aabb, &transform.compute_matrix(), false, true) {
+                        if !frustum.intersects_obb(aabb, &transform.affine(), false, true) {
                             continue;
                         }
 
@@ -2098,7 +2098,7 @@ pub fn check_light_mesh_visibility(
 
                     // If we have an aabb and transform, do frustum culling
                     if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
-                        let model_to_world = transform.compute_matrix();
+                        let model_to_world = transform.affine();
                         // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
                         if !light_sphere.intersects_obb(aabb, &model_to_world) {
                             continue;
@@ -2162,7 +2162,7 @@ pub fn check_light_mesh_visibility(
 
                     // If we have an aabb and transform, do frustum culling
                     if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
-                        let model_to_world = transform.compute_matrix();
+                        let model_to_world = transform.affine();
                         // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
                         if !light_sphere.intersects_obb(aabb, &model_to_world) {
                             continue;

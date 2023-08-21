@@ -19,6 +19,7 @@ pub mod node_bundles;
 pub mod update;
 pub mod widget;
 
+use bevy_derive::{Deref, DerefMut};
 #[cfg(feature = "bevy_text")]
 use bevy_render::camera::CameraUpdateSystem;
 use bevy_render::{extract_component::ExtractComponentPlugin, RenderApp};
@@ -67,21 +68,18 @@ pub enum UiSystem {
 ///
 /// A multiplier to fixed-sized ui values.
 /// **Note:** This will only affect fixed ui values like [`Val::Px`]
-#[derive(Debug, Resource)]
-pub struct UiScale {
-    /// The scale to be applied.
-    pub scale: f64,
-}
+#[derive(Debug, Resource, Deref, DerefMut)]
+pub struct UiScale(pub f64);
 
 impl Default for UiScale {
     fn default() -> Self {
-        Self { scale: 1.0 }
+        Self(1.0)
     }
 }
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
+        app.add_plugins(ExtractComponentPlugin::<UiCameraConfig>::default())
             .init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
@@ -145,7 +143,7 @@ impl Plugin for UiPlugin {
             ),
         );
         #[cfg(feature = "bevy_text")]
-        app.add_plugin(accessibility::AccessibilityPlugin);
+        app.add_plugins(accessibility::AccessibilityPlugin);
         app.add_systems(PostUpdate, {
             let system = widget::update_image_content_size_system.before(UiSystem::Layout);
             // Potential conflicts: `Assets<Image>`
@@ -158,8 +156,12 @@ impl Plugin for UiPlugin {
                 .ambiguous_with(widget::text_system);
 
             system
-        })
-        .add_systems(
+        });
+        app.add_systems(
+            PostUpdate,
+            widget::update_atlas_content_size_system.before(UiSystem::Layout),
+        );
+        app.add_systems(
             PostUpdate,
             (
                 ui_layout_system

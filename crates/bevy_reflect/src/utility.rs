@@ -1,7 +1,7 @@
 //! Helpers for working with Bevy reflection.
 
 use crate::TypeInfo;
-use bevy_utils::{FixedState, HashMap};
+use bevy_utils::{FixedState, StableHashMap};
 use once_cell::race::OnceBox;
 use parking_lot::RwLock;
 use std::{
@@ -206,7 +206,7 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 /// ```
 /// [`impl_type_path`]: crate::impl_type_path
 /// [`TypePath`]: crate::TypePath
-pub struct GenericTypeCell<T: TypedProperty>(OnceBox<RwLock<HashMap<TypeId, &'static T::Stored>>>);
+pub struct GenericTypeCell<T: TypedProperty>(RwLock<StableHashMap<TypeId, &'static T::Stored>>);
 
 /// See [`GenericTypeCell`].
 pub type GenericTypeInfoCell = GenericTypeCell<TypeInfo>;
@@ -216,7 +216,9 @@ pub type GenericTypePathCell = GenericTypeCell<TypePathComponent>;
 impl<T: TypedProperty> GenericTypeCell<T> {
     /// Initialize a [`GenericTypeCell`] for generic types.
     pub const fn new() -> Self {
-        Self(OnceBox::new())
+        // Use `bevy_utils::StableHashMap` over `bevy_utils::HashMap`
+        // because `BuildHasherDefault` is unfortunately not const.
+        Self(RwLock::new(StableHashMap::with_hasher(FixedState)))
     }
 
     /// Returns a reference to the [`TypedProperty`] stored in the cell.
@@ -229,19 +231,30 @@ impl<T: TypedProperty> GenericTypeCell<T> {
         F: FnOnce() -> T::Stored,
     {
         let type_id = TypeId::of::<G>();
-        // let mapping = self.0.get_or_init(|| Box::new(RwLock::default()));
-        let mapping = self.0.get_or_init(Box::default);
-        if let Some(info) = mapping.read().get(&type_id) {
-            return info;
+
+        // Put in a separate scope, so `mapping` is dropped before `f`,
+        // since `f` might want to call `get_or_insert` recursively
+        // and we don't want a deadlock!
+        {
+            let mapping = self.0.read();
+            if let Some(info) = mapping.get(&type_id) {
+                return info;
+            }
         }
 
-        mapping.write().entry(type_id).or_insert_with(|| {
-            // We leak here in order to obtain a `&'static` reference.
-            // Otherwise, we won't be able to return a reference due to the `RwLock`.
-            // This should be okay, though, since we expect it to remain statically
-            // available over the course of the application.
-            Box::leak(Box::new(f()))
-        })
+        let value = f();
+
+        let mut mapping = self.0.write();
+        mapping
+            .entry(type_id)
+            .insert({
+                // We leak here in order to obtain a `&'static` reference.
+                // Otherwise, we won't be able to return a reference due to the `RwLock`.
+                // This should be okay, though, since we expect it to remain statically
+                // available over the course of the application.
+                Box::leak(Box::new(value))
+            })
+            .get()
     }
 }
 
