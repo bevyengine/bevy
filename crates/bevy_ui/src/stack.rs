@@ -126,23 +126,23 @@ mod tests {
         component::Component,
         schedule::Schedule,
         system::{CommandQueue, Commands},
-        world::World,
+        world::World, entity::Entity,
     };
     use bevy_hierarchy::BuildChildren;
 
-    use crate::{Node, UiStack, ZIndex};
+    use crate::{Node, UiStack, ZIndex, UiStackIndex};
 
     use super::ui_stack_system;
 
     #[derive(Component, PartialEq, Debug, Clone)]
     struct Label(&'static str);
 
-    fn node_with_zindex(name: &'static str, z_index: ZIndex) -> (Label, Node, ZIndex) {
-        (Label(name), Node::default(), z_index)
+    fn node_with_zindex(name: &'static str, z_index: ZIndex) -> (Label, Node, UiStackIndex, ZIndex) {
+        (Label(name), Node::default(), UiStackIndex::default(), z_index)
     }
 
-    fn node_without_zindex(name: &'static str) -> (Label, Node) {
-        (Label(name), Node::default())
+    fn node_without_zindex(name: &'static str) -> (Label, Node, UiStackIndex) {
+        (Label(name), Node::default(), UiStackIndex::default())
     }
 
     /// Tests the UI Stack system.
@@ -205,14 +205,16 @@ mod tests {
         schedule.add_systems(ui_stack_system);
         schedule.run(&mut world);
 
-        let mut query = world.query::<&Label>();
+        let mut query = world.query::<(&Label, &UiStackIndex)>();
         let ui_stack = world.resource::<UiStack>();
         let actual_result = ui_stack
             .uinodes
             .iter()
-            .map(|entity| query.get(&world, *entity).unwrap().clone())
-            .collect::<Vec<_>>();
-        let expected_result = vec![
+            .map(|entity| {
+                let (label, ui_stack_index) = query.get(&world, *entity).unwrap();
+                (label.clone(), ui_stack_index.0)
+            }).collect::<Vec<_>>();
+        let expected_result: Vec<_> = [
             (Label("1-2-1")), // ZIndex::Global(-3)
             (Label("3")),     // ZIndex::Global(-2)
             (Label("1-2")),   // ZIndex::Global(-1)
@@ -231,7 +233,7 @@ mod tests {
             (Label("1-1")),
             (Label("1-3")),
             (Label("0")), // ZIndex::Global(2)
-        ];
-        assert_eq!(actual_result, expected_result);
+        ].into_iter().enumerate().map(|(i, label)| { (label, i as u32) }).collect();
+        assert_eq!(actual_result, expected_result);    
     }
 }
