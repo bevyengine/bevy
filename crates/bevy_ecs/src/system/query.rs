@@ -1065,6 +1065,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns a shared reference to the component `T` of the given [`Entity`].
     ///
+    /// Unlike [`Query::get`], this method returns only a single component,
+    /// rather than the entire query item declared in the first type parameter.
+    ///
     /// Note that the component must both be present on the entity and the access declared on the query,
     /// via the first "fetch" type parameter.
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
@@ -1127,6 +1130,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     }
 
     /// Returns a mutable reference to the component `T` of the given entity.
+    ///
+    /// Unlike [`Query::get_mut`], this method returns only a single component,
+    /// rather than the entire query item declared in the first type parameter.
     ///
     /// Note that the component must both be present on the entity and the access declared on the query,
     /// via the first "fetch" type parameter.
