@@ -1366,7 +1366,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// ```
     #[inline]
     pub fn is_empty(&self) -> bool {
-        // SAFETY: `self.world` matches `self.state`.
+        // SAFETY:
+        // - `self.world` has permission to read any data required by the WorldQuery.
+        // - `&self` ensures that no one currently has write access.
+        // - `self.world` matches `self.state`.
         unsafe {
             self.state
                 .is_empty_unsafe_world_cell(self.world, self.last_run, self.this_run)

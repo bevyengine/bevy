@@ -135,7 +135,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     #[inline]
     pub fn is_empty(&self, world: &World, last_run: Tick, this_run: Tick) -> bool {
         self.validate_world(world.id());
-        // SAFETY: The world has been validated.
+        // SAFETY:
+        // - We have read-only access to the entire world.
+        // - The world has been validated.
         unsafe {
             self.is_empty_unsafe_world_cell(
                 world.as_unsafe_world_cell_readonly(),
@@ -149,7 +151,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// # Safety
     ///
-    /// `world` must match the one used to create this [`QueryState`].
+    /// - `world` mut have permission to ready any components required by this instance's `F` [`WorldQuery`].
+    /// - `world` must match the one used to create this [`QueryState`].
     #[inline]
     pub(crate) unsafe fn is_empty_unsafe_world_cell(
         &self,
@@ -158,9 +161,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         this_run: Tick,
     ) -> bool {
         // SAFETY:
-        // - `as_nop()` ensures no world data is accessed.
-        // - `&self` ensures no one has exclusive access.
-        // - Caller ensures that the world matches.
+        // - The caller ensures that `world` has permission to access any data used by the filter.
+        // - The caller ensures that the world matches.
         unsafe {
             self.as_nop()
                 .iter_unchecked_manual(world, last_run, this_run)
