@@ -470,6 +470,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
             return RenderCommandResult::Failure;
         };
 
+        if line_gizmo.vertex_count < 2 {
+            return RenderCommandResult::Success;
+        }
+
         let instances = if line_gizmo.strip {
             let item_size = VertexFormat::Float32x3.size();
             let buffer_size = line_gizmo.position_buffer.size() - item_size;

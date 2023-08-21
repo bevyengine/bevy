@@ -15,7 +15,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_math::Mat4;
+use bevy_math::{Affine3A, Mat4};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -31,10 +31,10 @@ use bevy_render::{
         BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
         ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
         DynamicUniformBuffer, FragmentState, FrontFace, GpuArrayBufferIndex, MultisampleState,
-        PipelineCache, PolygonMode, PrimitiveState, RenderPipelineDescriptor, Shader, ShaderRef,
-        ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-        SpecializedMeshPipelines, StencilFaceState, StencilState, TextureSampleType,
-        TextureViewDimension, VertexState,
+        PipelineCache, PolygonMode, PrimitiveState, PushConstantRange, RenderPipelineDescriptor,
+        Shader, ShaderRef, ShaderStages, ShaderType, SpecializedMeshPipeline,
+        SpecializedMeshPipelineError, SpecializedMeshPipelines, StencilFaceState, StencilState,
+        TextureSampleType, TextureViewDimension, VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{FallbackImagesDepth, FallbackImagesMsaa},
@@ -46,8 +46,8 @@ use bevy_utils::tracing::error;
 
 use crate::{
     prepare_lights, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material, MaterialPipeline,
-    MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, MeshUniform, RenderMaterials,
-    SetMaterialBindGroup, SetMeshBindGroup,
+    MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, MeshTransforms, MeshUniform,
+    RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -203,7 +203,7 @@ pub fn update_previous_view_projections(
 }
 
 #[derive(Component)]
-pub struct PreviousGlobalTransform(pub Mat4);
+pub struct PreviousGlobalTransform(pub Affine3A);
 
 pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,
@@ -216,7 +216,7 @@ pub fn update_mesh_previous_global_transforms(
         for (entity, transform) in &meshes {
             commands
                 .entity(entity)
-                .insert(PreviousGlobalTransform(transform.compute_matrix()));
+                .insert(PreviousGlobalTransform(transform.affine()));
         }
     }
 }
@@ -487,6 +487,14 @@ where
             PREPASS_SHADER_HANDLE.typed::<Shader>()
         };
 
+        let mut push_constant_ranges = Vec::with_capacity(1);
+        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+            push_constant_ranges.push(PushConstantRange {
+                stages: ShaderStages::VERTEX,
+                range: 0..4,
+            });
+        }
+
         let mut descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: vert_shader_handle,
@@ -526,7 +534,7 @@ where
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            push_constant_ranges: Vec::new(),
+            push_constant_ranges,
             label: Some("prepass_pipeline".into()),
         };
 
@@ -754,7 +762,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     material_meshes: Query<(
         &Handle<M>,
         &Handle<Mesh>,
-        &MeshUniform,
+        &MeshTransforms,
         &GpuArrayBufferIndex<MeshUniform>,
     )>,
     mut views: Query<(
@@ -801,7 +809,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {
-            let Ok((material_handle, mesh_handle, mesh_uniform, batch_indices)) = material_meshes.get(*visible_entity) else {
+            let Ok((material_handle, mesh_handle, mesh_transforms, batch_indices)) = material_meshes.get(*visible_entity) else {
                 continue;
             };
 
@@ -844,8 +852,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             };
 
-            let distance =
-                rangefinder.distance(&mesh_uniform.transform) + material.properties.depth_bias;
+            let distance = rangefinder.distance_translation(&mesh_transforms.transform.translation)
+                + material.properties.depth_bias;
             match alpha_mode {
                 AlphaMode::Opaque => {
                     opaque_phase.add(Opaque3dPrepass {

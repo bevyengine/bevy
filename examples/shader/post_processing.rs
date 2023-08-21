@@ -11,12 +11,15 @@ use bevy::{
         clear_color::ClearColorConfig, core_3d,
         fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     },
+    ecs::query::QueryItem,
     prelude::*,
     render::{
         extract_component::{
             ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
         },
-        render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext},
+        render_graph::{
+            NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
+        },
         render_resource::{
             BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
             BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
@@ -31,10 +34,6 @@ use bevy::{
         RenderApp,
     },
     utils::Duration,
-};
-use bevy_internal::{
-    ecs::query::QueryItem,
-    render::render_graph::{ViewNode, ViewNodeRunner},
 };
 
 fn main() {

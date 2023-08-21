@@ -268,7 +268,10 @@ pub fn calculate_bounds(
 }
 
 pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
-    mut views: Query<(&GlobalTransform, &T, &mut Frustum)>,
+    mut views: Query<
+        (&GlobalTransform, &T, &mut Frustum),
+        Or<(Changed<GlobalTransform>, Changed<T>)>,
+    >,
 ) {
     for (transform, projection, mut frustum) in &mut views {
         let view_projection =
@@ -389,7 +392,7 @@ pub fn check_visibility(
 
                 // If we have an aabb and transform, do frustum culling
                 if maybe_no_frustum_culling.is_none() {
-                    let model = transform.compute_matrix();
+                    let model = transform.affine();
                     let model_sphere = Sphere {
                         center: model.transform_point3a(model_aabb.center),
                         radius: transform.radius_vec3a(model_aabb.half_extents),
