@@ -934,6 +934,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
+    /// If the declared access for a given component is read-only, only an immutable reference will be returned.
+    ///
     /// # Example
     ///
     /// Here, `get_mut` is used to retrieve the exact query item of the entity specified by the `PoisonedCharacter` resource.
@@ -1063,6 +1065,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns a shared reference to the component `T` of the given [`Entity`].
     ///
+    /// Note that the component must both be present on the entity and the access declared on the query,
+    /// via the first "fetch" type parameter.
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
     /// # Example
@@ -1121,7 +1125,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns a mutable reference to the component `T` of the given entity.
     ///
+    /// Note that the component must both be present on the entity and the access declared on the query,
+    /// via the first "fetch" type parameter.
     /// In case of a nonexisting entity or mismatched component, a [`QueryComponentError`] is returned instead.
+    ///
+    /// If the declared access for the provided component is read-only, only an immutable reference will be returned.
     ///
     /// # Example
     ///
