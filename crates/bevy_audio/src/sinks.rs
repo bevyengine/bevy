@@ -17,9 +17,11 @@ pub trait AudioSinkPlayback {
     /// will multiply each sample by this value.
     ///
     /// # Note on Audio Volume
-    /// Our perception of audio volume is based on a logarithmic scale. As such, setting the volume to 0.01
-    /// doesn't mean it's 100 times quieter. Instead, it's exactly two times quieter than the default.
-    /// Mathematically, if 10^x = 0.01, then x = -2, representing a factor of two.
+    /// An increase of 10 decibels (dB) roughly corresponds to the perceived volume doubling in intensity.
+    /// As this function scales not the volume but the amplitude, a conversion might be necessary.
+    /// For example, to halve the perceived volume you need to decrease the volume by 10 dB.
+    /// This corresponds to 20log(x) = -10dB, solving x = 10^(-10/20) = 0.316.
+    /// Multiply the current volume by 0.316 to halve the perceived volume.
     fn set_volume(&self, volume: f32);
 
     /// Gets the speed of the sound.
