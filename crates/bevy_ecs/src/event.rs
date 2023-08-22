@@ -594,13 +594,22 @@ impl<E: Event> Events<E> {
     /// Swaps the event buffers and clears the oldest event buffer. In general, this should be
     /// called once per frame/update.
     pub fn update(&mut self) {
+        let _ = self.update_drain();
+    }
+
+    /// Swaps the event buffers and drains the oldest event buffer, returning an iterator
+    /// of all events that were removed. In general, this should be called once per frame/update.
+    #[must_use = "If you do not need the returned events, call .update() instead."]
+    pub fn update_drain(&mut self) -> impl Iterator<Item = E> + '_ {
         std::mem::swap(&mut self.events_a, &mut self.events_b);
-        self.events_b.clear();
+        let iter = self.events_b.events.drain(..);
         self.events_b.start_event_count = self.event_count;
         debug_assert_eq!(
             self.events_a.start_event_count + self.events_a.len(),
             self.events_b.start_event_count
         );
+
+        iter.map(|e| e.event)
     }
 
     /// A system that calls [`Events::update`] once per frame.
