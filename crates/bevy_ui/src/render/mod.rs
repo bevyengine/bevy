@@ -34,7 +34,7 @@ use bevy_render::{
 use bevy_sprite::SpriteAssetEvents;
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
-use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
+use bevy_text::{Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
@@ -523,6 +523,8 @@ pub fn extract_text_uinodes(
     >,
 ) {
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
+
+    use bevy_text::PositionedGlyph;
     let scale_factor = windows
         .get_single()
         .map(|window| window.resolution.scale_factor())
@@ -539,39 +541,69 @@ pub fn extract_text_uinodes(
             if !visibility.is_visible() || uinode.size().x == 0. || uinode.size().y == 0. {
                 continue;
             }
-            let transform = global_transform.compute_matrix()
-                * Mat4::from_translation(-0.5 * uinode.size().extend(0.));
-
-            let mut color = Color::WHITE;
-            let mut current_section = usize::MAX;
-            for PositionedGlyph {
-                position,
-                atlas_info,
-                section_index,
-                ..
-            } in &text_layout_info.glyphs
-            {
-                if *section_index != current_section {
-                    color = text.sections[*section_index].style.color.as_rgba_linear();
-                    current_section = *section_index;
+            if let Some(&CalculatedClip { clip }) = clip {
+                let transform = global_transform.compute_matrix()
+                    * Mat4::from_translation(-0.5 * uinode.size().extend(0.));
+                let mut color = Color::WHITE;
+                let mut current_section = usize::MAX;
+                for PositionedGlyph {
+                    position,
+                    atlas_info,
+                    section_index,
+                    ..
+                } in &text_layout_info.glyphs
+                {
+                    if *section_index != current_section {
+                        color = text.sections[*section_index].style.color.as_rgba_linear();
+                        current_section = *section_index;
+                    }
+                    let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+                    let mut rect = atlas.textures[atlas_info.glyph_index];
+                    rect.min *= inverse_scale_factor;
+                    rect.max *= inverse_scale_factor;
+                    extracted_uinodes.uinodes.push(ExtractedUiNode {
+                        stack_index,
+                        transform: transform
+                            * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
+                        color,
+                        rect,
+                        image: atlas.texture.clone_weak(),
+                        atlas_size: Some(atlas.size * inverse_scale_factor),
+                        clip: Some(clip),
+                        flip_x: false,
+                        flip_y: false,
+                    });
                 }
-                let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
-
-                let mut rect = atlas.textures[atlas_info.glyph_index];
-                rect.min *= inverse_scale_factor;
-                rect.max *= inverse_scale_factor;
-                extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    stack_index,
-                    transform: transform
-                        * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
-                    color,
-                    rect,
-                    image: atlas.texture.clone_weak(),
-                    atlas_size: Some(atlas.size * inverse_scale_factor),
-                    clip: clip.map(|clip| clip.clip),
-                    flip_x: false,
-                    flip_y: false,
-                });
+            } else {
+                let transform = global_transform.compute_matrix()
+                    * Mat4::from_translation(-0.5 * uinode.size().extend(0.))
+                    * Mat4::from_scale(Vec2::splat(inverse_scale_factor).extend(1.));
+                let mut color = Color::WHITE;
+                let mut current_section = usize::MAX;
+                for PositionedGlyph {
+                    position,
+                    atlas_info,
+                    section_index,
+                    ..
+                } in &text_layout_info.glyphs
+                {
+                    if *section_index != current_section {
+                        color = text.sections[*section_index].style.color.as_rgba_linear();
+                        current_section = *section_index;
+                    }
+                    let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+                    extracted_uinodes.uinodes.push(ExtractedUiNode {
+                        stack_index,
+                        transform: transform * Mat4::from_translation(position.extend(0.)),
+                        color,
+                        rect: atlas.textures[atlas_info.glyph_index],
+                        image: atlas.texture.clone_weak(),
+                        atlas_size: Some(atlas.size),
+                        clip: None,
+                        flip_x: false,
+                        flip_y: false,
+                    });
+                }
             }
         }
     }
