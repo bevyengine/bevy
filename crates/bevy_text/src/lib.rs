@@ -26,8 +26,11 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::AddAsset;
+#[cfg(feature = "default_font")]
+use bevy_asset::load_internal_binary_asset;
+use bevy_asset::{AddAsset, HandleUntyped};
 use bevy_ecs::prelude::*;
+use bevy_reflect::TypeUuid;
 use bevy_render::{camera::CameraUpdateSystem, ExtractSchedule, RenderApp};
 use bevy_sprite::SpriteSystem;
 use std::num::NonZeroUsize;
@@ -38,9 +41,9 @@ pub struct TextPlugin;
 /// [`TextPlugin`] settings
 #[derive(Resource)]
 pub struct TextSettings {
-    /// Maximum number of font atlases supported in a ['FontAtlasSet']
+    /// Maximum number of font atlases supported in a [`FontAtlasSet`].
     pub max_font_atlases: NonZeroUsize,
-    /// Allows font size to be set dynamically exceeding the amount set in max_font_atlases.
+    /// Allows font size to be set dynamically exceeding the amount set in `max_font_atlases`.
     /// Note each font size has to be generated which can have a strong performance impact.
     pub allow_dynamic_font_size: bool,
 }
@@ -67,16 +70,21 @@ pub enum YAxisOrientation {
     BottomToTop,
 }
 
+pub const DEFAULT_FONT_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Font::TYPE_UUID, 1491772431825224042);
+
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<Font>()
+            .add_debug_asset::<Font>()
             .add_asset::<FontAtlasSet>()
             .register_type::<Text>()
+            .register_type::<Text2dBounds>()
             .register_type::<TextSection>()
             .register_type::<Vec<TextSection>>()
             .register_type::<TextStyle>()
-            .register_type::<Text>()
             .register_type::<TextAlignment>()
+            .register_type::<BreakLineOn>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<TextSettings>()
             .init_resource::<FontAtlasWarning>()
@@ -97,5 +105,13 @@ impl Plugin for TextPlugin {
                 extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
             );
         }
+
+        #[cfg(feature = "default_font")]
+        load_internal_binary_asset!(
+            app,
+            DEFAULT_FONT_HANDLE,
+            "FiraMono-subset.ttf",
+            |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
+        );
     }
 }

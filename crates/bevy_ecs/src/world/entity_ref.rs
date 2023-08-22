@@ -12,7 +12,7 @@ use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
 use std::any::TypeId;
 
-use super::unsafe_world_cell::UnsafeEntityCell;
+use super::{unsafe_world_cell::UnsafeEntityCell, Ref};
 
 /// A read-only reference to a particular [`Entity`] and all of its components
 #[derive(Copy, Clone)]
@@ -49,48 +49,86 @@ impl<'w> EntityRef<'w> {
         )
     }
 
+    /// Returns the [ID](Entity) of the current entity.
     #[inline]
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity
     }
 
+    /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
     pub fn location(&self) -> EntityLocation {
         self.location
     }
 
+    /// Returns the archetype that the current entity belongs to.
     #[inline]
     pub fn archetype(&self) -> &Archetype {
         &self.world.archetypes[self.location.archetype_id]
     }
 
+    /// Gets read-only access to the world that the current entity belongs to.
     #[inline]
     pub fn world(&self) -> &'w World {
         self.world
     }
 
+    /// Returns `true` if the current entity has a component of type `T`.
+    /// Otherwise, this returns `false`.
+    ///
+    /// ## Notes
+    ///
+    /// If you do not know the concrete type of a component, consider using
+    /// [`Self::contains_id`] or [`Self::contains_type_id`].
     #[inline]
     pub fn contains<T: Component>(&self) -> bool {
         self.contains_type_id(TypeId::of::<T>())
     }
 
+    /// Returns `true` if the current entity has a component identified by `component_id`.
+    /// Otherwise, this returns false.
+    ///
+    /// ## Notes
+    ///
+    /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
+    /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
+    /// [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
         self.as_unsafe_world_cell_readonly()
             .contains_id(component_id)
     }
 
+    /// Returns `true` if the current entity has a component with the type identified by `type_id`.
+    /// Otherwise, this returns false.
+    ///
+    /// ## Notes
+    ///
+    /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
+    /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
         self.as_unsafe_world_cell_readonly()
             .contains_type_id(type_id)
     }
 
+    /// Gets access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'w T> {
         // SAFETY: &self implies shared access for duration of returned value
         unsafe { self.as_unsafe_world_cell_readonly().get::<T>() }
+    }
+
+    /// Gets access to the component of type `T` for the current entity,
+    /// including change detection information as a [`Ref`].
+    ///
+    /// Returns `None` if the entity does not have a component of type `T`.
+    #[inline]
+    pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
+        // SAFETY: &self implies shared access for duration of returned value
+        unsafe { self.as_unsafe_world_cell_readonly().get_ref::<T>() }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -186,45 +224,74 @@ impl<'w> EntityMut<'w> {
         }
     }
 
+    /// Returns the [ID](Entity) of the current entity.
     #[inline]
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity
     }
 
+    /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
     pub fn location(&self) -> EntityLocation {
         self.location
     }
 
+    /// Returns the archetype that the current entity belongs to.
     #[inline]
     pub fn archetype(&self) -> &Archetype {
         &self.world.archetypes[self.location.archetype_id]
     }
 
+    /// Returns `true` if the current entity has a component of type `T`.
+    /// Otherwise, this returns `false`.
+    ///
+    /// ## Notes
+    ///
+    /// If you do not know the concrete type of a component, consider using
+    /// [`Self::contains_id`] or [`Self::contains_type_id`].
     #[inline]
     pub fn contains<T: Component>(&self) -> bool {
         self.contains_type_id(TypeId::of::<T>())
     }
 
+    /// Returns `true` if the current entity has a component identified by `component_id`.
+    /// Otherwise, this returns false.
+    ///
+    /// ## Notes
+    ///
+    /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
+    /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
+    /// [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
         self.as_unsafe_world_cell_readonly()
             .contains_id(component_id)
     }
 
+    /// Returns `true` if the current entity has a component with the type identified by `type_id`.
+    /// Otherwise, this returns false.
+    ///
+    /// ## Notes
+    ///
+    /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
+    /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
         self.as_unsafe_world_cell_readonly()
             .contains_type_id(type_id)
     }
 
+    /// Gets access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
         // SAFETY: &self implies shared access for duration of returned value
         unsafe { self.as_unsafe_world_cell_readonly().get::<T>() }
     }
 
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
@@ -580,6 +647,7 @@ impl<'w> EntityMut<'w> {
         self
     }
 
+    /// Despawns the current entity.
     pub fn despawn(self) {
         debug!("Despawning entity {:?}", self.entity);
         let world = self.world;
@@ -645,6 +713,7 @@ impl<'w> EntityMut<'w> {
         }
     }
 
+    /// Gets read-only access to the world that the current entity belongs to.
     #[inline]
     pub fn world(&self) -> &World {
         self.world
@@ -663,7 +732,7 @@ impl<'w> EntityMut<'w> {
         self.world
     }
 
-    /// Return this `EntityMut`'s [`World`], consuming itself.
+    /// Returns this `EntityMut`'s [`World`], consuming itself.
     #[inline]
     pub fn into_world_mut(self) -> &'w mut World {
         self.world
@@ -814,13 +883,11 @@ unsafe fn remove_bundle_from_archetype(
     // check the archetype graph to see if the Bundle has been removed from this archetype in the
     // past
     let remove_bundle_result = {
-        let current_archetype = &mut archetypes[archetype_id];
+        let edges = archetypes[archetype_id].edges();
         if intersection {
-            current_archetype
-                .edges()
-                .get_remove_bundle(bundle_info.id())
+            edges.get_remove_bundle(bundle_info.id())
         } else {
-            current_archetype.edges().get_take_bundle(bundle_info.id())
+            edges.get_take_bundle(bundle_info.id())
         }
     };
     let result = if let Some(result) = remove_bundle_result {

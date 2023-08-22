@@ -27,12 +27,15 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
 |bevy_winit|winit window and input backend|
+|default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
 |filesystem_watcher|Enable watching file system for asset hot reload|
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
+|multi-threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |png|PNG image format support|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files|
 |vorbis|OGG/VORBIS audio format support|
+|webgl2|Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm|
 |x11|X11 display server support|
 |zstd|For KTX2 supercompression|
 
@@ -55,7 +58,10 @@ The default feature set enables most of the expected features of a game engine, 
 |jpeg|JPEG image format support|
 |minimp3|MP3 audio format support (through minimp3)|
 |mp3|MP3 audio format support|
+|pnm|PNM image format support, includes pam, pbm, pgm and ppm|
 |serialize|Enable serialization support through serde|
+|shader_format_glsl|Enable support for shaders in GLSL|
+|shader_format_spirv|Enable support for shaders in SPIR-V|
 |subpixel_glyph_atlas|Enable rendering of font glyphs using subpixel accuracy|
 |symphonia-aac|AAC audio format support (through symphonia)|
 |symphonia-all|AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)|
@@ -67,6 +73,7 @@ The default feature set enables most of the expected features of a game engine, 
 |trace|Tracing support|
 |trace_chrome|Tracing support, saving a file in Chrome Tracing format|
 |trace_tracy|Tracing support, exposing a port for Tracy|
+|trace_tracy_memory|Tracing support, with memory profiling, exposing a port for Tracy|
 |wav|WAV audio format support|
 |wayland|Wayland display server support|
 |webp|WebP image format support|

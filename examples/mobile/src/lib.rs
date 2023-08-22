@@ -55,7 +55,6 @@ fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
     // plane
     commands.spawn(PbrBundle {
@@ -122,9 +121,9 @@ fn setup_scene(
                 TextBundle::from_section(
                     "Test Button",
                     TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 30.0,
                         color: Color::BLACK,
+                        ..default()
                     },
                 )
                 .with_text_alignment(TextAlignment::Center),
@@ -140,7 +139,7 @@ fn button_handler(
 ) {
     for (interaction, mut color) in &mut interaction_query {
         match *interaction {
-            Interaction::Clicked => {
+            Interaction::Pressed => {
                 *color = Color::BLUE.into();
             }
             Interaction::Hovered => {
@@ -153,7 +152,9 @@ fn button_handler(
     }
 }
 
-fn setup_music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    let music = asset_server.load("sounds/Windless Slopes.ogg");
-    audio.play(music);
+fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
+    commands.spawn(AudioBundle {
+        source: asset_server.load("sounds/Windless Slopes.ogg"),
+        settings: PlaybackSettings::LOOP,
+    });
 }

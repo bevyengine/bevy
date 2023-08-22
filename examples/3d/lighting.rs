@@ -23,6 +23,23 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
+    // example instructions
+    commands.spawn(
+        TextBundle::from_section(
+            "Use arrow keys to move objects",
+            TextStyle {
+                font_size: 20.0,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        }),
+    );
+
     // ground plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(shape::Plane::from_size(10.0).into()),

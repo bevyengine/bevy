@@ -28,10 +28,20 @@ impl Default for BevyManifest {
                 .map(PathBuf::from)
                 .map(|mut path| {
                     path.push("Cargo.toml");
-                    let manifest = std::fs::read_to_string(path).unwrap();
-                    manifest.parse::<Document>().unwrap()
+                    if !path.exists() {
+                        panic!(
+                            "No Cargo manifest found for crate. Expected: {}",
+                            path.display()
+                        );
+                    }
+                    let manifest = std::fs::read_to_string(path.clone()).unwrap_or_else(|_| {
+                        panic!("Unable to read cargo manifest: {}", path.display())
+                    });
+                    manifest.parse::<Document>().unwrap_or_else(|_| {
+                        panic!("Failed to parse cargo manifest: {}", path.display())
+                    })
                 })
-                .unwrap(),
+                .expect("CARGO_MANIFEST_DIR is not defined."),
         }
     }
 }
@@ -160,6 +170,8 @@ pub fn ensure_no_collision(value: Ident, haystack: TokenStream) -> Ident {
 /// - `input`: The [`syn::DeriveInput`] for struct that is deriving the label trait
 /// - `trait_path`: The path [`syn::Path`] to the label trait
 pub fn derive_boxed_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStream {
+    let bevy_utils_path = BevyManifest::default().get_path("bevy_utils");
+
     let ident = input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
     let mut where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
@@ -177,6 +189,22 @@ pub fn derive_boxed_label(input: syn::DeriveInput, trait_path: &syn::Path) -> To
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
             fn dyn_clone(&self) -> std::boxed::Box<dyn #trait_path> {
                 std::boxed::Box::new(std::clone::Clone::clone(self))
+            }
+
+            fn as_dyn_eq(&self) -> &dyn #bevy_utils_path::label::DynEq {
+                self
+            }
+
+            fn dyn_hash(&self, mut state: &mut dyn ::std::hash::Hasher) {
+                let ty_id = #trait_path::inner_type_id(self);
+                ::std::hash::Hash::hash(&ty_id, &mut state);
+                ::std::hash::Hash::hash(self, &mut state);
+            }
+        }
+
+        impl #impl_generics ::std::convert::AsRef<dyn #trait_path> for #ident #ty_generics #where_clause {
+            fn as_ref(&self) -> &dyn #trait_path {
+                self
             }
         }
     })
@@ -196,7 +224,7 @@ pub fn derive_label(
 ) -> TokenStream {
     // return true if the variant specified is an `ignore_fields` attribute
     fn is_ignore(attr: &syn::Attribute, attr_name: &str) -> bool {
-        if attr.path.get_ident().as_ref().unwrap() != &attr_name {
+        if attr.path().get_ident().as_ref().unwrap() != &attr_name {
             return false;
         }
 

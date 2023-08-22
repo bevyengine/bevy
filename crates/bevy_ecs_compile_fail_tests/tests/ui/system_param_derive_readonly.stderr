@@ -30,7 +30,7 @@ note: required by a bound in `assert_readonly`
   --> tests/ui/system_param_derive_readonly.rs:23:8
    |
 21 | fn assert_readonly<P>()
-   |    --------------- required by a bound in this
+   |    --------------- required by a bound in this function
 22 | where
 23 |     P: ReadOnlySystemParam,
    |        ^^^^^^^^^^^^^^^^^^^ required by this bound in `assert_readonly`

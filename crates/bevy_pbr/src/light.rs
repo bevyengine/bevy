@@ -8,7 +8,7 @@ use bevy_render::{
     color::Color,
     extract_resource::ExtractResource,
     prelude::Projection,
-    primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Plane, Sphere},
+    primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
     view::{ComputedVisibility, RenderLayers, VisibleEntities},
@@ -353,7 +353,7 @@ impl CascadeShadowConfigBuilder {
 
 impl Default for CascadeShadowConfigBuilder {
     fn default() -> Self {
-        if cfg!(feature = "webgl") {
+        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
             // Currently only support one cascade in webgl.
             Self {
                 num_cascades: 1,
@@ -387,7 +387,7 @@ pub struct Cascades {
     pub(crate) cascades: HashMap<Entity, Vec<Cascade>>,
 }
 
-#[derive(Clone, Debug, Default, Reflect, FromReflect)]
+#[derive(Clone, Debug, Default, Reflect)]
 pub struct Cascade {
     /// The transform of the light, i.e. the view to world matrix.
     pub(crate) view_transform: Mat4,
@@ -627,7 +627,7 @@ pub enum SimulationLightSystems {
 
 /// Configure the far z-plane mode used for the furthest depth slice for clustered forward
 /// rendering
-#[derive(Debug, Copy, Clone, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, Reflect)]
 pub enum ClusterFarZMode {
     /// Calculate the required maximum z-depth based on currently visible lights.
     /// Makes better use of available clusters, speeding up GPU lighting operations
@@ -639,7 +639,7 @@ pub enum ClusterFarZMode {
 }
 
 /// Configure the depth-slicing strategy for clustered forward rendering
-#[derive(Debug, Copy, Clone, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, Reflect)]
 #[reflect(Default)]
 pub struct ClusterZConfig {
     /// Far `Z` plane of the first depth slice
@@ -1457,7 +1457,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let view_x = clip_to_view(inverse_projection, Vec4::new(x_pos, 0.0, 1.0, 1.0)).x;
                 let normal = Vec3::X;
                 let d = view_x * normal.x;
-                x_planes.push(Plane::new(normal.extend(d)));
+                x_planes.push(HalfSpace::new(normal.extend(d)));
             }
 
             let y_slices = clusters.dimensions.y as f32;
@@ -1467,7 +1467,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let view_y = clip_to_view(inverse_projection, Vec4::new(0.0, y_pos, 1.0, 1.0)).y;
                 let normal = Vec3::Y;
                 let d = view_y * normal.y;
-                y_planes.push(Plane::new(normal.extend(d)));
+                y_planes.push(HalfSpace::new(normal.extend(d)));
             }
         } else {
             let x_slices = clusters.dimensions.x as f32;
@@ -1478,7 +1478,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let nt = clip_to_view(inverse_projection, Vec4::new(x_pos, 1.0, 1.0, 1.0)).xyz();
                 let normal = nb.cross(nt);
                 let d = nb.dot(normal);
-                x_planes.push(Plane::new(normal.extend(d)));
+                x_planes.push(HalfSpace::new(normal.extend(d)));
             }
 
             let y_slices = clusters.dimensions.y as f32;
@@ -1489,7 +1489,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let nr = clip_to_view(inverse_projection, Vec4::new(1.0, y_pos, 1.0, 1.0)).xyz();
                 let normal = nr.cross(nl);
                 let d = nr.dot(normal);
-                y_planes.push(Plane::new(normal.extend(d)));
+                y_planes.push(HalfSpace::new(normal.extend(d)));
             }
         }
 
@@ -1498,7 +1498,7 @@ pub(crate) fn assign_lights_to_clusters(
             let view_z = z_slice_to_view_z(first_slice_depth, far_z, z_slices, z, is_orthographic);
             let normal = -Vec3::Z;
             let d = view_z * normal.z;
-            z_planes.push(Plane::new(normal.extend(d)));
+            z_planes.push(HalfSpace::new(normal.extend(d)));
         }
 
         let mut update_from_light_intersections = |visible_lights: &mut Vec<Entity>| {
@@ -1737,7 +1737,7 @@ pub(crate) fn assign_lights_to_clusters(
 }
 
 // NOTE: This exploits the fact that a x-plane normal has only x and z components
-fn get_distance_x(plane: Plane, point: Vec3A, is_orthographic: bool) -> f32 {
+fn get_distance_x(plane: HalfSpace, point: Vec3A, is_orthographic: bool) -> f32 {
     if is_orthographic {
         point.x - plane.d()
     } else {
@@ -1750,7 +1750,7 @@ fn get_distance_x(plane: Plane, point: Vec3A, is_orthographic: bool) -> f32 {
 }
 
 // NOTE: This exploits the fact that a z-plane normal has only a z component
-fn project_to_plane_z(z_light: Sphere, z_plane: Plane) -> Option<Sphere> {
+fn project_to_plane_z(z_light: Sphere, z_plane: HalfSpace) -> Option<Sphere> {
     // p = sphere center
     // n = plane normal
     // d = n.p if p is in the plane
@@ -1772,7 +1772,11 @@ fn project_to_plane_z(z_light: Sphere, z_plane: Plane) -> Option<Sphere> {
 }
 
 // NOTE: This exploits the fact that a y-plane normal has only y and z components
-fn project_to_plane_y(y_light: Sphere, y_plane: Plane, is_orthographic: bool) -> Option<Sphere> {
+fn project_to_plane_y(
+    y_light: Sphere,
+    y_plane: HalfSpace,
+    is_orthographic: bool,
+) -> Option<Sphere> {
     let distance_to_plane = if is_orthographic {
         y_plane.d() - y_light.center.y
     } else {
@@ -2021,11 +2025,23 @@ pub fn check_light_mesh_visibility(
                         view_frusta.iter().zip(view_visible_entities)
                     {
                         // Disable near-plane culling, as a shadow caster could lie before the near plane.
-                        if !frustum.intersects_obb(aabb, &transform.compute_matrix(), false, true) {
+                        if !frustum.intersects_obb(aabb, &transform.affine(), false, true) {
                             continue;
                         }
 
                         computed_visibility.set_visible_in_view();
+                        frustum_visible_entities.entities.push(entity);
+                    }
+                }
+            } else {
+                computed_visibility.set_visible_in_view();
+                for view in frusta.frusta.keys() {
+                    let view_visible_entities = visible_entities
+                        .entities
+                        .get_mut(view)
+                        .expect("Per-view visible entities should have been inserted already");
+
+                    for frustum_visible_entities in view_visible_entities {
                         frustum_visible_entities.entities.push(entity);
                     }
                 }
@@ -2082,7 +2098,7 @@ pub fn check_light_mesh_visibility(
 
                     // If we have an aabb and transform, do frustum culling
                     if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
-                        let model_to_world = transform.compute_matrix();
+                        let model_to_world = transform.affine();
                         // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
                         if !light_sphere.intersects_obb(aabb, &model_to_world) {
                             continue;
@@ -2146,7 +2162,7 @@ pub fn check_light_mesh_visibility(
 
                     // If we have an aabb and transform, do frustum culling
                     if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
-                        let model_to_world = transform.compute_matrix();
+                        let model_to_world = transform.affine();
                         // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
                         if !light_sphere.intersects_obb(aabb, &model_to_world) {
                             continue;

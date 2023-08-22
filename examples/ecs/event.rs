@@ -13,11 +13,12 @@ fn main() {
         .run();
 }
 
+#[derive(Event)]
 struct MyEvent {
     pub message: String,
 }
 
-#[derive(Default)]
+#[derive(Event, Default)]
 struct PlaySound;
 
 #[derive(Resource)]

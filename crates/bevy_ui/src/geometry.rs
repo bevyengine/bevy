@@ -1,6 +1,5 @@
 use crate::Val;
 use bevy_reflect::Reflect;
-use std::ops::{Div, DivAssign, Mul, MulAssign};
 
 /// A type which is commonly used to define margins, paddings and borders.
 ///
@@ -115,6 +114,54 @@ impl UiRect {
             right: value,
             top: value,
             bottom: value,
+        }
+    }
+
+    /// Creates a new [`UiRect`] from the values specified in logical pixels.
+    ///
+    /// This is a shortcut for [`UiRect::new()`], applying [`Val::Px`] to all arguments.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::px(10., 20., 30., 40.);
+    /// assert_eq!(ui_rect.left, Val::Px(10.));
+    /// assert_eq!(ui_rect.right, Val::Px(20.));
+    /// assert_eq!(ui_rect.top, Val::Px(30.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(40.));
+    /// ```
+    pub const fn px(left: f32, right: f32, top: f32, bottom: f32) -> Self {
+        UiRect {
+            left: Val::Px(left),
+            right: Val::Px(right),
+            top: Val::Px(top),
+            bottom: Val::Px(bottom),
+        }
+    }
+
+    /// Creates a new [`UiRect`] from the values specified in percentages.
+    ///
+    /// This is a shortcut for [`UiRect::new()`], applying [`Val::Percent`] to all arguments.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::percent(5., 10., 2., 1.);
+    /// assert_eq!(ui_rect.left, Val::Percent(5.));
+    /// assert_eq!(ui_rect.right, Val::Percent(10.));
+    /// assert_eq!(ui_rect.top, Val::Percent(2.));
+    /// assert_eq!(ui_rect.bottom, Val::Percent(1.));
+    /// ```
+    pub const fn percent(left: f32, right: f32, top: f32, bottom: f32) -> Self {
+        UiRect {
+            left: Val::Percent(left),
+            right: Val::Percent(right),
+            top: Val::Percent(top),
+            bottom: Val::Percent(bottom),
         }
     }
 
@@ -282,152 +329,6 @@ impl Default for UiRect {
     }
 }
 
-/// A 2-dimensional area defined by a width and height.
-///
-/// It is commonly used to define the size of a text or UI element.
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq)]
-pub struct Size {
-    /// The width of the 2-dimensional area.
-    pub width: Val,
-    /// The height of the 2-dimensional area.
-    pub height: Val,
-}
-
-impl Size {
-    pub const DEFAULT: Self = Self::AUTO;
-
-    /// Creates a new [`Size`] from a width and a height.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{Size, Val};
-    /// #
-    /// let size = Size::new(Val::Px(100.0), Val::Px(200.0));
-    ///
-    /// assert_eq!(size.width, Val::Px(100.0));
-    /// assert_eq!(size.height, Val::Px(200.0));
-    /// ```
-    pub const fn new(width: Val, height: Val) -> Self {
-        Size { width, height }
-    }
-
-    /// Creates a new [`Size`] where both sides take the given value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{Size, Val};
-    /// #
-    /// let size = Size::all(Val::Px(10.));
-    ///
-    /// assert_eq!(size.width, Val::Px(10.0));
-    /// assert_eq!(size.height, Val::Px(10.0));
-    /// ```
-    pub const fn all(value: Val) -> Self {
-        Self {
-            width: value,
-            height: value,
-        }
-    }
-
-    /// Creates a new [`Size`] where `width` takes the given value,
-    /// and `height` is set to [`Val::Auto`].
-
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{Size, Val};
-    /// #
-    /// let size = Size::width(Val::Px(10.));
-    ///
-    /// assert_eq!(size.width, Val::Px(10.0));
-    /// assert_eq!(size.height, Val::Auto);
-    /// ```
-    pub const fn width(width: Val) -> Self {
-        Self {
-            width,
-            height: Val::Auto,
-        }
-    }
-
-    /// Creates a new [`Size`] where `height` takes the given value,
-    /// and `width` is set to [`Val::Auto`].
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{Size, Val};
-    /// #
-    /// let size = Size::height(Val::Px(10.));
-    ///
-    /// assert_eq!(size.width, Val::Auto);
-    /// assert_eq!(size.height, Val::Px(10.));
-    /// ```
-    pub const fn height(height: Val) -> Self {
-        Self {
-            width: Val::Auto,
-            height,
-        }
-    }
-
-    /// Creates a Size where both values are [`Val::Auto`].
-    pub const AUTO: Self = Self::all(Val::Auto);
-}
-
-impl Default for Size {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
-impl From<(Val, Val)> for Size {
-    fn from(vals: (Val, Val)) -> Self {
-        Self {
-            width: vals.0,
-            height: vals.1,
-        }
-    }
-}
-
-impl Mul<f32> for Size {
-    type Output = Size;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        Self::Output {
-            width: self.width * rhs,
-            height: self.height * rhs,
-        }
-    }
-}
-
-impl MulAssign<f32> for Size {
-    fn mul_assign(&mut self, rhs: f32) {
-        self.width *= rhs;
-        self.height *= rhs;
-    }
-}
-
-impl Div<f32> for Size {
-    type Output = Size;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        Self::Output {
-            width: self.width / rhs,
-            height: self.height / rhs,
-        }
-    }
-}
-
-impl DivAssign<f32> for Size {
-    fn div_assign(&mut self, rhs: f32) {
-        self.width /= rhs;
-        self.height /= rhs;
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -447,91 +348,6 @@ mod tests {
     }
 
     #[test]
-    fn test_size_from() {
-        let size: Size = (Val::Px(20.), Val::Px(30.)).into();
-
-        assert_eq!(
-            size,
-            Size {
-                width: Val::Px(20.),
-                height: Val::Px(30.),
-            }
-        );
-    }
-
-    #[test]
-    fn test_size_mul() {
-        assert_eq!(Size::all(Val::Px(10.)) * 2., Size::all(Val::Px(20.)));
-
-        let mut size = Size::all(Val::Px(10.));
-        size *= 2.;
-        assert_eq!(size, Size::all(Val::Px(20.)));
-    }
-
-    #[test]
-    fn test_size_div() {
-        assert_eq!(
-            Size::new(Val::Px(20.), Val::Px(20.)) / 2.,
-            Size::new(Val::Px(10.), Val::Px(10.))
-        );
-
-        let mut size = Size::new(Val::Px(20.), Val::Px(20.));
-        size /= 2.;
-        assert_eq!(size, Size::new(Val::Px(10.), Val::Px(10.)));
-    }
-
-    #[test]
-    fn test_size_all() {
-        let length = Val::Px(10.);
-
-        assert_eq!(
-            Size::all(length),
-            Size {
-                width: length,
-                height: length
-            }
-        );
-    }
-
-    #[test]
-    fn test_size_width() {
-        let width = Val::Px(10.);
-
-        assert_eq!(
-            Size::width(width),
-            Size {
-                width,
-                ..Default::default()
-            }
-        );
-    }
-
-    #[test]
-    fn test_size_height() {
-        let height = Val::Px(7.);
-
-        assert_eq!(
-            Size::height(height),
-            Size {
-                height,
-                ..Default::default()
-            }
-        );
-    }
-
-    #[test]
-    fn size_default_equals_const_default() {
-        assert_eq!(
-            Size::default(),
-            Size {
-                width: Val::Auto,
-                height: Val::Auto
-            }
-        );
-        assert_eq!(Size::default(), Size::DEFAULT);
-    }
-
-    #[test]
     fn test_uirect_axes() {
         let x = Val::Px(1.);
         let y = Val::Vw(4.);
@@ -543,5 +359,23 @@ mod tests {
         assert_eq!(r.bottom, v.bottom);
         assert_eq!(r.left, h.left);
         assert_eq!(r.right, h.right);
+    }
+
+    #[test]
+    fn uirect_px() {
+        let r = UiRect::px(3., 5., 20., 999.);
+        assert_eq!(r.left, Val::Px(3.));
+        assert_eq!(r.right, Val::Px(5.));
+        assert_eq!(r.top, Val::Px(20.));
+        assert_eq!(r.bottom, Val::Px(999.));
+    }
+
+    #[test]
+    fn uirect_percent() {
+        let r = UiRect::percent(3., 5., 20., 99.);
+        assert_eq!(r.left, Val::Percent(3.));
+        assert_eq!(r.right, Val::Percent(5.));
+        assert_eq!(r.top, Val::Percent(20.));
+        assert_eq!(r.bottom, Val::Percent(99.));
     }
 }
