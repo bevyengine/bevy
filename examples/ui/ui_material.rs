@@ -51,18 +51,6 @@ fn setup(mut commands: Commands, mut ui_materials: ResMut<Assets<CustomUiMateria
                 }),
                 ..default()
             });
-            parent.spawn(MaterialNodeBundle {
-                style: Style {
-                    width: Val::Px(250.0),
-                    height: Val::Px(250.0),
-                    ..default()
-                },
-                material: ui_materials.add(CustomUiMaterial {
-                    fill_amount: 0.4,
-                    color: Color::WHITE.into(),
-                }),
-                ..default()
-            });
         });
 }
 
