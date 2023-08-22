@@ -581,7 +581,7 @@ pub fn extract_text_uinodes(
 
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
-pub struct UiVertex {
+struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub color: [f32; 4],
