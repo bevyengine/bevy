@@ -384,6 +384,7 @@ pub fn extract_skinned_meshes(
 
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh_uniforms(
+    mut seen: Local<FixedBitSet>,
     mut commands: Commands,
     mut previous_len: Local<usize>,
     render_device: Res<RenderDevice>,
@@ -398,11 +399,16 @@ pub fn prepare_mesh_uniforms(
     meshes: Query<(Entity, &MeshTransforms)>,
 ) {
     gpu_array_buffer.clear();
+    seen.clear();
 
-    let seen = FixedBitSet::new();
     let mut indices = Vec::with_capacity(*previous_len);
     let mut push_indices = |(mesh, mesh_uniform): (Entity, &MeshTransforms)| {
-        if !seen.contains(mesh.index() as usize) {
+        let index = mesh.index() as usize;
+        if !seen.contains(index) {
+            if index >= seen.len() {
+                seen.grow(index + 1);
+            }
+            seen.insert(index);
             indices.push((mesh, gpu_array_buffer.push(mesh_uniform.into())));
         }
     };
