@@ -57,6 +57,8 @@ impl ViewNode for TonemappingNode {
             None => return Ok(()),
         };
 
+        render_context.begin_debug_scope("Tonemapping");
+
         let post_process = target.post_process_write();
         let source = post_process.source;
         let destination = post_process.destination;
@@ -125,26 +127,30 @@ impl ViewNode for TonemappingNode {
             }
         };
 
-        let pass_descriptor = RenderPassDescriptor {
-            label: Some("tonemapping_pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: destination,
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Clear(Default::default()), // TODO shouldn't need to be cleared
-                    store: true,
-                },
-            })],
-            depth_stencil_attachment: None,
-        };
+        {
+            let pass_descriptor = RenderPassDescriptor {
+                label: Some("tonemapping_pass"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: destination,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(Default::default()), // TODO shouldn't need to be cleared
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: None,
+            };
 
-        let mut render_pass = render_context
-            .command_encoder()
-            .begin_render_pass(&pass_descriptor);
+            let mut render_pass = render_context
+                .command_encoder()
+                .begin_render_pass(&pass_descriptor);
 
-        render_pass.set_pipeline(pipeline);
-        render_pass.set_bind_group(0, bind_group, &[view_uniform_offset.offset]);
-        render_pass.draw(0..3, 0..1);
+            render_pass.set_pipeline(pipeline);
+            render_pass.set_bind_group(0, bind_group, &[view_uniform_offset.offset]);
+            render_pass.draw(0..3, 0..1);
+        }
+
+        render_context.end_debug_scope();
 
         Ok(())
     }

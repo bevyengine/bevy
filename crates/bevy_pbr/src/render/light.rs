@@ -1736,6 +1736,8 @@ impl Node for ShadowPassNode {
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
         if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
+            render_context.begin_debug_scope("ShadowMap");
+
             for view_light_entity in view_lights.lights.iter().copied() {
                 let (view_light, shadow_phase) = self
                     .view_light_query
@@ -1746,22 +1748,26 @@ impl Node for ShadowPassNode {
                     continue;
                 }
 
-                let mut render_pass =
-                    render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                        label: Some(&view_light.pass_name),
-                        color_attachments: &[],
-                        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                            view: &view_light.depth_texture_view,
-                            depth_ops: Some(Operations {
-                                load: LoadOp::Clear(0.0),
-                                store: true,
+                {
+                    let mut render_pass =
+                        render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                            label: Some(&view_light.pass_name),
+                            color_attachments: &[],
+                            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                                view: &view_light.depth_texture_view,
+                                depth_ops: Some(Operations {
+                                    load: LoadOp::Clear(0.0),
+                                    store: true,
+                                }),
+                                stencil_ops: None,
                             }),
-                            stencil_ops: None,
-                        }),
-                    });
+                        });
 
-                shadow_phase.render(&mut render_pass, world, view_light_entity);
+                    shadow_phase.render(&mut render_pass, world, view_light_entity);
+                }
             }
+
+            render_context.end_debug_scope();
         }
 
         Ok(())

@@ -110,6 +110,7 @@ default_font = ["bevy_text?/default_font"]
 bevy_a11y = { path = "../bevy_a11y", version = "0.12.0-dev" }
 bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
 bevy_core = { path = "../bevy_core", version = "0.12.0-dev" }
+bevy_debug_overlays = { path = "../bevy_debug_overlays", version = "0.12.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.12.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.12.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev" }

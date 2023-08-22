@@ -64,6 +64,8 @@ impl Node for CASNode {
         let source = view_target.source;
         let destination = view_target.destination;
 
+        render_context.begin_debug_scope("CAS");
+
         let mut cached_bind_group = self.cached_bind_group.lock().unwrap();
         let bind_group = match &mut *cached_bind_group {
             Some((buffer_id, texture_id, bind_group))
@@ -119,6 +121,9 @@ impl Node for CASNode {
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[uniform_index.index()]);
         render_pass.draw(0..3, 0..1);
+
+        drop(render_pass);
+        render_context.end_debug_scope();
 
         Ok(())
     }

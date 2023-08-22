@@ -201,6 +201,8 @@ impl ViewNode for TAANode {
         };
         let view_target = view_target.post_process_write();
 
+        render_context.begin_debug_scope("TAA");
+
         let taa_bind_group =
             render_context
                 .render_device()
@@ -265,6 +267,8 @@ impl ViewNode for TAANode {
             }
             taa_pass.draw(0..3, 0..1);
         }
+
+        render_context.end_debug_scope();
 
         Ok(())
     }

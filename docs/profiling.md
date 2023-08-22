@@ -90,6 +90,9 @@ Install [cargo-flamegraph](https://github.com/flamegraph-rs/flamegraph), [enable
 After closing your app, an interactive `svg` file will be produced:
 ![image](https://user-images.githubusercontent.com/2694663/141657609-0089675d-fb6a-4dc4-9a59-871e95e31c8a.png)
 
+## DebugOverlaysPlugin
+TODO
+
 ## Project Compile Times
 
 Append `--timings` to your app's cargo command (ex: `cargo build --timings`).

@@ -52,7 +52,7 @@ use crate::{
     camera::CameraPlugin,
     mesh::{morph::MorphPlugin, MeshPlugin},
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, RenderInstance},
+    renderer::{render_system, GpuTimerScopes, RenderInstance},
     settings::WgpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
@@ -378,6 +378,12 @@ impl Plugin for RenderPlugin {
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
                 .insert_resource(render_adapter.clone());
+
+            if device.features().contains(wgpu::Features::TIMESTAMP_QUERY) {
+                let gpu_timers = GpuTimerScopes::default();
+                app.insert_resource(gpu_timers.clone());
+                app.sub_app_mut(RenderApp).insert_resource(gpu_timers);
+            }
 
             let render_app = app.sub_app_mut(RenderApp);
 

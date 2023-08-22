@@ -59,6 +59,8 @@ impl ViewNode for MainOpaquePass3dNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        render_context.begin_debug_scope("Opaque3d");
+
         // Run the opaque pass, sorted front-to-back
         // NOTE: Scoped to drop the mutable borrow of render_context
         #[cfg(feature = "trace")]
@@ -126,6 +128,9 @@ impl ViewNode for MainOpaquePass3dNode {
                 render_pass.draw(0..3, 0..1);
             }
         }
+
+        drop(render_pass);
+        render_context.end_debug_scope();
 
         Ok(())
     }

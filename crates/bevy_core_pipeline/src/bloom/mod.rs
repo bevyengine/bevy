@@ -166,6 +166,7 @@ impl ViewNode for BloomNode {
         ) else { return Ok(()) };
 
         render_context.command_encoder().push_debug_group("bloom");
+        render_context.begin_debug_scope("Bloom");
 
         // First downsample pass
         {
@@ -298,6 +299,7 @@ impl ViewNode for BloomNode {
         }
 
         render_context.command_encoder().pop_debug_group();
+        render_context.end_debug_scope();
 
         Ok(())
     }

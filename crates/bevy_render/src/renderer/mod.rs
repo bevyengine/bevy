@@ -1,10 +1,9 @@
 mod graph_runner;
 mod render_device;
 
-use bevy_derive::{Deref, DerefMut};
-use bevy_utils::tracing::{error, info, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
+pub use wgpu_profiler::GpuTimerScopeResult;
 
 use crate::{
     render_graph::RenderGraph,
@@ -13,13 +12,20 @@ use crate::{
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_time::TimeSender;
+use bevy_utils::tracing::{error, info, info_span};
 use bevy_utils::Instant;
-use std::sync::Arc;
-use wgpu::{
-    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Instance, Queue, RequestAdapterOptions,
+use std::{
+    collections::VecDeque,
+    sync::{Arc, Mutex, MutexGuard},
 };
+use wgpu::{
+    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Features, Instance, Maintain, Queue,
+    RequestAdapterOptions,
+};
+use wgpu_profiler::GpuProfiler;
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -30,7 +36,7 @@ pub fn render_system(world: &mut World) {
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
 
-    if let Err(e) = RenderGraphRunner::run(
+    match RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
         &render_queue.0,
@@ -39,19 +45,23 @@ pub fn render_system(world: &mut World) {
             crate::view::screenshot::submit_screenshot_commands(world, encoder);
         },
     ) {
-        error!("Error running render graph:");
-        {
-            let mut src: &dyn std::error::Error = &e;
-            loop {
-                error!("> {}", src);
-                match src.source() {
-                    Some(s) => src = s,
-                    None => break,
+        Ok(Some(gpu_timers)) => world.resource_mut::<GpuTimerScopes>().try_add(gpu_timers),
+        Ok(None) => {}
+        Err(e) => {
+            error!("Error running render graph:");
+            {
+                let mut src: &dyn std::error::Error = &e;
+                loop {
+                    error!("> {}", src);
+                    match src.source() {
+                        Some(s) => src = s,
+                        None => break,
+                    }
                 }
             }
-        }
 
-        panic!("Error running render graph: {e}");
+            panic!("Error running render graph: {e}");
+        }
     }
 
     {
@@ -154,6 +164,8 @@ pub async fn initialize_renderer(
             // integrated GPUs.
             features -= wgpu::Features::MAPPABLE_PRIMARY_BUFFERS;
         }
+        // TIMESTAMP_QUERY indicates to time GPU passes, which affects performance. Don't enable by default.
+        features -= wgpu::Features::TIMESTAMP_QUERY;
         limits = adapter.limits();
     }
 
@@ -291,15 +303,27 @@ pub struct RenderContext {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
     command_buffers: Vec<CommandBuffer>,
+    gpu_profiler: Option<GpuProfiler>,
 }
 
 impl RenderContext {
     /// Creates a new [`RenderContext`] from a [`RenderDevice`].
-    pub fn new(render_device: RenderDevice) -> Self {
+    pub fn new(render_device: RenderDevice, render_queue: &Queue) -> Self {
+        let mut gpu_profiler = None;
+        let usable_features = render_device.features();
+        if usable_features.contains(Features::TIMESTAMP_QUERY) {
+            gpu_profiler = Some(GpuProfiler::new(
+                4,
+                render_queue.get_timestamp_period(),
+                usable_features,
+            ));
+        }
+
         Self {
             render_device,
             command_encoder: None,
             command_buffers: Vec::new(),
+            gpu_profiler,
         }
     }
 
@@ -322,7 +346,7 @@ impl RenderContext {
         &'a mut self,
         descriptor: RenderPassDescriptor<'a, '_>,
     ) -> TrackedRenderPass<'a> {
-        // Cannot use command_encoder() as we need to split the borrow on self
+        // Cannot use self.command_encoder() as we need to split the borrow on self
         let command_encoder = self.command_encoder.get_or_insert_with(|| {
             self.render_device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
@@ -337,19 +361,81 @@ impl RenderContext {
     /// into a [`CommandBuffer`] into the queue before append the provided
     /// buffer.
     pub fn add_command_buffer(&mut self, command_buffer: CommandBuffer) {
-        self.flush_encoder();
+        self.flush_command_encoder();
         self.command_buffers.push(command_buffer);
     }
 
-    /// Finalizes the queue and returns the queue of [`CommandBuffer`]s.
-    pub fn finish(mut self) -> Vec<CommandBuffer> {
-        self.flush_encoder();
-        self.command_buffers
+    /// Begins a debug scope for timing GPU operations.
+    ///
+    /// Does nothing unless the `TIMESTAMP_QUERY` feature is enabled.
+    pub fn begin_debug_scope(&mut self, label: &str) {
+        if let Some(gpu_profiler) = self.gpu_profiler.as_mut() {
+            let command_encoder = self.command_encoder.get_or_insert_with(|| {
+                self.render_device
+                    .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
+            });
+
+            gpu_profiler.begin_scope(label, command_encoder, self.render_device.wgpu_device());
+        }
     }
 
-    fn flush_encoder(&mut self) {
-        if let Some(encoder) = self.command_encoder.take() {
-            self.command_buffers.push(encoder.finish());
+    /// Ends a debug scope for timing GPU operations.
+    ///
+    /// Does nothing unless the `TIMESTAMP_QUERY` feature is enabled.
+    pub fn end_debug_scope(&mut self) {
+        if let Some(gpu_profiler) = self.gpu_profiler.as_mut() {
+            gpu_profiler.end_scope(self.command_encoder.as_mut().unwrap());
         }
+    }
+
+    pub fn finish(
+        mut self,
+        queue: &Queue,
+        render_device: &RenderDevice,
+    ) -> Option<Vec<GpuTimerScopeResult>> {
+        self.flush_command_encoder();
+
+        let submission_index = {
+            #[cfg(feature = "trace")]
+            let _span = info_span!("submit_graph_commands").entered();
+            queue.submit(self.command_buffers)
+        };
+
+        if let Some(gpu_profiler) = self.gpu_profiler.as_mut() {
+            gpu_profiler.end_frame().unwrap();
+            // This poll is not optimal, but it's not working without it
+            render_device.poll(Maintain::WaitForSubmissionIndex(submission_index));
+            return gpu_profiler.process_finished_frame();
+        }
+
+        None
+    }
+
+    fn flush_command_encoder(&mut self) {
+        if let Some(mut command_encoder) = self.command_encoder.take() {
+            if let Some(gpu_profiler) = self.gpu_profiler.as_mut() {
+                gpu_profiler.resolve_queries(&mut command_encoder);
+            }
+
+            self.command_buffers.push(command_encoder.finish());
+        }
+    }
+}
+
+#[derive(Resource, Clone, Default)]
+pub struct GpuTimerScopes(Arc<Mutex<VecDeque<Vec<GpuTimerScopeResult>>>>);
+
+impl GpuTimerScopes {
+    pub fn try_add(&self, gpu_timers: Vec<GpuTimerScopeResult>) {
+        if let Ok(mut frames) = self.0.try_lock() {
+            if frames.len() == 20 {
+                frames.pop_front();
+            }
+            frames.push_back(gpu_timers);
+        }
+    }
+
+    pub fn get(&self) -> MutexGuard<VecDeque<Vec<GpuTimerScopeResult>>> {
+        self.0.lock().unwrap()
     }
 }

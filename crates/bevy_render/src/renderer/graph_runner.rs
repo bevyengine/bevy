@@ -13,7 +13,7 @@ use crate::{
         Edge, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext, SlotLabel,
         SlotType, SlotValue,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::{GpuTimerScopeResult, RenderContext, RenderDevice},
 };
 
 pub(crate) struct RenderGraphRunner;
@@ -58,17 +58,14 @@ impl RenderGraphRunner {
         queue: &wgpu::Queue,
         world: &World,
         finalizer: impl FnOnce(&mut wgpu::CommandEncoder),
-    ) -> Result<(), RenderGraphRunnerError> {
-        let mut render_context = RenderContext::new(render_device);
+    ) -> Result<Option<Vec<GpuTimerScopeResult>>, RenderGraphRunnerError> {
+        let mut render_context = RenderContext::new(render_device.clone(), queue);
+
         Self::run_graph(graph, None, &mut render_context, world, &[], None)?;
+
         finalizer(render_context.command_encoder());
 
-        {
-            #[cfg(feature = "trace")]
-            let _span = info_span!("submit_graph_commands").entered();
-            queue.submit(render_context.finish());
-        }
-        Ok(())
+        Ok(render_context.finish(queue, &render_device))
     }
 
     fn run_graph(

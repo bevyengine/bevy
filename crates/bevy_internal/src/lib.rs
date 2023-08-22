@@ -29,6 +29,11 @@ pub mod core {
     pub use bevy_core::*;
 }
 
+pub mod debug_overlays {
+    //! Contains debug UI functionality.
+    pub use bevy_debug_overlays::*;
+}
+
 pub mod diagnostic {
     //! Useful diagnostic plugins and types for bevy apps.
     pub use bevy_diagnostic::*;
