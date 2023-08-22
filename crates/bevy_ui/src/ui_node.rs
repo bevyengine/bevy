@@ -190,17 +190,53 @@ pub enum ValArithmeticError {
     NonEvaluateable,
 }
 
+/// If both of the values are numeric and one is a zero,
+/// convert it a zero compatible with the other value.
+fn convert_val_zeros(a: Val, b: Val) -> Result<(Val, Val), ValArithmeticError> {
+    if matches!((a, b), (Val::Auto, _) | (_, Val::Auto)) {
+        Err(ValArithmeticError::NonEvaluateable)
+    } else if b.is_zero() {
+        Ok((a, a * 0.))
+    } else if a.is_zero() {
+        Ok((b * 0., b))
+    } else {
+        Ok((a, b))
+    }
+}
+
+fn apply_vals(a: Val, b: Val, f: impl Fn(f32, f32) -> f32) -> Result<Val, ValArithmeticError> {
+    use Val::*;
+    match convert_val_zeros(a, b)? {
+        (Px(a), Px(b)) => Ok(Px(f(a, b))),
+        (Percent(a), Percent(b)) => Ok(Percent(f(a, b))),
+        (Vw(a), Vw(b)) => Ok(Vw(f(a, b))),
+        (Vh(a), Vh(b)) => Ok(Vh(f(a, b))),
+        (VMin(a), VMin(b)) => Ok(VMin(f(a, b))),
+        (VMax(a), VMax(b)) => Ok(VMax(f(a, b))),
+        (Auto, _) | (_, Auto) => Err(ValArithmeticError::NonEvaluateable),
+        _ => Err(ValArithmeticError::NonIdenticalVariants),
+    }
+}
+
 impl Val {
+    /// Returns true if the [`Val`] is a numeric variant, and its inner value is `0.`
+    pub fn is_zero(&self) -> bool {
+        match *self {
+            Val::Px(value)
+            | Val::Percent(value)
+            | Val::Vw(value)
+            | Val::Vh(value)
+            | Val::VMin(value)
+            | Val::VMax(value) => value == 0.,
+            _ => false,
+        }
+    }
+
     /// Tries to add the values of two [`Val`]s.
     /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
     /// When adding non-numeric [`Val`]s, it returns the value unchanged.
-    pub fn try_add(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
-        match (self, rhs) {
-            (Val::Auto, Val::Auto) => Ok(*self),
-            (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value + rhs_value)),
-            (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value + rhs_value)),
-            _ => Err(ValArithmeticError::NonIdenticalVariants),
-        }
+    pub fn try_add(self, rhs: Val) -> Result<Val, ValArithmeticError> {
+        apply_vals(self, rhs, |a, b| a + b)
     }
 
     /// Adds `rhs` to `self` and assigns the result to `self` (see [`Val::try_add`])
@@ -212,13 +248,8 @@ impl Val {
     /// Tries to subtract the values of two [`Val`]s.
     /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
     /// When adding non-numeric [`Val`]s, it returns the value unchanged.
-    pub fn try_sub(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
-        match (self, rhs) {
-            (Val::Auto, Val::Auto) => Ok(*self),
-            (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value - rhs_value)),
-            (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value - rhs_value)),
-            _ => Err(ValArithmeticError::NonIdenticalVariants),
-        }
+    pub fn try_sub(self, rhs: Val) -> Result<Val, ValArithmeticError> {
+        apply_vals(self, rhs, |a, b| a - b)
     }
 
     /// Subtracts `rhs` from `self` and assigns the result to `self` (see [`Val::try_sub`])
@@ -1682,13 +1713,17 @@ mod tests {
 
     #[test]
     fn val_try_add() {
-        let auto_sum = Val::Auto.try_add(Val::Auto).unwrap();
         let px_sum = Val::Px(20.).try_add(Val::Px(22.)).unwrap();
         let percent_sum = Val::Percent(50.).try_add(Val::Percent(50.)).unwrap();
+        let compatible_zeros = Val::Px(0.).try_add(Val::VMin(10.)).unwrap();
 
-        assert_eq!(auto_sum, Val::Auto);
+        assert_eq!(
+            Val::Auto.try_add(Val::Auto),
+            Err(ValArithmeticError::NonEvaluateable)
+        );
         assert_eq!(px_sum, Val::Px(42.));
         assert_eq!(percent_sum, Val::Percent(100.));
+        assert_eq!(compatible_zeros, Val::VMin(10.));
     }
 
     #[test]
@@ -1702,13 +1737,17 @@ mod tests {
 
     #[test]
     fn val_try_sub() {
-        let auto_sum = Val::Auto.try_sub(Val::Auto).unwrap();
-        let px_sum = Val::Px(72.).try_sub(Val::Px(30.)).unwrap();
-        let percent_sum = Val::Percent(100.).try_sub(Val::Percent(50.)).unwrap();
+        let px_sub = Val::Px(72.).try_sub(Val::Px(30.)).unwrap();
+        let percent_sub = Val::Percent(100.).try_sub(Val::Percent(50.)).unwrap();
+        let compatible_zero = Val::Vw(11.).try_sub(Val::Vh(0.)).unwrap();
 
-        assert_eq!(auto_sum, Val::Auto);
-        assert_eq!(px_sum, Val::Px(42.));
-        assert_eq!(percent_sum, Val::Percent(50.));
+        assert_eq!(
+            Val::Auto.try_add(Val::Auto),
+            Err(ValArithmeticError::NonEvaluateable)
+        );
+        assert_eq!(px_sub, Val::Px(42.));
+        assert_eq!(percent_sub, Val::Percent(50.));
+        assert_eq!(compatible_zero, Val::Vw(11.));
     }
 
     #[test]
@@ -1722,7 +1761,7 @@ mod tests {
         );
         assert_eq!(
             different_variant_sum_2,
-            Err(ValArithmeticError::NonIdenticalVariants)
+            Err(ValArithmeticError::NonEvaluateable)
         );
     }
 
@@ -1737,7 +1776,7 @@ mod tests {
         );
         assert_eq!(
             different_variant_diff_2,
-            Err(ValArithmeticError::NonIdenticalVariants)
+            Err(ValArithmeticError::NonEvaluateable)
         );
     }
 
