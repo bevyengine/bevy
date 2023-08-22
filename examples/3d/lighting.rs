@@ -23,23 +23,6 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    // example instructions
-    commands.spawn(
-        TextBundle::from_section(
-            "Use arrow keys to move objects",
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-    );
-
     // ground plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(shape::Plane::from_size(10.0).into()),
@@ -246,12 +229,12 @@ fn setup(
     });
 
     let exposure_settings = ExposureSettings::default();
-    let style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-        font_size: 18.0,
-        color: Color::WHITE,
-    };
 
+    // example instructions
+    let style = TextStyle {
+        font_size: 20.0,
+        ..default()
+    };
     commands.spawn(
         TextBundle::from_sections(vec![
             TextSection::new(
@@ -275,14 +258,15 @@ fn setup(
             TextSection::new("\n\n", style.clone()),
             TextSection::new("Controls\n", style.clone()),
             TextSection::new("---------------\n", style.clone()),
+            TextSection::new("Arrow keys - Move objects\n", style.clone()),
             TextSection::new("1/2 - Decrease/Increase aperture\n", style.clone()),
             TextSection::new("3/4 - Decrease/Increase shutter speed\n", style.clone()),
             TextSection::new("5/6 - Decrease/Increase sensitivity\n", style),
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );

@@ -359,6 +359,7 @@ pub fn prepare_view_uniforms(
         Option<&ExtractedCamera>,
         &ExtractedView,
         Option<&TemporalJitter>,
+        Option<&MipBias>,
     )>,
 ) {
     view_uniforms.uniforms.clear();
@@ -386,9 +387,7 @@ pub fn prepare_view_uniforms(
 
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
-                view_proj: extracted_view
-                    .view_projection
-                    .unwrap_or_else(|| projection * inverse_view),
+                view_proj,
                 unjittered_view_proj: unjittered_projection * inverse_view,
                 inverse_view_proj: view * inverse_projection,
                 view,
