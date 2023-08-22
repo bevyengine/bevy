@@ -68,10 +68,10 @@ impl Plugin for BloomPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_bloom_textures.in_set(RenderSet::ManageViews),
                     prepare_downsampling_pipeline.in_set(RenderSet::Prepare),
                     prepare_upsampling_pipeline.in_set(RenderSet::Prepare),
-                    prepare_bloom_bind_groups.in_set(RenderSet::Prepare),
+                    prepare_bloom_textures.in_set(RenderSet::PrepareBuffers),
+                    prepare_bloom_bind_groups.in_set(RenderSet::PrepareBindgroups),
                 ),
             )
             // Add bloom to the 3d render graph

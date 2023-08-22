@@ -32,15 +32,6 @@ use bevy_utils::{
 };
 use std::{hash::Hash, num::NonZeroU64};
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum RenderLightSystems {
-    ExtractClusters,
-    ExtractLights,
-    PrepareClusters,
-    PrepareLights,
-    QueueShadows,
-}
-
 #[derive(Component)]
 pub struct ExtractedPointLight {
     color: Color,

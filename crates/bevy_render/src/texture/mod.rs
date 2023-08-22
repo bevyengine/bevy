@@ -31,7 +31,7 @@ pub use image_texture_loader::*;
 pub use texture_cache::*;
 
 use crate::{
-    render_asset::{PrepareAssetSet, RenderAssetPlugin},
+    render_asset::RenderAssetPlugin,
     renderer::RenderDevice,
     Render, RenderApp, RenderSet,
 };
@@ -80,9 +80,7 @@ impl Plugin for ImagePlugin {
             app.init_asset_loader::<HdrTextureLoader>();
         }
 
-        app.add_plugins(RenderAssetPlugin::<Image>::with_prepare_asset_set(
-            PrepareAssetSet::PreAssetPrepare,
-        ))
+        app.add_plugins(RenderAssetPlugin::<Image>::default())
         .register_type::<Image>()
         .add_asset::<Image>()
         .register_asset_reflect::<Image>();

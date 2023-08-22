@@ -37,7 +37,7 @@ use bevy_render::{
         BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImagesDepth,
         FallbackImagesMsaa, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
-    view::{ComputedVisibility, ViewSet, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ComputedVisibility, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
@@ -128,15 +128,11 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        prepare_mesh_uniforms.in_set(RenderSet::Prepare),
-                        prepare_skinned_meshes.in_set(RenderSet::Prepare),
-                        prepare_morphs.in_set(RenderSet::Prepare),
-                        prepare_mesh_bind_group
-                            .in_set(RenderSet::Prepare)
-                            .after(ViewSet::PrepareUniforms),
-                        prepare_mesh_view_bind_groups
-                            .in_set(RenderSet::Prepare)
-                            .after(ViewSet::PrepareUniforms),
+                        prepare_mesh_uniforms.in_set(RenderSet::PrepareBuffers),
+                        prepare_skinned_meshes.in_set(RenderSet::PrepareBuffers),
+                        prepare_morphs.in_set(RenderSet::PrepareBuffers),
+                        prepare_mesh_bind_group.in_set(RenderSet::PrepareBindgroups),
+                        prepare_mesh_view_bind_groups.in_set(RenderSet::PrepareBindgroups),
                     ),
                 );
         }

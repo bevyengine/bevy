@@ -94,9 +94,9 @@ pub fn build_ui_render(app: &mut App) {
         .add_systems(
             Render,
             (
-                prepare_uinodes.in_set(RenderSet::Prepare),
                 queue_uinodes.in_set(RenderSet::Queue),
                 sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
+                prepare_uinodes.in_set(RenderSet::PrepareBindgroups),
             ),
         );
 
