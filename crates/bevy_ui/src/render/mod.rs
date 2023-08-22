@@ -96,7 +96,7 @@ pub fn build_ui_render(app: &mut App) {
             (
                 queue_uinodes.in_set(RenderSet::Queue),
                 sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
-                prepare_uinodes.in_set(RenderSet::PrepareBindgroups),
+                prepare_uinodes.in_set(RenderSet::PrepareBindGroups),
             ),
         );
 

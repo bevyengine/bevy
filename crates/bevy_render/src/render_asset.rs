@@ -46,6 +46,11 @@ pub trait RenderAsset: Asset {
 ///
 /// Therefore it sets up the [`ExtractSchedule`](crate::ExtractSchedule) and
 /// [`RenderSet::PrepareAssets`](crate::RenderSet::PrepareAssets) steps for the specified [`RenderAsset`].
+///
+/// The `AFTER` generic parameter can be used to specify that `A::prepare_asset` should not be run until
+/// `prepare_assets::<AFTER>` has completed. This allows the prepare_asset function to depend on another
+/// prepared RenderAsset, for example `Mesh::prepare_asset` relies on `RenderAssets::<Image>` for morph
+/// targets, so the plugin is created as `RenderAssetPlugin::<Mesh, Image>::default()`.
 pub struct RenderAssetPlugin<A: RenderAsset, AFTER: RenderAssetDependency + 'static = ()> {
     phantom: PhantomData<fn() -> (A, AFTER)>,
 }

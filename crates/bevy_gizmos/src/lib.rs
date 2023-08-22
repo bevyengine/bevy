@@ -102,7 +102,7 @@ impl Plugin for GizmoPlugin {
             .add_systems(ExtractSchedule, extract_gizmo_data)
             .add_systems(
                 Render,
-                prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindgroups),
+                prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
             );
 
         #[cfg(feature = "bevy_sprite")]

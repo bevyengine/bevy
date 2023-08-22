@@ -131,8 +131,8 @@ impl Plugin for MeshRenderPlugin {
                         prepare_mesh_uniforms.in_set(RenderSet::PrepareResources),
                         prepare_skinned_meshes.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
-                        prepare_mesh_bind_group.in_set(RenderSet::PrepareBindgroups),
-                        prepare_mesh_view_bind_groups.in_set(RenderSet::PrepareBindgroups),
+                        prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
+                        prepare_mesh_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                     ),
                 );
         }

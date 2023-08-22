@@ -105,7 +105,7 @@ where
         render_app
             .add_systems(
                 Render,
-                prepare_prepass_view_bind_group::<M>.in_set(RenderSet::PrepareBindgroups),
+                prepare_prepass_view_bind_group::<M>.in_set(RenderSet::PrepareBindGroups),
             )
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()

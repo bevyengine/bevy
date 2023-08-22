@@ -47,7 +47,7 @@ impl Plugin for SkyboxPlugin {
                 Render,
                 (
                     prepare_skybox_pipelines.in_set(RenderSet::Prepare),
-                    prepare_skybox_bind_groups.in_set(RenderSet::PrepareBindgroups),
+                    prepare_skybox_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             );
     }

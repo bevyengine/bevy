@@ -119,7 +119,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
                 (
                     prepare_ssao_pipelines.in_set(RenderSet::Prepare),
                     prepare_ssao_textures.in_set(RenderSet::PrepareResources),
-                    prepare_ssao_bind_groups.in_set(RenderSet::PrepareBindgroups),
+                    prepare_ssao_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<SsaoNode>>(

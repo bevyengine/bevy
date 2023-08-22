@@ -90,7 +90,7 @@ pub enum RenderSet {
     ManageViews,
     /// The copy of [`apply_deferred`] that runs immediately after [`ManageViews`](RenderSet::ManageViews).
     ManageViewsFlush,
-    /// Queue drawable entities to phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
+    /// Queue drawable entities as phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
     /// ready for sorting
     Queue,
     /// A sub-set within Queue where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
@@ -98,15 +98,15 @@ pub enum RenderSet {
     // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
     /// Sort the [`RenderPhases`](render_phase::RenderPhase) here.
     PhaseSort,
-    /// Prepare render resources from the extracted data for the GPU based on their sorted order.
+    /// Prepare render resources from extracted data for the GPU based on their sorted order.
     /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on those data.
     Prepare,
-    /// A sub-set within Prepare for initializing buffers, textures and uniforms for use in bindgroups.
+    /// A sub-set within Prepare for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
-    /// The copy of [`apply_deferred`] that runs between [`PrepareResources`](RenderSet::PrepareResources) and ['PrepareBindgroups'](RenderSet::PrepareBindgroups).
+    /// The copy of [`apply_deferred`] that runs between [`PrepareResources`](RenderSet::PrepareResources) and ['PrepareBindGroups'](RenderSet::PrepareBindGroups).
     PrepareResourcesFlush,
-    /// A sub-set within Prepare for constructing bindgroups, or other data that relies on buffers.
-    PrepareBindgroups,
+    /// A sub-set within Prepare for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
+    PrepareBindGroups,
     /// The copy of [`apply_deferred`] that runs immediately after [`Prepare`](RenderSet::Prepare).
     PrepareFlush,
     /// Actual rendering happens here.
@@ -167,7 +167,7 @@ impl Render {
                 .after(prepare_assets::<Mesh>),
         );
         schedule.configure_sets(
-            (PrepareResources, PrepareResourcesFlush, PrepareBindgroups)
+            (PrepareResources, PrepareResourcesFlush, PrepareBindGroups)
                 .chain()
                 .in_set(Prepare),
         );

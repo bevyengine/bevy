@@ -76,7 +76,7 @@ impl Plugin for GameOfLifeComputePlugin {
         let render_app = app.sub_app_mut(RenderApp);
         render_app.add_systems(
             Render,
-            prepare_bind_group.in_set(RenderSet::PrepareBindgroups),
+            prepare_bind_group.in_set(RenderSet::PrepareBindGroups),
         );
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
