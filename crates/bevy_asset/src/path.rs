@@ -290,6 +290,51 @@ impl<'a> AssetPath<'a> {
         self.clone().into_owned()
     }
 
+    /// Resolves a relative asset path. The result will be an `AssetPath` which is resolved relative
+    /// to this path. There are three cases:
+    ///
+    /// If the relative path begins with `#`, then it is considered an asset label, in which case
+    /// the result is the base path with the label portion replaced.
+    ///
+    /// If the relative path starts with "./" or "../", then the result is combined with the base
+    /// path. The rules are the same as for URIs, which means that the relative path is resolved
+    /// relative to the *directory* of the base path, so a base path of `"x/y/z#foo"` combined with
+    /// a relative path of `"./a#bar"` yields `"x/y/a#bar"`.
+    ///
+    /// If neither of the above are true, then the relative path is considered a 'full' path,
+    /// and the result is simply a copy of the relative path, converted into an `AssetPath`.
+    /// Note that a 'full' asset path is still relative to the asset root directory, and not
+    /// necessarily an absolute filesystem path.
+    pub fn resolve(&'a self, relative_path: &'a str) -> AssetPath<'a> {
+        if relative_path.starts_with('#') {
+            AssetPath::new_ref(&self.path, Some(&relative_path[1..]))
+        } else if relative_path.starts_with("./") || relative_path.starts_with("../") {
+            let mut rpath = relative_path;
+            let mut fpath = PathBuf::from(self.path());
+            if !fpath.pop() {
+                panic!("Can't compute relative path - not enough path elements");
+            }
+            loop {
+                if rpath.starts_with("./") {
+                    rpath = &rpath[2..];
+                } else if rpath.starts_with("../") {
+                    rpath = &rpath[3..];
+                    if !fpath.pop() {
+                        panic!("Can't compute relative path - not enough path elements");
+                    }
+                } else {
+                    break;
+                }
+            }
+            fpath.push(rpath);
+            // Note: converting from a string causes AssetPath to look for the '#' separator, while
+            // passing fpath directly does not. We want the former.
+            AssetPath::from(String::from(fpath.to_str().unwrap()))
+        } else {
+            AssetPath::from(relative_path)
+        }
+    }
+
     /// Returns the full extension (including multiple '.' values).
     /// Ex: Returns `"config.ron"` for `"my_asset.config.ron"`
     pub fn get_full_extension(&self) -> Option<String> {
@@ -573,5 +618,20 @@ mod tests {
 
         let result = AssetPath::parse_internal("http:/");
         assert_eq!(result, Err(crate::ParseAssetPathError::InvalidSourceSyntax));
+    }
+
+    #[test]
+    fn test_relative_path() {
+        let base = AssetPath::from("alice/bob#carol");
+        assert_eq!(base.resolve("joe/next"), AssetPath::from("joe/next"));
+        assert_eq!(base.resolve("#dave"), AssetPath::from("alice/bob#dave"));
+        assert_eq!(
+            base.resolve("./martin#dave"),
+            AssetPath::from("alice/martin#dave")
+        );
+        assert_eq!(
+            base.resolve("../martin#dave"),
+            AssetPath::from("martin#dave")
+        );
     }
 }
