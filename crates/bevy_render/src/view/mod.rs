@@ -58,7 +58,7 @@ impl Plugin for ViewPlugin {
                 (
                     prepare_view_targets
                         .in_set(RenderSet::ManageViews)
-                        .after(WindowSystem::Prepare)
+                        .after(prepare_windows)
                         .after(crate::render_asset::prepare_assets::<Image>),
                     prepare_view_uniforms.in_set(RenderSet::PrepareResources),
                 ),
