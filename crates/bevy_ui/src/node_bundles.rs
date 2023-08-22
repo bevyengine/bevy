@@ -327,7 +327,7 @@ impl Default for ButtonBundle {
     }
 }
 
-/// A Ui Node that renders a shader
+/// A UI node that is rendered using a [`UiMaterial`]
 #[derive(Bundle, Clone, Debug)]
 pub struct MaterialNodeBundle<M: UiMaterial> {
     /// Describes the logical size of the node
@@ -335,7 +335,7 @@ pub struct MaterialNodeBundle<M: UiMaterial> {
     /// Styles which control the layout (size and position) of the node and it's children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
-    /// The Material of the Node.
+    /// The [`UiMaterial`] used to render the node.
     pub material: Handle<M>,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
