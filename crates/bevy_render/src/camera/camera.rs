@@ -75,33 +75,55 @@ pub struct ComputedCameraValues {
     old_viewport_size: Option<UVec2>,
 }
 
+/// How much energy a [`Camera3d`] absorbs from incoming light.
+///
+/// <https://en.wikipedia.org/wiki/Exposure_(photography)>
 #[derive(Component)]
 pub struct ExposureSettings {
-    pub aperture_f_stops: f32,
-    pub shutter_speed_s: f32,
-    pub sensitivity_iso: f32,
+    /// <https://en.wikipedia.org/wiki/Exposure_value#Tabulated_exposure_values>
+    pub ev100: f32,
+}
+
+impl ExposureSettings {
+    pub fn from_physical_camera(physical_camera_parameters: PhysicalCameraParameters) -> Self {
+        let p = physical_camera_parameters;
+        Self {
+            ev100: (p.aperture_f_stops * p.aperture_f_stops / p.shutter_speed_s).log2()
+                - (p.sensitivity_iso / 100.0).log2(),
+        }
+    }
+
+    /// TODO: Docs
+    #[inline]
+    pub fn exposure(&self) -> f32 {
+        1.0 / (2.0f32.powf(self.ev100) * 1.2)
+    }
 }
 
 impl Default for ExposureSettings {
+    fn default() -> Self {
+        Self::from_physical_camera(PhysicalCameraParameters::default())
+    }
+}
+
+/// TODO: Docs (and double check these links / find better links)
+#[derive(Clone, Copy)]
+pub struct PhysicalCameraParameters {
+    /// <https://en.wikipedia.org/wiki/F-number>
+    pub aperture_f_stops: f32,
+    /// <https://en.wikipedia.org/wiki/Shutter_speed>
+    pub shutter_speed_s: f32,
+    /// <https://en.wikipedia.org/wiki/Film_speed>
+    pub sensitivity_iso: f32,
+}
+
+impl Default for PhysicalCameraParameters {
     fn default() -> Self {
         Self {
             aperture_f_stops: 4.0,
             shutter_speed_s: 1.0 / 250.0,
             sensitivity_iso: 100.0,
         }
-    }
-}
-
-impl ExposureSettings {
-    #[inline]
-    pub fn ev100(&self) -> f32 {
-        (self.aperture_f_stops * self.aperture_f_stops / self.shutter_speed_s).log2()
-            - (self.sensitivity_iso / 100.0).log2()
-    }
-
-    #[inline]
-    pub fn exposure(&self) -> f32 {
-        1.0 / (2.0f32.powf(self.ev100()) * 1.2)
     }
 }
 
