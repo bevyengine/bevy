@@ -292,46 +292,61 @@ impl<'a> AssetPath<'a> {
 
     /// Resolves a relative asset path. The result will be an `AssetPath` which is resolved relative
     /// to this path. There are three cases:
+    /// Resolves a possibly-relative path string relative to a base path, producing an `AssetPath`.
     ///
-    /// If the relative path begins with `#`, then it is considered an asset label, in which case
+    /// If the `path` argument begins with `#`, then it is considered an asset label, in which case
     /// the result is the base path with the label portion replaced.
     ///
-    /// If the relative path starts with "./" or "../", then the result is combined with the base
-    /// path. The rules are the same as for URIs, which means that the relative path is resolved
-    /// relative to the *directory* of the base path, so a base path of `"x/y/z#foo"` combined with
-    /// a relative path of `"./a#bar"` yields `"x/y/a#bar"`.
+    /// If the path argument begins with '/', then it is considered a 'full' path, in which
+    /// case the result is simply the `path` argument converted to an `AssetPath`. Note that a 'full'
+    /// asset path is still relative to the asset root directory, and not necessarily an absolute
+    /// filesystem path.
     ///
-    /// If neither of the above are true, then the relative path is considered a 'full' path,
-    /// and the result is simply a copy of the relative path, converted into an `AssetPath`.
-    /// Note that a 'full' asset path is still relative to the asset root directory, and not
-    /// necessarily an absolute filesystem path.
-    pub fn resolve(&'a self, relative_path: &'a str) -> AssetPath<'a> {
-        if let Some(without_prefix) = relative_path.strip_prefix('#') {
-            AssetPath::new_ref(&self.path, Some(without_prefix))
-        } else if relative_path.starts_with("./") || relative_path.starts_with("../") {
-            let mut rpath = relative_path;
+    /// Otherwise, the `path` argument is considered a relative path. The result is concatenated
+    /// using the following algorithm (as specified in IETF RFC 1808):
+    ///
+    /// * Any characters after the final '/' in the base path are removed.
+    /// * The base path and the `path` argument are concatenated.
+    /// * Path elements consisting of "/." or "&lt;name&gt;/.." are removed.
+    ///
+    /// In other words, the relative path is resolved relative to the *directory* of the base
+    /// path, not the file. So a base path of `"x/y/z#foo"` combined with a relative path of
+    /// `"./a#bar"` yields `"x/y/a#bar"`.
+    ///
+    /// Note that "./" and "../" elements are only canonicalized in the path argument, any such
+    /// elements in the base path are left as-is. Also, if there are insufficient segments in the
+    /// base path to match the ".." segments, then any left-over ".." segments are left as-is.
+    pub fn resolve<'b>(&'a self, path: &'b str) -> AssetPath<'a> {
+        if let Some(label) = path.strip_prefix('#') {
+            // It's a label only
+            self.clone().into_owned().with_label(label.to_owned())
+        } else {
+            let (rpath, rlabel) = match path.split_once('#') {
+                Some((path, label)) => (path, Some(label.to_string())),
+                None => (path, None),
+            };
             let mut fpath = PathBuf::from(self.path());
-            if !fpath.pop() {
-                panic!("Can't compute relative path - not enough path elements");
-            }
-            loop {
-                if rpath.starts_with("./") {
-                    rpath = &rpath[2..];
-                } else if rpath.starts_with("../") {
-                    rpath = &rpath[3..];
+            // No error if base is empty (per RFC 1808).
+            fpath.pop();
+
+            let rpath = PathBuf::from(rpath);
+            for elt in rpath.iter() {
+                if elt == "." {
+                    // Skip
+                } else if elt == ".." {
                     if !fpath.pop() {
-                        panic!("Can't compute relative path - not enough path elements");
+                        // Preserve ".." if insufficient matches (per RFC 1808).
+                        fpath.push(elt);
                     }
                 } else {
-                    break;
+                    fpath.push(elt);
                 }
             }
-            fpath.push(rpath);
-            // Note: converting from a string causes AssetPath to look for the '#' separator, while
-            // passing fpath directly does not. We want the former.
-            AssetPath::from(String::from(fpath.to_str().unwrap()))
-        } else {
-            AssetPath::from(relative_path)
+
+            match rlabel {
+                Some(label) => AssetPath::from(fpath).with_label(label),
+                None => AssetPath::from(fpath),
+            }
         }
     }
 
@@ -621,10 +636,30 @@ mod tests {
     }
 
     #[test]
-    fn test_relative_path() {
+    fn test_resolve_full() {
+        // A "full" path should ignore the base path.
         let base = AssetPath::from("alice/bob#carol");
-        assert_eq!(base.resolve("joe/next"), AssetPath::from("joe/next"));
-        assert_eq!(base.resolve("#dave"), AssetPath::from("alice/bob#dave"));
+        assert_eq!(base.resolve("/joe/next"), AssetPath::from("/joe/next"));
+        assert_eq!(
+            base.resolve("/joe/next#dave"),
+            AssetPath::from("/joe/next#dave")
+        );
+    }
+
+    #[test]
+    fn test_resolve_implicit_relative() {
+        // A "full" path should ignore the base path.
+        let base = AssetPath::from("alice/bob#carol");
+        assert_eq!(base.resolve("joe/next"), AssetPath::from("alice/joe/next"));
+        assert_eq!(
+            base.resolve("joe/next#dave"),
+            AssetPath::from("alice/joe/next#dave")
+        );
+    }
+
+    #[test]
+    fn test_resolve_partial() {
+        let base = AssetPath::from("alice/bob#carol");
         assert_eq!(
             base.resolve("./martin#dave"),
             AssetPath::from("alice/martin#dave")
@@ -632,6 +667,52 @@ mod tests {
         assert_eq!(
             base.resolve("../martin#dave"),
             AssetPath::from("martin#dave")
+        );
+    }
+
+    #[test]
+    fn test_resolve_canonicalize() {
+        let base = AssetPath::from("alice/bob#carol");
+        assert_eq!(
+            base.resolve("./martin/stephan/..#dave"),
+            AssetPath::from("alice/martin#dave")
+        );
+        assert_eq!(
+            base.resolve("../martin/.#dave"),
+            AssetPath::from("martin#dave")
+        );
+        assert_eq!(
+            base.resolve("/martin/stephan/..#dave"),
+            AssetPath::from("/martin#dave")
+        );
+    }
+
+    #[test]
+    fn test_resolve_absolute() {
+        let base = AssetPath::from("alice/bob#carol");
+        assert_eq!(
+            base.resolve("/martin/stephan"),
+            AssetPath::from("/martin/stephan")
+        );
+        assert_eq!(
+            base.resolve("/martin/stephan#dave"),
+            AssetPath::from("/martin/stephan/#dave")
+        );
+    }
+
+    #[test]
+    fn test_resolve_label() {
+        // A relative path with only a label should replace the label portion
+        let base = AssetPath::from("alice/bob#carol");
+        assert_eq!(base.resolve("#dave"), AssetPath::from("alice/bob#dave"));
+    }
+
+    #[test]
+    fn test_resolve_insufficient_elements() {
+        let base = AssetPath::from("alice/bob#carol");
+        assert_eq!(
+            base.resolve("../../joe/next"),
+            AssetPath::from("../joe/next")
         );
     }
 }
