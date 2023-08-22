@@ -140,9 +140,11 @@ struct PlayingAnimation {
     repeat: RepeatAnimation,
     speed: f32,
     /// Total time the animation has been played.
+    /// 
     /// Note: Time does not increase when the animation is paused or after it has completed.
     elapsed: f32,
     /// The timestamp inside of the animation clip.
+    /// 
     /// Note: This will always be in the range [0.0, animation clip duration]
     seek_time: f32,
     animation_clip: Handle<AnimationClip>,
@@ -168,6 +170,7 @@ impl Default for PlayingAnimation {
 
 impl PlayingAnimation {
     /// Predicate to check if the animation has finished, based on its repetition behavior and the number of times it has repeated.
+    /// 
     /// Note: An animation with `RepeatAnimation::Forever` will never finish.
     pub fn is_finished(&self) -> bool {
         match self.repeat {
