@@ -2,10 +2,9 @@ use std::hash::Hash;
 
 use bevy_reflect::{TypePath, TypeUuid};
 use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
-
-/// Materials are used alongside [`UiMaterialPlugin`] and [`MaterialNodeBundle`]
+/// Materials are used alongside `UiMaterialPlugin` and `MaterialNodeBundle`
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
-/// way to render [`Node`] entities with custom shader logic.
+/// way to render `Node` entities with custom shader logic.
 ///
 /// `UiMaterials` must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
 /// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
@@ -17,7 +16,7 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 /// Here is a simple [`UiMaterial`] implementation. The [`AsBindGroup`] derive has many features. To see what else is available,
 /// check out the [`AsBindGroup`] documentation.
 /// ```
-/// # use bevy_ui::{UiMaterial, MaterialNodeBundle};
+/// # use bevy_ui::prelude::*;
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_reflect::{TypeUuid, TypePath};
 /// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
@@ -48,7 +47,7 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 /// // Spawn an entity using `CustomMaterial`.
 /// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
 ///     commands.spawn(MaterialNodeBundle {
-///         style: {
+///         style: Style {
 ///             width: Val::Percent(100.0),
 ///             ..Default::default()
 ///         },
