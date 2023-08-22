@@ -56,14 +56,10 @@ use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::CameraUpdateSystem,
-    extract_resource::ExtractResourcePlugin,
-    prelude::Color,
-    render_graph::RenderGraph,
-    render_phase::sort_phase_system,
-    render_resource::Shader,
-    view::VisibilitySystems,
-    ExtractSchedule, Render, RenderApp, RenderSet, render_asset::prepare_assets, texture::Image,
+    camera::CameraUpdateSystem, extract_resource::ExtractResourcePlugin, prelude::Color,
+    render_asset::prepare_assets, render_graph::RenderGraph, render_phase::sort_phase_system,
+    render_resource::Shader, texture::Image, view::VisibilitySystems, ExtractSchedule, Render,
+    RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
 use environment_map::EnvironmentMapPlugin;
@@ -271,17 +267,16 @@ impl Plugin for PbrPlugin {
         render_app
             .add_systems(
                 ExtractSchedule,
-                (
-                    render::extract_clusters,
-                    render::extract_lights,
-                ),
+                (render::extract_clusters, render::extract_lights),
             )
             .add_systems(
                 Render,
                 (
-                    render::prepare_lights.in_set(RenderSet::ManageViews).after(prepare_assets::<Image>),
+                    render::prepare_lights
+                        .in_set(RenderSet::ManageViews)
+                        .after(prepare_assets::<Image>),
                     sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
-                    render::prepare_clusters.in_set(RenderSet::PrepareBuffers),
+                    render::prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
             .init_resource::<LightMeta>();

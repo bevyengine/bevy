@@ -20,8 +20,7 @@ use bevy_render::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
     view::{
-        ComputedVisibility, ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset,
-        ViewUniforms,
+        ComputedVisibility, ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };

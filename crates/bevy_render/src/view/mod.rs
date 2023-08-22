@@ -53,18 +53,16 @@ impl Plugin for ViewPlugin {
             .add_plugins((ExtractResourcePlugin::<Msaa>::default(), VisibilityPlugin));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<ViewUniforms>()
-                .add_systems(
-                    Render,
-                    (
-                        prepare_view_targets
-                            .in_set(RenderSet::ManageViews)
-                            .after(WindowSystem::Prepare)
-                            .after(crate::render_asset::prepare_assets::<Image>),
-                        prepare_view_uniforms.in_set(RenderSet::PrepareBuffers),
-                    ),
-                );
+            render_app.init_resource::<ViewUniforms>().add_systems(
+                Render,
+                (
+                    prepare_view_targets
+                        .in_set(RenderSet::ManageViews)
+                        .after(WindowSystem::Prepare)
+                        .after(crate::render_asset::prepare_assets::<Image>),
+                    prepare_view_uniforms.in_set(RenderSet::PrepareResources),
+                ),
+            );
         }
     }
 }

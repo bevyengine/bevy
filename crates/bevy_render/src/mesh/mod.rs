@@ -6,7 +6,7 @@ pub mod shape;
 
 pub use mesh::*;
 
-use crate::{render_asset::RenderAssetPlugin, prelude::Image};
+use crate::{prelude::Image, render_asset::RenderAssetPlugin};
 use bevy_app::{App, Plugin};
 use bevy_asset::AddAsset;
 use bevy_ecs::entity::Entity;

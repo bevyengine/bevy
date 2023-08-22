@@ -1,7 +1,7 @@
 use crate::{
     render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
-    MeshTransforms, PrepassPipelinePlugin, PrepassPlugin, 
-    ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
+    MeshTransforms, PrepassPipelinePlugin, PrepassPlugin, ScreenSpaceAmbientOcclusionSettings,
+    SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -24,7 +24,7 @@ use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
-    render_asset::{RenderAssets, prepare_assets},
+    render_asset::{prepare_assets, RenderAssets},
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
@@ -204,9 +204,15 @@ where
                 .add_systems(
                     Render,
                     (
-                        prepare_materials::<M>.in_set(RenderSet::PrepareAssets).after(prepare_assets::<Image>),
-                        render::queue_shadows::<M>.in_set(RenderSet::QueueMeshes).after(prepare_materials::<M>),
-                        queue_material_meshes::<M>.in_set(RenderSet::QueueMeshes).after(prepare_materials::<M>),
+                        prepare_materials::<M>
+                            .in_set(RenderSet::PrepareAssets)
+                            .after(prepare_assets::<Image>),
+                        render::queue_shadows::<M>
+                            .in_set(RenderSet::QueueMeshes)
+                            .after(prepare_materials::<M>),
+                        queue_material_meshes::<M>
+                            .in_set(RenderSet::QueueMeshes)
+                            .after(prepare_materials::<M>),
                     ),
                 );
         }

@@ -67,7 +67,7 @@ impl Plugin for TemporalAntiAliasPlugin {
                 (
                     prepare_taa_jitter_and_mip_bias.in_set(RenderSet::ManageViews),
                     prepare_taa_pipelines.in_set(RenderSet::Prepare),
-                    prepare_taa_history_textures.in_set(RenderSet::PrepareBuffers),
+                    prepare_taa_history_textures.in_set(RenderSet::PrepareResources),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<TAANode>>(CORE_3D, draw_3d_graph::node::TAA)

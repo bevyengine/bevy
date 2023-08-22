@@ -20,7 +20,7 @@ impl<C: Component + GpuArrayBufferable> Plugin for GpuComponentArrayBufferPlugin
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 Render,
-                prepare_gpu_component_array_buffers::<C>.in_set(RenderSet::PrepareBuffers),
+                prepare_gpu_component_array_buffers::<C>.in_set(RenderSet::PrepareResources),
             );
         }
     }

@@ -31,9 +31,7 @@ pub use image_texture_loader::*;
 pub use texture_cache::*;
 
 use crate::{
-    render_asset::RenderAssetPlugin,
-    renderer::RenderDevice,
-    Render, RenderApp, RenderSet,
+    render_asset::RenderAssetPlugin, renderer::RenderDevice, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Assets};
@@ -81,9 +79,9 @@ impl Plugin for ImagePlugin {
         }
 
         app.add_plugins(RenderAssetPlugin::<Image>::default())
-        .register_type::<Image>()
-        .add_asset::<Image>()
-        .register_asset_reflect::<Image>();
+            .register_type::<Image>()
+            .add_asset::<Image>()
+            .register_asset_reflect::<Image>();
         app.world
             .resource_mut::<Assets<Image>>()
             .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());

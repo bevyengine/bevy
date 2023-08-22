@@ -92,8 +92,8 @@ impl Plugin for Core3dPlugin {
                     sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
-                    prepare_core_3d_depth_textures.in_set(RenderSet::PrepareBuffers),
-                    prepare_prepass_textures.in_set(RenderSet::PrepareBuffers),
+                    prepare_core_3d_depth_textures.in_set(RenderSet::PrepareResources),
+                    prepare_prepass_textures.in_set(RenderSet::PrepareResources),
                 ),
             );
 

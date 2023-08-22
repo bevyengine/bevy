@@ -19,7 +19,7 @@ use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
-    render_asset::{RenderAssets, prepare_assets},
+    render_asset::{prepare_assets, RenderAssets},
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,

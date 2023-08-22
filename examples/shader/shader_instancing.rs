@@ -87,7 +87,7 @@ impl Plugin for CustomMaterialPlugin {
                 Render,
                 (
                     queue_custom.in_set(RenderSet::QueueMeshes),
-                    prepare_instance_buffers.in_set(RenderSet::PrepareBuffers),
+                    prepare_instance_buffers.in_set(RenderSet::PrepareResources),
                 ),
             );
     }

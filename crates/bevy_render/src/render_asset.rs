@@ -4,7 +4,8 @@ use bevy_asset::{Asset, AssetEvent, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
-    system::{StaticSystemParam, SystemParam, SystemParamItem}, schedule::SystemConfigs,
+    schedule::SystemConfigs,
+    system::{StaticSystemParam, SystemParam, SystemParamItem},
 };
 use bevy_utils::{HashMap, HashSet};
 use std::marker::PhantomData;
@@ -46,18 +47,22 @@ pub trait RenderAsset: Asset {
 /// Therefore it sets up the [`ExtractSchedule`](crate::ExtractSchedule) and
 /// [`RenderSet::PrepareAssets`](crate::RenderSet::PrepareAssets) steps for the specified [`RenderAsset`].
 pub struct RenderAssetPlugin<A: RenderAsset, AFTER: RenderAssetDependency + 'static = ()> {
-    phantom: PhantomData<fn() -> (A,AFTER)>,
+    phantom: PhantomData<fn() -> (A, AFTER)>,
 }
 
-impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Default for RenderAssetPlugin<A, AFTER> {
+impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Default
+    for RenderAssetPlugin<A, AFTER>
+{
     fn default() -> Self {
-        Self { 
+        Self {
             phantom: Default::default(),
         }
     }
 }
 
-impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin for RenderAssetPlugin<A, AFTER> {
+impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
+    for RenderAssetPlugin<A, AFTER>
+{
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -65,7 +70,10 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin for RenderAs
                 .init_resource::<RenderAssets<A>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
                 .add_systems(ExtractSchedule, extract_render_asset::<A>);
-            AFTER::register_system(render_app, prepare_assets::<A>.in_set(RenderSet::PrepareAssets));
+            AFTER::register_system(
+                render_app,
+                prepare_assets::<A>.in_set(RenderSet::PrepareAssets),
+            );
         }
     }
 }

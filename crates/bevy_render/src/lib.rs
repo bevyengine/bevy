@@ -102,9 +102,9 @@ pub enum RenderSet {
     /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on those data.
     Prepare,
     /// A sub-set within Prepare for initializing buffers, textures and uniforms for use in bindgroups.
-    PrepareBuffers,
-    /// The copy of [`apply_deferred`] that runs between [`PrepareBuffers`](RenderSet::PrepareBuffers) and ['PrepareBindgroups'](RenderSet::PrepareBindgroups).
-    PrepareBuffersFlush,
+    PrepareResources,
+    /// The copy of [`apply_deferred`] that runs between [`PrepareResources`](RenderSet::PrepareResources) and ['PrepareBindgroups'](RenderSet::PrepareBindgroups).
+    PrepareResourcesFlush,
     /// A sub-set within Prepare for constructing bindgroups, or other data that relies on buffers.
     PrepareBindgroups,
     /// The copy of [`apply_deferred`] that runs immediately after [`Prepare`](RenderSet::Prepare).
@@ -137,7 +137,7 @@ impl Render {
         // Create "stage-like" structure using buffer flushes + ordering
         schedule.add_systems((
             apply_deferred.in_set(ManageViewsFlush),
-            apply_deferred.in_set(PrepareBuffersFlush),
+            apply_deferred.in_set(PrepareResourcesFlush),
             apply_deferred.in_set(RenderFlush),
             apply_deferred.in_set(PrepareFlush),
             apply_deferred.in_set(CleanupFlush),
@@ -167,7 +167,9 @@ impl Render {
                 .after(prepare_assets::<Mesh>),
         );
         schedule.configure_sets(
-            (PrepareBuffers, PrepareBuffersFlush, PrepareBindgroups).chain().in_set(Prepare)
+            (PrepareResources, PrepareResourcesFlush, PrepareBindgroups)
+                .chain()
+                .in_set(Prepare),
         );
 
         schedule

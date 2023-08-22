@@ -13,7 +13,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    render_asset::{RenderAssets, prepare_assets},
+    render_asset::{prepare_assets, RenderAssets},
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
     texture::BevyDefault,
@@ -32,7 +32,12 @@ impl Plugin for LineGizmo2dPlugin {
         render_app
             .add_render_command::<Transparent2d, DrawLineGizmo2d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
-            .add_systems(Render, queue_line_gizmos_2d.in_set(RenderSet::Queue).after(prepare_assets::<LineGizmo>));
+            .add_systems(
+                Render,
+                queue_line_gizmos_2d
+                    .in_set(RenderSet::Queue)
+                    .after(prepare_assets::<LineGizmo>),
+            );
     }
 
     fn finish(&self, app: &mut App) {

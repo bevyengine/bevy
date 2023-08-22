@@ -45,9 +45,9 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;
 
 use crate::{
-    setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material, MaterialPipeline,
-    MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, MeshTransforms,
-    RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup, prepare_materials,
+    prepare_materials, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material,
+    MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey,
+    MeshTransforms, RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -161,7 +161,7 @@ where
                 .add_systems(ExtractSchedule, extract_camera_previous_view_projection)
                 .add_systems(
                     Render,
-                    prepare_previous_view_projection_uniforms.in_set(RenderSet::PrepareBuffers),
+                    prepare_previous_view_projection_uniforms.in_set(RenderSet::PrepareResources),
                 );
         }
 
@@ -170,7 +170,9 @@ where
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>()
             .add_systems(
                 Render,
-                queue_prepass_material_meshes::<M>.in_set(RenderSet::QueueMeshes).after(prepare_materials::<M>)
+                queue_prepass_material_meshes::<M>
+                    .in_set(RenderSet::QueueMeshes)
+                    .after(prepare_materials::<M>),
             );
     }
 }
