@@ -897,7 +897,7 @@ impl Default for FlexDirection {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Overflow {
-    /// Whether to show or clip overflowing items on the x axis        
+    /// Whether to show or clip overflowing items on the x axis
     pub x: OverflowAxis,
     /// Whether to show or clip overflowing items on the y axis
     pub y: OverflowAxis,
@@ -991,7 +991,7 @@ pub enum PositionType {
 }
 
 impl PositionType {
-    const DEFAULT: Self = Self::Relative;
+    pub const DEFAULT: Self = Self::Relative;
 }
 
 impl Default for PositionType {
@@ -1013,7 +1013,7 @@ pub enum FlexWrap {
 }
 
 impl FlexWrap {
-    const DEFAULT: Self = Self::NoWrap;
+    pub const DEFAULT: Self = Self::NoWrap;
 }
 
 impl Default for FlexWrap {
@@ -1043,7 +1043,7 @@ pub enum GridAutoFlow {
 }
 
 impl GridAutoFlow {
-    const DEFAULT: Self = Self::Row;
+    pub const DEFAULT: Self = Self::Row;
 }
 
 impl Default for GridAutoFlow {
@@ -1100,7 +1100,7 @@ pub struct GridTrack {
 }
 
 impl GridTrack {
-    const DEFAULT: Self = Self {
+    pub const DEFAULT: Self = Self {
         min_sizing_function: MinTrackSizingFunction::Auto,
         max_sizing_function: MaxTrackSizingFunction::Auto,
     };
@@ -1435,7 +1435,7 @@ pub struct GridPlacement {
 }
 
 impl GridPlacement {
-    const DEFAULT: Self = Self {
+    pub const DEFAULT: Self = Self {
         start: None,
         span: Some(1),
         end: None,
