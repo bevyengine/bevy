@@ -205,6 +205,11 @@ impl Schedule {
         self
     }
 
+    /// Returns the schedule's current `ScheduleBuildSettings`.
+    pub fn get_build_settings(&self) -> ScheduleBuildSettings {
+        self.graph.settings.clone()
+    }
+
     /// Returns the schedule's current execution strategy.
     pub fn get_executor_kind(&self) -> ExecutorKind {
         self.executor.kind()
