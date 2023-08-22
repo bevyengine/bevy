@@ -34,13 +34,15 @@ pub use uuid::Uuid;
 
 use hashbrown::hash_map::RawEntryMut;
 use std::{
+    any::TypeId,
+    collections::BTreeMap,
     fmt::Debug,
     future::Future,
     hash::{BuildHasher, BuildHasherDefault, Hash, Hasher},
     marker::PhantomData,
     mem::ManuallyDrop,
     ops::Deref,
-    pin::Pin, any::TypeId, collections::BTreeMap,
+    pin::Pin,
 };
 
 /// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
