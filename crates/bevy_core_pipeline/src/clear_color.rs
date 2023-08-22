@@ -29,6 +29,6 @@ pub struct ClearColor(pub Color);
 
 impl Default for ClearColor {
     fn default() -> Self {
-        Self(Color::rgb(0.4, 0.4, 0.4))
+        Self(Color::BLACK)
     }
 }
