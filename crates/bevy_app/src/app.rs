@@ -850,10 +850,14 @@ impl App {
     }
 
     /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
-    pub fn configure_schedules(&mut self, schedule_build_settings: ScheduleBuildSettings) {
+    pub fn configure_schedules(
+        &mut self,
+        schedule_build_settings: ScheduleBuildSettings,
+    ) -> &mut Self {
         self.world
             .resource_mut::<Schedules>()
             .configure_schedules(schedule_build_settings);
+        self
     }
 }
 
