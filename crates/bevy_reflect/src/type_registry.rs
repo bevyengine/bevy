@@ -1,6 +1,6 @@
 use crate::{serde::Serializable, Reflect, TypeInfo, Typed};
 use bevy_ptr::{Ptr, PtrMut};
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet, TypeMap};
 use downcast_rs::{impl_downcast, Downcast};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use serde::Deserialize;
@@ -19,7 +19,7 @@ use std::{any::TypeId, fmt::Debug, sync::Arc};
 /// [Registering]: TypeRegistry::register
 /// [crate-level documentation]: crate
 pub struct TypeRegistry {
-    registrations: HashMap<TypeId, TypeRegistration>,
+    registrations: TypeMap<TypeRegistration>,
     short_name_to_id: HashMap<String, TypeId>,
     full_name_to_id: HashMap<String, TypeId>,
     ambiguous_names: HashSet<String>,
@@ -304,7 +304,7 @@ impl TypeRegistryArc {
 /// [crate-level documentation]: crate
 pub struct TypeRegistration {
     short_name: String,
-    data: HashMap<TypeId, Box<dyn TypeData>>,
+    data: TypeMap<Box<dyn TypeData>>,
     type_info: &'static TypeInfo,
 }
 
@@ -362,7 +362,7 @@ impl TypeRegistration {
     pub fn of<T: Reflect + Typed>() -> Self {
         let type_name = std::any::type_name::<T>();
         Self {
-            data: HashMap::default(),
+            data: TypeMap::default(),
             short_name: bevy_utils::get_short_name(type_name),
             type_info: T::type_info(),
         }
@@ -385,7 +385,7 @@ impl TypeRegistration {
 
 impl Clone for TypeRegistration {
     fn clone(&self) -> Self {
-        let mut data = HashMap::default();
+        let mut data = TypeMap::default();
         for (id, type_data) in &self.data {
             data.insert(*id, (*type_data).clone_type_data());
         }

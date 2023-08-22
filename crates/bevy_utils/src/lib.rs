@@ -40,7 +40,7 @@ use std::{
     marker::PhantomData,
     mem::ManuallyDrop,
     ops::Deref,
-    pin::Pin,
+    pin::Pin, any::TypeId, collections::BTreeMap,
 };
 
 /// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
@@ -307,3 +307,6 @@ macro_rules! detailed_trace {
         }
     }
 }
+
+/// Map type for storing arbitrary data of type `T` against a [`TypeId`].
+pub type TypeMap<T> = BTreeMap<TypeId, T>;

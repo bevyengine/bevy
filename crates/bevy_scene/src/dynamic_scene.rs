@@ -1,5 +1,3 @@
-use std::any::TypeId;
-
 use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use anyhow::Result;
 use bevy_ecs::{
@@ -8,7 +6,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_reflect::{Reflect, TypePath, TypeRegistryArc, TypeUuid};
-use bevy_utils::HashMap;
+use bevy_utils::TypeMap;
 
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;
@@ -93,7 +91,7 @@ impl DynamicScene {
         // of which entities in the scene use that component.
         // This is so we can update the scene-internal references to references
         // of the actual entities in the world.
-        let mut scene_mappings: HashMap<TypeId, Vec<Entity>> = HashMap::default();
+        let mut scene_mappings: TypeMap<Vec<Entity>> = TypeMap::default();
 
         for scene_entity in &self.entities {
             // Fetch the entity with the given entity id from the `entity_map`
