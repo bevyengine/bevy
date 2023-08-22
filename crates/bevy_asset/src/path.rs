@@ -306,8 +306,8 @@ impl<'a> AssetPath<'a> {
     /// Note that a 'full' asset path is still relative to the asset root directory, and not
     /// necessarily an absolute filesystem path.
     pub fn resolve(&'a self, relative_path: &'a str) -> AssetPath<'a> {
-        if relative_path.starts_with('#') {
-            AssetPath::new_ref(&self.path, Some(&relative_path[1..]))
+        if let Some(without_prefix) = relative_path.strip_prefix('#') {
+            AssetPath::new_ref(&self.path, Some(without_prefix))
         } else if relative_path.starts_with("./") || relative_path.starts_with("../") {
             let mut rpath = relative_path;
             let mut fpath = PathBuf::from(self.path());
