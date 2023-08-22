@@ -62,8 +62,8 @@ use bevy_render::{
     render_graph::RenderGraph,
     render_phase::sort_phase_system,
     render_resource::Shader,
-    view::{ViewSet, VisibilitySystems},
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    view::VisibilitySystems,
+    ExtractSchedule, Render, RenderApp, RenderSet, render_asset::prepare_assets, texture::Image,
 };
 use bevy_transform::TransformSystem;
 use environment_map::EnvironmentMapPlugin;
@@ -269,43 +269,19 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
-            .configure_sets(
-                Render,
-                (
-                    RenderLightSystems::PrepareLights.in_set(RenderSet::ManageViews),
-                    RenderLightSystems::PrepareClusters.in_set(RenderSet::ManageViews),
-                    RenderLightSystems::QueueShadows.in_set(RenderSet::QueueMeshes),
-                ),
-            )
             .add_systems(
                 ExtractSchedule,
                 (
-                    render::extract_clusters.in_set(RenderLightSystems::ExtractClusters),
-                    render::extract_lights.in_set(RenderLightSystems::ExtractLights),
+                    render::extract_clusters,
+                    render::extract_lights,
                 ),
             )
             .add_systems(
                 Render,
                 (
-                    render::prepare_lights
-                        .before(ViewSet::PrepareUniforms)
-                        .in_set(RenderLightSystems::PrepareLights),
-                    // A sync is needed after prepare_lights, before prepare_view_uniforms,
-                    // because prepare_lights creates new views for shadow mapping
-                    apply_deferred
-                        .in_set(RenderSet::Prepare)
-                        .after(RenderLightSystems::PrepareLights)
-                        .before(ViewSet::PrepareUniforms),
-                    render::prepare_clusters
-                        .after(render::prepare_lights)
-                        .in_set(ViewSet::PrepareUniforms),
-                    // A sync is needed after prepare_clusters, before prepare_mesh_view_bind_groups,
-                    // because prepare_clusters inserts ViewClusterBindings on views
-                    apply_deferred
-                        .in_set(RenderSet::Prepare)
-                        .after(render::prepare_clusters)
-                        .before(prepare_mesh_view_bind_groups),
+                    render::prepare_lights.in_set(RenderSet::ManageViews).after(prepare_assets::<Image>),
                     sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
+                    render::prepare_clusters.in_set(RenderSet::PrepareBuffers),
                 ),
             )
             .init_resource::<LightMeta>();

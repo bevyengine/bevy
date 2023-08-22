@@ -45,9 +45,9 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;
 
 use crate::{
-    prepare_lights, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material, MaterialPipeline,
+    setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material, MaterialPipeline,
     MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, MeshTransforms,
-    RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup,
+    RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup, prepare_materials,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -105,7 +105,7 @@ where
         render_app
             .add_systems(
                 Render,
-                prepare_prepass_view_bind_group::<M>.in_set(RenderSet::Prepare),
+                prepare_prepass_view_bind_group::<M>.in_set(RenderSet::PrepareBindgroups),
             )
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
@@ -161,15 +161,7 @@ where
                 .add_systems(ExtractSchedule, extract_camera_previous_view_projection)
                 .add_systems(
                     Render,
-                    (
-                        prepare_previous_view_projection_uniforms
-                            .in_set(RenderSet::Prepare)
-                            .after(PrepassLightsViewFlush),
-                        apply_deferred
-                            .in_set(RenderSet::Prepare)
-                            .in_set(PrepassLightsViewFlush)
-                            .after(prepare_lights),
-                    ),
+                    prepare_previous_view_projection_uniforms.in_set(RenderSet::PrepareBuffers),
                 );
         }
 
@@ -178,7 +170,7 @@ where
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>()
             .add_systems(
                 Render,
-                queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue),
+                queue_prepass_material_meshes::<M>.in_set(RenderSet::QueueMeshes).after(prepare_materials::<M>)
             );
     }
 }

@@ -6,7 +6,7 @@ pub mod shape;
 
 pub use mesh::*;
 
-use crate::render_asset::RenderAssetPlugin;
+use crate::{render_asset::RenderAssetPlugin, prelude::Image};
 use bevy_app::{App, Plugin};
 use bevy_asset::AddAsset;
 use bevy_ecs::entity::Entity;
@@ -20,6 +20,6 @@ impl Plugin for MeshPlugin {
             .add_asset::<skinning::SkinnedMeshInverseBindposes>()
             .register_type::<skinning::SkinnedMesh>()
             .register_type::<Vec<Entity>>()
-            .add_plugins(RenderAssetPlugin::<Mesh>::default());
+            .add_plugins(RenderAssetPlugin::<Mesh, Image>::default());
     }
 }

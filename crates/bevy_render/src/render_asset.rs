@@ -4,7 +4,7 @@ use bevy_asset::{Asset, AssetEvent, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
-    system::{StaticSystemParam, SystemParam, SystemParamItem},
+    system::{StaticSystemParam, SystemParam, SystemParamItem}, schedule::SystemConfigs,
 };
 use bevy_utils::{HashMap, HashSet};
 use std::marker::PhantomData;
@@ -40,65 +40,50 @@ pub trait RenderAsset: Asset {
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>>;
 }
 
-#[derive(Clone, Hash, Debug, Default, PartialEq, Eq, SystemSet)]
-pub enum PrepareAssetSet {
-    PreAssetPrepare,
-    #[default]
-    AssetPrepare,
-    PostAssetPrepare,
-}
-
 /// This plugin extracts the changed assets from the "app world" into the "render world"
 /// and prepares them for the GPU. They can then be accessed from the [`RenderAssets`] resource.
 ///
 /// Therefore it sets up the [`ExtractSchedule`](crate::ExtractSchedule) and
 /// [`RenderSet::PrepareAssets`](crate::RenderSet::PrepareAssets) steps for the specified [`RenderAsset`].
-pub struct RenderAssetPlugin<A: RenderAsset> {
-    prepare_asset_set: PrepareAssetSet,
-    phantom: PhantomData<fn() -> A>,
+pub struct RenderAssetPlugin<A: RenderAsset, AFTER: RenderAssetDependency + 'static = ()> {
+    phantom: PhantomData<fn() -> (A,AFTER)>,
 }
 
-impl<A: RenderAsset> RenderAssetPlugin<A> {
-    pub fn with_prepare_asset_set(prepare_asset_set: PrepareAssetSet) -> Self {
-        Self {
-            prepare_asset_set,
-            phantom: PhantomData,
-        }
-    }
-}
-
-impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
+impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Default for RenderAssetPlugin<A, AFTER> {
     fn default() -> Self {
-        Self {
-            prepare_asset_set: Default::default(),
-            phantom: PhantomData,
+        Self { 
+            phantom: Default::default(),
         }
     }
 }
 
-impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
+impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin for RenderAssetPlugin<A, AFTER> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<RenderAssets<A>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
-                .add_systems(ExtractSchedule, extract_render_asset::<A>)
-                .configure_sets(
-                    Render,
-                    (
-                        PrepareAssetSet::PreAssetPrepare,
-                        PrepareAssetSet::AssetPrepare,
-                        PrepareAssetSet::PostAssetPrepare,
-                    )
-                        .chain()
-                        .in_set(RenderSet::PrepareAssets),
-                )
-                .add_systems(
-                    Render,
-                    prepare_assets::<A>.in_set(self.prepare_asset_set.clone()),
-                );
+                .add_systems(ExtractSchedule, extract_render_asset::<A>);
+            AFTER::register_system(render_app, prepare_assets::<A>.in_set(RenderSet::PrepareAssets));
         }
+    }
+}
+
+// helper to allow specifying dependencies between render assets
+pub trait RenderAssetDependency {
+    fn register_system(render_app: &mut App, system: SystemConfigs);
+}
+
+impl RenderAssetDependency for () {
+    fn register_system(render_app: &mut App, system: SystemConfigs) {
+        render_app.add_systems(Render, system);
+    }
+}
+
+impl<A: RenderAsset> RenderAssetDependency for A {
+    fn register_system(render_app: &mut App, system: SystemConfigs) {
+        render_app.add_systems(Render, system.after(prepare_assets::<A>));
     }
 }
 

@@ -93,25 +93,27 @@ pub enum RenderSet {
     /// Queue drawable entities to phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
     /// ready for sorting
     Queue,
-    /// A sub-set within Queue where mesh entity queue systems are executed
+    /// A sub-set within Queue where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
     QueueMeshes,
-    /// The copy of [`apply_deferred`] that runs immediately after [`Queue`](RenderSet::Queue).
-    QueueFlush,
     // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
     /// Sort the [`RenderPhases`](render_phase::RenderPhase) here.
     PhaseSort,
-    /// The copy of [`apply_deferred`] that runs immediately after [`PhaseSort`](RenderSet::PhaseSort).
-    PhaseSortFlush,
+    /// Prepare render resources from the extracted data for the GPU based on their sorted order.
+    /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on those data.
+    Prepare,
+    /// A sub-set within Prepare for initializing buffers, textures and uniforms for use in bindgroups.
+    PrepareBuffers,
+    /// The copy of [`apply_deferred`] that runs between [`PrepareBuffers`](RenderSet::PrepareBuffers) and ['PrepareBindgroups'](RenderSet::PrepareBindgroups).
+    PrepareBuffersFlush,
+    /// A sub-set within Prepare for constructing bindgroups, or other data that relies on buffers.
+    PrepareBindgroups,
+    /// The copy of [`apply_deferred`] that runs immediately after [`Prepare`](RenderSet::Prepare).
+    PrepareFlush,
     /// Actual rendering happens here.
     /// In most cases, only the render backend should insert resources here.
     Render,
     /// The copy of [`apply_deferred`] that runs immediately after [`Render`](RenderSet::Render).
     RenderFlush,
-    /// Prepare render resources from the extracted data for the GPU based on their sorted order.
-    /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on those data.
-    Prepare,
-    /// The copy of [`apply_deferred`] that runs immediately after [`Prepare`](RenderSet::Prepare).
-    PrepareFlush,
     /// Cleanup render resources here.
     Cleanup,
     /// The copy of [`apply_deferred`] that runs immediately after [`Cleanup`](RenderSet::Cleanup).
@@ -135,8 +137,7 @@ impl Render {
         // Create "stage-like" structure using buffer flushes + ordering
         schedule.add_systems((
             apply_deferred.in_set(ManageViewsFlush),
-            apply_deferred.in_set(QueueFlush),
-            apply_deferred.in_set(PhaseSortFlush),
+            apply_deferred.in_set(PrepareBuffersFlush),
             apply_deferred.in_set(RenderFlush),
             apply_deferred.in_set(PrepareFlush),
             apply_deferred.in_set(CleanupFlush),
@@ -148,9 +149,7 @@ impl Render {
                 ManageViews,
                 ManageViewsFlush,
                 Queue,
-                QueueFlush,
                 PhaseSort,
-                PhaseSortFlush,
                 Prepare,
                 PrepareFlush,
                 Render,
@@ -166,6 +165,9 @@ impl Render {
             QueueMeshes
                 .in_set(RenderSet::Queue)
                 .after(prepare_assets::<Mesh>),
+        );
+        schedule.configure_sets(
+            (PrepareBuffers, PrepareBuffersFlush, PrepareBindgroups).chain().in_set(Prepare)
         );
 
         schedule

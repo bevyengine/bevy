@@ -6,7 +6,7 @@ pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{sort_cameras, ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter},
+    camera::{ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
     render_asset::RenderAssets,
@@ -55,16 +55,14 @@ impl Plugin for ViewPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ViewUniforms>()
-                .configure_set(Render, ViewSet::PrepareUniforms.in_set(RenderSet::Prepare))
                 .add_systems(
                     Render,
                     (
-                        prepare_view_uniforms.in_set(ViewSet::PrepareUniforms),
                         prepare_view_targets
                             .in_set(RenderSet::ManageViews)
                             .after(WindowSystem::Prepare)
-                            .after(crate::render_asset::prepare_assets::<Image>)
-                            .after(sort_cameras),
+                            .after(crate::render_asset::prepare_assets::<Image>),
+                        prepare_view_uniforms.in_set(RenderSet::PrepareBuffers),
                     ),
                 );
         }
@@ -511,11 +509,4 @@ fn prepare_view_targets(
             }
         }
     }
-}
-
-/// System sets for the [`view`](crate::view) module.
-#[derive(SystemSet, PartialEq, Eq, Hash, Debug, Clone)]
-pub enum ViewSet {
-    /// Prepares view uniforms
-    PrepareUniforms,
 }

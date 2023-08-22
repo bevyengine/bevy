@@ -279,7 +279,7 @@ impl Plugin for ColoredMesh2dPlugin {
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
             .add_systems(ExtractSchedule, extract_colored_mesh2d)
-            .add_systems(Render, queue_colored_mesh2d.in_set(RenderSet::Queue));
+            .add_systems(Render, queue_colored_mesh2d.in_set(RenderSet::QueueMeshes));
     }
 
     fn finish(&self, app: &mut App) {

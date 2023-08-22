@@ -20,7 +20,7 @@ use bevy_render::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
     view::{
-        ComputedVisibility, ExtractedView, ViewSet, ViewTarget, ViewUniform, ViewUniformOffset,
+        ComputedVisibility, ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset,
         ViewUniforms,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -107,12 +107,8 @@ impl Plugin for Mesh2dRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        prepare_mesh2d_bind_group
-                            .in_set(RenderSet::Prepare)
-                            .after(ViewSet::PrepareUniforms),
-                        prepare_mesh2d_view_bind_groups
-                            .in_set(RenderSet::Prepare)
-                            .after(ViewSet::PrepareUniforms),
+                        prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindgroups),
+                        prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindgroups),
                     ),
                 );
         }

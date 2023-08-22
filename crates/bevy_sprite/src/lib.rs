@@ -95,7 +95,7 @@ impl Plugin for SpritePlugin {
                         queue_sprites
                             .in_set(RenderSet::Queue)
                             .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
-                        prepare_sprites.in_set(RenderSet::Prepare),
+                        prepare_sprites.in_set(RenderSet::PrepareBindgroups),
                     ),
                 );
         };
