@@ -190,8 +190,8 @@ pub enum ValArithmeticError {
     NonEvaluateable,
 }
 
-/// If both of the values are numeric and one is a zero,
-/// convert it a zero compatible with the other value.
+/// If both of the `Val`s are numeric and one is a zero,
+/// convert it to a zero `Val` compatible with the other value.
 fn convert_val_zeros(a: Val, b: Val) -> Result<(Val, Val), ValArithmeticError> {
     if matches!((a, b), (Val::Auto, _) | (_, Val::Auto)) {
         Err(ValArithmeticError::NonEvaluateable)
