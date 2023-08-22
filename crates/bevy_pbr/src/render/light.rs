@@ -865,6 +865,7 @@ pub fn prepare_lights(
         gpu_directional_lights[index] = GpuDirectionalLight {
             // Filled in later.
             cascades: [GpuDirectionalCascade::default(); MAX_CASCADES_PER_LIGHT],
+            // TODO: Is the below comment still valid?
             // premultiply color by intensity
             // we don't use the alpha at all, so no reason to multiply only [0..3]
             color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * light.illuminance,
