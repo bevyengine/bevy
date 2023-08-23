@@ -116,13 +116,17 @@ impl ViewNode for MainOpaquePass3dNode {
         }
 
         // Draw the skybox using a fullscreen triangle
-        if let (Some(skybox_pipeline), Some(skybox_bind_group)) =
+        if let (Some(skybox_pipeline), Some(SkyboxBindGroup(skybox_bind_group))) =
             (skybox_pipeline, skybox_bind_group)
         {
             let pipeline_cache = world.resource::<PipelineCache>();
             if let Some(pipeline) = pipeline_cache.get_render_pipeline(skybox_pipeline.0) {
                 render_pass.set_render_pipeline(pipeline);
-                render_pass.set_bind_group(0, &skybox_bind_group.0, &[view_uniform_offset.offset]);
+                render_pass.set_bind_group(
+                    0,
+                    &skybox_bind_group.0,
+                    &[view_uniform_offset.offset, skybox_bind_group.1],
+                );
                 render_pass.draw(0..3, 0..1);
             }
         }

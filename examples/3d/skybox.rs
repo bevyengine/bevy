@@ -76,7 +76,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         CameraController::default(),
-        Skybox(skybox_handle.clone()),
+        Skybox {
+            image: skybox_handle.clone(),
+            brightness: 1.0,
+        },
     ));
 
     // ambient light
@@ -159,7 +162,7 @@ fn asset_loaded(
         }
 
         for mut skybox in &mut skyboxes {
-            skybox.0 = cubemap.image_handle.clone();
+            skybox.image = cubemap.image_handle.clone();
         }
 
         cubemap.is_loaded = true;

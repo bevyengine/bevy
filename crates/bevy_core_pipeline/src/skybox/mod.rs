@@ -2,13 +2,16 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::{Component, Entity},
-    query::With,
+    query::{QueryItem, With},
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    extract_component::{
+        ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
+        UniformComponentPlugin,
+    },
     render_asset::RenderAssets,
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
@@ -34,7 +37,10 @@ impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, SKYBOX_SHADER_HANDLE, "skybox.wgsl", Shader::from_wgsl);
 
-        app.add_plugins(ExtractComponentPlugin::<Skybox>::default());
+        app.add_plugins((
+            ExtractComponentPlugin::<Skybox>::default(),
+            UniformComponentPlugin::<SkyboxUniforms>::default(),
+        ));
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -70,8 +76,32 @@ impl Plugin for SkyboxPlugin {
 /// To do so, use `EnvironmentMapLight` alongside this component.
 ///
 /// See also <https://en.wikipedia.org/wiki/Skybox_(video_games)>.
-#[derive(Component, ExtractComponent, Clone)]
-pub struct Skybox(pub Handle<Image>);
+#[derive(Component, Clone)]
+pub struct Skybox {
+    pub image: Handle<Image>,
+    /// TODO: Docs
+    pub brightness: f32,
+}
+
+impl ExtractComponent for Skybox {
+    type Query = &'static Self;
+    type Filter = ();
+    type Out = (Self, SkyboxUniforms);
+
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self::Out> {
+        Some((
+            item.clone(),
+            SkyboxUniforms {
+                brightness: item.brightness,
+            },
+        ))
+    }
+}
+
+#[derive(Component, ShaderType, Clone)]
+pub struct SkyboxUniforms {
+    brightness: f32,
+}
 
 #[derive(Resource)]
 struct SkyboxPipeline {
@@ -106,6 +136,16 @@ impl SkyboxPipeline {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
                         min_binding_size: Some(ViewUniform::min_size()),
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: Some(SkyboxUniforms::min_size()),
                     },
                     count: None,
                 },
@@ -207,20 +247,23 @@ fn prepare_skybox_pipelines(
 }
 
 #[derive(Component)]
-pub struct SkyboxBindGroup(pub BindGroup);
+pub struct SkyboxBindGroup(pub (BindGroup, u32));
 
 fn queue_skybox_bind_groups(
     mut commands: Commands,
     pipeline: Res<SkyboxPipeline>,
     view_uniforms: Res<ViewUniforms>,
+    skybox_uniforms: Res<ComponentUniforms<SkyboxUniforms>>,
     images: Res<RenderAssets<Image>>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &Skybox)>,
+    views: Query<(Entity, &Skybox, &DynamicUniformIndex<SkyboxUniforms>)>,
 ) {
-    for (entity, skybox) in &views {
-        if let (Some(skybox), Some(view_uniforms)) =
-            (images.get(&skybox.0), view_uniforms.uniforms.binding())
-        {
+    for (entity, skybox, skybox_uniform_index) in &views {
+        if let (Some(skybox), Some(view_uniforms), Some(skybox_uniforms)) = (
+            images.get(&skybox.image),
+            view_uniforms.uniforms.binding(),
+            skybox_uniforms.binding(),
+        ) {
             let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 label: Some("skybox_bind_group"),
                 layout: &pipeline.bind_group_layout,
@@ -237,10 +280,16 @@ fn queue_skybox_bind_groups(
                         binding: 2,
                         resource: view_uniforms,
                     },
+                    BindGroupEntry {
+                        binding: 3,
+                        resource: skybox_uniforms,
+                    },
                 ],
             });
 
-            commands.entity(entity).insert(SkyboxBindGroup(bind_group));
+            commands
+                .entity(entity)
+                .insert(SkyboxBindGroup((bind_group, skybox_uniform_index.index())));
         }
     }
 }

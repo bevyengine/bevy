@@ -6,6 +6,8 @@ var skybox: texture_cube<f32>;
 var skybox_sampler: sampler;
 @group(0) @binding(2)
 var<uniform> view: View;
+@group(0) @binding(3)
+var<uniform> brightness: f32;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
@@ -48,5 +50,5 @@ fn skybox_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // position, to the fragment world position on the near clipping plane
     let ray_direction = in.world_position - view.world_position;
     // cube maps are left-handed so we negate the z coordinate
-    return textureSample(skybox, skybox_sampler, ray_direction * vec3(1.0, 1.0, -1.0));
+    return textureSample(skybox, skybox_sampler, ray_direction * vec3(1.0, 1.0, -1.0)) * brightness;
 }
