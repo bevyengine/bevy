@@ -1,14 +1,15 @@
 use std::{iter, mem};
 
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    batching::NoAutomaticBatching,
     mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS},
     render_resource::{BufferUsages, BufferVec},
     renderer::{RenderDevice, RenderQueue},
     view::ViewVisibility,
     Extract,
 };
+use bevy_utils::PassHashMap;
 use bytemuck::Pod;
 
 #[derive(Component)]
@@ -69,15 +70,16 @@ fn add_to_alignment<T: Pod + Default>(buffer: &mut BufferVec<T>) {
     buffer.extend(iter::repeat_with(T::default).take(ts_to_add));
 }
 
+#[derive(Default, Resource, Deref, DerefMut)]
+pub struct MorphInstances(PassHashMap<Entity, MorphIndex>);
+
 pub fn extract_morphs(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
+    mut morph_instances: ResMut<MorphInstances>,
     mut uniform: ResMut<MorphUniform>,
     query: Extract<Query<(Entity, &ViewVisibility, &MeshMorphWeights)>>,
 ) {
+    morph_instances.clear();
     uniform.buffer.clear();
-
-    let mut values = Vec::with_capacity(*previous_len);
 
     for (entity, view_visibility, morph_weights) in &query {
         if !view_visibility.get() {
@@ -90,10 +92,6 @@ pub fn extract_morphs(
         add_to_alignment::<f32>(&mut uniform.buffer);
 
         let index = (start * mem::size_of::<f32>()) as u32;
-        // NOTE: Because morph targets require per-morph target texture bindings, they cannot
-        // currently be batched.
-        values.push((entity, (MorphIndex { index }, NoAutomaticBatching)));
+        morph_instances.insert(entity, MorphIndex { index });
     }
-    *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
 }

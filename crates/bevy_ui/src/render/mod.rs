@@ -2,7 +2,6 @@ mod pipeline;
 mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_ecs::storage::SparseSet;
 use bevy_hierarchy::Parent;
 use bevy_render::render_phase::PhaseItem;
 use bevy_render::view::ViewVisibility;
@@ -36,7 +35,7 @@ use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{FloatOrd, HashMap};
+use bevy_utils::{FloatOrd, HashMap, PassHashMap};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
@@ -164,7 +163,7 @@ pub struct ExtractedUiNode {
 
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
-    pub uinodes: SparseSet<Entity, ExtractedUiNode>,
+    pub uinodes: PassHashMap<Entity, ExtractedUiNode>,
 }
 
 pub fn extract_atlas_uinodes(
@@ -733,7 +732,7 @@ pub fn prepare_uinodes(
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(item.entity) {
+                if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(&item.entity) {
                     let mut existing_batch = batches
                         .last_mut()
                         .filter(|_| batch_image_handle == extracted_uinode.image);

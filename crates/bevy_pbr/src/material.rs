@@ -1,6 +1,6 @@
 use crate::{
     render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
-    MeshTransforms, PrepassPipelinePlugin, PrepassPlugin, ScreenSpaceAmbientOcclusionSettings,
+    PrepassPipelinePlugin, PrepassPlugin, RenderMeshInstances, ScreenSpaceAmbientOcclusionSettings,
     SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, Plugin};
@@ -14,10 +14,7 @@ use bevy_core_pipeline::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
-    system::{
-        lifetimeless::{Read, SRes},
-        SystemParamItem,
-    },
+    system::{lifetimeless::SRes, SystemParamItem},
 };
 use bevy_render::{
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -37,7 +34,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewVisibility, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{tracing::error, HashMap, HashSet};
+use bevy_utils::{tracing::error, HashMap, HashSet, PassHashMap};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -190,6 +187,7 @@ where
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
+                .init_resource::<RenderMaterialInstances<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
                 .add_systems(
                     ExtractSchedule,
@@ -224,26 +222,6 @@ where
             render_app.init_resource::<MaterialPipeline<M>>();
         }
     }
-}
-
-fn extract_material_meshes<M: Material>(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, &ViewVisibility, &Handle<M>)>>,
-) {
-    let mut values = Vec::with_capacity(*previous_len);
-    for (entity, view_visibility, material) in &query {
-        if view_visibility.get() {
-            // NOTE: MaterialBindGroupId is inserted here to avoid a table move. Upcoming changes
-            // to use SparseSet for render world entity storage will do this automatically.
-            values.push((
-                entity,
-                (material.clone_weak(), MaterialBindGroupId::default()),
-            ));
-        }
-    }
-    *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
 }
 
 /// A key uniquely identifying a specialized [`MaterialPipeline`].
@@ -368,21 +346,50 @@ type DrawMaterial<M> = (
 /// Sets the bind group for a given [`Material`] at the configured `I` index.
 pub struct SetMaterialBindGroup<M: Material, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterialBindGroup<M, I> {
-    type Param = SRes<RenderMaterials<M>>;
+    type Param = (SRes<RenderMaterials<M>>, SRes<RenderMaterialInstances<M>>);
     type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<Handle<M>>;
+    type ItemWorldQuery = ();
 
     #[inline]
     fn render<'w>(
-        _item: &P,
+        item: &P,
         _view: (),
-        material_handle: &'_ Handle<M>,
-        materials: SystemParamItem<'w, '_, Self::Param>,
+        _item_query: (),
+        (materials, material_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material = materials.into_inner().get(&material_handle.id()).unwrap();
+        let materials = materials.into_inner();
+        let material_instances = material_instances.into_inner();
+
+        let Some(material_asset_id) = material_instances.get(&item.entity()) else {
+            return RenderCommandResult::Failure;
+        };
+        let Some(material) = materials.get(material_asset_id) else {
+            return RenderCommandResult::Failure;
+        };
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
+    }
+}
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct RenderMaterialInstances<M: Material>(PassHashMap<Entity, AssetId<M>>);
+
+impl<M: Material> Default for RenderMaterialInstances<M> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+fn extract_material_meshes<M: Material>(
+    mut material_instances: ResMut<RenderMaterialInstances<M>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &Handle<M>)>>,
+) {
+    material_instances.clear();
+    for (entity, view_visibility, handle) in &query {
+        if view_visibility.get() {
+            material_instances.insert(entity, handle.id());
+        }
     }
 }
 
@@ -424,12 +431,8 @@ pub fn queue_material_meshes<M: Material>(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
-    mut material_meshes: Query<(
-        &Handle<M>,
-        &mut MaterialBindGroupId,
-        &Handle<Mesh>,
-        &MeshTransforms,
-    )>,
+    mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    render_material_instances: Res<RenderMaterialInstances<M>>,
     images: Res<RenderAssets<Image>>,
     mut views: Query<(
         &ExtractedView,
@@ -493,15 +496,16 @@ pub fn queue_material_meshes<M: Material>(
         }
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
-            let Ok((material_handle, mut material_bind_group_id, mesh_handle, mesh_transforms)) =
-                material_meshes.get_mut(*visible_entity)
-            else {
+            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
-            let Some(mesh) = render_meshes.get(mesh_handle) else {
+            let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
                 continue;
             };
-            let Some(material) = render_materials.get(&material_handle.id()) else {
+            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                continue;
+            };
+            let Some(material) = render_materials.get(material_asset_id) else {
                 continue;
             };
             let mut mesh_key = view_key;
@@ -530,9 +534,10 @@ pub fn queue_material_meshes<M: Material>(
                 }
             };
 
-            *material_bind_group_id = material.get_bind_group_id();
+            mesh_instance.material_bind_group_id = material.get_bind_group_id();
 
-            let distance = rangefinder.distance_translation(&mesh_transforms.transform.translation)
+            let distance = rangefinder
+                .distance_translation(&mesh_instance.transforms.transform.translation)
                 + material.properties.depth_bias;
             match material.properties.alpha_mode {
                 AlphaMode::Opaque => {

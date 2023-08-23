@@ -213,6 +213,11 @@ impl Hasher for PassHasher {
     }
 
     #[inline]
+    fn write_u32(&mut self, i: u32) {
+        self.hash = i as u64;
+    }
+
+    #[inline]
     fn write_u64(&mut self, i: u64) {
         self.hash = i;
     }
@@ -222,6 +227,12 @@ impl Hasher for PassHasher {
         self.hash
     }
 }
+
+/// A [`HashMap`] pre-configured to use [`PassHash`] passthrough hashing.
+pub type PassHashMap<K, V> = hashbrown::HashMap<K, V, PassHash>;
+
+/// A [`HashSet`] pre-configured to use [`PassHash`] passthrough hashing.
+pub type PassHashSet<T> = hashbrown::HashSet<T, PassHash>;
 
 /// A [`HashMap`] pre-configured to use [`Hashed`] keys and [`PassHash`] passthrough hashing.
 pub type PreHashMap<K, V> = hashbrown::HashMap<Hashed<K>, V, PassHash>;

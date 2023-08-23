@@ -11,7 +11,6 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{
     prelude::*,
-    storage::SparseSet,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3A, Quat, Rect, Vec2, Vec4};
@@ -34,7 +33,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{FloatOrd, HashMap};
+use bevy_utils::{FloatOrd, HashMap, PassHashMap};
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
@@ -330,7 +329,7 @@ pub struct ExtractedSprite {
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
-    pub sprites: SparseSet<Entity, ExtractedSprite>,
+    pub sprites: PassHashMap<Entity, ExtractedSprite>,
 }
 
 #[derive(Resource, Default)]
@@ -641,7 +640,7 @@ pub fn prepare_sprites(
             // Compatible items share the same entity.
             for item_index in 0..transparent_phase.items.len() {
                 let item = &transparent_phase.items[item_index];
-                let Some(extracted_sprite) = extracted_sprites.sprites.get(item.entity) else {
+                let Some(extracted_sprite) = extracted_sprites.sprites.get(&item.entity) else {
                     // If there is a phase item that is not a sprite, then we must start a new
                     // batch to draw the other phase item(s) and to respect draw order. This can be
                     // done by invalidating the batch_image_handle

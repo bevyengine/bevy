@@ -2,6 +2,7 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 
 use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
     query::{QueryItem, ROQueryItem},
@@ -10,7 +11,10 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Vec2, Vec4};
 use bevy_reflect::Reflect;
 use bevy_render::{
-    batching::{batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData},
+    batching::{
+        batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
+        NoAutomaticBatching,
+    },
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
@@ -26,6 +30,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::PassHashMap;
 
 use crate::Material2dBindGroupId;
 
@@ -89,6 +94,7 @@ impl Plugin for Mesh2dRenderPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_resource::<RenderMesh2dInstances>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
                 .add_systems(ExtractSchedule, extract_mesh2d)
                 .add_systems(
@@ -178,29 +184,57 @@ bitflags::bitflags! {
     }
 }
 
+pub struct RenderMesh2dInstance {
+    pub transforms: Mesh2dTransforms,
+    pub mesh_asset_id: AssetId<Mesh>,
+    pub material_bind_group_id: Material2dBindGroupId,
+    pub automatic_batching: bool,
+}
+
+#[derive(Default, Resource, Deref, DerefMut)]
+pub struct RenderMesh2dInstances(PassHashMap<Entity, RenderMesh2dInstance>);
+
+#[derive(Component)]
+pub struct Mesh2d;
+
 pub fn extract_mesh2d(
     mut commands: Commands,
-    mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, &ViewVisibility, &GlobalTransform, &Mesh2dHandle)>>,
+    mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
+    query: Extract<
+        Query<(
+            Entity,
+            &ViewVisibility,
+            &GlobalTransform,
+            &Mesh2dHandle,
+            Has<NoAutomaticBatching>,
+        )>,
+    >,
 ) {
-    let mut values = Vec::with_capacity(*previous_len);
-    for (entity, view_visibility, transform, handle) in &query {
+    let capacity = query.iter().len();
+    render_mesh_instances.clear();
+    let mut entities = Vec::with_capacity(capacity);
+
+    for (entity, view_visibility, transform, handle, no_automatic_batching) in &query {
         if !view_visibility.get() {
             continue;
         }
-        values.push((
+        // FIXME: Remove this - it is just a workaround to enable rendering to work as
+        // render commands require an entity to exist at the moment.
+        entities.push((entity, Mesh2d));
+        render_mesh_instances.insert(
             entity,
-            (
-                Mesh2dHandle(handle.0.clone_weak()),
-                Mesh2dTransforms {
+            RenderMesh2dInstance {
+                transforms: Mesh2dTransforms {
                     transform: (&transform.affine()).into(),
                     flags: MeshFlags::empty().bits(),
                 },
-            ),
-        ));
+                mesh_asset_id: handle.0.id(),
+                material_bind_group_id: Material2dBindGroupId::default(),
+                automatic_batching: !no_automatic_batching,
+            },
+        );
     }
-    *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
+    commands.insert_or_spawn_batch(entities);
 }
 
 #[derive(Resource, Clone)]
@@ -325,22 +359,28 @@ impl Mesh2dPipeline {
 }
 
 impl GetBatchData for Mesh2dPipeline {
-    type Query = (
-        Option<&'static Material2dBindGroupId>,
-        &'static Mesh2dHandle,
-        &'static Mesh2dTransforms,
-    );
-    type CompareData = (Option<Material2dBindGroupId>, AssetId<Mesh>);
+    type Param = SRes<RenderMesh2dInstances>;
+    type Query = Entity;
+    type QueryFilter = With<Mesh2d>;
+    type CompareData = (Material2dBindGroupId, AssetId<Mesh>);
     type BufferData = Mesh2dUniform;
 
-    fn get_buffer_data(&(.., mesh_transforms): &QueryItem<Self::Query>) -> Self::BufferData {
-        mesh_transforms.into()
-    }
-
-    fn get_compare_data(
-        &(material_bind_group_id, mesh_handle, ..): &QueryItem<Self::Query>,
-    ) -> Self::CompareData {
-        (material_bind_group_id.copied(), mesh_handle.0.id())
+    fn get_batch_data(
+        mesh_instances: &SystemParamItem<Self::Param>,
+        entity: &QueryItem<Self::Query>,
+    ) -> (Self::BufferData, Option<Self::CompareData>) {
+        let mesh_instance = mesh_instances
+            .get(entity)
+            .expect("Failed to find render mesh2d instance");
+        (
+            (&mesh_instance.transforms).into(),
+            mesh_instance.automatic_batching.then(|| {
+                (
+                    mesh_instance.material_bind_group_id,
+                    mesh_instance.mesh_asset_id,
+                )
+            }),
+        )
     }
 }
 
@@ -653,43 +693,52 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
 
 pub struct DrawMesh2d;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
-    type Param = SRes<RenderAssets<Mesh>>;
+    type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMesh2dInstances>);
     type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<Mesh2dHandle>;
+    type ItemWorldQuery = ();
 
     #[inline]
     fn render<'w>(
         item: &P,
         _view: (),
-        mesh_handle: ROQueryItem<'w, Self::ItemWorldQuery>,
-        meshes: SystemParamItem<'w, '_, Self::Param>,
+        _item_query: (),
+        (meshes, render_mesh2d_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let meshes = meshes.into_inner();
+        let render_mesh2d_instances = render_mesh2d_instances.into_inner();
+
+        let Some(RenderMesh2dInstance { mesh_asset_id, .. }) =
+            render_mesh2d_instances.get(&item.entity())
+        else {
+            return RenderCommandResult::Failure;
+        };
+        let Some(gpu_mesh) = meshes.get(*mesh_asset_id) else {
+            return RenderCommandResult::Failure;
+        };
+
+        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+
         let batch_range = item.batch_range();
-        if let Some(gpu_mesh) = meshes.into_inner().get(&mesh_handle.0) {
-            pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-            pass.set_push_constants(
-                ShaderStages::VERTEX,
-                0,
-                &(batch_range.start as i32).to_le_bytes(),
-            );
-            match &gpu_mesh.buffer_info {
-                GpuBufferInfo::Indexed {
-                    buffer,
-                    index_format,
-                    count,
-                } => {
-                    pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                    pass.draw_indexed(0..*count, 0, batch_range.clone());
-                }
-                GpuBufferInfo::NonIndexed => {
-                    pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
-                }
+        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        pass.set_push_constants(
+            ShaderStages::VERTEX,
+            0,
+            &(batch_range.start as i32).to_le_bytes(),
+        );
+        match &gpu_mesh.buffer_info {
+            GpuBufferInfo::Indexed {
+                buffer,
+                index_format,
+                count,
+            } => {
+                pass.set_index_buffer(buffer.slice(..), 0, *index_format);
+                pass.draw_indexed(0..*count, 0, batch_range.clone());
             }
-            RenderCommandResult::Success
-        } else {
-            RenderCommandResult::Failure
+            GpuBufferInfo::NonIndexed => {
+                pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
+            }
         }
+        RenderCommandResult::Success
     }
 }
