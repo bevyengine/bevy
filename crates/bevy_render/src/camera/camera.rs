@@ -85,11 +85,13 @@ pub struct ExposureSettings {
 }
 
 impl ExposureSettings {
+    pub const EV100_SUNLIGHT: f32 = 15.0;
+    pub const EV100_OVERCAST: f32 = 12.0;
+    pub const EV100_INDOOR: f32 = 7.0;
+
     pub fn from_physical_camera(physical_camera_parameters: PhysicalCameraParameters) -> Self {
-        let p = physical_camera_parameters;
         Self {
-            ev100: (p.aperture_f_stops * p.aperture_f_stops / p.shutter_speed_s).log2()
-                - (p.sensitivity_iso / 100.0).log2(),
+            ev100: physical_camera_parameters.ev100(),
         }
     }
 
@@ -102,7 +104,9 @@ impl ExposureSettings {
 
 impl Default for ExposureSettings {
     fn default() -> Self {
-        Self::from_physical_camera(PhysicalCameraParameters::default())
+        Self {
+            ev100: Self::EV100_OVERCAST,
+        }
     }
 }
 
@@ -115,6 +119,14 @@ pub struct PhysicalCameraParameters {
     pub shutter_speed_s: f32,
     /// <https://en.wikipedia.org/wiki/Film_speed>
     pub sensitivity_iso: f32,
+}
+
+impl PhysicalCameraParameters {
+    /// Calculate the [EV100](https://en.wikipedia.org/wiki/Exposure_value).
+    pub fn ev100(&self) -> f32 {
+        (self.aperture_f_stops * self.aperture_f_stops / self.shutter_speed_s).log2()
+            - (self.sensitivity_iso / 100.0).log2()
+    }
 }
 
 impl Default for PhysicalCameraParameters {
