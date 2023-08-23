@@ -4,7 +4,6 @@ use crate::fxaa::{CameraFxaaPipeline, Fxaa, FxaaPipeline};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::{
-    bind_group_descriptor,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         BindGroup, FilterMode, Operations, PipelineCache, RenderPassColorAttachment,

@@ -8,7 +8,6 @@ use bevy_ecs::{
 };
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    bind_group_descriptor,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
@@ -222,13 +221,15 @@ fn queue_skybox_bind_groups(
         if let (Some(skybox), Some(view_uniforms)) =
             (images.get(&skybox.0), view_uniforms.uniforms.binding())
         {
-            let bind_group = render_device.create_bind_group(bind_group_descriptor!(
+            let bind_group = render_device.create_bind_group(
                 "skybox_bind_group",
                 &pipeline.bind_group_layout,
-                texture(&skybox.texture_view),
-                sampler(&skybox.sampler),
-                buffer(view_uniforms),
-            ));
+                [
+                    skybox.texture_view.binding(),
+                    skybox.sampler.binding(),
+                    view_uniforms,
+                ],
+            );
 
             commands.entity(entity).insert(SkyboxBindGroup(bind_group));
         }

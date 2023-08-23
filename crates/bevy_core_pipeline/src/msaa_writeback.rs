@@ -6,7 +6,6 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    bind_group_descriptor,
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     renderer::RenderContext,
@@ -91,12 +90,14 @@ impl Node for MsaaWritebackNode {
                 depth_stencil_attachment: None,
             };
 
-            let bind_group = render_context.create_bind_group(bind_group_descriptor!(
+            let bind_group = render_context.create_bind_group(
                 "msaa_writeback_bind_group",
                 &blit_pipeline.texture_bind_group,
-                texture(post_process.source),
-                sampler(&blit_pipeline.sampler),
-            ));
+                [
+                    post_process.source.binding(),
+                    blit_pipeline.sampler.binding(),
+                ],
+            );
 
             let mut render_pass = render_context
                 .command_encoder()

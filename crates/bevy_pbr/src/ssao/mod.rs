@@ -15,7 +15,6 @@ use bevy_ecs::{
 };
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
-    bind_group_descriptor,
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -763,8 +762,8 @@ fn queue_ssao_bind_groups(
     )>,
 ) {
     let (Some(view_uniforms), Some(globals_uniforms)) = (
-        view_uniforms.uniforms.binding(1),
-        global_uniforms.buffer.binding(5),
+        view_uniforms.uniforms.binding(),
+        global_uniforms.buffer.binding(),
     ) else {
         return;
     };
@@ -774,7 +773,7 @@ fn queue_ssao_bind_groups(
             "ssao_common_bind_group",
             &pipelines.common_bind_group_layout,
             &[
-                pipelines.point_clamp_sampler.binding(0),
+                pipelines.point_clamp_sampler.binding(),
                 view_uniforms.clone(),
             ],
         );
@@ -802,12 +801,12 @@ fn queue_ssao_bind_groups(
                     .as_ref()
                     .unwrap()
                     .default_view
-                    .binding(0),
-                create_depth_view(0).binding(1),
-                create_depth_view(1).binding(2),
-                create_depth_view(2).binding(3),
-                create_depth_view(3).binding(4),
-                create_depth_view(4).binding(5),
+                    .binding(),
+                create_depth_view(0).binding(),
+                create_depth_view(1).binding(),
+                create_depth_view(2).binding(),
+                create_depth_view(3).binding(),
+                create_depth_view(4).binding(),
             ],
         );
 
@@ -818,19 +817,19 @@ fn queue_ssao_bind_groups(
                 ssao_textures
                     .preprocessed_depth_texture
                     .default_view
-                    .binding(0),
+                    .binding(),
                 prepass_textures
                     .normal
                     .as_ref()
                     .unwrap()
                     .default_view
-                    .binding(1),
-                pipelines.hilbert_index_lut.binding(2),
-                ssao_textures.ssao_noisy_texture.default_view.binding(3),
+                    .binding(),
+                pipelines.hilbert_index_lut.binding(),
+                ssao_textures.ssao_noisy_texture.default_view.binding(),
                 ssao_textures
                     .depth_differences_texture
                     .default_view
-                    .binding(4),
+                    .binding(),
                 globals_uniforms.clone(),
             ],
         );
@@ -839,15 +838,15 @@ fn queue_ssao_bind_groups(
             "ssao_spatial_denoise_bind_group",
             &pipelines.spatial_denoise_bind_group_layout,
             &[
-                ssao_textures.ssao_noisy_texture.default_view.binding(0),
+                ssao_textures.ssao_noisy_texture.default_view.binding(),
                 ssao_textures
                     .depth_differences_texture
                     .default_view
-                    .binding(1),
+                    .binding(),
                 ssao_textures
                     .screen_space_ambient_occlusion_texture
                     .default_view
-                    .binding(2),
+                    .binding(),
             ],
         );
 

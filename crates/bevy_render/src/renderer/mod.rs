@@ -18,8 +18,8 @@ use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
 use wgpu::{
-    Adapter, AdapterInfo, BindGroupDescriptor, BindGroupEntry, CommandBuffer, CommandEncoder,
-    Instance, Queue, RequestAdapterOptions,
+    Adapter, AdapterInfo, BindGroupEntry, CommandBuffer, CommandEncoder, Instance, Queue,
+    RequestAdapterOptions,
 };
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.

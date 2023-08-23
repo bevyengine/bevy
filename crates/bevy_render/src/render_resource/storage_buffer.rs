@@ -82,7 +82,7 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self, binding_index: u32) -> Option<BindGroupEntry> {
+    pub fn binding(&self) -> Option<BindGroupEntry> {
         self.binding_index(u32::MAX)
     }
 

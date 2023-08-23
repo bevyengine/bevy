@@ -95,7 +95,7 @@ impl RenderDevice {
             if entry.binding == u32::MAX {
                 entry.binding = index as u32;
                 auto = true;
-            } else if auto == true {
+            } else if auto {
                 panic!("Cannot mix manual binding indices with automatic indices");
             }
         }

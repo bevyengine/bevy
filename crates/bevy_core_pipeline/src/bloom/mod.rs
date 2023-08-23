@@ -14,7 +14,6 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::UVec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    bind_group_descriptor,
     camera::ExtractedCamera,
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
@@ -402,7 +401,7 @@ fn queue_bloom_bind_groups(
 
     for (entity, bloom_texture) in &views {
         let bind_group_count = bloom_texture.mip_count as usize - 1;
-        let uniforms = uniforms.binding(2).unwrap();
+        let uniforms = uniforms.binding().unwrap();
 
         let mut downsampling_bind_groups = Vec::with_capacity(bind_group_count);
         for mip in 1..bloom_texture.mip_count {
@@ -423,7 +422,7 @@ fn queue_bloom_bind_groups(
                 "bloom_upsampling_bind_group",
                 &upsampling_pipeline.bind_group_layout,
                 [
-                    &bloom_texture.view(mip).binding(),
+                    bloom_texture.view(mip).binding(),
                     sampler.binding(),
                     uniforms.clone(),
                 ],

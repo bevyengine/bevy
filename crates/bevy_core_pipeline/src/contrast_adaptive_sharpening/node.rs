@@ -4,7 +4,6 @@ use crate::contrast_adaptive_sharpening::ViewCASPipeline;
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
-    bind_group_descriptor,
     extract_component::{ComponentUniforms, DynamicUniformIndex},
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::{
@@ -73,13 +72,15 @@ impl Node for CASNode {
                 bind_group
             }
             cached_bind_group => {
-                let bind_group = render_context.create_bind_group(bind_group_descriptor!(
+                let bind_group = render_context.create_bind_group(
                     "cas_bind_group",
                     &sharpening_pipeline.texture_bind_group,
-                    texture(view_target.source),
-                    sampler(&sharpening_pipeline.sampler),
-                    buffer(uniforms),
-                ));
+                    [
+                        view_target.source.binding(),
+                        sharpening_pipeline.sampler.binding(),
+                        uniforms,
+                    ],
+                );
 
                 let (_, _, bind_group) =
                     cached_bind_group.insert((uniforms_id, source.id(), bind_group));
