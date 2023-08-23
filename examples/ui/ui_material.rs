@@ -1,4 +1,4 @@
-//! This example illustrates how to create a Node that shows a Material and driver parameters from
+//! This example illustrates how to create a Node that shows a Material and drives parameters from
 //! it
 
 use bevy::prelude::*;

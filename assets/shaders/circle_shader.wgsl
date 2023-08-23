@@ -1,11 +1,6 @@
 // This shader draws a circular progress bar
 #import bevy_render::view View
-
-struct VertexOutput {
-    @location(0) uv: vec2<f32>,
-    @location(1) color: vec4<f32>,
-    @builtin(position) position: vec4<f32>,
-};
+#import bevy_ui::ui_vertex_output UiVertexOutput
 
 struct CustomUiMaterial {
     @location(0) fill_amount: f32,
@@ -25,7 +20,7 @@ const PI = 3.141592656;
 const TAU = 6.283185312;
 
 @fragment
-fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let fill_amount = input.fill_amount;
     let fill_angle = fill_amount * TAU;
     let uv = in.uv * 2.0 - 1.0;
