@@ -8,6 +8,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::TypeUuid;
 use bevy_render::{
+    camera::ExposureSettings,
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
         UniformComponentPlugin,
@@ -84,15 +85,21 @@ pub struct Skybox {
 }
 
 impl ExtractComponent for Skybox {
-    type Query = &'static Self;
+    type Query = (&'static Self, Option<&'static ExposureSettings>);
     type Filter = ();
     type Out = (Self, SkyboxUniforms);
 
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self::Out> {
+    fn extract_component(
+        (skybox, exposure_settings): QueryItem<'_, Self::Query>,
+    ) -> Option<Self::Out> {
+        let exposure = exposure_settings
+            .map(|e| e.exposure())
+            .unwrap_or_else(|| ExposureSettings::default().exposure());
+
         Some((
-            item.clone(),
+            skybox.clone(),
             SkyboxUniforms {
-                brightness: item.brightness,
+                brightness: skybox.brightness * exposure,
             },
         ))
     }
