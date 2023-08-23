@@ -3,10 +3,10 @@
 use crate::TypeInfo;
 use bevy_utils::{FixedState, StableHashMap};
 use once_cell::race::OnceBox;
-use parking_lot::RwLock;
 use std::{
     any::{Any, TypeId},
     hash::BuildHasher,
+    sync::RwLock,
 };
 
 /// A type that can be stored in a ([`Non`])[`GenericTypeCell`].
@@ -236,7 +236,7 @@ impl<T: TypedProperty> GenericTypeCell<T> {
         // since `f` might want to call `get_or_insert` recursively
         // and we don't want a deadlock!
         {
-            let mapping = self.0.read();
+            let mapping = self.0.read().expect("Lock Poisoned");
             if let Some(info) = mapping.get(&type_id) {
                 return info;
             }
@@ -244,7 +244,7 @@ impl<T: TypedProperty> GenericTypeCell<T> {
 
         let value = f();
 
-        let mut mapping = self.0.write();
+        let mut mapping = self.0.write().expect("Lock Poisoned");
         mapping
             .entry(type_id)
             .insert({

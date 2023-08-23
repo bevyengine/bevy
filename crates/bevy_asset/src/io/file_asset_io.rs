@@ -11,9 +11,7 @@ use bevy_utils::{default, HashMap, Instant};
 use crossbeam_channel::TryRecvError;
 use fs::File;
 #[cfg(feature = "filesystem_watcher")]
-use parking_lot::RwLock;
-#[cfg(feature = "filesystem_watcher")]
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::{
     convert::TryFrom,
     env, fs,
@@ -132,7 +130,7 @@ impl AssetIo for FileAssetIo {
         {
             let to_reload = to_reload.unwrap_or_else(|| to_watch.to_owned());
             let to_watch = self.root_path.join(to_watch);
-            let mut watcher = self.filesystem_watcher.write();
+            let mut watcher = self.filesystem_watcher.write().expect("Lock Poisoned");
             if let Some(ref mut watcher) = *watcher {
                 watcher
                     .watch(&to_watch, to_reload)
@@ -146,7 +144,8 @@ impl AssetIo for FileAssetIo {
     fn watch_for_changes(&self, configuration: &ChangeWatcher) -> Result<(), AssetIoError> {
         #[cfg(feature = "filesystem_watcher")]
         {
-            *self.filesystem_watcher.write() = Some(FilesystemWatcher::new(configuration));
+            *self.filesystem_watcher.write().expect("Lock Poisoned") =
+                Some(FilesystemWatcher::new(configuration));
         }
         #[cfg(not(feature = "filesystem_watcher"))]
         bevy_log::warn!("Watching for changes is not supported when the `filesystem_watcher` feature is disabled");
@@ -184,7 +183,7 @@ pub fn filesystem_watcher_system(
         } else {
             return;
         };
-    let watcher = asset_io.filesystem_watcher.read();
+    let watcher = asset_io.filesystem_watcher.read().expect("Lock Poisoned");
 
     if let Some(ref watcher) = *watcher {
         loop {

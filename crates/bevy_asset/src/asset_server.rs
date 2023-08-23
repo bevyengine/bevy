@@ -10,8 +10,10 @@ use bevy_log::warn;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::{Entry, HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
-use parking_lot::{Mutex, RwLock};
-use std::{path::Path, sync::Arc};
+use std::{
+    path::Path,
+    sync::{Arc, Mutex, RwLock},
+};
 use thiserror::Error;
 
 /// Errors that occur while loading assets with an [`AssetServer`].
@@ -157,6 +159,7 @@ impl AssetServer {
             .server
             .asset_lifecycles
             .write()
+            .expect("Lock Poisoned")
             .insert(T::TYPE_UUID, Box::<AssetLifecycleChannel<T>>::default())
             .is_some()
         {
@@ -171,13 +174,14 @@ impl AssetServer {
     /// Assets loaded with matching extensions will be blocked until the
     /// real loader is added.
     pub fn preregister_loader(&self, extensions: &[&str]) {
-        let mut loaders = self.server.loaders.write();
+        let mut loaders = self.server.loaders.write().expect("Lock Poisoned");
         let loader_index = loaders.len();
         for extension in extensions {
             if self
                 .server
                 .extension_to_loader_index
                 .write()
+                .expect("Lock Poisoned")
                 .insert(extension.to_string(), loader_index)
                 .is_some()
             {
@@ -196,10 +200,14 @@ impl AssetServer {
     where
         T: AssetLoader,
     {
-        let mut loaders = self.server.loaders.write();
+        let mut loaders = self.server.loaders.write().expect("Lock Poisoned");
         let next_loader_index = loaders.len();
         let mut maybe_existing_loader_index = None;
-        let mut loader_map = self.server.extension_to_loader_index.write();
+        let mut loader_map = self
+            .server
+            .extension_to_loader_index
+            .write()
+            .expect("Lock Poisoned");
         let mut maybe_sender = None;
 
         for extension in loader.extensions() {
@@ -258,11 +266,15 @@ impl AssetServer {
     fn get_asset_loader(&self, extension: &str) -> Result<MaybeAssetLoader, AssetServerError> {
         let index = {
             // scope map to drop lock as soon as possible
-            let map = self.server.extension_to_loader_index.read();
+            let map = self
+                .server
+                .extension_to_loader_index
+                .read()
+                .expect("Lock Poisoned");
             map.get(extension).copied()
         };
         index
-            .map(|index| self.server.loaders.read()[index].clone())
+            .map(|index| self.server.loaders.read().expect("Lock Poisoned")[index].clone())
             .ok_or_else(|| AssetServerError::MissingAssetLoader {
                 extensions: vec![extension.to_string()],
             })
@@ -306,6 +318,7 @@ impl AssetServer {
         self.server
             .handle_to_path
             .read()
+            .expect("Lock Poisoned")
             .get(&handle.into())
             .cloned()
     }
@@ -314,7 +327,7 @@ impl AssetServer {
     pub fn get_load_state<H: Into<HandleId>>(&self, handle: H) -> LoadState {
         match handle.into() {
             HandleId::AssetPathId(id) => {
-                let asset_sources = self.server.asset_sources.read();
+                let asset_sources = self.server.asset_sources.read().expect("Lock Poisoned");
                 asset_sources
                     .get(&id.source_path_id())
                     .map_or(LoadState::NotLoaded, |info| info.load_state)
@@ -385,7 +398,7 @@ impl AssetServer {
         // load metadata and update source info. this is done in a scope to ensure we release the
         // locks before loading
         let version = {
-            let mut asset_sources = self.server.asset_sources.write();
+            let mut asset_sources = self.server.asset_sources.write().expect("Lock Poisoned");
             let source_info = match asset_sources.entry(asset_path_id.source_path_id()) {
                 Entry::Occupied(entry) => entry.into_mut(),
                 Entry::Vacant(entry) => entry.insert(SourceInfo {
@@ -416,7 +429,7 @@ impl AssetServer {
         };
 
         let set_asset_failed = || {
-            let mut asset_sources = self.server.asset_sources.write();
+            let mut asset_sources = self.server.asset_sources.write().expect("Lock Poisoned");
             let source_info = asset_sources
                 .get_mut(&asset_path_id.source_path_id())
                 .expect("`AssetSource` should exist at this point.");
@@ -469,7 +482,7 @@ impl AssetServer {
 
         // if version has changed since we loaded and grabbed a lock, return. there is a newer
         // version being loaded
-        let mut asset_sources = self.server.asset_sources.write();
+        let mut asset_sources = self.server.asset_sources.write().expect("Lock Poisoned");
         let source_info = asset_sources
             .get_mut(&asset_path_id.source_path_id())
             .expect("`AssetSource` should exist at this point.");
@@ -540,6 +553,7 @@ impl AssetServer {
         self.server
             .handle_to_path
             .write()
+            .expect("Lock Poisoned")
             .entry(handle_id)
             .or_insert_with(|| asset_path.to_owned());
 
@@ -585,12 +599,22 @@ impl AssetServer {
 
     /// Frees unused assets, unloading them from memory.
     pub fn free_unused_assets(&self) {
-        let mut potential_frees = self.server.asset_ref_counter.mark_unused_assets.lock();
+        let mut potential_frees = self
+            .server
+            .asset_ref_counter
+            .mark_unused_assets
+            .lock()
+            .expect("Lock Poisoned");
 
         if !potential_frees.is_empty() {
-            let ref_counts = self.server.asset_ref_counter.ref_counts.read();
-            let asset_sources = self.server.asset_sources.read();
-            let asset_lifecycles = self.server.asset_lifecycles.read();
+            let ref_counts = self
+                .server
+                .asset_ref_counter
+                .ref_counts
+                .read()
+                .expect("Lock Poisoned");
+            let asset_sources = self.server.asset_sources.read().expect("Lock Poisoned");
+            let asset_lifecycles = self.server.asset_lifecycles.read().expect("Lock Poisoned");
             for potential_free in potential_frees.drain(..) {
                 if let Some(&0) = ref_counts.get(&potential_free) {
                     let type_uuid = match potential_free {
@@ -613,7 +637,12 @@ impl AssetServer {
     /// Iterates through asset references and marks assets with no active handles as unused.
     pub fn mark_unused_assets(&self) {
         let receiver = &self.server.asset_ref_counter.channel.receiver;
-        let mut ref_counts = self.server.asset_ref_counter.ref_counts.write();
+        let mut ref_counts = self
+            .server
+            .asset_ref_counter
+            .ref_counts
+            .write()
+            .expect("Lock Poisoned");
         let mut potential_frees = None;
         loop {
             let ref_change = match receiver.try_recv() {
@@ -629,7 +658,11 @@ impl AssetServer {
                     if *entry == 0 {
                         potential_frees
                             .get_or_insert_with(|| {
-                                self.server.asset_ref_counter.mark_unused_assets.lock()
+                                self.server
+                                    .asset_ref_counter
+                                    .mark_unused_assets
+                                    .lock()
+                                    .expect("Lock Poisoned")
                             })
                             .push(handle_id);
                     }
@@ -639,7 +672,7 @@ impl AssetServer {
     }
 
     fn create_assets_in_load_context(&self, load_context: &mut LoadContext) {
-        let asset_lifecycles = self.server.asset_lifecycles.read();
+        let asset_lifecycles = self.server.asset_lifecycles.read().expect("Lock Poisoned");
         for (label, asset) in &mut load_context.labeled_assets {
             let asset_value = asset
                 .value
@@ -664,7 +697,7 @@ impl AssetServer {
     // Note: this takes a `ResMut<Assets<T>>` to ensure change detection does not get
     // triggered unless the `Assets` collection is actually updated.
     pub(crate) fn update_asset_storage<T: Asset>(&self, mut assets: ResMut<Assets<T>>) {
-        let asset_lifecycles = self.server.asset_lifecycles.read();
+        let asset_lifecycles = self.server.asset_lifecycles.read().expect("Lock Poisoned");
         let asset_lifecycle = asset_lifecycles.get(&T::TYPE_UUID).unwrap();
         let mut asset_sources_guard = None;
         let channel = asset_lifecycle
@@ -676,8 +709,9 @@ impl AssetServer {
                 Ok(AssetLifecycleEvent::Create(result)) => {
                     // update SourceInfo if this asset was loaded from an AssetPath
                     if let HandleId::AssetPathId(id) = result.id {
-                        let asset_sources = asset_sources_guard
-                            .get_or_insert_with(|| self.server.asset_sources.write());
+                        let asset_sources = asset_sources_guard.get_or_insert_with(|| {
+                            self.server.asset_sources.write().expect("Lock Poisoned")
+                        });
                         if let Some(source_info) = asset_sources.get_mut(&id.source_path_id()) {
                             if source_info.version == result.version {
                                 source_info.committed_assets.insert(id.label_id());
@@ -692,8 +726,9 @@ impl AssetServer {
                 }
                 Ok(AssetLifecycleEvent::Free(handle_id)) => {
                     if let HandleId::AssetPathId(id) = handle_id {
-                        let asset_sources = asset_sources_guard
-                            .get_or_insert_with(|| self.server.asset_sources.write());
+                        let asset_sources = asset_sources_guard.get_or_insert_with(|| {
+                            self.server.asset_sources.write().expect("Lock Poisoned")
+                        });
                         if let Some(source_info) = asset_sources.get_mut(&id.source_path_id()) {
                             source_info.committed_assets.remove(&id.label_id());
                             source_info.load_state = LoadState::Unloaded;

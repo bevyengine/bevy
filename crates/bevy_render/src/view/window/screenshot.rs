@@ -7,7 +7,7 @@ use bevy_log::{error, info, info_span};
 use bevy_reflect::TypeUuid;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::HashMap;
-use parking_lot::Mutex;
+use std::sync::Mutex;
 use thiserror::Error;
 use wgpu::{
     CommandEncoder, Extent3d, ImageDataLayout, TextureFormat, COPY_BYTES_PER_ROW_ALIGNMENT,
@@ -51,6 +51,7 @@ impl ScreenshotManager {
     ) -> Result<(), ScreenshotAlreadyRequestedError> {
         self.callbacks
             .get_mut()
+            .expect("Lock Poisoned")
             .try_insert(window, Box::new(callback))
             .map(|_| ())
             .map_err(|_| ScreenshotAlreadyRequestedError)
