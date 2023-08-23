@@ -89,7 +89,7 @@ impl SystemRegistry {
     ///
     /// Repeatedly registering a system will have no effect.
     #[inline]
-    fn register<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) -> SystemId {
+    pub fn register<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) -> SystemId {
         let id = self.last_id + 1;
         self.last_id = id;
         self.systems
@@ -112,10 +112,10 @@ impl SystemRegistry {
     /// System state will not be reused between runs, so [`Local`](crate::system::Local) variables are not preserved between runs.
     /// To preserve [`Local`](crate::system::Local) variables between runs, it's possible to register and run the system by id manually.
     pub fn run<M, S: IntoSystem<(), (), M> + 'static>(&mut self, world: &mut World, system: S) {
-        let id = self.register(system);
-        self.run_by_id(world, id)
-            .expect("System was registered before running");
-        self.remove(id);
+        let mut boxed_system: BoxedSystem = Box::new(IntoSystem::into_system(system));
+        boxed_system.initialize(world);
+        boxed_system.run((), world);
+        boxed_system.apply_deferred(world);
     }
 
     /// Run the system by its [`SystemId`]
@@ -224,10 +224,11 @@ impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static>
 /// The [`Command`] type for [`SystemRegistry::run_by_id`].
 #[derive(Debug, Clone)]
 pub struct RunSystemById {
-    pub system_id: SystemId,
+    system_id: SystemId,
 }
 
 impl RunSystemById {
+    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
     pub fn new(system_id: SystemId) -> Self {
         Self { system_id }
     }

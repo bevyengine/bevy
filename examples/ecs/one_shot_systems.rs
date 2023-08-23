@@ -13,15 +13,13 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_startup_system(count_entities)
-        .add_startup_system(setup)
+        .add_systems(Startup, (count_entities, setup))
         // One shot systems are interchangeable with ordinarily scheduled systems.
-        // Change detection, Local and NonSend all work as expected.
-        .add_system(count_entities.in_base_set(CoreSet::PostUpdate))
+        .add_systems(PostUpdate, count_entities)
         // One-shot systems can be used to build complex abstractions
         // to match the needs of your design.
         // Here, we model a very simple component-linked callback architecture.
-        .add_system(evaluate_callbacks)
+        .add_systems(Update, evaluate_callbacks)
         .run();
 }
 
