@@ -23,7 +23,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #ifdef SKINNED
     let model = bevy_pbr::skinning::skin_model(vertex.joint_indexes, vertex.joint_weights);
 #else
-    let model = get_model_matrix(vertex_no_morph.instance_index);
+    let model = get_model_matrix(vertex.instance_index);
 #endif
 
     var out: VertexOutput;
