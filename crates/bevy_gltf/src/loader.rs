@@ -678,7 +678,8 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
                 Some(Face::Back)
             },
             occlusion_texture,
-            emissive: Color::rgb_linear(emissive[0], emissive[1], emissive[2]),
+            emissive: Color::rgb_linear(emissive[0], emissive[1], emissive[2])
+                * material.emssive_strength().unwrap_or(1.0),
             emissive_texture,
             unlit: material.unlit(),
             alpha_mode: alpha_mode(material),
