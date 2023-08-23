@@ -5,6 +5,7 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
+    query::WorldQuery,
     world::{FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
@@ -835,6 +836,46 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     pub fn commands(&mut self) -> &mut Commands<'w, 's> {
         self.commands
     }
+
+    /// Allows querying of an entity's components.
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the associated entity and/or queried components do not exist.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// #[derive(Component)]
+    /// struct Health(u32);
+    ///
+    /// fn zero_health(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     commands
+    ///         .entity(player.entity)
+    ///         .with_query::<&mut Health>(|mut health| {
+    ///             health.0 = 0;
+    ///         });
+    /// }
+    /// # bevy_ecs::system::assert_is_system(zero_health);
+    /// ```
+    pub fn with_query<Q>(
+        &mut self,
+        function: impl for<'t> FnOnce(Q::Item<'t>) + Send + Sync + 'static,
+    ) -> &mut Self
+    where
+        Q: WorldQuery + 'static,
+    {
+        self.commands.add(WithQuery::<Q> {
+            entity: self.entity,
+            function: Box::new(function),
+            _phantom: PhantomData,
+        });
+        self
+    }
 }
 
 impl<F> Command for F
@@ -1059,6 +1100,36 @@ impl Command for LogComponents {
     }
 }
 
+/// [`Command`] to query an [`Entity`].
+pub struct WithQuery<Q>
+where
+    Q: WorldQuery,
+{
+    entity: Entity,
+    function: Box<dyn for<'t> FnOnce(Q::Item<'t>) + Send + Sync>,
+    _phantom: PhantomData<fn(Q) -> ()>,
+}
+
+impl<Q> Command for WithQuery<Q>
+where
+    Q: WorldQuery,
+    WithQuery<Q>: Send + Sync + 'static,
+{
+    fn apply(self, world: &mut World) {
+        let Self {
+            entity, function, ..
+        } = self;
+
+        let mut query = world.query::<Q>();
+
+        let Ok(result) = query.get_mut(world, entity) else {
+            panic!("Cannot run query on entity")
+        };
+
+        function(result);
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
@@ -1218,5 +1289,45 @@ mod tests {
         queue.apply(&mut world);
         assert!(!world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
+    }
+
+    #[test]
+    fn with_query() {
+        let mut world = World::default();
+
+        let mut command_queue = CommandQueue::default();
+
+        let entity = Commands::new(&mut command_queue, &world)
+            .spawn((W(1u32), W(2u64)))
+            .id();
+        command_queue.apply(&mut world);
+        let results_before = world
+            .query::<(&W<u32>, &W<u64>)>()
+            .iter(&world)
+            .map(|(a, b)| (a.0, b.0))
+            .collect::<Vec<_>>();
+        assert_eq!(results_before, vec![(1u32, 2u64)]);
+
+        // test component access
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .with_query::<&W<u32>>(|w| {
+                assert_eq!(w.0, 1);
+            })
+            .with_query::<&mut W<u32>>(|mut w| {
+                w.0 = 2u32;
+            })
+            .with_query::<&W<u32>>(|w| {
+                assert_eq!(w.0, 2);
+            });
+
+        command_queue.apply(&mut world);
+
+        let results_after = world
+            .query::<(&W<u32>, &W<u64>)>()
+            .iter(&world)
+            .map(|(a, b)| (a.0, b.0))
+            .collect::<Vec<_>>();
+        assert_eq!(results_after, vec![(2u32, 2u64)]);
     }
 }
