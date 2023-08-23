@@ -4,9 +4,8 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
+    window::{CursorGrabMode, PresentMode, PrimaryWindow, WindowLevel, WindowTheme},
 };
-use bevy_internal::window::PrimaryWindow;
 
 fn main() {
     App::new()
