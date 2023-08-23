@@ -398,18 +398,8 @@ mod tests {
     use crate::layout::round_layout_coords;
     use bevy_math::vec2;
 
-    use super::round_ties_up;
     #[test]
-    fn round_ties_up_must_round_up() {
-        for x in -100..100 {
-            let x = x as f32 / 4.;
-            assert_eq!(x.fract(), 0.);
-            assert!(x <= round_ties_up(x));
-        }
-    }
-
-    #[test]
-    fn round_layout_coords_must_round_up() {
+    fn round_layout_coords_must_round_ties_up() {
         assert_eq!(round_layout_coords(vec2(-50.5, 49.5)), vec2(-50., 50.));
     }
 }
