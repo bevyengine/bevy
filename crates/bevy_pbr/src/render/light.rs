@@ -212,7 +212,7 @@ pub struct GpuLights {
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
     environment_map_smallest_specular_mip_level: u32,
-    environment_map_brightness: f32,
+    environment_map_intensity: f32,
 }
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
@@ -961,8 +961,8 @@ pub fn prepare_lights(
                 .and_then(|env_map| images.get(&env_map.specular_map))
                 .map(|specular_map| specular_map.mip_level_count - 1)
                 .unwrap_or(0),
-            environment_map_brightness: environment_map
-                .map(|env_map| env_map.brightness)
+            environment_map_intensity: environment_map
+                .map(|env_map| env_map.intensity)
                 .unwrap_or(1.0),
         };
 

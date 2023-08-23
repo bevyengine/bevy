@@ -51,8 +51,7 @@ pub struct EnvironmentMapLight {
     pub diffuse_map: Handle<Image>,
     pub specular_map: Handle<Image>,
     /// TODO: Docs
-    // TODO: What to call this?
-    pub brightness: f32,
+    pub intensity: f32,
 }
 
 impl EnvironmentMapLight {
