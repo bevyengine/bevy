@@ -732,7 +732,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`for_each_mut`](Self::for_each_mut) to operate on mutable query items.
     /// - [`iter`](Self::iter) for the iterator based alternative.
     #[inline]
-    pub fn for_each<'this>(&'this self, f: impl FnMut(ROQueryItem<'this, Q>)) {
+    pub fn for_each(&self, f: impl for<'item> FnMut(ROQueryItem<'item, Q>)) {
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The query is read-only, so it can be aliased even if it was originally mutable.
@@ -771,12 +771,73 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`for_each`](Self::for_each) to operate on read-only query items.
     /// - [`iter_mut`](Self::iter_mut) for the iterator based alternative.
     #[inline]
-    pub fn for_each_mut<'a>(&'a mut self, f: impl FnMut(Q::Item<'a>)) {
+    pub fn for_each_mut(&mut self, f: impl for<'item> FnMut(Q::Item<'item>)) {
         // SAFETY: `self.world` has permission to access the required components.
         unsafe {
             self.state
                 .for_each_unchecked_manual(self.world, f, self.last_run, self.this_run);
         };
+    }
+
+    /// Runs `f` on each read-only combination of query items of length `K`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component)]
+    /// # struct ComponentA;
+    /// #
+    /// fn some_system(query: Query<&ComponentA>) {
+    ///     query.for_each_combinations(|[a1, a2]| {
+    ///         // ...
+    ///     });
+    /// }
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`iter_combinations`](Self::iter_combinations) for query item combinations.
+    /// - [`for_each`](Self::for_each) to operate on query items.
+    /// - [`iter`](Self::iter) for the iterator based alternative.
+    #[inline]
+    pub fn for_each_combinations<const K: usize>(
+        &self,
+        f: impl for<'item> FnMut([<<Q as WorldQuery>::ReadOnly as WorldQuery>::Item<'item>; K]),
+    ) {
+        self.iter_combinations().for_each(f);
+    }
+
+    /// Runs `f` on each mutable combination of query items of length `K`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component)]
+    /// # struct ComponentA;
+    /// #
+    /// fn some_system(mut query: Query<&mut ComponentA>) {
+    ///     query.for_each_combinations_mut(|[mut a1, mut a2]| {
+    ///         // ...
+    ///     });
+    /// }
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`iter_combinations_mut`](Self::iter_combinations_mut) for mutable query item combinations.
+    /// - [`for_each_mut`](Self::for_each_mut) to operate on mutable query items.
+    /// - [`iter`](Self::iter) for the iterator based alternative.
+    #[inline]
+    pub fn for_each_combinations_mut<const K: usize>(
+        &mut self,
+        mut f: impl for<'item> FnMut([Q::Item<'item>; K]),
+    ) {
+        let mut combinations = self.iter_combinations_mut();
+        while let Some(combination) = combinations.fetch_next() {
+            f(combination);
+        }
     }
 
     /// Returns a parallel iterator over the query results for the given [`World`].
