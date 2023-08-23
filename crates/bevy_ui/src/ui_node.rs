@@ -283,6 +283,8 @@ impl Val {
 
 /// Describes the style of a UI container node
 ///
+/// All UI nodes must have this component
+///
 /// Node's can be laid out using either Flexbox or CSS Grid Layout.<br />
 /// See below for general learning resources and for documentation on the individual style properties.
 ///
