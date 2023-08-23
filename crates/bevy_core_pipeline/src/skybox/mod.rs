@@ -105,6 +105,7 @@ impl ExtractComponent for Skybox {
     }
 }
 
+// TODO: Replace with a push constant once WebGPU gets support for that
 #[derive(Component, ShaderType, Clone)]
 pub struct SkyboxUniforms {
     brightness: f32,
