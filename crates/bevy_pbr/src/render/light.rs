@@ -212,6 +212,7 @@ pub struct GpuLights {
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
     environment_map_smallest_specular_mip_level: u32,
+    environment_map_brightness: f32,
 }
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
@@ -960,6 +961,9 @@ pub fn prepare_lights(
                 .and_then(|env_map| images.get(&env_map.specular_map))
                 .map(|specular_map| specular_map.mip_level_count - 1)
                 .unwrap_or(0),
+            environment_map_brightness: environment_map
+                .map(|env_map| env_map.brightness)
+                .unwrap_or(1.0),
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
