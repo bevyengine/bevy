@@ -50,7 +50,9 @@ impl Plugin for EnvironmentMapPlugin {
 pub struct EnvironmentMapLight {
     pub diffuse_map: Handle<Image>,
     pub specular_map: Handle<Image>,
-    /// TODO: Docs
+    /// Scale factor applied to both the diffuse and specular cubemap.
+    /// After applying this multiplier to the image samples, the resulting values should
+    /// be in units of [cd/m^2](https://en.wikipedia.org/wiki/Candela_per_square_metre).
     pub intensity: f32,
 }
 

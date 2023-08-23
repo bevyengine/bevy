@@ -80,7 +80,9 @@ impl Plugin for SkyboxPlugin {
 #[derive(Component, Clone)]
 pub struct Skybox {
     pub image: Handle<Image>,
-    /// TODO: Docs
+    /// Scale factor applied to the skybox image.
+    /// After applying this multiplier to the image samples, the resulting values should
+    /// be in units of [cd/m^2](https://en.wikipedia.org/wiki/Candela_per_square_metre).
     pub brightness: f32,
 }
 

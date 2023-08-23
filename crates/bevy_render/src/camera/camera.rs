@@ -95,7 +95,7 @@ impl ExposureSettings {
         }
     }
 
-    /// TODO: Docs
+    /// Converts EV100 values to exposure values.
     #[inline]
     pub fn exposure(&self) -> f32 {
         1.0 / (2.0f32.powf(self.ev100) * 1.2)
@@ -110,7 +110,8 @@ impl Default for ExposureSettings {
     }
 }
 
-/// TODO: Docs (and double check these links / find better links)
+/// Parameters based on physical camera characteristics for calculating
+/// EV100 values for use with [`ExposureSettings`].
 #[derive(Clone, Copy)]
 pub struct PhysicalCameraParameters {
     /// <https://en.wikipedia.org/wiki/F-number>
