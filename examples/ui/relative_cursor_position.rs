@@ -33,7 +33,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         width: Val::Px(250.),
                         height: Val::Px(250.),
-                        margin: UiRect::bottom(Val::Px(15.)),
+                        margin: Margin::bottom(Val::Px(15.)),
                         ..default()
                     },
                     background_color: Color::rgb(235., 35., 12.).into(),

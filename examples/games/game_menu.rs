@@ -189,7 +189,7 @@ mod game {
                                 },
                             )
                             .with_style(Style {
-                                margin: UiRect::all(Val::Px(50.0)),
+                                margin: Margin::all(Val::Px(50.0)),
                                 ..default()
                             }),
                         );
@@ -221,7 +221,7 @@ mod game {
                                 ),
                             ])
                             .with_style(Style {
-                                margin: UiRect::all(Val::Px(50.0)),
+                                margin: Margin::all(Val::Px(50.0)),
                                 ..default()
                             }),
                         );
@@ -394,11 +394,11 @@ mod menu {
     }
 
     fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        // Common style for all buttons on the screen
+        // Common style for all Numtons on the screen
         let button_style = Style {
             width: Val::Px(250.0),
             height: Val::Px(65.0),
-            margin: UiRect::all(Val::Px(20.0)),
+            margin: Margin::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -453,7 +453,7 @@ mod menu {
                                 },
                             )
                             .with_style(Style {
-                                margin: UiRect::all(Val::Px(50.0)),
+                                margin: Margin::all(Val::Px(50.0)),
                                 ..default()
                             }),
                         );
@@ -530,7 +530,7 @@ mod menu {
         let button_style = Style {
             width: Val::Px(200.0),
             height: Val::Px(65.0),
-            margin: UiRect::all(Val::Px(20.0)),
+            margin: Margin::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -596,7 +596,7 @@ mod menu {
         let button_style = Style {
             width: Val::Px(200.0),
             height: Val::Px(65.0),
-            margin: UiRect::all(Val::Px(20.0)),
+            margin: Margin::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -675,6 +675,7 @@ mod menu {
                                     }
                                 }
                             });
+
                         // Display the back button to return to the settings screen
                         parent
                             .spawn((
@@ -696,7 +697,7 @@ mod menu {
         let button_style = Style {
             width: Val::Px(200.0),
             height: Val::Px(65.0),
-            margin: UiRect::all(Val::Px(20.0)),
+            margin: Margin::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()

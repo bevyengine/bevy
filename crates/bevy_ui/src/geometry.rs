@@ -1,331 +1,368 @@
-use crate::Val;
+use std::ops::{Div, DivAssign, Mul, MulAssign};
+
+use crate::{Num, Val};
 use bevy_reflect::Reflect;
 
-/// A type which is commonly used to define margins, paddings and borders.
-///
-/// # Examples
+macro_rules! uirect_impl {
+    ($t:ty, $v:ty, $e:expr) => {
+        impl $t {
+            /// Default value for the fields of the field type.
+            pub const FIELD_DEFAULT: $v = $e;
 
-///
-/// ## Margin
-///
+            pub const DEFAULT: Self = {
+                Self {
+                    left: Self::FIELD_DEFAULT,
+                    right: Self::FIELD_DEFAULT,
+                    top: Self::FIELD_DEFAULT,
+                    bottom: Self::FIELD_DEFAULT,
+                }
+            };
+
+            /// Creates a new uirect type from the values specified.
+            pub fn new(
+                left: impl Into<$v>,
+                right: impl Into<$v>,
+                top: impl Into<$v>,
+                bottom: impl Into<$v>,
+            ) -> Self {
+                Self {
+                    left: left.into(),
+                    right: right.into(),
+                    top: top.into(),
+                    bottom: bottom.into(),
+                }
+            }
+
+            /// Creates a new uirect from the values specified in logical pixels.
+            ///
+            /// This is a shortcut for [`UiRect::new()`], applying [`Val::Px`] to all arguments.
+            ///
+            /// # Example
+            ///
+            /// ```
+            /// # use bevy_ui::{UiRect, Val};
+            /// #
+            /// let ui_rect = UiRect::px(10., 20., 30., 40.);
+            /// assert_eq!(ui_rect.left, Val::Px(10.));
+            /// assert_eq!(ui_rect.right, Val::Px(20.));
+            /// assert_eq!(ui_rect.top, Val::Px(30.));
+            /// assert_eq!(ui_rect.bottom, Val::Px(40.));
+            /// ```
+            pub fn px(left: f32, right: f32, top: f32, bottom: f32) -> Self {
+                Self::new(Num::Px(left), Num::Px(right), Num::Px(top), Num::Px(bottom))
+            }
+
+            /// Creates a new [`UiRect`] from the values specified in percentages.
+            ///
+            /// This is a shortcut for [`UiRect::new()`], applying [`Val::Percent`] to all arguments.
+            ///
+            /// # Example
+            ///
+            /// ```
+            /// # use bevy_ui::{UiRect, Val};
+            /// #
+            /// let ui_rect = UiRect::percent(5., 10., 2., 1.);
+            /// assert_eq!(ui_rect.left, Val::Percent(5.));
+            /// assert_eq!(ui_rect.right, Val::Percent(10.));
+            /// assert_eq!(ui_rect.top, Val::Percent(2.));
+            /// assert_eq!(ui_rect.bottom, Val::Percent(1.));
+            /// ```
+            pub fn percent(left: f32, right: f32, top: f32, bottom: f32) -> Self {
+                Self::new(
+                    Num::Percent(left),
+                    Num::Percent(right),
+                    Num::Percent(top),
+                    Num::Percent(bottom),
+                )
+            }
+
+            /// Creates a new uirect type where `left` takes the given value.
+            pub fn left(left: impl Into<$v>) -> Self {
+                Self::new(
+                    left.into(),
+                    Self::FIELD_DEFAULT,
+                    Self::FIELD_DEFAULT,
+                    Self::FIELD_DEFAULT,
+                )
+            }
+
+            /// Creates a new uirect type where `right` takes the given value.
+            pub fn right(right: impl Into<$v>) -> Self {
+                Self::new(
+                    Self::FIELD_DEFAULT,
+                    right.into(),
+                    Self::FIELD_DEFAULT,
+                    Self::FIELD_DEFAULT,
+                )
+            }
+
+            /// Creates a new uirect type where `top` takes the given value.
+            pub fn top(top: impl Into<$v>) -> Self {
+                Self::new(
+                    Self::FIELD_DEFAULT,
+                    Self::FIELD_DEFAULT,
+                    top.into(),
+                    Self::FIELD_DEFAULT,
+                )
+            }
+
+            /// Creates a new uirect type where `bottom` takes the given value.
+            pub fn bottom(bottom: impl Into<$v>) -> Self {
+                Self::new(
+                    Self::FIELD_DEFAULT,
+                    Self::FIELD_DEFAULT,
+                    Self::FIELD_DEFAULT,
+                    bottom.into(),
+                )
+            }
+
+            /// Creates a new uirect type where `left` and `right` take the given value.
+            pub fn horizontal(value: impl Into<$v> + Copy) -> Self {
+                Self::new(value, value, Self::FIELD_DEFAULT, Self::FIELD_DEFAULT)
+            }
+
+            /// Creates a new uirect type where `top` and `bottom` take the given value.
+            pub fn vertical(value: impl Into<$v> + Copy) -> Self {
+                Self::new(Self::FIELD_DEFAULT, Self::FIELD_DEFAULT, value, value)
+            }
+
+            /// Creates a new uirect type where all sides have the same value.
+            pub fn axes(horizontal: impl Into<$v> + Copy, vertical: impl Into<$v> + Copy) -> Self {
+                Self::new(horizontal, horizontal, vertical, vertical)
+            }
+
+            /// Creates a new uirect type where all sides have the same value.
+            pub fn all(value: impl Into<$v> + Copy) -> Self {
+                Self::new(value, value, value, value)
+            }
+        }
+
+        impl Default for $t {
+            fn default() -> Self {
+                Self::DEFAULT
+            }
+        }
+    };
+}
+
 /// A margin is used to create space around UI elements, outside of any defined borders.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Val};
+/// # use bevy_ui::{Margin, Val};
 /// #
-/// let margin = UiRect::all(Val::Auto); // Centers the UI element
+/// let margin = Margin::all(Val::Auto); // Centers the UI element
 /// ```
-///
-/// ## Padding
-///
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+pub struct Margin {
+    pub left: Val,
+    pub right: Val,
+    pub top: Val,
+    pub bottom: Val,
+}
+
+uirect_impl!(Margin, Val, Val::Px(0.));
+
 /// A padding is used to create space around UI elements, inside of any defined borders.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Val};
+/// # use bevy_ui::{Padding, Num};
 /// #
-/// let padding = UiRect {
-///     left: Val::Px(10.0),
-///     right: Val::Px(20.0),
-///     top: Val::Px(30.0),
-///     bottom: Val::Px(40.0),
+/// let padding = Padding {
+///     left: Num::Px(10.0),
+///     right: Num::Px(20.0),
+///     top: Num::Px(30.0),
+///     bottom: Num::Px(40.0),
 /// };
 /// ```
-///
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+pub struct Padding {
+    pub left: Num,
+    pub right: Num,
+    pub top: Num,
+    pub bottom: Num,
+}
+
+uirect_impl!(Padding, Num, Num::Px(0.));
+
 /// ## Borders
 ///
 /// A border is used to define the width of the border of a UI element.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Val};
+/// # use bevy_ui::{Border, Num};
 /// #
-/// let border = UiRect {
-///     left: Val::Px(10.0),
-///     right: Val::Px(20.0),
-///     top: Val::Px(30.0),
-///     bottom: Val::Px(40.0),
+/// let border = Border {
+///     left: Num::Px(10.0),
+///     right: Num::Px(20.0),
+///     top: Num::Px(30.0),
+///     bottom: Num::Px(40.0),
 /// };
 /// ```
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
-pub struct UiRect {
-    /// The value corresponding to the left side of the UI rect.
-    pub left: Val,
-    /// The value corresponding to the right side of the UI rect.
-    pub right: Val,
-    /// The value corresponding to the top side of the UI rect.
-    pub top: Val,
-    /// The value corresponding to the bottom side of the UI rect.
-    pub bottom: Val,
+pub struct Border {
+    pub left: Num,
+    pub right: Num,
+    pub top: Num,
+    pub bottom: Num,
 }
 
-impl UiRect {
-    pub const DEFAULT: Self = Self {
-        left: Val::Px(0.),
-        right: Val::Px(0.),
-        top: Val::Px(0.),
-        bottom: Val::Px(0.),
+uirect_impl!(Border, Num, Num::Px(0.));
+
+/// A 2-dimensional area defined by a width and height.
+///
+/// It is commonly used to define the size of a text or UI element.
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+pub struct Size {
+    /// The width of the 2-dimensional area.
+    pub width: Val,
+    /// The height of the 2-dimensional area.
+    pub height: Val,
+}
+
+impl Size {
+    pub const DEFAULT: Self = Self::AUTO;
+
+    /// Creates a new [`Size`] from a width and a height.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Size, Val};
+    /// #
+    /// let size = Size::new(Val::Px(100.0), Val::Px(200.0));
+    ///
+    /// assert_eq!(size.width, Val::Px(100.0));
+    /// assert_eq!(size.height, Val::Px(200.0));
+    /// ```
+    #[inline]
+    pub fn new(width: impl Into<Val>, height: impl Into<Val>) -> Self {
+        Size {
+            width: width.into(),
+            height: height.into(),
+        }
+    }
+
+    /// Creates a new [`Size`] where both sides take the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Size, Val};
+    /// #
+    /// let size = Size::all(Val::Px(10.));
+    ///
+    /// assert_eq!(size.width, Val::Px(10.0));
+    /// assert_eq!(size.height, Val::Px(10.0));
+    /// ```
+    #[inline]
+    pub fn all(value: impl Into<Val> + Copy) -> Self {
+        Self {
+            width: value.into(),
+            height: value.into(),
+        }
+    }
+
+    /// Creates a new [`Size`] where `width` takes the given value,
+    /// and `height` is set to [`Val::Auto`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Size, Val};
+    /// #
+    /// let size = Size::width(Val::Px(10.));
+    ///
+    /// assert_eq!(size.width, Val::Px(10.0));
+    /// assert_eq!(size.height, Val::Auto);
+    /// ```
+    #[inline]
+    pub fn width(width: impl Into<Val>) -> Self {
+        Self {
+            width: width.into(),
+            height: Val::Auto,
+        }
+    }
+
+    /// Creates a new [`Size`] where `height` takes the given value,
+    /// and `width` is set to [`Val::Auto`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{Size, Val};
+    /// #
+    /// let size = Size::height(Val::Px(10.));
+    ///
+    /// assert_eq!(size.width, Val::Auto);
+    /// assert_eq!(size.height, Val::Px(10.));
+    /// ```
+    #[inline]
+    pub fn height(height: impl Into<Val>) -> Self {
+        Self {
+            width: Val::Auto,
+            height: height.into(),
+        }
+    }
+
+    /// Creates a Size where both values are [`Val::Auto`].
+    pub const AUTO: Self = Self {
+        width: Val::Auto,
+        height: Val::Auto,
     };
-
-    /// Creates a new [`UiRect`] from the values specified.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::new(
-    ///     Val::Px(10.0),
-    ///     Val::Px(20.0),
-    ///     Val::Px(30.0),
-    ///     Val::Px(40.0),
-    /// );
-    ///
-    /// assert_eq!(ui_rect.left, Val::Px(10.0));
-    /// assert_eq!(ui_rect.right, Val::Px(20.0));
-    /// assert_eq!(ui_rect.top, Val::Px(30.0));
-    /// assert_eq!(ui_rect.bottom, Val::Px(40.0));
-    /// ```
-    pub const fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
-        UiRect {
-            left,
-            right,
-            top,
-            bottom,
-        }
-    }
-
-    /// Creates a new [`UiRect`] where all sides have the same value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::all(Val::Px(10.0));
-    ///
-    /// assert_eq!(ui_rect.left, Val::Px(10.0));
-    /// assert_eq!(ui_rect.right, Val::Px(10.0));
-    /// assert_eq!(ui_rect.top, Val::Px(10.0));
-    /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
-    /// ```
-    pub const fn all(value: Val) -> Self {
-        UiRect {
-            left: value,
-            right: value,
-            top: value,
-            bottom: value,
-        }
-    }
-
-    /// Creates a new [`UiRect`] from the values specified in logical pixels.
-    ///
-    /// This is a shortcut for [`UiRect::new()`], applying [`Val::Px`] to all arguments.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::px(10., 20., 30., 40.);
-    /// assert_eq!(ui_rect.left, Val::Px(10.));
-    /// assert_eq!(ui_rect.right, Val::Px(20.));
-    /// assert_eq!(ui_rect.top, Val::Px(30.));
-    /// assert_eq!(ui_rect.bottom, Val::Px(40.));
-    /// ```
-    pub const fn px(left: f32, right: f32, top: f32, bottom: f32) -> Self {
-        UiRect {
-            left: Val::Px(left),
-            right: Val::Px(right),
-            top: Val::Px(top),
-            bottom: Val::Px(bottom),
-        }
-    }
-
-    /// Creates a new [`UiRect`] from the values specified in percentages.
-    ///
-    /// This is a shortcut for [`UiRect::new()`], applying [`Val::Percent`] to all arguments.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::percent(5., 10., 2., 1.);
-    /// assert_eq!(ui_rect.left, Val::Percent(5.));
-    /// assert_eq!(ui_rect.right, Val::Percent(10.));
-    /// assert_eq!(ui_rect.top, Val::Percent(2.));
-    /// assert_eq!(ui_rect.bottom, Val::Percent(1.));
-    /// ```
-    pub const fn percent(left: f32, right: f32, top: f32, bottom: f32) -> Self {
-        UiRect {
-            left: Val::Percent(left),
-            right: Val::Percent(right),
-            top: Val::Percent(top),
-            bottom: Val::Percent(bottom),
-        }
-    }
-
-    /// Creates a new [`UiRect`] where `left` and `right` take the given value,
-    /// and `top` and `bottom` set to zero `Val::Px(0.)`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::horizontal(Val::Px(10.0));
-    ///
-    /// assert_eq!(ui_rect.left, Val::Px(10.0));
-    /// assert_eq!(ui_rect.right, Val::Px(10.0));
-    /// assert_eq!(ui_rect.top, Val::Px(0.));
-    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
-    /// ```
-    pub fn horizontal(value: Val) -> Self {
-        UiRect {
-            left: value,
-            right: value,
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`UiRect`] where `top` and `bottom` take the given value,
-    /// and `left` and `right` are set to `Val::Px(0.)`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::vertical(Val::Px(10.0));
-    ///
-    /// assert_eq!(ui_rect.left, Val::Px(0.));
-    /// assert_eq!(ui_rect.right, Val::Px(0.));
-    /// assert_eq!(ui_rect.top, Val::Px(10.0));
-    /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
-    /// ```
-    pub fn vertical(value: Val) -> Self {
-        UiRect {
-            top: value,
-            bottom: value,
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`UiRect`] where both `left` and `right` take the value of `horizontal`, and both `top` and `bottom` take the value of `vertical`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::axes(Val::Px(10.0), Val::Percent(15.0));
-    ///
-    /// assert_eq!(ui_rect.left, Val::Px(10.0));
-    /// assert_eq!(ui_rect.right, Val::Px(10.0));
-    /// assert_eq!(ui_rect.top, Val::Percent(15.0));
-    /// assert_eq!(ui_rect.bottom, Val::Percent(15.0));
-    /// ```
-    pub fn axes(horizontal: Val, vertical: Val) -> Self {
-        UiRect {
-            left: horizontal,
-            right: horizontal,
-            top: vertical,
-            bottom: vertical,
-        }
-    }
-
-    /// Creates a new [`UiRect`] where `left` takes the given value, and
-    /// the other fields are set to `Val::Px(0.)`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::left(Val::Px(10.0));
-    ///
-    /// assert_eq!(ui_rect.left, Val::Px(10.0));
-    /// assert_eq!(ui_rect.right, Val::Px(0.));
-    /// assert_eq!(ui_rect.top, Val::Px(0.));
-    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
-    /// ```
-    pub fn left(value: Val) -> Self {
-        UiRect {
-            left: value,
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`UiRect`] where `right` takes the given value,
-    /// and the other fields are set to `Val::Px(0.)`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::right(Val::Px(10.0));
-    ///
-    /// assert_eq!(ui_rect.left, Val::Px(0.));
-    /// assert_eq!(ui_rect.right, Val::Px(10.0));
-    /// assert_eq!(ui_rect.top, Val::Px(0.));
-    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
-    /// ```
-    pub fn right(value: Val) -> Self {
-        UiRect {
-            right: value,
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`UiRect`] where `top` takes the given value,
-    /// and the other fields are set to `Val::Px(0.)`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::top(Val::Px(10.0));
-    ///
-    /// assert_eq!(ui_rect.left, Val::Px(0.));
-    /// assert_eq!(ui_rect.right, Val::Px(0.));
-    /// assert_eq!(ui_rect.top, Val::Px(10.0));
-    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
-    /// ```
-    pub fn top(value: Val) -> Self {
-        UiRect {
-            top: value,
-            ..Default::default()
-        }
-    }
-
-    /// Creates a new [`UiRect`] where `bottom` takes the given value,
-    /// and the other fields are set to `Val::Px(0.)`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = UiRect::bottom(Val::Px(10.0));
-    ///
-    /// assert_eq!(ui_rect.left, Val::Px(0.));
-    /// assert_eq!(ui_rect.right, Val::Px(0.));
-    /// assert_eq!(ui_rect.top, Val::Px(0.));
-    /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
-    /// ```
-    pub fn bottom(value: Val) -> Self {
-        UiRect {
-            bottom: value,
-            ..Default::default()
-        }
-    }
 }
 
-impl Default for UiRect {
+impl Default for Size {
     fn default() -> Self {
         Self::DEFAULT
+    }
+}
+
+impl From<(Val, Val)> for Size {
+    fn from(vals: (Val, Val)) -> Self {
+        Self {
+            width: vals.0,
+            height: vals.1,
+        }
+    }
+}
+
+impl Mul<f32> for Size {
+    type Output = Size;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self::Output {
+            width: self.width * rhs,
+            height: self.height * rhs,
+        }
+    }
+}
+
+impl MulAssign<f32> for Size {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.width *= rhs;
+        self.height *= rhs;
+    }
+}
+
+impl Div<f32> for Size {
+    type Output = Size;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self::Output {
+            width: self.width / rhs,
+            height: self.height / rhs,
+        }
+    }
+}
+
+impl DivAssign<f32> for Size {
+    fn div_assign(&mut self, rhs: f32) {
+        self.width /= rhs;
+        self.height /= rhs;
     }
 }
 
@@ -334,26 +371,142 @@ mod tests {
     use super::*;
 
     #[test]
-    fn uirect_default_equals_const_default() {
+    fn border_default_equals_const_default() {
+        assert_eq!(Border::default().left, Padding::FIELD_DEFAULT);
         assert_eq!(
-            UiRect::default(),
-            UiRect {
+            Border::default(),
+            Border {
+                left: Num::Px(0.),
+                right: Num::Px(0.),
+                top: Num::Px(0.),
+                bottom: Num::Px(0.)
+            }
+        );
+        assert_eq!(Border::default(), Border::DEFAULT);
+    }
+
+    #[test]
+    fn margin_default_equals_const_default() {
+        assert_eq!(Margin::default().left, Margin::FIELD_DEFAULT);
+        assert_eq!(
+            Margin::default(),
+            Margin {
                 left: Val::Px(0.),
                 right: Val::Px(0.),
                 top: Val::Px(0.),
                 bottom: Val::Px(0.)
             }
         );
-        assert_eq!(UiRect::default(), UiRect::DEFAULT);
+        assert_eq!(Margin::default(), Margin::DEFAULT);
+    }
+
+    #[test]
+    fn padding_default_equals_const_default() {
+        assert_eq!(Padding::default().left, Padding::FIELD_DEFAULT);
+        assert_eq!(
+            Padding::default(),
+            Padding {
+                left: Num::Px(0.),
+                right: Num::Px(0.),
+                top: Num::Px(0.),
+                bottom: Num::Px(0.)
+            }
+        );
+        assert_eq!(Padding::default(), Padding::DEFAULT);
+    }
+
+    #[test]
+    fn test_size_from() {
+        let size: Size = (Val::Px(20.), Val::Px(30.)).into();
+
+        assert_eq!(
+            size,
+            Size {
+                width: Val::Px(20.),
+                height: Val::Px(30.),
+            }
+        );
+    }
+
+    #[test]
+    fn test_size_mul() {
+        assert_eq!(Size::all(Val::Px(10.)) * 2., Size::all(Val::Px(20.)));
+
+        let mut size = Size::all(Val::Px(10.));
+        size *= 2.;
+        assert_eq!(size, Size::all(Val::Px(20.)));
+    }
+
+    #[test]
+    fn test_size_div() {
+        assert_eq!(
+            Size::new(Val::Px(20.), Val::Px(20.)) / 2.,
+            Size::new(Val::Px(10.), Val::Px(10.))
+        );
+
+        let mut size = Size::new(Val::Px(20.), Val::Px(20.));
+        size /= 2.;
+        assert_eq!(size, Size::new(Val::Px(10.), Val::Px(10.)));
+    }
+
+    #[test]
+    fn test_size_all() {
+        let length = Val::Px(10.);
+
+        assert_eq!(
+            Size::all(length),
+            Size {
+                width: length,
+                height: length
+            }
+        );
+    }
+
+    #[test]
+    fn test_size_width() {
+        let width = Val::Px(10.);
+
+        assert_eq!(
+            Size::width(width),
+            Size {
+                width,
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn test_size_height() {
+        let height = Val::Px(7.);
+
+        assert_eq!(
+            Size::height(height),
+            Size {
+                height,
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn size_default_equals_const_default() {
+        assert_eq!(
+            Size::default(),
+            Size {
+                width: Val::Auto,
+                height: Val::Auto
+            }
+        );
+        assert_eq!(Size::default(), Size::DEFAULT);
     }
 
     #[test]
     fn test_uirect_axes() {
-        let x = Val::Px(1.);
-        let y = Val::Vw(4.);
-        let r = UiRect::axes(x, y);
-        let h = UiRect::horizontal(x);
-        let v = UiRect::vertical(y);
+        let x = Num::Px(1.);
+        let y = Num::Vw(4.);
+        let r = Border::axes(x, y);
+        let h = Border::horizontal(x);
+        let v = Border::vertical(y);
 
         assert_eq!(r.top, v.top);
         assert_eq!(r.bottom, v.bottom);
@@ -363,19 +516,19 @@ mod tests {
 
     #[test]
     fn uirect_px() {
-        let r = UiRect::px(3., 5., 20., 999.);
-        assert_eq!(r.left, Val::Px(3.));
-        assert_eq!(r.right, Val::Px(5.));
-        assert_eq!(r.top, Val::Px(20.));
-        assert_eq!(r.bottom, Val::Px(999.));
+        let r = Border::px(3., 5., 20., 999.);
+        assert_eq!(r.left, Num::Px(3.));
+        assert_eq!(r.right, Num::Px(5.));
+        assert_eq!(r.top, Num::Px(20.));
+        assert_eq!(r.bottom, Num::Px(999.));
     }
 
     #[test]
     fn uirect_percent() {
-        let r = UiRect::percent(3., 5., 20., 99.);
-        assert_eq!(r.left, Val::Percent(3.));
-        assert_eq!(r.right, Val::Percent(5.));
-        assert_eq!(r.top, Val::Percent(20.));
-        assert_eq!(r.bottom, Val::Percent(99.));
+        let r = Border::percent(3., 5., 20., 99.);
+        assert_eq!(r.left, Num::Percent(3.));
+        assert_eq!(r.right, Num::Percent(5.));
+        assert_eq!(r.top, Num::Percent(20.));
+        assert_eq!(r.bottom, Num::Percent(99.));
     }
 }

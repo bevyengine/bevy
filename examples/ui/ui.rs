@@ -41,7 +41,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn(NodeBundle {
                     style: Style {
                         width: Val::Px(200.),
-                        border: UiRect::all(Val::Px(2.)),
+                        border: Border::all(Num::Px(2.)),
                         ..default()
                     },
                     background_color: Color::rgb(0.65, 0.65, 0.65).into(),
@@ -70,7 +70,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                 )
                                 .with_style(Style {
-                                    margin: UiRect::all(Val::Px(5.)),
+                                    margin: Margin::all(Val::Px(5.)),
                                     ..default()
                                 }),
                                 // Because this is a distinct label widget and
@@ -162,7 +162,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         position_type: PositionType::Absolute,
                         left: Val::Px(210.),
                         bottom: Val::Px(10.),
-                        border: UiRect::all(Val::Px(20.)),
+                        border: Border::all(Num::Px(20.)),
                         ..default()
                     },
                     border_color: Color::GREEN.into(),
@@ -279,7 +279,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     width: Val::Px(500.0),
                                     height: Val::Px(125.0),
-                                    margin: UiRect::top(Val::VMin(5.)),
+                                    margin: Margin::top(Val::VMin(5.)),
                                     ..default()
                                 },
                                 // a `NodeBundle` is transparent by default, so to see the image we have to its color to `WHITE`

@@ -97,7 +97,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 text_style.clone(),
             ).with_alignment(TextAlignment::Center),
             style: Style {
-                margin: UiRect::bottom(Val::Px(10.)),
+                margin: Margin::bottom(Num::Px(10.)),
                 ..Default::default()
             },
             ..Default::default()
@@ -142,7 +142,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Start,
                     justify_content: JustifyContent::Start,
-                    column_gap: Val::Px(10.),
+                    column_gap: Num::Px(10.),
                     ..Default::default()
                 },
                 ..default() })
@@ -180,7 +180,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
     builder
         .spawn(NodeBundle {
             style: Style {
-                padding: UiRect::all(Val::Px(10.)),
+                padding: Padding::all(Num::Px(10.)),
                 ..Default::default()
             },
             background_color: BackgroundColor(Color::WHITE),
@@ -297,7 +297,7 @@ fn spawn_right_panel(
     parent
         .spawn(NodeBundle {
             style: Style {
-                padding: UiRect::all(Val::Px(10.)),
+                padding: Padding::all(Num::Px(10.)),
                 ..Default::default()
             },
             background_color: BackgroundColor(Color::WHITE),
@@ -312,9 +312,9 @@ fn spawn_right_panel(
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::FlexEnd,
                         justify_content: JustifyContent::SpaceBetween,
-                        padding: UiRect {
-                            left: Val::Px(5.),
-                            top: Val::Px(5.),
+                        padding: Padding {
+                            left: Num::Px(5.),
+                            top: Num::Px(5.),
                             ..Default::default()
                         },
                         ..Default::default()
@@ -333,9 +333,9 @@ fn spawn_right_panel(
                                 flex_direction: FlexDirection::Column,
                                 align_items: AlignItems::FlexEnd,
                                 justify_content: JustifyContent::SpaceBetween,
-                                padding: UiRect {
-                                    left: Val::Px(5.),
-                                    top: Val::Px(5.),
+                                padding: Padding {
+                                    left: Num::Px(5.),
+                                    top: Num::Px(5.),
                                     ..Default::default()
                                 },
                                 ..Default::default()
@@ -354,9 +354,9 @@ fn spawn_right_panel(
                                         flex_direction: FlexDirection::Column,
                                         align_items: AlignItems::FlexEnd,
                                         justify_content: JustifyContent::SpaceBetween,
-                                        padding: UiRect {
-                                            left: Val::Px(5.),
-                                            top: Val::Px(5.),
+                                        padding: Padding {
+                                            left: Num::Px(5.),
+                                            top: Num::Px(5.),
                                             ..Default::default()
                                         },
                                         ..Default::default()
@@ -375,9 +375,9 @@ fn spawn_right_panel(
                                                 align_items: AlignItems::FlexStart,
                                                 justify_content: JustifyContent::SpaceBetween,
                                                 flex_direction: FlexDirection::Column,
-                                                padding: UiRect {
-                                                    left: Val::Px(5.),
-                                                    top: Val::Px(5.),
+                                                padding: Padding {
+                                                    left: Num::Px(5.),
+                                                    top: Num::Px(5.),
                                                     ..Default::default()
                                                 },
                                                 ..Default::default()
@@ -414,7 +414,7 @@ where
                 style: Style {
                     //height: Val::Px(24.),
                     align_self: AlignSelf::FlexStart,
-                    padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
+                    padding: Padding::axes(Num::Px(5.), Num::Px(1.)),
                     ..Default::default()
                 },
                 background_color: BackgroundColor(Color::BLACK.with_a(0.5)),

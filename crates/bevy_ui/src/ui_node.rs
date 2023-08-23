@@ -1,4 +1,5 @@
-use crate::UiRect;
+use crate::{Border, Margin, Padding};
+
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
@@ -281,6 +282,223 @@ impl Val {
     }
 }
 
+/// An enum that describes the possible evaluatable (numeric) values for layout properties.
+///
+/// This enum allows specifying values for various [`Style`] properties in different units,
+/// such as logical pixels, percentages, or automatically determined values.
+///
+/// `Num` is similar to the `Val` enum except that it has no non-evaluatable variants
+/// and its methods have been adapted to to reflect that they always have a defined output.
+/// For example, [`Val::try_add_with_size`] can return an error, but `Num`'s equivalent
+/// returns an `f32` and is called [`Num::add_with_size`].
+/// Represents the possible value types for layout properties.
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[reflect(PartialEq, Serialize, Deserialize)]
+pub enum Num {
+    /// Set this value in logical pixels.
+    Px(f32),
+    /// Set the value as a percentage of its parent node's length along a specific axis.
+    ///
+    /// If the UI node has no parent, the percentage is calculated based on the window's length
+    /// along the corresponding axis.
+    ///
+    /// The chosen axis depends on the `Style` field set:
+    /// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
+    /// * For `gap`, `min_size`, `size`, and `max_size`:
+    ///   - `width` is relative to the parent's width.
+    ///   - `height` is relative to the parent's height.
+    /// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent node's width.
+    /// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
+    Percent(f32),
+    /// Set this value in percent of the viewport width
+    Vw(f32),
+    /// Set this value in percent of the viewport height
+    Vh(f32),
+    /// Set this value in percent of the viewport's smaller dimension.
+    VMin(f32),
+    /// Set this value in percent of the viewport's larger dimension.
+    VMax(f32),
+}
+
+impl Num {
+    pub const DEFAULT: Self = Self::Px(0.);
+}
+
+impl Default for Num {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl From<Num> for Val {
+    fn from(value: Num) -> Self {
+        match value {
+            Num::Px(inner) => Val::Px(inner),
+            Num::Percent(inner) => Val::Percent(inner),
+            Num::Vw(value) => Val::Vw(value),
+            Num::Vh(value) => Val::Vh(value),
+            Num::VMin(value) => Val::VMin(value),
+            Num::VMax(value) => Val::VMax(value),
+        }
+    }
+}
+
+impl TryFrom<Val> for Num {
+    type Error = NumConversionError;
+    fn try_from(value: Val) -> Result<Self, Self::Error> {
+        match value {
+            Val::Px(inner) => Ok(Num::Px(inner)),
+            Val::Percent(inner) => Ok(Num::Percent(inner)),
+            Val::Vw(inner) => Ok(Num::Vw(inner)),
+            Val::Vh(inner) => Ok(Num::Vh(inner)),
+            Val::VMin(inner) => Ok(Num::VMin(inner)),
+            Val::VMax(inner) => Ok(Num::VMax(inner)),
+            _ => Err(Self::Error::NonEvaluateable),
+        }
+    }
+}
+
+impl Mul<f32> for Num {
+    type Output = Num;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        match self {
+            Num::Px(value) => Num::Px(value * rhs),
+            Num::Percent(value) => Num::Percent(value * rhs),
+            Num::Vw(value) => Num::Vw(value * rhs),
+            Num::Vh(value) => Num::Vh(value * rhs),
+            Num::VMin(value) => Num::VMin(value * rhs),
+            Num::VMax(value) => Num::VMax(value * rhs),
+        }
+    }
+}
+
+impl MulAssign<f32> for Num {
+    fn mul_assign(&mut self, rhs: f32) {
+        match self {
+            Num::Px(value)
+            | Num::Percent(value)
+            | Num::Vw(value)
+            | Num::Vh(value)
+            | Num::VMin(value)
+            | Num::VMax(value) => *value *= rhs,
+        }
+    }
+}
+
+impl Div<f32> for Num {
+    type Output = Num;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        match self {
+            Num::Px(value) => Num::Px(value / rhs),
+            Num::Percent(value) => Num::Percent(value / rhs),
+            Num::Vw(value) => Num::Vw(value / rhs),
+            Num::Vh(value) => Num::Vh(value / rhs),
+            Num::VMin(value) => Num::VMin(value / rhs),
+            Num::VMax(value) => Num::VMax(value / rhs),
+        }
+    }
+}
+
+impl DivAssign<f32> for Num {
+    fn div_assign(&mut self, rhs: f32) {
+        match self {
+            Num::Px(value)
+            | Num::Percent(value)
+            | Num::Vw(value)
+            | Num::Vh(value)
+            | Num::VMin(value)
+            | Num::VMax(value) => *value /= rhs,
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
+pub enum NumArithmeticError {
+    #[error("the variants of the Nums don't match")]
+    NonIdenticalVariants,
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
+pub enum NumConversionError {
+    #[error("Cannot convert from non-evaluatable variants (non-numeric)")]
+    NonEvaluateable,
+}
+
+impl Num {
+    /// Tries to add the values of two [`Num`]s.
+    /// Returns [`NumArithmeticError::NonIdenticalVariants`] if two [`Num`]s are of different variants.
+    pub fn try_add(&self, rhs: Num) -> Result<Num, NumArithmeticError> {
+        match (self, rhs) {
+            (Num::Px(value), Num::Px(rhs_value)) => Ok(Num::Px(value + rhs_value)),
+            (Num::Percent(value), Num::Percent(rhs_value)) => Ok(Num::Percent(value + rhs_value)),
+            _ => Err(NumArithmeticError::NonIdenticalVariants),
+        }
+    }
+
+    /// Adds `rhs` to `self` and assigns the result to `self` (see [`Num::try_add`])
+    pub fn try_add_assign(&mut self, rhs: Num) -> Result<(), NumArithmeticError> {
+        *self = self.try_add(rhs)?;
+        Ok(())
+    }
+
+    /// Tries to subtract the values of two [`Num`]s.
+    /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Num`]s are of different variants.
+    pub fn try_sub(&self, rhs: Num) -> Result<Num, NumArithmeticError> {
+        match (self, rhs) {
+            (Num::Px(value), Num::Px(rhs_value)) => Ok(Num::Px(value - rhs_value)),
+            (Num::Percent(value), Num::Percent(rhs_value)) => Ok(Num::Percent(value - rhs_value)),
+            _ => Err(NumArithmeticError::NonIdenticalVariants),
+        }
+    }
+
+    /// Subtracts `rhs` from `self` and assigns the result to `self` (see [`Num::try_sub`])
+    pub fn try_sub_assign(&mut self, rhs: Num) -> Result<(), NumArithmeticError> {
+        *self = self.try_sub(rhs)?;
+        Ok(())
+    }
+
+    /// A convenience function for simple evaluation of percentage variants into a concrete [`Num::Px`] value.
+    /// Otherwise it returns an [`f32`] containing the evaluated value in pixels.
+    ///
+    /// **Note:** If a [`Num::Px`] is evaluated, it's inner value is returned unchanged.
+    pub fn evaluate(&self, size: f32, viewport_size: Vec2) -> f32 {
+        match self {
+            Num::Percent(value) => size * value / 100.0,
+            Num::Px(value) => *value,
+            Num::Vh(value) => *value * viewport_size.y,
+            Num::Vw(value) => *value * viewport_size.x,
+            Num::VMin(value) => *value * viewport_size.min_element(),
+            Num::VMax(value) => *value * viewport_size.max_element(),
+        }
+    }
+
+    /// Similar to [`Num::try_add`], but performs [`Num::evaluate`] on both values before adding.
+    /// Returns an [`f32`] value in pixels.
+    pub fn add_with_size(&self, rhs: Num, size: f32, viewport_size: Vec2) -> f32 {
+        self.evaluate(size, viewport_size) + rhs.evaluate(size, viewport_size)
+    }
+
+    /// Similar to [`Num::try_add_assign`], but performs [`Num::evaluate`] on both values before adding.
+    /// The value gets converted to [`Num::Px`].
+    pub fn add_assign_with_size(&mut self, rhs: Num, size: f32, viewport_size: Vec2) {
+        *self = Num::Px(self.evaluate(size, viewport_size) + rhs.evaluate(size, viewport_size));
+    }
+
+    /// Similar to [`Num::try_sub`], but performs [`Num::evaluate`] on both values before subtracting.
+    /// Returns an [`f32`] value in pixels.
+    pub fn sub_with_size(&self, rhs: Num, size: f32, viewport_size: Vec2) -> f32 {
+        self.evaluate(size, viewport_size) - rhs.evaluate(size, viewport_size)
+    }
+
+    /// Similar to [`Num::try_sub_assign`], but performs [`Num::evaluate`] on both values before adding.
+    /// The value gets converted to [`Num::Px`].
+    pub fn sub_assign_with_size(&mut self, rhs: Num, size: f32, viewport_size: Vec2) {
+        *self = Num::Px(self.add_with_size(rhs, size, viewport_size));
+    }
+}
+
 /// Describes the style of a UI container node
 ///
 /// Node's can be laid out using either Flexbox or CSS Grid Layout.<br />
@@ -440,9 +658,9 @@ pub struct Style {
     ///
     /// # Example
     /// ```
-    /// # use bevy_ui::{Style, UiRect, Val};
+    /// # use bevy_ui::{Style, Margin, Val};
     /// let style = Style {
-    ///     margin: UiRect {
+    ///     margin: Margin {
     ///         left: Val::Percent(10.),
     ///         right: Val::Percent(10.),
     ///         top: Val::Percent(15.),
@@ -454,7 +672,7 @@ pub struct Style {
     /// A node with this style and a parent with dimensions of 100px by 300px, will have calculated margins of 10px on both left and right edges, and 15px on both top and bottom edges.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/margin>
-    pub margin: UiRect,
+    pub margin: Margin,
 
     /// The amount of space between the edges of a node and its contents.
     ///
@@ -462,13 +680,13 @@ pub struct Style {
     ///
     /// # Example
     /// ```
-    /// # use bevy_ui::{Style, UiRect, Val};
+    /// # use bevy_ui::{Style, Padding, Val};
     /// let style = Style {
-    ///     padding: UiRect {
-    ///         left: Val::Percent(1.),
-    ///         right: Val::Percent(2.),
-    ///         top: Val::Percent(3.),
-    ///         bottom: Val::Percent(4.)
+    ///     padding: Padding {
+    ///         left: Num::Percent(1.),
+    ///         right: Num::Percent(2.),
+    ///         top: Num::Percent(3.),
+    ///         bottom:Num::Percent(4.)
     ///     },
     ///     ..Default::default()
     /// };
@@ -476,7 +694,7 @@ pub struct Style {
     /// A node with this style and a parent with dimensions of 300px by 100px, will have calculated padding of 3px on the left, 6px on the right, 9px on the top and 12px on the bottom.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/padding>
-    pub padding: UiRect,
+    pub padding: Padding,
 
     /// The amount of space between the margins of a node and its padding.
     ///
@@ -485,7 +703,7 @@ pub struct Style {
     /// The size of the node will be expanded if there are constraints that prevent the layout algorithm from placing the border within the existing node boundary.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-    pub border: UiRect,
+    pub border: Border,
 
     /// Whether a Flexbox container should be a row or a column. This property has no effect of Grid nodes.
     ///
@@ -519,14 +737,14 @@ pub struct Style {
     /// Note: Values of `Val::Auto` are not valid and are treated as zero.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/row-gap>
-    pub row_gap: Val,
+    pub row_gap: Num,
 
     /// The size of the gutters between items in a horizontal flexbox layout or between column in a grid layout
     ///
     /// Note: Values of `Val::Auto` are not valid and are treated as zero.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/column-gap>
-    pub column_gap: Val,
+    pub column_gap: Num,
 
     /// Controls whether automatically placed grid items are placed row-wise or column-wise. And whether the sparse or dense packing algorithm is used.
     /// Only affect Grid layouts
@@ -585,9 +803,9 @@ impl Style {
         justify_self: JustifySelf::DEFAULT,
         align_content: AlignContent::DEFAULT,
         justify_content: JustifyContent::DEFAULT,
-        margin: UiRect::DEFAULT,
-        padding: UiRect::DEFAULT,
-        border: UiRect::DEFAULT,
+        margin: Margin::DEFAULT,
+        padding: Padding::DEFAULT,
+        border: Border::DEFAULT,
         flex_grow: 0.0,
         flex_shrink: 1.0,
         flex_basis: Val::Auto,
@@ -599,8 +817,8 @@ impl Style {
         max_height: Val::Auto,
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
-        row_gap: Val::Px(0.0),
-        column_gap: Val::Px(0.0),
+        row_gap: Num::Px(0.0),
+        column_gap: Num::Px(0.0),
         grid_auto_flow: GridAutoFlow::DEFAULT,
         grid_template_rows: Vec::new(),
         grid_template_columns: Vec::new(),
@@ -1676,12 +1894,12 @@ impl Default for ZIndex {
 
 #[cfg(test)]
 mod tests {
-    use crate::ValArithmeticError;
+    use bevy_math::Vec2;
 
-    use super::Val;
+    use crate::{ValArithmeticError, Num, Val, NumArithmeticError};
 
     #[test]
-    fn val_try_add() {
+    fn autoval_try_add() {
         let auto_sum = Val::Auto.try_add(Val::Auto).unwrap();
         let px_sum = Val::Px(20.).try_add(Val::Px(22.)).unwrap();
         let percent_sum = Val::Percent(50.).try_add(Val::Percent(50.)).unwrap();
@@ -1692,7 +1910,7 @@ mod tests {
     }
 
     #[test]
-    fn val_try_add_to_self() {
+    fn autoval_try_add_to_self() {
         let mut val = Val::Px(5.);
 
         val.try_add_assign(Val::Px(3.)).unwrap();
@@ -1701,7 +1919,7 @@ mod tests {
     }
 
     #[test]
-    fn val_try_sub() {
+    fn autoval_try_sub() {
         let auto_sum = Val::Auto.try_sub(Val::Auto).unwrap();
         let px_sum = Val::Px(72.).try_sub(Val::Px(30.)).unwrap();
         let percent_sum = Val::Percent(100.).try_sub(Val::Percent(50.)).unwrap();
@@ -1742,7 +1960,7 @@ mod tests {
     }
 
     #[test]
-    fn val_evaluate() {
+    fn autoval_evaluate() {
         let size = 250.;
         let result = Val::Percent(80.).evaluate(size).unwrap();
 
@@ -1750,7 +1968,7 @@ mod tests {
     }
 
     #[test]
-    fn val_evaluate_px() {
+    fn autoval_evaluate_px() {
         let size = 250.;
         let result = Val::Px(10.).evaluate(size).unwrap();
 
@@ -1758,7 +1976,7 @@ mod tests {
     }
 
     #[test]
-    fn val_invalid_evaluation() {
+    fn autoval_invalid_evaluation() {
         let size = 250.;
         let evaluate_auto = Val::Auto.evaluate(size);
 
@@ -1766,7 +1984,7 @@ mod tests {
     }
 
     #[test]
-    fn val_try_add_with_size() {
+    fn autoval_try_add_with_size() {
         let size = 250.;
 
         let px_sum = Val::Px(21.).try_add_with_size(Val::Px(21.), size).unwrap();
@@ -1783,7 +2001,7 @@ mod tests {
     }
 
     #[test]
-    fn val_try_sub_with_size() {
+    fn autoval_try_sub_with_size() {
         let size = 250.;
 
         let px_sum = Val::Px(60.).try_sub_with_size(Val::Px(18.), size).unwrap();
@@ -1800,7 +2018,7 @@ mod tests {
     }
 
     #[test]
-    fn val_try_add_non_numeric_with_size() {
+    fn autoval_try_add_non_numeric_with_size() {
         let size = 250.;
 
         let percent_sum = Val::Auto.try_add_with_size(Val::Auto, size);
@@ -1809,7 +2027,7 @@ mod tests {
     }
 
     #[test]
-    fn val_arithmetic_error_messages() {
+    fn autoval_arithmetic_error_messages() {
         assert_eq!(
             format!("{}", ValArithmeticError::NonIdenticalVariants),
             "the variants of the Vals don't match"
@@ -1821,7 +2039,143 @@ mod tests {
     }
 
     #[test]
-    fn default_val_equals_const_default_val() {
+    fn default_autoval_equals_const_default_autoval() {
         assert_eq!(Val::default(), Val::DEFAULT);
+    }
+
+    #[test]
+    fn val_try_add() {
+        let px_sum = Num::Px(20.).try_add(Num::Px(22.)).unwrap();
+        let percent_sum = Num::Percent(50.).try_add(Num::Percent(50.)).unwrap();
+
+        assert_eq!(px_sum, Num::Px(42.));
+        assert_eq!(percent_sum, Num::Percent(100.));
+    }
+
+    #[test]
+    fn val_try_add_to_self() {
+        let mut breadth = Num::Px(5.);
+
+        breadth.try_add_assign(Num::Px(3.)).unwrap();
+
+        assert_eq!(breadth, Num::Px(8.));
+    }
+
+    #[test]
+    fn val_try_sub() {
+        let px_sum = Num::Px(72.).try_sub(Num::Px(30.)).unwrap();
+        let percent_sum = Num::Percent(100.).try_sub(Num::Percent(50.)).unwrap();
+
+        assert_eq!(px_sum, Num::Px(42.));
+        assert_eq!(percent_sum, Num::Percent(50.));
+    }
+
+    #[test]
+    fn different_variant_breadth_try_add() {
+        let different_variant_sum_1 = Num::Px(50.).try_add(Num::Percent(50.));
+        let different_variant_sum_2 = Num::Percent(50.).try_add(Num::Px(50.));
+
+        assert_eq!(
+            different_variant_sum_1,
+            Err(NumArithmeticError::NonIdenticalVariants)
+        );
+        assert_eq!(
+            different_variant_sum_2,
+            Err(NumArithmeticError::NonIdenticalVariants)
+        );
+    }
+
+    #[test]
+    fn different_variant_breadth_try_sub() {
+        let different_variant_diff_1 = Num::Px(50.).try_sub(Num::Percent(50.));
+        let different_variant_diff_2 = Num::Percent(50.).try_sub(Num::Px(50.));
+
+        assert_eq!(
+            different_variant_diff_1,
+            Err(NumArithmeticError::NonIdenticalVariants)
+        );
+        assert_eq!(
+            different_variant_diff_2,
+            Err(NumArithmeticError::NonIdenticalVariants)
+        );
+    }
+
+    #[test]
+    fn val_evaluate_percent() {
+        let size = 250.;
+        let result = Num::Percent(80.).evaluate(size, Vec2::ZERO);
+
+        assert_eq!(result, size * 0.8);
+    }
+
+    #[test]
+    fn val_evaluate_px() {
+        let size = 250.;
+        let result = Num::Px(10.).evaluate(size, Vec2::ZERO);
+
+        assert_eq!(result, 10.);
+    }
+
+    #[test]
+    fn val_add_with_size() {
+        let size = 250.;
+
+        let px_sum = Num::Px(21.).add_with_size(Num::Px(21.), size, Vec2::ZERO);
+        let percent_sum = Num::Percent(20.).add_with_size(Num::Percent(30.), size, Vec2::ZERO);
+        let mixed_sum = Num::Px(20.).add_with_size(Num::Percent(30.), size, Vec2::ZERO);
+
+        assert_eq!(px_sum, 42.);
+        assert_eq!(percent_sum, 0.5 * size);
+        assert_eq!(mixed_sum, 20. + 0.3 * size);
+    }
+
+    #[test]
+    fn val_sub_with_size() {
+        let size = 250.;
+
+        let px_sum = Num::Px(60.).sub_with_size(Num::Px(18.), size, Vec2::ZERO);
+        let percent_sum = Num::Percent(80.).sub_with_size(Num::Percent(30.), size, Vec2::ZERO);
+        let mixed_sum = Num::Percent(50.).sub_with_size(Num::Px(30.), size, Vec2::ZERO);
+
+        assert_eq!(px_sum, 42.);
+        assert_eq!(percent_sum, 0.5 * size);
+        assert_eq!(mixed_sum, 0.5 * size - 30.);
+    }
+
+    #[test]
+    fn val_arithmetic_error_messages() {
+        assert_eq!(
+            format!("{}", NumArithmeticError::NonIdenticalVariants),
+            "the variants of the Vals don't match"
+        );
+    }
+
+    #[test]
+    fn from_num_to_val() {
+        let inner_value = 11.;
+
+        assert_eq!(Val::from(Num::Px(inner_value)), Val::Px(inner_value));
+        assert_eq!(
+            Val::from(Num::Percent(inner_value)),
+            Val::Percent(inner_value)
+        );
+    }
+
+    #[test]
+    fn try_from_val_to_num() {
+        let inner_value = 22.;
+
+        assert_eq!(
+            Num::try_from(Val::Auto),
+            Err(crate::NumConversionError::NonEvaluateable)
+        );
+        assert_eq!(
+            Num::try_from(Val::Px(inner_value)),
+            Ok(Num::Px(inner_value))
+        );
+        assert_eq!(
+            Num::try_from(Val::Percent(inner_value)),
+            Ok(Num::Percent(inner_value))
+        );
     }
 }

@@ -15,7 +15,7 @@ fn setup(mut commands: Commands) {
         .spawn(NodeBundle {
             style: Style {
                 flex_basis: Val::Percent(100.0),
-                margin: UiRect::all(Val::Px(25.0)),
+                margin: Margin::all(Num::Px(25.0)),
                 flex_wrap: FlexWrap::Wrap,
                 justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::FlexStart,
@@ -29,56 +29,56 @@ fn setup(mut commands: Commands) {
 
     // all the different combinations of border edges
     let borders = [
-        UiRect::default(),
-        UiRect::all(Val::Px(10.)),
-        UiRect::left(Val::Px(10.)),
-        UiRect::right(Val::Px(10.)),
-        UiRect::top(Val::Px(10.)),
-        UiRect::bottom(Val::Px(10.)),
-        UiRect::horizontal(Val::Px(10.)),
-        UiRect::vertical(Val::Px(10.)),
-        UiRect {
-            left: Val::Px(10.),
-            top: Val::Px(10.),
+        Border::default(),
+        Border::all(Num::Px(10.)),
+        Border::left(Num::Px(10.)),
+        Border::right(Num::Px(10.)),
+        Border::top(Num::Px(10.)),
+        Border::bottom(Num::Px(10.)),
+        Border::horizontal(Num::Px(10.)),
+        Border::vertical(Num::Px(10.)),
+        Border {
+            left: Num::Px(10.),
+            top: Num::Px(10.),
             ..Default::default()
         },
-        UiRect {
-            left: Val::Px(10.),
-            bottom: Val::Px(10.),
+        Border {
+            left: Num::Px(10.),
+            bottom: Num::Px(10.),
             ..Default::default()
         },
-        UiRect {
-            right: Val::Px(10.),
-            top: Val::Px(10.),
+        Border {
+            right: Num::Px(10.),
+            top: Num::Px(10.),
             ..Default::default()
         },
-        UiRect {
-            right: Val::Px(10.),
-            bottom: Val::Px(10.),
+        Border {
+            right: Num::Px(10.),
+            bottom: Num::Px(10.),
             ..Default::default()
         },
-        UiRect {
-            right: Val::Px(10.),
-            top: Val::Px(10.),
-            bottom: Val::Px(10.),
+        Border {
+            right: Num::Px(10.),
+            top: Num::Px(10.),
+            bottom: Num::Px(10.),
             ..Default::default()
         },
-        UiRect {
-            left: Val::Px(10.),
-            top: Val::Px(10.),
-            bottom: Val::Px(10.),
+        Border {
+            left: Num::Px(10.),
+            top: Num::Px(10.),
+            bottom: Num::Px(10.),
             ..Default::default()
         },
-        UiRect {
-            left: Val::Px(10.),
-            right: Val::Px(10.),
-            top: Val::Px(10.),
+        Border {
+            left: Num::Px(10.),
+            right: Num::Px(10.),
+            top: Num::Px(10.),
             ..Default::default()
         },
-        UiRect {
-            left: Val::Px(10.),
-            right: Val::Px(10.),
-            bottom: Val::Px(10.),
+        Border {
+            left: Num::Px(10.),
+            right: Num::Px(10.),
+            bottom: Num::Px(10.),
             ..Default::default()
         },
     ];
@@ -101,7 +101,7 @@ fn setup(mut commands: Commands) {
                     width: Val::Px(50.),
                     height: Val::Px(50.),
                     border: borders[i % borders.len()],
-                    margin: UiRect::all(Val::Px(2.)),
+                    margin: Margin::all(Num::Px(2.)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     ..Default::default()

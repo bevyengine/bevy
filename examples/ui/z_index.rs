@@ -56,7 +56,7 @@ fn setup(mut commands: Commands) {
                     });
 
                     // spawn a node with a positive local z-index of 2.
-                    // it will show above other nodes in the gray container.
+                    // it will shoNumbove other nodes in the gray container.
                     parent.spawn(NodeBundle {
                         z_index: ZIndex::Local(2),
                         background_color: Color::BLUE.into(),
@@ -95,6 +95,7 @@ fn setup(mut commands: Commands) {
                         background_color: Color::PURPLE.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
+
                             left: Val::Px(15.0),
                             bottom: Val::Px(10.0),
                             width: Val::Px(100.),

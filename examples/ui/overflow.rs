@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         style: Style {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
-                            margin: UiRect::horizontal(Val::Px(25.)),
+                            margin: Margin::horizontal(Num::Px(25.)),
                             ..Default::default()
                         },
                         ..Default::default()
@@ -55,8 +55,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         parent
                             .spawn(NodeBundle {
                                 style: Style {
-                                    padding: UiRect::all(Val::Px(10.)),
-                                    margin: UiRect::bottom(Val::Px(25.)),
+                                    padding: Padding::all(Num::Px(10.)),
+                                    margin: Margin::bottom(Num::Px(25.)),
                                     ..Default::default()
                                 },
                                 background_color: Color::DARK_GRAY.into(),
@@ -73,9 +73,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     width: Val::Px(100.),
                                     height: Val::Px(100.),
-                                    padding: UiRect {
-                                        left: Val::Px(25.),
-                                        top: Val::Px(25.),
+                                    padding: Padding {
+                                        left: Num::Px(25.),
+                                        top: Num::Px(25.),
                                         ..Default::default()
                                     },
                                     overflow,

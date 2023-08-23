@@ -127,6 +127,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_style(Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
+
             bottom: Val::Px(5.0),
             left: Val::Px(15.0),
             width: Val::Px(200.0),

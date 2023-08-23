@@ -40,7 +40,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn(NodeBundle {
                     style: Style {
                         flex_direction: FlexDirection::Row,
-                        margin: UiRect::top(MARGIN),
+                        margin: Margin::top(MARGIN),
                         ..Default::default()
                     },
                     ..Default::default()
@@ -50,14 +50,14 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         builder,
                         font.clone(),
                         ALIGN_ITEMS_COLOR,
-                        UiRect::right(MARGIN),
+                        Margin::right(MARGIN),
                         "AlignItems",
                     );
                     spawn_nested_text_bundle(
                         builder,
                         font.clone(),
                         JUSTIFY_CONTENT_COLOR,
-                        UiRect::default(),
+                        Margin::default(),
                         "JustifyContent",
                     );
                 });
@@ -127,7 +127,7 @@ fn spawn_child_node(
                 justify_content,
                 width: Val::Px(160.),
                 height: Val::Px(160.),
-                margin: UiRect::all(MARGIN),
+                margin: Margin::all(MARGIN),
                 ..Default::default()
             },
             background_color: BackgroundColor(Color::DARK_GRAY),
@@ -139,12 +139,12 @@ fn spawn_child_node(
                 (format!("{justify_content:?}"), JUSTIFY_CONTENT_COLOR, 3.),
             ];
             for (text, color, top_margin) in labels {
-                // We nest the text within a parent node because margins and padding can't be directly applied to text nodes currently.
+                // We nest the tNum within a parent node because margins and padding can't be directly applied to text nodes currently.
                 spawn_nested_text_bundle(
                     builder,
                     font.clone(),
                     color,
-                    UiRect::top(Val::Px(top_margin)),
+                    Margin::top(Val::Px(top_margin)),
                     &text,
                 );
             }
@@ -155,18 +155,18 @@ fn spawn_nested_text_bundle(
     builder: &mut ChildBuilder,
     font: Handle<Font>,
     background_color: Color,
-    margin: UiRect,
+    margin: Margin,
     text: &str,
 ) {
     builder
         .spawn(NodeBundle {
             style: Style {
                 margin,
-                padding: UiRect {
-                    top: Val::Px(1.),
-                    left: Val::Px(5.),
-                    right: Val::Px(5.),
-                    bottom: Val::Px(1.),
+                padding: Padding {
+                    top: Num::Px(1.),
+                    left: Num::Px(5.),
+                    right: Num::Px(5.),
+                    bottom: Num::Px(1.),
                 },
                 ..Default::default()
             },
