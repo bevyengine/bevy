@@ -102,7 +102,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     parent.spawn(TextBundle::from_section(
-                        vec![
+                        [
                             "Toggle Overflow (O)",
                             "Next Container Size (S)",
                             "Toggle Animation (space)",
