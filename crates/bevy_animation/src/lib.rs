@@ -169,9 +169,10 @@ impl Default for PlayingAnimation {
 }
 
 impl PlayingAnimation {
-    /// Predicate to check if the animation has finished, based on its repetition behavior and the number of times it has repeated.
+    /// Check if the animation has finished, based on its repetition behavior and the number of times it has repeated.
     ///
     /// Note: An animation with `RepeatAnimation::Forever` will never finish.
+    #[inline]
     pub fn is_finished(&self) -> bool {
         match self.repeat {
             RepeatAnimation::Forever => false,
@@ -181,6 +182,7 @@ impl PlayingAnimation {
     }
 
     /// Update the animation given the delta time and the duration of the clip being played.
+    #[inline]
     fn update(&mut self, delta: f32, clip_duration: f32) {
         if self.is_finished() {
             return;
@@ -307,12 +309,12 @@ impl AnimationPlayer {
         &self.animation.animation_clip
     }
 
-    /// Predicate to check if the given animation clip is being played.
+    /// Check if the given animation clip is being played.
     pub fn is_playing_clip(&self, handle: &Handle<AnimationClip>) -> bool {
         self.animation_clip() == handle
     }
 
-    /// Predicate to check if the playing animation has finished, according to the repetition behavior.
+    /// Check if the playing animation has finished, according to the repetition behavior.
     pub fn is_finished(&self) -> bool {
         self.animation.is_finished()
     }
@@ -341,7 +343,7 @@ impl AnimationPlayer {
         self.animation.completions
     }
 
-    /// Predicate to check if the animation is playing in reverse.
+    /// Check if the animation is playing in reverse.
     pub fn is_playback_reversed(&self) -> bool {
         self.animation.speed < 0.0
     }
