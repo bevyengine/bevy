@@ -400,6 +400,7 @@ impl SystemNode {
 /// Metadata for a [`Schedule`].
 #[derive(Default)]
 pub struct ScheduleGraph {
+    name: BoxedScheduleLabel,
     systems: Vec<SystemNode>,
     system_conditions: Vec<Vec<BoxedCondition>>,
     system_sets: Vec<SystemSetNode>,
@@ -417,8 +418,9 @@ pub struct ScheduleGraph {
 
 impl ScheduleGraph {
     /// Creates an empty [`ScheduleGraph`] with default settings.
-    pub fn new() -> Self {
+    pub fn new(label: impl ScheduleLabel) -> Self {
         Self {
+            name: label.dyn_clone(),
             systems: Vec::new(),
             system_conditions: Vec::new(),
             system_sets: Vec::new(),
@@ -451,7 +453,7 @@ impl ScheduleGraph {
     #[track_caller]
     pub fn system_at(&self, id: NodeId) -> &dyn System<In = (), Out = ()> {
         self.get_system_at(id)
-            .ok_or_else(|| format!("system with id {id:?} does not exist in this Schedule"))
+            .ok_or_else(|| format!("system with id {id:?} does not exist in this schedule `{:?}`", self.name))
             .unwrap()
     }
 
@@ -469,7 +471,7 @@ impl ScheduleGraph {
     #[track_caller]
     pub fn set_at(&self, id: NodeId) -> &dyn SystemSet {
         self.get_set_at(id)
-            .ok_or_else(|| format!("set with id {id:?} does not exist in this Schedule"))
+            .ok_or_else(|| format!("set with id {id:?} does not exist in this schedule `{:?}`", self.name))
             .unwrap()
     }
 
