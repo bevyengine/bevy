@@ -56,7 +56,10 @@ fn setup(
     for handle in &rpg_sprite_handles.handles {
         let handle = handle.typed_weak();
         let Some(texture) = textures.get(&handle) else {
-            warn!("{:?} did not resolve to an `Image` asset.", asset_server.get_handle_path(handle));
+            warn!(
+                "{:?} did not resolve to an `Image` asset.",
+                asset_server.get_handle_path(handle)
+            );
             continue;
         };
 
