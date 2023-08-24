@@ -546,8 +546,8 @@ impl ScheduleGraph {
                     let Some(prev) = config_iter.next() else {
                         return AddSystemsInnerResult {
                             nodes: Vec::new(),
-                            densely_chained: true
-                        }
+                            densely_chained: true,
+                        };
                     };
                     let mut previous_result = self.add_systems_inner(prev, true);
                     densely_chained = previous_result.densely_chained;
@@ -863,7 +863,7 @@ impl ScheduleGraph {
             self.topsort_graph(&self.hierarchy.graph, ReportCycles::Hierarchy)?;
 
         let hier_results = check_graph(&self.hierarchy.graph, &self.hierarchy.topsort);
-        self.check_hierarchy_conflicts(&hier_results.transitive_edges)?;
+        self.optionally_check_hierarchy_conflicts(&hier_results.transitive_edges)?;
 
         // remove redundant edges
         self.hierarchy.graph = hier_results.transitive_reduction;
@@ -909,7 +909,7 @@ impl ScheduleGraph {
         // check for conflicts
         let conflicting_systems =
             self.get_conflicting_systems(&flat_results.disconnected, &ambiguous_with_flattened);
-        self.check_conflicts(&conflicting_systems, components)?;
+        self.optionally_check_conflicts(&conflicting_systems, components)?;
         self.conflicting_systems = conflicting_systems;
 
         // build the schedule
@@ -1267,7 +1267,9 @@ impl ScheduleGraph {
         }
     }
 
-    fn check_hierarchy_conflicts(
+    // If ScheduleBuildSettings::hierarchy_detection is LogLevel::Ignore this check
+    // is skipped.
+    fn optionally_check_hierarchy_conflicts(
         &self,
         transitive_edges: &[(NodeId, NodeId)],
     ) -> Result<(), ScheduleBuildError> {
@@ -1473,7 +1475,8 @@ impl ScheduleGraph {
         Ok(())
     }
 
-    fn check_conflicts(
+    /// if ScheduleBuildSettings::ambiguity_detection is LogLevel::Ignore, this check is skipped
+    fn optionally_check_conflicts(
         &self,
         conflicts: &[(NodeId, NodeId, Vec<ComponentId>)],
         components: &Components,
