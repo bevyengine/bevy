@@ -160,7 +160,7 @@ impl fmt::Display for Token<'_> {
     }
 }
 impl<'a> Token<'a> {
-    const SYMBOLS: &[u8] = &[b'.', b'#', b'[', b']'];
+    const SYMBOLS: &[u8] = b".#[]";
     fn symbol_from_byte(byte: u8) -> Option<Self> {
         match byte {
             b'.' => Some(Self::Dot),
