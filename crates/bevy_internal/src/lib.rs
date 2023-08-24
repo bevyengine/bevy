@@ -1,6 +1,7 @@
+//! This module is separated into its own crate to enable simple dynamic linking for Bevy, and should not be used directly
+
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
-//! This module is separated into its own crate to enable simple dynamic linking for Bevy, and should not be used directly
 
 /// `use bevy::prelude::*;` to import common components, bundles, and plugins.
 pub mod prelude;

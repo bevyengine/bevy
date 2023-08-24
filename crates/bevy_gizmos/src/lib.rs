@@ -1,6 +1,3 @@
-#![allow(clippy::type_complexity)]
-#![warn(missing_docs)]
-
 //! This crate adds an immediate mode drawing api to Bevy for visual debugging.
 //!
 //! # Example
@@ -15,6 +12,9 @@
 //! ```
 //!
 //! See the documentation on [`Gizmos`](crate::gizmos::Gizmos) for more examples.
+
+#![allow(clippy::type_complexity)]
+#![warn(missing_docs)]
 
 use std::mem;
 

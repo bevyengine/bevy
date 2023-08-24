@@ -1,7 +1,8 @@
+#![doc = include_str!("../README.md")]
+
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 #![warn(clippy::undocumented_unsafe_blocks)]
-#![doc = include_str!("../README.md")]
 
 pub mod commands;
 /// The basic components of the transform crate
