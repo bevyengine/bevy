@@ -30,7 +30,7 @@ mod audio_source;
 mod pitch;
 mod sinks;
 
-#[allow(missing_docs)]
+/// The `bevy_audio` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

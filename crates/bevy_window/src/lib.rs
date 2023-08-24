@@ -14,6 +14,7 @@ pub use event::*;
 pub use system::*;
 pub use window::*;
 
+/// The `bevy_window` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

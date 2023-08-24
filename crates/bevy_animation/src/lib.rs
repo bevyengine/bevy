@@ -18,7 +18,7 @@ use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{tracing::warn, HashMap};
 
-#[allow(missing_docs)]
+/// The `bevy_animation` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

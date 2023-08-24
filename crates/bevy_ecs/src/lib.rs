@@ -25,7 +25,7 @@ use std::any::TypeId;
 
 pub use bevy_ptr as ptr;
 
-/// Most commonly used re-exported types.
+/// The `bevy_ecs` prelude.
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]

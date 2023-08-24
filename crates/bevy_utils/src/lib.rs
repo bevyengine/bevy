@@ -6,7 +6,7 @@
 #![warn(missing_docs)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 
-#[allow(missing_docs)]
+/// The `bevy_utils` prelude.
 pub mod prelude {
     pub use crate::default;
 }

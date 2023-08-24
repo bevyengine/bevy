@@ -10,6 +10,7 @@ mod texture_atlas_builder;
 
 pub mod collide_aabb;
 
+/// The `bevy_sprite` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

@@ -20,7 +20,7 @@ pub mod touchpad;
 pub use axis::*;
 pub use input::*;
 
-/// Most commonly used re-exported types.
+/// The `bevy_input` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

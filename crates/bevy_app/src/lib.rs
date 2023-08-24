@@ -19,7 +19,7 @@ pub use plugin::*;
 pub use plugin_group::*;
 pub use schedule_runner::*;
 
-#[allow(missing_docs)]
+/// The `bevy_app` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

@@ -19,8 +19,8 @@ use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{tracing::warn, Duration, Instant};
 use crossbeam_channel::{Receiver, Sender};
 
+/// The `bevy_time` prelude.
 pub mod prelude {
-    //! The Bevy Time Prelude.
     #[doc(hidden)]
     pub use crate::{fixed_timestep::FixedTime, Time, Timer, TimerMode};
 }

@@ -20,6 +20,7 @@ pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
 
+/// The `bevy_text` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{Font, Text, Text2dBundle, TextAlignment, TextError, TextSection, TextStyle};

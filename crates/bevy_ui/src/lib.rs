@@ -31,7 +31,7 @@ pub use render::*;
 pub use ui_node::*;
 use widget::UiImageSize;
 
-#[doc(hidden)]
+/// The `bevy_ui` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

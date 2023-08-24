@@ -12,8 +12,9 @@ pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
 pub use task_pool_options::*;
 
+
+/// The `bevy_core` Prelude.
 pub mod prelude {
-    //! The Bevy Core Prelude.
     #[doc(hidden)]
     pub use crate::{
         DebugName, FrameCountPlugin, Name, TaskPoolOptions, TaskPoolPlugin, TypeRegistrationPlugin,

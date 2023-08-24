@@ -23,7 +23,7 @@ pub use valid_parent_check_plugin::*;
 mod query_extension;
 pub use query_extension::*;
 
-#[doc(hidden)]
+/// The `bevy_hierarchy` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
