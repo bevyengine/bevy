@@ -29,7 +29,7 @@ pub mod prelude {
 
 The format of the documentation will depend on the kind of the crate.
 
-1. If the crate adds functionalities to Bevy (e.g. `bevy_time`, `bevy_input`, etc.) the documentation takes this format :
+- If the crate adds functionalities to Bevy (e.g. `bevy_time`, `bevy_input`, etc.) the documentation takes this format :
 
 ```rust
 //! <list of functionality> functionality for the [Bevy game engine].
@@ -51,7 +51,7 @@ Example for `bevy_input`
 //! [Bevy game engine]: https://bevyengine.org/
 ```
 
-2. If the crate adapts an external crate for Bevy (e.g. `bevy_winit`, `bevy_gilrs`, etc.) the documentation takes this format :
+- If the crate adapts an external crate for Bevy (e.g. `bevy_winit`, `bevy_gilrs`, etc.) the documentation takes this format :
 
 **Note**: the link to the external crates documentation should point to the version used by the bevy crate and not the latest version.
 
