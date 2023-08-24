@@ -167,20 +167,6 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
-<<<<<<< HEAD
-      - name: Install Bevy dependencies
-        run: |
-          sudo apt-get update;
-          DEBIAN_FRONTEND=noninteractive sudo apt-get install --no-install-recommends -yq \
-            libasound2-dev libudev-dev;
-      - name: install xvfb, llvmpipe and lavapipe
-        run: |
-          sudo apt-get update -y -qq
-          sudo add-apt-repository ppa:oibaf/graphics-drivers -y
-          sudo apt-get update
-          sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers libxkbcommon-x11-0
-=======
->>>>>>> @{-1}
       - uses: actions/checkout@v3
 
       - uses: dtolnay/rust-toolchain@stable
