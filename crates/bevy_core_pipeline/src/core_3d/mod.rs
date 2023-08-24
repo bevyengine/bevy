@@ -350,16 +350,16 @@ pub fn prepare_core_3d_depth_textures(
             continue;
         };
 
-        let cached_texture = textures
-            .entry(camera.target.clone())
-            .or_insert_with(|| {
-                // Default usage required to write to the depth texture
-                let mut usage = camera_3d.depth_texture_usages.into();
-                if depth_prepass.is_some() {
-                    // Required to read the output of the prepass
-                    usage |= TextureUsages::COPY_SRC;
-                }
+        // Default usage required to write to the depth texture
+        let mut usage = camera_3d.depth_texture_usages.into();
+        if depth_prepass.is_some() {
+            // Required to read the output of the prepass
+            usage |= TextureUsages::COPY_SRC;
+        }
 
+        let cached_texture = textures
+            .entry((camera.target.clone(), usage))
+            .or_insert_with(|| {
                 // The size of the depth texture
                 let size = Extent3d {
                     depth_or_array_layers: 1,
