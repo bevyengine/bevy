@@ -52,6 +52,10 @@ use crate::{
 
 pub const MATERIAL_UI_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 10074188772096983955);
+
+const UI_VERTEX_OUTPUT_SHADER_HANDLE: HandleUntyped = 
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 10123618247720234751);
+
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given
 /// [`UiMaterial`] asset type (which includes [`UiMaterial`] types).
 pub struct UiMaterialPlugin<M: UiMaterial>(PhantomData<M>);
@@ -67,6 +71,12 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut bevy_app::App) {
+        load_internal_asset!(
+            app,
+            UI_VERTEX_OUTPUT_SHADER_HANDLE,
+            "ui_vertex_output.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(
             app,
             MATERIAL_UI_SHADER_HANDLE,
