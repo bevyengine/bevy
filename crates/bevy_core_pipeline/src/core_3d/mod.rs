@@ -344,21 +344,28 @@ pub fn prepare_core_3d_depth_textures(
         ),
     >,
 ) {
-    let mut textures = HashMap::default();
-    for (entity, camera, depth_prepass, camera_3d) in &views_3d {
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
+    let mut render_target_usage = HashMap::default();
+    for (_, camera, depth_prepass, camera_3d) in &views_3d {
         // Default usage required to write to the depth texture
-        let mut usage = camera_3d.depth_texture_usages.into();
+        let mut usage: TextureUsages = camera_3d.depth_texture_usages.into();
         if depth_prepass.is_some() {
             // Required to read the output of the prepass
             usage |= TextureUsages::COPY_SRC;
         }
+        render_target_usage
+            .entry(camera.target.clone())
+            .and_modify(|u| *u |= usage)
+            .or_insert_with(|| usage);
+    }
+
+    let mut textures = HashMap::default();
+    for (entity, camera, _, _) in &views_3d {
+        let Some(physical_target_size) = camera.physical_target_size else {
+            continue;
+        };
 
         let cached_texture = textures
-            .entry((camera.target.clone(), usage))
+            .entry(camera.target.clone())
             .or_insert_with(|| {
                 // The size of the depth texture
                 let size = Extent3d {
@@ -366,6 +373,10 @@ pub fn prepare_core_3d_depth_textures(
                     width: physical_target_size.x,
                     height: physical_target_size.y,
                 };
+
+                let usage = render_target_usage
+                    .get(&camera.target.clone())
+                    .expect("The depth texture usage should already exist for this target");
 
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
@@ -375,7 +386,7 @@ pub fn prepare_core_3d_depth_textures(
                     dimension: TextureDimension::D2,
                     // PERF: vulkan docs recommend using 24 bit depth for better performance
                     format: TextureFormat::Depth32Float,
-                    usage,
+                    usage: *usage,
                     view_formats: &[],
                 };
 
