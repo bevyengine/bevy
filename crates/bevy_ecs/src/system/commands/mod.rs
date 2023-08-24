@@ -5,7 +5,7 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
-    query::WorldQuery,
+    query::{ReadOnlyWorldQuery, WorldQuery},
     world::{FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
@@ -837,30 +837,62 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         self.commands
     }
 
-    /// Allows querying of an entity's components.
+    /// Allows querying of an entity's components. This is most useful when working with a highly
+    /// composed entity where you wish to modify some of its components.
     ///
-    /// # Panics
-    ///
-    /// The command will panic when applied if the associated entity and/or queried components do not exist.
+    /// If the entity is not available or query fails, then the provided closure will not be executed.
     ///
     /// # Examples
     ///
+    /// ## Conditionally Modify A Component
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
     /// # #[derive(Resource)]
     /// # struct PlayerEntity { entity: Entity }
+    /// #
     /// #[derive(Component)]
     /// struct Health(u32);
     ///
-    /// fn zero_health(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// #[derive(Component)]
+    /// struct LuckyStart;
+    ///
+    /// fn spawn_player(mut commands: Commands, player: Res<PlayerEntity>) {
     ///     commands
     ///         .entity(player.entity)
-    ///         .with_query::<&mut Health>(|mut health| {
-    ///             health.0 = 0;
+    ///         .insert((Health(100), LuckyStart))
+    ///         /* ... */
+    ///         .with_query::<(&mut Health, &LuckyStart)>(|(mut health, _)| {
+    ///             // Players with the LuckyStart component start with double health.
+    ///             health.0 *= 2;
     ///         });
     /// }
-    /// # bevy_ecs::system::assert_is_system(zero_health);
+    /// # bevy_ecs::system::assert_is_system(spawn_player);
+    /// ```
+    ///
+    /// ## Modify a Part of a Bundle
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Transform { translation: f32 }
+    /// # impl Transform {
+    /// #   fn up(&self) -> f32 { 1f32 }
+    /// # }
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// #
+    /// fn spawn_player(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     commands
+    ///         .entity(player.entity)
+    ///         /* ... */
+    ///         .with_query::<&mut Transform>(|mut transform| {
+    ///             // Players should spawn slightly above their randomly chosen spawn point.
+    ///             transform.translation += 0.1 * transform.up();
+    ///         });
+    /// }
+    /// # bevy_ecs::system::assert_is_system(spawn_player);
     /// ```
     pub fn with_query<Q>(
         &mut self,
@@ -869,7 +901,74 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     where
         Q: WorldQuery + 'static,
     {
-        self.commands.add(WithQuery::<Q> {
+        self.with_query_filtered::<Q, ()>(function)
+    }
+
+    /// Allows querying of an entity's components with a filter. This is most useful when working
+    /// with a highly composed entity where you wish to modify some of its components.
+    ///
+    /// If the entity is not available or query fails, then the provided closure will not be executed.
+    ///
+    /// # Examples
+    ///
+    /// ## Conditionally Modify A Component
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// #[derive(Component)]
+    /// struct Health(u32);
+    ///
+    /// #[derive(Component)]
+    /// struct LuckyStart;
+    ///
+    /// fn spawn_player(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     commands
+    ///         .entity(player.entity)
+    ///         .insert((Health(100), LuckyStart))
+    ///         /* ... */
+    ///         .with_query_filtered::<&mut Health, With<LuckyStart>>(|mut health| {
+    ///             // Players with the LuckyStart component start with double health.
+    ///             health.0 *= 2;
+    ///         });
+    /// }
+    /// # bevy_ecs::system::assert_is_system(spawn_player);
+    /// ```
+    ///
+    /// ## Modify a Part of a Bundle
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Transform { translation: f32 }
+    /// # impl Transform {
+    /// #   fn up(&self) -> f32 { 1f32 }
+    /// # }
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// #
+    /// fn spawn_player(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     commands
+    ///         .entity(player.entity)
+    ///         /* ... */
+    ///         .with_query_filtered::<&mut Transform, ()>(|mut transform| {
+    ///             // Players should spawn slightly above their randomly chosen spawn point.
+    ///             transform.translation += 0.1 * transform.up();
+    ///         });
+    /// }
+    /// # bevy_ecs::system::assert_is_system(spawn_player);
+    /// ```
+    pub fn with_query_filtered<Q, F>(
+        &mut self,
+        function: impl for<'t> FnOnce(Q::Item<'t>) + Send + Sync + 'static,
+    ) -> &mut Self
+    where
+        Q: WorldQuery + 'static,
+        F: ReadOnlyWorldQuery + 'static,
+    {
+        self.commands.add(WithQuery::<Q, F> {
             entity: self.entity,
             function: Box::new(function),
             _phantom: PhantomData,
@@ -1101,32 +1200,32 @@ impl Command for LogComponents {
 }
 
 /// [`Command`] to query an [`Entity`].
-pub struct WithQuery<Q>
+pub struct WithQuery<Q, F = ()>
 where
     Q: WorldQuery,
+    F: ReadOnlyWorldQuery,
 {
     entity: Entity,
     function: Box<dyn for<'t> FnOnce(Q::Item<'t>) + Send + Sync>,
-    _phantom: PhantomData<fn(Q) -> ()>,
+    _phantom: PhantomData<fn(Q, F) -> ()>,
 }
 
-impl<Q> Command for WithQuery<Q>
+impl<Q, F> Command for WithQuery<Q, F>
 where
     Q: WorldQuery,
-    WithQuery<Q>: Send + Sync + 'static,
+    F: ReadOnlyWorldQuery,
+    WithQuery<Q, F>: Send + Sync + 'static,
 {
     fn apply(self, world: &mut World) {
         let Self {
             entity, function, ..
         } = self;
 
-        let mut query = world.query::<Q>();
+        let mut query = world.query_filtered::<Q, F>();
 
-        let Ok(result) = query.get_mut(world, entity) else {
-            panic!("Cannot run query on entity")
+        if let Ok(result) = query.get_mut(world, entity) {
+            function(result);
         };
-
-        function(result);
     }
 }
 
