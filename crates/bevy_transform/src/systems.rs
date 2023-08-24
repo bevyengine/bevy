@@ -29,7 +29,7 @@ pub fn sync_simple_transforms(
     query
         .p0()
         .par_iter_mut()
-        .for_each_mut(|(transform, mut global_transform)| {
+        .for_each(|(transform, mut global_transform)| {
             *global_transform = GlobalTransform::from(*transform);
         });
     // Update orphaned entities.
@@ -59,7 +59,7 @@ pub fn propagate_transforms(
     orphaned_entities.clear();
     orphaned_entities.extend(orphaned.iter());
     orphaned_entities.sort_unstable();
-    root_query.par_iter_mut().for_each_mut(
+    root_query.par_iter_mut().for_each(
         |(entity, children, transform, mut global_transform)| {
             let changed = transform.is_changed() || global_transform.is_added() || orphaned_entities.binary_search(&entity).is_ok();
             if changed {

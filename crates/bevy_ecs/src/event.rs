@@ -425,6 +425,7 @@ impl<E: Event> ManualEventReader<E> {
 }
 
 /// An iterator that yields any unread events from an [`EventReader`] or [`ManualEventReader`].
+#[derive(Debug)]
 pub struct ManualEventIterator<'a, E: Event> {
     iter: ManualEventIteratorWithId<'a, E>,
 }

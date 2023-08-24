@@ -6,7 +6,7 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::Vec2;
-use bevy_window::{CursorIcon, WindowLevel, WindowTheme};
+use bevy_window::{CursorIcon, EnabledButtons, WindowLevel, WindowTheme};
 use winit::keyboard::{Key, NativeKey};
 
 pub fn convert_keyboard_input(
@@ -668,4 +668,18 @@ pub fn convert_window_theme(theme: WindowTheme) -> winit::window::Theme {
         WindowTheme::Light => winit::window::Theme::Light,
         WindowTheme::Dark => winit::window::Theme::Dark,
     }
+}
+
+pub fn convert_enabled_buttons(enabled_buttons: EnabledButtons) -> winit::window::WindowButtons {
+    let mut window_buttons = winit::window::WindowButtons::empty();
+    if enabled_buttons.minimize {
+        window_buttons.insert(winit::window::WindowButtons::MINIMIZE);
+    }
+    if enabled_buttons.maximize {
+        window_buttons.insert(winit::window::WindowButtons::MAXIMIZE);
+    }
+    if enabled_buttons.close {
+        window_buttons.insert(winit::window::WindowButtons::CLOSE);
+    }
+    window_buttons
 }

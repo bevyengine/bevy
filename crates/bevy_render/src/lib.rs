@@ -11,6 +11,7 @@ pub mod extract_component;
 mod extract_param;
 pub mod extract_resource;
 pub mod globals;
+pub mod gpu_component_array_buffer;
 pub mod mesh;
 pub mod pipelined_rendering;
 pub mod primitives;
@@ -25,6 +26,7 @@ pub mod texture;
 pub mod view;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
+use bevy_reflect::TypeUuid;
 pub use extract_param::Extract;
 
 pub mod prelude {
@@ -55,7 +57,7 @@ use crate::{
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin, SubApp};
-use bevy_asset::{AddAsset, AssetServer};
+use bevy_asset::{load_internal_asset, AddAsset, AssetServer, HandleUntyped};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
 use std::{
@@ -207,6 +209,9 @@ struct FutureRendererResources(
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
 
+pub const INSTANCE_INDEX_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 10313207077636615845);
+
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`](RenderSet) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
@@ -353,6 +358,16 @@ impl Plugin for RenderPlugin {
     }
 
     fn finish(&self, app: &mut App) {
+        load_internal_asset!(
+            app,
+            INSTANCE_INDEX_SHADER_HANDLE,
+            "instance_index.wgsl",
+            Shader::from_wgsl_with_defs,
+            vec![
+                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+                "BASE_INSTANCE_WORKAROUND".into()
+            ]
+        );
         if let Some(future_renderer_resources) =
             app.world.remove_resource::<FutureRendererResources>()
         {

@@ -10,7 +10,6 @@ keywords = ["bevy"]
 
 [features]
 multi-threaded = []
-default = ["multi-threaded"]
 
 [dependencies]
 futures-lite = "1.13"
