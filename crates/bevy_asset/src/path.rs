@@ -75,25 +75,25 @@ impl<'a> AssetPath<'a> {
         }
     }
 
-    /// Gets the sub-asset label.
+    /// Gets the "sub-asset label".
     #[inline]
     pub fn label(&self) -> Option<&str> {
         self.label.as_ref().map(|label| label.as_ref())
     }
 
-    /// Gets the path to the asset in the filesystem.
+    /// Gets the path to the asset in the "virtual filesystem".
     #[inline]
     pub fn path(&self) -> &Path {
         &self.path
     }
 
-    /// Gets the path to the asset in the filesystem.
+    /// Gets the path to the asset in the "virtual filesystem" without a label (if a label is currently set).
     #[inline]
     pub fn without_label(&self) -> AssetPath<'_> {
         AssetPath::new_ref(&self.path, None)
     }
 
-    /// Gets the path to the asset in the filesystem.
+    /// Removes a "sub-asset label" from this [`AssetPath`] and returns it, if one was set.
     #[inline]
     pub fn remove_label(&mut self) -> Option<Cow<'a, str>> {
         self.label.take()
