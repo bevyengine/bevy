@@ -4,8 +4,7 @@
 use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
-    BackgroundColor, BorderColor, ContentSize, ExtractUiNode, ExtractUiNodeAtlasImage,
-    ExtractUiNodeBorder, ExtractUiNodeText, FocusPolicy, Interaction, Node, Style, UiImage,
+    BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
     UiTextureAtlasImage, ZIndex,
 };
 use bevy_asset::Handle;
@@ -51,10 +50,6 @@ pub struct NodeBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-    /// Extract with [`extract_uinodes`](`crate::render::extract_uinodes`)
-    pub extract_uinode: ExtractUiNode,
-    /// Extract with [`extract_uinode_borders`](`crate::render::extract_uinode_borders`)
-    pub extract_border: ExtractUiNodeBorder,
 }
 
 impl Default for NodeBundle {
@@ -71,8 +66,6 @@ impl Default for NodeBundle {
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
-            extract_uinode: ExtractUiNode,
-            extract_border: ExtractUiNodeBorder,
         }
     }
 }
@@ -115,8 +108,6 @@ pub struct ImageBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-    /// Extract with [`extract_uinodes`](`crate::render::extract_uinodes`)
-    pub extract_uinode: ExtractUiNode,
 }
 
 /// A UI node that is a texture atlas sprite
@@ -159,8 +150,6 @@ pub struct AtlasImageBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-    /// Extract with [`extract_uinodes`](`crate::render::extract_uinodes`)
-    pub extract_uinode: ExtractUiNodeAtlasImage,
 }
 
 #[cfg(feature = "bevy_text")]
@@ -200,10 +189,6 @@ pub struct TextBundle {
     pub z_index: ZIndex,
     /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
-    /// Extract with [`extract_uinodes`](`crate::render::extract_uinodes`)
-    pub extract_uinode: ExtractUiNode,
-    /// Extract with [`extract_text_uinodes`](`crate::render::extract_text_uinodes`)
-    pub extract_text: ExtractUiNodeText,
 }
 
 #[cfg(feature = "bevy_text")]
@@ -224,8 +209,6 @@ impl Default for TextBundle {
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
-            extract_uinode: ExtractUiNode,
-            extract_text: ExtractUiNodeText,
         }
     }
 }
@@ -316,10 +299,6 @@ pub struct ButtonBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-    /// Extract with [`extract_uinodes`](`crate::render::extract_uinodes`)
-    pub extract_node: ExtractUiNode,
-    /// Extract with [`extract_uinode_borders`](`crate::render::extract_uinode_borders`)
-    pub extract_border: ExtractUiNodeBorder,
 }
 
 impl Default for ButtonBundle {
@@ -338,8 +317,6 @@ impl Default for ButtonBundle {
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
-            extract_node: ExtractUiNode,
-            extract_border: ExtractUiNodeBorder,
         }
     }
 }

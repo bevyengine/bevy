@@ -3,7 +3,6 @@ mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
-use bevy_reflect::std_traits::ReflectDefault;
 use bevy_render::{ExtractSchedule, Render};
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
@@ -18,7 +17,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec4Swizzles};
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::TypeUuid;
 use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
 use bevy_render::{
     camera::Camera,
@@ -165,22 +164,6 @@ pub struct ExtractedUiNode {
     pub flip_y: bool,
 }
 
-#[derive(Component, Default, Debug, Copy, Clone, Reflect)]
-#[reflect(Component, Default)]
-pub struct ExtractUiNode;
-
-#[derive(Component, Default, Debug, Copy, Clone, Reflect)]
-#[reflect(Component, Default)]
-pub struct ExtractUiNodeBorder;
-
-#[derive(Component, Default, Debug, Copy, Clone, Reflect)]
-#[reflect(Component, Default)]
-pub struct ExtractUiNodeText;
-
-#[derive(Component, Default, Debug, Copy, Clone, Reflect)]
-#[reflect(Component, Default)]
-pub struct ExtractUiNodeAtlasImage;
-
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
     pub uinodes: Vec<ExtractedUiNode>,
@@ -202,7 +185,7 @@ pub fn extract_atlas_uinodes(
                 &Handle<TextureAtlas>,
                 &UiTextureAtlasImage,
             ),
-            (With<ExtractUiNodeAtlasImage>, Without<UiImage>),
+            Without<UiImage>,
         >,
     >,
 ) {
@@ -290,7 +273,7 @@ pub fn extract_uinode_borders(
                 &ComputedVisibility,
                 Option<&CalculatedClip>,
             ),
-            (With<ExtractUiNode>, Without<ContentSize>),
+            Without<ContentSize>,
         >,
     >,
     node_query: Extract<Query<&Node>>,
@@ -407,7 +390,7 @@ pub fn extract_uinodes(
                 &ComputedVisibility,
                 Option<&CalculatedClip>,
             ),
-            (With<ExtractUiNode>, Without<UiTextureAtlasImage>),
+            Without<UiTextureAtlasImage>,
         >,
     >,
 ) {
@@ -529,17 +512,14 @@ pub fn extract_text_uinodes(
     ui_stack: Extract<Res<UiStack>>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
-        Query<
-            (
-                &Node,
-                &GlobalTransform,
-                &Text,
-                &TextLayoutInfo,
-                &ComputedVisibility,
-                Option<&CalculatedClip>,
-            ),
-            With<ExtractUiNodeText>,
-        >,
+        Query<(
+            &Node,
+            &GlobalTransform,
+            &Text,
+            &TextLayoutInfo,
+            &ComputedVisibility,
+            Option<&CalculatedClip>,
+        )>,
     >,
 ) {
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
