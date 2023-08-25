@@ -181,12 +181,14 @@ impl Schedule {
     }
 
     /// Configures a system set in this schedule, adding it if it does not exist.
+    #[track_caller]
     pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
         self.graph.configure_set(set);
         self
     }
 
     /// Configures a collection of system sets in this schedule, adding them if they does not exist.
+    #[track_caller]
     pub fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) -> &mut Self {
         self.graph.configure_sets(sets);
         self
@@ -660,6 +662,7 @@ impl ScheduleGraph {
         Ok(id)
     }
 
+    #[track_caller]
     fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) {
         let SystemSetConfigs { sets, chained } = sets.into_configs();
         let mut set_iter = sets.into_iter();
@@ -678,10 +681,12 @@ impl ScheduleGraph {
         }
     }
 
+    #[track_caller]
     fn configure_set(&mut self, set: impl IntoSystemSetConfig) {
         self.configure_set_inner(set).unwrap();
     }
 
+    #[track_caller]
     fn configure_set_inner(
         &mut self,
         set: impl IntoSystemSetConfig,
