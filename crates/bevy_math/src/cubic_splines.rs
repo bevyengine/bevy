@@ -133,10 +133,7 @@ impl<P: Point> Hermite<P> {
         tangents: impl IntoIterator<Item = P>,
     ) -> Self {
         Self {
-            control_points: control_points
-                .into_iter()
-                .zip(tangents.into_iter())
-                .collect(),
+            control_points: control_points.into_iter().zip(tangents).collect(),
         }
     }
 }
