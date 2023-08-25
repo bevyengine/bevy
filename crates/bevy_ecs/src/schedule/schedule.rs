@@ -552,8 +552,8 @@ impl ScheduleGraph {
                     let Some(prev) = config_iter.next() else {
                         return AddSystemsInnerResult {
                             nodes: Vec::new(),
-                            densely_chained: true
-                        }
+                            densely_chained: true,
+                        };
                     };
                     let mut previous_result = self.add_systems_inner(prev, true);
                     densely_chained = previous_result.densely_chained;
@@ -676,14 +676,22 @@ impl ScheduleGraph {
             }
         } else {
             for set in set_iter {
-                self.configure_set_inner(set).unwrap_or_else(|e| panic!("{e}"));
+                if let Err(e) = self.configure_set_inner(set) {
+                    // using `unwrap_or_else(panic!)` led to the error being reported
+                    // from this line instead of in the user code
+                    panic!("{e}");
+                };
             }
         }
     }
 
     #[track_caller]
     fn configure_set(&mut self, set: impl IntoSystemSetConfig) {
-        self.configure_set_inner(set).unwrap_or_else(|e| panic!("{e}"));
+        if let Err(e) = self.configure_set_inner(set) {
+            // using `unwrap_or_else(panic!)` led to the error being reported
+            // from this line instead of in the user code
+            panic!("{e}");
+        };
     }
 
     #[track_caller]
@@ -1487,7 +1495,7 @@ impl ScheduleGraph {
 #[non_exhaustive]
 pub enum ScheduleBuildError {
     /// A system set contains itself.
-    #[error("`System set {0}` contains itself.")]
+    #[error("System set `{0}` contains itself.")]
     HierarchyLoop(String),
     /// The hierarchy of system sets contains a cycle.
     #[error("System set hierarchy contains cycle(s).")]
@@ -1498,7 +1506,7 @@ pub enum ScheduleBuildError {
     #[error("System set hierarchy contains redundant edges.")]
     HierarchyRedundancy,
     /// A system (set) has been told to run before itself.
-    #[error("`System set {0}` depends on itself.")]
+    #[error("System set `{0}` depends on itself.")]
     DependencyLoop(String),
     /// The dependency graph contains a cycle.
     #[error("System dependencies contain cycle(s).")]
