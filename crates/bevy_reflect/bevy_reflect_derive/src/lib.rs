@@ -101,13 +101,6 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 ///   the type's [`Hash`] implementation.
 ///   A custom implementation may be provided using `#[reflect(Hash(my_hash_func))]` where
 ///   `my_hash_func` is the path to a function matching the signature: `(&self) -> u64`.
-/// * `#[reflect(Default)]` will register the `ReflectDefault` type data as normal.
-///   However, it will also affect how certain other operations are performed in order
-///   to improve performance and/or robustness.
-///   An example of where this is used is in the [`FromReflect`] derive macro,
-///   where adding this attribute will cause the `FromReflect` implementation to create
-///   a base value using its [`Default`] implementation avoiding issues with ignored fields
-///   (for structs and tuple structs only).
 ///
 /// ## `#[reflect_value]`
 ///
