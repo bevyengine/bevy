@@ -307,12 +307,6 @@ impl ReflectTraits {
         Ok(traits)
     }
 
-    /// Returns true if the given reflected trait name (i.e. `ReflectDefault` for `Default`)
-    /// is registered for this type.
-    pub fn contains(&self, name: &str) -> bool {
-        self.idents.iter().any(|ident| ident == name)
-    }
-
     /// The list of reflected traits by their reflected ident (i.e. `ReflectDefault` for `Default`).
     pub fn idents(&self) -> &[Ident] {
         &self.idents
