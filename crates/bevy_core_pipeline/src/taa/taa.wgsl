@@ -135,10 +135,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let mean = moment_1 / 9.0;
     let variance = (moment_2 / 9.0) - (mean * mean);
     let std_deviation = sqrt(max(variance, vec3(0.0)));
-    history_color = RGB_to_YCoCg(history_color);
     history_color = clip_towards_aabb_center(history_color, current_color, mean - std_deviation, mean + std_deviation);
-    history_color = YCoCg_to_RGB(history_color);
-    current_color = YCoCg_to_RGB(current_color);
 
     // Use more of the history if it's been visible for a few frames (reduces noise)
     var accumulated_samples = textureSampleLevel(history, nearest_sampler, history_uv, 0.0).a;
@@ -155,6 +152,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // Write output to history and view target
     var out: Output;
     out.history = vec4(current_color, accumulated_samples);
+    current_color = YCoCg_to_RGB(current_color);
 #ifdef TONEMAP
     current_color = reverse_tonemap(current_color);
 #endif
