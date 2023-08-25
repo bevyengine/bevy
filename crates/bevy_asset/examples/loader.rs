@@ -57,7 +57,7 @@ struct TextLoader;
 
 #[derive(Default, Serialize, Deserialize)]
 struct TextSettings {
-    blah: bool,
+    text_override: Option<String>,
 }
 
 impl AssetLoader for TextLoader {
@@ -72,8 +72,8 @@ impl AssetLoader for TextLoader {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            let value = if settings.blah {
-                "blah".to_string()
+            let value = if let Some(ref text) = settings.text_override {
+                text.clone()
             } else {
                 String::from_utf8(bytes).unwrap()
             };
