@@ -48,6 +48,11 @@ path = "benches/bevy_reflect/struct.rs"
 harness = false
 
 [[bench]]
+name = "parse_reflect_path"
+path = "benches/bevy_reflect/path.rs"
+harness = false
+
+[[bench]]
 name = "iter"
 path = "benches/bevy_tasks/iter.rs"
 harness = false
