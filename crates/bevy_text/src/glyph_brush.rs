@@ -8,10 +8,11 @@ use glyph_brush_layout::{
     BuiltInLineBreaker, FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph,
     SectionText, ToSectionText,
 };
+use std::ops::Range;
 
 use crate::{
-    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo,
-    TextAlignment, TextSettings, YAxisOrientation,
+    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, TextAlignment,
+    TextSettings, YAxisOrientation,
 };
 
 pub struct GlyphBrush {
@@ -64,9 +65,9 @@ impl GlyphBrush {
         text_settings: &TextSettings,
         font_atlas_warning: &mut FontAtlasWarning,
         y_axis_orientation: YAxisOrientation,
-    ) -> Result<Vec<PositionedGlyph>, TextError> {
+    ) -> Result<(Vec<PositionedGlyphBatch>, Vec<PositionedGlyph>), TextError> {
         if glyphs.is_empty() {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), Vec::new()));
         }
 
         let sections_data = sections
@@ -85,8 +86,12 @@ impl GlyphBrush {
             .collect::<Result<Vec<_>, _>>()?;
 
         let text_bounds = compute_text_bounds(&glyphs, |index| &sections_data[index].3);
-
+        let mut glyph_batches = Vec::new();
         let mut positioned_glyphs = Vec::new();
+        let mut batch_atlas: Option<Handle<TextureAtlas>> = None;
+        let mut batch_start = 0;
+        let mut end = 0;
+
         for sg in glyphs {
             let SectionGlyph {
                 section_index: _,
@@ -98,7 +103,9 @@ impl GlyphBrush {
             let glyph_position = glyph.position;
             let adjust = GlyphPlacementAdjuster::new(&mut glyph);
             let section_data = sections_data[sg.section_index];
+
             if let Some(outlined_glyph) = section_data.1.font.outline_glyph(glyph) {
+                end += 1;
                 let bounds = outlined_glyph.px_bounds();
                 let handle_font_atlas: Handle<FontAtlasSet> = section_data.0.cast_weak();
                 let font_atlas_set = font_atlas_set_storage
@@ -120,6 +127,7 @@ impl GlyphBrush {
                 }
 
                 let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+
                 let glyph_rect = texture_atlas.textures[atlas_info.glyph_index];
                 let size = Vec2::new(glyph_rect.width(), glyph_rect.height());
 
@@ -135,17 +143,39 @@ impl GlyphBrush {
                 };
 
                 let position = adjust.position(Vec2::new(x, y));
-
                 positioned_glyphs.push(PositionedGlyph {
                     position,
                     size,
-                    atlas_info,
+                    glyph_index: atlas_info.glyph_index,
                     section_index: sg.section_index,
                     byte_index,
                 });
+
+                if let Some(ref last_atlas) = batch_atlas {
+                    if last_atlas.id() != atlas_info.texture_atlas.id() {
+                        glyph_batches.push(PositionedGlyphBatch {
+                            texture_atlas: batch_atlas.unwrap(),
+                            range: batch_start..end,
+                        });
+                        batch_start = end;
+                        batch_atlas = Some(atlas_info.texture_atlas.clone());
+                    }
+                } else {
+                    batch_atlas = Some(atlas_info.texture_atlas.clone());
+                }
             }
         }
-        Ok(positioned_glyphs)
+
+        if batch_start != end {
+            glyph_batches.push(PositionedGlyphBatch {
+                texture_atlas: batch_atlas.unwrap(),
+                range: batch_start..end,
+            });
+        }
+
+        glyph_batches.sort_by_key(|batch| batch.texture_atlas.id());
+
+        Ok((glyph_batches, positioned_glyphs))
     }
 
     pub fn add_font(&mut self, handle: Handle<Font>, font: FontArc) -> FontId {
@@ -161,9 +191,15 @@ impl GlyphBrush {
 pub struct PositionedGlyph {
     pub position: Vec2,
     pub size: Vec2,
-    pub atlas_info: GlyphAtlasInfo,
+    pub glyph_index: usize,
     pub section_index: usize,
     pub byte_index: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct PositionedGlyphBatch {
+    pub texture_atlas: Handle<TextureAtlas>,
+    pub range: Range<usize>,
 }
 
 #[cfg(feature = "subpixel_glyph_atlas")]

@@ -112,30 +112,32 @@ pub fn extract_text2d_sprite(
             * GlobalTransform::from_translation(alignment_translation.extend(0.));
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
-        for PositionedGlyph {
-            position,
-            atlas_info,
-            section_index,
-            ..
-        } in &text_layout_info.glyphs
-        {
-            if *section_index != current_section {
-                color = text.sections[*section_index].style.color.as_rgba_linear();
-                current_section = *section_index;
-            }
-            let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+        for batch in &text_layout_info.batches {
+            let atlas = texture_atlases.get(&batch.texture_atlas).unwrap();
+            for PositionedGlyph {
+                position,
+                glyph_index,
+                section_index,
+                ..
+            } in &text_layout_info.glyphs[batch.range.start..batch.range.end]
+            {
+                if *section_index != current_section {
+                    color = text.sections[*section_index].style.color.as_rgba_linear();
+                    current_section = *section_index;
+                }
 
-            extracted_sprites.sprites.push(ExtractedSprite {
-                entity,
-                transform: transform * GlobalTransform::from_translation(position.extend(0.)),
-                color,
-                rect: Some(atlas.textures[atlas_info.glyph_index]),
-                custom_size: None,
-                image_handle_id: atlas.texture.id(),
-                flip_x: false,
-                flip_y: false,
-                anchor: Anchor::Center.as_vec(),
-            });
+                extracted_sprites.sprites.push(ExtractedSprite {
+                    entity,
+                    transform: transform * GlobalTransform::from_translation(position.extend(0.)),
+                    color,
+                    rect: Some(atlas.textures[*glyph_index]),
+                    custom_size: None,
+                    image_handle_id: atlas.texture.id(),
+                    flip_x: false,
+                    flip_y: false,
+                    anchor: Anchor::Center.as_vec(),
+                });
+            }
         }
     }
 }

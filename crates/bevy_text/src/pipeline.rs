@@ -11,8 +11,8 @@ use glyph_brush_layout::{FontId, GlyphPositioner, SectionGeometry, SectionText};
 
 use crate::{
     compute_text_bounds, error::TextError, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font,
-    FontAtlasSet, FontAtlasWarning, PositionedGlyph, TextAlignment, TextSection, TextSettings,
-    YAxisOrientation,
+    FontAtlasSet, FontAtlasWarning, PositionedGlyph, PositionedGlyphBatch, TextAlignment,
+    TextSection, TextSettings, YAxisOrientation,
 };
 
 #[derive(Default, Resource)]
@@ -26,6 +26,7 @@ pub struct TextPipeline {
 ///  Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`].
 #[derive(Component, Clone, Default, Debug)]
 pub struct TextLayoutInfo {
+    pub batches: Vec<PositionedGlyphBatch>,
     pub glyphs: Vec<PositionedGlyph>,
     pub size: Vec2,
 }
@@ -87,7 +88,7 @@ impl TextPipeline {
 
         let size = compute_text_bounds(&section_glyphs, |index| &scaled_fonts[index]).size();
 
-        let glyphs = self.brush.process_glyphs(
+        let (batches, glyphs) = self.brush.process_glyphs(
             section_glyphs,
             &sections,
             font_atlas_set_storage,
@@ -99,7 +100,11 @@ impl TextPipeline {
             y_axis_orientation,
         )?;
 
-        Ok(TextLayoutInfo { glyphs, size })
+        Ok(TextLayoutInfo {
+            batches,
+            glyphs,
+            size,
+        })
     }
 
     pub fn create_text_measure(
