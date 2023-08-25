@@ -38,7 +38,11 @@ use crate::{
     processor::AssetProcessor,
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup};
-use bevy_ecs::{reflect::AppTypeRegistry, schedule::IntoSystemConfigs, world::FromWorld};
+use bevy_ecs::{
+    reflect::AppTypeRegistry,
+    schedule::{IntoSystemConfigs, IntoSystemSetConfig, SystemSet},
+    world::FromWorld,
+};
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use std::{any::TypeId, sync::Arc};
 
@@ -273,10 +277,11 @@ impl AssetApp for App {
             .add_event::<AssetEvent<A>>()
             .register_type::<Handle<A>>()
             .register_type::<AssetId<A>>()
-            .add_systems(
+            .configure_set(
                 PostUpdate,
-                Assets::<A>::track_assets.after(server::handle_internal_asset_events),
+                TrackAssets.after(server::handle_internal_asset_events),
             )
+            .add_systems(PostUpdate, Assets::<A>::track_assets.in_set(TrackAssets))
     }
 
     fn register_asset_reflect<A>(&mut self) -> &mut Self
@@ -296,6 +301,10 @@ impl AssetApp for App {
         self
     }
 }
+
+/// A system set that holds all "track asset" operations.
+#[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
+pub struct TrackAssets;
 
 /// Loads an "internal" asset by embedding the string stored in the given `path_str` and associates it with the given handle.
 #[macro_export]
