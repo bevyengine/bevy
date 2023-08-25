@@ -16,7 +16,9 @@ use std::{
 };
 
 pub(crate) fn get_base_path() -> PathBuf {
-    if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+    if let Ok(manifest_dir) = env::var("BEVY_ASSET_ROOT") {
+        PathBuf::from(manifest_dir)
+    } else if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
         PathBuf::from(manifest_dir)
     } else {
         env::current_exe()
