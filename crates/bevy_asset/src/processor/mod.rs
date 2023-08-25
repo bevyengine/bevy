@@ -161,7 +161,7 @@ impl AssetProcessor {
     pub fn start(_processor: Res<Self>) {
         #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
         error!("Cannot run AssetProcessor in single threaded mode (or WASM) yet.");
-        #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
         {
             let processor = _processor.clone();
             std::thread::spawn(move || {
@@ -177,7 +177,7 @@ impl AssetProcessor {
     /// * Scan the source [`AssetProvider`] and remove any processed "destination" assets that are invalid or no longer exist.
     /// * For each asset in the `source` [`AssetProvider`], kick off a new "process job", which will process the asset
     /// (if the latest version of the asset has not been processed).
-    #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
     pub fn process_assets(&self) {
         let start_time = std::time::Instant::now();
         debug!("Processing Assets");
@@ -309,7 +309,7 @@ impl AssetProcessor {
         debug!("Folder {:?} was added. Attempting to re-process", path);
         #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
         error!("AddFolder event cannot be handled in single threaded mode (or WASM) yet.");
-        #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
         IoTaskPool::get().scope(|scope| {
             scope.spawn(async move {
                 self.process_assets_internal(scope, path).await.unwrap();
