@@ -109,7 +109,6 @@ where
         }))
     }
 
-    /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str] {
         <L as AssetLoader>::extensions(self)
     }
