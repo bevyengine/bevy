@@ -232,7 +232,7 @@ impl Val {
     /// Otherwise it returns an [`f32`] containing the evaluated value in pixels.
     ///
     /// **Note:** If a [`Val::Px`] is evaluated, it's inner value returned unchanged.
-    pub fn evaluate(self, size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
+    pub fn eval(self, size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
         match self {
             Val::Percent(value) => Ok(size * value / 100.0),
             Val::Px(value) => Ok(value),
@@ -247,8 +247,8 @@ impl Val {
     /// Similar to [`Val::try_add`], but performs [`Val::evaluate`] on both values before adding.
     /// Returns an [`f32`] value in pixels.
     pub fn try_add_with_context(&self, rhs: Val, size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
-        let lhs = self.evaluate(size, viewport_size)?;
-        let rhs = rhs.evaluate(size, viewport_size)?;
+        let lhs = self.eval(size, viewport_size)?;
+        let rhs = rhs.eval(size, viewport_size)?;
 
         Ok(lhs + rhs)
     }
@@ -261,15 +261,15 @@ impl Val {
         size: f32,
         viewport_size: Vec2
     ) -> Result<(), ValArithmeticError> {
-        *self = Val::Px(self.evaluate(size, viewport_size)? + rhs.evaluate(size, viewport_size)?);
+        *self = Val::Px(self.eval(size, viewport_size)? + rhs.eval(size, viewport_size)?);
         Ok(())
     }
 
     /// Similar to [`Val::try_sub`], but performs [`Val::evaluate`] on both values before subtracting.
     /// Returns an [`f32`] value in pixels.
     pub fn try_sub_with_context(&self, rhs: Val, size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
-        let lhs = self.evaluate(size, viewport_size)?;
-        let rhs = rhs.evaluate(size, viewport_size)?;
+        let lhs = self.eval(size, viewport_size)?;
+        let rhs = rhs.eval(size, viewport_size)?;
 
         Ok(lhs - rhs)
     }
@@ -1750,20 +1750,20 @@ mod tests {
     #[test]
     fn val_eval() {
         let viewport = vec2(800.0, 600.0);
-        assert_eq!(Val::Px(500.0).evaluate(100.0, viewport), Ok(500.0));
-        assert_eq!(Val::Percent(50.0).evaluate(100.0, viewport), Ok(50.0));
-        assert_eq!(Val::Vw(10.0).evaluate(100.0, viewport), Ok(80.0));
-        assert_eq!(Val::Vh(10.0).evaluate(100.0, viewport), Ok(60.0));
-        assert_eq!(Val::VMin(10.0).evaluate(100.0, viewport), Ok(60.0));
-        assert_eq!(Val::VMax(10.0).evaluate(100.0, viewport), Ok(80.0));
-        assert!(matches!(Val::Auto.evaluate(100.0, viewport), Err(ValArithmeticError::NonEvaluateable)));
+        assert_eq!(Val::Px(500.0).eval(100.0, viewport), Ok(500.0));
+        assert_eq!(Val::Percent(50.0).eval(100.0, viewport), Ok(50.0));
+        assert_eq!(Val::Vw(10.0).eval(100.0, viewport), Ok(80.0));
+        assert_eq!(Val::Vh(10.0).eval(100.0, viewport), Ok(60.0));
+        assert_eq!(Val::VMin(10.0).eval(100.0, viewport), Ok(60.0));
+        assert_eq!(Val::VMax(10.0).eval(100.0, viewport), Ok(80.0));
+        assert!(matches!(Val::Auto.eval(100.0, viewport), Err(ValArithmeticError::NonEvaluateable)));
     }
 
     #[test]
     fn val_evaluate_percent() {
         let size = 250.;
         let viewport_size = vec2(1000., 500.);
-        let result = Val::Percent(80.).evaluate(size, viewport_size).unwrap();
+        let result = Val::Percent(80.).eval(size, viewport_size).unwrap();
 
         assert_eq!(result, size * 0.8);
     }
@@ -1772,7 +1772,7 @@ mod tests {
     fn val_evaluate_px() {
         let size = 250.;
         let viewport_size = vec2(1000., 500.);
-        let result = Val::Px(10.).evaluate(size, viewport_size).unwrap();
+        let result = Val::Px(10.).eval(size, viewport_size).unwrap();
 
         assert_eq!(result, 10.);
     }
@@ -1783,25 +1783,25 @@ mod tests {
         let viewport_size = vec2(500., 500.);
 
         for value in (-10..10).map(|value| value as f32) {
-            assert_eq!(Val::Vw(value).evaluate(size, viewport_size), Val::Vh(value).evaluate(size, viewport_size));
-            assert_eq!(Val::VMin(value).evaluate(size, viewport_size), Val::VMax(value).evaluate(size, viewport_size));
-            assert_eq!(Val::VMin(value).evaluate(size, viewport_size), Val::Vw(value).evaluate(size, viewport_size));
+            assert_eq!(Val::Vw(value).eval(size, viewport_size), Val::Vh(value).eval(size, viewport_size));
+            assert_eq!(Val::VMin(value).eval(size, viewport_size), Val::VMax(value).eval(size, viewport_size));
+            assert_eq!(Val::VMin(value).eval(size, viewport_size), Val::Vw(value).eval(size, viewport_size));
         }
 
         let viewport_size = vec2(1000., 500.);
-        assert_eq!(Val::Vw(100.).evaluate(size, viewport_size).unwrap(), 1000.);
-        assert_eq!(Val::Vh(100.).evaluate(size, viewport_size).unwrap(), 500.);
-        assert_eq!(Val::Vw(60.).evaluate(size, viewport_size).unwrap(), 600.);
-        assert_eq!(Val::Vh(40.).evaluate(size, viewport_size).unwrap(), 200.);
-        assert_eq!(Val::VMin(50.).evaluate(size, viewport_size).unwrap(), 250.);
-        assert_eq!(Val::VMax(75.).evaluate(size, viewport_size).unwrap(), 750.);
+        assert_eq!(Val::Vw(100.).eval(size, viewport_size).unwrap(), 1000.);
+        assert_eq!(Val::Vh(100.).eval(size, viewport_size).unwrap(), 500.);
+        assert_eq!(Val::Vw(60.).eval(size, viewport_size).unwrap(), 600.);
+        assert_eq!(Val::Vh(40.).eval(size, viewport_size).unwrap(), 200.);
+        assert_eq!(Val::VMin(50.).eval(size, viewport_size).unwrap(), 250.);
+        assert_eq!(Val::VMax(75.).eval(size, viewport_size).unwrap(), 750.);
     }
 
     #[test]
     fn val_auto_is_non_evaluateable() {
         let size = 250.;
         let viewport_size = vec2(1000., 500.);
-        let evaluate_auto = Val::Auto.evaluate(size, viewport_size);
+        let evaluate_auto = Val::Auto.eval(size, viewport_size);
 
         assert_eq!(evaluate_auto, Err(ValArithmeticError::NonEvaluateable));
     }
