@@ -203,7 +203,6 @@ impl AssetProcessor {
             let mut started_processing = false;
 
             for event in self.data.source_event_receiver.try_iter() {
-                println!("{event:?}\n");
                 if !started_processing {
                     self.set_state(ProcessorState::Processing).await;
                     started_processing = true;
@@ -219,6 +218,7 @@ impl AssetProcessor {
     }
 
     async fn handle_asset_source_event(&self, event: AssetSourceEvent) {
+        trace!("{event:?}");
         match event {
             AssetSourceEvent::AddedAsset(path)
             | AssetSourceEvent::AddedMeta(path)
