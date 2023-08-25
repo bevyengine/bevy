@@ -28,6 +28,7 @@ pub struct AssetIndex {
 pub(crate) struct AssetIndexAllocator {
     next_index: AtomicU32,
     recycled_queue_sender: Sender<AssetIndex>,
+    /// This receives every recycled AssetIndex. It serves as a buffer/queue to store indices ready for reuse.
     recycled_queue_receiver: Receiver<AssetIndex>,
     recycled_sender: Sender<AssetIndex>,
     recycled_receiver: Receiver<AssetIndex>,
