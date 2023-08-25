@@ -211,8 +211,8 @@ impl AssetWriter for FileAssetWriter {
                 async_fs::create_dir_all(parent).await?;
             }
             let file = File::create(&full_path).await?;
-            let reader: Box<Writer> = Box::new(file);
-            Ok(reader)
+            let writer: Box<Writer> = Box::new(file);
+            Ok(writer)
         })
     }
 
@@ -227,8 +227,8 @@ impl AssetWriter for FileAssetWriter {
                 async_fs::create_dir_all(parent).await?;
             }
             let file = File::create(&full_path).await?;
-            let reader: Box<Writer> = Box::new(file);
-            Ok(reader)
+            let writer: Box<Writer> = Box::new(file);
+            Ok(writer)
         })
     }
 

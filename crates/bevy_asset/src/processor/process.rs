@@ -246,7 +246,6 @@ impl<'a> ProcessContext<'a> {
                 .process_dependencies
                 .push(ProcessDependencyInfo {
                     full_hash: *full_hash,
-
                     path: path.to_owned(),
                 });
         }
