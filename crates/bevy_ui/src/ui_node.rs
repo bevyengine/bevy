@@ -5,7 +5,7 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     color::Color,
-    texture::{Image, DEFAULT_IMAGE_HANDLE},
+    texture::{Image, DEFAULT_IMAGE_HANDLE}
 };
 use bevy_transform::prelude::GlobalTransform;
 use serde::{Deserialize, Serialize};
@@ -232,51 +232,57 @@ impl Val {
     /// Otherwise it returns an [`f32`] containing the evaluated value in pixels.
     ///
     /// **Note:** If a [`Val::Px`] is evaluated, it's inner value returned unchanged.
-    pub fn evaluate(&self, size: f32) -> Result<f32, ValArithmeticError> {
+    pub fn evaluate(self, size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
         match self {
             Val::Percent(value) => Ok(size * value / 100.0),
-            Val::Px(value) => Ok(*value),
-            _ => Err(ValArithmeticError::NonEvaluateable),
+            Val::Px(value) => Ok(value),
+            Val::Vw(value) => Ok(value * viewport_size.x),
+            Val::Vh(value) => Ok(value * viewport_size.y),
+            Val::VMin(value) => Ok(value * viewport_size.min_element()),
+            Val::VMax(value) => Ok(value * viewport_size.max_element()),
+            Val::Auto => Err(ValArithmeticError::NonEvaluateable),
         }
     }
 
     /// Similar to [`Val::try_add`], but performs [`Val::evaluate`] on both values before adding.
     /// Returns an [`f32`] value in pixels.
-    pub fn try_add_with_size(&self, rhs: Val, size: f32) -> Result<f32, ValArithmeticError> {
-        let lhs = self.evaluate(size)?;
-        let rhs = rhs.evaluate(size)?;
+    pub fn try_add_with_context(&self, rhs: Val, size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
+        let lhs = self.evaluate(size, viewport_size)?;
+        let rhs = rhs.evaluate(size, viewport_size)?;
 
         Ok(lhs + rhs)
     }
 
     /// Similar to [`Val::try_add_assign`], but performs [`Val::evaluate`] on both values before adding.
     /// The value gets converted to [`Val::Px`].
-    pub fn try_add_assign_with_size(
+    pub fn try_add_assign_with_context(
         &mut self,
         rhs: Val,
         size: f32,
+        viewport_size: Vec2
     ) -> Result<(), ValArithmeticError> {
-        *self = Val::Px(self.evaluate(size)? + rhs.evaluate(size)?);
+        *self = Val::Px(self.evaluate(size, viewport_size)? + rhs.evaluate(size, viewport_size)?);
         Ok(())
     }
 
     /// Similar to [`Val::try_sub`], but performs [`Val::evaluate`] on both values before subtracting.
     /// Returns an [`f32`] value in pixels.
-    pub fn try_sub_with_size(&self, rhs: Val, size: f32) -> Result<f32, ValArithmeticError> {
-        let lhs = self.evaluate(size)?;
-        let rhs = rhs.evaluate(size)?;
+    pub fn try_sub_with_context(&self, rhs: Val, size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
+        let lhs = self.evaluate(size, viewport_size)?;
+        let rhs = rhs.evaluate(size, viewport_size)?;
 
         Ok(lhs - rhs)
     }
 
     /// Similar to [`Val::try_sub_assign`], but performs [`Val::evaluate`] on both values before adding.
     /// The value gets converted to [`Val::Px`].
-    pub fn try_sub_assign_with_size(
+    pub fn try_sub_assign_with_context(
         &mut self,
         rhs: Val,
         size: f32,
+        viewport_size: Vec2
     ) -> Result<(), ValArithmeticError> {
-        *self = Val::Px(self.try_add_with_size(rhs, size)?);
+        *self = Val::Px(self.try_add_with_context(rhs, size, viewport_size)?);
         Ok(())
     }
 }
@@ -1676,8 +1682,8 @@ impl Default for ZIndex {
 
 #[cfg(test)]
 mod tests {
+    use bevy_math::vec2;
     use crate::ValArithmeticError;
-
     use super::Val;
 
     #[test]
@@ -1742,9 +1748,22 @@ mod tests {
     }
 
     #[test]
-    fn val_evaluate() {
+    fn val_eval() {
+        let viewport = vec2(800.0, 600.0);
+        assert_eq!(Val::Px(500.0).evaluate(100.0, viewport), Ok(500.0));
+        assert_eq!(Val::Percent(50.0).evaluate(100.0, viewport), Ok(50.0));
+        assert_eq!(Val::Vw(10.0).evaluate(100.0, viewport), Ok(80.0));
+        assert_eq!(Val::Vh(10.0).evaluate(100.0, viewport), Ok(60.0));
+        assert_eq!(Val::VMin(10.0).evaluate(100.0, viewport), Ok(60.0));
+        assert_eq!(Val::VMax(10.0).evaluate(100.0, viewport), Ok(80.0));
+        assert!(matches!(Val::Auto.evaluate(100.0, viewport), Err(ValArithmeticError::NonEvaluateable)));
+    }
+
+    #[test]
+    fn val_evaluate_percent() {
         let size = 250.;
-        let result = Val::Percent(80.).evaluate(size).unwrap();
+        let viewport_size = vec2(1000., 500.);
+        let result = Val::Percent(80.).evaluate(size, viewport_size).unwrap();
 
         assert_eq!(result, size * 0.8);
     }
@@ -1752,15 +1771,37 @@ mod tests {
     #[test]
     fn val_evaluate_px() {
         let size = 250.;
-        let result = Val::Px(10.).evaluate(size).unwrap();
+        let viewport_size = vec2(1000., 500.);
+        let result = Val::Px(10.).evaluate(size, viewport_size).unwrap();
 
         assert_eq!(result, 10.);
     }
 
     #[test]
-    fn val_invalid_evaluation() {
+    fn val_evaluate_viewport_coords() {
         let size = 250.;
-        let evaluate_auto = Val::Auto.evaluate(size);
+        let viewport_size = vec2(500., 500.);
+
+        for value in (-10..10).map(|value| value as f32) {
+            assert_eq!(Val::Vw(value).evaluate(size, viewport_size), Val::Vh(value).evaluate(size, viewport_size));
+            assert_eq!(Val::VMin(value).evaluate(size, viewport_size), Val::VMax(value).evaluate(size, viewport_size));
+            assert_eq!(Val::VMin(value).evaluate(size, viewport_size), Val::Vw(value).evaluate(size, viewport_size));
+        }
+
+        let viewport_size = vec2(1000., 500.);
+        assert_eq!(Val::Vw(100.).evaluate(size, viewport_size).unwrap(), 1000.);
+        assert_eq!(Val::Vh(100.).evaluate(size, viewport_size).unwrap(), 500.);
+        assert_eq!(Val::Vw(60.).evaluate(size, viewport_size).unwrap(), 600.);
+        assert_eq!(Val::Vh(40.).evaluate(size, viewport_size).unwrap(), 200.);
+        assert_eq!(Val::VMin(50.).evaluate(size, viewport_size).unwrap(), 250.);
+        assert_eq!(Val::VMax(75.).evaluate(size, viewport_size).unwrap(), 750.);
+    }
+
+    #[test]
+    fn val_auto_is_non_evaluateable() {
+        let size = 250.;
+        let viewport_size = vec2(1000., 500.);
+        let evaluate_auto = Val::Auto.evaluate(size, viewport_size);
 
         assert_eq!(evaluate_auto, Err(ValArithmeticError::NonEvaluateable));
     }
@@ -1768,13 +1809,14 @@ mod tests {
     #[test]
     fn val_try_add_with_size() {
         let size = 250.;
+        let viewport_size = vec2(1000., 500.);
 
-        let px_sum = Val::Px(21.).try_add_with_size(Val::Px(21.), size).unwrap();
+        let px_sum = Val::Px(21.).try_add_with_context(Val::Px(21.), size, viewport_size).unwrap();
         let percent_sum = Val::Percent(20.)
-            .try_add_with_size(Val::Percent(30.), size)
+            .try_add_with_context(Val::Percent(30.), size, viewport_size)
             .unwrap();
         let mixed_sum = Val::Px(20.)
-            .try_add_with_size(Val::Percent(30.), size)
+            .try_add_with_context(Val::Percent(30.), size, viewport_size)
             .unwrap();
 
         assert_eq!(px_sum, 42.);
@@ -1785,13 +1827,13 @@ mod tests {
     #[test]
     fn val_try_sub_with_size() {
         let size = 250.;
-
-        let px_sum = Val::Px(60.).try_sub_with_size(Val::Px(18.), size).unwrap();
+        let viewport_size = vec2(1000., 500.);
+        let px_sum = Val::Px(60.).try_sub_with_context(Val::Px(18.), size, viewport_size).unwrap();
         let percent_sum = Val::Percent(80.)
-            .try_sub_with_size(Val::Percent(30.), size)
+            .try_sub_with_context(Val::Percent(30.), size, viewport_size)
             .unwrap();
         let mixed_sum = Val::Percent(50.)
-            .try_sub_with_size(Val::Px(30.), size)
+            .try_sub_with_context(Val::Px(30.), size, viewport_size)
             .unwrap();
 
         assert_eq!(px_sum, 42.);
@@ -1802,8 +1844,8 @@ mod tests {
     #[test]
     fn val_try_add_non_numeric_with_size() {
         let size = 250.;
-
-        let percent_sum = Val::Auto.try_add_with_size(Val::Auto, size);
+        let viewport_size = vec2(1000., 500.);
+        let percent_sum = Val::Auto.try_add_with_context(Val::Auto, size, viewport_size);
 
         assert_eq!(percent_sum, Err(ValArithmeticError::NonEvaluateable));
     }
