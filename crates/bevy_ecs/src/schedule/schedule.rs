@@ -184,7 +184,7 @@ impl Schedule {
         Self {
             name: label.dyn_clone(),
             graph: ScheduleGraph::new(),
-            executable: SystemSchedule::default(),
+            executable: SystemSchedule::new(),
             executor: make_executor(ExecutorKind::default()),
             executor_initialized: false,
         }
@@ -451,7 +451,7 @@ impl ScheduleGraph {
     #[track_caller]
     pub fn system_at(&self, id: NodeId) -> &dyn System<In = (), Out = ()> {
         self.get_system_at(id)
-            .ok_or_else(|| format!("system with id {id:?} does not exist in this schedule"))
+            .ok_or_else(|| format!("system with id {id:?} does not exist in this Schedule"))
             .unwrap()
     }
 
@@ -469,7 +469,7 @@ impl ScheduleGraph {
     #[track_caller]
     pub fn set_at(&self, id: NodeId) -> &dyn SystemSet {
         self.get_set_at(id)
-            .ok_or_else(|| format!("set with id {id:?} does not exist in this schedule"))
+            .ok_or_else(|| format!("set with id {id:?} does not exist in this Schedule"))
             .unwrap()
     }
 
