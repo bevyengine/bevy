@@ -68,19 +68,6 @@ fn sample_view_target(uv: vec2<f32>) -> vec3<f32> {
     return RGB_to_YCoCg(sample);
 }
 
-fn cubic_filter(x: f32, b: f32, c: f32) -> f32 {
-    let x = abs(x) * 2.0;
-    var y = 0.0;
-    let x2 = x * x;
-    let x3 = x2 * x;
-    if x < 1.0 {
-        y = (12.0 - 9.0 * b - 6.0 * c) * x3 + (-18.0 + 12.0 * b + 6.0 * c) * x2 + (6.0 - 2.0 * b);
-    } else if x <= 2.0 {
-        y = (-b - 6.0 * c) * x3 + (6.0 * b + 30.0 * c) * x2 + (-12.0 * b - 48.0 * c) * x + (8.0 * b + 24.0 * c);
-    }
-    return y / 6.0;
-}
-
 @fragment
 fn taa(@location(0) uv: vec2<f32>) -> Output {
     let texture_size = vec2<f32>(textureDimensions(view_target));
@@ -94,14 +81,14 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     var moment_2 = vec3(0.0);
     var closest_depth = 0.0;
     var closest_uv = uv;
+    var weights = array(1.5894572e-7, 0.8888889, 1.5894572e-7);
     for (var x = -1.0; x <= 1.0; x += 1.0) {
         for (var y = -1.0; y <= 1.0; y += 1.0) {
             let sample_uv = uv + (vec2(x, y) * texel_size);
             let sample = sample_view_target(sample_uv);
 
             // Apply Mitchell-Netravali kernel over the jittered 3x3 neighborhood to reduce softness
-            // PERF: Precalculate
-            let weight = cubic_filter(x, 1.0 / 3.0, 1.0 / 3.0) * cubic_filter(y, 1.0 / 3.0, 1.0 / 3.0);
+            let weight = weights[u32(x + 1.0)] * weights[u32(y + 1.0)];
             weight_sum += weight;
             current_color += sample * weight;
 
