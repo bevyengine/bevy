@@ -224,7 +224,7 @@ impl Schedule {
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
         world.check_change_ticks();
-        self.initialize(world).unwrap_or_else(|e| panic!("{e}"));
+        self.initialize(world).unwrap_or_else(|e| panic!("\n{e}"));
         self.executor.run(&mut self.executable, world);
     }
 
@@ -1296,7 +1296,7 @@ impl ScheduleGraph {
         for (parent, child) in transitive_edges {
             writeln!(
                 message,
-                " -- {:?} '{:?}' cannot be child of set '{:?}', longer path exists",
+                " -- {} '{}' cannot be child of set '{}', longer path exists",
                 self.get_node_kind(child),
                 self.get_node_name(child),
                 self.get_node_name(parent),
@@ -1563,32 +1563,32 @@ pub enum ScheduleBuildError {
     #[error("`{0:?}` contains itself.")]
     HierarchyLoop(String),
     /// The hierarchy of system sets contains a cycle.
-    #[error("System set hierarchy contains cycle(s).\n{0:?}")]
+    #[error("System set hierarchy contains cycle(s).\n{0}")]
     HierarchyCycle(String),
     /// The hierarchy of system sets contains redundant edges.
     ///
     /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].
-    #[error("System set hierarchy contains redundant edges.\n{0:?}")]
+    #[error("System set hierarchy contains redundant edges.\n{0}")]
     HierarchyRedundancy(String),
     /// A system (set) has been told to run before itself.
     #[error("`{0:?}` depends on itself.")]
     DependencyLoop(String),
     /// The dependency graph contains a cycle.
-    #[error("System dependencies contain cycle(s).\n{0:?}")]
+    #[error("System dependencies contain cycle(s).\n{0}")]
     DependencyCycle(String),
     /// Tried to order a system (set) relative to a system set it belongs to.
-    #[error("`{0:?}` and `{1:?}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
+    #[error("`{0}` and `{1}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
     CrossDependency(String, String),
     /// Tried to order system sets that share systems.
-    #[error("`{0:?}` and `{1:?}` have a `before`-`after` relationship (which may be transitive) but share systems.")]
+    #[error("`{0}` and `{1}` have a `before`-`after` relationship (which may be transitive) but share systems.")]
     SetsHaveOrderButIntersect(String, String),
     /// Tried to order a system (set) relative to all instances of some system function.
-    #[error("Tried to order against `fn {0:?}` in a schedule that has more than one `{0:?}` instance. `fn {0:?}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
+    #[error("Tried to order against `{0}` in a schedule that has more than one `{0}` instance. `{0}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
     SystemTypeSetAmbiguity(String),
     /// Systems with conflicting access have indeterminate run order.
     ///
     /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].
-    #[error("Systems with conflicting access have indeterminate run order.\n{0:?}")]
+    #[error("Systems with conflicting access have indeterminate run order.\n{0}")]
     Ambiguity(String),
     /// Tried to run a schedule before all of its systems have been initialized.
     #[error("Systems in schedule have not been initialized.")]
