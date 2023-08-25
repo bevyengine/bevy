@@ -205,8 +205,7 @@ impl AssetProcessor {
             for event in self.data.source_event_receiver.try_iter() {
                 println!("{event:?}\n");
                 if !started_processing {
-                    // TODO: re-enable this after resolving state change signaling issue
-                    // self.set_state(ProcessorState::Processing).await;
+                    self.set_state(ProcessorState::Processing).await;
                     started_processing = true;
                 }
 
