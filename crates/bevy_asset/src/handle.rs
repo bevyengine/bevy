@@ -4,6 +4,7 @@ use crate::{
 };
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, TypePath, Uuid};
+use bevy_utils::get_short_name;
 use crossbeam_channel::{Receiver, Sender};
 use std::{
     any::TypeId,
@@ -207,7 +208,7 @@ impl<A: Asset> Default for Handle<A> {
 
 impl<A: Asset> std::fmt::Debug for Handle<A> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = std::any::type_name::<A>().split("::").last().unwrap();
+        let name = get_short_name(std::any::type_name::<A>());
         match self {
             Handle::Strong(handle) => {
                 write!(
