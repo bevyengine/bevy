@@ -1296,7 +1296,7 @@ impl ScheduleGraph {
         for (parent, child) in transitive_edges {
             writeln!(
                 message,
-                " -- {} '{}' cannot be child of set '{}', longer path exists",
+                " -- {} `{}` cannot be child of set `{}`, longer path exists",
                 self.get_node_kind(child),
                 self.get_node_name(child),
                 self.get_node_name(parent),
@@ -1367,13 +1367,13 @@ impl ScheduleGraph {
             let first_name = names.next().unwrap();
             writeln!(
                 message,
-                "cycle {}: set '{first_name}' contains itself",
+                "cycle {}: set `{first_name}` contains itself",
                 i + 1,
             )
             .unwrap();
-            writeln!(message, "set '{first_name}'").unwrap();
+            writeln!(message, "set `{first_name}`").unwrap();
             for name in names.chain(std::iter::once(first_name)) {
-                writeln!(message, " ... which contains set '{name}'").unwrap();
+                writeln!(message, " ... which contains set `{name}`").unwrap();
             }
             writeln!(message).unwrap();
         }
@@ -1391,13 +1391,13 @@ impl ScheduleGraph {
             let (first_kind, first_name) = names.next().unwrap();
             writeln!(
                 message,
-                "cycle {}: {first_kind} '{first_name}' must run before itself",
+                "cycle {}: {first_kind} `{first_name}` must run before itself",
                 i + 1,
             )
             .unwrap();
-            writeln!(message, "{first_kind} '{first_name}'").unwrap();
+            writeln!(message, "{first_kind} `{first_name}`").unwrap();
             for (kind, name) in names.chain(std::iter::once((first_kind, first_name))) {
-                writeln!(message, " ... which must run before {kind} '{name}'").unwrap();
+                writeln!(message, " ... which must run before {kind} `{name}`").unwrap();
             }
             writeln!(message).unwrap();
         }
