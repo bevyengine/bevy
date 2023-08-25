@@ -409,7 +409,7 @@ impl<'a> LoadContext<'a> {
         let mut reader = self.asset_server.reader().read(path).await?;
         let hash = if self.populate_hashes {
             // NOTE: ensure meta is read while the asset bytes reader is still active to ensure transactionality
-            // See `ProcessorGatdReader` for more info
+            // See `ProcessorGatedReader` for more info
             let meta_bytes = self.asset_server.reader().read_meta_bytes(path).await?;
             let minimal: ProcessedInfoMinimal = ron::de::from_bytes(&meta_bytes)
                 .map_err(DeserializeMetaError::DeserializeMinimal)?;
