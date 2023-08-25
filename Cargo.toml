@@ -44,7 +44,6 @@ default = [
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
-  "filesystem_watcher",
   "multi-threaded",
   "png",
   "hdr",
