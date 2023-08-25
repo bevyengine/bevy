@@ -7,7 +7,32 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Represents a path to an asset in the file system.
+/// Represents a path to an asset in a "virtual filesystem".
+///
+/// Asset paths consist of two main parts:
+/// * [`AssetPath::path`]: The "virtual filesystem path" pointing to an asset source file.
+/// * [`AssetPath::label`]: An optional "named sub asset". When assets are loaded, they are
+/// allowed to load "sub assets" of any type, which are identified by a named "label".
+///
+/// Asset paths are generally constructed (and visualized) as strings:
+///
+/// ```no_run
+/// # use bevy_asset::{Asset, AssetServer, Handle};
+/// # use bevy_reflect::TypePath;
+/// #
+/// # #[derive(Asset, TypePath, Default)]
+/// # struct Mesh;
+/// #
+/// # #[derive(Asset, TypePath, Default)]
+/// # struct Scene;
+/// #
+/// # let asset_server: AssetServer = panic!();
+/// // This loads the `my_scene.scn` base asset.
+/// let scene: Handle<Scene> = asset_server.load("my_scene.scn");
+///
+/// // This loads the `PlayerMesh` labeled asset from the `my_scene.scn` base asset.
+/// let mesh: Handle<Mesh> = asset_server.load("my_scene.scn#PlayerMesh");
+/// ```
 #[derive(Eq, PartialEq, Hash, Clone, Serialize, Deserialize, Reflect)]
 #[reflect(Debug, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AssetPath<'a> {

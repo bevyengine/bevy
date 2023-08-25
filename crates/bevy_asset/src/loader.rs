@@ -289,6 +289,8 @@ impl<'a> LoadContext<'a> {
     /// the labeled [`LoadContext`] back to the parent context.
     /// [`LoadContext::begin_labeled_asset`] exists largely to enable parallel asset loading.
     ///
+    /// See [`AssetPath`] for more on labeled assets.
+    ///
     /// ```no_run
     /// # use bevy_asset::{Asset, LoadContext};
     /// # use bevy_reflect::TypePath;
@@ -323,6 +325,8 @@ impl<'a> LoadContext<'a> {
     ///
     /// This exists to remove the need to manually call [`LoadContext::begin_labeled_asset`] and then manually register the
     /// result with [`LoadContext::add_labeled_asset`].
+    ///
+    /// See [`AssetPath`] for more on labeled assets.
     pub fn labeled_asset_scope<A: Asset>(
         &mut self,
         label: String,
@@ -335,6 +339,8 @@ impl<'a> LoadContext<'a> {
     }
 
     /// This will add the given `asset` as a "labeled [`Asset`]" with the `label` label.
+    ///
+    /// See [`AssetPath`] for more on labeled assets.
     pub fn add_labeled_asset<A: Asset>(&mut self, label: String, asset: A) -> Handle<A> {
         self.labeled_asset_scope(label, |_| asset)
     }
@@ -342,6 +348,8 @@ impl<'a> LoadContext<'a> {
     /// Add a [`LoadedAsset`] that is a "labeled sub asset" of the root path of this load context.
     /// This can be used in combination with [`LoadContext::begin_labeled_asset`] to parallelize
     /// sub asset loading.
+    ///
+    /// See [`AssetPath`] for more on labeled assets.
     pub fn add_loaded_labeled_asset<A: Asset>(
         &mut self,
         label: String,
@@ -364,6 +372,8 @@ impl<'a> LoadContext<'a> {
     }
 
     /// Returns `true` if an asset with the label `label` exists in this context.
+    ///
+    /// See [`AssetPath`] for more on labeled assets.
     pub fn has_labeled_asset(&self, label: &str) -> bool {
         let path = self.asset_path.with_label(label);
         self.asset_server.get_handle_untyped(path).is_some()
