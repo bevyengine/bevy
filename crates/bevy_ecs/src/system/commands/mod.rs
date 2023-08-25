@@ -1199,7 +1199,7 @@ impl Command for LogComponents {
     }
 }
 
-/// [`Command`] to query an [`Entity`].
+/// [`Command`] to query an [`Entity`], and read or mutate its components via a provided function.
 pub struct WithQuery<Q, F = ()>
 where
     Q: WorldQuery,
