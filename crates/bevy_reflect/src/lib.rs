@@ -835,33 +835,32 @@ mod tests {
     }
 
     #[test]
-    fn from_reflect_should_use_default_container_attribute() {
-        #[derive(Reflect, Eq, PartialEq, Debug)]
+    fn from_reflect_should_require_all_fields() {
+        #[derive(Reflect, Eq, PartialEq, Debug, Default)]
         #[reflect(Default)]
-        struct MyStruct {
+        struct Foo {
             foo: String,
-            #[reflect(ignore)]
-            bar: usize,
         }
 
-        impl Default for MyStruct {
-            fn default() -> Self {
-                Self {
-                    foo: String::from("Hello"),
-                    bar: 123,
-                }
+        #[derive(Eq, PartialEq, Debug, Default)]
+        struct Bar {
+            foo: String,
+        }
+
+        impl_reflect_struct! {
+            #[type_path = "my_crate::foo::Bar"]
+            #[reflect(Default)]
+            struct Bar {
+                foo: String,
             }
         }
 
-        let expected = MyStruct {
-            foo: String::from("Hello"),
-            bar: 123,
-        };
+        let empty_struct = DynamicStruct::default();
+        let foo = <Foo as FromReflect>::from_reflect(&empty_struct);
+        let bar = <Bar as FromReflect>::from_reflect(&empty_struct);
 
-        let dyn_struct = DynamicStruct::default();
-        let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct);
-
-        assert_eq!(Some(expected), my_struct);
+        assert_eq!(foo, None);
+        assert_eq!(bar, None);
     }
 
     #[test]

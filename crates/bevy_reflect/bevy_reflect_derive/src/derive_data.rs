@@ -25,6 +25,13 @@ pub(crate) enum ReflectDerive<'a> {
     Value(ReflectMeta<'a>),
 }
 
+/// The manner in which the implementation was invoked.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum ReflectImplSource {
+    Derive,
+    Macro,
+}
+
 /// Metadata present on all reflected types, including name, generics, and attributes.
 ///
 /// # Example
@@ -45,6 +52,8 @@ pub(crate) struct ReflectMeta<'a> {
     type_path: ReflectTypePath<'a>,
     /// A cached instance of the path to the `bevy_reflect` crate.
     bevy_reflect_path: Path,
+    /// See [`ReflectImplSoruce`].
+    impl_source: ReflectImplSource,
     /// The documentation for this type, if any
     #[cfg(feature = "documentation")]
     docs: crate::documentation::Documentation,
@@ -137,6 +146,7 @@ impl<'a> ReflectDerive<'a> {
     pub fn from_input(
         input: &'a DeriveInput,
         is_from_reflect_derive: bool,
+        impl_source: ReflectImplSource,
     ) -> Result<Self, syn::Error> {
         let mut traits = ReflectTraits::default();
         // Should indicate whether `#[reflect_value]` was used.
@@ -253,7 +263,7 @@ impl<'a> ReflectDerive<'a> {
             generics: &input.generics,
         };
 
-        let meta = ReflectMeta::new(type_path, traits);
+        let meta = ReflectMeta::new(type_path, traits, impl_source);
 
         #[cfg(feature = "documentation")]
         let meta = meta.with_docs(doc);
@@ -360,11 +370,16 @@ impl<'a> ReflectDerive<'a> {
 }
 
 impl<'a> ReflectMeta<'a> {
-    pub fn new(type_path: ReflectTypePath<'a>, traits: ReflectTraits) -> Self {
+    pub fn new(
+        type_path: ReflectTypePath<'a>,
+        traits: ReflectTraits,
+        impl_source: ReflectImplSource,
+    ) -> Self {
         Self {
             traits,
             type_path,
             bevy_reflect_path: utility::get_bevy_reflect_path(),
+            impl_source,
             #[cfg(feature = "documentation")]
             docs: Default::default(),
         }
@@ -395,6 +410,11 @@ impl<'a> ReflectMeta<'a> {
     /// The cached `bevy_reflect` path.
     pub fn bevy_reflect_path(&self) -> &Path {
         &self.bevy_reflect_path
+    }
+
+    /// See [`ReflectImplSource`].
+    pub fn impl_source(&self) -> ReflectImplSource {
+        self.impl_source
     }
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.

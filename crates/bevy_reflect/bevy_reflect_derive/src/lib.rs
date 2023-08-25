@@ -33,7 +33,7 @@ mod utility;
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
 use crate::type_uuid::gen_impl_type_uuid;
 use container_attributes::ReflectTraits;
-use derive_data::ReflectTypePath;
+use derive_data::{ReflectImplSource, ReflectTypePath};
 use proc_macro::TokenStream;
 use quote::quote;
 use reflect_value::ReflectValueDef;
@@ -163,7 +163,7 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
-    let derive_data = match ReflectDerive::from_input(&ast, false) {
+    let derive_data = match ReflectDerive::from_input(&ast, false, ReflectImplSource::Derive) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
@@ -239,7 +239,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
-    let derive_data = match ReflectDerive::from_input(&ast, true) {
+    let derive_data = match ReflectDerive::from_input(&ast, true, ReflectImplSource::Derive) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
@@ -273,7 +273,7 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(TypePath, attributes(type_path, type_name))]
 pub fn derive_type_path(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let derive_data = match ReflectDerive::from_input(&ast, false) {
+    let derive_data = match ReflectDerive::from_input(&ast, false, ReflectImplSource::Derive) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
@@ -392,7 +392,11 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
         }
     };
 
-    let meta = ReflectMeta::new(type_path, def.traits.unwrap_or_default());
+    let meta = ReflectMeta::new(
+        type_path,
+        def.traits.unwrap_or_default(),
+        ReflectImplSource::Macro,
+    );
 
     #[cfg(feature = "documentation")]
     let meta = meta.with_docs(documentation::Documentation::from_attributes(&def.attrs));
@@ -441,7 +445,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let derive_data = match ReflectDerive::from_input(&ast, false) {
+    let derive_data = match ReflectDerive::from_input(&ast, false, ReflectImplSource::Macro) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
@@ -521,7 +525,12 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
         }
     };
 
-    from_reflect::impl_value(&ReflectMeta::new(type_path, def.traits.unwrap_or_default())).into()
+    from_reflect::impl_value(&ReflectMeta::new(
+        type_path,
+        def.traits.unwrap_or_default(),
+        ReflectImplSource::Macro,
+    ))
+    .into()
 }
 
 /// A replacement for [deriving `TypePath`] for use on foreign types.
@@ -581,7 +590,11 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
         NamedTypePathDef::Primitive(ref ident) => ReflectTypePath::Primitive(ident),
     };
 
-    let meta = ReflectMeta::new(type_path, ReflectTraits::default());
+    let meta = ReflectMeta::new(
+        type_path,
+        ReflectTraits::default(),
+        ReflectImplSource::Macro,
+    );
 
     impls::impl_type_path(&meta, &WhereClauseOptions::new_value(&meta)).into()
 }

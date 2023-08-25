@@ -21,10 +21,6 @@ const DEBUG_ATTR: &str = "Debug";
 const PARTIAL_EQ_ATTR: &str = "PartialEq";
 const HASH_ATTR: &str = "Hash";
 
-// The traits listed below are not considered "special" (i.e. they use the `ReflectMyTrait` syntax)
-// but useful to know exist nonetheless
-pub(crate) const REFLECT_DEFAULT: &str = "ReflectDefault";
-
 // Attributes for `FromReflect` implementation
 const FROM_REFLECT_ATTR: &str = "from_reflect";
 

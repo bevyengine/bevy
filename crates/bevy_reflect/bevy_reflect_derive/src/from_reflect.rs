@@ -1,5 +1,4 @@
-use crate::container_attributes::REFLECT_DEFAULT;
-use crate::derive_data::ReflectEnum;
+use crate::derive_data::{ReflectEnum, ReflectImplSource};
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::field_attributes::DefaultBehavior;
 use crate::fq_std::{FQAny, FQClone, FQDefault, FQOption};
@@ -112,21 +111,33 @@ fn impl_struct_internal(
     let MemberValuePair(active_members, active_values) =
         get_active_fields(reflect_struct, &ref_struct, &ref_struct_type, is_tuple);
 
-    let is_defaultable = reflect_struct.meta().traits().contains(REFLECT_DEFAULT);
-    let constructor = if is_defaultable {
+    let MemberValuePair(ignored_members, ignored_values) = get_ignored_fields(reflect_struct);
+
+    // We special-case this for `impl_reflect_struct!` because we can't always use a literal
+    // constructor since (especially for `glam`) some fields may be accessed through `DerefMut`.
+    let special_case_default = reflect_struct.meta().impl_source() == ReflectImplSource::Macro;
+    let constructor = if special_case_default {
         quote!(
             let mut __this: Self = #FQDefault::default();
             #(
                 if let #fqoption::Some(__field) = #active_values() {
-                    // Iff field exists -> use its value
                     __this.#active_members = __field;
+                } else {
+                    return None;
+                }
+            )*
+            #(
+                // We include ignored fields as well as active ones here,
+                // since they might have a different implementation of `Default` to the parent.
+                if let #fqoption::Some(__field) = #ignored_values {
+                    __this.#ignored_members = __field;
+                } else {
+                    return None;
                 }
             )*
             #FQOption::Some(__this)
         )
     } else {
-        let MemberValuePair(ignored_members, ignored_values) = get_ignored_fields(reflect_struct);
-
         quote!(
             #FQOption::Some(
                 Self {
@@ -154,15 +165,9 @@ fn impl_struct_internal(
                 DefaultBehavior::Default => Some(quote!(#FQDefault)),
                 _ => None,
             },
-            |field| {
-                if is_defaultable {
-                    None
-                } else {
-                    match &field.attrs.default {
-                        DefaultBehavior::Func(_) => None,
-                        _ => Some(quote!(#FQDefault)),
-                    }
-                }
+            |field| match &field.attrs.default {
+                DefaultBehavior::Default => Some(quote!(#FQDefault)),
+                _ => None,
             },
         ),
     );
