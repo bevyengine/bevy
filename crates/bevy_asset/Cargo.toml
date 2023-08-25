@@ -7,6 +7,7 @@ edition = "2021"
 
 [features]
 filesystem_watcher = ["notify-debouncer-full"]
+multi-threaded = ["bevy_tasks/multi-threaded"]
 
 [dependencies]
 bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
@@ -43,3 +44,8 @@ js-sys = "0.3"
 
 [dev-dependencies]
 bevy_core = {path = "../bevy_core", version = "0.12.0-dev"}
+
+[[example]]
+name = "loader"
+path = "examples/loader.rs"
+required-features = ["multi-threaded"]
