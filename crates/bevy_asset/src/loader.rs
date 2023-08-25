@@ -267,14 +267,14 @@ impl<'a> LoadContext<'a> {
     pub(crate) fn new(
         asset_server: &'a AssetServer,
         asset_path: AssetPath<'static>,
-        load_dependencies: bool,
+        should_load_dependencies: bool,
         populate_hashes: bool,
     ) -> Self {
         Self {
             asset_server,
             asset_path,
             populate_hashes,
-            should_load_dependencies: load_dependencies,
+            should_load_dependencies,
             dependencies: HashSet::default(),
             loader_dependencies: HashMap::default(),
             labeled_assets: HashMap::default(),
