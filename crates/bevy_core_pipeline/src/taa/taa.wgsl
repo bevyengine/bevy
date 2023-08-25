@@ -1,5 +1,6 @@
 // References:
 // https://www.elopezr.com/temporal-aa-and-the-quest-for-the-holy-trail
+// https://alextardif.com/TAA.html
 // http://behindthepixels.io/assets/files/TemporalAA.pdf
 // http://leiy.cc/publications/TAA/TAA_EG2020_Talk.pdf
 // https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING
