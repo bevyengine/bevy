@@ -167,7 +167,7 @@ impl SystemConfigs {
         }
     }
 
-    pub(crate) fn run_if_inner(&mut self, condition: BoxedCondition) {
+    pub fn run_if_inner(&mut self, condition: BoxedCondition) {
         match self {
             SystemConfigs::SystemConfig(config) => {
                 config.conditions.push(condition);
