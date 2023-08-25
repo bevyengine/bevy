@@ -374,7 +374,7 @@ pub fn prepare_core_3d_depth_textures(
                     height: physical_target_size.y,
                 };
 
-                let usage = render_target_usage
+                let usage = *render_target_usage
                     .get(&camera.target.clone())
                     .expect("The depth texture usage should already exist for this target");
 
@@ -386,7 +386,7 @@ pub fn prepare_core_3d_depth_textures(
                     dimension: TextureDimension::D2,
                     // PERF: vulkan docs recommend using 24 bit depth for better performance
                     format: TextureFormat::Depth32Float,
-                    usage: *usage,
+                    usage,
                     view_formats: &[],
                 };
 
