@@ -18,7 +18,7 @@ use crate::{
 };
 use bevy_ecs::prelude::*;
 use bevy_log::{debug, error, trace, warn};
-use bevy_tasks::{IoTaskPool, Scope};
+use bevy_tasks::IoTaskPool;
 use bevy_utils::{BoxedFuture, HashMap, HashSet};
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
@@ -401,9 +401,10 @@ impl AssetProcessor {
     }
 
     #[allow(unused)]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
     fn process_assets_internal<'scope>(
         &'scope self,
-        scope: &'scope Scope<'scope, '_, ()>,
+        scope: &'scope bevy_tasks::Scope<'scope, '_, ()>,
         path: PathBuf,
     ) -> bevy_utils::BoxedFuture<'scope, Result<(), AssetReaderError>> {
         Box::pin(async move {
