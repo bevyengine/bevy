@@ -68,6 +68,8 @@ impl<A: Asset> Clone for AssetEvent<A> {
     }
 }
 
+impl<A: Asset> Copy for AssetEvent<A> {}
+
 impl<A: Asset> Debug for AssetEvent<A> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
