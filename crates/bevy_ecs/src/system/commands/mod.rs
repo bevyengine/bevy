@@ -968,7 +968,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         Q: WorldQuery + 'static,
         F: ReadOnlyWorldQuery + 'static,
     {
-        self.commands.add(WithQuery::<Q, F>::new(self.entity, function));
+        self.add(WithQuery::<Q, F>::new(function));
         self
     }
 }
@@ -1201,7 +1201,6 @@ where
     Q: WorldQuery,
     F: ReadOnlyWorldQuery,
 {
-    entity: Entity,
     function: Box<dyn for<'t> FnOnce(Q::Item<'t>) + Send + Sync>,
     _phantom: PhantomData<fn(Q, F) -> ()>,
 }
@@ -1213,26 +1212,24 @@ where
 {
     /// Create a new [`WithQuery`] [`EntityCommand`] from the provided [`Entity`] and closure.
     pub fn new(
-        entity: Entity,
         function: impl for<'t> FnOnce(Q::Item<'t>) + Send + Sync + 'static
     ) -> Self {
         Self {
-            entity,
             function: Box::new(function),
             _phantom: PhantomData,
         }
     }
 }
 
-impl<Q, F> Command for WithQuery<Q, F>
+impl<Q, F> EntityCommand for WithQuery<Q, F>
 where
     Q: WorldQuery,
     F: ReadOnlyWorldQuery,
     WithQuery<Q, F>: Send + Sync + 'static,
 {
-    fn apply(self, world: &mut World) {
+    fn apply(self, entity: Entity, world: &mut World) {
         let Self {
-            entity, function, ..
+            function, ..
         } = self;
 
         let mut query = world.query_filtered::<Q, F>();
