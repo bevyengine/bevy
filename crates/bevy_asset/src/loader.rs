@@ -288,6 +288,26 @@ impl<'a> LoadContext<'a> {
     /// Prefer [`LoadContext::labeled_asset_scope`] when possible, which will automatically add
     /// the labeled [`LoadContext`] back to the parent context.
     /// [`LoadContext::begin_labeled_asset`] exists largely to enable parallel asset loading.
+    ///
+    /// ```no_run
+    /// # use bevy_asset::{Asset, LoadContext};
+    /// # use bevy_reflect::TypePath;
+    /// # #[derive(Asset, TypePath, Default)]
+    /// # struct Image;
+    /// # let load_context: LoadContext = panic!();
+    /// let mut handles = Vec::new();
+    /// for i in 0..2 {
+    ///     let mut labeled = load_context.begin_labeled_asset();
+    ///     handles.push(std::thread::spawn(move || {
+    ///         (i.to_string(), labeled.finish(Image::default(), None))
+    ///     }));
+    /// }
+
+    /// for handle in handles {
+    ///     let (label, loaded_asset) = handle.join().unwrap();
+    ///     load_context.add_loaded_labeled_asset(label, loaded_asset);
+    /// }
+    /// ```
     pub fn begin_labeled_asset(&self) -> LoadContext {
         LoadContext::new(
             self.asset_server,
