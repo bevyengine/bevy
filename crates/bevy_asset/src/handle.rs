@@ -308,7 +308,10 @@ impl UntypedHandle {
         }
     }
 
-    /// Converts to a typed Handle. This _will not check if the target Handle type matches_.
+    /// Converts to a typed Handle. This will check the type when compiled with debug asserts, but it
+    ///  _will not check if the target Handle type matches in release builds_. Use this as an optimization
+    /// when you want some degree of validation at dev-time, but you are also very certain that the type
+    /// actually matches.
     #[inline]
     pub fn typed_debug_checked<A: Asset>(self) -> Handle<A> {
         debug_assert_eq!(
