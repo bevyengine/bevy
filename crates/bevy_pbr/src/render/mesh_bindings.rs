@@ -9,33 +9,45 @@ use bevy_render::{
     renderer::RenderDevice,
 };
 
+use crate::MeshPipelineKey;
+
 const MORPH_WEIGHT_SIZE: usize = std::mem::size_of::<f32>();
 pub const MORPH_BUFFER_SIZE: usize = MAX_MORPH_WEIGHTS * MORPH_WEIGHT_SIZE;
 
 /// Individual layout entries.
 mod layout_entry {
     use super::MORPH_BUFFER_SIZE;
-    use crate::render::mesh::JOINT_BUFFER_SIZE;
     use crate::MeshUniform;
+    use crate::{render::mesh::JOINT_BUFFER_SIZE, PreviousViewProjection};
     use bevy_render::{
+        globals::GlobalsUniform,
         render_resource::{
             BindGroupLayoutEntry, BindingType, BufferBindingType, BufferSize, GpuArrayBuffer,
-            ShaderStages, TextureSampleType, TextureViewDimension,
+            ShaderStages, ShaderType, TextureSampleType, TextureViewDimension,
         },
         renderer::RenderDevice,
+        view::ViewUniform,
     };
 
-    fn buffer(binding: u32, size: u64, visibility: ShaderStages) -> BindGroupLayoutEntry {
+    fn buffer_with_offset(
+        binding: u32,
+        size: u64,
+        visibility: ShaderStages,
+        has_dynamic_offset: bool,
+    ) -> BindGroupLayoutEntry {
         BindGroupLayoutEntry {
             binding,
             visibility,
             count: None,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Uniform,
-                has_dynamic_offset: true,
+                has_dynamic_offset,
                 min_binding_size: BufferSize::new(size),
             },
         }
+    }
+    fn buffer(binding: u32, size: u64, visibility: ShaderStages) -> BindGroupLayoutEntry {
+        buffer_with_offset(binding, size, visibility, true)
     }
     pub(super) fn model(render_device: &RenderDevice, binding: u32) -> BindGroupLayoutEntry {
         GpuArrayBuffer::<MeshUniform>::binding_layout(
@@ -62,6 +74,24 @@ mod layout_entry {
             count: None,
         }
     }
+
+    // ---------- Prepass bind group layouts ----------
+
+    pub(super) fn view(render_device: &RenderDevice, binding: u32) -> BindGroupLayoutEntry {
+        let size = ViewUniform::min_size().get();
+        buffer(binding, size, ShaderStages::VERTEX | ShaderStages::FRAGMENT)
+    }
+    pub(super) fn globals(render_device: &RenderDevice, binding: u32) -> BindGroupLayoutEntry {
+        let size = GlobalsUniform::min_size().get();
+        buffer_with_offset(binding, size, ShaderStages::VERTEX, false)
+    }
+    pub(super) fn previous_view_projection(
+        render_device: &RenderDevice,
+        binding: u32,
+    ) -> BindGroupLayoutEntry {
+        let size = PreviousViewProjection::min_size().get();
+        buffer(binding, size, ShaderStages::VERTEX | ShaderStages::FRAGMENT)
+    }
 }
 /// Individual [`BindGroupEntry`](bevy_render::render_resource::BindGroupEntry)
 /// for bind groups.
@@ -82,7 +112,7 @@ mod entry {
             }),
         }
     }
-    pub(super) fn model(binding: u32, resource: BindingResource) -> BindGroupEntry {
+    pub(super) fn resource(binding: u32, resource: BindingResource) -> BindGroupEntry {
         BindGroupEntry { binding, resource }
     }
     pub(super) fn skinning(binding: u32, buffer: &Buffer) -> BindGroupEntry {
@@ -176,7 +206,7 @@ impl MeshLayouts {
 
     pub fn model_only(&self, render_device: &RenderDevice, model: &BindingResource) -> BindGroup {
         render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[entry::model(0, model.clone())],
+            entries: &[entry::resource(0, model.clone())],
             layout: &self.model_only,
             label: Some("model_only_mesh_bind_group"),
         })
@@ -188,7 +218,7 @@ impl MeshLayouts {
         skin: &Buffer,
     ) -> BindGroup {
         render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[entry::model(0, model.clone()), entry::skinning(1, skin)],
+            entries: &[entry::resource(0, model.clone()), entry::skinning(1, skin)],
             layout: &self.skinned,
             label: Some("skinned_mesh_bind_group"),
         })
@@ -202,7 +232,7 @@ impl MeshLayouts {
     ) -> BindGroup {
         render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[
-                entry::model(0, model.clone()),
+                entry::resource(0, model.clone()),
                 entry::weights(2, weights),
                 entry::targets(3, targets),
             ],
@@ -220,7 +250,7 @@ impl MeshLayouts {
     ) -> BindGroup {
         render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[
-                entry::model(0, model.clone()),
+                entry::resource(0, model.clone()),
                 entry::skinning(1, skin),
                 entry::weights(2, weights),
                 entry::targets(3, targets),
@@ -228,5 +258,191 @@ impl MeshLayouts {
             layout: &self.morphed_skinned,
             label: Some("morphed_skinned_mesh_bind_group"),
         })
+    }
+}
+
+/// All possible [`BindGroupLayout`]s in bevy's prepass shader (`prepass.wgsl`).
+#[derive(Clone)]
+pub struct PrepassLayouts {
+    pub no_motion_vectors: BindGroupLayout,
+    pub model_only: BindGroupLayout,
+    pub skinned: BindGroupLayout,
+    pub morphed: BindGroupLayout,
+    pub morphed_skinned: BindGroupLayout,
+}
+impl PrepassLayouts {
+    /// Prepare the layouts used by the prepass shader.
+    pub fn new(render_device: &RenderDevice) -> Self {
+        PrepassLayouts {
+            no_motion_vectors: Self::no_motion_vectors_layout(render_device),
+            model_only: Self::model_only_layout(render_device),
+            skinned: Self::skinned_layout(render_device),
+            morphed: Self::morphed_layout(render_device),
+            morphed_skinned: Self::morphed_skinned_layout(render_device),
+        }
+    }
+
+    // ---------- create individual BindGroupLayouts ----------
+
+    fn no_motion_vectors_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[
+                layout_entry::view(render_device, 0),
+                layout_entry::globals(render_device, 1),
+            ],
+            label: Some("prepass_no_motion_vectors_layout"),
+        })
+    }
+    fn model_only_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[
+                layout_entry::view(render_device, 0),
+                layout_entry::globals(render_device, 1),
+                layout_entry::previous_view_projection(render_device, 2),
+            ],
+            label: Some("prepass_model_only_layout"),
+        })
+    }
+    fn skinned_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[
+                layout_entry::view(render_device, 0),
+                layout_entry::globals(render_device, 1),
+                layout_entry::previous_view_projection(render_device, 2),
+                layout_entry::skinning(3),
+            ],
+            label: Some("prepass_skinned_layout"),
+        })
+    }
+    fn morphed_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[
+                layout_entry::view(render_device, 0),
+                layout_entry::globals(render_device, 1),
+                layout_entry::previous_view_projection(render_device, 2),
+                layout_entry::weights(4),
+            ],
+            label: Some("prepass_moprhed_layout"),
+        })
+    }
+    fn morphed_skinned_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[
+                layout_entry::view(render_device, 0),
+                layout_entry::globals(render_device, 1),
+                layout_entry::previous_view_projection(render_device, 2),
+                layout_entry::skinning(3),
+                layout_entry::weights(4),
+            ],
+            label: Some("prepass_morphed_skinned_layout"),
+        })
+    }
+
+    // ---------- BindGroup methods ----------
+
+    pub fn no_motion_vectors(
+        &self,
+        render_device: &RenderDevice,
+        view: &BindingResource,
+        globals: &BindingResource,
+    ) -> BindGroup {
+        render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                entry::resource(0, view.clone()),
+                entry::resource(1, globals.clone()),
+            ],
+            layout: &self.no_motion_vectors,
+            label: Some("prepass_no_motion_vectors_bind_group"),
+        })
+    }
+    pub fn model_only(
+        &self,
+        render_device: &RenderDevice,
+        view: &BindingResource,
+        globals: &BindingResource,
+        previous_view_proj: &BindingResource,
+    ) -> BindGroup {
+        render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                entry::resource(0, view.clone()),
+                entry::resource(1, globals.clone()),
+                entry::resource(2, previous_view_proj.clone()),
+            ],
+            layout: &self.model_only,
+            label: Some("prepass_model_only_bind_group"),
+        })
+    }
+    pub fn skinned(
+        &self,
+        render_device: &RenderDevice,
+        view: &BindingResource,
+        globals: &BindingResource,
+        previous_view_proj: &BindingResource,
+        skin: &Buffer,
+    ) -> BindGroup {
+        render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                entry::resource(0, view.clone()),
+                entry::resource(1, globals.clone()),
+                entry::resource(2, previous_view_proj.clone()),
+                entry::skinning(3, skin),
+            ],
+            layout: &self.skinned,
+            label: Some("prepass_skinned_bind_group"),
+        })
+    }
+    pub fn morphed(
+        &self,
+        render_device: &RenderDevice,
+        view: &BindingResource,
+        globals: &BindingResource,
+        previous_view_proj: &BindingResource,
+        weights: &Buffer,
+        targets: &TextureView,
+    ) -> BindGroup {
+        render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                entry::resource(0, view.clone()),
+                entry::resource(1, globals.clone()),
+                entry::resource(2, previous_view_proj.clone()),
+                entry::weights(4, weights),
+            ],
+            layout: &self.morphed,
+            label: Some("prepass_morphed_bind_group"),
+        })
+    }
+    pub fn morphed_skinned(
+        &self,
+        render_device: &RenderDevice,
+        view: &BindingResource,
+        globals: &BindingResource,
+        previous_view_proj: &BindingResource,
+        skin: &Buffer,
+        weights: &Buffer,
+        targets: &TextureView,
+    ) -> BindGroup {
+        render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                entry::resource(0, view.clone()),
+                entry::resource(1, globals.clone()),
+                entry::resource(2, previous_view_proj.clone()),
+                entry::skinning(3, skin),
+                entry::weights(4, weights),
+            ],
+            layout: &self.morphed_skinned,
+            label: Some("prepass_morphed_skinned_bind_group"),
+        })
+    }
+
+    pub fn for_shader_defs(&self, key: &MeshPipelineKey, is_skinned: bool) -> &BindGroupLayout {
+        let is_morphed = key.intersects(MeshPipelineKey::MORPH_TARGETS);
+        let is_motion_vectors = key.intersects(MeshPipelineKey::MOTION_VECTOR_PREPASS);
+        match (is_motion_vectors, is_skinned, is_morphed) {
+            (false, ..) => &self.no_motion_vectors,
+            (true, false, false) => &self.model_only,
+            (true, false, true) => &self.morphed,
+            (true, true, false) => &self.skinned,
+            (true, true, true) => &self.morphed_skinned,
+        }
     }
 }

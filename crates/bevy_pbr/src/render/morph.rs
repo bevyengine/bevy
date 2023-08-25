@@ -10,18 +10,20 @@ use bevy_render::{
 };
 use bytemuck::Pod;
 
+use super::double_buffer::DoubleBufferVec;
+
 #[derive(Component)]
 pub struct MorphIndex {
     pub(super) index: u32,
 }
 #[derive(Resource)]
 pub struct MorphUniform {
-    pub buffer: BufferVec<f32>,
+    pub buffer: DoubleBufferVec<f32>,
 }
 impl Default for MorphUniform {
     fn default() -> Self {
         Self {
-            buffer: BufferVec::new(BufferUsages::UNIFORM),
+            buffer: DoubleBufferVec::new(BufferUsages::UNIFORM),
         }
     }
 }
@@ -86,7 +88,7 @@ pub fn extract_morphs(
         let weights = morph_weights.weights();
         let legal_weights = weights.iter().take(MAX_MORPH_WEIGHTS).copied();
         uniform.buffer.extend(legal_weights);
-        add_to_alignment::<f32>(&mut uniform.buffer);
+        add_to_alignment::<f32>(uniform.buffer.current_buffer_mut());
 
         let index = (start * mem::size_of::<f32>()) as u32;
         values.push((entity, MorphIndex { index }));

@@ -806,7 +806,7 @@ impl MeshPipelineKey {
     }
 }
 
-fn is_skinned(layout: &Hashed<InnerMeshVertexBufferLayout>) -> bool {
+pub(crate) fn is_skinned(layout: &Hashed<InnerMeshVertexBufferLayout>) -> bool {
     layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX) && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
 }
 pub fn setup_morph_and_skinning_defs(

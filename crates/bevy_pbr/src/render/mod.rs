@@ -1,3 +1,4 @@
+mod double_buffer;
 mod fog;
 mod light;
 pub(crate) mod mesh;
@@ -7,4 +8,4 @@ mod morph;
 pub use fog::*;
 pub use light::*;
 pub use mesh::*;
-pub use mesh_bindings::MeshLayouts;
+pub use mesh_bindings::{MeshLayouts, PrepassLayouts};

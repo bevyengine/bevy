@@ -9,8 +9,20 @@ var<uniform> view: View;
 var<uniform> globals: Globals;
 
 #ifdef MOTION_VECTOR_PREPASS
+
 @group(0) @binding(2)
 var<uniform> previous_view_proj: mat4x4<f32>;
+
+#ifdef SKINNED
+@group(0) @binding(3)
+var<uniform> previous_joint_matrices: SkinnedMesh;
+#endif // SKINNED
+
+#ifdef MORPH_TARGETS
+@group(0) @binding(4)
+var<uniform> previous_morph_weights: MorphWeights;
+#endif // MORPH_TARGETS
+
 #endif // MOTION_VECTOR_PREPASS
 
 // Material bindings will be in @group(1)
