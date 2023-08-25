@@ -152,6 +152,10 @@ impl<A: RenderAsset> RenderAssets<A> {
     pub fn iter(&self) -> impl Iterator<Item = (AssetId<A>, &A::PreparedAsset)> {
         self.0.iter().map(|(k, v)| (*k, v))
     }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (AssetId<A>, &mut A::PreparedAsset)> {
+        self.0.iter_mut().map(|(k, v)| (*k, v))
+    }
 }
 
 /// This system extracts all crated or modified assets of the corresponding [`RenderAsset`] type
