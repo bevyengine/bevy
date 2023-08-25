@@ -890,10 +890,10 @@ impl ScheduleGraph {
         let dependency_flattened = self.get_dependency_flattened(&set_systems);
 
         // topsort
-        let mut dependency_flattened_dag = Dag::default();
-        dependency_flattened_dag.topsort =
-            self.topsort_graph(&dependency_flattened, ReportCycles::Dependency)?;
-        dependency_flattened_dag.graph = dependency_flattened;
+        let mut dependency_flattened_dag = Dag {
+            topsort: self.topsort_graph(&dependency_flattened, ReportCycles::Dependency)?,
+            graph: dependency_flattened,
+        };
 
         let flat_results = check_graph(
             &dependency_flattened_dag.graph,
@@ -918,7 +918,7 @@ impl ScheduleGraph {
 
     fn map_sets_to_systems(
         &self,
-        hierarchy_topsort: &Vec<NodeId>,
+        hierarchy_topsort: &[NodeId],
         hierarchy_graph: &GraphMap<NodeId, (), Directed>,
     ) -> (HashMap<NodeId, Vec<NodeId>>, HashMap<NodeId, FixedBitSet>) {
         let mut set_systems: HashMap<NodeId, Vec<NodeId>> =
@@ -1267,8 +1267,8 @@ impl ScheduleGraph {
         }
     }
 
-    // If ScheduleBuildSettings::hierarchy_detection is LogLevel::Ignore this check
-    // is skipped.
+    /// If [`ScheduleBuildSettings::hierarchy_detection`] is [`LogLevel::Ignore`] this check
+    /// is skipped.
     fn optionally_check_hierarchy_conflicts(
         &self,
         transitive_edges: &[(NodeId, NodeId)],
@@ -1475,7 +1475,7 @@ impl ScheduleGraph {
         Ok(())
     }
 
-    /// if ScheduleBuildSettings::ambiguity_detection is LogLevel::Ignore, this check is skipped
+    /// if [`ScheduleBuildSettings::ambiguity_detection`] is [`LogLevel::Ignore`], this check is skipped
     fn optionally_check_conflicts(
         &self,
         conflicts: &[(NodeId, NodeId, Vec<ComponentId>)],
