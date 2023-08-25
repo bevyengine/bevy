@@ -37,13 +37,19 @@ impl AssetReader for HttpWasmAssetReader {
                 .await
                 .unwrap();
             let resp: Response = resp_value.dyn_into().unwrap();
-            if resp.status() == 404 {
-                return Err(AssetReaderError::NotFound(path));
+            match resp.status() {
+                200 => {
+                    let data = JsFuture::from(resp.array_buffer().unwrap()).await.unwrap();
+                    let bytes = Uint8Array::new(&data).to_vec();
+                    let reader: Box<Reader> = Box::new(VecReader::new(bytes));
+                    Ok(reader)
+                }
+                404 => Err(AssetReaderError::NotFound(path)),
+                status => Err(AssetReaderError::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Encountered unexpected HTTP status {status}"),
+                ))),
             }
-            let data = JsFuture::from(resp.array_buffer().unwrap()).await.unwrap();
-            let bytes = Uint8Array::new(&data).to_vec();
-            let reader: Box<Reader> = Box::new(VecReader::new(bytes));
-            Ok(reader)
         })
     }
 
