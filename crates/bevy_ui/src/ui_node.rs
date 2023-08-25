@@ -244,7 +244,7 @@ impl Val {
         }
     }
 
-    /// Similar to [`Val::try_add`], but performs [`Val::evaluate`] on both values before adding.
+    /// Similar to [`Val::try_add`], but performs [`Val::eval`] on both values before adding.
     /// Returns an [`f32`] value in pixels.
     pub fn try_add_with_context(&self, rhs: Val, size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
         let lhs = self.eval(size, viewport_size)?;
@@ -253,7 +253,7 @@ impl Val {
         Ok(lhs + rhs)
     }
 
-    /// Similar to [`Val::try_add_assign`], but performs [`Val::evaluate`] on both values before adding.
+    /// Similar to [`Val::try_add_assign`], but performs [`Val::eval`] on both values before adding.
     /// The value gets converted to [`Val::Px`].
     pub fn try_add_assign_with_context(
         &mut self,
@@ -265,7 +265,7 @@ impl Val {
         Ok(())
     }
 
-    /// Similar to [`Val::try_sub`], but performs [`Val::evaluate`] on both values before subtracting.
+    /// Similar to [`Val::try_sub`], but performs [`Val::eval`] on both values before subtracting.
     /// Returns an [`f32`] value in pixels.
     pub fn try_sub_with_context(&self, rhs: Val, size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
         let lhs = self.eval(size, viewport_size)?;
@@ -274,7 +274,7 @@ impl Val {
         Ok(lhs - rhs)
     }
 
-    /// Similar to [`Val::try_sub_assign`], but performs [`Val::evaluate`] on both values before adding.
+    /// Similar to [`Val::try_sub_assign`], but performs [`Val::eval`] on both values before adding.
     /// The value gets converted to [`Val::Px`].
     pub fn try_sub_assign_with_context(
         &mut self,
