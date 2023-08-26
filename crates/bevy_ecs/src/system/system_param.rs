@@ -679,19 +679,11 @@ unsafe impl SystemParam for &'_ World {
 /// // .add_systems(reset_to_system(my_config))
 /// # assert_is_system(reset_to_system(Config(10)));
 /// ```
+#[derive(Debug)]
 pub struct Local<'s, T: FromWorld + Send + 'static>(pub(crate) &'s mut T);
 
 // SAFETY: Local only accesses internal state
 unsafe impl<'s, T: FromWorld + Send + 'static> ReadOnlySystemParam for Local<'s, T> {}
-
-impl<'s, T: FromWorld + Send + Sync + 'static> Debug for Local<'s, T>
-where
-    T: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("Local").field(&self.0).finish()
-    }
-}
 
 impl<'s, T: FromWorld + Send + Sync + 'static> Deref for Local<'s, T> {
     type Target = T;
