@@ -424,8 +424,7 @@ impl AssetProcessor {
     }
 
     async fn try_reprocessing_queued(&self) {
-        let mut check_reprocess = true;
-        while check_reprocess {
+        loop {
             let mut check_reprocess_queue =
                 std::mem::take(&mut self.data.asset_infos.write().await.check_reprocess_queue);
             IoTaskPool::get().scope(|scope| {
@@ -437,7 +436,9 @@ impl AssetProcessor {
                 }
             });
             let infos = self.data.asset_infos.read().await;
-            check_reprocess = !infos.check_reprocess_queue.is_empty();
+            if infos.check_reprocess_queue.is_empty() {
+                break;
+            }
         }
     }
 
