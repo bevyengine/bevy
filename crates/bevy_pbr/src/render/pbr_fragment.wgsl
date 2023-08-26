@@ -18,21 +18,48 @@
 #import bevy_pbr::gtao_utils gtao_multibounce
 #endif
 
+fn mesh_vertex_output_pbr_input(
+    in: MeshVertexOutput,
+    is_front: bool,
+    double_sided: bool,
+) -> pbr_functions::PbrInput {
+    var pbr_input: pbr_functions::PbrInput = pbr_functions::pbr_input_new();
+
+    pbr_input.is_orthographic = view.projection[3].w == 1.0;
+    pbr_input.V = pbr_functions::calculate_view(in.world_position, pbr_input.is_orthographic);
+    pbr_input.frag_coord = in.position;
+    pbr_input.world_position = in.world_position;
+
+#ifdef VERTEX_COLORS
+    pbr_input.material.base_color = in.color;
+#endif
+
+    pbr_input.world_normal = pbr_functions::prepare_world_normal(
+        in.world_normal,
+        double_sided,
+        is_front,
+    );
+    pbr_input.N = normalize(pbr_input.world_normal);
+
+    return pbr_input;
+}
+
 // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
 // the material members
 fn standard_material_pbr_input(
     in: MeshVertexOutput,
     is_front: bool,
 ) -> pbr_functions::PbrInput {
-    var pbr_input: pbr_functions::PbrInput;
-    var output_color: vec4<f32> = pbr_bindings::material.base_color;
+    let double_sided = (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
 
-    let is_orthographic = view.projection[3].w == 1.0;
-    let V = pbr_functions::calculate_view(in.world_position, is_orthographic);
+    var pbr_input: pbr_functions::PbrInput = mesh_vertex_output_pbr_input(in, is_front, double_sided);
+    pbr_input.material.base_color = pbr_input.material.base_color * pbr_bindings::material.base_color;
+
 #ifdef VERTEX_UVS
     var uv = in.uv;
 #ifdef VERTEX_TANGENTS
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
+        let V = pbr_input.V;
         let N = in.world_normal;
         let T = in.world_tangent.xyz;
         let B = in.world_tangent.w * cross(N, T);
@@ -52,16 +79,12 @@ fn standard_material_pbr_input(
 #endif
 #endif
 
-#ifdef VERTEX_COLORS
-    output_color = output_color * in.color;
-#endif
 #ifdef VERTEX_UVS
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
-        output_color = output_color * textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv, view.mip_bias);
+        pbr_input.material.base_color = pbr_input.material.base_color * textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv, view.mip_bias);
     }
 #endif
 
-    pbr_input.material.base_color = output_color;
     pbr_input.material.flags = pbr_bindings::material.flags;
 
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
@@ -106,17 +129,6 @@ fn standard_material_pbr_input(
 #endif
         pbr_input.occlusion = occlusion;
 
-        pbr_input.frag_coord = in.position;
-        pbr_input.world_position = in.world_position;
-
-        pbr_input.world_normal = pbr_functions::prepare_world_normal(
-            in.world_normal,
-            (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
-            is_front,
-        );
-
-        pbr_input.is_orthographic = is_orthographic;
-
 #ifdef LOAD_PREPASS_NORMALS
         pbr_input.N = bevy_pbr::prepass_utils::prepass_normal(in.position, 0u);
 #else
@@ -135,7 +147,6 @@ fn standard_material_pbr_input(
         );
 #endif
 
-        pbr_input.V = V;
         pbr_input.occlusion = occlusion;
 
         pbr_input.flags = mesh[in.instance_index].flags;
