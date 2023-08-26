@@ -45,7 +45,7 @@ jobs:
           sudo apt-get update
           sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
       - name: Test
-        run: xvfb-run cargo test
+        run: xvfb-run cargo test --no-default-features
 
   test-macos:
     name: Test Suite (MacOS)

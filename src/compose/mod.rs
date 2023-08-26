@@ -808,7 +808,11 @@ impl Composer {
                     Some(recompiled_h) => {
                         if let naga::TypeInner::Struct { members, .. } = &ty.inner {
                             let recompiled_ty = recompiled.types.get_handle(*recompiled_h).unwrap();
-                            let naga::TypeInner::Struct { members: recompiled_members, .. } = &recompiled_ty.inner else {
+                            let naga::TypeInner::Struct {
+                                members: recompiled_members,
+                                ..
+                            } = &recompiled_ty.inner
+                            else {
                                 panic!();
                             };
                             for (member, recompiled_member) in
@@ -1648,7 +1652,7 @@ impl Composer {
                     offset: 0,
                 },
             })?;
-        shader_defs.extend(defines.into_iter());
+        shader_defs.extend(defines);
 
         let PreprocessOutput {
             preprocessed_source,

@@ -46,13 +46,13 @@ impl ErrSource {
                 }) = composer
                     .preprocessor
                     .preprocess(raw_source, defs, composer.validate)
-                    else {
-                        return Default::default()
-                    };
+                else {
+                    return Default::default();
+                };
 
-                let Ok(source) = composer
-                    .substitute_shader_string(&source, &imports)
-                    else { return Default::default() };
+                let Ok(source) = composer.substitute_shader_string(&source, &imports) else {
+                    return Default::default();
+                };
 
                 Cow::Owned(source)
             }
