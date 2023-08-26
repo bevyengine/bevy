@@ -693,7 +693,7 @@ where
     }
 }
 
-impl<'s, T: FromWorld + Send + Sync + 'static> Deref for Local<'s, T> {
+impl<'s, T: FromWorld + Send + 'static> Deref for Local<'s, T> {
     type Target = T;
 
     #[inline]
@@ -702,7 +702,7 @@ impl<'s, T: FromWorld + Send + Sync + 'static> Deref for Local<'s, T> {
     }
 }
 
-impl<'s, T: FromWorld + Send + Sync + 'static> DerefMut for Local<'s, T> {
+impl<'s, T: FromWorld + Send + 'static> DerefMut for Local<'s, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
