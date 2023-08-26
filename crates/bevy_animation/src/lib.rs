@@ -351,9 +351,13 @@ fn verify_no_ancestor_player(
     player_parent: Option<&Parent>,
     parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
 ) -> bool {
-    let Some(mut current) = player_parent.map(Parent::get) else { return true };
+    let Some(mut current) = player_parent.map(Parent::get) else {
+        return true;
+    };
     loop {
-        let Ok((maybe_player, parent)) = parents.get(current) else { return true };
+        let Ok((maybe_player, parent)) = parents.get(current) else {
+            return true;
+        };
         if maybe_player.is_some() {
             return false;
         }
@@ -533,7 +537,9 @@ fn apply_animation(
             // This means only the AnimationPlayers closest to the root of the hierarchy will be able
             // to run their animation. Any players in the children or descendants will log a warning
             // and do nothing.
-            let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else { continue };
+            let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else {
+                continue;
+            };
             let mut morphs = unsafe { morphs.get_unchecked(target) };
             for curve in curves {
                 // Some curves have only one keyframe used to set a transform

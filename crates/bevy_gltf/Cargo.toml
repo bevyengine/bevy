@@ -28,9 +28,10 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 
 # other
-gltf = { version = "1.0.0", default-features = false, features = [
+gltf = { version = "1.3.0", default-features = false, features = [
     "KHR_lights_punctual",
     "KHR_materials_unlit",
+    "KHR_materials_emissive_strength",
     "extras",
     "names",
     "utils",

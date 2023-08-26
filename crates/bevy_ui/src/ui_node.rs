@@ -651,7 +651,7 @@ impl Default for AlignItems {
     }
 }
 
-/// How items are aligned according to the cross axis
+/// How items are aligned according to the main axis
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifyItems {
@@ -665,7 +665,7 @@ pub enum JustifyItems {
     Center,
     /// Items are aligned at the baseline.
     Baseline,
-    /// Items are stretched across the whole cross axis.
+    /// Items are stretched across the whole main axis.
     Stretch,
 }
 
@@ -714,12 +714,12 @@ impl Default for AlignSelf {
     }
 }
 
-/// How this item is aligned according to the cross axis.
-/// Overrides [`AlignItems`].
+/// How this item is aligned according to the main axis.
+/// Overrides [`JustifyItems`].
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifySelf {
-    /// Use the parent node's [`AlignItems`] value to determine how this item should be aligned.
+    /// Use the parent node's [`JustifyItems`] value to determine how this item should be aligned.
     Auto,
     /// This item will be aligned with the start of the axis.
     Start,
@@ -729,7 +729,7 @@ pub enum JustifySelf {
     Center,
     /// This item will be aligned at the baseline.
     Baseline,
-    /// This item will be stretched across the whole cross axis.
+    /// This item will be stretched across the whole main axis.
     Stretch,
 }
 
