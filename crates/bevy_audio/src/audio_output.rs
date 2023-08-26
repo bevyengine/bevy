@@ -95,9 +95,9 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                         sink.set_speed(settings.speed);
                         match settings.volume {
                             Volume::Relative(vol) => {
-                                sink.set_volume(vol.0 * global_volume.volume.0);
+                                sink.set_volume(vol.amplitude() * global_volume.volume.amplitude());
                             }
-                            Volume::Absolute(vol) => sink.set_volume(vol.0),
+                            Volume::Absolute(vol) => sink.set_volume(vol.amplitude()),
                         }
                         if settings.paused {
                             sink.pause();
@@ -137,9 +137,9 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                         sink.set_speed(settings.speed);
                         match settings.volume {
                             Volume::Relative(vol) => {
-                                sink.set_volume(vol.0 * global_volume.volume.0);
+                                sink.set_volume(vol.amplitude() * global_volume.volume.amplitude());
                             }
-                            Volume::Absolute(vol) => sink.set_volume(vol.0),
+                            Volume::Absolute(vol) => sink.set_volume(vol.amplitude()),
                         }
                         if settings.paused {
                             sink.pause();

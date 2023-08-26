@@ -29,6 +29,7 @@ mod audio_output;
 mod audio_source;
 mod pitch;
 mod sinks;
+mod volume_level;
 
 #[allow(missing_docs)]
 pub mod prelude {
@@ -36,7 +37,7 @@ pub mod prelude {
     pub use crate::{
         AudioBundle, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle, Decodable,
         GlobalVolume, Pitch, PitchBundle, PlaybackSettings, SpatialAudioBundle, SpatialAudioSink,
-        SpatialAudioSourceBundle, SpatialPitchBundle, SpatialSettings,
+        SpatialAudioSourceBundle, SpatialPitchBundle, SpatialSettings, VolumeLevel,
     };
 }
 
@@ -48,6 +49,7 @@ pub use rodio::cpal::Sample as CpalSample;
 pub use rodio::source::Source;
 pub use rodio::Sample;
 pub use sinks::*;
+pub use volume_level::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Asset};

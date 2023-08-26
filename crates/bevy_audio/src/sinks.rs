@@ -3,19 +3,21 @@ use bevy_math::Vec3;
 use bevy_transform::prelude::Transform;
 use rodio::{Sink, SpatialSink};
 
+use crate::volume_level::VolumeLevel;
+
 /// Common interactions with an audio sink.
 pub trait AudioSinkPlayback {
     /// Gets the volume of the sound.
     ///
-    /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0`
-    /// will multiply each sample by this value.
-    fn volume(&self) -> f32;
+    /// The values `Amplitude(1.)` and `Decibels(0.)` are the "normal" volume (unfiltered input).
+    /// Any other value will multiply each sample by the provided amplitude.
+    fn volume(&self) -> VolumeLevel;
 
     /// Changes the volume of the sound.
     ///
-    /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0`
-    /// will multiply each sample by this value.
-    fn set_volume(&self, volume: f32);
+    /// The values `Amplitude(1.)` and `Decibels(0.)` are the "normal" volume (unfiltered input).
+    /// Any other value will multiply each sample by the provided amplitude.
+    fn set_volume(&self, volume: VolumeLevel);
 
     /// Gets the speed of the sound.
     ///
@@ -81,12 +83,12 @@ pub struct AudioSink {
 }
 
 impl AudioSinkPlayback for AudioSink {
-    fn volume(&self) -> f32 {
-        self.sink.volume()
+    fn volume(&self) -> VolumeLevel {
+        VolumeLevel::Amplitude(self.sink.volume())
     }
 
-    fn set_volume(&self, volume: f32) {
-        self.sink.set_volume(volume);
+    fn set_volume(&self, volume: VolumeLevel) {
+        self.sink.set_volume(volume.amplitude());
     }
 
     fn speed(&self) -> f32 {
@@ -134,12 +136,12 @@ pub struct SpatialAudioSink {
 }
 
 impl AudioSinkPlayback for SpatialAudioSink {
-    fn volume(&self) -> f32 {
-        self.sink.volume()
+    fn volume(&self) -> VolumeLevel {
+        VolumeLevel::Amplitude(self.sink.volume())
     }
 
-    fn set_volume(&self, volume: f32) {
-        self.sink.set_volume(volume);
+    fn set_volume(&self, volume: VolumeLevel) {
+        self.sink.set_volume(volume.amplitude());
     }
 
     fn speed(&self) -> f32 {
