@@ -404,8 +404,8 @@ mod tests {
             display: Display::Flex,
             position_type: PositionType::Absolute,
             left: Val::ZERO,
-            right: Val::ZERO,
-            top: Val::Auto,
+            right: Val::Percent(50.),
+            top: Val::Px(12.),
             bottom: Val::Auto,
             direction: crate::Direction::Inherit,
             flex_direction: FlexDirection::ColumnReverse,
@@ -418,21 +418,21 @@ mod tests {
             justify_content: JustifyContent::SpaceEvenly,
             margin: UiRect {
                 left: Val::ZERO,
-                right: Val::ZERO,
-                top: Val::Auto,
+                right: Val::Px(10.),
+                top: Val::Percent(15.),
                 bottom: Val::Auto,
             },
             padding: UiRect {
-                left: Val::ZERO,
-                right: Val::ZERO,
-                top: Val::ZERO,
+                left: Val::Percent(13.),
+                right: Val::Px(21.),
+                top: Val::Auto,
                 bottom: Val::ZERO,
             },
             border: UiRect {
-                left: Val::ZERO,
+                left: Val::Px(14.),
                 right: Val::ZERO,
                 top: Val::Auto,
-                bottom: Val::ZERO,
+                bottom: Val::Percent(31.),
             },
             flex_grow: 1.,
             flex_shrink: 0.,
@@ -477,11 +477,11 @@ mod tests {
         );
         assert_eq!(
             taffy_style.inset.right,
-            taffy::style::LengthPercentageAuto::ZERO
+            taffy::style::LengthPercentageAuto::Percent(0.5)
         );
         assert_eq!(
             taffy_style.inset.top,
-            taffy::style::LengthPercentageAuto::Auto
+            taffy::style::LengthPercentageAuto::Points(12.)
         );
         assert_eq!(
             taffy_style.inset.bottom,
@@ -516,11 +516,11 @@ mod tests {
         );
         assert_eq!(
             taffy_style.margin.right,
-            taffy::style::LengthPercentageAuto::ZERO
+            taffy::style::LengthPercentageAuto::Points(10.)
         );
         assert_eq!(
             taffy_style.margin.top,
-            taffy::style::LengthPercentageAuto::Auto
+            taffy::style::LengthPercentageAuto::Percent(0.15)
         );
         assert_eq!(
             taffy_style.margin.bottom,
@@ -528,11 +528,11 @@ mod tests {
         );
         assert_eq!(
             taffy_style.padding.left,
-            taffy::style::LengthPercentage::ZERO
+            taffy::style::LengthPercentage::Percent(0.13)
         );
         assert_eq!(
             taffy_style.padding.right,
-            taffy::style::LengthPercentage::ZERO
+            taffy::style::LengthPercentage::Points(21.)
         );
         assert_eq!(
             taffy_style.padding.top,
@@ -544,7 +544,7 @@ mod tests {
         );
         assert_eq!(
             taffy_style.border.left,
-            taffy::style::LengthPercentage::ZERO
+            taffy::style::LengthPercentage::Points(14.)
         );
         assert_eq!(
             taffy_style.border.right,
@@ -553,7 +553,7 @@ mod tests {
         assert_eq!(taffy_style.border.top, taffy::style::LengthPercentage::ZERO);
         assert_eq!(
             taffy_style.border.bottom,
-            taffy::style::LengthPercentage::ZERO
+            taffy::style::LengthPercentage::Percent(0.31)
         );
         assert_eq!(taffy_style.flex_grow, 1.);
         assert_eq!(taffy_style.flex_shrink, 0.);
