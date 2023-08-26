@@ -231,12 +231,12 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
     /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
-    pub fn iter(&mut self) -> ManualEventIterator<'_, E> {
+    pub fn iter(&mut self) -> EventIterator<'_, E> {
         self.reader.iter(&self.events)
     }
 
     /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
-    pub fn iter_with_id(&mut self) -> ManualEventIteratorWithId<'_, E> {
+    pub fn iter_with_id(&mut self) -> EventIteratorWithId<'_, E> {
         self.reader.iter_with_id(&self.events)
     }
 
@@ -283,7 +283,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 
 impl<'a, 'w, 's, E: Event> IntoIterator for &'a mut EventReader<'w, 's, E> {
     type Item = &'a E;
-    type IntoIter = ManualEventIterator<'a, E>;
+    type IntoIter = EventIterator<'a, E>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
@@ -382,16 +382,13 @@ impl<E: Event> Default for ManualEventReader<E> {
 #[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
 impl<E: Event> ManualEventReader<E> {
     /// See [`EventReader::iter`]
-    pub fn iter<'a>(&'a mut self, events: &'a Events<E>) -> ManualEventIterator<'a, E> {
+    pub fn iter<'a>(&'a mut self, events: &'a Events<E>) -> EventIterator<'a, E> {
         self.iter_with_id(events).without_id()
     }
 
     /// See [`EventReader::iter_with_id`]
-    pub fn iter_with_id<'a>(
-        &'a mut self,
-        events: &'a Events<E>,
-    ) -> ManualEventIteratorWithId<'a, E> {
-        ManualEventIteratorWithId::new(self, events)
+    pub fn iter_with_id<'a>(&'a mut self, events: &'a Events<E>) -> EventIteratorWithId<'a, E> {
+        EventIteratorWithId::new(self, events)
     }
 
     /// See [`EventReader::len`]
@@ -426,11 +423,11 @@ impl<E: Event> ManualEventReader<E> {
 
 /// An iterator that yields any unread events from an [`EventReader`] or [`ManualEventReader`].
 #[derive(Debug)]
-pub struct ManualEventIterator<'a, E: Event> {
-    iter: ManualEventIteratorWithId<'a, E>,
+pub struct EventIterator<'a, E: Event> {
+    iter: EventIteratorWithId<'a, E>,
 }
 
-impl<'a, E: Event> Iterator for ManualEventIterator<'a, E> {
+impl<'a, E: Event> Iterator for EventIterator<'a, E> {
     type Item = &'a E;
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|(event, _)| event)
@@ -456,7 +453,7 @@ impl<'a, E: Event> Iterator for ManualEventIterator<'a, E> {
     }
 }
 
-impl<'a, E: Event> ExactSizeIterator for ManualEventIterator<'a, E> {
+impl<'a, E: Event> ExactSizeIterator for EventIterator<'a, E> {
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -464,13 +461,13 @@ impl<'a, E: Event> ExactSizeIterator for ManualEventIterator<'a, E> {
 
 /// An iterator that yields any unread events (and their IDs) from an [`EventReader`] or [`ManualEventReader`].
 #[derive(Debug)]
-pub struct ManualEventIteratorWithId<'a, E: Event> {
+pub struct EventIteratorWithId<'a, E: Event> {
     reader: &'a mut ManualEventReader<E>,
     chain: Chain<Iter<'a, EventInstance<E>>, Iter<'a, EventInstance<E>>>,
     unread: usize,
 }
 
-impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
+impl<'a, E: Event> EventIteratorWithId<'a, E> {
     /// Creates a new iterator that yields any `events` that have not yet been seen by `reader`.
     pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
         let a_index = (reader.last_event_count).saturating_sub(events.events_a.start_event_count);
@@ -493,12 +490,12 @@ impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
     }
 
     /// Iterate over only the events.
-    pub fn without_id(self) -> ManualEventIterator<'a, E> {
-        ManualEventIterator { iter: self }
+    pub fn without_id(self) -> EventIterator<'a, E> {
+        EventIterator { iter: self }
     }
 }
 
-impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
+impl<'a, E: Event> Iterator for EventIteratorWithId<'a, E> {
     type Item = (&'a E, EventId<E>);
     fn next(&mut self) -> Option<Self::Item> {
         match self
@@ -547,7 +544,7 @@ impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
     }
 }
 
-impl<'a, E: Event> ExactSizeIterator for ManualEventIteratorWithId<'a, E> {
+impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
     fn len(&self) -> usize {
         self.unread
     }
