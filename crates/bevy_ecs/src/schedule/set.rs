@@ -22,7 +22,7 @@ define_label!(
     /// Types that identify logical groups of systems.
     SystemSet,
     SYSTEM_SET_INTERNER,
-    {
+    extra_methods: {
         /// Returns `Some` if this system set is a [`SystemTypeSet`].
         fn system_type(&self) -> Option<TypeId> {
             None
@@ -33,7 +33,7 @@ define_label!(
             false
         }
     },
-    {
+    extra_methods_impl: {
         fn system_type(&self) -> Option<TypeId> {
             (**self).system_type()
         }

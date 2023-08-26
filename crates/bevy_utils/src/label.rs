@@ -95,14 +95,20 @@ macro_rules! define_label {
         $label_trait_name:ident,
         $interner_name:ident
     ) => {
-        $crate::define_label!($(#[$label_attr])* $label_trait_name, $interner_name, {}, {});
+        $crate::define_label!(
+            $(#[$label_attr])*
+            $label_trait_name,
+            $interner_name,
+            extra_methods: {},
+            extra_methods_impl: {}
+        );
     };
     (
         $(#[$label_attr:meta])*
         $label_trait_name:ident,
         $interner_name:ident,
-        { $($trait_extra_methods:tt)* },
-        { $($interned_extra_methods_impl:tt)* }
+        extra_methods: { $($trait_extra_methods:tt)* },
+        extra_methods_impl: { $($interned_extra_methods_impl:tt)* }
     ) => {
 
         $(#[$label_attr])*
