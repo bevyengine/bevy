@@ -151,19 +151,11 @@ pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, syst
 
 impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "System {}: {{{}}}", self.name(), {
-            if self.is_send() {
-                if self.is_exclusive() {
-                    "is_send is_exclusive"
-                } else {
-                    "is_send"
-                }
-            } else if self.is_exclusive() {
-                "is_exclusive"
-            } else {
-                ""
-            }
-        },)
+        f.debug_struct("System")
+            .field("name", &self.name())
+            .field("is_exclusive", &self.is_exclusive())
+            .field("is_send", &self.is_send())
+            .finish_non_exhaustive()
     }
 }
 

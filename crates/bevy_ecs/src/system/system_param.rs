@@ -679,19 +679,11 @@ unsafe impl SystemParam for &'_ World {
 /// // .add_systems(reset_to_system(my_config))
 /// # assert_is_system(reset_to_system(Config(10)));
 /// ```
+#[derive(Debug)]
 pub struct Local<'s, T: FromWorld + Send + 'static>(pub(crate) &'s mut T);
 
 // SAFETY: Local only accesses internal state
 unsafe impl<'s, T: FromWorld + Send + 'static> ReadOnlySystemParam for Local<'s, T> {}
-
-impl<'s, T: FromWorld + Send + Sync + 'static> Debug for Local<'s, T>
-where
-    T: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("Local").field(&self.0).finish()
-    }
-}
 
 impl<'s, T: FromWorld + Send + Sync + 'static> Deref for Local<'s, T> {
     type Target = T;
@@ -1300,14 +1292,13 @@ unsafe impl SystemParam for SystemChangeTick {
 ///
 /// This is not a reliable identifier, it is more so useful for debugging
 /// purposes of finding where a system parameter is being used incorrectly.
-pub struct SystemName<'s> {
-    name: &'s str,
-}
+#[derive(Debug)]
+pub struct SystemName<'s>(&'s str);
 
 impl<'s> SystemName<'s> {
     /// Gets the name of the system.
     pub fn name(&self) -> &str {
-        self.name
+        self.0
     }
 }
 
@@ -1326,14 +1317,7 @@ impl<'s> AsRef<str> for SystemName<'s> {
 
 impl<'s> From<SystemName<'s>> for &'s str {
     fn from(name: SystemName<'s>) -> &'s str {
-        name.name
-    }
-}
-
-impl<'s> std::fmt::Debug for SystemName<'s> {
-    #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_tuple("SystemName").field(&self.name()).finish()
+        name.0
     }
 }
 
@@ -1360,7 +1344,7 @@ unsafe impl SystemParam for SystemName<'_> {
         _world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        SystemName { name }
+        SystemName(name)
     }
 }
 
