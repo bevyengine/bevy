@@ -521,8 +521,8 @@ fn apply_animation(
         for (path, bone_id) in &animation_clip.paths {
             let cached_path = &mut animation.path_cache[*bone_id];
             let curves = animation_clip.get_curves(*bone_id).unwrap();
-            let Some(target) = entity_from_path(root, path, children, names, cached_path) else { 
-                continue 
+            let Some(target) = entity_from_path(root, path, children, names, cached_path) else {
+                continue;
             };
             any_path_found = true;
             // SAFETY: The verify_no_ancestor_player check above ensures that two animation players cannot alias
