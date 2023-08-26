@@ -501,9 +501,9 @@ impl ScheduleGraph {
 
     /// Adds the systems to the graph.
     ///
-    /// `collect_nodes` controls whether the `NodeId`s of the processed systems are stored in the returned [`ProcessConfigResult`].
+    /// `collect_nodes` controls whether the `NodeId`s of the processed systems are stored in the returned [`ProcessConfigsResult`].
     ///
-    /// The fields on the returned [`ProcessConfigResult`] are:
+    /// The fields on the returned [`ProcessConfigsResult`] are:
     /// - `nodes`: a vector of all node ids contained in the nested `SystemConfigs`
     /// - `densely_chained`: a boolean that is true if all nested systems are linearly chained (with successive `after` orderings) in the order they are defined
     fn add_systems_inner(
@@ -518,10 +518,10 @@ impl ScheduleGraph {
 
     /// Adds the config items to the graph.
     ///
-    /// `collect_nodes` controls whether the `NodeId`s of the processed config items are stored in the returned [`ProcessConfigResult`].
+    /// `collect_nodes` controls whether the `NodeId`s of the processed config items are stored in the returned [`ProcessConfigsResult`].
     /// `process_config` is the function which processes each individual config item and returns a corresponding `NodeId`.
     ///
-    /// The fields on the returned [`ProcessConfigResult`] are:
+    /// The fields on the returned [`ProcessConfigsResult`] are:
     /// - `nodes`: a vector of all node ids contained in the nested `ItemConfigs`
     /// - `densely_chained`: a boolean that is true if all nested items are linearly chained (with successive `after` orderings) in the order they are defined
     fn process_configs<T>(
@@ -689,9 +689,9 @@ impl ScheduleGraph {
 
     /// Adds the systems sets to the graph.
     ///
-    /// `collect_nodes` controls whether the `NodeId`s of the processed system sets are stored in the returned [`ProcessConfigResult`].
+    /// `collect_nodes` controls whether the `NodeId`s of the processed system sets are stored in the returned [`ProcessConfigsResult`].
     ///
-    /// The fields on the returned [`ProcessConfigResult`] are:
+    /// The fields on the returned [`ProcessConfigsResult`] are:
     /// - `nodes`: a vector of all node ids contained in the nested `SystemSetConfigs`
     /// - `densely_chained`: a boolean that is true if all nested system sets are linearly chained (with successive `after` orderings) in the order they are defined
     fn configure_sets_inner(
