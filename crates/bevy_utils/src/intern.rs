@@ -52,7 +52,7 @@ impl<T: ?Sized> Deref for Interned<T> {
 
 impl<T: ?Sized> Clone for Interned<T> {
     fn clone(&self) -> Self {
-        Self(self.0)
+        *self
     }
 }
 
