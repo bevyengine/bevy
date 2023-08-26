@@ -149,7 +149,7 @@ pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, syst
     }
 }
 
-impl Debug for dyn System<In = (), Out = ()> {
+impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "System {}: {{{}}}", self.name(), {
             if self.is_send() {
