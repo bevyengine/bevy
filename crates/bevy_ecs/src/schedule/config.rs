@@ -170,8 +170,8 @@ impl SystemConfigs {
 
     /// Adds a new boxed run condition to the systems.
     ///
-    /// This is exposed to allow users to create custom scheduling abstractions:
-    /// it is generally only useful when working with boxed run conditions with an unknown dynamic type.
+    /// This is useful if you have a run condition whose concrete type is unknown.
+    /// Prefer `run_if` for run conditions whose type is known at compile time.
     pub fn run_if_dyn(&mut self, condition: BoxedCondition) {
         match self {
             SystemConfigs::SystemConfig(config) => {
