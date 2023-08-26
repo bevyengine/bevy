@@ -67,7 +67,7 @@ fn collapse_type_name(string: &str) -> &str {
         return last;
     };
 
-    if second_last.starts_with(|c: char| c.is_uppercase()) {
+    if second_last.starts_with(char::is_uppercase) {
         let index = string.len() - last.len() - second_last.len() - 2;
         &string[index..]
     } else {
