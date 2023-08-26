@@ -885,8 +885,6 @@ impl ScheduleGraph {
         // check that there are no edges to system-type sets that have multiple instances
         self.check_system_type_set_ambiguity(&set_systems)?;
 
-        // flatten: combine `in_set` with `before` and `after` information
-        // have to do it like this to preserve transitivity
         let dependency_flattened = self.get_dependency_flattened(&set_systems);
 
         // topsort
@@ -957,6 +955,8 @@ impl ScheduleGraph {
         &self,
         set_systems: &HashMap<NodeId, Vec<NodeId>>,
     ) -> GraphMap<NodeId, (), Directed> {
+        // flatten: combine `in_set` with `before` and `after` information
+        // have to do it like this to preserve transitivity
         let mut dependency_flattened = self.dependency.graph.clone();
         let mut temp = Vec::new();
         for (&set, systems) in set_systems.iter() {
