@@ -18,10 +18,13 @@
 #import bevy_pbr::gtao_utils gtao_multibounce
 #endif
 
-fn pbr_fragment(
+// Prepare a 'processed' StandardMaterial by sampling all textures to resolve
+// the material members
+fn standard_material_pbr_input(
     in: MeshVertexOutput,
     is_front: bool,
-) -> vec4<f32> {
+) -> pbr_functions::PbrInput {
+    var pbr_input: pbr_functions::PbrInput;
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
 
     let is_orthographic = view.projection[3].w == 1.0;
@@ -58,15 +61,13 @@ fn pbr_fragment(
     }
 #endif
 
+    pbr_input.material.base_color = output_color;
+    pbr_input.material.flags = pbr_bindings::material.flags;
+
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
-        // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
-        // the material members
-        var pbr_input: pbr_functions::PbrInput;
 
-        pbr_input.material.base_color = output_color;
         pbr_input.material.reflectance = pbr_bindings::material.reflectance;
-        pbr_input.material.flags = pbr_bindings::material.flags;
         pbr_input.material.alpha_cutoff = pbr_bindings::material.alpha_cutoff;
 
         // TODO use .a for exposure compensation in HDR
@@ -138,15 +139,20 @@ fn pbr_fragment(
         pbr_input.occlusion = occlusion;
 
         pbr_input.flags = mesh[in.instance_index].flags;
-
-        output_color = pbr_functions::pbr(pbr_input);
-    } else {
-        output_color = pbr_functions::alpha_discard(pbr_bindings::material, output_color);
     }
 
+    return pbr_input;
+}
+
+fn in_shader_post_processing(
+    pbr_input: pbr_functions::PbrInput,
+    input_color: vec4<f32>,
+) -> vec4<f32> {
+    var output_color = input_color;
+
     // fog
-    if (fog.mode != FOG_MODE_OFF && (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
-        output_color = pbr_functions::apply_fog(fog, output_color, in.world_position.xyz, view.world_position.xyz);
+    if (fog.mode != FOG_MODE_OFF && (pbr_input.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
+        output_color = pbr_functions::apply_fog(fog, output_color, pbr_input.world_position.xyz, view.world_position.xyz);
     }
 
 #ifdef TONEMAP_IN_SHADER
@@ -154,7 +160,7 @@ fn pbr_fragment(
 #ifdef DEBAND_DITHER
     var output_rgb = output_color.rgb;
     output_rgb = powsafe(output_rgb, 1.0 / 2.2);
-    output_rgb = output_rgb + screen_space_dither(in.position.xy);
+    output_rgb = output_rgb + screen_space_dither(pbr_input.frag_coord.xy);
     // This conversion back to linear space is required because our output texture format is
     // SRGB; the GPU will assume our output is linear and will apply an SRGB conversion.
     output_rgb = powsafe(output_rgb, 2.2);
@@ -162,7 +168,7 @@ fn pbr_fragment(
 #endif
 #endif
 #ifdef PREMULTIPLY_ALPHA
-    output_color = pbr_functions::premultiply_alpha(pbr_bindings::material.flags, output_color);
+    output_color = pbr_functions::premultiply_alpha(pbr_input.flags, output_color);
 #endif
     return output_color;
 }

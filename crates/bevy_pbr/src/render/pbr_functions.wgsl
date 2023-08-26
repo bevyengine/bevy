@@ -176,7 +176,7 @@ fn pbr_input_new() -> PbrInput {
 }
 
 #ifndef PREPASS_FRAGMENT
-fn pbr(
+fn apply_pbr_lighting(
     in: PbrInput,
 ) -> vec4<f32> {
     var output_color: vec4<f32> = in.material.base_color;
