@@ -1,11 +1,11 @@
-use std::{path::PathBuf, time::Duration};
+use std::path::PathBuf;
 
 use bevy::{
-    app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
+    app::AppExit,
     log::LogPlugin,
     prelude::*,
     render::{camera::RenderTarget, renderer::RenderDevice},
-    winit::WinitPlugin,
+    window::ExitCondition,
 };
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 
@@ -25,29 +25,22 @@ impl Plugin for SceneTesterPlugin {
         app.add_plugins(
             DefaultPlugins
                 .build()
-                .disable::<WinitPlugin>()
-                // multiple separate app runs with LogPlugin result in this error:
-                // thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: SetLoggerError(())', crates\bevy_log\src\lib.rs:118:27
                 .disable::<LogPlugin>()
                 .set(WindowPlugin {
-                    add_primary_window: false,
-                    exit_on_all_closed: false,
-                    close_when_requested: true,
+                    primary_window: None,
+                    exit_condition: ExitCondition::DontExit,
+                    close_when_requested: false,
                     ..default()
                 }),
         )
-        .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
-            1.0 / 60.0, //Don't run faster than 60fps
-        )))
+        .add_plugins(ImageCopyPlugin)
         .init_resource::<SceneController>()
-        .add_plugin(ScheduleRunnerPlugin)
-        .add_plugin(ImageCopyPlugin)
         .add_event::<SceneController>()
-        .add_system_to_stage(CoreStage::PostUpdate, update);
+        .add_systems(PostUpdate, update);
     }
 }
 
-#[derive(Debug, Resource)]
+#[derive(Debug, Resource, Event)]
 pub struct SceneController {
     state: SceneState,
     name: String,
@@ -113,6 +106,7 @@ pub fn setup_test(
                 | TextureUsages::COPY_DST
                 | TextureUsages::TEXTURE_BINDING
                 | TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
         },
         ..Default::default()
     };
@@ -129,6 +123,7 @@ pub fn setup_test(
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
         },
         ..Default::default()
     };

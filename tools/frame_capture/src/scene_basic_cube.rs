@@ -5,7 +5,7 @@ use crate::scene_tester::{setup_test, SceneController};
 pub struct ScenePlugin;
 impl Plugin for ScenePlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(scene);
+        app.add_systems(Startup, scene);
     }
 }
 
@@ -19,7 +19,10 @@ fn scene(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        mesh: meshes.add(Mesh::from(shape::Plane {
+            size: 5.0,
+            ..default()
+        })),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });

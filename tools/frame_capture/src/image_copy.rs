@@ -4,13 +4,14 @@ use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssets;
 use bevy::render::render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext};
 use bevy::render::renderer::{RenderContext, RenderDevice, RenderQueue};
-use bevy::render::{Extract, RenderApp, RenderStage};
+use bevy::render::{Extract, RenderApp};
 
 use bevy::render::render_resource::{
     Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, ImageCopyBuffer,
-    ImageDataLayout,
+    ImageDataLayout, MapMode,
 };
 use pollster::FutureExt;
+use wgpu::Maintain;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -32,12 +33,12 @@ pub fn receive_images(
             // NOTE: We have to create the mapping THEN device.poll() before await
             // the future. Otherwise the application will freeze.
             let (tx, rx) = futures_intrusive::channel::shared::oneshot_channel();
-            buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+            buffer_slice.map_async(MapMode::Read, move |result| {
                 tx.send(result).unwrap();
             });
-            render_device.poll(wgpu::Maintain::Wait);
+            render_device.poll(Maintain::Wait);
             rx.receive().await.unwrap().unwrap();
-            if let Some(mut image) = images.get_mut(&image_copier.dst_image) {
+            if let Some(image) = images.get_mut(&image_copier.dst_image) {
                 image.data = buffer_slice.get_mapped_range().to_vec();
             }
 
@@ -52,17 +53,17 @@ pub const IMAGE_COPY: &str = "image_copy";
 pub struct ImageCopyPlugin;
 impl Plugin for ImageCopyPlugin {
     fn build(&self, app: &mut App) {
-        let render_app = app.add_system(receive_images).sub_app_mut(RenderApp);
+        let render_app = app
+            .add_systems(Update, receive_images)
+            .sub_app_mut(RenderApp);
 
-        render_app.add_system_to_stage(RenderStage::Extract, image_copy_extract);
+        render_app.add_systems(ExtractSchedule, image_copy_extract);
 
         let mut graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
 
         graph.add_node(IMAGE_COPY, ImageCopyDriver::default());
 
-        graph
-            .add_node_edge(IMAGE_COPY, bevy::render::main_graph::node::CAMERA_DRIVER)
-            .unwrap();
+        graph.add_node_edge(IMAGE_COPY, bevy::render::main_graph::node::CAMERA_DRIVER);
     }
 }
 
@@ -142,14 +143,14 @@ impl render_graph::Node for ImageCopyDriver {
             let src_image = gpu_images.get(&image_copier.src_image).unwrap();
 
             let mut encoder = render_context
-                .render_device
+                .render_device()
                 .create_command_encoder(&CommandEncoderDescriptor::default());
 
-            let format = src_image.texture_format.describe();
+            let block_dimensions = src_image.texture_format.block_dimensions();
+            let block_size = src_image.texture_format.block_size(None).unwrap();
 
             let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
-                (src_image.size.x as usize / format.block_dimensions.0 as usize)
-                    * format.block_size as usize,
+                (src_image.size.x as usize / block_dimensions.0 as usize) * block_size as usize,
             );
 
             let texture_extent = Extent3d {
@@ -165,7 +166,9 @@ impl render_graph::Node for ImageCopyDriver {
                     layout: ImageDataLayout {
                         offset: 0,
                         bytes_per_row: Some(
-                            std::num::NonZeroU32::new(padded_bytes_per_row as u32).unwrap(),
+                            std::num::NonZeroU32::new(padded_bytes_per_row as u32)
+                                .unwrap()
+                                .into(),
                         ),
                         rows_per_image: None,
                     },

@@ -11,13 +11,12 @@ fn main() {
 
     App::new()
         .insert_resource(SceneController::new(create_images))
-        .add_plugin(SceneTesterPlugin)
-        .add_plugin(scene_basic_cube::ScenePlugin)
+        .add_plugins((SceneTesterPlugin, scene_basic_cube::ScenePlugin))
         .run();
 
+    // TODO: After updating to bevy 0.11 this doesn't ever run for some reason:
     App::new()
         .insert_resource(SceneController::new(create_images))
-        .add_plugin(SceneTesterPlugin)
-        .add_plugin(scene_2d_shapes::ScenePlugin)
+        .add_plugins((SceneTesterPlugin, scene_2d_shapes::ScenePlugin))
         .run();
 }

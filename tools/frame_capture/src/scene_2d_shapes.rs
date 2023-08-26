@@ -7,7 +7,7 @@ use crate::scene_tester::{setup_test, SceneController};
 pub struct ScenePlugin;
 impl Plugin for ScenePlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(scene);
+        app.add_systems(Startup, scene);
     }
 }
 
