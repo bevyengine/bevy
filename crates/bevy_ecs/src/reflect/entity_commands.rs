@@ -1,3 +1,4 @@
+use crate::prelude::Mut;
 use crate::reflect::AppTypeRegistry;
 use crate::system::{Command, EntityCommands, Resource};
 use crate::{entity::Entity, reflect::ReflectComponent, world::World};
@@ -190,7 +191,7 @@ fn insert_reflect(
 ) {
     let type_info = component.type_name();
     let Some(mut entity) = world.get_entity_mut(entity) else {
-        panic!("error[B0003]: Could not insert a reflected component (of type {}) for entity {:?} because it doesn't exist in this World.", component.type_name(), entity);
+        panic!("error[B0003]: Could not insert a reflected component (of type {}) for entity {entity:?} because it doesn't exist in this World.", component.type_name());
 
     };
     let Some(type_registration) = type_registry.get_with_name(type_info) else {
@@ -234,9 +235,10 @@ pub struct InsertReflectWithRegistry<T: Resource + AsRef<TypeRegistry>> {
 
 impl<T: Resource + AsRef<TypeRegistry>> Command for InsertReflectWithRegistry<T> {
     fn apply(self, world: &mut World) {
-        let registry = world.remove_resource::<T>().unwrap();
-        let registry: &TypeRegistry = registry.as_ref();
-        insert_reflect(world, self.entity, registry, self.component);
+        world.resource_scope(|world, registry: Mut<T>| {
+            let registry: &TypeRegistry = registry.as_ref().as_ref();
+            insert_reflect(world, self.entity, registry, self.component);
+        });
     }
 }
 
@@ -300,9 +302,10 @@ pub struct RemoveReflectWithRegistry<T: Resource + AsRef<TypeRegistry>> {
 
 impl<T: Resource + AsRef<TypeRegistry>> Command for RemoveReflectWithRegistry<T> {
     fn apply(self, world: &mut World) {
-        let registry = world.remove_resource::<T>().unwrap();
-        let registry: &TypeRegistry = registry.as_ref();
-        remove_reflect(world, self.entity, registry, self.component_type_name);
+        world.resource_scope(|world, registry: Mut<T>| {
+            let registry: &TypeRegistry = registry.as_ref().as_ref();
+            remove_reflect(world, self.entity, registry, self.component_type_name);
+        });
     }
 }
 
