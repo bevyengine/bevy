@@ -1011,7 +1011,7 @@ mod tests {
         assert_eq!(
             old_events,
             &[TestEvent { i: 0 }, TestEvent { i: 1 }, TestEvent { i: 2 }]
-        )
+        );
     }
 
     #[allow(clippy::iter_nth_zero)]
