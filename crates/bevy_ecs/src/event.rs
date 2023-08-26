@@ -427,6 +427,13 @@ pub struct EventIterator<'a, E: Event> {
     iter: EventIteratorWithId<'a, E>,
 }
 
+/// An iterator that yields any unread events from an [`EventReader`] or [`ManualEventReader`].
+///
+/// This is a type alias for [`EventIterator`], which used to be called `ManualEventIterator`.
+/// This type alias will be removed in the next release of bevy, so you should use [`EventIterator`] directly instead.
+#[deprecated = "This type has been renamed to `EventIterator`."]
+pub type ManualEventIterator<'a, E> = EventIterator<'a, E>;
+
 impl<'a, E: Event> Iterator for EventIterator<'a, E> {
     type Item = &'a E;
     fn next(&mut self) -> Option<Self::Item> {
@@ -466,6 +473,13 @@ pub struct EventIteratorWithId<'a, E: Event> {
     chain: Chain<Iter<'a, EventInstance<E>>, Iter<'a, EventInstance<E>>>,
     unread: usize,
 }
+
+/// An iterator that yields any unread events (and their IDs) from an [`EventReader`] or [`ManualEventReader`].
+///
+/// This is a type alias for [`EventIteratorWithId`], which used to be called `ManualEventIteratorWithId`.
+/// This type alias will be removed in the next release of bevy, so you should use [`EventIteratorWithId`] directly instead.
+#[deprecated = "This type has been renamed to `EventIteratorWithId`."]
+pub type ManualEventIteratorWithId<'a, E> = EventIteratorWithId<'a, E>;
 
 impl<'a, E: Event> EventIteratorWithId<'a, E> {
     /// Creates a new iterator that yields any `events` that have not yet been seen by `reader`.
