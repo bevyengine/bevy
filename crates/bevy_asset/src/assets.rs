@@ -26,6 +26,7 @@ pub struct AssetIndex {
 
 /// Allocates generational [`AssetIndex] values and facilitates their reuse.
 pub(crate) struct AssetIndexAllocator {
+    /// A monotonically increasing index.
     next_index: AtomicU32,
     recycled_queue_sender: Sender<AssetIndex>,
     /// This receives every recycled AssetIndex. It serves as a buffer/queue to store indices ready for reuse.
@@ -181,6 +182,7 @@ impl<A: Asset> DenseAssetStorage<A> {
     }
 
     pub(crate) fn flush(&mut self) {
+        // NOTE: this assumes the allocator index is monotonically increasing.
         let new_len = self
             .allocator
             .next_index
