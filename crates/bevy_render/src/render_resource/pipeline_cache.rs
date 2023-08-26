@@ -1,10 +1,8 @@
 use crate::{
     render_resource::{
-        AsModuleDescriptorError, BindGroupLayout, BindGroupLayoutId, ComputePipeline,
-        ComputePipelineDescriptor, ProcessShaderError, ProcessedShader,
+        BindGroupLayout, BindGroupLayoutId, ComputePipeline, ComputePipelineDescriptor,
         RawComputePipelineDescriptor, RawFragmentState, RawRenderPipelineDescriptor,
-        RawVertexState, RenderPipeline, RenderPipelineDescriptor, Shader, ShaderImport,
-        ShaderProcessor, ShaderReflectError,
+        RawVertexState, RenderPipeline, RenderPipelineDescriptor, Shader, ShaderImport, Source,
     },
     renderer::RenderDevice,
     Extract,
@@ -17,12 +15,21 @@ use bevy_utils::{
     tracing::{debug, error},
     Entry, HashMap, HashSet,
 };
-use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref, sync::Arc};
+use naga::valid::Capabilities;
+use parking_lot::Mutex;
+use std::{borrow::Cow, hash::Hash, mem, ops::Deref};
 use thiserror::Error;
+#[cfg(feature = "shader_format_spirv")]
+use wgpu::util::make_spirv;
 use wgpu::{
-    BufferBindingType, PipelineLayoutDescriptor, ShaderModule,
+    Features, PipelineLayoutDescriptor, PushConstantRange, ShaderModuleDescriptor,
     VertexBufferLayout as RawVertexBufferLayout,
 };
+
+use crate::render_resource::resource_macros::*;
+
+render_resource_wrapper!(ErasedShaderModule, wgpu::ShaderModule);
+render_resource_wrapper!(ErasedPipelineLayout, wgpu::PipelineLayout);
 
 /// A descriptor for a [`Pipeline`].
 ///
@@ -51,6 +58,11 @@ pub struct CachedRenderPipelineId(CachedPipelineId);
 impl CachedRenderPipelineId {
     /// An invalid cached render pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedRenderPipelineId(usize::MAX);
+
+    #[inline]
+    pub fn id(&self) -> usize {
+        self.0
+    }
 }
 
 /// Index of a cached compute pipeline in a [`PipelineCache`].
@@ -60,6 +72,11 @@ pub struct CachedComputePipelineId(CachedPipelineId);
 impl CachedComputePipelineId {
     /// An invalid cached compute pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedComputePipelineId(usize::MAX);
+
+    #[inline]
+    pub fn id(&self) -> usize {
+        self.0
+    }
 }
 
 pub struct CachedPipeline {
@@ -103,28 +120,129 @@ impl CachedPipelineState {
 #[derive(Default)]
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Vec<String>, Arc<ShaderModule>>,
+    processed_shaders: HashMap<Vec<ShaderDefVal>, ErasedShaderModule>,
     resolved_imports: HashMap<ShaderImport, Handle<Shader>>,
     dependents: HashSet<Handle<Shader>>,
 }
 
-#[derive(Default)]
 struct ShaderCache {
     data: HashMap<Handle<Shader>, ShaderData>,
     shaders: HashMap<Handle<Shader>, Shader>,
     import_path_shaders: HashMap<ShaderImport, Handle<Shader>>,
     waiting_on_import: HashMap<ShaderImport, Vec<Handle<Shader>>>,
-    processor: ShaderProcessor,
+    composer: naga_oil::compose::Composer,
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+pub enum ShaderDefVal {
+    Bool(String, bool),
+    Int(String, i32),
+    UInt(String, u32),
+}
+
+impl From<&str> for ShaderDefVal {
+    fn from(key: &str) -> Self {
+        ShaderDefVal::Bool(key.to_string(), true)
+    }
+}
+
+impl From<String> for ShaderDefVal {
+    fn from(key: String) -> Self {
+        ShaderDefVal::Bool(key, true)
+    }
+}
+
+impl ShaderDefVal {
+    pub fn value_as_string(&self) -> String {
+        match self {
+            ShaderDefVal::Bool(_, def) => def.to_string(),
+            ShaderDefVal::Int(_, def) => def.to_string(),
+            ShaderDefVal::UInt(_, def) => def.to_string(),
+        }
+    }
 }
 
 impl ShaderCache {
+    fn new(render_device: &RenderDevice) -> Self {
+        const CAPABILITIES: &[(Features, Capabilities)] = &[
+            (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
+            (Features::SHADER_F64, Capabilities::FLOAT64),
+            (
+                Features::SHADER_PRIMITIVE_INDEX,
+                Capabilities::PRIMITIVE_INDEX,
+            ),
+            (
+                Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+                Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+            ),
+            (
+                Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+                Capabilities::SAMPLER_NON_UNIFORM_INDEXING,
+            ),
+            (
+                Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+                Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+            ),
+        ];
+        let features = render_device.features();
+        let mut capabilities = Capabilities::empty();
+        for (feature, capability) in CAPABILITIES {
+            if features.contains(*feature) {
+                capabilities |= *capability;
+            }
+        }
+
+        #[cfg(debug_assertions)]
+        let composer = naga_oil::compose::Composer::default();
+        #[cfg(not(debug_assertions))]
+        let composer = naga_oil::compose::Composer::non_validating();
+
+        let composer = composer.with_capabilities(capabilities);
+
+        Self {
+            composer,
+            data: Default::default(),
+            shaders: Default::default(),
+            import_path_shaders: Default::default(),
+            waiting_on_import: Default::default(),
+        }
+    }
+
+    fn add_import_to_composer(
+        composer: &mut naga_oil::compose::Composer,
+        import_path_shaders: &HashMap<ShaderImport, Handle<Shader>>,
+        shaders: &HashMap<Handle<Shader>, Shader>,
+        import: &ShaderImport,
+    ) -> Result<(), PipelineCacheError> {
+        if !composer.contains_module(&import.module_name()) {
+            if let Some(shader_handle) = import_path_shaders.get(import) {
+                if let Some(shader) = shaders.get(shader_handle) {
+                    for import in &shader.imports {
+                        Self::add_import_to_composer(
+                            composer,
+                            import_path_shaders,
+                            shaders,
+                            import,
+                        )?;
+                    }
+
+                    composer.add_composable_module(shader.into())?;
+                }
+            }
+            // if we fail to add a module the composer will tell us what is missing
+        }
+
+        Ok(())
+    }
+
+    #[allow(clippy::result_large_err)]
     fn get(
         &mut self,
         render_device: &RenderDevice,
         pipeline: CachedPipelineId,
         handle: &Handle<Shader>,
-        shader_defs: &[String],
-    ) -> Result<Arc<ShaderModule>, PipelineCacheError> {
+        shader_defs: &[ShaderDefVal],
+    ) -> Result<ErasedShaderModule, PipelineCacheError> {
         let shader = self
             .shaders
             .get(handle)
@@ -150,42 +268,70 @@ impl ShaderCache {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
                 let mut shader_defs = shader_defs.to_vec();
-                #[cfg(feature = "webgl")]
+                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                 {
-                    shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
-                    shader_defs.push(String::from("SIXTEEN_BYTE_ALIGNMENT"));
+                    shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
+                    shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
                 }
 
-                // TODO: 3 is the value from CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT declared in bevy_pbr
-                // consider exposing this in shaders in a more generally useful way, such as:
-                // # if AVAILABLE_STORAGE_BUFFER_BINDINGS == 3
-                // /* use storage buffers here */
-                // # elif
-                // /* use uniforms here */
-                if !matches!(
-                    render_device.get_supported_read_only_binding_type(3),
-                    BufferBindingType::Storage { .. }
-                ) {
-                    shader_defs.push(String::from("NO_STORAGE_BUFFERS_SUPPORT"));
-                }
+                shader_defs.push(ShaderDefVal::UInt(
+                    String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
+                    render_device.limits().max_storage_buffers_per_shader_stage,
+                ));
 
                 debug!(
                     "processing shader {:?}, with shader defs {:?}",
                     handle, shader_defs
                 );
-                let processed = self.processor.process(
-                    shader,
-                    &shader_defs,
-                    &self.shaders,
-                    &self.import_path_shaders,
-                )?;
-                let module_descriptor = match processed
-                    .get_module_descriptor(render_device.features())
-                {
-                    Ok(module_descriptor) => module_descriptor,
-                    Err(err) => {
-                        return Err(PipelineCacheError::AsModuleDescriptorError(err, processed));
+                let shader_source = match &shader.source {
+                    #[cfg(feature = "shader_format_spirv")]
+                    Source::SpirV(data) => make_spirv(data),
+                    #[cfg(not(feature = "shader_format_spirv"))]
+                    Source::SpirV(_) => {
+                        unimplemented!(
+                            "Enable feature \"shader_format_spirv\" to use SPIR-V shaders"
+                        )
                     }
+                    _ => {
+                        for import in shader.imports() {
+                            Self::add_import_to_composer(
+                                &mut self.composer,
+                                &self.import_path_shaders,
+                                &self.shaders,
+                                import,
+                            )?;
+                        }
+
+                        let shader_defs = shader_defs
+                            .into_iter()
+                            .chain(shader.shader_defs.iter().cloned())
+                            .map(|def| match def {
+                                ShaderDefVal::Bool(k, v) => {
+                                    (k, naga_oil::compose::ShaderDefValue::Bool(v))
+                                }
+                                ShaderDefVal::Int(k, v) => {
+                                    (k, naga_oil::compose::ShaderDefValue::Int(v))
+                                }
+                                ShaderDefVal::UInt(k, v) => {
+                                    (k, naga_oil::compose::ShaderDefValue::UInt(v))
+                                }
+                            })
+                            .collect::<std::collections::HashMap<_, _>>();
+
+                        let naga = self.composer.make_naga_module(
+                            naga_oil::compose::NagaModuleDescriptor {
+                                shader_defs,
+                                ..shader.into()
+                            },
+                        )?;
+
+                        wgpu::ShaderSource::Naga(Cow::Owned(naga))
+                    }
+                };
+
+                let module_descriptor = ShaderModuleDescriptor {
+                    label: None,
+                    source: shader_source,
                 };
 
                 render_device
@@ -195,7 +341,7 @@ impl ShaderCache {
                 let error = render_device.wgpu_device().pop_error_scope();
 
                 // `now_or_never` will return Some if the future is ready and None otherwise.
-                // On native platforms, wgpu will yield the error immediatly while on wasm it may take longer since the browser APIs are asynchronous.
+                // On native platforms, wgpu will yield the error immediately while on wasm it may take longer since the browser APIs are asynchronous.
                 // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
                 // and on wasm the error will be handled by wgpu and crash the application.
                 if let Some(Some(wgpu::Error::Validation { description, .. })) =
@@ -204,7 +350,7 @@ impl ShaderCache {
                     return Err(PipelineCacheError::CreateShaderModule(description));
                 }
 
-                entry.insert(Arc::new(shader_module))
+                entry.insert(ErasedShaderModule::new(shader_module))
             }
         };
 
@@ -219,6 +365,11 @@ impl ShaderCache {
                 data.processed_shaders.clear();
                 pipelines_to_queue.extend(data.pipelines.iter().cloned());
                 shaders_to_clear.extend(data.dependents.iter().map(|h| h.clone_weak()));
+
+                if let Some(Shader { import_path, .. }) = self.shaders.get(&handle) {
+                    self.composer
+                        .remove_composable_module(&import_path.module_name());
+                }
             }
         }
 
@@ -227,19 +378,18 @@ impl ShaderCache {
 
     fn set_shader(&mut self, handle: &Handle<Shader>, shader: Shader) -> Vec<CachedPipelineId> {
         let pipelines_to_queue = self.clear(handle);
-        if let Some(path) = shader.import_path() {
-            self.import_path_shaders
-                .insert(path.clone(), handle.clone_weak());
-            if let Some(waiting_shaders) = self.waiting_on_import.get_mut(path) {
-                for waiting_shader in waiting_shaders.drain(..) {
-                    // resolve waiting shader import
-                    let data = self.data.entry(waiting_shader.clone_weak()).or_default();
-                    data.resolved_imports
-                        .insert(path.clone(), handle.clone_weak());
-                    // add waiting shader as dependent of this shader
-                    let data = self.data.entry(handle.clone_weak()).or_default();
-                    data.dependents.insert(waiting_shader.clone_weak());
-                }
+        let path = shader.import_path();
+        self.import_path_shaders
+            .insert(path.clone(), handle.clone_weak());
+        if let Some(waiting_shaders) = self.waiting_on_import.get_mut(path) {
+            for waiting_shader in waiting_shaders.drain(..) {
+                // resolve waiting shader import
+                let data = self.data.entry(waiting_shader.clone_weak()).or_default();
+                data.resolved_imports
+                    .insert(path.clone(), handle.clone_weak());
+                // add waiting shader as dependent of this shader
+                let data = self.data.entry(handle.clone_weak()).or_default();
+                data.dependents.insert(waiting_shader.clone_weak());
             }
         }
 
@@ -265,18 +415,17 @@ impl ShaderCache {
     fn remove(&mut self, handle: &Handle<Shader>) -> Vec<CachedPipelineId> {
         let pipelines_to_queue = self.clear(handle);
         if let Some(shader) = self.shaders.remove(handle) {
-            if let Some(import_path) = shader.import_path() {
-                self.import_path_shaders.remove(import_path);
-            }
+            self.import_path_shaders.remove(shader.import_path());
         }
 
         pipelines_to_queue
     }
 }
 
+type LayoutCacheKey = (Vec<BindGroupLayoutId>, Vec<PushConstantRange>);
 #[derive(Default)]
 struct LayoutCache {
-    layouts: HashMap<Vec<BindGroupLayoutId>, wgpu::PipelineLayout>,
+    layouts: HashMap<LayoutCacheKey, ErasedPipelineLayout>,
 }
 
 impl LayoutCache {
@@ -284,18 +433,24 @@ impl LayoutCache {
         &mut self,
         render_device: &RenderDevice,
         bind_group_layouts: &[BindGroupLayout],
+        push_constant_ranges: Vec<PushConstantRange>,
     ) -> &wgpu::PipelineLayout {
-        let key = bind_group_layouts.iter().map(|l| l.id()).collect();
-        self.layouts.entry(key).or_insert_with(|| {
-            let bind_group_layouts = bind_group_layouts
-                .iter()
-                .map(|l| l.value())
-                .collect::<Vec<_>>();
-            render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
-                bind_group_layouts: &bind_group_layouts,
-                ..default()
+        let bind_group_ids = bind_group_layouts.iter().map(|l| l.id()).collect();
+        self.layouts
+            .entry((bind_group_ids, push_constant_ranges))
+            .or_insert_with_key(|(_, push_constant_ranges)| {
+                let bind_group_layouts = bind_group_layouts
+                    .iter()
+                    .map(|l| l.value())
+                    .collect::<Vec<_>>();
+                ErasedPipelineLayout::new(render_device.create_pipeline_layout(
+                    &PipelineLayoutDescriptor {
+                        bind_group_layouts: &bind_group_layouts,
+                        push_constant_ranges,
+                        ..default()
+                    },
+                ))
             })
-        })
     }
 }
 
@@ -304,13 +459,13 @@ impl LayoutCache {
 /// The cache stores existing render and compute pipelines allocated on the GPU, as well as
 /// pending creation. Pipelines inserted into the cache are identified by a unique ID, which
 /// can be used to retrieve the actual GPU object once it's ready. The creation of the GPU
-/// pipeline object is deferred to the [`RenderStage::Render`] stage, just before the render
+/// pipeline object is deferred to the [`RenderSet::Render`] step, just before the render
 /// graph starts being processed, as this requires access to the GPU.
 ///
 /// Note that the cache do not perform automatic deduplication of identical pipelines. It is
 /// up to the user not to insert the same pipeline twice to avoid wasting GPU resources.
 ///
-/// [`RenderStage::Render`]: crate::RenderStage::Render
+/// [`RenderSet::Render`]: crate::RenderSet::Render
 #[derive(Resource)]
 pub struct PipelineCache {
     layout_cache: LayoutCache,
@@ -318,6 +473,7 @@ pub struct PipelineCache {
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
+    new_pipelines: Mutex<Vec<CachedPipeline>>,
 }
 
 impl PipelineCache {
@@ -328,10 +484,11 @@ impl PipelineCache {
     /// Create a new pipeline cache associated with the given render device.
     pub fn new(device: RenderDevice) -> Self {
         Self {
+            shader_cache: ShaderCache::new(&device),
             device,
             layout_cache: default(),
-            shader_cache: default(),
             waiting_pipelines: default(),
+            new_pipelines: default(),
             pipelines: default(),
         }
     }
@@ -430,15 +587,15 @@ impl PipelineCache {
     /// [`get_render_pipeline_state()`]: PipelineCache::get_render_pipeline_state
     /// [`get_render_pipeline()`]: PipelineCache::get_render_pipeline
     pub fn queue_render_pipeline(
-        &mut self,
+        &self,
         descriptor: RenderPipelineDescriptor,
     ) -> CachedRenderPipelineId {
-        let id = CachedRenderPipelineId(self.pipelines.len());
-        self.pipelines.push(CachedPipeline {
+        let mut new_pipelines = self.new_pipelines.lock();
+        let id = CachedRenderPipelineId(self.pipelines.len() + new_pipelines.len());
+        new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::RenderPipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
         });
-        self.waiting_pipelines.insert(id.0);
         id
     }
 
@@ -456,15 +613,15 @@ impl PipelineCache {
     /// [`get_compute_pipeline_state()`]: PipelineCache::get_compute_pipeline_state
     /// [`get_compute_pipeline()`]: PipelineCache::get_compute_pipeline
     pub fn queue_compute_pipeline(
-        &mut self,
+        &self,
         descriptor: ComputePipelineDescriptor,
     ) -> CachedComputePipelineId {
-        let id = CachedComputePipelineId(self.pipelines.len());
-        self.pipelines.push(CachedPipeline {
+        let mut new_pipelines = self.new_pipelines.lock();
+        let id = CachedComputePipelineId(self.pipelines.len() + new_pipelines.len());
+        new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::ComputePipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
         });
-        self.waiting_pipelines.insert(id.0);
         id
     }
 
@@ -533,10 +690,14 @@ impl PipelineCache {
             })
             .collect::<Vec<_>>();
 
-        let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
-        } else {
+        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
             None
+        } else {
+            Some(self.layout_cache.get(
+                &self.device,
+                &descriptor.layout,
+                descriptor.push_constant_ranges.to_vec(),
+            ))
         };
 
         let descriptor = RawRenderPipelineDescriptor {
@@ -582,10 +743,14 @@ impl PipelineCache {
             }
         };
 
-        let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
-        } else {
+        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
             None
+        } else {
+            Some(self.layout_cache.get(
+                &self.device,
+                &descriptor.layout,
+                descriptor.push_constant_ranges.to_vec(),
+            ))
         };
 
         let descriptor = RawComputePipelineDescriptor {
@@ -602,13 +767,22 @@ impl PipelineCache {
 
     /// Process the pipeline queue and create all pending pipelines if possible.
     ///
-    /// This is generally called automatically during the [`RenderStage::Render`] stage, but can
+    /// This is generally called automatically during the [`RenderSet::Render`] step, but can
     /// be called manually to force creation at a different time.
     ///
-    /// [`RenderStage::Render`]: crate::RenderStage::Render
+    /// [`RenderSet::Render`]: crate::RenderSet::Render
     pub fn process_queue(&mut self) {
-        let waiting_pipelines = mem::take(&mut self.waiting_pipelines);
+        let mut waiting_pipelines = mem::take(&mut self.waiting_pipelines);
         let mut pipelines = mem::take(&mut self.pipelines);
+
+        {
+            let mut new_pipelines = self.new_pipelines.lock();
+            for new_pipeline in new_pipelines.drain(..) {
+                let id = pipelines.len();
+                pipelines.push(new_pipeline);
+                waiting_pipelines.insert(id);
+            }
+        }
 
         for id in waiting_pipelines {
             let pipeline = &mut pipelines[id];
@@ -634,11 +808,8 @@ impl PipelineCache {
                     }
                     // shader could not be processed ... retrying won't help
                     PipelineCacheError::ProcessShaderError(err) => {
-                        error!("failed to process shader: {}", err);
-                        continue;
-                    }
-                    PipelineCacheError::AsModuleDescriptorError(err, source) => {
-                        log_shader_error(source, err);
+                        let error_detail = err.emit_to_string(&self.shader_cache.composer);
+                        error!("failed to process shader:\n{}", error_detail);
                         continue;
                     }
                     PipelineCacheError::CreateShaderModule(description) => {
@@ -674,134 +845,17 @@ impl PipelineCache {
     }
 }
 
-fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
-    use codespan_reporting::{
-        diagnostic::{Diagnostic, Label},
-        files::SimpleFile,
-        term,
-    };
-
-    match error {
-        AsModuleDescriptorError::ShaderReflectError(error) => match error {
-            ShaderReflectError::WgslParse(error) => {
-                let source = source
-                    .get_wgsl_source()
-                    .expect("non-wgsl source for wgsl error");
-                let msg = error.emit_to_string(source);
-                error!("failed to process shader:\n{}", msg);
-            }
-            ShaderReflectError::GlslParse(errors) => {
-                let source = source
-                    .get_glsl_source()
-                    .expect("non-glsl source for glsl error");
-                let files = SimpleFile::new("glsl", source);
-                let config = codespan_reporting::term::Config::default();
-                let mut writer = term::termcolor::Ansi::new(Vec::new());
-
-                for err in errors {
-                    let mut diagnostic = Diagnostic::error().with_message(err.kind.to_string());
-
-                    if let Some(range) = err.meta.to_range() {
-                        diagnostic = diagnostic.with_labels(vec![Label::primary((), range)]);
-                    }
-
-                    term::emit(&mut writer, &config, &files, &diagnostic)
-                        .expect("cannot write error");
-                }
-
-                let msg = writer.into_inner();
-                let msg = String::from_utf8_lossy(&msg);
-
-                error!("failed to process shader: \n{}", msg);
-            }
-            ShaderReflectError::SpirVParse(error) => {
-                error!("failed to process shader:\n{}", error);
-            }
-            ShaderReflectError::Validation(error) => {
-                let (filename, source) = match source {
-                    ProcessedShader::Wgsl(source) => ("wgsl", source.as_ref()),
-                    ProcessedShader::Glsl(source, _) => ("glsl", source.as_ref()),
-                    ProcessedShader::SpirV(_) => {
-                        error!("failed to process shader:\n{}", error);
-                        return;
-                    }
-                };
-
-                let files = SimpleFile::new(filename, source);
-                let config = term::Config::default();
-                let mut writer = term::termcolor::Ansi::new(Vec::new());
-
-                let diagnostic = Diagnostic::error()
-                    .with_message(error.to_string())
-                    .with_labels(
-                        error
-                            .spans()
-                            .map(|(span, desc)| {
-                                Label::primary((), span.to_range().unwrap())
-                                    .with_message(desc.to_owned())
-                            })
-                            .collect(),
-                    )
-                    .with_notes(
-                        ErrorSources::of(error)
-                            .map(|source| source.to_string())
-                            .collect(),
-                    );
-
-                term::emit(&mut writer, &config, &files, &diagnostic).expect("cannot write error");
-
-                let msg = writer.into_inner();
-                let msg = String::from_utf8_lossy(&msg);
-
-                error!("failed to process shader: \n{}", msg);
-            }
-        },
-        AsModuleDescriptorError::WgslConversion(error) => {
-            error!("failed to convert shader to wgsl: \n{}", error);
-        }
-        AsModuleDescriptorError::SpirVConversion(error) => {
-            error!("failed to convert shader to spirv: \n{}", error);
-        }
-    }
-}
-
 /// Type of error returned by a [`PipelineCache`] when the creation of a GPU pipeline object failed.
 #[derive(Error, Debug)]
 pub enum PipelineCacheError {
     #[error(
-        "Pipeline cound not be compiled because the following shader is not loaded yet: {0:?}"
+        "Pipeline could not be compiled because the following shader is not loaded yet: {0:?}"
     )]
     ShaderNotLoaded(Handle<Shader>),
     #[error(transparent)]
-    ProcessShaderError(#[from] ProcessShaderError),
-    #[error("{0}")]
-    AsModuleDescriptorError(AsModuleDescriptorError, ProcessedShader),
+    ProcessShaderError(#[from] naga_oil::compose::ComposerError),
     #[error("Shader import not yet available.")]
     ShaderImportNotYetAvailable,
     #[error("Could not create shader module: {0}")]
     CreateShaderModule(String),
 }
-
-struct ErrorSources<'a> {
-    current: Option<&'a (dyn std::error::Error + 'static)>,
-}
-
-impl<'a> ErrorSources<'a> {
-    fn of(error: &'a dyn std::error::Error) -> Self {
-        Self {
-            current: error.source(),
-        }
-    }
-}
-
-impl<'a> Iterator for ErrorSources<'a> {
-    type Item = &'a (dyn std::error::Error + 'static);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let current = self.current;
-        self.current = self.current.and_then(std::error::Error::source);
-        current
-    }
-}
-
-impl<'a> FusedIterator for ErrorSources<'a> {}

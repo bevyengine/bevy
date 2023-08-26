@@ -6,7 +6,7 @@
 use bevy::{
     prelude::*,
     utils::Duration,
-    window::{PresentMode, RequestRedraw},
+    window::{PresentMode, RequestRedraw, WindowPlugin},
     winit::WinitSettings,
 };
 
@@ -20,24 +20,29 @@ fn main() {
         .insert_resource(WinitSettings {
             focused_mode: bevy::winit::UpdateMode::Continuous,
             unfocused_mode: bevy::winit::UpdateMode::ReactiveLowPower {
-                max_wait: Duration::from_millis(10),
+                wait: Duration::from_millis(10),
             },
             ..default()
         })
         .insert_resource(ExampleMode::Game)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 // Turn off vsync to maximize CPU/GPU usage
                 present_mode: PresentMode::AutoNoVsync,
                 ..default()
-            },
+            }),
             ..default()
         }))
-        .add_startup_system(test_setup::setup)
-        .add_system(test_setup::cycle_modes)
-        .add_system(test_setup::rotate_cube)
-        .add_system(test_setup::update_text)
-        .add_system(update_winit)
+        .add_systems(Startup, test_setup::setup)
+        .add_systems(
+            Update,
+            (
+                test_setup::cycle_modes,
+                test_setup::rotate_cube,
+                test_setup::update_text,
+                update_winit,
+            ),
+        )
         .run();
 }
 
@@ -143,7 +148,6 @@ pub(crate) mod test_setup {
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<StandardMaterial>>,
         mut event: EventWriter<RequestRedraw>,
-        asset_server: Res<AssetServer>,
     ) {
         commands.spawn((
             PbrBundle {
@@ -172,38 +176,35 @@ pub(crate) mod test_setup {
                 TextSection::new(
                     "Press spacebar to cycle modes\n",
                     TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 50.0,
                         color: Color::WHITE,
+                        ..default()
                     },
                 ),
                 TextSection::from_style(TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 50.0,
                     color: Color::GREEN,
+                    ..default()
                 }),
                 TextSection::new(
                     "\nFrame: ",
                     TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 50.0,
                         color: Color::YELLOW,
+                        ..default()
                     },
                 ),
                 TextSection::from_style(TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 50.0,
                     color: Color::YELLOW,
+                    ..default()
                 }),
             ])
             .with_style(Style {
                 align_self: AlignSelf::FlexStart,
                 position_type: PositionType::Absolute,
-                position: UiRect {
-                    top: Val::Px(5.0),
-                    left: Val::Px(5.0),
-                    ..default()
-                },
+                top: Val::Px(5.0),
+                left: Val::Px(5.0),
                 ..default()
             }),
             ModeText,

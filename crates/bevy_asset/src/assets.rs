@@ -1,13 +1,10 @@
 use crate::{
-    update_asset_storage_system, Asset, AssetLoader, AssetServer, AssetStage, Handle, HandleId,
-    RefChange, ReflectAsset, ReflectHandle,
+    update_asset_storage_system, Asset, AssetEvents, AssetLoader, AssetServer, Handle, HandleId,
+    LoadAssets, RefChange, ReflectAsset, ReflectHandle,
 };
-use bevy_app::{App, AppTypeRegistry};
-use bevy_ecs::{
-    event::{EventWriter, Events},
-    system::{ResMut, Resource},
-    world::FromWorld,
-};
+use bevy_app::App;
+use bevy_ecs::prelude::*;
+use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect};
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
@@ -17,6 +14,7 @@ use std::fmt::Debug;
 ///
 /// Events sent via the [`Assets`] struct will always be sent with a _Weak_ handle, because the
 /// asset may not exist by the time the event is handled.
+#[derive(Event)]
 pub enum AssetEvent<T: Asset> {
     #[allow(missing_docs)]
     Created { handle: Handle<T> },
@@ -137,12 +135,12 @@ impl<T: Asset> Assets<T> {
     /// This is the main method for accessing asset data from an [Assets] collection. If you need
     /// mutable access to the asset, use [`get_mut`](Assets::get_mut).
     pub fn get(&self, handle: &Handle<T>) -> Option<&T> {
-        self.assets.get(&handle.into())
+        self.assets.get::<HandleId>(&handle.into())
     }
 
     /// Checks if an asset exists for the given handle
     pub fn contains(&self, handle: &Handle<T>) -> bool {
-        self.assets.contains_key(&handle.into())
+        self.assets.contains_key::<HandleId>(&handle.into())
     }
 
     /// Get mutable access to the asset for the given handle.
@@ -280,7 +278,7 @@ pub trait AddAsset {
     where
         T: Asset;
 
-    /// Registers the asset type `T` using `[App::register]`,
+    /// Registers the asset type `T` using [`App::register_type`],
     /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
     ///
     /// This enables reflection code to access assets. For detailed information, see the docs on [`ReflectAsset`] and [`ReflectHandle`].
@@ -300,7 +298,7 @@ pub trait AddAsset {
 
     /// Adds an asset loader `T` using default values.
     ///
-    /// The default values may come from the `World` or from `T::default()`.
+    /// The default values may come from the [`World`] or from `T::default()`.
     fn init_asset_loader<T>(&mut self) -> &mut Self
     where
         T: AssetLoader + FromWorld;
@@ -310,7 +308,7 @@ pub trait AddAsset {
     /// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
     /// using the conventional API. See `DebugAssetServerPlugin`.
     ///
-    /// The default values may come from the `World` or from `T::default()`.
+    /// The default values may come from the [`World`] or from `T::default()`.
     fn init_debug_asset_loader<T>(&mut self) -> &mut Self
     where
         T: AssetLoader + FromWorld;
@@ -319,6 +317,10 @@ pub trait AddAsset {
     fn add_asset_loader<T>(&mut self, loader: T) -> &mut Self
     where
         T: AssetLoader;
+
+    /// Preregisters a loader for the given extensions, that will block asset loads until a real loader
+    /// is registered.
+    fn preregister_asset_loader(&mut self, extensions: &[&str]) -> &mut Self;
 }
 
 impl AddAsset for App {
@@ -335,8 +337,8 @@ impl AddAsset for App {
         };
 
         self.insert_resource(assets)
-            .add_system_to_stage(AssetStage::AssetEvents, Assets::<T>::asset_event_system)
-            .add_system_to_stage(AssetStage::LoadAssets, update_asset_storage_system::<T>)
+            .add_systems(LoadAssets, update_asset_storage_system::<T>)
+            .add_systems(AssetEvents, Assets::<T>::asset_event_system)
             .register_type::<Handle<T>>()
             .add_event::<AssetEvent<T>>()
     }
@@ -364,7 +366,10 @@ impl AddAsset for App {
     {
         #[cfg(feature = "debug_asset_server")]
         {
-            self.add_system(crate::debug_asset_server::sync_debug_assets::<T>);
+            self.add_systems(
+                bevy_app::Update,
+                crate::debug_asset_server::sync_debug_assets::<T>,
+            );
             let mut app = self
                 .world
                 .non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>();
@@ -403,12 +408,21 @@ impl AddAsset for App {
         self.world.resource_mut::<AssetServer>().add_loader(loader);
         self
     }
+
+    fn preregister_asset_loader(&mut self, extensions: &[&str]) -> &mut Self {
+        self.world
+            .resource_mut::<AssetServer>()
+            .preregister_loader(extensions);
+        self
+    }
 }
 
-/// Loads an internal asset.
+/// Loads an internal asset from a project source file.
+/// the file and its path are passed to the loader function, together with any additional parameters.
+/// the resulting asset is stored in the app's asset server.
 ///
 /// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
-/// using the conventional API. See `DebugAssetServerPlugin`.
+/// using the conventional API. See [`DebugAssetServerPlugin`](crate::debug_asset_server::DebugAssetServerPlugin).
 #[cfg(feature = "debug_asset_server")]
 #[macro_export]
 macro_rules! load_internal_asset {
@@ -417,7 +431,7 @@ macro_rules! load_internal_asset {
             let mut debug_app = $app
                 .world
                 .non_send_resource_mut::<$crate::debug_asset_server::DebugAssetApp>();
-            $crate::debug_asset_server::register_handle_with_loader(
+            $crate::debug_asset_server::register_handle_with_loader::<_, &'static str>(
                 $loader,
                 &mut debug_app,
                 $handle,
@@ -426,20 +440,59 @@ macro_rules! load_internal_asset {
             );
         }
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.set_untracked($handle, ($loader)(include_str!($path_str)));
+        assets.set_untracked(
+            $handle,
+            ($loader)(
+                include_str!($path_str),
+                std::path::Path::new(file!())
+                .parent()
+                .unwrap()
+                .join($path_str)
+                .to_string_lossy(),
+            )
+        );
+    }};
+    // we can't support params without variadic arguments, so internal assets with additional params can't be hot-reloaded
+    ($app: ident, $handle: ident, $path_str: expr, $loader: expr $(, $param:expr)+) => {{
+        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
+        assets.set_untracked(
+            $handle,
+            ($loader)(
+                include_str!($path_str),
+                std::path::Path::new(file!())
+                    .parent()
+                    .unwrap()
+                    .join($path_str)
+                    .to_string_lossy(),
+                $($param),+
+            ),
+        );
     }};
 }
 
-/// Loads an internal asset.
+/// Loads an internal asset from a project source file.
+/// the file and its path are passed to the loader function, together with any additional parameters.
+/// the resulting asset is stored in the app's asset server.
 ///
 /// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
 /// using the conventional API. See `DebugAssetServerPlugin`.
 #[cfg(not(feature = "debug_asset_server"))]
 #[macro_export]
 macro_rules! load_internal_asset {
-    ($app: ident, $handle: ident, $path_str: expr, $loader: expr) => {{
+    ($app: ident, $handle: ident, $path_str: expr, $loader: expr $(, $param:expr)*) => {{
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.set_untracked($handle, ($loader)(include_str!($path_str)));
+        assets.set_untracked(
+            $handle,
+            ($loader)(
+                include_str!($path_str),
+                std::path::Path::new(file!())
+                    .parent()
+                    .unwrap()
+                    .join($path_str)
+                    .to_string_lossy(),
+                $($param),*
+            ),
+        );
     }};
 }
 
@@ -455,7 +508,7 @@ macro_rules! load_internal_binary_asset {
             let mut debug_app = $app
                 .world
                 .non_send_resource_mut::<$crate::debug_asset_server::DebugAssetApp>();
-            $crate::debug_asset_server::register_handle_with_loader(
+            $crate::debug_asset_server::register_handle_with_loader::<_, &'static [u8]>(
                 $loader,
                 &mut debug_app,
                 $handle,
@@ -464,7 +517,18 @@ macro_rules! load_internal_binary_asset {
             );
         }
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.set_untracked($handle, ($loader)(include_bytes!($path_str).as_ref()));
+        assets.set_untracked(
+            $handle,
+            ($loader)(
+                include_bytes!($path_str).as_ref(),
+                std::path::Path::new(file!())
+                    .parent()
+                    .unwrap()
+                    .join($path_str)
+                    .to_string_lossy()
+                    .into(),
+            ),
+        );
     }};
 }
 
@@ -477,7 +541,18 @@ macro_rules! load_internal_binary_asset {
 macro_rules! load_internal_binary_asset {
     ($app: ident, $handle: ident, $path_str: expr, $loader: expr) => {{
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.set_untracked($handle, ($loader)(include_bytes!($path_str).as_ref()));
+        assets.set_untracked(
+            $handle,
+            ($loader)(
+                include_bytes!($path_str).as_ref(),
+                std::path::Path::new(file!())
+                    .parent()
+                    .unwrap()
+                    .join($path_str)
+                    .to_string_lossy()
+                    .into(),
+            ),
+        );
     }};
 }
 
@@ -489,12 +564,15 @@ mod tests {
 
     #[test]
     fn asset_overwriting() {
-        #[derive(bevy_reflect::TypeUuid)]
+        #[derive(bevy_reflect::TypeUuid, bevy_reflect::TypePath)]
         #[uuid = "44115972-f31b-46e5-be5c-2b9aece6a52f"]
         struct MyAsset;
         let mut app = App::new();
-        app.add_plugin(bevy_core::CorePlugin::default())
-            .add_plugin(crate::AssetPlugin::default());
+        app.add_plugins((
+            bevy_core::TaskPoolPlugin::default(),
+            bevy_core::TypeRegistrationPlugin,
+            crate::AssetPlugin::default(),
+        ));
         app.add_asset::<MyAsset>();
         let mut assets_before = app.world.resource_mut::<Assets<MyAsset>>();
         let handle = assets_before.add(MyAsset);

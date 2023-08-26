@@ -5,8 +5,8 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
-    render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
+    render_graph::{Node, NodeRunError, RenderGraphContext},
+    render_phase::RenderPhase,
     render_resource::{LoadOp, Operations, RenderPassDescriptor},
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
@@ -26,10 +26,8 @@ pub struct MainPass2dNode {
     >,
 }
 
-impl MainPass2dNode {
-    pub const IN_VIEW: &'static str = "view";
-
-    pub fn new(world: &mut World) -> Self {
+impl FromWorld for MainPass2dNode {
+    fn from_world(world: &mut World) -> Self {
         Self {
             query: world.query_filtered(),
         }
@@ -37,10 +35,6 @@ impl MainPass2dNode {
 }
 
 impl Node for MainPass2dNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(MainPass2dNode::IN_VIEW, SlotType::Entity)]
-    }
-
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
@@ -51,7 +45,7 @@ impl Node for MainPass2dNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let view_entity = graph.view_entity();
         let (camera, transparent_phase, target, camera_2d) =
             if let Ok(result) = self.query.get_manual(world, view_entity) {
                 result
@@ -62,7 +56,8 @@ impl Node for MainPass2dNode {
         {
             #[cfg(feature = "trace")]
             let _main_pass_2d = info_span!("main_pass_2d").entered();
-            let pass_descriptor = RenderPassDescriptor {
+
+            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_pass_2d"),
                 color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: match camera_2d.clear_color {
@@ -75,28 +70,18 @@ impl Node for MainPass2dNode {
                     store: true,
                 }))],
                 depth_stencil_attachment: None,
-            };
+            });
 
-            let draw_functions = world.resource::<DrawFunctions<Transparent2d>>();
-
-            let render_pass = render_context
-                .command_encoder
-                .begin_render_pass(&pass_descriptor);
-
-            let mut draw_functions = draw_functions.write();
-            let mut tracked_pass = TrackedRenderPass::new(render_pass);
             if let Some(viewport) = camera.viewport.as_ref() {
-                tracked_pass.set_camera_viewport(viewport);
+                render_pass.set_camera_viewport(viewport);
             }
-            for item in &transparent_phase.items {
-                let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-                draw_function.draw(world, &mut tracked_pass, view_entity, item);
-            }
+
+            transparent_phase.render(&mut render_pass, world, view_entity);
         }
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
         // reset for the next render pass so add an empty render pass without a custom viewport
-        #[cfg(feature = "webgl")]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         if camera.viewport.is_some() {
             #[cfg(feature = "trace")]
             let _reset_viewport_pass_2d = info_span!("reset_viewport_pass_2d").entered();
@@ -110,7 +95,7 @@ impl Node for MainPass2dNode {
             };
 
             render_context
-                .command_encoder
+                .command_encoder()
                 .begin_render_pass(&pass_descriptor);
         }
 

@@ -8,7 +8,8 @@ use crate::{
 };
 use erased_serde::Deserializer;
 use serde::de::{
-    self, DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess, Visitor,
+    self, DeserializeSeed, EnumAccess, Error, IgnoredAny, MapAccess, SeqAccess, VariantAccess,
+    Visitor,
 };
 use serde::Deserialize;
 use std::any::TypeId;
@@ -257,6 +258,54 @@ impl<'a, 'de> DeserializeSeed<'de> for UntypedReflectDeserializer<'a> {
     }
 }
 
+/// A deserializer for type registrations.
+///
+/// This will return a [`&TypeRegistration`] corresponding to the given type.
+/// This deserializer expects a string containing the _full_ [type name] of the
+/// type to find the `TypeRegistration` of.
+///
+/// [`&TypeRegistration`]: crate::TypeRegistration
+/// [type name]: std::any::type_name
+pub struct TypeRegistrationDeserializer<'a> {
+    registry: &'a TypeRegistry,
+}
+
+impl<'a> TypeRegistrationDeserializer<'a> {
+    pub fn new(registry: &'a TypeRegistry) -> Self {
+        Self { registry }
+    }
+}
+
+impl<'a, 'de> DeserializeSeed<'de> for TypeRegistrationDeserializer<'a> {
+    type Value = &'a TypeRegistration;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct TypeRegistrationVisitor<'a>(&'a TypeRegistry);
+
+        impl<'de, 'a> Visitor<'de> for TypeRegistrationVisitor<'a> {
+            type Value = &'a TypeRegistration;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("string containing `type` entry for the reflected value")
+            }
+
+            fn visit_str<E>(self, type_name: &str) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                self.0.get_with_name(type_name).ok_or_else(|| {
+                    Error::custom(format_args!("No registration found for `{type_name}`"))
+                })
+            }
+        }
+
+        deserializer.deserialize_str(TypeRegistrationVisitor(self.registry))
+    }
+}
+
 struct UntypedReflectDeserializerVisitor<'a> {
     registry: &'a TypeRegistry,
 }
@@ -272,17 +321,19 @@ impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
     where
         A: MapAccess<'de>,
     {
-        let type_name = map
-            .next_key::<String>()?
-            .ok_or_else(|| Error::invalid_length(0, &"at least one entry"))?;
+        let registration = map
+            .next_key_seed(TypeRegistrationDeserializer::new(self.registry))?
+            .ok_or_else(|| Error::invalid_length(0, &"a single entry"))?;
 
-        let registration = self.registry.get_with_name(&type_name).ok_or_else(|| {
-            Error::custom(format_args!("No registration found for `{type_name}`"))
-        })?;
         let value = map.next_value_seed(TypedReflectDeserializer {
             registration,
             registry: self.registry,
         })?;
+
+        if map.next_key::<IgnoredAny>()?.is_some() {
+            return Err(Error::invalid_length(2, &"a single entry"));
+        }
+
         Ok(value)
     }
 }
@@ -341,10 +392,11 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                     struct_info.field_names(),
                     StructVisitor {
                         struct_info,
+                        registration: self.registration,
                         registry: self.registry,
                     },
                 )?;
-                dynamic_struct.set_name(struct_info.type_name().to_string());
+                dynamic_struct.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_struct))
             }
             TypeInfo::TupleStruct(tuple_struct_info) => {
@@ -357,7 +409,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                         registration: self.registration,
                     },
                 )?;
-                dynamic_tuple_struct.set_name(tuple_struct_info.type_name().to_string());
+                dynamic_tuple_struct.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_tuple_struct))
             }
             TypeInfo::List(list_info) => {
@@ -365,7 +417,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                     list_info,
                     registry: self.registry,
                 })?;
-                dynamic_list.set_name(list_info.type_name().to_string());
+                dynamic_list.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_list))
             }
             TypeInfo::Array(array_info) => {
@@ -376,7 +428,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                         registry: self.registry,
                     },
                 )?;
-                dynamic_array.set_name(array_info.type_name().to_string());
+                dynamic_array.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_array))
             }
             TypeInfo::Map(map_info) => {
@@ -384,7 +436,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                     map_info,
                     registry: self.registry,
                 })?;
-                dynamic_map.set_name(map_info.type_name().to_string());
+                dynamic_map.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_map))
             }
             TypeInfo::Tuple(tuple_info) => {
@@ -395,7 +447,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                         registry: self.registry,
                     },
                 )?;
-                dynamic_tuple.set_name(tuple_info.type_name().to_string());
+                dynamic_tuple.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_tuple))
             }
             TypeInfo::Enum(enum_info) => {
@@ -411,26 +463,18 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                         enum_info.variant_names(),
                         EnumVisitor {
                             enum_info,
+                            registration: self.registration,
                             registry: self.registry,
                         },
                     )?
                 };
-                dynamic_enum.set_name(type_name.to_string());
+                dynamic_enum.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_enum))
             }
             TypeInfo::Value(_) => {
                 // This case should already be handled
                 Err(de::Error::custom(format_args!(
-                    "the TypeRegistration for {} doesn't have ReflectDeserialize",
-                    type_name
-                )))
-            }
-            TypeInfo::Dynamic(_) => {
-                // We could potentially allow this but we'd have no idea what the actual types of the
-                // fields are and would rely on the deserializer to determine them (e.g. `i32` vs `i64`)
-                Err(de::Error::custom(format_args!(
-                    "cannot deserialize arbitrary dynamic type {}",
-                    type_name
+                    "the TypeRegistration for {type_name} doesn't have ReflectDeserialize",
                 )))
             }
         }
@@ -439,6 +483,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
 
 struct StructVisitor<'a> {
     struct_info: &'static StructInfo,
+    registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
 }
 
@@ -462,6 +507,18 @@ impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
     {
         let mut index = 0usize;
         let mut output = DynamicStruct::default();
+
+        let ignored_len = self
+            .registration
+            .data::<SerializationData>()
+            .map(|data| data.len())
+            .unwrap_or(0);
+        let field_len = self.struct_info.field_len().saturating_sub(ignored_len);
+
+        if field_len == 0 {
+            // Handle unit structs and ignored fields
+            return Ok(output);
+        }
 
         while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
             registration: self
@@ -500,6 +557,21 @@ impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
     {
         let mut index = 0usize;
         let mut tuple_struct = DynamicTupleStruct::default();
+
+        let ignored_len = self
+            .registration
+            .data::<SerializationData>()
+            .map(|data| data.len())
+            .unwrap_or(0);
+        let field_len = self
+            .tuple_struct_info
+            .field_len()
+            .saturating_sub(ignored_len);
+
+        if field_len == 0 {
+            // Handle unit structs and ignored fields
+            return Ok(tuple_struct);
+        }
 
         let get_field_registration = |index: usize| -> Result<&'a TypeRegistration, V::Error> {
             let field = self.tuple_struct_info.field_at(index).ok_or_else(|| {
@@ -675,6 +747,7 @@ impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
 
 struct EnumVisitor<'a> {
     enum_info: &'static EnumInfo,
+    registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
 }
 
@@ -701,6 +774,7 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
                     struct_info.field_names(),
                     StructVariantVisitor {
                         struct_info,
+                        registration: self.registration,
                         registry: self.registry,
                     },
                 )?
@@ -722,6 +796,7 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
                     tuple_info.field_len(),
                     TupleVariantVisitor {
                         tuple_info,
+                        registration: self.registration,
                         registry: self.registry,
                     },
                 )?
@@ -787,6 +862,7 @@ impl<'de> DeserializeSeed<'de> for VariantDeserializer {
 
 struct StructVariantVisitor<'a> {
     struct_info: &'static StructVariantInfo,
+    registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
 }
 
@@ -811,6 +887,18 @@ impl<'a, 'de> Visitor<'de> for StructVariantVisitor<'a> {
         let mut index = 0usize;
         let mut output = DynamicStruct::default();
 
+        let ignored_len = self
+            .registration
+            .data::<SerializationData>()
+            .map(|data| data.len())
+            .unwrap_or(0);
+        let field_len = self.struct_info.field_len().saturating_sub(ignored_len);
+
+        if field_len == 0 {
+            // Handle all fields being ignored
+            return Ok(output);
+        }
+
         while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
             registration: self
                 .struct_info
@@ -831,6 +919,7 @@ impl<'a, 'de> Visitor<'de> for StructVariantVisitor<'a> {
 
 struct TupleVariantVisitor<'a> {
     tuple_info: &'static TupleVariantInfo,
+    registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
 }
 
@@ -845,6 +934,18 @@ impl<'a, 'de> Visitor<'de> for TupleVariantVisitor<'a> {
     where
         V: SeqAccess<'de>,
     {
+        let ignored_len = self
+            .registration
+            .data::<SerializationData>()
+            .map(|data| data.len())
+            .unwrap_or(0);
+        let field_len = self.tuple_info.field_len().saturating_sub(ignored_len);
+
+        if field_len == 0 {
+            // Handle all fields being ignored
+            return Ok(DynamicTuple::default());
+        }
+
         visit_tuple(&mut seq, self.tuple_info, self.registry)
     }
 }
@@ -977,10 +1078,7 @@ fn get_registration<'a, E: Error>(
     registry: &'a TypeRegistry,
 ) -> Result<&'a TypeRegistration, E> {
     let registration = registry.get(type_id).ok_or_else(|| {
-        Error::custom(format_args!(
-            "no registration found for type `{}`",
-            type_name
-        ))
+        Error::custom(format_args!("no registration found for type `{type_name}`",))
     })?;
     Ok(registration)
 }
@@ -1000,7 +1098,7 @@ mod tests {
     use crate::serde::{TypedReflectDeserializer, UntypedReflectDeserializer};
     use crate::{DynamicEnum, FromReflect, Reflect, ReflectDeserialize, TypeRegistry};
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     struct MyStruct {
         primitive_value: i8,
         option_value: Option<String>,
@@ -1011,22 +1109,39 @@ mod tests {
         map_value: HashMap<u8, usize>,
         struct_value: SomeStruct,
         tuple_struct_value: SomeTupleStruct,
+        unit_struct: SomeUnitStruct,
         unit_enum: SomeEnum,
         newtype_enum: SomeEnum,
         tuple_enum: SomeEnum,
         struct_enum: SomeEnum,
+        ignored_struct: SomeIgnoredStruct,
+        ignored_tuple_struct: SomeIgnoredTupleStruct,
+        ignored_struct_variant: SomeIgnoredEnum,
+        ignored_tuple_variant: SomeIgnoredEnum,
         custom_deserialize: CustomDeserialize,
     }
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     struct SomeStruct {
         foo: i64,
     }
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     struct SomeTupleStruct(String);
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq, Deserialize)]
+    #[derive(Reflect, Debug, PartialEq)]
+    struct SomeUnitStruct;
+
+    #[derive(Reflect, Debug, PartialEq)]
+    struct SomeIgnoredStruct {
+        #[reflect(ignore)]
+        ignored: i32,
+    }
+
+    #[derive(Reflect, Debug, PartialEq)]
+    struct SomeIgnoredTupleStruct(#[reflect(ignore)] i32);
+
+    #[derive(Reflect, Debug, PartialEq, Deserialize)]
     struct SomeDeserializableStruct {
         foo: i64,
     }
@@ -1034,7 +1149,7 @@ mod tests {
     /// Implements a custom deserialize using `#[reflect(Deserialize)]`.
     ///
     /// For testing purposes, this is just the auto-generated one from deriving.
-    #[derive(Reflect, FromReflect, Debug, PartialEq, Deserialize)]
+    #[derive(Reflect, Debug, PartialEq, Deserialize)]
     #[reflect(Deserialize)]
     struct CustomDeserialize {
         value: usize,
@@ -1042,7 +1157,7 @@ mod tests {
         inner_struct: SomeDeserializableStruct,
     }
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     enum SomeEnum {
         Unit,
         NewType(usize),
@@ -1050,14 +1165,27 @@ mod tests {
         Struct { foo: String },
     }
 
+    #[derive(Reflect, Debug, PartialEq)]
+    enum SomeIgnoredEnum {
+        Tuple(#[reflect(ignore)] f32, #[reflect(ignore)] f32),
+        Struct {
+            #[reflect(ignore)]
+            foo: String,
+        },
+    }
+
     fn get_registry() -> TypeRegistry {
         let mut registry = TypeRegistry::default();
         registry.register::<MyStruct>();
         registry.register::<SomeStruct>();
         registry.register::<SomeTupleStruct>();
+        registry.register::<SomeUnitStruct>();
+        registry.register::<SomeIgnoredStruct>();
+        registry.register::<SomeIgnoredTupleStruct>();
         registry.register::<CustomDeserialize>();
         registry.register::<SomeDeserializableStruct>();
         registry.register::<SomeEnum>();
+        registry.register::<SomeIgnoredEnum>();
         registry.register::<i8>();
         registry.register::<String>();
         registry.register::<i64>();
@@ -1090,12 +1218,19 @@ mod tests {
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
+            unit_struct: SomeUnitStruct,
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
             tuple_enum: SomeEnum::Tuple(1.23, 3.21),
             struct_enum: SomeEnum::Struct {
                 foo: String::from("Struct variant value"),
             },
+            ignored_struct: SomeIgnoredStruct { ignored: 0 },
+            ignored_tuple_struct: SomeIgnoredTupleStruct(0),
+            ignored_struct_variant: SomeIgnoredEnum::Struct {
+                foo: String::default(),
+            },
+            ignored_tuple_variant: SomeIgnoredEnum::Tuple(0.0, 0.0),
             custom_deserialize: CustomDeserialize {
                 value: 100,
                 inner_struct: SomeDeserializableStruct { foo: 101 },
@@ -1125,12 +1260,17 @@ mod tests {
                     foo: 999999999,
                 ),
                 tuple_struct_value: ("Tuple Struct"),
+                unit_struct: (),
                 unit_enum: Unit,
                 newtype_enum: NewType(123),
                 tuple_enum: Tuple(1.23, 3.21),
                 struct_enum: Struct(
                     foo: "Struct variant value",
                 ),
+                ignored_struct: (),
+                ignored_tuple_struct: (),
+                ignored_struct_variant: Struct(),
+                ignored_tuple_variant: Tuple(),
                 custom_deserialize: (
                     value: 100,
                     renamed: (
@@ -1171,7 +1311,7 @@ mod tests {
 
     #[test]
     fn should_deserialized_typed() {
-        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        #[derive(Reflect, Debug, PartialEq)]
         struct Foo {
             bar: i32,
         }
@@ -1197,7 +1337,7 @@ mod tests {
 
     #[test]
     fn should_deserialize_option() {
-        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        #[derive(Reflect, Debug, PartialEq)]
         struct OptionTest {
             none: Option<()>,
             simple: Option<String>,
@@ -1337,12 +1477,19 @@ mod tests {
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
+            unit_struct: SomeUnitStruct,
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
             tuple_enum: SomeEnum::Tuple(1.23, 3.21),
             struct_enum: SomeEnum::Struct {
                 foo: String::from("Struct variant value"),
             },
+            ignored_struct: SomeIgnoredStruct { ignored: 0 },
+            ignored_tuple_struct: SomeIgnoredTupleStruct(0),
+            ignored_struct_variant: SomeIgnoredEnum::Struct {
+                foo: String::default(),
+            },
+            ignored_tuple_variant: SomeIgnoredEnum::Tuple(0.0, 0.0),
             custom_deserialize: CustomDeserialize {
                 value: 100,
                 inner_struct: SomeDeserializableStruct { foo: 101 },
@@ -1363,7 +1510,8 @@ mod tests {
             108, 101, 32, 83, 116, 114, 117, 99, 116, 0, 0, 0, 0, 1, 0, 0, 0, 123, 0, 0, 0, 0, 0,
             0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64, 3, 0, 0, 0, 20, 0, 0, 0, 0, 0,
             0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97,
-            108, 117, 101, 100, 0, 0, 0, 0, 0, 0, 0, 101, 0, 0, 0, 0, 0, 0, 0,
+            108, 117, 101, 1, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 101, 0, 0, 0, 0, 0, 0,
+            0,
         ];
 
         let deserializer = UntypedReflectDeserializer::new(&registry);
@@ -1392,12 +1540,19 @@ mod tests {
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
+            unit_struct: SomeUnitStruct,
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
             tuple_enum: SomeEnum::Tuple(1.23, 3.21),
             struct_enum: SomeEnum::Struct {
                 foo: String::from("Struct variant value"),
             },
+            ignored_struct: SomeIgnoredStruct { ignored: 0 },
+            ignored_tuple_struct: SomeIgnoredTupleStruct(0),
+            ignored_struct_variant: SomeIgnoredEnum::Struct {
+                foo: String::default(),
+            },
+            ignored_tuple_variant: SomeIgnoredEnum::Tuple(0.0, 0.0),
             custom_deserialize: CustomDeserialize {
                 value: 100,
                 inner_struct: SomeDeserializableStruct { foo: 101 },
@@ -1409,20 +1564,22 @@ mod tests {
         let input = vec![
             129, 217, 40, 98, 101, 118, 121, 95, 114, 101, 102, 108, 101, 99, 116, 58, 58, 115,
             101, 114, 100, 101, 58, 58, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
-            83, 116, 114, 117, 99, 116, 158, 123, 172, 72, 101, 108, 108, 111, 32, 119, 111, 114,
-            108, 100, 33, 145, 123, 146, 202, 64, 73, 15, 219, 205, 5, 57, 149, 254, 255, 0, 1, 2,
-            149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 206, 59, 154, 201, 255, 145, 172, 84, 117,
-            112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 164, 85, 110, 105, 116, 129, 167, 78,
-            101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101, 146, 202, 63, 157,
-            112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116, 145, 180, 83,
-            116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97, 108, 117,
-            101, 146, 100, 145, 101,
+            83, 116, 114, 117, 99, 116, 220, 0, 19, 123, 172, 72, 101, 108, 108, 111, 32, 119, 111,
+            114, 108, 100, 33, 145, 123, 146, 202, 64, 73, 15, 219, 205, 5, 57, 149, 254, 255, 0,
+            1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 206, 59, 154, 201, 255, 145, 172, 84,
+            117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 164, 85, 110, 105, 116, 129,
+            167, 78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101, 146, 202,
+            63, 157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116, 145,
+            180, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97, 108,
+            117, 101, 144, 144, 129, 166, 83, 116, 114, 117, 99, 116, 144, 129, 165, 84, 117, 112,
+            108, 101, 144, 146, 100, 145, 101,
         ];
 
-        let deserializer = UntypedReflectDeserializer::new(&registry);
+        let mut reader = std::io::BufReader::new(input.as_slice());
 
+        let deserializer = UntypedReflectDeserializer::new(&registry);
         let dynamic_output = deserializer
-            .deserialize(&mut rmp_serde::Deserializer::new(input.as_slice()))
+            .deserialize(&mut rmp_serde::Deserializer::new(&mut reader))
             .unwrap();
 
         let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();

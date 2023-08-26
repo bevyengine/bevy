@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crate::{
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
@@ -20,9 +22,10 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 /// (vectors), or structures with fields that are vectors.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
 /// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
@@ -32,7 +35,8 @@ pub struct UniformBuffer<T: ShaderType> {
     scratch: UniformBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
     label: Option<String>,
-    label_changed: bool,
+    changed: bool,
+    buffer_usage: BufferUsages,
 }
 
 impl<T: ShaderType> From<T> for UniformBuffer<T> {
@@ -42,7 +46,8 @@ impl<T: ShaderType> From<T> for UniformBuffer<T> {
             scratch: UniformBufferWrapper::new(Vec::new()),
             buffer: None,
             label: None,
-            label_changed: false,
+            changed: false,
+            buffer_usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
         }
     }
 }
@@ -54,7 +59,8 @@ impl<T: ShaderType + Default> Default for UniformBuffer<T> {
             scratch: UniformBufferWrapper::new(Vec::new()),
             buffer: None,
             label: None,
-            label_changed: false,
+            changed: false,
+            buffer_usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
         }
     }
 }
@@ -89,7 +95,7 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
         let label = label.map(str::to_string);
 
         if label != self.label {
-            self.label_changed = true;
+            self.changed = true;
         }
 
         self.label = label;
@@ -97,6 +103,16 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 
     pub fn get_label(&self) -> Option<&str> {
         self.label.as_deref()
+    }
+
+    /// Add more [`BufferUsages`] to the buffer.
+    ///
+    /// This method only allows addition of flags to the default usage flags.
+    ///
+    /// The default values for buffer usage are `BufferUsages::COPY_DST` and `BufferUsages::UNIFORM`.
+    pub fn add_usages(&mut self, usage: BufferUsages) {
+        self.buffer_usage |= usage;
+        self.changed = true;
     }
 
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
@@ -107,13 +123,13 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         self.scratch.write(&self.value).unwrap();
 
-        if self.label_changed || self.buffer.is_none() {
+        if self.changed || self.buffer.is_none() {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
-                usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+                usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
-            self.label_changed = false;
+            self.changed = false;
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
@@ -136,32 +152,45 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
 pub struct DynamicUniformBuffer<T: ShaderType> {
-    values: Vec<T>,
     scratch: DynamicUniformBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
-    capacity: usize,
     label: Option<String>,
-    label_changed: bool,
+    changed: bool,
+    buffer_usage: BufferUsages,
+    _marker: PhantomData<fn() -> T>,
 }
 
 impl<T: ShaderType> Default for DynamicUniformBuffer<T> {
     fn default() -> Self {
         Self {
-            values: Vec::new(),
             scratch: DynamicUniformBufferWrapper::new(Vec::new()),
             buffer: None,
-            capacity: 0,
             label: None,
-            label_changed: false,
+            changed: false,
+            buffer_usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+            _marker: PhantomData,
         }
     }
 }
 
 impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
+    pub fn new_with_alignment(alignment: u64) -> Self {
+        Self {
+            scratch: DynamicUniformBufferWrapper::new_with_alignment(Vec::new(), alignment),
+            buffer: None,
+            label: None,
+            changed: false,
+            buffer_usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+            _marker: PhantomData,
+        }
+    }
+
     #[inline]
     pub fn buffer(&self) -> Option<&Buffer> {
         self.buffer.as_ref()
@@ -177,28 +206,21 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
-        self.values.len()
-    }
-
-    #[inline]
     pub fn is_empty(&self) -> bool {
-        self.values.is_empty()
+        self.scratch.as_ref().is_empty()
     }
 
     /// Push data into the `DynamicUniformBuffer`'s internal vector (residing on system RAM).
     #[inline]
     pub fn push(&mut self, value: T) -> u32 {
-        let offset = self.scratch.write(&value).unwrap() as u32;
-        self.values.push(value);
-        offset
+        self.scratch.write(&value).unwrap() as u32
     }
 
     pub fn set_label(&mut self, label: Option<&str>) {
         let label = label.map(str::to_string);
 
         if label != self.label {
-            self.label_changed = true;
+            self.changed = true;
         }
 
         self.label = label;
@@ -208,6 +230,16 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         self.label.as_deref()
     }
 
+    /// Add more [`BufferUsages`] to the buffer.
+    ///
+    /// This method only allows addition of flags to the default usage flags.
+    ///
+    /// The default values for buffer usage are `BufferUsages::COPY_DST` and `BufferUsages::UNIFORM`.
+    pub fn add_usages(&mut self, usage: BufferUsages) {
+        self.buffer_usage |= usage;
+        self.changed = true;
+    }
+
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
     /// and the provided [`RenderQueue`](crate::renderer::RenderQueue).
     ///
@@ -215,16 +247,16 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     /// allocated does not have enough capacity, a new GPU-side buffer is created.
     #[inline]
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
-        let size = self.scratch.as_ref().len();
+        let capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
+        let size = self.scratch.as_ref().len() as u64;
 
-        if self.capacity < size || self.label_changed {
+        if capacity < size || self.changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
-                usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+                usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
-            self.capacity = size;
-            self.label_changed = false;
+            self.changed = false;
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
@@ -232,7 +264,6 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
 
     #[inline]
     pub fn clear(&mut self) {
-        self.values.clear();
         self.scratch.as_mut().clear();
         self.scratch.set_offset(0);
     }

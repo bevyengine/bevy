@@ -1,18 +1,27 @@
 use crate::{DynamicScene, Scene};
-use bevy_app::AppTypeRegistry;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},
-    event::{Events, ManualEventReader},
+    event::{Event, Events, ManualEventReader},
+    reflect::AppTypeRegistry,
     system::{Command, Resource},
     world::{Mut, World},
 };
 use bevy_hierarchy::{AddChild, Parent};
-use bevy_utils::{tracing::error, HashMap};
+use bevy_utils::{tracing::error, HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
 
-/// Informations about a scene instance.
+/// Emitted when [`crate::SceneInstance`] becomes ready to use.
+///
+/// See also [`SceneSpawner::instance_is_ready`].
+#[derive(Event)]
+pub struct SceneInstanceReady {
+    /// Entity to which the scene was spawned as a child.
+    pub parent: Entity,
+}
+
+/// Information about a scene instance.
 #[derive(Debug)]
 pub struct InstanceInfo {
     /// Mapping of entities from the scene world to the instance world.
@@ -45,6 +54,8 @@ pub struct SceneSpawner {
 pub enum SceneSpawnError {
     #[error("scene contains the unregistered component `{type_name}`. consider adding `#[reflect(Component)]` to your type")]
     UnregisteredComponent { type_name: String },
+    #[error("scene contains the unregistered resource `{type_name}`. consider adding `#[reflect(Resource)]` to your type")]
+    UnregisteredResource { type_name: String },
     #[error("scene contains the unregistered type `{type_name}`. consider registering the type using `app.register_type::<T>()`")]
     UnregisteredType { type_name: String },
     #[error("scene does not exist")]
@@ -54,10 +65,11 @@ pub enum SceneSpawnError {
 }
 
 impl SceneSpawner {
-    pub fn spawn_dynamic(&mut self, scene_handle: Handle<DynamicScene>) {
+    pub fn spawn_dynamic(&mut self, scene_handle: Handle<DynamicScene>) -> InstanceId {
         let instance_id = InstanceId::new();
         self.dynamic_scenes_to_spawn
             .push((scene_handle, instance_id));
+        instance_id
     }
 
     pub fn spawn_dynamic_as_child(
@@ -281,7 +293,9 @@ impl SceneSpawner {
                             parent,
                             child: entity,
                         }
-                        .write(world);
+                        .apply(world);
+
+                        world.send_event(SceneInstanceReady { parent });
                     }
                 }
             } else {
@@ -313,6 +327,26 @@ impl SceneSpawner {
 
 pub fn scene_spawner_system(world: &mut World) {
     world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
+        // remove any loading instances where parent is deleted
+        let mut dead_instances = HashSet::default();
+        scene_spawner
+            .scenes_with_parent
+            .retain(|(instance, parent)| {
+                let retain = world.get_entity(*parent).is_some();
+
+                if !retain {
+                    dead_instances.insert(*instance);
+                }
+
+                retain
+            });
+        scene_spawner
+            .dynamic_scenes_to_spawn
+            .retain(|(_, instance)| !dead_instances.contains(instance));
+        scene_spawner
+            .scenes_to_spawn
+            .retain(|(_, instance)| !dead_instances.contains(instance));
+
         let scene_asset_events = world.resource::<Events<AssetEvent<DynamicScene>>>();
 
         let mut updated_spawned_scenes = Vec::new();

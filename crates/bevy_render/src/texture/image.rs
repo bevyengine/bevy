@@ -15,13 +15,11 @@ use bevy_asset::HandleUntyped;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
-use bevy_reflect::{FromReflect, Reflect, TypeUuid};
+use bevy_reflect::{Reflect, TypeUuid};
+
 use std::hash::Hash;
 use thiserror::Error;
-use wgpu::{
-    Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDimension, TextureFormat,
-    TextureViewDescriptor,
-};
+use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
 
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
@@ -36,6 +34,7 @@ pub enum ImageFormat {
     Dds,
     Farbfeld,
     Gif,
+    OpenExr,
     Hdr,
     Ico,
     Jpeg,
@@ -55,6 +54,7 @@ impl ImageFormat {
             "image/jpeg" => ImageFormat::Jpeg,
             "image/ktx2" => ImageFormat::Ktx2,
             "image/png" => ImageFormat::Png,
+            "image/x-exr" => ImageFormat::OpenExr,
             "image/x-targa" | "image/x-tga" => ImageFormat::Tga,
             _ => return None,
         })
@@ -68,6 +68,7 @@ impl ImageFormat {
             "dds" => ImageFormat::Dds,
             "ff" | "farbfeld" => ImageFormat::Farbfeld,
             "gif" => ImageFormat::Gif,
+            "exr" => ImageFormat::OpenExr,
             "hdr" => ImageFormat::Hdr,
             "ico" => ImageFormat::Ico,
             "jpg" | "jpeg" => ImageFormat::Jpeg,
@@ -88,6 +89,7 @@ impl ImageFormat {
             ImageFormat::Dds => image::ImageFormat::Dds,
             ImageFormat::Farbfeld => image::ImageFormat::Farbfeld,
             ImageFormat::Gif => image::ImageFormat::Gif,
+            ImageFormat::OpenExr => image::ImageFormat::OpenExr,
             ImageFormat::Hdr => image::ImageFormat::Hdr,
             ImageFormat::Ico => image::ImageFormat::Ico,
             ImageFormat::Jpeg => image::ImageFormat::Jpeg,
@@ -101,7 +103,7 @@ impl ImageFormat {
     }
 }
 
-#[derive(Reflect, FromReflect, Debug, Clone, TypeUuid)]
+#[derive(Reflect, Debug, Clone, TypeUuid)]
 #[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
 #[reflect_value]
 pub struct Image {
@@ -126,19 +128,19 @@ pub enum ImageSampler {
 }
 
 impl ImageSampler {
-    /// Returns an image sampler with `Linear` min and mag filters
+    /// Returns an image sampler with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
     #[inline]
     pub fn linear() -> ImageSampler {
         ImageSampler::Descriptor(Self::linear_descriptor())
     }
 
-    /// Returns an image sampler with `nearest` min and mag filters
+    /// Returns an image sampler with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
     #[inline]
     pub fn nearest() -> ImageSampler {
         ImageSampler::Descriptor(Self::nearest_descriptor())
     }
 
-    /// Returns a sampler descriptor with `Linear` min and mag filters
+    /// Returns a sampler descriptor with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
     #[inline]
     pub fn linear_descriptor() -> wgpu::SamplerDescriptor<'static> {
         wgpu::SamplerDescriptor {
@@ -149,7 +151,7 @@ impl ImageSampler {
         }
     }
 
-    /// Returns a sampler descriptor with `Nearest` min and mag filters
+    /// Returns a sampler descriptor with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
     #[inline]
     pub fn nearest_descriptor() -> wgpu::SamplerDescriptor<'static> {
         wgpu::SamplerDescriptor {
@@ -170,6 +172,7 @@ impl ImageSampler {
 pub struct DefaultImageSampler(pub(crate) Sampler);
 
 impl Default for Image {
+    /// default is a 1x1x1 all '1.0' texture
     fn default() -> Self {
         let format = wgpu::TextureFormat::bevy_default();
         let data = vec![255; format.pixel_size()];
@@ -187,6 +190,7 @@ impl Default for Image {
                 mip_level_count: 1,
                 sample_count: 1,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
             },
             sampler_descriptor: ImageSampler::Default,
             texture_view_descriptor: None,
@@ -226,7 +230,6 @@ impl Image {
     ///
     /// # Panics
     /// Panics if the size of the `format` is not a multiple of the length of the `pixel` data.
-    /// do not match.
     pub fn new_fill(
         size: Extent3d,
         dimension: TextureDimension,
@@ -383,15 +386,15 @@ impl Image {
 
     /// Whether the texture format is compressed or uncompressed
     pub fn is_compressed(&self) -> bool {
-        let format_description = self.texture_descriptor.format.describe();
+        let format_description = self.texture_descriptor.format;
         format_description
-            .required_features
-            .contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC_LDR)
+            .required_features()
+            .contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC)
             || format_description
-                .required_features
+                .required_features()
                 .contains(wgpu::Features::TEXTURE_COMPRESSION_BC)
             || format_description
-                .required_features
+                .required_features()
                 .contains(wgpu::Features::TEXTURE_COMPRESSION_ETC2)
     }
 }
@@ -408,9 +411,13 @@ pub enum DataFormat {
 #[derive(Clone, Copy, Debug)]
 pub enum TranscodeFormat {
     Etc1s,
+    Uastc(DataFormat),
+    // Has to be transcoded to R8Unorm for use with `wgpu`
+    R8UnormSrgb,
+    // Has to be transcoded to R8G8Unorm for use with `wgpu`
+    Rg8UnormSrgb,
     // Has to be transcoded to Rgba8 for use with `wgpu`
     Rgb8,
-    Uastc(DataFormat),
 }
 
 /// An error that occurs when loading a texture
@@ -467,132 +474,18 @@ impl Volume for Extent3d {
     }
 }
 
-/// Information about the pixel size in bytes and the number of different components.
-pub struct PixelInfo {
-    /// The size of a component of a pixel in bytes.
-    pub type_size: usize,
-    /// The amount of different components (color channels).
-    pub num_components: usize,
-}
-
 /// Extends the wgpu [`TextureFormat`] with information about the pixel.
 pub trait TextureFormatPixelInfo {
-    /// Returns the pixel information of the format.
-    fn pixel_info(&self) -> PixelInfo;
-    /// Returns the size of a pixel of the format.
-    fn pixel_size(&self) -> usize {
-        let info = self.pixel_info();
-        info.type_size * info.num_components
-    }
+    /// Returns the size of a pixel in bytes of the format.
+    fn pixel_size(&self) -> usize;
 }
 
 impl TextureFormatPixelInfo for TextureFormat {
-    #[allow(clippy::match_same_arms)]
-    fn pixel_info(&self) -> PixelInfo {
-        let type_size = match self {
-            // 8bit
-            TextureFormat::R8Unorm
-            | TextureFormat::R8Snorm
-            | TextureFormat::R8Uint
-            | TextureFormat::R8Sint
-            | TextureFormat::Rg8Unorm
-            | TextureFormat::Rg8Snorm
-            | TextureFormat::Rg8Uint
-            | TextureFormat::Rg8Sint
-            | TextureFormat::Rgba8Unorm
-            | TextureFormat::Rgba8UnormSrgb
-            | TextureFormat::Rgba8Snorm
-            | TextureFormat::Rgba8Uint
-            | TextureFormat::Rgba8Sint
-            | TextureFormat::Bgra8Unorm
-            | TextureFormat::Bgra8UnormSrgb => 1,
-
-            // 16bit
-            TextureFormat::R16Uint
-            | TextureFormat::R16Sint
-            | TextureFormat::R16Float
-            | TextureFormat::R16Unorm
-            | TextureFormat::Rg16Uint
-            | TextureFormat::Rg16Sint
-            | TextureFormat::Rg16Unorm
-            | TextureFormat::Rg16Float
-            | TextureFormat::Rgba16Uint
-            | TextureFormat::Rgba16Sint
-            | TextureFormat::Rgba16Float => 2,
-
-            // 32bit
-            TextureFormat::R32Uint
-            | TextureFormat::R32Sint
-            | TextureFormat::R32Float
-            | TextureFormat::Rg32Uint
-            | TextureFormat::Rg32Sint
-            | TextureFormat::Rg32Float
-            | TextureFormat::Rgba32Uint
-            | TextureFormat::Rgba32Sint
-            | TextureFormat::Rgba32Float
-            | TextureFormat::Depth32Float => 4,
-
-            // special cases
-            TextureFormat::Rgb10a2Unorm => 4,
-            TextureFormat::Rg11b10Float => 4,
-            TextureFormat::Depth24Plus => 3, // FIXME is this correct?
-            TextureFormat::Depth24PlusStencil8 => 4,
-            // TODO: this is not good! this is a temporary step while porting bevy_render to direct wgpu usage
-            _ => panic!("cannot get pixel info for type"),
-        };
-
-        let components = match self {
-            TextureFormat::R8Unorm
-            | TextureFormat::R8Snorm
-            | TextureFormat::R8Uint
-            | TextureFormat::R8Sint
-            | TextureFormat::R16Uint
-            | TextureFormat::R16Sint
-            | TextureFormat::R16Unorm
-            | TextureFormat::R16Float
-            | TextureFormat::R32Uint
-            | TextureFormat::R32Sint
-            | TextureFormat::R32Float => 1,
-
-            TextureFormat::Rg8Unorm
-            | TextureFormat::Rg8Snorm
-            | TextureFormat::Rg8Uint
-            | TextureFormat::Rg8Sint
-            | TextureFormat::Rg16Uint
-            | TextureFormat::Rg16Sint
-            | TextureFormat::Rg16Unorm
-            | TextureFormat::Rg16Float
-            | TextureFormat::Rg32Uint
-            | TextureFormat::Rg32Sint
-            | TextureFormat::Rg32Float => 2,
-
-            TextureFormat::Rgba8Unorm
-            | TextureFormat::Rgba8UnormSrgb
-            | TextureFormat::Rgba8Snorm
-            | TextureFormat::Rgba8Uint
-            | TextureFormat::Rgba8Sint
-            | TextureFormat::Bgra8Unorm
-            | TextureFormat::Bgra8UnormSrgb
-            | TextureFormat::Rgba16Uint
-            | TextureFormat::Rgba16Sint
-            | TextureFormat::Rgba16Float
-            | TextureFormat::Rgba32Uint
-            | TextureFormat::Rgba32Sint
-            | TextureFormat::Rgba32Float => 4,
-
-            // special cases
-            TextureFormat::Rgb10a2Unorm
-            | TextureFormat::Rg11b10Float
-            | TextureFormat::Depth32Float
-            | TextureFormat::Depth24Plus
-            | TextureFormat::Depth24PlusStencil8 => 1,
-            // TODO: this is not good! this is a temporary step while porting bevy_render to direct wgpu usage
-            _ => panic!("cannot get pixel info for type"),
-        };
-
-        PixelInfo {
-            type_size,
-            num_components: components,
+    fn pixel_size(&self) -> usize {
+        let info = self;
+        match info.block_dimensions() {
+            (1, 1) => info.block_size(None).unwrap() as usize,
+            _ => panic!("Using pixel_size for compressed textures is invalid"),
         }
     }
 }
@@ -606,6 +499,7 @@ pub struct GpuImage {
     pub texture_format: TextureFormat,
     pub sampler: Sampler,
     pub size: Vec2,
+    pub mip_level_count: u32,
 }
 
 impl RenderAsset for Image {
@@ -627,41 +521,11 @@ impl RenderAsset for Image {
         image: Self::ExtractedAsset,
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let texture = if image.texture_descriptor.mip_level_count > 1 || image.is_compressed() {
-            render_device.create_texture_with_data(
-                render_queue,
-                &image.texture_descriptor,
-                &image.data,
-            )
-        } else {
-            let texture = render_device.create_texture(&image.texture_descriptor);
-            let format_size = image.texture_descriptor.format.pixel_size();
-            render_queue.write_texture(
-                ImageCopyTexture {
-                    texture: &texture,
-                    mip_level: 0,
-                    origin: Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
-                },
-                &image.data,
-                ImageDataLayout {
-                    offset: 0,
-                    bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
-                            image.texture_descriptor.size.width * format_size as u32,
-                        )
-                        .unwrap(),
-                    ),
-                    rows_per_image: if image.texture_descriptor.size.depth_or_array_layers > 1 {
-                        std::num::NonZeroU32::new(image.texture_descriptor.size.height)
-                    } else {
-                        None
-                    },
-                },
-                image.texture_descriptor.size,
-            );
-            texture
-        };
+        let texture = render_device.create_texture_with_data(
+            render_queue,
+            &image.texture_descriptor,
+            &image.data,
+        );
 
         let texture_view = texture.create_view(
             image
@@ -685,12 +549,13 @@ impl RenderAsset for Image {
             texture_format: image.texture_descriptor.format,
             sampler,
             size,
+            mip_level_count: image.texture_descriptor.mip_level_count,
         })
     }
 }
 
 bitflags::bitflags! {
-    #[derive(Default)]
+    #[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
     #[repr(transparent)]
     pub struct CompressedImageFormats: u32 {
         const NONE     = 0;
@@ -703,7 +568,7 @@ bitflags::bitflags! {
 impl CompressedImageFormats {
     pub fn from_features(features: wgpu::Features) -> Self {
         let mut supported_compressed_formats = Self::default();
-        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC_LDR) {
+        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC) {
             supported_compressed_formats |= Self::ASTC_LDR;
         }
         if features.contains(wgpu::Features::TEXTURE_COMPRESSION_BC) {
@@ -728,7 +593,7 @@ impl CompressedImageFormats {
             | TextureFormat::Bc5RgUnorm
             | TextureFormat::Bc5RgSnorm
             | TextureFormat::Bc6hRgbUfloat
-            | TextureFormat::Bc6hRgbSfloat
+            | TextureFormat::Bc6hRgbFloat
             | TextureFormat::Bc7RgbaUnorm
             | TextureFormat::Bc7RgbaUnormSrgb => self.contains(CompressedImageFormats::BC),
             TextureFormat::Etc2Rgb8Unorm

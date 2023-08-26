@@ -4,9 +4,6 @@ use bevy::{prelude::*, text::TextSettings, utils::Duration};
 
 const SCALE_TIME: u64 = 400;
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, SystemLabel)]
-struct ApplyScaling;
-
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -19,9 +16,11 @@ fn main() {
             target_scale: 1.0,
             target_time: Timer::new(Duration::from_millis(SCALE_TIME), TimerMode::Once),
         })
-        .add_startup_system(setup)
-        .add_system(apply_scaling.label(ApplyScaling))
-        .add_system(change_scaling.before(ApplyScaling))
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (change_scaling, apply_scaling.after(change_scaling)),
+        )
         .run();
 }
 
@@ -37,13 +36,11 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(50.0), Val::Percent(50.0)),
+                width: Val::Percent(50.0),
+                height: Val::Percent(50.0),
                 position_type: PositionType::Absolute,
-                position: UiRect {
-                    left: Val::Percent(25.),
-                    top: Val::Percent(25.),
-                    ..default()
-                },
+                left: Val::Percent(25.),
+                top: Val::Percent(25.),
                 justify_content: JustifyContent::SpaceAround,
                 align_items: AlignItems::Center,
                 ..default()
@@ -55,7 +52,8 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Px(40.), Val::Px(40.)),
+                        width: Val::Px(40.0),
+                        height: Val::Px(40.0),
                         ..default()
                     },
                     background_color: Color::RED.into(),
@@ -66,7 +64,8 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
                 });
             parent.spawn(NodeBundle {
                 style: Style {
-                    size: Size::new(Val::Percent(15.), Val::Percent(15.)),
+                    width: Val::Percent(15.0),
+                    height: Val::Percent(15.0),
                     ..default()
                 },
                 background_color: Color::BLUE.into(),
@@ -74,7 +73,8 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             });
             parent.spawn(ImageBundle {
                 style: Style {
-                    size: Size::new(Val::Px(30.0), Val::Px(30.0)),
+                    width: Val::Px(30.0),
+                    height: Val::Px(30.0),
                     ..default()
                 },
                 image: asset_server.load("branding/icon.png").into(),
@@ -136,7 +136,7 @@ fn apply_scaling(
         return;
     }
 
-    ui_scale.scale = target_scale.current_scale();
+    ui_scale.0 = target_scale.current_scale();
 }
 
 fn ease_in_expo(x: f64) -> f64 {

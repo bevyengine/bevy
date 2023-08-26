@@ -2,10 +2,11 @@ use crate::{
     ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
 };
 use std::any::{Any, TypeId};
+use std::fmt::Debug;
 
 /// A static accessor to compile-time type information.
 ///
-/// This trait is automatically implemented by the `#[derive(Reflect)]` macro
+/// This trait is automatically implemented by the [`#[derive(Reflect)]`](derive@crate::Reflect) macro
 /// and allows type information to be processed without an instance of that type.
 ///
 /// # Implementing
@@ -23,7 +24,7 @@ use std::any::{Any, TypeId};
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, ValueInfo};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, ValueInfo};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -49,7 +50,7 @@ use std::any::{Any, TypeId};
 /// #
 /// # impl Reflect for MyStruct {
 /// #   fn type_name(&self) -> &str { todo!() }
-/// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
+/// #   fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
 /// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
@@ -62,6 +63,11 @@ use std::any::{Any, TypeId};
 /// #   fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #   fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #   fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
+/// # }
+/// #
+/// # impl TypePath for MyStruct {
+/// #   fn type_path() -> &'static str { todo!() }
+/// #   fn short_type_path() -> &'static str { todo!() }
 /// # }
 /// ```
 ///
@@ -78,12 +84,12 @@ pub trait Typed: Reflect {
 /// Generally, for any given type, this value can be retrieved one of three ways:
 ///
 /// 1. [`Typed::type_info`]
-/// 2. [`Reflect::get_type_info`]
+/// 2. [`Reflect::get_represented_type_info`]
 /// 3. [`TypeRegistry::get_type_info`]
 ///
 /// Each return a static reference to [`TypeInfo`], but they all have their own use cases.
 /// For example, if you know the type at compile time, [`Typed::type_info`] is probably
-/// the simplest. If all you have is a `dyn Reflect`, you'll probably want [`Reflect::get_type_info`].
+/// the simplest. If all you have is a `dyn Reflect`, you'll probably want [`Reflect::get_represented_type_info`].
 /// Lastly, if all you have is a [`TypeId`] or [type name], you will need to go through
 /// [`TypeRegistry::get_type_info`].
 ///
@@ -91,7 +97,7 @@ pub trait Typed: Reflect {
 /// it can be more performant. This is because those other methods may require attaining a lock on
 /// the static [`TypeInfo`], while the registry simply checks a map.
 ///
-/// [`Reflect::get_type_info`]: crate::Reflect::get_type_info
+/// [`Reflect::get_represented_type_info`]: crate::Reflect::get_represented_type_info
 /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
 /// [`TypeId`]: std::any::TypeId
 /// [type name]: std::any::type_name
@@ -105,10 +111,6 @@ pub enum TypeInfo {
     Map(MapInfo),
     Enum(EnumInfo),
     Value(ValueInfo),
-    /// Type information for "dynamic" types whose metadata can't be known at compile-time.
-    ///
-    /// This includes structs like [`DynamicStruct`](crate::DynamicStruct) and [`DynamicList`](crate::DynamicList).
-    Dynamic(DynamicInfo),
 }
 
 impl TypeInfo {
@@ -123,7 +125,6 @@ impl TypeInfo {
             Self::Map(info) => info.type_id(),
             Self::Enum(info) => info.type_id(),
             Self::Value(info) => info.type_id(),
-            Self::Dynamic(info) => info.type_id(),
         }
     }
 
@@ -140,7 +141,6 @@ impl TypeInfo {
             Self::Map(info) => info.type_name(),
             Self::Enum(info) => info.type_name(),
             Self::Value(info) => info.type_name(),
-            Self::Dynamic(info) => info.type_name(),
         }
     }
 
@@ -161,7 +161,6 @@ impl TypeInfo {
             Self::Map(info) => info.docs(),
             Self::Enum(info) => info.docs(),
             Self::Value(info) => info.docs(),
-            Self::Dynamic(info) => info.docs(),
         }
     }
 }
@@ -216,62 +215,6 @@ impl ValueInfo {
     }
 
     /// The docstring of this dynamic value, if any.
-    #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
-    }
-}
-
-/// A container for compile-time info related to Bevy's _dynamic_ types, including primitives.
-///
-/// This is functionally the same as [`ValueInfo`], however, semantically it refers to dynamic
-/// types such as [`DynamicStruct`], [`DynamicTuple`], [`DynamicList`], etc.
-///
-/// [`DynamicStruct`]: crate::DynamicStruct
-/// [`DynamicTuple`]: crate::DynamicTuple
-/// [`DynamicList`]: crate::DynamicList
-#[derive(Debug, Clone)]
-pub struct DynamicInfo {
-    type_name: &'static str,
-    type_id: TypeId,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
-}
-
-impl DynamicInfo {
-    pub fn new<T: Reflect>() -> Self {
-        Self {
-            type_name: std::any::type_name::<T>(),
-            type_id: TypeId::of::<T>(),
-            #[cfg(feature = "documentation")]
-            docs: None,
-        }
-    }
-
-    /// Sets the docstring for this dynamic value.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
-    }
-
-    /// The [type name] of the dynamic value.
-    ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
-    }
-
-    /// The [`TypeId`] of the dynamic value.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the dynamic value type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
-
-    /// The docstring of this value, if any.
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs

@@ -1,6 +1,6 @@
 [package]
 name = "bevy_render_macros"
-version = "0.9.0"
+version = "0.12.0-dev"
 edition = "2021"
 description = "Derive implementations for bevy_render"
 homepage = "https://bevyengine.org"
@@ -12,8 +12,8 @@ keywords = ["bevy"]
 proc-macro = true
 
 [dependencies]
-bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.9.0" }
+bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.12.0-dev" }
 
-syn = "1.0"
+syn = "2.0"
 proc-macro2 = "1.0"
 quote = "1.0"

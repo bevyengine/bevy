@@ -1,5 +1,6 @@
 #[allow(clippy::module_inception)]
 mod mesh;
+pub mod morph;
 /// Generation for some primitive shape meshes.
 pub mod shape;
 
@@ -8,6 +9,7 @@ pub use mesh::*;
 use crate::render_asset::RenderAssetPlugin;
 use bevy_app::{App, Plugin};
 use bevy_asset::AddAsset;
+use bevy_ecs::entity::Entity;
 
 /// Adds the [`Mesh`] as an asset and makes sure that they are extracted and prepared for the GPU.
 pub struct MeshPlugin;
@@ -17,6 +19,7 @@ impl Plugin for MeshPlugin {
         app.add_asset::<Mesh>()
             .add_asset::<skinning::SkinnedMeshInverseBindposes>()
             .register_type::<skinning::SkinnedMesh>()
-            .add_plugin(RenderAssetPlugin::<Mesh>::default());
+            .register_type::<Vec<Entity>>()
+            .add_plugins(RenderAssetPlugin::<Mesh>::default());
     }
 }

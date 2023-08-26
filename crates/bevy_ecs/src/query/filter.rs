@@ -1,13 +1,13 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
+    component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
-    storage::{ComponentSparseSet, Table},
-    world::World,
+    storage::{Column, ComponentSparseSet, Table, TableRow},
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_ecs_macros::all_tuples;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
+use bevy_utils::all_tuples;
 use std::{cell::UnsafeCell, marker::PhantomData};
 
 use super::ReadOnlyWorldQuery;
@@ -50,15 +50,14 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
+    #[inline]
     unsafe fn init_fetch(
-        _world: &World,
+        _world: UnsafeWorldCell,
         _state: &ComponentId,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_run: Tick,
+        _this_run: Tick,
     ) {
     }
-
-    unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
 
     const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
@@ -85,13 +84,13 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     unsafe fn fetch<'w>(
         _fetch: &mut Self::Fetch<'w>,
         _entity: Entity,
-        _table_row: usize,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
     }
 
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
-        access.add_with(id);
+        access.and_with(id);
     }
 
     #[inline]
@@ -152,15 +151,14 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
+    #[inline]
     unsafe fn init_fetch(
-        _world: &World,
+        _world: UnsafeWorldCell,
         _state: &ComponentId,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_run: Tick,
+        _this_run: Tick,
     ) {
     }
-
-    unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
 
     const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
@@ -187,13 +185,13 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     unsafe fn fetch<'w>(
         _fetch: &mut Self::Fetch<'w>,
         _entity: Entity,
-        _table_row: usize,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
     }
 
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
-        access.add_without(id);
+        access.and_without(id);
     }
 
     #[inline]
@@ -249,12 +247,21 @@ unsafe impl<T: Component> ReadOnlyWorldQuery for Without<T> {}
 /// }
 /// # bevy_ecs::system::assert_is_system(print_cool_entity_system);
 /// ```
-pub struct Or<T>(pub T);
+pub struct Or<T>(PhantomData<T>);
 
 #[doc(hidden)]
 pub struct OrFetch<'w, T: WorldQuery> {
     fetch: T::Fetch<'w>,
     matches: bool,
+}
+
+impl<T: WorldQuery> Clone for OrFetch<'_, T> {
+    fn clone(&self) -> Self {
+        Self {
+            fetch: self.fetch.clone(),
+            matches: self.matches,
+        }
+    }
 }
 
 macro_rules! impl_query_filter_tuple {
@@ -277,24 +284,13 @@ macro_rules! impl_query_filter_tuple {
 
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
-            unsafe fn init_fetch<'w>(world: &'w World, state: &Self::State, last_change_tick: u32, change_tick: u32) -> Self::Fetch<'w> {
+            #[inline]
+            unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($filter,)*) = state;
                 ($(OrFetch {
-                    fetch: $filter::init_fetch(world, $filter, last_change_tick, change_tick),
+                    fetch: $filter::init_fetch(world, $filter, last_run, this_run),
                     matches: false,
                 },)*)
-            }
-
-            unsafe fn clone_fetch<'w>(
-                fetch: &Self::Fetch<'w>,
-            ) -> Self::Fetch<'w> {
-                let ($($filter,)*) = &fetch;
-                ($(
-                    OrFetch {
-                        fetch: $filter::clone_fetch(&$filter.fetch),
-                        matches: $filter.matches,
-                    },
-                )*)
             }
 
             #[inline]
@@ -330,17 +326,17 @@ macro_rules! impl_query_filter_tuple {
             unsafe fn fetch<'w>(
                 fetch: &mut Self::Fetch<'w>,
                 _entity: Entity,
-                _table_row: usize
+                _table_row: TableRow
             ) -> Self::Item<'w> {
                 let ($($filter,)*) = fetch;
                 false $(|| ($filter.matches && $filter::filter_fetch(&mut $filter.fetch, _entity, _table_row)))*
             }
 
             #[inline(always)]
-            unsafe fn filter_fetch<'w>(
-                fetch: &mut Self::Fetch<'w>,
+            unsafe fn filter_fetch(
+                fetch: &mut Self::Fetch<'_>,
                 entity: Entity,
-                table_row: usize
+                table_row: TableRow
             ) -> bool {
                 Self::fetch(fetch, entity, table_row)
             }
@@ -348,33 +344,21 @@ macro_rules! impl_query_filter_tuple {
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
                 let ($($filter,)*) = state;
 
-                // We do not unconditionally add `$filter`'s `with`/`without` accesses to `access`
-                // as this would be unsound. For example the following two queries should conflict:
-                // - Query<&mut B, Or<(With<A>, ())>>
-                // - Query<&mut B, Without<A>>
-                //
-                // If we were to unconditionally add `$name`'s `with`/`without` accesses then `Or<(With<A>, ())>`
-                // would have a `With<A>` access which is incorrect as this `WorldQuery` will match entities that
-                // do not have the `A` component. This is the same logic as the `AnyOf<...>: WorldQuery` impl.
-                //
-                // The correct thing to do here is to only add a `with`/`without` access to `_access` if all
-                // `$filter` params have that `with`/`without` access. More jargony put- we add the intersection
-                // of all `with`/`without` accesses of the `$filter` params to `access`.
-                let mut _intersected_access = access.clone();
+                let mut _new_access = access.clone();
                 let mut _not_first = false;
                 $(
                     if _not_first {
                         let mut intermediate = access.clone();
                         $filter::update_component_access($filter, &mut intermediate);
-                        _intersected_access.extend_intersect_filter(&intermediate);
-                        _intersected_access.extend_access(&intermediate);
+                        _new_access.append_or(&intermediate);
+                        _new_access.extend_access(&intermediate);
                     } else {
-                        $filter::update_component_access($filter, &mut _intersected_access);
+                        $filter::update_component_access($filter, &mut _new_access);
                         _not_first = true;
                     }
                 )*
 
-                *access = _intersected_access;
+                *access = _new_access;
             }
 
             fn update_archetype_component_access(state: &Self::State, archetype: &Archetype, access: &mut Access<ArchetypeComponentId>) {
@@ -405,24 +389,25 @@ macro_rules! impl_tick_filter {
         $name: ident,
         $(#[$fetch_meta:meta])*
         $fetch_name: ident,
-        $is_detected: expr
+        $get_slice: expr,
+        $get_sparse_set: expr
     ) => {
         $(#[$meta])*
         pub struct $name<T>(PhantomData<T>);
 
         #[doc(hidden)]
+        #[derive(Clone)]
         $(#[$fetch_meta])*
-        pub struct $fetch_name<'w, T> {
-            table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
-            marker: PhantomData<T>,
+        pub struct $fetch_name<'w> {
+            table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
             sparse_set: Option<&'w ComponentSparseSet>,
-            last_change_tick: u32,
-            change_tick: u32,
+            last_run: Tick,
+            this_run: Tick,
         }
 
         // SAFETY: `Self::ReadOnly` is the same as `Self`
         unsafe impl<T: Component> WorldQuery for $name<T> {
-            type Fetch<'w> = $fetch_name<'w, T>;
+            type Fetch<'w> = $fetch_name<'w>;
             type Item<'w> = bool;
             type ReadOnly = Self;
             type State = ComponentId;
@@ -431,31 +416,25 @@ macro_rules! impl_tick_filter {
                 item
             }
 
-            unsafe fn init_fetch<'w>(world: &'w World, &id: &ComponentId, last_change_tick: u32, change_tick: u32) -> Self::Fetch<'w> {
+            #[inline]
+            unsafe fn init_fetch<'w>(
+                world: UnsafeWorldCell<'w>,
+                &id: &ComponentId,
+                last_run: Tick,
+                this_run: Tick
+            ) -> Self::Fetch<'w> {
                 Self::Fetch::<'w> {
                     table_ticks: None,
                     sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
                         .then(|| {
-                            world.storages()
+                            world.unsafe_world()
+                                 .storages()
                                  .sparse_sets
                                  .get(id)
                                  .debug_checked_unwrap()
                         }),
-                    marker: PhantomData,
-                    last_change_tick,
-                    change_tick,
-                }
-            }
-
-            unsafe fn clone_fetch<'w>(
-                fetch: &Self::Fetch<'w>,
-            ) -> Self::Fetch<'w> {
-                $fetch_name {
-                    table_ticks: fetch.table_ticks,
-                    sparse_set: fetch.sparse_set,
-                    last_change_tick: fetch.last_change_tick,
-                    change_tick: fetch.change_tick,
-                    marker: PhantomData,
+                    last_run,
+                    this_run,
                 }
             }
 
@@ -475,10 +454,11 @@ macro_rules! impl_tick_filter {
                 table: &'w Table
             ) {
                 fetch.table_ticks = Some(
-                    table.get_column(component_id)
-                    .debug_checked_unwrap()
-                         .get_ticks_slice()
-                         .into()
+                    $get_slice(
+                        &table
+                            .get_column(component_id)
+                            .debug_checked_unwrap()
+                    ).into(),
                 );
             }
 
@@ -498,36 +478,34 @@ macro_rules! impl_tick_filter {
             unsafe fn fetch<'w>(
                 fetch: &mut Self::Fetch<'w>,
                 entity: Entity,
-                table_row: usize
+                table_row: TableRow
             ) -> Self::Item<'w> {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        $is_detected(&*(
-                            fetch.table_ticks
+                        fetch
+                            .table_ticks
                             .debug_checked_unwrap()
-                                 .get(table_row))
-                                 .deref(),
-                            fetch.last_change_tick,
-                            fetch.change_tick
-                        )
+                            .get(table_row.index())
+                            .deref()
+                            .is_newer_than(fetch.last_run, fetch.this_run)
                     }
                     StorageType::SparseSet => {
-                        let ticks = &*fetch
+                        let sparse_set = &fetch
                             .sparse_set
+                            .debug_checked_unwrap();
+                        $get_sparse_set(sparse_set, entity)
                             .debug_checked_unwrap()
-                            .get_ticks(entity)
-                            .debug_checked_unwrap()
-                            .get();
-                        $is_detected(ticks, fetch.last_change_tick, fetch.change_tick)
+                            .deref()
+                            .is_newer_than(fetch.last_run, fetch.this_run)
                     }
                 }
             }
 
             #[inline(always)]
-            unsafe fn filter_fetch<'w>(
-                fetch: &mut Self::Fetch<'w>,
+            unsafe fn filter_fetch(
+                fetch: &mut Self::Fetch<'_>,
                 entity: Entity,
-                table_row: usize
+                table_row: TableRow
             ) -> bool {
                 Self::fetch(fetch, entity, table_row)
             }
@@ -572,7 +550,7 @@ impl_tick_filter!(
     /// A common use for this filter is one-time initialization.
     ///
     /// To retain all results without filtering but still check whether they were added after the
-    /// system last ran, use [`ChangeTrackers<T>`](crate::query::ChangeTrackers).
+    /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
     ///
     /// # Examples
     ///
@@ -595,7 +573,8 @@ impl_tick_filter!(
     /// ```
     Added,
     AddedFetch,
-    ComponentTicks::is_added
+    Column::get_added_ticks_slice,
+    ComponentSparseSet::get_added_ticks
 );
 
 impl_tick_filter!(
@@ -607,7 +586,7 @@ impl_tick_filter!(
     /// Bevy does not compare components to their previous values.
     ///
     /// To retain all results without filtering but still check whether they were changed after the
-    /// system last ran, use [`ChangeTrackers<T>`](crate::query::ChangeTrackers).
+    /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
     ///
     /// # Examples
     ///
@@ -632,7 +611,8 @@ impl_tick_filter!(
     /// ```
     Changed,
     ChangedFetch,
-    ComponentTicks::is_changed
+    Column::get_changed_ticks_slice,
+    ComponentSparseSet::get_changed_ticks
 );
 
 /// A marker trait to indicate that the filter works at an archetype level.

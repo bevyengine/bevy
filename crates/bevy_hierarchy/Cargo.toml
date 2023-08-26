@@ -1,6 +1,6 @@
 [package]
 name = "bevy_hierarchy"
-version = "0.9.0"
+version = "0.12.0-dev"
 edition = "2021"
 description = "Provides hierarchy functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -13,12 +13,12 @@ trace = []
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.9.0" }
-bevy_core = { path = "../bevy_core", version = "0.9.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.9.0", features = ["bevy_reflect"] }
-bevy_log = { path = "../bevy_log", version = "0.9.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.9.0", features = ["bevy"] }
-bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
+bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.12.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev", features = ["bevy_reflect"] }
+bevy_log = { path = "../bevy_log", version = "0.12.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.12.0-dev", features = ["bevy"] }
+bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 
 # other
 smallvec = { version = "1.6", features = ["serde", "union", "const_generics"] }

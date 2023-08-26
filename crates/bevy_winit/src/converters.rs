@@ -1,3 +1,4 @@
+use bevy_ecs::entity::Entity;
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     mouse::MouseButton,
@@ -5,13 +6,17 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::Vec2;
-use bevy_window::{CursorGrabMode, CursorIcon};
+use bevy_window::{CursorIcon, EnabledButtons, WindowLevel, WindowTheme};
 
-pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> KeyboardInput {
+pub fn convert_keyboard_input(
+    keyboard_input: &winit::event::KeyboardInput,
+    window: Entity,
+) -> KeyboardInput {
     KeyboardInput {
         scan_code: keyboard_input.scancode,
         state: convert_element_state(keyboard_input.state),
         key_code: keyboard_input.virtual_keycode.map(convert_virtual_key_code),
+        window,
     }
 }
 
@@ -33,16 +38,16 @@ pub fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseBut
 
 pub fn convert_touch_input(
     touch_input: winit::event::Touch,
-    location: winit::dpi::LogicalPosition<f32>,
+    location: winit::dpi::LogicalPosition<f64>,
 ) -> TouchInput {
     TouchInput {
         phase: match touch_input.phase {
             winit::event::TouchPhase::Started => TouchPhase::Started,
             winit::event::TouchPhase::Moved => TouchPhase::Moved,
             winit::event::TouchPhase::Ended => TouchPhase::Ended,
-            winit::event::TouchPhase::Cancelled => TouchPhase::Cancelled,
+            winit::event::TouchPhase::Cancelled => TouchPhase::Canceled,
         },
-        position: Vec2::new(location.x, location.y),
+        position: Vec2::new(location.x as f32, location.y as f32),
         force: touch_input.force.map(|f| match f {
             winit::event::Force::Calibrated {
                 force,
@@ -172,11 +177,11 @@ pub fn convert_virtual_key_code(virtual_key_code: winit::event::VirtualKeyCode) 
         winit::event::VirtualKeyCode::Grave => KeyCode::Grave,
         winit::event::VirtualKeyCode::Kana => KeyCode::Kana,
         winit::event::VirtualKeyCode::Kanji => KeyCode::Kanji,
-        winit::event::VirtualKeyCode::LAlt => KeyCode::LAlt,
-        winit::event::VirtualKeyCode::LBracket => KeyCode::LBracket,
-        winit::event::VirtualKeyCode::LControl => KeyCode::LControl,
-        winit::event::VirtualKeyCode::LShift => KeyCode::LShift,
-        winit::event::VirtualKeyCode::LWin => KeyCode::LWin,
+        winit::event::VirtualKeyCode::LAlt => KeyCode::AltLeft,
+        winit::event::VirtualKeyCode::LBracket => KeyCode::BracketLeft,
+        winit::event::VirtualKeyCode::LControl => KeyCode::ControlLeft,
+        winit::event::VirtualKeyCode::LShift => KeyCode::ShiftLeft,
+        winit::event::VirtualKeyCode::LWin => KeyCode::SuperLeft,
         winit::event::VirtualKeyCode::Mail => KeyCode::Mail,
         winit::event::VirtualKeyCode::MediaSelect => KeyCode::MediaSelect,
         winit::event::VirtualKeyCode::MediaStop => KeyCode::MediaStop,
@@ -196,11 +201,11 @@ pub fn convert_virtual_key_code(virtual_key_code: winit::event::VirtualKeyCode) 
         winit::event::VirtualKeyCode::PlayPause => KeyCode::PlayPause,
         winit::event::VirtualKeyCode::Power => KeyCode::Power,
         winit::event::VirtualKeyCode::PrevTrack => KeyCode::PrevTrack,
-        winit::event::VirtualKeyCode::RAlt => KeyCode::RAlt,
-        winit::event::VirtualKeyCode::RBracket => KeyCode::RBracket,
-        winit::event::VirtualKeyCode::RControl => KeyCode::RControl,
-        winit::event::VirtualKeyCode::RShift => KeyCode::RShift,
-        winit::event::VirtualKeyCode::RWin => KeyCode::RWin,
+        winit::event::VirtualKeyCode::RAlt => KeyCode::AltRight,
+        winit::event::VirtualKeyCode::RBracket => KeyCode::BracketRight,
+        winit::event::VirtualKeyCode::RControl => KeyCode::ControlRight,
+        winit::event::VirtualKeyCode::RShift => KeyCode::ShiftRight,
+        winit::event::VirtualKeyCode::RWin => KeyCode::SuperRight,
         winit::event::VirtualKeyCode::Semicolon => KeyCode::Semicolon,
         winit::event::VirtualKeyCode::Slash => KeyCode::Slash,
         winit::event::VirtualKeyCode::Sleep => KeyCode::Sleep,
@@ -267,11 +272,38 @@ pub fn convert_cursor_icon(cursor_icon: CursorIcon) -> winit::window::CursorIcon
     }
 }
 
-/// Map [`bevy_window::CursorGrabMode`] to [`winit::window::CursorGrabMode`].
-pub fn convert_cursor_grab_mode(mode: CursorGrabMode) -> winit::window::CursorGrabMode {
-    match mode {
-        CursorGrabMode::None => winit::window::CursorGrabMode::None,
-        CursorGrabMode::Confined => winit::window::CursorGrabMode::Confined,
-        CursorGrabMode::Locked => winit::window::CursorGrabMode::Locked,
+pub fn convert_window_level(window_level: WindowLevel) -> winit::window::WindowLevel {
+    match window_level {
+        WindowLevel::AlwaysOnBottom => winit::window::WindowLevel::AlwaysOnBottom,
+        WindowLevel::Normal => winit::window::WindowLevel::Normal,
+        WindowLevel::AlwaysOnTop => winit::window::WindowLevel::AlwaysOnTop,
     }
+}
+
+pub fn convert_winit_theme(theme: winit::window::Theme) -> WindowTheme {
+    match theme {
+        winit::window::Theme::Light => WindowTheme::Light,
+        winit::window::Theme::Dark => WindowTheme::Dark,
+    }
+}
+
+pub fn convert_window_theme(theme: WindowTheme) -> winit::window::Theme {
+    match theme {
+        WindowTheme::Light => winit::window::Theme::Light,
+        WindowTheme::Dark => winit::window::Theme::Dark,
+    }
+}
+
+pub fn convert_enabled_buttons(enabled_buttons: EnabledButtons) -> winit::window::WindowButtons {
+    let mut window_buttons = winit::window::WindowButtons::empty();
+    if enabled_buttons.minimize {
+        window_buttons.insert(winit::window::WindowButtons::MINIMIZE);
+    }
+    if enabled_buttons.maximize {
+        window_buttons.insert(winit::window::WindowButtons::MAXIMIZE);
+    }
+    if enabled_buttons.close {
+        window_buttons.insert(winit::window::WindowButtons::CLOSE);
+    }
+    window_buttons
 }

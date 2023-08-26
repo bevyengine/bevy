@@ -1,12 +1,23 @@
-/// The icon to display for a window's cursor.
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
+
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
+/// The icon to display for a [`Window`](crate::window::Window)'s [`Cursor`](crate::window::Cursor).
 ///
-/// Examples of all of these cursors can be found [here](https://www.w3schools.com/cssref/playit.asp?filename=playcss_cursor).
+/// Examples of all of these cursors can be found [here](https://www.w3schools.com/cssref/playit.php?filename=playcss_cursor&preval=crosshair).
 /// This `enum` is simply a copy of a similar `enum` found in [`winit`](https://docs.rs/winit/latest/winit/window/enum.CursorIcon.html).
 /// `winit`, in turn, mostly copied cursor types available in the browser.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Default, Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Default)]
 pub enum CursorIcon {
     /// The platform-dependent default cursor.
+    #[default]
     Default,
     /// A simple crosshair.   
     Crosshair,

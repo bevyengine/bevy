@@ -1,5 +1,9 @@
 #define_import_path bevy_pbr::lighting
 
+#import bevy_pbr::utils PI
+#import bevy_pbr::mesh_view_types as view_types
+#import bevy_pbr::mesh_view_bindings as view_bindings
+
 // From the Filament design doc
 // https://google.github.io/filament/Filament.html#table_symbols
 // Symbol Definition
@@ -101,13 +105,27 @@ fn fresnel(f0: vec3<f32>, LoH: f32) -> vec3<f32> {
 
 // Cook-Torrance approximation of the microfacet model integration using Fresnel law F to model f_m
 // f_r(v,l) = { D(h,α) G(v,l,α) F(v,h,f0) } / { 4 (n⋅v) (n⋅l) }
-fn specular(f0: vec3<f32>, roughness: f32, h: vec3<f32>, NoV: f32, NoL: f32,
-              NoH: f32, LoH: f32, specularIntensity: f32) -> vec3<f32> {
+fn specular(
+    f0: vec3<f32>,
+    roughness: f32,
+    h: vec3<f32>,
+    NoV: f32,
+    NoL: f32,
+    NoH: f32,
+    LoH: f32,
+    specularIntensity: f32,
+    f_ab: vec2<f32>
+) -> vec3<f32> {
     let D = D_GGX(roughness, NoH, h);
     let V = V_SmithGGXCorrelated(roughness, NoV, NoL);
     let F = fresnel(f0, LoH);
 
-    return (specularIntensity * D * V) * F;
+    var Fr = (specularIntensity * D * V) * F;
+
+    // Multiscattering approximation: https://google.github.io/filament/Filament.html#listing_energycompensationimpl
+    Fr *= 1.0 + f0 * (1.0 / f_ab.x - 1.0);
+
+    return Fr;
 }
 
 // Diffuse BRDF
@@ -131,14 +149,19 @@ fn Fd_Burley(roughness: f32, NoV: f32, NoL: f32, LoH: f32) -> f32 {
     return lightScatter * viewScatter * (1.0 / PI);
 }
 
-// From https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
-fn EnvBRDFApprox(f0: vec3<f32>, perceptual_roughness: f32, NoV: f32) -> vec3<f32> {
+// Scale/bias approximation
+// https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
+// TODO: Use a LUT (more accurate)
+fn F_AB(perceptual_roughness: f32, NoV: f32) -> vec2<f32> {
     let c0 = vec4<f32>(-1.0, -0.0275, -0.572, 0.022);
     let c1 = vec4<f32>(1.0, 0.0425, 1.04, -0.04);
     let r = perceptual_roughness * c0 + c1;
     let a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
-    let AB = vec2<f32>(-1.04, 1.04) * a004 + r.zw;
-    return f0 * AB.x + AB.y;
+    return vec2<f32>(-1.04, 1.04) * a004 + r.zw;
+}
+
+fn EnvBRDFApprox(f0: vec3<f32>, f_ab: vec2<f32>) -> vec3<f32> {
+    return f0 * f_ab.x + f_ab.y;
 }
 
 fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
@@ -150,22 +173,30 @@ fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
 }
 
 fn point_light(
-    world_position: vec3<f32>, light: PointLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
-    R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>
+    world_position: vec3<f32>,
+    light_id: u32,
+    roughness: f32,
+    NdotV: f32,
+    N: vec3<f32>,
+    V: vec3<f32>,
+    R: vec3<f32>,
+    F0: vec3<f32>,
+    f_ab: vec2<f32>,
+    diffuseColor: vec3<f32>
 ) -> vec3<f32> {
-    let light_to_frag = light.position_radius.xyz - world_position.xyz;
+    let light = &view_bindings::point_lights.data[light_id];
+    let light_to_frag = (*light).position_radius.xyz - world_position.xyz;
     let distance_square = dot(light_to_frag, light_to_frag);
-    let rangeAttenuation =
-        getDistanceAttenuation(distance_square, light.color_inverse_square_range.w);
+    let rangeAttenuation = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
 
     // Specular.
     // Representative Point Area Lights.
     // see http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf p14-16
     let a = roughness;
     let centerToRay = dot(light_to_frag, R) * R - light_to_frag;
-    let closestPoint = light_to_frag + centerToRay * saturate(light.position_radius.w * inverseSqrt(dot(centerToRay, centerToRay)));
+    let closestPoint = light_to_frag + centerToRay * saturate((*light).position_radius.w * inverseSqrt(dot(centerToRay, centerToRay)));
     let LspecLengthInverse = inverseSqrt(dot(closestPoint, closestPoint));
-    let normalizationFactor = a / saturate(a + (light.position_radius.w * 0.5 * LspecLengthInverse));
+    let normalizationFactor = a / saturate(a + ((*light).position_radius.w * 0.5 * LspecLengthInverse));
     let specularIntensity = normalizationFactor * normalizationFactor;
 
     var L: vec3<f32> = closestPoint * LspecLengthInverse; // normalize() equivalent?
@@ -174,7 +205,7 @@ fn point_light(
     var NoH: f32 = saturate(dot(N, H));
     var LoH: f32 = saturate(dot(L, H));
 
-    let specular_light = specular(F0, roughness, H, NdotV, NoL, NoH, LoH, specularIntensity);
+    let specular_light = specular(F0, roughness, H, NdotV, NoL, NoH, LoH, specularIntensity, f_ab);
 
     // Diffuse.
     // Comes after specular since its NoL is used in the lighting equation.
@@ -191,46 +222,56 @@ fn point_light(
     // where
     // f(v,l) = (f_d(v,l) + f_r(v,l)) * light_color
     // Φ is luminous power in lumens
-    // our rangeAttentuation = 1 / d^2 multiplied with an attenuation factor for smoothing at the edge of the non-physical maximum light radius
+    // our rangeAttenuation = 1 / d^2 multiplied with an attenuation factor for smoothing at the edge of the non-physical maximum light radius
 
     // For a point light, luminous intensity, I, in lumens per steradian is given by:
     // I = Φ / 4 π
     // The derivation of this can be seen here: https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
 
-    // NOTE: light.color.rgb is premultiplied with light.intensity / 4 π (which would be the luminous intensity) on the CPU
+    // NOTE: (*light).color.rgb is premultiplied with (*light).intensity / 4 π (which would be the luminous intensity) on the CPU
 
-    // TODO compensate for energy loss https://google.github.io/filament/Filament.html#materialsystem/improvingthebrdfs/energylossinspecularreflectance
-
-    return ((diffuse + specular_light) * light.color_inverse_square_range.rgb) * (rangeAttenuation * NoL);
+    return ((diffuse + specular_light) * (*light).color_inverse_square_range.rgb) * (rangeAttenuation * NoL);
 }
 
 fn spot_light(
-    world_position: vec3<f32>, light: PointLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
-    R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>
+    world_position: vec3<f32>,
+    light_id: u32,
+    roughness: f32,
+    NdotV: f32,
+    N: vec3<f32>,
+    V: vec3<f32>,
+    R: vec3<f32>,
+    F0: vec3<f32>,
+    f_ab: vec2<f32>,
+    diffuseColor: vec3<f32>
 ) -> vec3<f32> {
     // reuse the point light calculations
-    let point_light = point_light(world_position, light, roughness, NdotV, N, V, R, F0, diffuseColor);
+    let point_light = point_light(world_position, light_id, roughness, NdotV, N, V, R, F0, f_ab, diffuseColor);
+
+    let light = &view_bindings::point_lights.data[light_id];
 
     // reconstruct spot dir from x/z and y-direction flag
-    var spot_dir = vec3<f32>(light.light_custom_data.x, 0.0, light.light_custom_data.y);
+    var spot_dir = vec3<f32>((*light).light_custom_data.x, 0.0, (*light).light_custom_data.y);
     spot_dir.y = sqrt(max(0.0, 1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z));
-    if ((light.flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u) {
+    if ((*light).flags & view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u {
         spot_dir.y = -spot_dir.y;
     }
-    let light_to_frag = light.position_radius.xyz - world_position.xyz;
+    let light_to_frag = (*light).position_radius.xyz - world_position.xyz;
 
     // calculate attenuation based on filament formula https://google.github.io/filament/Filament.html#listing_glslpunctuallight
     // spot_scale and spot_offset have been precomputed
     // note we normalize here to get "l" from the filament listing. spot_dir is already normalized
     let cd = dot(-spot_dir, normalize(light_to_frag));
-    let attenuation = saturate(cd * light.light_custom_data.z + light.light_custom_data.w);
+    let attenuation = saturate(cd * (*light).light_custom_data.z + (*light).light_custom_data.w);
     let spot_attenuation = attenuation * attenuation;
 
     return point_light * spot_attenuation;
 }
 
-fn directional_light(light: DirectionalLight, roughness: f32, NdotV: f32, normal: vec3<f32>, view: vec3<f32>, R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>) -> vec3<f32> {
-    let incident_light = light.direction_to_light.xyz;
+fn directional_light(light_id: u32, roughness: f32, NdotV: f32, normal: vec3<f32>, view: vec3<f32>, R: vec3<f32>, F0: vec3<f32>, f_ab: vec2<f32>, diffuseColor: vec3<f32>) -> vec3<f32> {
+    let light = &view_bindings::lights.directional_lights[light_id];
+
+    let incident_light = (*light).direction_to_light.xyz;
 
     let half_vector = normalize(incident_light + view);
     let NoL = saturate(dot(normal, incident_light));
@@ -239,7 +280,7 @@ fn directional_light(light: DirectionalLight, roughness: f32, NdotV: f32, normal
 
     let diffuse = diffuseColor * Fd_Burley(roughness, NdotV, NoL, LoH);
     let specularIntensity = 1.0;
-    let specular_light = specular(F0, roughness, half_vector, NdotV, NoL, NoH, LoH, specularIntensity);
+    let specular_light = specular(F0, roughness, half_vector, NdotV, NoL, NoH, LoH, specularIntensity, f_ab);
 
-    return (specular_light + diffuse) * light.color.rgb * NoL;
+    return (specular_light + diffuse) * (*light).color.rgb * NoL;
 }

@@ -6,9 +6,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<Countdown>()
-        .add_startup_system(setup)
-        .add_system(countdown)
-        .add_system(print_when_completed)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (countdown, print_when_completed))
         .run();
 }
 
@@ -44,8 +43,8 @@ fn setup(mut commands: Commands) {
     )));
 }
 
-/// This system ticks all the `Timer` components on entities within the scene
-/// using bevy's `Time` resource to get the delta between each update.
+/// This system ticks the `Timer` on the entity with the `PrintOnCompletionTimer`
+/// component using bevy's `Time` resource to get the delta between each update.
 fn print_when_completed(time: Res<Time>, mut query: Query<&mut PrintOnCompletionTimer>) {
     for mut timer in &mut query {
         if timer.tick(time.delta()).just_finished() {

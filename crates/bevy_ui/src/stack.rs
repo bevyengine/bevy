@@ -5,12 +5,13 @@ use bevy_hierarchy::prelude::*;
 
 use crate::{Node, ZIndex};
 
-/// The current UI stack, which contains all UI nodes ordered by their depth.
+/// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
 /// The first entry is the furthest node from the camera and is the first one to get rendered
 /// while the last entry is the first node to receive interactions.
 #[derive(Debug, Resource, Default)]
 pub struct UiStack {
+    /// List of UI nodes ordered from back-to-front
     pub uinodes: Vec<Entity>,
 }
 
@@ -26,15 +27,19 @@ struct StackingContextEntry {
 }
 
 /// Generates the render stack for UI nodes.
+///
+/// First generate a UI node tree (`StackingContext`) based on z-index.
+/// Then flatten that tree into back-to-front ordered `UiStack`.
 pub fn ui_stack_system(
     mut ui_stack: ResMut<UiStack>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     zindex_query: Query<&ZIndex, With<Node>>,
     children_query: Query<&Children>,
 ) {
+    // Generate `StackingContext` tree
     let mut global_context = StackingContext::default();
-
     let mut total_entry_count: usize = 0;
+
     for entity in &root_node_query {
         insert_context_hierarchy(
             &zindex_query,
@@ -46,11 +51,13 @@ pub fn ui_stack_system(
         );
     }
 
+    // Flatten `StackingContext` into `UiStack`
     ui_stack.uinodes.clear();
     ui_stack.uinodes.reserve(total_entry_count);
     fill_stack_recursively(&mut ui_stack.uinodes, &mut global_context);
 }
 
+/// Generate z-index based UI node tree
 fn insert_context_hierarchy(
     zindex_query: &Query<&ZIndex, With<Node>>,
     children_query: &Query<&Children>,
@@ -60,8 +67,10 @@ fn insert_context_hierarchy(
     total_entry_count: &mut usize,
 ) {
     let mut new_context = StackingContext::default();
+
     if let Ok(children) = children_query.get(entity) {
-        // reserve space for all children. in practice, some may not get pushed.
+        // Reserve space for all children. In practice, some may not get pushed since
+        // nodes with `ZIndex::Global` are pushed to the global (root) context.
         new_context.entries.reserve_exact(children.len());
 
         for entity in children {
@@ -76,6 +85,7 @@ fn insert_context_hierarchy(
         }
     }
 
+    // The node will be added either to global/parent based on its z-index type: global/local.
     let z_index = zindex_query.get(entity).unwrap_or(&ZIndex::Local(0));
     let (entity_context, z_index) = match z_index {
         ZIndex::Local(value) => (parent_context.unwrap_or(global_context), *value),
@@ -90,12 +100,15 @@ fn insert_context_hierarchy(
     });
 }
 
+/// Flatten `StackingContext` (z-index based UI node tree) into back-to-front entities list
 fn fill_stack_recursively(result: &mut Vec<Entity>, stack: &mut StackingContext) {
-    // sort entries by ascending z_index, while ensuring that siblings
-    // with the same local z_index will keep their ordering.
+    // Sort entries by ascending z_index, while ensuring that siblings
+    // with the same local z_index will keep their ordering. This results
+    // in `back-to-front` ordering, low z_index = back; high z_index = front.
     stack.entries.sort_by_key(|e| e.z_index);
 
     for entry in &mut stack.entries {
+        // Parent node renders before/behind child nodes
         result.push(entry.entity);
         fill_stack_recursively(result, &mut entry.stack);
     }
@@ -105,7 +118,7 @@ fn fill_stack_recursively(result: &mut Vec<Entity>, stack: &mut StackingContext)
 mod tests {
     use bevy_ecs::{
         component::Component,
-        schedule::{Schedule, Stage, SystemStage},
+        schedule::Schedule,
         system::{CommandQueue, Commands},
         world::World,
     };
@@ -183,9 +196,7 @@ mod tests {
         queue.apply(&mut world);
 
         let mut schedule = Schedule::default();
-        let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(ui_stack_system);
-        schedule.add_stage("update", update_stage);
+        schedule.add_systems(ui_stack_system);
         schedule.run(&mut world);
 
         let mut query = world.query::<&Label>();

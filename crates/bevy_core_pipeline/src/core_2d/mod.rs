@@ -7,12 +7,17 @@ pub mod graph {
         pub const VIEW_ENTITY: &str = "view_entity";
     }
     pub mod node {
+        pub const MSAA_WRITEBACK: &str = "msaa_writeback";
         pub const MAIN_PASS: &str = "main_pass";
+        pub const BLOOM: &str = "bloom";
         pub const TONEMAPPING: &str = "tonemapping";
+        pub const FXAA: &str = "fxaa";
         pub const UPSCALING: &str = "upscaling";
+        pub const CONTRAST_ADAPTIVE_SHARPENING: &str = "contrast_adaptive_sharpening";
         pub const END_MAIN_PASS_POST_PROCESSING: &str = "end_main_pass_post_processing";
     }
 }
+pub const CORE_2D: &str = graph::NAME;
 
 pub use camera_2d::*;
 pub use main_pass_2d_node::*;
@@ -22,13 +27,13 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::Camera,
     extract_component::ExtractComponentPlugin,
-    render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
+    render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
         batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
-        DrawFunctionId, DrawFunctions, EntityPhaseItem, PhaseItem, RenderPhase,
+        DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
     },
     render_resource::CachedRenderPipelineId,
-    Extract, RenderApp, RenderStage,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::FloatOrd;
 use std::ops::Range;
@@ -40,7 +45,7 @@ pub struct Core2dPlugin;
 impl Plugin for Core2dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera2d>()
-            .add_plugin(ExtractComponentPlugin::<Camera2d>::default());
+            .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -49,67 +54,33 @@ impl Plugin for Core2dPlugin {
 
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
-            .add_system_to_stage(RenderStage::Extract, extract_core_2d_camera_phases)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent2d>)
-            .add_system_to_stage(
-                RenderStage::PhaseSort,
-                batch_phase_system::<Transparent2d>.after(sort_phase_system::<Transparent2d>),
+            .add_systems(ExtractSchedule, extract_core_2d_camera_phases)
+            .add_systems(
+                Render,
+                (
+                    sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort),
+                    batch_phase_system::<Transparent2d>
+                        .after(sort_phase_system::<Transparent2d>)
+                        .in_set(RenderSet::PhaseSort),
+                ),
             );
 
-        let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
-        let tonemapping = TonemappingNode::new(&mut render_app.world);
-        let upscaling = UpscalingNode::new(&mut render_app.world);
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
-
-        let mut draw_2d_graph = RenderGraph::default();
-        draw_2d_graph.add_node(graph::node::MAIN_PASS, pass_node_2d);
-        draw_2d_graph.add_node(graph::node::TONEMAPPING, tonemapping);
-        draw_2d_graph.add_node(graph::node::END_MAIN_PASS_POST_PROCESSING, EmptyNode);
-        draw_2d_graph.add_node(graph::node::UPSCALING, upscaling);
-        let input_node_id = draw_2d_graph.set_input(vec![SlotInfo::new(
-            graph::input::VIEW_ENTITY,
-            SlotType::Entity,
-        )]);
-        draw_2d_graph
-            .add_slot_edge(
-                input_node_id,
-                graph::input::VIEW_ENTITY,
-                graph::node::MAIN_PASS,
-                MainPass2dNode::IN_VIEW,
-            )
-            .unwrap();
-        draw_2d_graph
-            .add_slot_edge(
-                input_node_id,
-                graph::input::VIEW_ENTITY,
-                graph::node::TONEMAPPING,
-                TonemappingNode::IN_VIEW,
-            )
-            .unwrap();
-        draw_2d_graph
-            .add_slot_edge(
-                input_node_id,
-                graph::input::VIEW_ENTITY,
-                graph::node::UPSCALING,
-                UpscalingNode::IN_VIEW,
-            )
-            .unwrap();
-        draw_2d_graph
-            .add_node_edge(graph::node::MAIN_PASS, graph::node::TONEMAPPING)
-            .unwrap();
-        draw_2d_graph
-            .add_node_edge(
-                graph::node::TONEMAPPING,
-                graph::node::END_MAIN_PASS_POST_PROCESSING,
-            )
-            .unwrap();
-        draw_2d_graph
-            .add_node_edge(
-                graph::node::END_MAIN_PASS_POST_PROCESSING,
-                graph::node::UPSCALING,
-            )
-            .unwrap();
-        graph.add_sub_graph(graph::NAME, draw_2d_graph);
+        use graph::node::*;
+        render_app
+            .add_render_sub_graph(CORE_2D)
+            .add_render_graph_node::<MainPass2dNode>(CORE_2D, MAIN_PASS)
+            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(CORE_2D, TONEMAPPING)
+            .add_render_graph_node::<EmptyNode>(CORE_2D, END_MAIN_PASS_POST_PROCESSING)
+            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(CORE_2D, UPSCALING)
+            .add_render_graph_edges(
+                CORE_2D,
+                &[
+                    MAIN_PASS,
+                    TONEMAPPING,
+                    END_MAIN_PASS_POST_PROCESSING,
+                    UPSCALING,
+                ],
+            );
     }
 }
 
@@ -126,6 +97,11 @@ impl PhaseItem for Transparent2d {
     type SortKey = FloatOrd;
 
     #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    #[inline]
     fn sort_key(&self) -> Self::SortKey {
         self.sort_key
     }
@@ -138,13 +114,6 @@ impl PhaseItem for Transparent2d {
     #[inline]
     fn sort(items: &mut [Self]) {
         items.sort_by_key(|item| item.sort_key());
-    }
-}
-
-impl EntityPhaseItem for Transparent2d {
-    #[inline]
-    fn entity(&self) -> Entity {
-        self.entity
     }
 }
 

@@ -1,7 +1,7 @@
-use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
+    self as bevy_reflect, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
 };
+use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
 use std::{
@@ -10,13 +10,14 @@ use std::{
     slice::Iter,
 };
 
-/// A reflected Rust regular struct type.
+/// A trait used to power [struct-like] operations via [reflection].
 ///
-/// Implementors of this trait allow their fields to be addressed by name as
-/// well as by index.
+/// This trait uses the [`Reflect`] trait to allow implementors to have their fields
+/// be dynamically addressed by both name and index.
 ///
-/// This trait is automatically implemented for `struct` types with named fields
-/// when using `#[derive(Reflect)]`.
+/// When using [`#[derive(Reflect)]`](derive@crate::Reflect) on a standard struct,
+/// this trait will be automatically implemented.
+/// This goes for [unit structs] as well.
 ///
 /// # Example
 ///
@@ -25,19 +26,22 @@ use std::{
 ///
 /// #[derive(Reflect)]
 /// struct Foo {
-///     bar: String,
+///     bar: u32,
 /// }
 ///
-/// # fn main() {
-/// let foo = Foo { bar: "Hello, world!".to_string() };
+/// let foo = Foo { bar: 123 };
 ///
 /// assert_eq!(foo.field_len(), 1);
 /// assert_eq!(foo.name_at(0), Some("bar"));
 ///
-/// let bar = foo.field("bar").unwrap();
-/// assert_eq!(bar.downcast_ref::<String>(), Some(&"Hello, world!".to_string()));
-/// # }
+/// let field: &dyn Reflect = foo.field("bar").unwrap();
+/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
 /// ```
+///
+/// [struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html
+/// [reflection]: crate
+
+/// [unit structs]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#unit-like-structs-without-any-fields
 pub trait Struct: Reflect {
     /// Returns a reference to the value of the field named `name` as a `&dyn
     /// Reflect`.
@@ -68,7 +72,7 @@ pub trait Struct: Reflect {
     fn clone_dynamic(&self) -> DynamicStruct;
 }
 
-/// A container for compile-time struct info.
+/// A container for compile-time named struct info.
 #[derive(Clone, Debug)]
 pub struct StructInfo {
     name: &'static str,
@@ -268,21 +272,30 @@ impl GetField for dyn Struct {
 /// A struct type which allows fields to be added at runtime.
 #[derive(Default)]
 pub struct DynamicStruct {
-    name: String,
+    represented_type: Option<&'static TypeInfo>,
     fields: Vec<Box<dyn Reflect>>,
     field_names: Vec<Cow<'static, str>>,
     field_indices: HashMap<Cow<'static, str>, usize>,
 }
 
 impl DynamicStruct {
-    /// Returns the type name of the struct.
-    pub fn name(&self) -> &str {
-        &self.name
-    }
+    /// Sets the [type] to be represented by this `DynamicStruct`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given [type] is not a [`TypeInfo::Struct`].
+    ///
+    /// [type]: TypeInfo
+    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        if let Some(represented_type) = represented_type {
+            assert!(
+                matches!(represented_type, TypeInfo::Struct(_)),
+                "expected TypeInfo::Struct but received: {:?}",
+                represented_type
+            );
+        }
 
-    /// Sets the type name of the struct.
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
+        self.represented_type = represented_type;
     }
 
     /// Inserts a field named `name` with value `value` into the struct.
@@ -366,7 +379,7 @@ impl Struct for DynamicStruct {
 
     fn clone_dynamic(&self) -> DynamicStruct {
         DynamicStruct {
-            name: self.name.clone(),
+            represented_type: self.get_represented_type_info(),
             field_names: self.field_names.clone(),
             field_indices: self.field_indices.clone(),
             fields: self
@@ -381,12 +394,14 @@ impl Struct for DynamicStruct {
 impl Reflect for DynamicStruct {
     #[inline]
     fn type_name(&self) -> &str {
-        &self.name
+        self.represented_type
+            .map(|info| info.type_name())
+            .unwrap_or_else(|| std::any::type_name::<Self>())
     }
 
     #[inline]
-    fn get_type_info(&self) -> &'static TypeInfo {
-        <Self as Typed>::type_info()
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 
     #[inline]
@@ -466,18 +481,18 @@ impl Reflect for DynamicStruct {
         struct_debug(self, f)?;
         write!(f, ")")
     }
+
+    #[inline]
+    fn is_dynamic(&self) -> bool {
+        true
+    }
 }
+
+impl_type_path!((in bevy_reflect) DynamicStruct);
 
 impl Debug for DynamicStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
-    }
-}
-
-impl Typed for DynamicStruct {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 
@@ -492,7 +507,7 @@ impl Typed for DynamicStruct {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
-    let ReflectRef::Struct(struct_value) = b.reflect_ref()  else {
+    let ReflectRef::Struct(struct_value) = b.reflect_ref() else {
         return Some(false);
     };
 

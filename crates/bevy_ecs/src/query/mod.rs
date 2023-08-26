@@ -1,18 +1,22 @@
+//! Contains APIs for retrieving component data from the world.
+
 mod access;
 mod fetch;
 mod filter;
 mod iter;
+mod par_iter;
 mod state;
 
 pub use access::*;
 pub use fetch::*;
 pub use filter::*;
 pub use iter::*;
+pub use par_iter::*;
 pub use state::*;
 
 /// A debug checked version of [`Option::unwrap_unchecked`]. Will panic in
 /// debug modes if unwrapping a `None` or `Err` value in debug mode, but is
-/// equivalent to `Option::unwrap_uncheched` or `Result::unwrap_unchecked`
+/// equivalent to `Option::unwrap_unchecked` or `Result::unwrap_unchecked`
 /// in release mode.
 pub(crate) trait DebugCheckedUnwrap {
     type Item;
@@ -25,7 +29,7 @@ pub(crate) trait DebugCheckedUnwrap {
     unsafe fn debug_checked_unwrap(self) -> Self::Item;
 }
 
-// Thes two impls are explicitly split to ensure that the unreachable! macro
+// These two impls are explicitly split to ensure that the unreachable! macro
 // does not cause inlining to fail when compiling in release mode.
 #[cfg(debug_assertions)]
 impl<T> DebugCheckedUnwrap for Option<T> {
@@ -59,8 +63,9 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 #[cfg(test)]
 mod tests {
     use super::{ReadOnlyWorldQuery, WorldQuery};
-    use crate::prelude::{AnyOf, Entity, Or, QueryState, With, Without};
-    use crate::query::{ArchetypeFilter, QueryCombinationIter};
+    use crate::prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without};
+    use crate::query::{ArchetypeFilter, Has, QueryCombinationIter};
+    use crate::schedule::{IntoSystemConfigs, Schedule};
     use crate::system::{IntoSystem, Query, System, SystemState};
     use crate::{self as bevy_ecs, component::Component, world::World};
     use std::any::type_name;
@@ -96,100 +101,6 @@ mod tests {
 
     #[test]
     fn query_filtered_exactsizeiterator_len() {
-        fn assert_all_sizes_iterator_equal(
-            iterator: impl ExactSizeIterator,
-            expected_size: usize,
-            query_type: &'static str,
-        ) {
-            let len = iterator.len();
-            let size_hint_0 = iterator.size_hint().0;
-            let size_hint_1 = iterator.size_hint().1;
-            // `count` tests that not only it is the expected value, but also
-            // the value is accurate to what the query returns.
-            let count = iterator.count();
-            // This will show up when one of the asserts in this function fails
-            println!(
-                r#"query declared sizes:
-                for query:     {query_type}
-                expected:      {expected_size}
-                len:           {len}
-                size_hint().0: {size_hint_0}
-                size_hint().1: {size_hint_1:?}
-                count():       {count}"#
-            );
-            assert_eq!(len, expected_size);
-            assert_eq!(size_hint_0, expected_size);
-            assert_eq!(size_hint_1, Some(expected_size));
-            assert_eq!(count, expected_size);
-        }
-        fn assert_all_sizes_equal<Q, F>(world: &mut World, expected_size: usize)
-        where
-            Q: ReadOnlyWorldQuery,
-            F: ReadOnlyWorldQuery,
-            F::ReadOnly: ArchetypeFilter,
-        {
-            let mut query = world.query_filtered::<Q, F>();
-            let iter = query.iter(world);
-            let query_type = type_name::<QueryState<Q, F>>();
-            assert_all_sizes_iterator_equal(iter, expected_size, query_type);
-        }
-
-        let mut world = World::new();
-        world.spawn((A(1), B(1)));
-        world.spawn(A(2));
-        world.spawn(A(3));
-
-        assert_all_sizes_equal::<&A, With<B>>(&mut world, 1);
-        assert_all_sizes_equal::<&A, Without<B>>(&mut world, 2);
-
-        let mut world = World::new();
-        world.spawn((A(1), B(1), C(1)));
-        world.spawn((A(2), B(2)));
-        world.spawn((A(3), B(3)));
-        world.spawn((A(4), C(4)));
-        world.spawn((A(5), C(5)));
-        world.spawn((A(6), C(6)));
-        world.spawn(A(7));
-        world.spawn(A(8));
-        world.spawn(A(9));
-        world.spawn(A(10));
-
-        // With/Without for B and C
-        assert_all_sizes_equal::<&A, With<B>>(&mut world, 3);
-        assert_all_sizes_equal::<&A, With<C>>(&mut world, 4);
-        assert_all_sizes_equal::<&A, Without<B>>(&mut world, 7);
-        assert_all_sizes_equal::<&A, Without<C>>(&mut world, 6);
-
-        // With/Without (And) combinations
-        assert_all_sizes_equal::<&A, (With<B>, With<C>)>(&mut world, 1);
-        assert_all_sizes_equal::<&A, (With<B>, Without<C>)>(&mut world, 2);
-        assert_all_sizes_equal::<&A, (Without<B>, With<C>)>(&mut world, 3);
-        assert_all_sizes_equal::<&A, (Without<B>, Without<C>)>(&mut world, 4);
-
-        // With/Without Or<()> combinations
-        assert_all_sizes_equal::<&A, Or<(With<B>, With<C>)>>(&mut world, 6);
-        assert_all_sizes_equal::<&A, Or<(With<B>, Without<C>)>>(&mut world, 7);
-        assert_all_sizes_equal::<&A, Or<(Without<B>, With<C>)>>(&mut world, 8);
-        assert_all_sizes_equal::<&A, Or<(Without<B>, Without<C>)>>(&mut world, 9);
-        assert_all_sizes_equal::<&A, (Or<(With<B>,)>, Or<(With<C>,)>)>(&mut world, 1);
-        assert_all_sizes_equal::<&A, Or<(Or<(With<B>, With<C>)>, With<D>)>>(&mut world, 6);
-
-        for i in 11..14 {
-            world.spawn((A(i), D(i)));
-        }
-
-        assert_all_sizes_equal::<&A, Or<(Or<(With<B>, With<C>)>, With<D>)>>(&mut world, 9);
-        assert_all_sizes_equal::<&A, Or<(Or<(With<B>, With<C>)>, Without<D>)>>(&mut world, 10);
-
-        // a fair amount of entities
-        for i in 14..20 {
-            world.spawn((C(i), D(i)));
-        }
-        assert_all_sizes_equal::<Entity, (With<C>, With<D>)>(&mut world, 6);
-    }
-
-    #[test]
-    fn query_filtered_combination_size() {
         fn choose(n: usize, k: usize) -> usize {
             if n == 0 || k == 0 || n < k {
                 return 0;
@@ -200,25 +111,30 @@ mod tests {
         }
         fn assert_combination<Q, F, const K: usize>(world: &mut World, expected_size: usize)
         where
-            Q: WorldQuery,
+            Q: ReadOnlyWorldQuery,
             F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<Q, F>();
-            let iter = query.iter_combinations::<K>(world);
             let query_type = type_name::<QueryCombinationIter<Q, F, K>>();
-            assert_all_sizes_iterator_equal(iter, expected_size, query_type);
+            let iter = query.iter_combinations::<K>(world);
+            assert_all_sizes_iterator_equal(iter, expected_size, 0, query_type);
+            let iter = query.iter_combinations::<K>(world);
+            assert_all_sizes_iterator_equal(iter, expected_size, 1, query_type);
+            let iter = query.iter_combinations::<K>(world);
+            assert_all_sizes_iterator_equal(iter, expected_size, 5, query_type);
         }
         fn assert_all_sizes_equal<Q, F>(world: &mut World, expected_size: usize)
         where
-            Q: WorldQuery,
+            Q: ReadOnlyWorldQuery,
             F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<Q, F>();
-            let iter = query.iter(world);
             let query_type = type_name::<QueryState<Q, F>>();
-            assert_all_sizes_iterator_equal(iter, expected_size, query_type);
+            assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 0, query_type);
+            assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 1, query_type);
+            assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 5, query_type);
 
             let expected = expected_size;
             assert_combination::<Q, F, 0>(world, choose(expected, 0));
@@ -226,13 +142,29 @@ mod tests {
             assert_combination::<Q, F, 2>(world, choose(expected, 2));
             assert_combination::<Q, F, 5>(world, choose(expected, 5));
             assert_combination::<Q, F, 43>(world, choose(expected, 43));
-            assert_combination::<Q, F, 128>(world, choose(expected, 128));
+            assert_combination::<Q, F, 64>(world, choose(expected, 64));
         }
-        fn assert_all_sizes_iterator_equal(
-            iterator: impl Iterator,
+        fn assert_all_exact_sizes_iterator_equal(
+            iterator: impl ExactSizeIterator,
             expected_size: usize,
+            skip: usize,
             query_type: &'static str,
         ) {
+            let len = iterator.len();
+            println!("len:           {len}");
+            assert_all_sizes_iterator_equal(iterator, expected_size, skip, query_type);
+            assert_eq!(len, expected_size);
+        }
+        fn assert_all_sizes_iterator_equal(
+            mut iterator: impl Iterator,
+            expected_size: usize,
+            skip: usize,
+            query_type: &'static str,
+        ) {
+            let expected_size = expected_size.saturating_sub(skip);
+            for _ in 0..skip {
+                iterator.next();
+            }
             let size_hint_0 = iterator.size_hint().0;
             let size_hint_1 = iterator.size_hint().1;
             // `count` tests that not only it is the expected value, but also
@@ -240,12 +172,12 @@ mod tests {
             let count = iterator.count();
             // This will show up when one of the asserts in this function fails
             println!(
-                r#"query declared sizes:
-                for query:     {query_type}
-                expected:      {expected_size}
-                size_hint().0: {size_hint_0}
-                size_hint().1: {size_hint_1:?}
-                count():       {count}"#
+                "query declared sizes: \n\
+                for query:     {query_type} \n\
+                expected:      {expected_size} \n\
+                size_hint().0: {size_hint_0} \n\
+                size_hint().1: {size_hint_1:?} \n\
+                count():       {count}"
             );
             assert_eq!(size_hint_0, expected_size);
             assert_eq!(size_hint_1, Some(expected_size));
@@ -545,6 +477,24 @@ mod tests {
     }
 
     #[test]
+    fn has_query() {
+        let mut world = World::new();
+
+        world.spawn((A(1), B(1)));
+        world.spawn(A(2));
+        world.spawn((A(3), B(1)));
+        world.spawn(A(4));
+
+        let values: Vec<(&A, bool)> = world.query::<(&A, Has<B>)>().iter(&world).collect();
+
+        // The query seems to put the components with B first
+        assert_eq!(
+            values,
+            vec![(&A(1), true), (&A(3), true), (&A(2), false), (&A(4), false),]
+        );
+    }
+
+    #[test]
     #[should_panic = "&mut bevy_ecs::query::tests::A conflicts with a previous access in this query."]
     fn self_conflicting_worldquery() {
         #[derive(WorldQuery)]
@@ -819,5 +769,34 @@ mod tests {
         let _: Option<&Foo> = q.get_single().ok();
         let _: [&Foo; 1] = q.many([e]);
         let _: &Foo = q.single();
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/8029
+    #[test]
+    fn par_iter_mut_change_detection() {
+        let mut world = World::new();
+        world.spawn((A(1), B(1)));
+
+        fn propagate_system(mut query: Query<(&A, &mut B), Changed<A>>) {
+            query.par_iter_mut().for_each(|(a, mut b)| {
+                b.0 = a.0;
+            });
+        }
+
+        fn modify_system(mut query: Query<&mut A>) {
+            for mut a in &mut query {
+                a.0 = 2;
+            }
+        }
+
+        let mut schedule = Schedule::new();
+        schedule.add_systems((propagate_system, modify_system).chain());
+        schedule.run(&mut world);
+        world.clear_trackers();
+        schedule.run(&mut world);
+        world.clear_trackers();
+
+        let values = world.query::<&B>().iter(&world).collect::<Vec<&B>>();
+        assert_eq!(values, vec![&B(2)]);
     }
 }

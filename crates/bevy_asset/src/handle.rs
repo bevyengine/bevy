@@ -10,27 +10,14 @@ use crate::{
     Asset, Assets,
 };
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_reflect::{
-    std_traits::ReflectDefault, FromReflect, Reflect, ReflectDeserialize, ReflectSerialize,
-};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_utils::Uuid;
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 
 /// A unique, stable asset id.
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    Eq,
-    PartialEq,
-    Hash,
-    Ord,
-    PartialOrd,
-    Serialize,
-    Deserialize,
-    Reflect,
-    FromReflect,
+    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
 )]
 #[reflect_value(Serialize, Deserialize, PartialEq, Hash)]
 pub enum HandleId {
@@ -49,6 +36,12 @@ impl From<AssetPathId> for HandleId {
 
 impl<'a> From<AssetPath<'a>> for HandleId {
     fn from(value: AssetPath<'a>) -> Self {
+        HandleId::AssetPathId(AssetPathId::from(value))
+    }
+}
+
+impl<'a, 'b> From<&'a AssetPath<'b>> for HandleId {
+    fn from(value: &'a AssetPath<'b>) -> Self {
         HandleId::AssetPathId(AssetPathId::from(value))
     }
 }
@@ -102,7 +95,7 @@ impl HandleId {
 /// handle to the unloaded asset, but it will not be able to retrieve the image data, resulting in
 /// collisions no longer being detected for that entity.
 ///
-#[derive(Component, Reflect, FromReflect)]
+#[derive(Component, Reflect)]
 #[reflect(Component, Default)]
 pub struct Handle<T>
 where
@@ -116,7 +109,6 @@ where
     marker: PhantomData<fn() -> T>,
 }
 
-// FIXME: Default is only needed because `Handle`'s field `handle_type` is currently ignored for reflection
 #[derive(Default)]
 enum HandleType {
     #[default]
@@ -282,7 +274,7 @@ impl<T: Asset> Eq for Handle<T> {}
 
 impl<T: Asset> PartialOrd for Handle<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.id.cmp(&other.id))
+        Some(self.cmp(other))
     }
 }
 
@@ -322,8 +314,7 @@ impl<T: Asset> Clone for Handle<T> {
 /// To convert back to a typed handle, use the [typed](HandleUntyped::typed) method.
 #[derive(Debug)]
 pub struct HandleUntyped {
-    /// An unique identifier to an Asset.
-    pub id: HandleId,
+    id: HandleId,
     handle_type: HandleType,
 }
 
@@ -350,6 +341,12 @@ impl HandleUntyped {
             id,
             handle_type: HandleType::Weak,
         }
+    }
+
+    /// The ID of the asset.
+    #[inline]
+    pub fn id(&self) -> HandleId {
+        self.id
     }
 
     /// Creates a weak copy of this handle.
@@ -399,7 +396,7 @@ impl HandleUntyped {
         Handle {
             handle_type,
             id: self.id,
-            marker: PhantomData::default(),
+            marker: PhantomData,
         }
     }
 }

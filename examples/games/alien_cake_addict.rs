@@ -2,11 +2,12 @@
 
 use std::f32::consts::PI;
 
-use bevy::{ecs::schedule::SystemSet, prelude::*};
+use bevy::prelude::*;
 use rand::Rng;
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
 enum GameState {
+    #[default]
     Playing,
     GameOver,
 }
@@ -16,28 +17,36 @@ struct BonusSpawnTimer(Timer);
 
 fn main() {
     App::new()
+        .add_plugins(DefaultPlugins)
         .init_resource::<Game>()
         .insert_resource(BonusSpawnTimer(Timer::from_seconds(
             5.0,
             TimerMode::Repeating,
         )))
-        .add_plugins(DefaultPlugins)
-        .add_state(GameState::Playing)
-        .add_startup_system(setup_cameras)
-        .add_system_set(SystemSet::on_enter(GameState::Playing).with_system(setup))
-        .add_system_set(
-            SystemSet::on_update(GameState::Playing)
-                .with_system(move_player)
-                .with_system(focus_camera)
-                .with_system(rotate_bonus)
-                .with_system(scoreboard_system)
-                .with_system(spawn_bonus),
+        .add_state::<GameState>()
+        .add_systems(Startup, setup_cameras)
+        .add_systems(OnEnter(GameState::Playing), setup)
+        .add_systems(
+            Update,
+            (
+                move_player,
+                focus_camera,
+                rotate_bonus,
+                scoreboard_system,
+                spawn_bonus,
+            )
+                .run_if(in_state(GameState::Playing)),
         )
-        .add_system_set(SystemSet::on_exit(GameState::Playing).with_system(teardown))
-        .add_system_set(SystemSet::on_enter(GameState::GameOver).with_system(display_score))
-        .add_system_set(SystemSet::on_update(GameState::GameOver).with_system(gameover_keyboard))
-        .add_system_set(SystemSet::on_exit(GameState::GameOver).with_system(teardown))
-        .add_system(bevy::window::close_on_esc)
+        .add_systems(OnExit(GameState::Playing), teardown)
+        .add_systems(OnEnter(GameState::GameOver), display_score)
+        .add_systems(
+            Update,
+            (
+                gameover_keyboard.run_if(in_state(GameState::GameOver)),
+                bevy::window::close_on_esc,
+            ),
+        )
+        .add_systems(OnExit(GameState::GameOver), teardown)
         .run();
 }
 
@@ -159,27 +168,24 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         TextBundle::from_section(
             "Score:",
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 40.0,
                 color: Color::rgb(0.5, 0.5, 1.0),
+                ..default()
             },
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(5.0),
-                left: Val::Px(5.0),
-                ..default()
-            },
+            top: Val::Px(5.0),
+            left: Val::Px(5.0),
             ..default()
         }),
     );
 }
 
-// remove all entities that are not a camera
-fn teardown(mut commands: Commands, entities: Query<Entity, Without<Camera>>) {
+// remove all entities that are not a camera or window
+fn teardown(mut commands: Commands, entities: Query<Entity, (Without<Camera>, Without<Window>)>) {
     for entity in &entities {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -296,7 +302,7 @@ fn focus_camera(
 fn spawn_bonus(
     time: Res<Time>,
     mut timer: ResMut<BonusSpawnTimer>,
-    mut state: ResMut<State<GameState>>,
+    mut next_state: ResMut<NextState<GameState>>,
     mut commands: Commands,
     mut game: ResMut<Game>,
 ) {
@@ -310,8 +316,7 @@ fn spawn_bonus(
         commands.entity(entity).despawn_recursive();
         game.bonus.entity = None;
         if game.score <= -5 {
-            // We don't particularly care if this operation fails
-            let _ = state.overwrite_set(GameState::GameOver);
+            next_state.set(GameState::GameOver);
             return;
         }
     }
@@ -369,20 +374,23 @@ fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
 }
 
 // restart the game when pressing spacebar
-fn gameover_keyboard(mut state: ResMut<State<GameState>>, keyboard_input: Res<Input<KeyCode>>) {
+fn gameover_keyboard(
+    mut next_state: ResMut<NextState<GameState>>,
+    keyboard_input: Res<Input<KeyCode>>,
+) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        state.set(GameState::Playing).unwrap();
+        next_state.set(GameState::Playing);
     }
 }
 
 // display the number of cake eaten before losing
-fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: Res<Game>) {
+fn display_score(mut commands: Commands, game: Res<Game>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                margin: UiRect::all(Val::Auto),
-                justify_content: JustifyContent::Center,
+                width: Val::Percent(100.),
                 align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
                 ..default()
             },
             ..default()
@@ -391,9 +399,9 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
             parent.spawn(TextBundle::from_section(
                 format!("Cake eaten: {}", game.cake_eaten),
                 TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 80.0,
                     color: Color::rgb(0.5, 0.5, 1.0),
+                    ..default()
                 },
             ));
         });

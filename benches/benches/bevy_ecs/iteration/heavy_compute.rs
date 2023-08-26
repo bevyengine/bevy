@@ -34,7 +34,7 @@ pub fn heavy_compute(c: &mut Criterion) {
         }));
 
         fn sys(mut query: Query<(&mut Position, &mut Transform)>) {
-            query.par_for_each_mut(128, |(mut pos, mut mat)| {
+            query.par_iter_mut().for_each(|(mut pos, mut mat)| {
                 for _ in 0..100 {
                     mat.0 = mat.0.inverse();
                 }
@@ -45,7 +45,7 @@ pub fn heavy_compute(c: &mut Criterion) {
 
         let mut system = IntoSystem::into_system(sys);
         system.initialize(&mut world);
-        system.update_archetype_component_access(&world);
+        system.update_archetype_component_access(world.as_unsafe_world_cell());
 
         b.iter(move || system.run((), &mut world));
     });
