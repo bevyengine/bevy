@@ -532,7 +532,7 @@ impl ScheduleGraph {
                     if more_than_one_entry {
                         let set = AnonymousSet::new();
                         for config in &mut configs {
-                            config.in_set_inner(set.dyn_clone());
+                            config.in_set_dyn(set.dyn_clone());
                         }
                         let mut set_config = set.into_config();
                         set_config.conditions.extend(collective_conditions);

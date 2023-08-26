@@ -83,14 +83,15 @@ impl SystemConfigs {
         })
     }
 
-    pub(crate) fn in_set_inner(&mut self, set: BoxedSystemSet) {
+    /// Adds a new boxed system set to the systems.
+    pub fn in_set_dyn(&mut self, set: BoxedSystemSet) {
         match self {
             SystemConfigs::SystemConfig(config) => {
                 config.graph_info.sets.push(set);
             }
             SystemConfigs::Configs { configs, .. } => {
                 for config in configs {
-                    config.in_set_inner(set.dyn_clone());
+                    config.in_set_dyn(set.dyn_clone());
                 }
             }
         }
@@ -308,7 +309,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
             "adding arbitrary systems to a system type set is not allowed"
         );
 
-        self.in_set_inner(set.dyn_clone());
+        self.in_set_dyn(set.dyn_clone());
 
         self
     }
