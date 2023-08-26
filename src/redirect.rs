@@ -62,6 +62,7 @@ impl Redirector {
                 | Statement::Break
                 | Statement::Continue
                 | Statement::Return { .. }
+                | Statement::WorkGroupUniformLoad { .. }
                 | Statement::Kill
                 | Statement::Barrier(_)
                 | Statement::Store { .. }

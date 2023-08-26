@@ -1,8 +1,7 @@
 const _naga_oil_mod_MNXW443UOM_memberX: u32 = 1u;
-
 const _naga_oil_mod_MJUW4ZA_membery: u32 = 2u;
 
-var<private> _naga_oil_mod_MJUW4ZA_memberarr: array<u32,_naga_oil_mod_MNXW443UOM_memberX>;
+var<private> _naga_oil_mod_MJUW4ZA_memberarr: array<u32, 1>;
 
 fn main() -> f32 {
     let _e2: u32 = _naga_oil_mod_MJUW4ZA_memberarr[0];

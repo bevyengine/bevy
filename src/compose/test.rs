@@ -1083,6 +1083,45 @@ mod test {
         output_eq!(wgsl, "tests/expected/conditional_import_b.txt");
     }
 
+    #[test]
+    fn use_shared_global() {
+        let mut composer = Composer::default();
+
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/use_shared_global/mod.wgsl"),
+                file_path: "tests/use_shared_global/mod.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+        let module = composer
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/use_shared_global/top.wgsl"),
+                file_path: "tests/use_shared_global/top.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+
+        let info = naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::default(),
+        )
+        .validate(&module)
+        .unwrap();
+        let wgsl = naga::back::wgsl::write_string(
+            &module,
+            &info,
+            naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
+        )
+        .unwrap();
+
+        // let mut f = std::fs::File::create("use_shared_global.txt").unwrap();
+        // f.write_all(wgsl.as_bytes()).unwrap();
+        // drop(f);
+
+        output_eq!(wgsl, "tests/expected/use_shared_global.txt");
+    }
+
     #[cfg(feature = "test_shader")]
     #[test]
     fn effective_defs() {

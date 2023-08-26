@@ -143,6 +143,7 @@ pub mod comment_strip_iter;
 pub mod error;
 pub mod preprocess;
 mod test;
+pub mod util;
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug, Default)]
 pub enum ShaderLanguage {

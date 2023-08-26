@@ -2,7 +2,6 @@
 
 
 
-
     let _e1: u32 = _naga_oil_mod_MNXW443UOM_memberdouble(_naga_oil_mod_MNXW443UOM_memberX);
     let _e1: u32 = _naga_oil_mod_MNXW443UOM_memberdouble(_naga_oil_mod_MNXW443UOM_memberY);
     return (in * 2u);
