@@ -1,4 +1,4 @@
-use bevy_reflect::{TypeUuid, Uuid};
+use bevy_reflect::{TypePath, TypeUuid, Uuid};
 use bevy_render::{
     mesh::MeshVertexBufferLayout,
     render_asset::RenderAssets,
@@ -25,7 +25,7 @@ use crate::{Material, MaterialPipeline, MaterialPipelineKey, StandardMaterial};
 /// the `extended_material` example).
 /// Alpha mode from the extended material is ignored, only the standard material's alpha mode
 /// is used.
-#[derive(Clone)]
+#[derive(Clone, TypePath)]
 pub struct ExtendedMaterial<M: Material> {
     pub standard: StandardMaterial,
     pub extended: M,
