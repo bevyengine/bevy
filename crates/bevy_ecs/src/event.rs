@@ -989,6 +989,31 @@ mod tests {
         assert!(is_empty, "EventReader should be empty");
     }
 
+    #[test]
+    fn test_update_drain() {
+        let mut events = Events::<TestEvent>::default();
+        let mut reader = events.get_reader();
+
+        events.send(TestEvent { i: 0 });
+        events.send(TestEvent { i: 1 });
+        assert_eq!(reader.iter(&events).count(), 2);
+
+        let mut old_events = Vec::from_iter(events.update_drain());
+        assert!(old_events.is_empty());
+
+        events.send(TestEvent { i: 2 });
+        assert_eq!(reader.iter(&events).count(), 1);
+
+        old_events.extend(events.update_drain());
+        assert_eq!(old_events.len(), 2);
+
+        old_events.extend(events.update_drain());
+        assert_eq!(
+            old_events,
+            &[TestEvent { i: 0 }, TestEvent { i: 1 }, TestEvent { i: 2 }]
+        )
+    }
+
     #[allow(clippy::iter_nth_zero)]
     #[test]
     fn test_event_iter_nth() {
