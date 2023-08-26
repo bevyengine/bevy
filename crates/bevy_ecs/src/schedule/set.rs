@@ -83,7 +83,7 @@ impl<T> Hash for SystemTypeSet<T> {
 }
 impl<T> Clone for SystemTypeSet<T> {
     fn clone(&self) -> Self {
-        Self(PhantomData)
+        *self
     }
 }
 

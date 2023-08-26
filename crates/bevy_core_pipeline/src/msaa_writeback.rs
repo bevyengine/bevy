@@ -21,7 +21,7 @@ pub struct MsaaWritebackPlugin;
 impl Plugin for MsaaWritebackPlugin {
     fn build(&self, app: &mut App) {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return
+            return;
         };
 
         render_app.add_systems(
