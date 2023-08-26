@@ -271,9 +271,10 @@ pub fn query_get_component_simple(criterion: &mut Criterion) {
         let entity = world.spawn(A(0.0)).id();
         let mut query = world.query::<&mut A>();
 
+        let world_cell = world.as_unsafe_world_cell();
         bencher.iter(|| {
             for _x in 0..100000 {
-                let mut a = unsafe { query.get_unchecked(&world, entity).unwrap() };
+                let mut a = unsafe { query.get_unchecked(world_cell, entity).unwrap() };
                 a.0 += 1.0;
             }
         });
@@ -291,7 +292,7 @@ pub fn query_get_component_simple(criterion: &mut Criterion) {
 
         let mut system = IntoSystem::into_system(query_system);
         system.initialize(&mut world);
-        system.update_archetype_component_access(&world);
+        system.update_archetype_component_access(world.as_unsafe_world_cell());
 
         bencher.iter(|| system.run(entity, &mut world));
     });

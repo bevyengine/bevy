@@ -2,17 +2,18 @@
 //!
 //! Internal assets (e.g. shaders) are bundled directly into an application and can't be hot
 //! reloaded using the conventional API.
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Update};
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_tasks::{IoTaskPool, TaskPoolBuilder};
-use bevy_utils::HashMap;
+use bevy_utils::{Duration, HashMap};
 use std::{
     ops::{Deref, DerefMut},
     path::Path,
 };
 
 use crate::{
-    Asset, AssetEvent, AssetPlugin, AssetServer, Assets, FileAssetIo, Handle, HandleUntyped,
+    Asset, AssetEvent, AssetPlugin, AssetServer, Assets, ChangeWatcher, FileAssetIo, Handle,
+    HandleUntyped,
 };
 
 /// A helper [`App`] used for hot reloading internal assets, which are compiled-in to Bevy plugins.
@@ -70,12 +71,12 @@ impl Plugin for DebugAssetServerPlugin {
                 .build()
         });
         let mut debug_asset_app = App::new();
-        debug_asset_app.add_plugin(AssetPlugin {
+        debug_asset_app.add_plugins(AssetPlugin {
             asset_folder: "crates".to_string(),
-            watch_for_changes: true,
+            watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
         });
         app.insert_non_send_resource(DebugAssetApp(debug_asset_app));
-        app.add_system(run_debug_asset_app);
+        app.add_systems(Update, run_debug_asset_app);
     }
 }
 
@@ -113,7 +114,7 @@ pub(crate) fn sync_debug_assets<T: Asset + Clone>(
 /// If this feels a bit odd ... that's because it is. This was built to improve the UX of the
 /// `load_internal_asset` macro.
 pub fn register_handle_with_loader<A: Asset, T>(
-    _loader: fn(T) -> A,
+    _loader: fn(T, String) -> A,
     app: &mut DebugAssetApp,
     handle: HandleUntyped,
     file_path: &str,

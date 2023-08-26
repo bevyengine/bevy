@@ -44,9 +44,12 @@ use std::{
 pub struct ArchetypeRow(u32);
 
 impl ArchetypeRow {
+    /// Index indicating an invalid archetype row.
+    /// This is meant to be used as a placeholder.
     pub const INVALID: ArchetypeRow = ArchetypeRow(u32::MAX);
 
     /// Creates a `ArchetypeRow`.
+    #[inline]
     pub const fn new(index: usize) -> Self {
         Self(index as u32)
     }
@@ -150,7 +153,7 @@ impl BundleComponentStatus for SpawnBundleStatus {
 pub struct Edges {
     add_bundle: SparseArray<BundleId, AddBundle>,
     remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
-    remove_bundle_intersection: SparseArray<BundleId, Option<ArchetypeId>>,
+    take_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
 }
 
 impl Edges {
@@ -222,32 +225,28 @@ impl Edges {
     }
 
     /// Checks the cache for the target archetype when removing a bundle to the
-    /// source archetype. For more information, see [`EntityMut::remove_intersection`].
+    /// source archetype. For more information, see [`EntityMut::remove`].
     ///
     /// If this returns `None`, it means there has not been a transition from
     /// the source archetype via the provided bundle.
     ///
-    /// [`EntityMut::remove_intersection`]: crate::world::EntityMut::remove_intersection
+    /// [`EntityMut::remove`]: crate::world::EntityMut::remove
     #[inline]
-    pub fn get_remove_bundle_intersection(
-        &self,
-        bundle_id: BundleId,
-    ) -> Option<Option<ArchetypeId>> {
-        self.remove_bundle_intersection.get(bundle_id).cloned()
+    pub fn get_take_bundle(&self, bundle_id: BundleId) -> Option<Option<ArchetypeId>> {
+        self.take_bundle.get(bundle_id).cloned()
     }
 
     /// Caches the target archetype when removing a bundle to the source archetype.
-    /// For more information, see [`EntityMut::remove_intersection`].
+    /// For more information, see [`EntityMut::take`].
     ///
-    /// [`EntityMut::remove_intersection`]: crate::world::EntityMut::remove_intersection
+    /// [`EntityMut::take`]: crate::world::EntityMut::take
     #[inline]
-    pub(crate) fn insert_remove_bundle_intersection(
+    pub(crate) fn insert_take_bundle(
         &mut self,
         bundle_id: BundleId,
         archetype_id: Option<ArchetypeId>,
     ) {
-        self.remove_bundle_intersection
-            .insert(bundle_id, archetype_id);
+        self.take_bundle.insert(bundle_id, archetype_id);
     }
 }
 
@@ -352,6 +351,7 @@ impl Archetype {
         self.table_id
     }
 
+    /// Fetches the entities contained in this archetype.
     #[inline]
     pub fn entities(&self) -> &[ArchetypeEntity] {
         &self.entities
@@ -408,7 +408,7 @@ impl Archetype {
     /// Fetches the row in the [`Table`] where the components for the entity at `index`
     /// is stored.
     ///
-    /// An entity's archetype row  can be fetched from [`EntityLocation::archetype_row`], which
+    /// An entity's archetype row can be fetched from [`EntityLocation::archetype_row`], which
     /// can be retrieved from [`Entities::get`].
     ///
     /// # Panics
@@ -437,6 +437,7 @@ impl Archetype {
     /// # Safety
     /// valid component values must be immediately written to the relevant storages
     /// `table_row` must be valid
+    #[inline]
     pub(crate) unsafe fn allocate(
         &mut self,
         entity: Entity,
@@ -453,6 +454,7 @@ impl Archetype {
         }
     }
 
+    #[inline]
     pub(crate) fn reserve(&mut self, additional: usize) {
         self.entities.reserve(additional);
     }
@@ -462,6 +464,7 @@ impl Archetype {
     ///
     /// # Panics
     /// This function will panic if `index >= self.len()`
+    #[inline]
     pub(crate) fn swap_remove(&mut self, row: ArchetypeRow) -> ArchetypeSwapRemoveResult {
         let is_last = row.index() == self.entities.len() - 1;
         let entity = self.entities.swap_remove(row.index());
@@ -596,7 +599,7 @@ impl SparseSetIndex for ArchetypeComponentId {
 /// For more information, see the *[module level documentation]*.
 ///
 /// [`World`]: crate::world::World
-/// [*module level documentation]: crate::archetype
+/// [module level documentation]: crate::archetype
 pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     pub(crate) archetype_component_count: usize,
@@ -614,6 +617,8 @@ impl Archetypes {
         archetypes
     }
 
+    /// Returns the current archetype generation. This is an ID indicating the current set of archetypes
+    /// that are registered with the world.
     #[inline]
     pub fn generation(&self) -> ArchetypeGeneration {
         ArchetypeGeneration(self.archetypes.len())
@@ -652,6 +657,9 @@ impl Archetypes {
         self.archetypes.get(id.index())
     }
 
+    /// # Panics
+    ///
+    /// Panics if `a` and `b` are equal.
     #[inline]
     pub(crate) fn get_2_mut(
         &mut self,
@@ -716,6 +724,8 @@ impl Archetypes {
             })
     }
 
+    /// Returns the number of components that are stored in archetypes.
+    /// Note that if some component `T` is stored in more than one archetype, it will be counted once for each archetype it's present in.
     #[inline]
     pub fn archetype_components_len(&self) -> usize {
         self.archetype_component_count

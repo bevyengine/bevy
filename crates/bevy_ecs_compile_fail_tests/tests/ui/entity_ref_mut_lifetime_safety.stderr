@@ -3,8 +3,8 @@ error[E0502]: cannot borrow `e_mut` as mutable because it is also borrowed as im
    |
 16 |         let gotten: &A = e_mut.get::<A>().unwrap();
    |                          ---------------- immutable borrow occurs here
-17 |         let gotten2: A = e_mut.remove::<A>().unwrap();
-   |                          ^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+17 |         let gotten2: A = e_mut.take::<A>().unwrap();
+   |                          ^^^^^^^^^^^^^^^^^ mutable borrow occurs here
 18 |         assert_eq!(gotten, &gotten2); // oops UB
    |         ---------------------------- immutable borrow later used here
 
@@ -13,14 +13,17 @@ error[E0499]: cannot borrow `e_mut` as mutable more than once at a time
    |
 24 |         let mut gotten: Mut<A> = e_mut.get_mut::<A>().unwrap();
    |                                  -------------------- first mutable borrow occurs here
-25 |         let mut gotten2: A = e_mut.remove::<A>().unwrap();
-   |                              ^^^^^^^^^^^^^^^^^^^ second mutable borrow occurs here
+25 |         let mut gotten2: A = e_mut.take::<A>().unwrap();
+   |                              ^^^^^^^^^^^^^^^^^ second mutable borrow occurs here
 26 |         assert_eq!(&mut *gotten, &mut gotten2); // oops UB
    |                          ------ first borrow later used here
 
 error[E0505]: cannot move out of `e_mut` because it is borrowed
   --> tests/ui/entity_ref_mut_lifetime_safety.rs:33:9
    |
+13 |     let mut e_mut = world.entity_mut(e);
+   |         --------- binding `e_mut` declared here
+...
 32 |         let gotten: &A = e_mut.get::<A>().unwrap();
    |                          ---------------- borrow of `e_mut` occurs here
 33 |         e_mut.despawn();

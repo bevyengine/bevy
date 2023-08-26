@@ -16,11 +16,13 @@ fn main() {
     #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
     pub struct FlushEvents;
 
-    schedule.add_system(Events::<MyEvent>::update_system.in_set(FlushEvents));
+    schedule.add_systems(Events::<MyEvent>::update_system.in_set(FlushEvents));
 
     // Add systems sending and receiving events after the events are flushed.
-    schedule.add_system(sending_system.after(FlushEvents));
-    schedule.add_system(receiving_system.after(sending_system));
+    schedule.add_systems((
+        sending_system.after(FlushEvents),
+        receiving_system.after(sending_system),
+    ));
 
     // Simulate 10 frames of our world
     for iteration in 1..=10 {
@@ -30,6 +32,7 @@ fn main() {
 }
 
 // This is our event that we will send and receive in systems
+#[derive(Event)]
 struct MyEvent {
     pub message: String,
     pub random_value: f32,

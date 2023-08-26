@@ -9,12 +9,17 @@ use bevy::{input::keyboard::KeyboardInput, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_scene)
-        .add_system(toggle_ime)
-        .add_system(listen_ime_events)
-        .add_system(listen_received_character_events)
-        .add_system(listen_keyboard_input_events)
-        .add_system(bubbling_text)
+        .add_systems(Startup, setup_scene)
+        .add_systems(
+            Update,
+            (
+                toggle_ime,
+                listen_ime_events,
+                listen_received_character_events,
+                listen_keyboard_input_events,
+                bubbling_text,
+            ),
+        )
         .run();
 }
 
@@ -76,11 +81,8 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(10.0),
-                left: Val::Px(10.0),
-                ..default()
-            },
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
             ..default()
         }),
     );
@@ -106,10 +108,7 @@ fn toggle_ime(
     if input.just_pressed(MouseButton::Left) {
         let mut window = windows.single_mut();
 
-        window.ime_position = window
-            .cursor_position()
-            .map(|p| Vec2::new(p.x, window.height() - p.y))
-            .unwrap();
+        window.ime_position = window.cursor_position().unwrap();
         window.ime_enabled = !window.ime_enabled;
 
         let mut text = text.single_mut();

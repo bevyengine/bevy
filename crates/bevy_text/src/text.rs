@@ -1,11 +1,11 @@
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_reflect::{prelude::*, FromReflect};
+use bevy_reflect::prelude::*;
 use bevy_render::color::Color;
 use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
-use crate::Font;
+use crate::{Font, DEFAULT_FONT_HANDLE};
 
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
@@ -15,7 +15,7 @@ pub struct Text {
     /// Should not affect its position within a container.
     pub alignment: TextAlignment,
     /// How the text should linebreak when running out of the bounds determined by max_size
-    pub linebreak_behaviour: BreakLineOn,
+    pub linebreak_behavior: BreakLineOn,
 }
 
 impl Default for Text {
@@ -23,7 +23,7 @@ impl Default for Text {
         Self {
             sections: Default::default(),
             alignment: TextAlignment::Left,
-            linebreak_behaviour: BreakLineOn::WordBoundary,
+            linebreak_behavior: BreakLineOn::WordBoundary,
         }
     }
 }
@@ -106,9 +106,16 @@ impl Text {
         self.alignment = alignment;
         self
     }
+
+    /// Returns this [`Text`] with soft wrapping disabled.
+    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
+    pub const fn with_no_wrap(mut self) -> Self {
+        self.linebreak_behavior = BreakLineOn::NoWrap;
+        self
+    }
 }
 
-#[derive(Debug, Default, Clone, FromReflect, Reflect)]
+#[derive(Debug, Default, Clone, Reflect)]
 pub struct TextSection {
     pub value: String,
     pub style: TextStyle,
@@ -157,9 +164,16 @@ impl From<TextAlignment> for glyph_brush_layout::HorizontalAlign {
     }
 }
 
-#[derive(Clone, Debug, Reflect, FromReflect)]
+#[derive(Clone, Debug, Reflect)]
 pub struct TextStyle {
     pub font: Handle<Font>,
+    /// The vertical height of rasterized glyphs in the font atlas in pixels.
+    ///
+    /// This is multiplied by the window scale factor and `UiScale`, but not the text entity
+    /// transform or camera projection.
+    ///
+    /// A new font atlas is generated for every combination of font handle and scaled font size
+    /// which can have a strong performance impact.
     pub font_size: f32,
     pub color: Color,
 }
@@ -167,7 +181,7 @@ pub struct TextStyle {
 impl Default for TextStyle {
     fn default() -> Self {
         Self {
-            font: Default::default(),
+            font: DEFAULT_FONT_HANDLE.typed(),
             font_size: 12.0,
             color: Color::WHITE,
         }
@@ -180,18 +194,25 @@ impl Default for TextStyle {
 pub enum BreakLineOn {
     /// Uses the [Unicode Line Breaking Algorithm](https://www.unicode.org/reports/tr14/).
     /// Lines will be broken up at the nearest suitable word boundary, usually a space.
-    /// This behaviour suits most cases, as it keeps words intact across linebreaks.
+    /// This behavior suits most cases, as it keeps words intact across linebreaks.
     WordBoundary,
     /// Lines will be broken without discrimination on any character that would leave bounds.
-    /// This is closer to the behaviour one might expect from text in a terminal.
+    /// This is closer to the behavior one might expect from text in a terminal.
     /// However it may lead to words being broken up across linebreaks.
     AnyCharacter,
+    /// No soft wrapping, where text is automatically broken up into separate lines when it overflows a boundary, will ever occur.
+    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, is still enabled.
+    NoWrap,
 }
 
 impl From<BreakLineOn> for glyph_brush_layout::BuiltInLineBreaker {
     fn from(val: BreakLineOn) -> Self {
         match val {
-            BreakLineOn::WordBoundary => glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker,
+            // If `NoWrap` is set the choice of `BuiltInLineBreaker` doesn't matter as the text is given unbounded width and soft wrapping will never occur.
+            // But `NoWrap` does not disable hard breaks where a [`Text`] contains a newline character.
+            BreakLineOn::WordBoundary | BreakLineOn::NoWrap => {
+                glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker
+            }
             BreakLineOn::AnyCharacter => glyph_brush_layout::BuiltInLineBreaker::AnyCharLineBreaker,
         }
     }

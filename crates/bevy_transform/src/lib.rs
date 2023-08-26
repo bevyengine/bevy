@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![doc = include_str!("../README.md")]
@@ -13,12 +14,15 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         commands::BuildChildrenTransformExt, components::*, TransformBundle, TransformPlugin,
+        TransformPoint,
     };
 }
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::ValidParentCheckPlugin;
+use bevy_math::{Affine3A, Mat4, Vec3};
+
 use prelude::{GlobalTransform, Transform};
 use systems::{propagate_transforms, sync_simple_transforms};
 
@@ -40,8 +44,8 @@ use systems::{propagate_transforms, sync_simple_transforms};
 /// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
-/// This system runs during [`CoreSet::PostUpdate`](crate::CoreSet::PostUpdate). If you
-/// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
+/// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
+/// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 #[derive(Bundle, Clone, Copy, Debug, Default)]
 pub struct TransformBundle {
@@ -61,7 +65,7 @@ impl TransformBundle {
     /// Creates a new [`TransformBundle`] from a [`Transform`].
     ///
     /// This initializes [`GlobalTransform`] as identity, to be updated later by the
-    /// [`CoreSet::PostUpdate`](crate::CoreSet::PostUpdate) stage.
+    /// [`PostUpdate`](bevy_app::PostUpdate) schedule.
     #[inline]
     pub const fn from_transform(transform: Transform) -> Self {
         TransformBundle {
@@ -90,30 +94,77 @@ pub struct TransformPlugin;
 
 impl Plugin for TransformPlugin {
     fn build(&self, app: &mut App) {
+        // A set for `propagate_transforms` to mark it as ambiguous with `sync_simple_transforms`.
+        // Used instead of the `SystemTypeSet` as that would not allow multiple instances of the system.
+        #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+        struct PropagateTransformsSet;
+
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
-            .add_plugin(ValidParentCheckPlugin::<GlobalTransform>::default())
+            .add_plugins(ValidParentCheckPlugin::<GlobalTransform>::default())
+            .configure_set(
+                PostStartup,
+                PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
+            )
             // add transform systems to startup so the first update is "correct"
-            .configure_set(TransformSystem::TransformPropagate.in_base_set(CoreSet::PostUpdate))
-            .edit_schedule(CoreSchedule::Startup, |schedule| {
-                schedule.configure_set(
-                    TransformSystem::TransformPropagate.in_base_set(StartupSet::PostStartup),
-                );
-            })
-            // FIXME: https://github.com/bevyengine/bevy/issues/4381
-            // These systems cannot access the same entities,
-            // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
-            .add_startup_system(
-                sync_simple_transforms
-                    .in_set(TransformSystem::TransformPropagate)
-                    .ambiguous_with(propagate_transforms),
+            .add_systems(
+                PostStartup,
+                (
+                    sync_simple_transforms
+                        .in_set(TransformSystem::TransformPropagate)
+                        // FIXME: https://github.com/bevyengine/bevy/issues/4381
+                        // These systems cannot access the same entities,
+                        // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
+                        .ambiguous_with(PropagateTransformsSet),
+                    propagate_transforms.in_set(PropagateTransformsSet),
+                ),
             )
-            .add_startup_system(propagate_transforms.in_set(TransformSystem::TransformPropagate))
-            .add_system(
-                sync_simple_transforms
-                    .in_set(TransformSystem::TransformPropagate)
-                    .ambiguous_with(propagate_transforms),
+            .configure_set(
+                PostUpdate,
+                PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
             )
-            .add_system(propagate_transforms.in_set(TransformSystem::TransformPropagate));
+            .add_systems(
+                PostUpdate,
+                (
+                    sync_simple_transforms
+                        .in_set(TransformSystem::TransformPropagate)
+                        .ambiguous_with(PropagateTransformsSet),
+                    propagate_transforms.in_set(PropagateTransformsSet),
+                ),
+            );
+    }
+}
+
+/// A trait for point transformation methods.
+pub trait TransformPoint {
+    /// Transform a point.
+    fn transform_point(&self, point: impl Into<Vec3>) -> Vec3;
+}
+
+impl TransformPoint for Transform {
+    #[inline]
+    fn transform_point(&self, point: impl Into<Vec3>) -> Vec3 {
+        self.transform_point(point.into())
+    }
+}
+
+impl TransformPoint for GlobalTransform {
+    #[inline]
+    fn transform_point(&self, point: impl Into<Vec3>) -> Vec3 {
+        self.transform_point(point.into())
+    }
+}
+
+impl TransformPoint for Mat4 {
+    #[inline]
+    fn transform_point(&self, point: impl Into<Vec3>) -> Vec3 {
+        self.transform_point3(point.into())
+    }
+}
+
+impl TransformPoint for Affine3A {
+    #[inline]
+    fn transform_point(&self, point: impl Into<Vec3>) -> Vec3 {
+        self.transform_point3(point.into())
     }
 }

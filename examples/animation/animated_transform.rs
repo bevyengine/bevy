@@ -1,4 +1,4 @@
-//! Create and play an animation defined by code that operates on the `Transform` component.
+//! Create and play an animation defined by code that operates on the [`Transform`] component.
 
 use std::f32::consts::PI;
 
@@ -11,7 +11,7 @@ fn main() {
             color: Color::WHITE,
             brightness: 1.0,
         })
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -53,7 +53,7 @@ fn setup(
         },
     );
     // Or it can modify the rotation of the transform.
-    // To find the entity to modify, the hierarchy  will be traversed looking for
+    // To find the entity to modify, the hierarchy will be traversed looking for
     // an entity with the right name at each level
     animation.add_curve_to_path(
         EntityPath {

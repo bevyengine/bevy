@@ -1,4 +1,7 @@
+//! Defines the [`World`] and APIs for accessing it directly.
+
 mod entity_ref;
+pub mod error;
 mod spawn_batch;
 pub mod unsafe_world_cell;
 mod world_cell;
@@ -12,7 +15,7 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, TicksMut},
-    component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components},
+    component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, Events},
     query::{DebugCheckedUnwrap, QueryState, ReadOnlyWorldQuery, WorldQuery},
@@ -20,6 +23,7 @@ use crate::{
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::Resource,
+    world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
@@ -61,11 +65,11 @@ pub struct World {
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
     pub(crate) removed_components: RemovedComponentEvents,
-    /// Access cache used by [WorldCell]. Is only accessed in the `Drop` impl of `WorldCell`.
+    /// Access cache used by [`WorldCell`]. Is only accessed in the `Drop` impl of `WorldCell`.
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
     pub(crate) change_tick: AtomicU32,
-    pub(crate) last_change_tick: u32,
-    pub(crate) last_check_tick: u32,
+    pub(crate) last_change_tick: Tick,
+    pub(crate) last_check_tick: Tick,
 }
 
 impl Default for World {
@@ -82,8 +86,8 @@ impl Default for World {
             // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
             // are detected on first system runs and for direct world queries.
             change_tick: AtomicU32::new(1),
-            last_change_tick: 0,
-            last_check_tick: 0,
+            last_change_tick: Tick::new(0),
+            last_check_tick: Tick::new(0),
         }
     }
 }
@@ -107,19 +111,14 @@ impl World {
     }
 
     /// Creates a new [`UnsafeWorldCell`] view with complete read+write access.
+    #[inline]
     pub fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
         UnsafeWorldCell::new_mutable(self)
     }
 
     /// Creates a new [`UnsafeWorldCell`] view with only read access to everything.
+    #[inline]
     pub fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCell<'_> {
-        UnsafeWorldCell::new_readonly(self)
-    }
-
-    /// Creates a new [`UnsafeWorldCell`] with read+write access from a [&World](World).
-    /// This is only a temporary measure until every `&World` that is semantically a [`UnsafeWorldCell`]
-    /// has been replaced.
-    pub(crate) fn as_unsafe_world_cell_migration_internal(&self) -> UnsafeWorldCell<'_> {
         UnsafeWorldCell::new_readonly(self)
     }
 
@@ -242,10 +241,19 @@ impl World {
     /// assert_eq!(position.x, 0.0);
     /// ```
     #[inline]
+    #[track_caller]
     pub fn entity(&self, entity: Entity) -> EntityRef {
-        // Lazily evaluate panic!() via unwrap_or_else() to avoid allocation unless failure
-        self.get_entity(entity)
-            .unwrap_or_else(|| panic!("Entity {entity:?} does not exist"))
+        #[inline(never)]
+        #[cold]
+        #[track_caller]
+        fn panic_no_entity(entity: Entity) -> ! {
+            panic!("Entity {entity:?} does not exist");
+        }
+
+        match self.get_entity(entity) {
+            Some(entity) => entity,
+            None => panic_no_entity(entity),
+        }
     }
 
     /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
@@ -268,10 +276,19 @@ impl World {
     /// position.x = 1.0;
     /// ```
     #[inline]
+    #[track_caller]
     pub fn entity_mut(&mut self, entity: Entity) -> EntityMut {
-        // Lazily evaluate panic!() via unwrap_or_else() to avoid allocation unless failure
-        self.get_entity_mut(entity)
-            .unwrap_or_else(|| panic!("Entity {entity:?} does not exist"))
+        #[inline(never)]
+        #[cold]
+        #[track_caller]
+        fn panic_no_entity(entity: Entity) -> ! {
+            panic!("Entity {entity:?} does not exist");
+        }
+
+        match self.get_entity_mut(entity) {
+            Some(entity) => entity,
+            None => panic_no_entity(entity),
+        }
     }
 
     /// Returns the components of an [`Entity`](crate::entity::Entity) through [`ComponentInfo`](crate::component::ComponentInfo).
@@ -493,6 +510,7 @@ impl World {
     /// ```
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityMut {
         self.flush();
+        let change_tick = self.change_tick();
         let entity = self.entities.alloc();
         let entity_location = {
             let bundle_info = self
@@ -503,7 +521,7 @@ impl World {
                 &mut self.archetypes,
                 &mut self.components,
                 &mut self.storages,
-                *self.change_tick.get_mut(),
+                change_tick,
             );
 
             // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
@@ -935,6 +953,13 @@ impl World {
             .unwrap_or(false)
     }
 
+    /// Return's `true` if a resource of type `R` exists and was added since the world's
+    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this return's `false`.
+    ///
+    /// This means that:
+    /// - When called from an exclusive system, this will check for additions since the system last ran.
+    /// - When called elsewhere, this will check for additions since the last time that [`World::clear_trackers`]
+    ///   was called.
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
@@ -943,6 +968,13 @@ impl World {
             .unwrap_or(false)
     }
 
+    /// Return's `true` if a resource of type `R` exists and was modified since the world's
+    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this return's `false`.
+    ///
+    /// This means that:
+    /// - When called from an exclusive system, this will check for changes since the system last ran.
+    /// - When called elsewhere, this will check for changes since the last time that [`World::clear_trackers`]
+    ///   was called.
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
@@ -1174,8 +1206,7 @@ impl World {
     {
         self.flush();
 
-        let iter = iter.into_iter();
-        let change_tick = *self.change_tick.get_mut();
+        let change_tick = self.change_tick();
 
         let bundle_info = self
             .bundles
@@ -1261,7 +1292,8 @@ impl World {
         }
     }
 
-    /// Temporarily removes the requested resource from this [`World`], then re-adds it before returning.
+    /// Temporarily removes the requested resource from this [`World`], runs custom user code,
+    /// then re-adds the resource before returning.
     ///
     /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
     /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
@@ -1291,7 +1323,6 @@ impl World {
             .components
             .get_resource_id(TypeId::of::<R>())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
-        // If the resource isn't send and sync, validate that we are on the main thread, so that we can access it.
         let (ptr, mut ticks) = self
             .storages
             .resources
@@ -1299,21 +1330,21 @@ impl World {
             .and_then(|info| info.remove())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         // Read the value onto the stack to avoid potential mut aliasing.
-        // SAFETY: pointer is of type R
+        // SAFETY: `ptr` was obtained from the TypeId of `R`.
         let mut value = unsafe { ptr.read::<R>() };
         let value_mut = Mut {
             value: &mut value,
             ticks: TicksMut {
                 added: &mut ticks.added,
                 changed: &mut ticks.changed,
-                last_change_tick,
-                change_tick,
+                last_run: last_change_tick,
+                this_run: change_tick,
             },
         };
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>(),
             "Resource `{}` was inserted during a call to World::resource_scope.\n\
-            This is not allowed as the original resource is reinserted to the world after the FnOnce param is invoked.",
+            This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
             std::any::type_name::<R>());
 
         OwningPtr::make(value, |ptr| {
@@ -1467,9 +1498,11 @@ impl World {
         }
     }
 
+    /// Increments the world's current change tick and returns the old value.
     #[inline]
-    pub fn increment_change_tick(&self) -> u32 {
-        self.change_tick.fetch_add(1, Ordering::AcqRel)
+    pub fn increment_change_tick(&self) -> Tick {
+        let prev_tick = self.change_tick.fetch_add(1, Ordering::AcqRel);
+        Tick::new(prev_tick)
     }
 
     /// Reads the current change tick of this world.
@@ -1477,8 +1510,9 @@ impl World {
     /// If you have exclusive (`&mut`) access to the world, consider using [`change_tick()`](Self::change_tick),
     /// which is more efficient since it does not require atomic synchronization.
     #[inline]
-    pub fn read_change_tick(&self) -> u32 {
-        self.change_tick.load(Ordering::Acquire)
+    pub fn read_change_tick(&self) -> Tick {
+        let tick = self.change_tick.load(Ordering::Acquire);
+        Tick::new(tick)
     }
 
     /// Reads the current change tick of this world.
@@ -1486,12 +1520,19 @@ impl World {
     /// This does the same thing as [`read_change_tick()`](Self::read_change_tick), only this method
     /// is more efficient since it does not require atomic synchronization.
     #[inline]
-    pub fn change_tick(&mut self) -> u32 {
-        *self.change_tick.get_mut()
+    pub fn change_tick(&mut self) -> Tick {
+        let tick = *self.change_tick.get_mut();
+        Tick::new(tick)
     }
 
+    /// When called from within an exclusive system (a [`System`] that takes `&mut World` as its first
+    /// parameter), this method returns the [`Tick`] indicating the last time the exclusive system was run.
+    ///
+    /// Otherwise, this returns the `Tick` indicating the last time that [`World::clear_trackers`] was called.
+    ///
+    /// [`System`]: crate::system::System
     #[inline]
-    pub fn last_change_tick(&self) -> u32 {
+    pub fn last_change_tick(&self) -> Tick {
         self.last_change_tick
     }
 
@@ -1503,7 +1544,7 @@ impl World {
     // TODO: benchmark and optimize
     pub fn check_change_ticks(&mut self) {
         let change_tick = self.change_tick();
-        if change_tick.wrapping_sub(self.last_check_tick) < CHECK_TICK_THRESHOLD {
+        if change_tick.relative_to(self.last_check_tick).get() < CHECK_TICK_THRESHOLD {
             return;
         }
 
@@ -1702,57 +1743,134 @@ impl World {
 
 // Schedule-related methods
 impl World {
-    /// Runs the [`Schedule`] associated with the `label` a single time.
+    /// Adds the specified [`Schedule`] to the world. The schedule can later be run
+    /// by calling [`.run_schedule(label)`](Self::run_schedule) or by directly
+    /// accessing the [`Schedules`] resource.
     ///
-    /// The [`Schedule`] is fetched from the
+    /// The `Schedules` resource will be initialized if it does not already exist.
     pub fn add_schedule(&mut self, schedule: Schedule, label: impl ScheduleLabel) {
-        let mut schedules = self.resource_mut::<Schedules>();
+        let mut schedules = self.get_resource_or_insert_with(Schedules::default);
         schedules.insert(label, schedule);
     }
 
-    /// Runs the [`Schedule`] associated with the `label` a single time.
+    /// Temporarily removes the schedule associated with `label` from the world,
+    /// runs user code, and finally re-adds the schedule.
+    /// This returns a [`TryRunScheduleError`] if there is no schedule
+    /// associated with `label`.
     ///
     /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
     /// and system state is cached.
     ///
-    /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
-    pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
-        self.run_schedule_ref(&label);
-    }
-
-    /// Runs the [`Schedule`] associated with the `label` a single time.
-    ///
-    /// Unlike the `run_schedule` method, this method takes the label by reference, which can save a clone.
-    ///
-    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
-    /// and system state is cached.
-    ///
-    /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the requested schedule does not exist, or the [`Schedules`] resource was not added.
-    pub fn run_schedule_ref(&mut self, label: &dyn ScheduleLabel) {
-        let (extracted_label, mut schedule) = self
-            .resource_mut::<Schedules>()
-            .remove_entry(label)
-            .unwrap_or_else(|| panic!("The schedule with the label {label:?} was not found."));
+    /// For simple cases where you just need to call the schedule once,
+    /// consider using [`World::try_run_schedule`] instead.
+    /// For other use cases, see the example on [`World::schedule_scope`].
+    pub fn try_schedule_scope<R>(
+        &mut self,
+        label: impl AsRef<dyn ScheduleLabel>,
+        f: impl FnOnce(&mut World, &mut Schedule) -> R,
+    ) -> Result<R, TryRunScheduleError> {
+        let label = label.as_ref();
+        let Some((extracted_label, mut schedule)) = self
+            .get_resource_mut::<Schedules>()
+            .and_then(|mut s| s.remove_entry(label))
+        else {
+            return Err(TryRunScheduleError(label.dyn_clone()));
+        };
 
         // TODO: move this span to Schedule::run
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("schedule", name = ?extracted_label).entered();
-        schedule.run(self);
-        self.resource_mut::<Schedules>()
+        let value = f(self, &mut schedule);
+
+        let old = self
+            .resource_mut::<Schedules>()
             .insert(extracted_label, schedule);
+        if old.is_some() {
+            warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten");
+        }
+
+        Ok(value)
+    }
+
+    /// Temporarily removes the schedule associated with `label` from the world,
+    /// runs user code, and finally re-adds the schedule.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
+    /// # #[derive(ScheduleLabel, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    /// # pub struct MySchedule;
+    /// # #[derive(Resource)]
+    /// # struct Counter(usize);
+    /// #
+    /// # let mut world = World::new();
+    /// # world.insert_resource(Counter(0));
+    /// # let mut schedule = Schedule::new();
+    /// # schedule.add_systems(tick_counter);
+    /// # world.init_resource::<Schedules>();
+    /// # world.add_schedule(schedule, MySchedule);
+    /// # fn tick_counter(mut counter: ResMut<Counter>) { counter.0 += 1; }
+    /// // Run the schedule five times.
+    /// world.schedule_scope(MySchedule, |world, schedule| {
+    ///     for _ in 0..5 {
+    ///         schedule.run(world);
+    ///     }
+    /// });
+    /// # assert_eq!(world.resource::<Counter>().0, 5);
+    /// ```
+    ///
+    /// For simple cases where you just need to call the schedule once,
+    /// consider using [`World::run_schedule`] instead.
+    ///
+    /// # Panics
+    ///
+    /// If the requested schedule does not exist.
+    pub fn schedule_scope<R>(
+        &mut self,
+        label: impl AsRef<dyn ScheduleLabel>,
+        f: impl FnOnce(&mut World, &mut Schedule) -> R,
+    ) -> R {
+        self.try_schedule_scope(label, f)
+            .unwrap_or_else(|e| panic!("{e}"))
+    }
+
+    /// Attempts to run the [`Schedule`] associated with the `label` a single time,
+    /// and returns a [`TryRunScheduleError`] if the schedule does not exist.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    pub fn try_run_schedule(
+        &mut self,
+        label: impl AsRef<dyn ScheduleLabel>,
+    ) -> Result<(), TryRunScheduleError> {
+        self.try_schedule_scope(label, |world, sched| sched.run(world))
+    }
+
+    /// Runs the [`Schedule`] associated with the `label` a single time.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    ///
+    /// # Panics
+    ///
+    /// If the requested schedule does not exist.
+    pub fn run_schedule(&mut self, label: impl AsRef<dyn ScheduleLabel>) {
+        self.schedule_scope(label, |world, sched| sched.run(world));
     }
 }
 
 impl fmt::Debug for World {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // SAFETY: `UnsafeWorldCell` requires that this must only access metadata.
+        // Accessing any data stored in the world would be unsound.
         f.debug_struct("World")
             .field("id", &self.id)
             .field("entity_count", &self.entities.len())

@@ -1,11 +1,11 @@
 name: CI
 
 on:
+  merge_group:
   pull_request:
   push:
-    branches-ignore:
-      - 'dependabot/**'
-      - staging-squash-merge.tmp
+    branches:
+      - main
 
 env:
   CARGO_TERM_COLOR: always
@@ -142,11 +142,13 @@ jobs:
           target: wasm32-unknown-unknown
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown
+        env:
+          RUSTFLAGS: --cfg=web_sys_unstable_apis
 
   markdownlint:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: check-missing-examples-in-docs
+    needs: check-missing-features-in-docs
     if: always()
     steps:
       - uses: actions/checkout@v3
@@ -161,22 +163,14 @@ jobs:
           VALIDATE_MARKDOWN: true
           DEFAULT_BRANCH: main
 
-  run-examples:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+  run-examples-on-windows-dx12:
+    runs-on: windows-latest
+    timeout-minutes: 60
     steps:
-      - name: Install Bevy dependencies
-        run: |
-          sudo apt-get update;
-          DEBIAN_FRONTEND=noninteractive sudo apt-get install --no-install-recommends -yq \
-            libasound2-dev libudev-dev;
-      - name: install xvfb, llvmpipe and lavapipe
-        run: |
-          sudo apt-get update -y -qq
-          sudo add-apt-repository ppa:oibaf/graphics-drivers -y
-          sudo apt-get update
-          sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
       - uses: actions/checkout@v3
+
+      - uses: dtolnay/rust-toolchain@stable
+
       - uses: actions/cache@v3
         with:
           path: |
@@ -185,38 +179,23 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-run-examples-${{ hashFiles('**/Cargo.toml') }}
-      - uses: dtolnay/rust-toolchain@stable
+          key: ${{ runner.os }}-windows-run-examples-${{ hashFiles('**/Cargo.toml') }}
+
       - name: Build bevy
+        shell: bash
         # this uses the same command as when running the example to ensure build is reused
         run: |
-          TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
+          WGPU_BACKEND=dx12 CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing"
+
       - name: Run examples
+        shell: bash
         run: |
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
-            echo -n $example_name > last_example_run
             echo "running $example_name - "`date`
-            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example xvfb-run cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
+            time WGPU_BACKEND=dx12 CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing"
             sleep 10
           done
-          zip traces.zip trace*.json
-      - name: save traces
-        uses: actions/upload-artifact@v3
-        with:
-          name: example-traces.zip
-          path: traces.zip
-      - name: Save PR number
-        if: ${{ failure() && github.event_name == 'pull_request' }}
-        run: |
-          mkdir -p ./example-run
-          echo ${{ github.event.number }} > ./example-run/NR
-          mv last_example_run ./example-run/
-      - uses: actions/upload-artifact@v2
-        if: ${{ failure() && github.event_name == 'pull_request' }}
-        with:
-          name: example-run
-          path: example-run/
 
   check-doc:
     runs-on: ubuntu-latest
@@ -257,14 +236,14 @@ jobs:
       - uses: actions/checkout@v3
       - name: check for missing metadata
         id: missing-metadata
-        run: cargo run -p build-example-pages -- check-missing
+        run: cargo run -p build-templated-pages -- check-missing examples
       - name: check for missing update
-        id: missing-update
-        run: cargo run -p build-example-pages -- update
+        run: cargo run -p build-templated-pages -- update examples
       - name: Check for modified files
+        id: missing-update
         run: |
           echo "if this step fails, run the following command and commit the changed file on your PR."
-          echo " > cargo run -p build-example-pages -- update"
+          echo " > cargo run -p build-templated-pages -- update examples"
           git diff --quiet HEAD --
       - name: Save PR number
         if: ${{ failure() && github.event_name == 'pull_request' }}
@@ -283,29 +262,39 @@ jobs:
           name: missing-examples
           path: missing-examples/
 
-  check-unused-dependencies:
+  check-missing-features-in-docs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    needs: check-missing-examples-in-docs
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
+      - name: check for missing features
+        id: missing-features
+        run: cargo run -p build-templated-pages -- check-missing features
+      - name: check for missing update
+        run: cargo run -p build-templated-pages -- update features
+      - name: Check for modified files
+        id: missing-update
+        run: |
+          echo "if this step fails, run the following command and commit the changed file on your PR."
+          echo " > cargo run -p build-templated-pages -- update features"
+          git diff --quiet HEAD --
+      - name: Save PR number
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        run: |
+          mkdir -p ./missing-features
+          echo ${{ github.event.number }} > ./missing-features/NR
+      - name: log failed task - missing features
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-features.conclusion == 'failure' }}
+        run: touch ./missing-features/missing-features
+      - name: log failed task - missing update
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-update.conclusion == 'failure' }}
+        run: touch ./missing-features/missing-update
+      - uses: actions/upload-artifact@v2
+        if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-check-unused-dependencies-${{ hashFiles('**/Cargo.toml') }}
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
-      - name: Installs cargo-udeps
-        run: cargo install --force cargo-udeps
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
-      - name: Run cargo udeps
-        run: cargo udeps
+          name: missing-features
+          path: missing-features/
 
   msrv:
     runs-on: ubuntu-latest

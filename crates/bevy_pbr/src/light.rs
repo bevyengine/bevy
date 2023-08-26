@@ -1,14 +1,14 @@
 use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, Rect, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::Camera,
     color::Color,
     extract_resource::ExtractResource,
     prelude::Projection,
-    primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Plane, Sphere},
+    primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
     view::{ComputedVisibility, RenderLayers, VisibleEntities},
@@ -124,7 +124,7 @@ impl SpotLight {
 
 impl Default for SpotLight {
     fn default() -> Self {
-        // a quarter arc attenuating from the centre
+        // a quarter arc attenuating from the center
         Self {
             color: Color::rgb(1.0, 1.0, 1.0),
             /// Luminous power in lumens
@@ -353,7 +353,7 @@ impl CascadeShadowConfigBuilder {
 
 impl Default for CascadeShadowConfigBuilder {
     fn default() -> Self {
-        if cfg!(feature = "webgl") {
+        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
             // Currently only support one cascade in webgl.
             Self {
                 num_cascades: 1,
@@ -387,7 +387,7 @@ pub struct Cascades {
     pub(crate) cascades: HashMap<Entity, Vec<Cascade>>,
 }
 
-#[derive(Clone, Debug, Default, Reflect, FromReflect)]
+#[derive(Clone, Debug, Default, Reflect)]
 pub struct Cascade {
     /// The transform of the light, i.e. the view to world matrix.
     pub(crate) view_transform: Mat4,
@@ -413,19 +413,12 @@ pub fn update_directional_light_cascades(
 ) {
     let views = views
         .iter()
-        .filter_map(|view| match view {
-            // TODO: orthographic camera projection support.
-            (entity, transform, Projection::Perspective(projection), camera)
-                if camera.is_active =>
-            {
-                Some((
-                    entity,
-                    projection.aspect_ratio,
-                    (0.5 * projection.fov).tan(),
-                    transform.compute_matrix(),
-                ))
+        .filter_map(|(entity, transform, projection, camera)| {
+            if camera.is_active {
+                Some((entity, projection, transform.compute_matrix()))
+            } else {
+                None
             }
-            _ => None,
         })
         .collect::<Vec<_>>();
 
@@ -444,27 +437,38 @@ pub fn update_directional_light_cascades(
         let light_to_world_inverse = light_to_world.inverse();
 
         cascades.cascades.clear();
-        for (view_entity, aspect_ratio, tan_half_fov, view_to_world) in views.iter().copied() {
+        for (view_entity, projection, view_to_world) in views.iter().copied() {
             let camera_to_light_view = light_to_world_inverse * view_to_world;
             let view_cascades = cascades_config
                 .bounds
                 .iter()
                 .enumerate()
                 .map(|(idx, far_bound)| {
+                    // Negate bounds as -z is camera forward direction.
+                    let z_near = if idx > 0 {
+                        (1.0 - cascades_config.overlap_proportion)
+                            * -cascades_config.bounds[idx - 1]
+                    } else {
+                        -cascades_config.minimum_distance
+                    };
+                    let z_far = -far_bound;
+
+                    let corners = match projection {
+                        Projection::Perspective(projection) => frustum_corners(
+                            projection.aspect_ratio,
+                            (projection.fov / 2.).tan(),
+                            z_near,
+                            z_far,
+                        ),
+                        Projection::Orthographic(projection) => {
+                            frustum_corners_ortho(projection.area, z_near, z_far)
+                        }
+                    };
                     calculate_cascade(
-                        aspect_ratio,
-                        tan_half_fov,
+                        corners,
                         directional_light_shadow_map.size as f32,
                         light_to_world,
                         camera_to_light_view,
-                        // Negate bounds as -z is camera forward direction.
-                        if idx > 0 {
-                            (1.0 - cascades_config.overlap_proportion)
-                                * -cascades_config.bounds[idx - 1]
-                        } else {
-                            -cascades_config.minimum_distance
-                        },
-                        -far_bound,
                     )
                 })
                 .collect();
@@ -473,37 +477,45 @@ pub fn update_directional_light_cascades(
     }
 }
 
+fn frustum_corners_ortho(area: Rect, z_near: f32, z_far: f32) -> [Vec3A; 8] {
+    // NOTE: These vertices are in the specific order required by [`calculate_cascade`].
+    [
+        Vec3A::new(area.max.x, area.min.y, z_near), // bottom right
+        Vec3A::new(area.max.x, area.max.y, z_near), // top right
+        Vec3A::new(area.min.x, area.max.y, z_near), // top left
+        Vec3A::new(area.min.x, area.min.y, z_near), // bottom left
+        Vec3A::new(area.max.x, area.min.y, z_far),  // bottom right
+        Vec3A::new(area.max.x, area.max.y, z_far),  // top right
+        Vec3A::new(area.min.x, area.max.y, z_far),  // top left
+        Vec3A::new(area.min.x, area.min.y, z_far),  // bottom left
+    ]
+}
+
+fn frustum_corners(aspect_ratio: f32, tan_half_fov: f32, z_near: f32, z_far: f32) -> [Vec3A; 8] {
+    let a = z_near.abs() * tan_half_fov;
+    let b = z_far.abs() * tan_half_fov;
+    // NOTE: These vertices are in the specific order required by [`calculate_cascade`].
+    [
+        Vec3A::new(a * aspect_ratio, -a, z_near),  // bottom right
+        Vec3A::new(a * aspect_ratio, a, z_near),   // top right
+        Vec3A::new(-a * aspect_ratio, a, z_near),  // top left
+        Vec3A::new(-a * aspect_ratio, -a, z_near), // bottom left
+        Vec3A::new(b * aspect_ratio, -b, z_far),   // bottom right
+        Vec3A::new(b * aspect_ratio, b, z_far),    // top right
+        Vec3A::new(-b * aspect_ratio, b, z_far),   // top left
+        Vec3A::new(-b * aspect_ratio, -b, z_far),  // bottom left
+    ]
+}
+
+/// Returns a [`Cascade`] for the frustum defined by `frustum_corners`.
+/// The corner vertices should be specified in the following order:
+/// first the bottom right, top right, top left, bottom left for the near plane, then similar for the far plane.
 fn calculate_cascade(
-    aspect_ratio: f32,
-    tan_half_fov: f32,
+    frustum_corners: [Vec3A; 8],
     cascade_texture_size: f32,
     light_to_world: Mat4,
     camera_to_light: Mat4,
-    z_near: f32,
-    z_far: f32,
 ) -> Cascade {
-    debug_assert!(z_near <= 0.0, "z_near {z_near} must be <= 0.0");
-    debug_assert!(z_far <= 0.0, "z_far {z_far} must be <= 0.0");
-    // NOTE: This whole function is very sensitive to floating point precision and instability and
-    // has followed instructions to avoid view dependence from the section on cascade shadow maps in
-    // Eric Lengyel's Foundations of Game Engine Development 2: Rendering. Be very careful when
-    // modifying this code!
-
-    let a = z_near.abs() * tan_half_fov;
-    let b = z_far.abs() * tan_half_fov;
-    // NOTE: These vertices are in a specific order: bottom right, top right, top left, bottom left
-    //                                               for near then for far
-    let frustum_corners = [
-        Vec3A::new(a * aspect_ratio, -a, z_near),
-        Vec3A::new(a * aspect_ratio, a, z_near),
-        Vec3A::new(-a * aspect_ratio, a, z_near),
-        Vec3A::new(-a * aspect_ratio, -a, z_near),
-        Vec3A::new(b * aspect_ratio, -b, z_far),
-        Vec3A::new(b * aspect_ratio, b, z_far),
-        Vec3A::new(-b * aspect_ratio, b, z_far),
-        Vec3A::new(-b * aspect_ratio, -b, z_far),
-    ];
-
     let mut min = Vec3A::splat(f32::MAX);
     let mut max = Vec3A::splat(f32::MIN);
     for corner_camera_view in frustum_corners {
@@ -615,7 +627,7 @@ pub enum SimulationLightSystems {
 
 /// Configure the far z-plane mode used for the furthest depth slice for clustered forward
 /// rendering
-#[derive(Debug, Copy, Clone, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, Reflect)]
 pub enum ClusterFarZMode {
     /// Calculate the required maximum z-depth based on currently visible lights.
     /// Makes better use of available clusters, speeding up GPU lighting operations
@@ -627,7 +639,7 @@ pub enum ClusterFarZMode {
 }
 
 /// Configure the depth-slicing strategy for clustered forward rendering
-#[derive(Debug, Copy, Clone, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, Reflect)]
 #[reflect(Default)]
 pub struct ClusterZConfig {
     /// Far `Z` plane of the first depth slice
@@ -1445,7 +1457,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let view_x = clip_to_view(inverse_projection, Vec4::new(x_pos, 0.0, 1.0, 1.0)).x;
                 let normal = Vec3::X;
                 let d = view_x * normal.x;
-                x_planes.push(Plane::new(normal.extend(d)));
+                x_planes.push(HalfSpace::new(normal.extend(d)));
             }
 
             let y_slices = clusters.dimensions.y as f32;
@@ -1455,7 +1467,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let view_y = clip_to_view(inverse_projection, Vec4::new(0.0, y_pos, 1.0, 1.0)).y;
                 let normal = Vec3::Y;
                 let d = view_y * normal.y;
-                y_planes.push(Plane::new(normal.extend(d)));
+                y_planes.push(HalfSpace::new(normal.extend(d)));
             }
         } else {
             let x_slices = clusters.dimensions.x as f32;
@@ -1466,7 +1478,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let nt = clip_to_view(inverse_projection, Vec4::new(x_pos, 1.0, 1.0, 1.0)).xyz();
                 let normal = nb.cross(nt);
                 let d = nb.dot(normal);
-                x_planes.push(Plane::new(normal.extend(d)));
+                x_planes.push(HalfSpace::new(normal.extend(d)));
             }
 
             let y_slices = clusters.dimensions.y as f32;
@@ -1477,7 +1489,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let nr = clip_to_view(inverse_projection, Vec4::new(1.0, y_pos, 1.0, 1.0)).xyz();
                 let normal = nr.cross(nl);
                 let d = nr.dot(normal);
-                y_planes.push(Plane::new(normal.extend(d)));
+                y_planes.push(HalfSpace::new(normal.extend(d)));
             }
         }
 
@@ -1486,7 +1498,7 @@ pub(crate) fn assign_lights_to_clusters(
             let view_z = z_slice_to_view_z(first_slice_depth, far_z, z_slices, z, is_orthographic);
             let normal = -Vec3::Z;
             let d = view_z * normal.z;
-            z_planes.push(Plane::new(normal.extend(d)));
+            z_planes.push(HalfSpace::new(normal.extend(d)));
         }
 
         let mut update_from_light_intersections = |visible_lights: &mut Vec<Entity>| {
@@ -1725,7 +1737,7 @@ pub(crate) fn assign_lights_to_clusters(
 }
 
 // NOTE: This exploits the fact that a x-plane normal has only x and z components
-fn get_distance_x(plane: Plane, point: Vec3A, is_orthographic: bool) -> f32 {
+fn get_distance_x(plane: HalfSpace, point: Vec3A, is_orthographic: bool) -> f32 {
     if is_orthographic {
         point.x - plane.d()
     } else {
@@ -1738,7 +1750,7 @@ fn get_distance_x(plane: Plane, point: Vec3A, is_orthographic: bool) -> f32 {
 }
 
 // NOTE: This exploits the fact that a z-plane normal has only a z component
-fn project_to_plane_z(z_light: Sphere, z_plane: Plane) -> Option<Sphere> {
+fn project_to_plane_z(z_light: Sphere, z_plane: HalfSpace) -> Option<Sphere> {
     // p = sphere center
     // n = plane normal
     // d = n.p if p is in the plane
@@ -1760,7 +1772,11 @@ fn project_to_plane_z(z_light: Sphere, z_plane: Plane) -> Option<Sphere> {
 }
 
 // NOTE: This exploits the fact that a y-plane normal has only y and z components
-fn project_to_plane_y(y_light: Sphere, y_plane: Plane, is_orthographic: bool) -> Option<Sphere> {
+fn project_to_plane_y(
+    y_light: Sphere,
+    y_plane: HalfSpace,
+    is_orthographic: bool,
+) -> Option<Sphere> {
     let distance_to_plane = if is_orthographic {
         y_plane.d() - y_light.center.y
     } else {
@@ -2009,11 +2025,23 @@ pub fn check_light_mesh_visibility(
                         view_frusta.iter().zip(view_visible_entities)
                     {
                         // Disable near-plane culling, as a shadow caster could lie before the near plane.
-                        if !frustum.intersects_obb(aabb, &transform.compute_matrix(), false, true) {
+                        if !frustum.intersects_obb(aabb, &transform.affine(), false, true) {
                             continue;
                         }
 
                         computed_visibility.set_visible_in_view();
+                        frustum_visible_entities.entities.push(entity);
+                    }
+                }
+            } else {
+                computed_visibility.set_visible_in_view();
+                for view in frusta.frusta.keys() {
+                    let view_visible_entities = visible_entities
+                        .entities
+                        .get_mut(view)
+                        .expect("Per-view visible entities should have been inserted already");
+
+                    for frustum_visible_entities in view_visible_entities {
                         frustum_visible_entities.entities.push(entity);
                     }
                 }
@@ -2070,7 +2098,7 @@ pub fn check_light_mesh_visibility(
 
                     // If we have an aabb and transform, do frustum culling
                     if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
-                        let model_to_world = transform.compute_matrix();
+                        let model_to_world = transform.affine();
                         // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
                         if !light_sphere.intersects_obb(aabb, &model_to_world) {
                             continue;
@@ -2134,7 +2162,7 @@ pub fn check_light_mesh_visibility(
 
                     // If we have an aabb and transform, do frustum culling
                     if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
-                        let model_to_world = transform.compute_matrix();
+                        let model_to_world = transform.affine();
                         // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
                         if !light_sphere.intersects_obb(aabb, &model_to_world) {
                             continue;

@@ -91,12 +91,7 @@ impl FromWorld for SpritePipeline {
             label: Some("sprite_material_layout"),
         });
         let dummy_white_gpu_image = {
-            let image = Image::new_fill(
-                Extent3d::default(),
-                TextureDimension::D2,
-                &[255u8; 4],
-                TextureFormat::bevy_default(),
-            );
+            let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler_descriptor {
                 ImageSampler::Default => (**default_sampler).clone(),
@@ -114,12 +109,7 @@ impl FromWorld for SpritePipeline {
                 &image.data,
                 ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
-                            image.texture_descriptor.size.width * format_size as u32,
-                        )
-                        .unwrap(),
-                    ),
+                    bytes_per_row: Some(image.texture_descriptor.size.width * format_size as u32),
                     rows_per_image: None,
                 },
                 image.texture_descriptor.size,
@@ -147,6 +137,7 @@ impl FromWorld for SpritePipeline {
 }
 
 bitflags::bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
@@ -180,12 +171,12 @@ impl SpritePipelineKey {
     pub const fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        Self::from_bits_truncate(msaa_bits)
+        Self::from_bits_retain(msaa_bits)
     }
 
     #[inline]
     pub const fn msaa_samples(&self) -> u32 {
-        1 << ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
+        1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
     #[inline]
@@ -314,7 +305,7 @@ pub struct ExtractedSprite {
     pub rect: Option<Rect>,
     /// Change the on-screen size of the sprite
     pub custom_size: Option<Vec2>,
-    /// Handle to the `Image` of this sprite
+    /// Handle to the [`Image`] of this sprite
     /// PERF: storing a `HandleId` instead of `Handle<Image>` enables some optimizations (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
     pub image_handle_id: HandleId,
     pub flip_x: bool,
@@ -401,7 +392,18 @@ pub fn extract_sprites(
             continue;
         }
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
-            let rect = Some(texture_atlas.textures[atlas_sprite.index]);
+            let rect = Some(
+                *texture_atlas
+                    .textures
+                    .get(atlas_sprite.index)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Sprite index {:?} does not exist for texture atlas handle {:?}.",
+                            atlas_sprite.index,
+                            texture_atlas_handle.id(),
+                        )
+                    }),
+            );
             extracted_sprites.sprites.push(ExtractedSprite {
                 entity,
                 color: atlas_sprite.color,

@@ -1,7 +1,9 @@
 use crate::MainWorld;
 use bevy_ecs::{
+    component::Tick,
     prelude::*,
     system::{ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemState},
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 use std::ops::{Deref, DerefMut};
 
@@ -75,8 +77,8 @@ where
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: &'w World,
-        change_tick: u32,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         // SAFETY:
         // - The caller ensures that `world` is the same one that `init_state` was called with.

@@ -14,8 +14,8 @@ use bevy_app::prelude::*;
 pub struct SystemInformationDiagnosticsPlugin;
 impl Plugin for SystemInformationDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(internal::setup_system)
-            .add_system(internal::diagnostic_system);
+        app.add_systems(Startup, internal::setup_system)
+            .add_systems(Update, internal::diagnostic_system);
     }
 }
 
@@ -39,13 +39,13 @@ impl SystemInformationDiagnosticsPlugin {
 pub mod internal {
     use bevy_ecs::{prelude::ResMut, system::Local};
     use bevy_log::info;
-    use sysinfo::{CpuExt, System, SystemExt};
+    use sysinfo::{CpuExt, CpuRefreshKind, RefreshKind, System, SystemExt};
 
-    use crate::{Diagnostic, Diagnostics};
+    use crate::{Diagnostic, Diagnostics, DiagnosticsStore};
 
     const BYTES_TO_GIB: f64 = 1.0 / 1024.0 / 1024.0 / 1024.0;
 
-    pub(crate) fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
+    pub(crate) fn setup_system(mut diagnostics: ResMut<DiagnosticsStore>) {
         diagnostics.add(
             Diagnostic::new(
                 super::SystemInformationDiagnosticsPlugin::CPU_USAGE,
@@ -65,27 +65,23 @@ pub mod internal {
     }
 
     pub(crate) fn diagnostic_system(
-        mut diagnostics: ResMut<Diagnostics>,
+        mut diagnostics: Diagnostics,
         mut sysinfo: Local<Option<System>>,
     ) {
         if sysinfo.is_none() {
-            *sysinfo = Some(System::new_all());
+            *sysinfo = Some(System::new_with_specifics(
+                RefreshKind::new()
+                    .with_cpu(CpuRefreshKind::new().with_cpu_usage())
+                    .with_memory(),
+            ));
         }
         let Some(sys) = sysinfo.as_mut() else {
             return;
         };
 
-        sys.refresh_cpu();
+        sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
         sys.refresh_memory();
-        let current_cpu_usage = {
-            let mut usage = 0.0;
-            let cpus = sys.cpus();
-            for cpu in cpus {
-                usage += cpu.cpu_usage(); // NOTE: this returns a value from 0.0 to 100.0
-            }
-            // average
-            usage / cpus.len() as f32
-        };
+        let current_cpu_usage = sys.global_cpu_info().cpu_usage();
         // `memory()` fns return a value in bytes
         let total_mem = sys.total_memory() as f64 / BYTES_TO_GIB;
         let used_mem = sys.used_memory() as f64 / BYTES_TO_GIB;

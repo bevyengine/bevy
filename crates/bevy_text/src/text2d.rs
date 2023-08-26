@@ -7,7 +7,7 @@ use bevy_ecs::{
     event::EventReader,
     prelude::With,
     reflect::ReflectComponent,
-    system::{Commands, Local, Query, Res, ResMut},
+    system::{Local, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;
@@ -23,13 +23,13 @@ use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
 use crate::{
-    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
-    TextSettings, YAxisOrientation,
+    BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, PositionedGlyph, Text, TextError,
+    TextLayoutInfo, TextPipeline, TextSettings, YAxisOrientation,
 };
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
 /// Characters out of the bounds after wrapping will be truncated. Text is aligned according to the
-/// specified `TextAlignment`.
+/// specified [`TextAlignment`](crate::text::TextAlignment).
 ///
 /// Note: only characters that are completely out of the bounds will be truncated, so this is not a
 /// reliable limit if it is necessary to contain the text strictly in the bounds. Currently this
@@ -72,6 +72,8 @@ pub struct Text2dBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
     pub computed_visibility: ComputedVisibility,
+    /// Contains the size of the text and its glyph's position and scale data. Generated via [`TextPipeline::queue_text`]
+    pub text_layout_info: TextLayoutInfo,
 }
 
 pub fn extract_text2d_sprite(
@@ -94,48 +96,42 @@ pub fn extract_text2d_sprite(
         .get_single()
         .map(|window| window.resolution.scale_factor() as f32)
         .unwrap_or(1.0);
+    let scaling = GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()));
 
-    for (entity, computed_visibility, text, text_layout_info, anchor, text_transform) in
+    for (entity, computed_visibility, text, text_layout_info, anchor, global_transform) in
         text2d_query.iter()
     {
         if !computed_visibility.is_visible() {
             continue;
         }
 
-        let text_glyphs = &text_layout_info.glyphs;
-        let text_anchor = anchor.as_vec() * Vec2::new(1., -1.) - 0.5;
-        let alignment_offset = text_layout_info.size * text_anchor;
+        let text_anchor = -(anchor.as_vec() + 0.5);
+        let alignment_translation = text_layout_info.size * text_anchor;
+        let transform = *global_transform
+            * scaling
+            * GlobalTransform::from_translation(alignment_translation.extend(0.));
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
-        for text_glyph in text_glyphs {
-            if text_glyph.section_index != current_section {
-                color = text.sections[text_glyph.section_index]
-                    .style
-                    .color
-                    .as_rgba_linear();
-                current_section = text_glyph.section_index;
+        for PositionedGlyph {
+            position,
+            atlas_info,
+            section_index,
+            ..
+        } in &text_layout_info.glyphs
+        {
+            if *section_index != current_section {
+                color = text.sections[*section_index].style.color.as_rgba_linear();
+                current_section = *section_index;
             }
-            let atlas = texture_atlases
-                .get(&text_glyph.atlas_info.texture_atlas)
-                .unwrap();
-            let handle = atlas.texture.clone_weak();
-            let index = text_glyph.atlas_info.glyph_index;
-            let rect = Some(atlas.textures[index]);
-
-            let glyph_transform =
-                Transform::from_translation((alignment_offset + text_glyph.position).extend(0.));
-
-            let transform = *text_transform
-                * GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()))
-                * glyph_transform;
+            let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
             extracted_sprites.sprites.push(ExtractedSprite {
                 entity,
-                transform,
+                transform: transform * GlobalTransform::from_translation(position.extend(0.)),
                 color,
-                rect,
+                rect: Some(atlas.textures[atlas_info.glyph_index]),
                 custom_size: None,
-                image_handle_id: handle.id(),
+                image_handle_id: atlas.texture.id(),
                 flip_x: false,
                 flip_y: false,
                 anchor: Anchor::Center.as_vec(),
@@ -153,7 +149,6 @@ pub fn extract_text2d_sprite(
 /// It does not modify or observe existing ones.
 #[allow(clippy::too_many_arguments)]
 pub fn update_text2d_layout(
-    mut commands: Commands,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
     mut queue: Local<HashSet<Entity>>,
     mut textures: ResMut<Assets<Image>>,
@@ -165,12 +160,7 @@ pub fn update_text2d_layout(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(
-        Entity,
-        Ref<Text>,
-        &Text2dBounds,
-        Option<&mut TextLayoutInfo>,
-    )>,
+    mut text_query: Query<(Entity, Ref<Text>, Ref<Text2dBounds>, &mut TextLayoutInfo)>,
 ) {
     // We need to consume the entire iterator, hence `last`
     let factor_changed = scale_factor_changed.iter().last().is_some();
@@ -181,10 +171,14 @@ pub fn update_text2d_layout(
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.0);
 
-    for (entity, text, bounds, text_layout_info) in &mut text_query {
-        if factor_changed || text.is_changed() || queue.remove(&entity) {
+    for (entity, text, bounds, mut text_layout_info) in &mut text_query {
+        if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
             let text_bounds = Vec2::new(
-                scale_value(bounds.size.x, scale_factor),
+                if text.linebreak_behavior == BreakLineOn::NoWrap {
+                    f32::INFINITY
+                } else {
+                    scale_value(bounds.size.x, scale_factor)
+                },
                 scale_value(bounds.size.y, scale_factor),
             );
 
@@ -193,7 +187,7 @@ pub fn update_text2d_layout(
                 &text.sections,
                 scale_factor,
                 text.alignment,
-                text.linebreak_behaviour,
+                text.linebreak_behavior,
                 text_bounds,
                 &mut font_atlas_set_storage,
                 &mut texture_atlases,
@@ -210,12 +204,7 @@ pub fn update_text2d_layout(
                 Err(e @ TextError::FailedToAddGlyph(_)) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
-                Ok(info) => match text_layout_info {
-                    Some(mut t) => *t = info,
-                    None => {
-                        commands.entity(entity).insert(info);
-                    }
-                },
+                Ok(info) => *text_layout_info = info,
             }
         }
     }

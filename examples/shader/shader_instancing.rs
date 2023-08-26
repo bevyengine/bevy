@@ -6,7 +6,7 @@ use bevy::{
         query::QueryItem,
         system::{lifetimeless::*, SystemParamItem},
     },
-    pbr::{MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
+    pbr::{MeshPipeline, MeshPipelineKey, MeshTransforms, SetMeshBindGroup, SetMeshViewBindGroup},
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -19,16 +19,15 @@ use bevy::{
         render_resource::*,
         renderer::RenderDevice,
         view::{ExtractedView, NoFrustumCulling},
-        RenderApp, RenderSet,
+        Render, RenderApp, RenderSet,
     },
 };
 use bytemuck::{Pod, Zeroable};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(CustomMaterialPlugin)
-        .add_startup_system(setup)
+        .add_plugins((DefaultPlugins, CustomMaterialPlugin))
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -80,13 +79,21 @@ pub struct CustomMaterialPlugin;
 
 impl Plugin for CustomMaterialPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ExtractComponentPlugin::<InstanceMaterialData>::default());
+        app.add_plugins(ExtractComponentPlugin::<InstanceMaterialData>::default());
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
-            .init_resource::<CustomPipeline>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
-            .add_system(queue_custom.in_set(RenderSet::Queue))
-            .add_system(prepare_instance_buffers.in_set(RenderSet::Prepare));
+            .add_systems(
+                Render,
+                (
+                    queue_custom.in_set(RenderSet::Queue),
+                    prepare_instance_buffers.in_set(RenderSet::Prepare),
+                ),
+            );
+    }
+
+    fn finish(&self, app: &mut App) {
+        app.sub_app_mut(RenderApp).init_resource::<CustomPipeline>();
     }
 }
 
@@ -106,7 +113,7 @@ fn queue_custom(
     mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     meshes: Res<RenderAssets<Mesh>>,
-    material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>), With<InstanceMaterialData>>,
+    material_meshes: Query<(Entity, &MeshTransforms, &Handle<Mesh>), With<InstanceMaterialData>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
@@ -116,7 +123,7 @@ fn queue_custom(
     for (view, mut transparent_phase) in &mut views {
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
-        for (entity, mesh_uniform, mesh_handle) in &material_meshes {
+        for (entity, mesh_transforms, mesh_handle) in &material_meshes {
             if let Some(mesh) = meshes.get(mesh_handle) {
                 let key =
                     view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
@@ -127,7 +134,8 @@ fn queue_custom(
                     entity,
                     pipeline,
                     draw_function: draw_custom,
-                    distance: rangefinder.distance(&mesh_uniform.transform),
+                    distance: rangefinder
+                        .distance_translation(&mesh_transforms.transform.translation),
                 });
             }
         }
@@ -187,6 +195,15 @@ impl SpecializedMeshPipeline for CustomPipeline {
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
+
+        // meshes typically live in bind group 2. because we are using bindgroup 1
+        // we need to add MESH_BINDGROUP_1 shader def so that the bindings are correctly
+        // linked in the shader
+        descriptor
+            .vertex
+            .shader_defs
+            .push("MESH_BINDGROUP_1".into());
+
         descriptor.vertex.shader = self.shader.clone();
         descriptor.vertex.buffers.push(VertexBufferLayout {
             array_stride: std::mem::size_of::<InstanceData>() as u64,
@@ -248,8 +265,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
                 pass.set_index_buffer(buffer.slice(..), 0, *index_format);
                 pass.draw_indexed(0..*count, 0, 0..instance_buffer.length as u32);
             }
-            GpuBufferInfo::NonIndexed { vertex_count } => {
-                pass.draw(0..*vertex_count, 0..instance_buffer.length as u32);
+            GpuBufferInfo::NonIndexed => {
+                pass.draw(0..gpu_mesh.vertex_count, 0..instance_buffer.length as u32);
             }
         }
         RenderCommandResult::Success

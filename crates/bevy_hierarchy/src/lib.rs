@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 //! `bevy_hierarchy` can be used to define hierarchies of entities.
 //!
