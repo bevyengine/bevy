@@ -7,6 +7,20 @@
 @group(0) @binding(0)
 var<uniform> view: View;
 
+struct VertexInput {
+    @location(0) anchor: vec2<f32>,
+    @location(1) half_extents: vec2<f32>,
+    @location(2) uv: vec4<f32>,
+    @location(3) transform_x: vec3<f32>,
+    @location(4) transform_y: vec3<f32>,
+    @location(5) transform_z: vec3<f32>,
+    @location(6) transform_w: vec3<f32>,
+#ifdef COLORED
+    @location(7) color: vec4<f32>,
+#endif
+    @builtin(vertex_index) index: u32,
+}
+
 struct VertexOutput {
     @location(0) uv: vec2<f32>,
 #ifdef COLORED
@@ -16,18 +30,20 @@ struct VertexOutput {
 };
 
 @vertex
-fn vertex(
-    @location(0) vertex_position: vec3<f32>,
-    @location(1) vertex_uv: vec2<f32>,
-#ifdef COLORED
-    @location(2) vertex_color: vec4<f32>,
-#endif
-) -> VertexOutput {
+fn vertex(in: VertexInput) -> VertexOutput {
+    var xy = vec2<f32>(f32(in.index & 1u), f32((in.index & 2u) >> 1u));
+    var position = ((xy * 2.0 - 1.0) - in.anchor) * in.half_extents;
+    let transform_matrix = mat4x4<f32>(
+        vec4<f32>(in.transform_x, 0.0),
+        vec4<f32>(in.transform_y, 0.0),
+        vec4<f32>(in.transform_z, 0.0),
+        vec4<f32>(in.transform_w, 1.0),
+    );
     var out: VertexOutput;
-    out.uv = vertex_uv;
-    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    out.uv = in.uv.xy + in.uv.zw * (1.0 - xy);
+    out.position = view.view_proj * transform_matrix * vec4<f32>(position, 0.0, 1.0);
 #ifdef COLORED
-    out.color = vertex_color;
+    out.color = in.color;
 #endif
     return out;
 }
