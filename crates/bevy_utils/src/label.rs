@@ -76,11 +76,11 @@ where
 ///     /// Documentation of another label trait
 ///     MyNewExtendedLabelTrait,
 ///     MY_NEW_EXTENDED_LABEL_TRAIT_INTERNER,
-///     {
+///     extra_methods: {
 ///         // Extra methods for the trait can be defined here
 ///         fn additional_method(&self) -> i32;
 ///     },
-///     {
+///     extra_methods_impl: {
 ///         // Implementation of the extra methods for Interned<dyn MyNewExtendedLabelTrait>
 ///         fn additional_method(&self) -> i32 {
 ///             0
