@@ -1,5 +1,5 @@
 use bevy_macro_utils::BevyManifest;
-use proc_macro::TokenStream;
+use proc_macro::{Span, TokenStream};
 use quote::quote;
 use syn::{parse_macro_input, Data, DeriveInput, Path};
 
@@ -33,7 +33,10 @@ pub fn derive_asset(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
-    let dependency_visitor = derive_dependency_visitor_internal(&ast, &bevy_asset_path);
+    let dependency_visitor = match derive_dependency_visitor_internal(&ast, &bevy_asset_path) {
+        Ok(dependency_visitor) => dependency_visitor,
+        Err(err) => return err.into_compile_error().into(),
+    };
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_asset_path::Asset for #struct_name #type_generics #where_clause { }
@@ -45,13 +48,16 @@ pub fn derive_asset(input: TokenStream) -> TokenStream {
 pub fn derive_asset_dependency_visitor(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let bevy_asset_path: Path = bevy_asset_path();
-    TokenStream::from(derive_dependency_visitor_internal(&ast, &bevy_asset_path))
+    match derive_dependency_visitor_internal(&ast, &bevy_asset_path) {
+        Ok(dependency_visitor) => TokenStream::from(dependency_visitor),
+        Err(err) => err.into_compile_error().into(),
+    }
 }
 
 fn derive_dependency_visitor_internal(
     ast: &DeriveInput,
     bevy_asset_path: &Path,
-) -> proc_macro2::TokenStream {
+) -> Result<proc_macro2::TokenStream, syn::Error> {
     let mut field_visitors = Vec::new();
     if let Data::Struct(data_struct) = &ast.data {
         for field in data_struct.fields.iter() {
@@ -67,16 +73,21 @@ fn derive_dependency_visitor_internal(
                 }
             }
         }
+    } else {
+        return Err(syn::Error::new(
+            Span::call_site().into(),
+            "Asset derive currently only works on structs",
+        ));
     }
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
-    quote! {
+    Ok(quote! {
         impl #impl_generics #bevy_asset_path::VisitAssetDependencies for #struct_name #type_generics #where_clause {
             fn visit_dependencies(&self, visit: &mut impl FnMut(#bevy_asset_path::UntypedAssetId)) {
                 #(#field_visitors)*
             }
         }
-    }
+    })
 }
