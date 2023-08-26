@@ -1,3 +1,5 @@
+//! The touch input functionality.
+
 use bevy_ecs::event::{Event, EventReader};
 use bevy_ecs::system::{ResMut, Resource};
 use bevy_math::Vec2;

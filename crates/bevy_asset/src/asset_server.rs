@@ -825,7 +825,8 @@ mod test {
         let asset_server = setup(".");
         asset_server.add_loader(FakePngLoader);
 
-        let Ok(MaybeAssetLoader::Ready(t)) = asset_server.get_path_asset_loader("test.png", true) else {
+        let Ok(MaybeAssetLoader::Ready(t)) = asset_server.get_path_asset_loader("test.png", true)
+        else {
             panic!();
         };
 
@@ -837,7 +838,8 @@ mod test {
         let asset_server = setup(".");
         asset_server.add_loader(FakePngLoader);
 
-        let Ok(MaybeAssetLoader::Ready(t)) = asset_server.get_path_asset_loader("test.PNG", true) else {
+        let Ok(MaybeAssetLoader::Ready(t)) = asset_server.get_path_asset_loader("test.PNG", true)
+        else {
             panic!();
         };
         assert_eq!(t.extensions()[0], "png");
@@ -890,7 +892,9 @@ mod test {
         let asset_server = setup(".");
         asset_server.add_loader(FakePngLoader);
 
-        let Ok(MaybeAssetLoader::Ready(t)) = asset_server.get_path_asset_loader("test-v1.2.3.png", true) else {
+        let Ok(MaybeAssetLoader::Ready(t)) =
+            asset_server.get_path_asset_loader("test-v1.2.3.png", true)
+        else {
             panic!();
         };
         assert_eq!(t.extensions()[0], "png");
@@ -901,7 +905,9 @@ mod test {
         let asset_server = setup(".");
         asset_server.add_loader(FakeMultipleDotLoader);
 
-        let Ok(MaybeAssetLoader::Ready(t)) = asset_server.get_path_asset_loader("test.test.png", true) else {
+        let Ok(MaybeAssetLoader::Ready(t)) =
+            asset_server.get_path_asset_loader("test.test.png", true)
+        else {
             panic!();
         };
         assert_eq!(t.extensions()[0], "test.png");

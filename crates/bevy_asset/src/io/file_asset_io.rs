@@ -200,7 +200,9 @@ pub fn filesystem_watcher_system(
             } = event
             {
                 for path in &paths {
-                    let Some(set) = watcher.path_map.get(path) else {continue};
+                    let Some(set) = watcher.path_map.get(path) else {
+                        continue;
+                    };
                     for to_reload in set {
                         // When an asset is modified, note down the timestamp (overriding any previous modification events)
                         changed.insert(to_reload.to_owned(), Instant::now());
