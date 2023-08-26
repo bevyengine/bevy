@@ -96,7 +96,8 @@ impl WinitWindows {
             .with_resizable(window.resizable)
             .with_enabled_buttons(convert_enabled_buttons(window.enabled_buttons))
             .with_decorations(window.decorations)
-            .with_transparent(window.transparent);
+            .with_transparent(window.transparent)
+            .with_visible(window.visible);
 
         let constraints = window.resize_constraints.check_constraints();
         let min_inner_size = LogicalSize {
@@ -167,7 +168,6 @@ impl WinitWindows {
         );
         adapters.insert(entity, adapter);
         handlers.insert(entity, handler);
-        winit_window.set_visible(true);
 
         // Do not set the grab mode on window creation if it's none. It can fail on mobile.
         if window.cursor.grab_mode != CursorGrabMode::None {
