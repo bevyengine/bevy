@@ -1211,9 +1211,7 @@ where
     F: ReadOnlyWorldQuery,
 {
     /// Create a new [`WithQuery`] [`EntityCommand`] from the provided [`Entity`] and closure.
-    pub fn new(
-        function: impl for<'t> FnOnce(Q::Item<'t>) + Send + Sync + 'static
-    ) -> Self {
+    pub fn new(function: impl for<'t> FnOnce(Q::Item<'t>) + Send + Sync + 'static) -> Self {
         Self {
             function: Box::new(function),
             _phantom: PhantomData,
@@ -1228,9 +1226,7 @@ where
     WithQuery<Q, F>: Send + Sync + 'static,
 {
     fn apply(self, entity: Entity, world: &mut World) {
-        let Self {
-            function, ..
-        } = self;
+        let Self { function, .. } = self;
 
         let mut query = world.query_filtered::<Q, F>();
 
