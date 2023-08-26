@@ -729,10 +729,7 @@ impl<E: Event> std::iter::Extend<E> for Events<E> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        prelude::World,
-        system::{assert_is_read_only_system, SystemState},
-    };
+    use crate::system::assert_is_read_only_system;
 
     use super::*;
 
