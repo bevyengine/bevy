@@ -168,7 +168,7 @@ impl SystemConfigs {
     }
 
     /// Adds a new condition
-    pub fn run_if_inner(&mut self, condition: BoxedCondition) {
+    pub fn run_if_dyn(&mut self, condition: BoxedCondition) {
         match self {
             SystemConfigs::SystemConfig(config) => {
                 config.conditions.push(condition);
@@ -342,7 +342,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
     }
 
     fn run_if<M>(mut self, condition: impl Condition<M>) -> SystemConfigs {
-        self.run_if_inner(new_condition(condition));
+        self.run_if_dyn(new_condition(condition));
         self
     }
 

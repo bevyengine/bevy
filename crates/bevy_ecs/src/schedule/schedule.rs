@@ -539,7 +539,7 @@ impl ScheduleGraph {
                         self.configure_set(set_config);
                     } else {
                         for condition in collective_conditions {
-                            configs[0].run_if_inner(condition);
+                            configs[0].run_if_dyn(condition);
                         }
                     }
                 }
