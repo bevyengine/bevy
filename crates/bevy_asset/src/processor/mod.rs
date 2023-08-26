@@ -523,7 +523,7 @@ impl AssetProcessor {
             &mut destination_paths,
         )
         .await
-        .map_err(InitializeError::FailedToReadSourcePaths)?;
+        .map_err(InitializeError::FailedToReadDestinationPaths)?;
 
         for path in &source_paths {
             asset_infos.get_or_insert(AssetPath::new(path.to_owned(), None));
@@ -851,14 +851,14 @@ impl AssetProcessor {
                     .remove_assets_in_directory(Path::new(""))
                     .await
                 {
-                    panic!("Processed assets were in a bad state. To correct this, the asset processor attempted to remove all processed assets and start from scratch. This failed. There is no way to continue. Try restarting, or deleting imported asset state manually. {err}");
+                    panic!("Processed assets were in a bad state. To correct this, the asset processor attempted to remove all processed assets and start from scratch. This failed. There is no way to continue. Try restarting, or deleting imported asset folder manually. {err}");
                 }
             }
         }
         let mut log = self.data.log.write().await;
         *log = match ProcessorTransactionLog::new().await {
             Ok(log) => Some(log),
-            Err(err) => panic!("Failed to initialize asset processor log. This cannot be recovered. Try restarting. If that doesn't work, try deleting processed asset state. {}", err),
+            Err(err) => panic!("Failed to initialize asset processor log. This cannot be recovered. Try restarting. If that doesn't work, try deleting processed asset folder. {}", err),
         };
     }
 }
