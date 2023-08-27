@@ -147,12 +147,19 @@ pub struct UiMaterialVertex {
     pub color: [f32; 4],
 }
 
+/// in this [`UiMaterialPipeline`] there is (currently) no batching going on.
+/// Therefore the [`UiMaterialBatch`] is more akin to a draw call.
 #[derive(Component)]
 pub struct UiMaterialBatch<M: UiMaterial> {
+    /// The range of vertices inside the [`UiMaterialMeta`]
     pub range: Range<u32>,
     pub material: Handle<M>,
-    pub z: f32,
+    pub z: u32,
 }
+
+/// Marker component that is supposed to make batching easier
+#[derive(Component, Default, Clone, Debug)]
+pub struct UiMaterialNode;
 
 #[derive(Resource)]
 pub struct UiMaterialPipeline<M: UiMaterial> {
@@ -503,7 +510,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
         commands.spawn(UiMaterialBatch {
             range: start..end,
             material: extracted_uinode.material,
-            z: extracted_uinode.transform.w_axis[2],
+            z: extracted_uinode.stack_index as u32,
         });
         start = end;
     }
@@ -686,7 +693,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                         },
                     );
                     transparent_phase.add(TransparentUi {
-                        sort_key: FloatOrd(batch.z),
+                        sort_key: FloatOrd((batch.z as i16).into()),
                         entity,
                         pipeline,
                         draw_function: draw_ui_function,

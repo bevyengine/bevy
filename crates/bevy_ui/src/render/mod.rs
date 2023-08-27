@@ -164,6 +164,7 @@ pub struct ExtractedUiNode {
     pub clip: Option<Rect>,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub is_material: bool
 }
 
 #[derive(Resource, Default)]
@@ -242,6 +243,7 @@ pub fn extract_atlas_uinodes(
                 atlas_size: Some(atlas_size),
                 flip_x: atlas_image.flip_x,
                 flip_y: atlas_image.flip_y,
+                is_material: false
             });
         }
     }
@@ -371,6 +373,7 @@ pub fn extract_uinode_borders(
                         clip: clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
+                        is_material: false
                     });
                 }
             }
@@ -387,21 +390,22 @@ pub fn extract_uinodes(
             (
                 &Node,
                 &GlobalTransform,
-                &BackgroundColor,
+                Option<&BackgroundColor>,
                 Option<&UiImage>,
                 &ComputedVisibility,
                 Option<&CalculatedClip>,
+                Option<&UiMaterialNode>
             ),
             Without<UiTextureAtlasImage>,
         >,
     >,
 ) {
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
+        if let Ok((uinode, transform, maybe_color, maybe_image, visibility, clip, maybe_material)) =
             uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
-            if !visibility.is_visible() || color.0.a() == 0.0 {
+            if !visibility.is_visible() || maybe_color.is_some_and(|f| f.0.a() == 0.0) {
                 continue;
             }
 
@@ -414,11 +418,15 @@ pub fn extract_uinodes(
             } else {
                 (DEFAULT_IMAGE_HANDLE.typed(), false, false)
             };
-
+            let color = if let Some(color) = maybe_color {
+                color.0
+            } else {
+                Color::WHITE
+            };
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
                 transform: transform.compute_matrix(),
-                color: color.0,
+                color,
                 rect: Rect {
                     min: Vec2::ZERO,
                     max: uinode.calculated_size,
@@ -428,6 +436,7 @@ pub fn extract_uinodes(
                 atlas_size: None,
                 flip_x,
                 flip_y,
+                is_material: maybe_material.is_some()
             });
         };
     }
@@ -573,6 +582,7 @@ pub fn extract_text_uinodes(
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
+                    is_material: false
                 });
             }
         }
@@ -640,6 +650,7 @@ pub fn prepare_uinodes(
     let mut end = 0;
     let mut current_batch_image = DEFAULT_IMAGE_HANDLE.typed();
     let mut last_z = 0.0;
+    
 
     #[inline]
     fn is_textured(image: &Handle<Image>) -> bool {
@@ -661,6 +672,17 @@ pub fn prepare_uinodes(
             }
             TEXTURED_QUAD
         } else {
+            // If a Material based node is encountered, end the current batch and start a new one
+            // so that the Z-Order is still valid.
+            if extracted_uinode.is_material {
+                commands.spawn(UiBatch {
+                    range: start..end,
+                    image: current_batch_image.clone_weak(),
+                    z: last_z
+                });
+                start = end;
+                continue;
+            }
             // Untextured `UiBatch`es are never spawned within the loop.
             // If all the `extracted_uinodes` are untextured a single untextured UiBatch will be spawned after the loop terminates.
             UNTEXTURED_QUAD
@@ -771,7 +793,7 @@ pub fn prepare_uinodes(
             });
         }
 
-        last_z = extracted_uinode.transform.w_axis[2];
+        last_z = (extracted_uinode.stack_index as i16).into();
         end += QUAD_INDICES.len() as u32;
     }
 
