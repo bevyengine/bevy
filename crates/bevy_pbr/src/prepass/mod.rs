@@ -798,7 +798,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
         let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {
-            let Ok((material_handle, mesh_handle, mesh_transforms)) = material_meshes.get(*visible_entity) else {
+            let Ok((material_handle, mesh_handle, mesh_transforms)) =
+                material_meshes.get(*visible_entity)
+            else {
                 continue;
             };
 
