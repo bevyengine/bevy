@@ -41,6 +41,9 @@ pub trait System: Send + Sync + 'static {
     /// Returns true if the system must be run exclusively.
     fn is_exclusive(&self) -> bool;
 
+    /// returns true if the system has deffered system params
+    fn has_deferred(&self) -> bool;
+
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
     /// can be called in parallel with other systems and may break Rust's aliasing rules
     /// if used incorrectly, making it unsafe to call.

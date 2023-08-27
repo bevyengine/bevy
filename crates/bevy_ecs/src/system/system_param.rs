@@ -901,7 +901,8 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     type State = SyncCell<T>;
     type Item<'w, 's> = Deferred<'s, T>;
 
-    fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        system_meta.set_has_deferred();
         SyncCell::new(T::from_world(world))
     }
 

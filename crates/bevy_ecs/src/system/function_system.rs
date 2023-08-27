@@ -24,6 +24,7 @@ pub struct SystemMeta {
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     is_send: bool,
+    has_deferred: bool,
     pub(crate) last_run: Tick,
     #[cfg(feature = "trace")]
     pub(crate) system_span: Span,
@@ -39,6 +40,7 @@ impl SystemMeta {
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
+            has_deferred: false,
             last_run: Tick::new(0),
             #[cfg(feature = "trace")]
             system_span: info_span!("system", name = name),
@@ -65,6 +67,18 @@ impl SystemMeta {
     #[inline]
     pub fn set_non_send(&mut self) {
         self.is_send = false;
+    }
+
+    /// Returns true if the system has deferred [`SystemParam`]'s
+    #[inline]
+    pub fn has_deferred(&self) -> bool {
+        self.has_deferred
+    }
+
+    /// Marks the system as having deferred buffers like [`Commands`](`super::Commands`)
+    /// This lets the scheduler insert [`apply_buffer`] systems as needed.
+    pub fn set_has_deferred(&mut self) {
+        self.has_deferred = true;
     }
 }
 
@@ -461,6 +475,11 @@ where
     #[inline]
     fn is_exclusive(&self) -> bool {
         false
+    }
+
+    #[inline]
+    fn has_deferred(&self) -> bool {
+        self.system_meta.has_deferred
     }
 
     #[inline]

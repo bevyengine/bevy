@@ -161,6 +161,10 @@ where
         self.a.is_exclusive() || self.b.is_exclusive()
     }
 
+    fn has_deferred(&self) -> bool {
+        self.a.has_deferred() || self.b.has_deferred()
+    }
+
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         Func::combine(
             input,
