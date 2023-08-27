@@ -2,23 +2,6 @@
 
 This guide aims to ensure consistency in the Bevy crates documentation, they should be seen as advice and not strict rules and should therefore be adapted on a case-by-case basis.
 
-## Prelude module's documentations
-
-If the crate has a prelude module, its documentation should be a single sentence with the name of the crate in camel_case and in code format (i.e. between backticks `` `bevy_XXX` ``).
-
-```rust
-/// The `bevy_XXX` prelude.
-```
-
-Example for `bevy_animation`
-
-```rust
-/// The `bevy_animation` prelude.
-pub mod prelude {
-    /* ... */
-}
-```
-
 ## The crate documentation
 
 1. The first line is a single sentence that summarizes the crate role in the Bevy ecosystem.
