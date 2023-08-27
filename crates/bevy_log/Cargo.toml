@@ -22,7 +22,7 @@ tracing-chrome = { version = "0.7.0", optional = true }
 tracing-tracy = { version = "0.10.0", optional = true }
 tracing-log = "0.1.2"
 tracing-error = { version = "0.2.0", optional = true }
-tracy-client = { version = "0.15", optional = true }
+tracy-client = { version = "0.16", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_log-sys = "0.3.0"

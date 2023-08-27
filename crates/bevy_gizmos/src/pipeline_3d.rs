@@ -25,7 +25,9 @@ use bevy_render::{
 pub struct LineGizmo3dPlugin;
 impl Plugin for LineGizmo3dPlugin {
     fn build(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app
             .add_render_command::<Transparent3d, DrawLineGizmo3d>()
@@ -39,7 +41,9 @@ impl Plugin for LineGizmo3dPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app.init_resource::<LineGizmoPipeline>();
     }
@@ -169,7 +173,9 @@ fn queue_line_gizmos_3d(
             | MeshPipelineKey::from_hdr(view.hdr);
 
         for (entity, handle) in &line_gizmos {
-            let Some(line_gizmo) = line_gizmo_assets.get(handle) else { continue };
+            let Some(line_gizmo) = line_gizmo_assets.get(handle) else {
+                continue;
+            };
 
             let pipeline = pipelines.specialize(
                 &pipeline_cache,

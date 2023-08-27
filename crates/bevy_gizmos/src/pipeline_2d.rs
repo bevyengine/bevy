@@ -27,7 +27,9 @@ pub struct LineGizmo2dPlugin;
 
 impl Plugin for LineGizmo2dPlugin {
     fn build(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app
             .add_render_command::<Transparent2d, DrawLineGizmo2d>()
@@ -41,7 +43,9 @@ impl Plugin for LineGizmo2dPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app.init_resource::<LineGizmoPipeline>();
     }
@@ -156,7 +160,9 @@ fn queue_line_gizmos_2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         for (entity, handle) in &line_gizmos {
-            let Some(line_gizmo) = line_gizmo_assets.get(handle) else { continue };
+            let Some(line_gizmo) = line_gizmo_assets.get(handle) else {
+                continue;
+            };
 
             let pipeline = pipelines.specialize(
                 &pipeline_cache,

@@ -1,4 +1,6 @@
 #![allow(clippy::type_complexity)]
+#![warn(missing_docs)]
+#![doc = include_str!("../README.md")]
 
 /// Common run conditions
 pub mod common_conditions;
@@ -69,23 +71,28 @@ impl Plugin for TimePlugin {
 /// you may prefer to set the next [`Time`] value manually.
 #[derive(Resource, Default)]
 pub enum TimeUpdateStrategy {
+    /// [`Time`] will be automatically updated each frame using an [`Instant`] sent from the render world via a [`TimeSender`].
+    /// If nothing is sent, the system clock will be used instead.
     #[default]
     Automatic,
-    // Update [`Time`] with an exact `Instant` value
+    /// [`Time`] will be updated to the specified [`Instant`] value each frame.
+    /// In order for time to progress, this value must be manually updated each frame.
+    ///
+    /// Note that the `Time` resource will not be updated until [`TimeSystem`] runs.
     ManualInstant(Instant),
-    // Update [`Time`] with the last update time + a specified `Duration`
+    /// [`Time`] will be incremented by the specified [`Duration`] each frame.
     ManualDuration(Duration),
 }
 
-/// Channel resource used to receive time from render world
+/// Channel resource used to receive time from the render world.
 #[derive(Resource)]
 pub struct TimeReceiver(pub Receiver<Instant>);
 
-/// Channel resource used to send time from render world
+/// Channel resource used to send time from the render world.
 #[derive(Resource)]
 pub struct TimeSender(pub Sender<Instant>);
 
-/// Creates channels used for sending time between render world and app world
+/// Creates channels used for sending time between the render world and the main world.
 pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
     // bound the channel to 2 since when pipelined the render phase can finish before
     // the time system runs.

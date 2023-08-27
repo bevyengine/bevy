@@ -82,7 +82,7 @@ impl Default for Node {
 ///
 /// This enum allows specifying values for various [`Style`] properties in different units,
 /// such as logical pixels, percentages, or automatically determined values.
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Val {
     /// Automatically determine the value based on the context and other [`Style`] properties.
@@ -112,8 +112,51 @@ pub enum Val {
     VMax(f32),
 }
 
+impl PartialEq for Val {
+    fn eq(&self, other: &Self) -> bool {
+        let same_unit = matches!(
+            (self, other),
+            (Self::Auto, Self::Auto)
+                | (Self::Px(_), Self::Px(_))
+                | (Self::Percent(_), Self::Percent(_))
+                | (Self::Vw(_), Self::Vw(_))
+                | (Self::Vh(_), Self::Vh(_))
+                | (Self::VMin(_), Self::VMin(_))
+                | (Self::VMax(_), Self::VMax(_))
+        );
+
+        let left = match self {
+            Self::Auto => None,
+            Self::Px(v)
+            | Self::Percent(v)
+            | Self::Vw(v)
+            | Self::Vh(v)
+            | Self::VMin(v)
+            | Self::VMax(v) => Some(v),
+        };
+
+        let right = match other {
+            Self::Auto => None,
+            Self::Px(v)
+            | Self::Percent(v)
+            | Self::Vw(v)
+            | Self::Vh(v)
+            | Self::VMin(v)
+            | Self::VMax(v) => Some(v),
+        };
+
+        match (same_unit, left, right) {
+            (true, a, b) => a == b,
+            // All zero-value variants are considered equal.
+            (false, Some(&a), Some(&b)) => a == 0. && b == 0.,
+            _ => false,
+        }
+    }
+}
+
 impl Val {
     pub const DEFAULT: Self = Self::Auto;
+    pub const ZERO: Self = Self::Px(0.0);
 }
 
 impl Default for Val {
@@ -599,8 +642,8 @@ impl Style {
         max_height: Val::Auto,
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
-        row_gap: Val::Px(0.0),
-        column_gap: Val::Px(0.0),
+        row_gap: Val::ZERO,
+        column_gap: Val::ZERO,
         grid_auto_flow: GridAutoFlow::DEFAULT,
         grid_template_rows: Vec::new(),
         grid_template_columns: Vec::new(),
@@ -651,7 +694,7 @@ impl Default for AlignItems {
     }
 }
 
-/// How items are aligned according to the cross axis
+/// How items are aligned according to the main axis
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifyItems {
@@ -665,7 +708,7 @@ pub enum JustifyItems {
     Center,
     /// Items are aligned at the baseline.
     Baseline,
-    /// Items are stretched across the whole cross axis.
+    /// Items are stretched across the whole main axis.
     Stretch,
 }
 
@@ -714,12 +757,12 @@ impl Default for AlignSelf {
     }
 }
 
-/// How this item is aligned according to the cross axis.
-/// Overrides [`AlignItems`].
+/// How this item is aligned according to the main axis.
+/// Overrides [`JustifyItems`].
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifySelf {
-    /// Use the parent node's [`AlignItems`] value to determine how this item should be aligned.
+    /// Use the parent node's [`JustifyItems`] value to determine how this item should be aligned.
     Auto,
     /// This item will be aligned with the start of the axis.
     Start,
@@ -729,7 +772,7 @@ pub enum JustifySelf {
     Center,
     /// This item will be aligned at the baseline.
     Baseline,
-    /// This item will be stretched across the whole cross axis.
+    /// This item will be stretched across the whole main axis.
     Stretch,
 }
 
@@ -897,7 +940,7 @@ impl Default for FlexDirection {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Overflow {
-    /// Whether to show or clip overflowing items on the x axis        
+    /// Whether to show or clip overflowing items on the x axis
     pub x: OverflowAxis,
     /// Whether to show or clip overflowing items on the y axis
     pub y: OverflowAxis,
@@ -991,7 +1034,7 @@ pub enum PositionType {
 }
 
 impl PositionType {
-    const DEFAULT: Self = Self::Relative;
+    pub const DEFAULT: Self = Self::Relative;
 }
 
 impl Default for PositionType {
@@ -1013,7 +1056,7 @@ pub enum FlexWrap {
 }
 
 impl FlexWrap {
-    const DEFAULT: Self = Self::NoWrap;
+    pub const DEFAULT: Self = Self::NoWrap;
 }
 
 impl Default for FlexWrap {
@@ -1043,7 +1086,7 @@ pub enum GridAutoFlow {
 }
 
 impl GridAutoFlow {
-    const DEFAULT: Self = Self::Row;
+    pub const DEFAULT: Self = Self::Row;
 }
 
 impl Default for GridAutoFlow {
@@ -1100,7 +1143,7 @@ pub struct GridTrack {
 }
 
 impl GridTrack {
-    const DEFAULT: Self = Self {
+    pub const DEFAULT: Self = Self {
         min_sizing_function: MinTrackSizingFunction::Auto,
         max_sizing_function: MaxTrackSizingFunction::Auto,
     };
@@ -1435,7 +1478,7 @@ pub struct GridPlacement {
 }
 
 impl GridPlacement {
-    const DEFAULT: Self = Self {
+    pub const DEFAULT: Self = Self {
         start: None,
         span: Some(1),
         end: None,

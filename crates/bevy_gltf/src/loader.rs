@@ -678,7 +678,8 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
                 Some(Face::Back)
             },
             occlusion_texture,
-            emissive: Color::rgb_linear(emissive[0], emissive[1], emissive[2]),
+            emissive: Color::rgb_linear(emissive[0], emissive[1], emissive[2])
+                * material.emissive_strength().unwrap_or(1.0),
             emissive_texture,
             unlit: material.unlit(),
             alpha_mode: alpha_mode(material),
@@ -858,7 +859,7 @@ fn load_node(
                             // For a point light, luminous power = 4 * pi * luminous intensity
                             intensity: light.intensity() * std::f32::consts::PI * 4.0,
                             range: light.range().unwrap_or(20.0),
-                            radius: light.range().unwrap_or(0.0),
+                            radius: 0.0,
                             ..Default::default()
                         },
                         ..Default::default()
