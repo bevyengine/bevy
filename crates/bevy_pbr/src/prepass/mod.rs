@@ -34,10 +34,10 @@ use bevy_render::{
         PipelineCache, PolygonMode, PrimitiveState, PushConstantRange, RenderPipelineDescriptor,
         Shader, ShaderRef, ShaderStages, ShaderType, SpecializedMeshPipeline,
         SpecializedMeshPipelineError, SpecializedMeshPipelines, StencilFaceState, StencilState,
-        TextureSampleType, TextureViewDimension, VertexState,
+        TextureFormat, TextureSampleType, TextureViewDimension, VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
-    texture::{FallbackImagesDepth, FallbackImagesMsaa},
+    texture::{BevyDefault, FallbackImagesDepth, FallbackImagesMsaa},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -605,7 +605,7 @@ pub fn get_bindings<'a>(
     };
 
     let normal_motion_vectors_fallback = &fallback_images
-        .image_for_samplecount(msaa.samples())
+        .image_for_samplecount(msaa.samples(), TextureFormat::bevy_default())
         .texture_view;
 
     let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {

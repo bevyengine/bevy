@@ -15,7 +15,7 @@
 #import bevy_pbr::prepass_utils
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
-#import bevy_pbr::gtao_utils gtao_multibounce
+#import bevy_pbr::gtao_utils unpack_ssao, gtao_multibounce
 #endif
 
 @fragment
@@ -100,9 +100,11 @@ fn fragment(
         }
 #endif
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
-        let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
-        let ssao_multibounce = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
-        occlusion = min(occlusion, ssao_multibounce);
+        let ssao_packed = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
+        let ssao = unpack_ssao(ssao_packed);
+        let ao_multibounce = gtao_multibounce(ssao.w, pbr_input.material.base_color.rgb);
+        occlusion = min(occlusion, ao_multibounce);
+        pbr_input.bent_normal = normalize(ssao.xyz);
 #endif
         pbr_input.occlusion = occlusion;
 

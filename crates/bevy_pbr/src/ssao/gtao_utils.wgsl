@@ -12,6 +12,16 @@ fn gtao_multibounce(visibility: f32, base_color: vec3<f32>) -> vec3<f32> {
     return max(x, ((x * a + b) * x + c) * x);
 }
 
+// TODO: Octahedral normal encoding?
+fn pack_ssao(visibility: f32, bent_normal: vec3<f32>) -> u32 {
+    return pack4x8unorm(vec4(bent_normal * 0.5 + 0.5, visibility));
+}
+
+fn unpack_ssao(ssao: u32) -> vec4<f32> {
+    let t = unpack4x8unorm(ssao);
+    return vec4(t.xyz * 2.0 - 1.0, t.w);
+}
+
 fn fast_sqrt(x: f32) -> f32 {
     return bitcast<f32>(0x1fbd1df5 + (bitcast<i32>(x) >> 1u));
 }

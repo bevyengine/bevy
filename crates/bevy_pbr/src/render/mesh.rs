@@ -579,7 +579,7 @@ impl FromWorld for MeshPipeline {
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
-                        sample_type: TextureSampleType::Float { filterable: false },
+                        sample_type: TextureSampleType::Uint,
                         view_dimension: TextureViewDimension::D2,
                     },
                     count: None,
@@ -1188,7 +1188,7 @@ pub fn queue_mesh_view_bind_groups(
         ) in &views
         {
             let fallback_ssao = fallback_images
-                .image_for_samplecount(1)
+                .image_for_samplecount(1, TextureFormat::R8Uint)
                 .texture_view
                 .clone();
 

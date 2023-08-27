@@ -145,6 +145,7 @@ struct PbrInput {
     // Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
     // mapping
     world_normal: vec3<f32>,
+    bent_normal: vec3<f32>,
     // Normalized normal-mapped world normal used for lighting
     N: vec3<f32>,
     // Normalized view vector in world space, pointing from the fragment world position toward the
@@ -164,6 +165,7 @@ fn pbr_input_new() -> PbrInput {
     pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     pbr_input.world_position = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     pbr_input.world_normal = vec3<f32>(0.0, 0.0, 1.0);
+    pbr_input.bent_normal = vec3(0.0);
 
     pbr_input.is_orthographic = false;
 
@@ -207,6 +209,16 @@ fn pbr(
     let R = reflect(-in.V, in.N);
 
     let f_ab = lighting::F_AB(perceptual_roughness, NdotV);
+
+#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+    let N_indirect = in.bent_normal;
+    let NdotV_indirect = max(dot(N_indirect, in.V), 0.0001);
+    let f_ab_indirect = lighting::F_AB(perceptual_roughness, NdotV_indirect);
+#else
+    let N_indirect = in.N;
+    let NdotV_indirect = NdotV;
+    let f_ab_indirect = f_ab;
+#endif
 
     var direct_light: vec3<f32> = vec3<f32>(0.0);
 
@@ -260,11 +272,11 @@ fn pbr(
     }
 
     // Ambient light (indirect)
-    var indirect_light = ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, occlusion);
+    var indirect_light = ambient::ambient_light(in.world_position, N_indirect, in.V, NdotV_indirect, diffuse_color, F0, perceptual_roughness, occlusion);
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
-    let environment_light = bevy_pbr::environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, f_ab, in.N, R, F0);
+    let environment_light = bevy_pbr::environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV_indirect, f_ab_indirect, N_indirect, R, F0);
     indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
 #endif
 
