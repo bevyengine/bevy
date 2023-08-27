@@ -1770,7 +1770,7 @@ impl World {
         f: impl FnOnce(&mut World, &mut Schedule) -> R,
     ) -> Result<R, TryRunScheduleError> {
         let label = label.as_ref();
-        let Some((extracted_label, mut schedule)) = self
+        let Some((_, mut schedule)) = self
             .get_resource_mut::<Schedules>()
             .and_then(|mut s| s.remove_entry(label))
         else {
