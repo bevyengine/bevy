@@ -24,6 +24,8 @@ fn main() {
                 warning_pipe_system.pipe(warn),
                 parse_error_message_system.pipe(error),
                 parse_message_system.pipe(ignore),
+                ((calc1, calc2), calc3).pipe(readnew),
+                (calc1, calc2).pipe(read)
             ),
         )
         .run();
@@ -54,6 +56,26 @@ fn handler_system(In(result): In<Result<usize, ParseIntError>>) {
         Ok(value) => println!("parsed message: {value}"),
         Err(err) => println!("encountered an error: {err:?}"),
     }
+}
+
+fn calc1() -> i32 {
+    42
+}
+
+fn calc2() -> i32 {
+    73
+}
+
+fn calc3() -> i32 {
+    102
+}
+
+fn read(In((x, y)): In<(i32, i32)>) {
+    println!("{:?}", x + y);
+}
+
+fn readnew(In(((x, y), z)): In<((i32, i32), i32)>) {
+    println!("{:?}", (x + y) - z);
 }
 
 // This system produces a String output by trying to clone the String from the Message resource.

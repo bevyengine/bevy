@@ -314,3 +314,65 @@ where
         b(value)
     }
 }
+
+/// A [`System`] created by joining the output of the first system with the ouput of the second.
+///
+/// Joining two systems `A` and `B with outputs `a` and `b` respecitvely will result in a compound system 
+/// `A.join(B)` that outputs `(a, b)`.
+/// More then two systems can be joined together by chaining the combinators, three systems can be joined
+/// together with `A.join(B).join(C) which outputs `((a, b), c)`.
+///
+/// # Examples
+///
+/// ```
+/// use std::num::ParseIntError;
+///
+/// use bevy_ecs::prelude::*;
+///
+/// fn main() {
+///     let mut world = World::default();
+///     world.insert_resource(Message("42".to_string()));
+///     world.insert_resource(Signal("217".to_string()));
+///
+///     // join the two systems together
+///     let mut joined_system = parse_message_system.join(parse_signal_system);
+///     joined_system.initialize(&mut world);
+///     assert_eq!(joined_system.run((), &mut world), (Ok(42), Ok(217)));
+/// }
+///
+/// #[derive(Resource)]
+/// struct Message(String);
+///
+/// #[derive(Resource)]
+/// struct Signal(String);
+/// 
+/// fn parse_message_system(message: Res<Message>) -> Result<usize, ParseIntError> {
+///     message.0.parse::<usize>()
+/// }
+/// 
+/// fn parse_signal_system(signal: Res<Signal>) -> Result<usize, ParseIntError> {
+///     signal.0.parse::<usize>()
+/// }
+/// ```
+pub type JoinSystem<SystemA, SystemB> = CombinatorSystem<Join, SystemA, SystemB>;
+
+#[doc(hidden)]
+pub struct Join;
+
+impl<In, A, B> Combine<A, B> for Join
+where
+    In: Copy,
+    A: System<In = In>,
+    B: System<In = In>,
+{
+    type In = In;
+    type Out = (A::Out, B::Out);
+
+    fn combine(
+        input: Self::In,
+        a: impl FnOnce(In) -> A::Out,
+        b: impl FnOnce(In) -> B::Out,
+    ) -> Self::Out {
+        (a(input), b(input))
+    }
+}

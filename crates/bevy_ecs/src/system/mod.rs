@@ -162,6 +162,18 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
         let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
         PipeSystem::new(system_a, system_b, Cow::Owned(name))
     }
+
+    // Join the output `a` of this system `A` with the output `b` of system `B`, creating a compound
+    // system that outputs `(a, b)`.
+    fn join<B, I, O, M>(self, system: B) -> JoinSystem<Self::System, B::System>
+    where
+        B:IntoSystem<I, O, M>,
+    {
+        let system_a = IntoSystem::into_system(self);
+        let system_b = IntoSystem::into_system(system);
+        let name = format!("Join({}, {})", system_a.name(), system_b.name());
+        JoinSystem::new(system_a, system_b, Cow::Owned(name))
+    }
 }
 
 // All systems implicitly implement IntoSystem.
@@ -169,6 +181,17 @@ impl<T: System> IntoSystem<T::In, T::Out, ()> for T {
     type System = T;
     fn into_system(this: Self) -> Self {
         this
+    }
+}
+
+impl<A, B, In, AOut, BOut, AMarker, BMarker> IntoSystem<In, (AOut, BOut), (Join, AMarker, BMarker)> for (A, B)
+where In: Copy,
+      A: IntoSystem<In, AOut, AMarker>,
+      B: IntoSystem<In, BOut, BMarker>,
+{
+    type System = JoinSystem<A::System, B::System>;
+    fn into_system(this: Self) -> Self::System {
+        this.0.join(this.1)
     }
 }
 
