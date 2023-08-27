@@ -106,8 +106,8 @@ impl Plugin for Mesh2dRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        queue_mesh2d_bind_group.in_set(RenderSet::Queue),
-                        queue_mesh2d_view_bind_groups.in_set(RenderSet::Queue),
+                        prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
+                        prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                     ),
                 );
         }
@@ -480,7 +480,7 @@ pub struct Mesh2dBindGroup {
     pub value: BindGroup,
 }
 
-pub fn queue_mesh2d_bind_group(
+pub fn prepare_mesh2d_bind_group(
     mut commands: Commands,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     render_device: Res<RenderDevice>,
@@ -505,7 +505,7 @@ pub struct Mesh2dViewBindGroup {
     pub value: BindGroup,
 }
 
-pub fn queue_mesh2d_view_bind_groups(
+pub fn prepare_mesh2d_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mesh2d_pipeline: Res<Mesh2dPipeline>,

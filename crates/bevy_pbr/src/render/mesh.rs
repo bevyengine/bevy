@@ -1,13 +1,14 @@
 use crate::{
     environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
     GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
-    ScreenSpaceAmbientOcclusionTextures, ShadowSamplers, ViewClusterBindings, ViewFogUniformOffset,
-    ViewLightsUniformOffset, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
-    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers, ViewClusterBindings,
+    ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleId, HandleUntyped};
 use bevy_core_pipeline::{
+    core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
     prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
@@ -29,7 +30,7 @@ use bevy_render::{
     },
     prelude::Msaa,
     render_asset::RenderAssets,
-    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
@@ -41,6 +42,7 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, HashMap, Hashed};
+use fixedbitset::FixedBitSet;
 
 use crate::render::{
     morph::{extract_morphs, prepare_morphs, MorphIndex, MorphUniform},
@@ -126,11 +128,11 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        prepare_mesh_uniforms.in_set(RenderSet::Prepare),
-                        prepare_skinned_meshes.in_set(RenderSet::Prepare),
-                        prepare_morphs.in_set(RenderSet::Prepare),
-                        queue_mesh_bind_group.in_set(RenderSet::Queue),
-                        queue_mesh_view_bind_groups.in_set(RenderSet::Queue),
+                        prepare_mesh_uniforms.in_set(RenderSet::PrepareResources),
+                        prepare_skinned_meshes.in_set(RenderSet::PrepareResources),
+                        prepare_morphs.in_set(RenderSet::PrepareResources),
+                        prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
+                        prepare_mesh_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                     ),
                 );
         }
@@ -380,25 +382,59 @@ pub fn extract_skinned_meshes(
     commands.insert_or_spawn_batch(values);
 }
 
-fn prepare_mesh_uniforms(
+#[allow(clippy::too_many_arguments)]
+pub fn prepare_mesh_uniforms(
+    mut seen: Local<FixedBitSet>,
     mut commands: Commands,
+    mut previous_len: Local<usize>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut gpu_array_buffer: ResMut<GpuArrayBuffer<MeshUniform>>,
-    components: Query<(Entity, &MeshTransforms)>,
+    views: Query<(
+        &RenderPhase<Opaque3d>,
+        &RenderPhase<Transparent3d>,
+        &RenderPhase<AlphaMask3d>,
+    )>,
+    shadow_views: Query<&RenderPhase<Shadow>>,
+    meshes: Query<(Entity, &MeshTransforms)>,
 ) {
     gpu_array_buffer.clear();
+    seen.clear();
 
-    let entities = components
-        .iter()
-        .map(|(entity, mesh_transforms)| {
-            (
-                entity,
-                gpu_array_buffer.push(MeshUniform::from(mesh_transforms)),
-            )
-        })
-        .collect::<Vec<_>>();
-    commands.insert_or_spawn_batch(entities);
+    let mut indices = Vec::with_capacity(*previous_len);
+    let mut push_indices = |(mesh, mesh_uniform): (Entity, &MeshTransforms)| {
+        let index = mesh.index() as usize;
+        if !seen.contains(index) {
+            if index >= seen.len() {
+                seen.grow(index + 1);
+            }
+            seen.insert(index);
+            indices.push((mesh, gpu_array_buffer.push(mesh_uniform.into())));
+        }
+    };
+
+    for (opaque_phase, transparent_phase, alpha_phase) in &views {
+        meshes
+            .iter_many(opaque_phase.iter_entities())
+            .for_each(&mut push_indices);
+
+        meshes
+            .iter_many(transparent_phase.iter_entities())
+            .for_each(&mut push_indices);
+
+        meshes
+            .iter_many(alpha_phase.iter_entities())
+            .for_each(&mut push_indices);
+    }
+
+    for shadow_phase in &shadow_views {
+        meshes
+            .iter_many(shadow_phase.iter_entities())
+            .for_each(&mut push_indices);
+    }
+
+    *previous_len = indices.len();
+    commands.insert_or_spawn_batch(indices);
 
     gpu_array_buffer.write_buffer(&render_device, &render_queue);
 }
@@ -1062,7 +1098,7 @@ impl MeshBindGroups {
     }
 }
 
-pub fn queue_mesh_bind_group(
+pub fn prepare_mesh_bind_group(
     meshes: Res<RenderAssets<Mesh>>,
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
@@ -1138,7 +1174,7 @@ pub struct MeshViewBindGroup {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn queue_mesh_view_bind_groups(
+pub fn prepare_mesh_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mesh_pipeline: Res<MeshPipeline>,

@@ -30,11 +30,11 @@ use bevy_render::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
         ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
-        DynamicUniformBuffer, FragmentState, FrontFace, GpuArrayBufferIndex, MultisampleState,
-        PipelineCache, PolygonMode, PrimitiveState, PushConstantRange, RenderPipelineDescriptor,
-        Shader, ShaderRef, ShaderStages, ShaderType, SpecializedMeshPipeline,
-        SpecializedMeshPipelineError, SpecializedMeshPipelines, StencilFaceState, StencilState,
-        TextureSampleType, TextureViewDimension, VertexState,
+        DynamicUniformBuffer, FragmentState, FrontFace, MultisampleState, PipelineCache,
+        PolygonMode, PrimitiveState, PushConstantRange, RenderPipelineDescriptor, Shader,
+        ShaderRef, ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+        SpecializedMeshPipelines, StencilFaceState, StencilState, TextureSampleType,
+        TextureViewDimension, VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{FallbackImagesDepth, FallbackImagesMsaa},
@@ -45,9 +45,9 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;
 
 use crate::{
-    prepare_lights, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material, MaterialPipeline,
-    MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, MeshTransforms, MeshUniform,
-    RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup,
+    prepare_materials, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material,
+    MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey,
+    MeshTransforms, RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -105,7 +105,7 @@ where
         render_app
             .add_systems(
                 Render,
-                queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue),
+                prepare_prepass_view_bind_group::<M>.in_set(RenderSet::PrepareBindGroups),
             )
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
@@ -161,15 +161,7 @@ where
                 .add_systems(ExtractSchedule, extract_camera_previous_view_projection)
                 .add_systems(
                     Render,
-                    (
-                        prepare_previous_view_projection_uniforms
-                            .in_set(RenderSet::Prepare)
-                            .after(PrepassLightsViewFlush),
-                        apply_deferred
-                            .in_set(RenderSet::Prepare)
-                            .in_set(PrepassLightsViewFlush)
-                            .after(prepare_lights),
-                    ),
+                    prepare_previous_view_projection_uniforms.in_set(RenderSet::PrepareResources),
                 );
         }
 
@@ -178,7 +170,9 @@ where
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>()
             .add_systems(
                 Render,
-                queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue),
+                queue_prepass_material_meshes::<M>
+                    .in_set(RenderSet::QueueMeshes)
+                    .after(prepare_materials::<M>),
             );
     }
 }
@@ -697,7 +691,7 @@ pub struct PrepassViewBindGroup {
     no_motion_vectors: Option<BindGroup>,
 }
 
-pub fn queue_prepass_view_bind_group<M: Material>(
+pub fn prepare_prepass_view_bind_group<M: Material>(
     render_device: Res<RenderDevice>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     view_uniforms: Res<ViewUniforms>,
@@ -759,12 +753,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
-    material_meshes: Query<(
-        &Handle<M>,
-        &Handle<Mesh>,
-        &MeshTransforms,
-        &GpuArrayBufferIndex<MeshUniform>,
-    )>,
+    material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshTransforms)>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -809,7 +798,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {
-            let Ok((material_handle, mesh_handle, mesh_transforms, batch_indices)) =
+            let Ok((material_handle, mesh_handle, mesh_transforms)) =
                 material_meshes.get(*visible_entity)
             else {
                 continue;
@@ -863,9 +852,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         draw_function: opaque_draw_prepass,
                         pipeline_id,
                         distance,
-                        per_object_binding_dynamic_offset: batch_indices
-                            .dynamic_offset
-                            .unwrap_or_default(),
                     });
                 }
                 AlphaMode::Mask(_) => {
@@ -874,9 +860,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         draw_function: alpha_mask_draw_prepass,
                         pipeline_id,
                         distance,
-                        per_object_binding_dynamic_offset: batch_indices
-                            .dynamic_offset
-                            .unwrap_or_default(),
                     });
                 }
                 AlphaMode::Blend
