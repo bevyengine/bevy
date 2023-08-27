@@ -441,6 +441,12 @@ pub fn winit_runner(mut app: App) {
 
                 match event {
                     WindowEvent::Resized(size) => {
+                        if size.width == u32::MAX || size.height == u32::MAX {
+                            // HACK to fix a bug on Macos 14
+                            // https://github.com/rust-windowing/winit/issues/2876
+                            return;
+                        }
+
                         window
                             .resolution
                             .set_physical_resolution(size.width, size.height);
