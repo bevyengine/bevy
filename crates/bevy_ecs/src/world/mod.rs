@@ -1804,7 +1804,7 @@ impl World {
     /// #
     /// # let mut world = World::new();
     /// # world.insert_resource(Counter(0));
-    /// # let mut schedule = Schedule::default();
+    /// # let mut schedule = Schedule::new(MySchedule);
     /// # schedule.add_systems(tick_counter);
     /// # world.init_resource::<Schedules>();
     /// # world.add_schedule(schedule);
