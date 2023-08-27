@@ -250,7 +250,8 @@ impl Schedule {
         let _span = bevy_utils::tracing::info_span!("schedule", name = ?self.name).entered();
 
         world.check_change_ticks();
-        self.initialize(world).unwrap_or_else(|e| panic!("Error when intializing schedule {:?}: {e}", self.name));
+        self.initialize(world)
+            .unwrap_or_else(|e| panic!("Error when intializing schedule {:?}: {e}", self.name));
         self.executor.run(&mut self.executable, world);
     }
 
@@ -1311,7 +1312,7 @@ impl ScheduleGraph {
     fn optionally_check_hierarchy_conflicts(
         &self,
         transitive_edges: &[(NodeId, NodeId)],
-        schedule_label: &BoxedScheduleLabel
+        schedule_label: &BoxedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if self.settings.hierarchy_detection == LogLevel::Ignore || transitive_edges.is_empty() {
             return Ok(());
@@ -1321,7 +1322,10 @@ impl ScheduleGraph {
         match self.settings.hierarchy_detection {
             LogLevel::Ignore => unreachable!(),
             LogLevel::Warn => {
-                error!("Schedule {schedule_label:?} has redundant edges:\n {}", message);
+                error!(
+                    "Schedule {schedule_label:?} has redundant edges:\n {}",
+                    message
+                );
                 Ok(())
             }
             LogLevel::Error => Err(ScheduleBuildError::HierarchyRedundancy(message)),
