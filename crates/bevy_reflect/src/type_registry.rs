@@ -40,7 +40,7 @@ impl Debug for TypeRegistryArc {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.internal
             .read()
-            .expect("Lock Poisoned")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .full_name_to_id
             .keys()
             .fmt(f)
@@ -275,12 +275,16 @@ impl TypeRegistry {
 impl TypeRegistryArc {
     /// Takes a read lock on the underlying [`TypeRegistry`].
     pub fn read(&self) -> RwLockReadGuard<'_, TypeRegistry> {
-        self.internal.read().expect("Lock Poisoned")
+        self.internal
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// Takes a write lock on the underlying [`TypeRegistry`].
     pub fn write(&self) -> RwLockWriteGuard<'_, TypeRegistry> {
-        self.internal.write().expect("Lock Poisoned")
+        self.internal
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }
 

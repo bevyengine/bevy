@@ -177,7 +177,7 @@ fn extract_windows(
     for (window, screenshot_func) in screenshot_manager
         .callbacks
         .lock()
-        .expect("Lock Poisoned")
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .drain()
     {
         if let Some(window) = extracted_windows.get_mut(&window) {

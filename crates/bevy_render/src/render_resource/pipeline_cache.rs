@@ -589,7 +589,10 @@ impl PipelineCache {
         &self,
         descriptor: RenderPipelineDescriptor,
     ) -> CachedRenderPipelineId {
-        let mut new_pipelines = self.new_pipelines.lock().expect("Lock Poisoned");
+        let mut new_pipelines = self
+            .new_pipelines
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let id = CachedRenderPipelineId(self.pipelines.len() + new_pipelines.len());
         new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::RenderPipelineDescriptor(Box::new(descriptor)),
@@ -615,7 +618,10 @@ impl PipelineCache {
         &self,
         descriptor: ComputePipelineDescriptor,
     ) -> CachedComputePipelineId {
-        let mut new_pipelines = self.new_pipelines.lock().expect("Lock Poisoned");
+        let mut new_pipelines = self
+            .new_pipelines
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let id = CachedComputePipelineId(self.pipelines.len() + new_pipelines.len());
         new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::ComputePipelineDescriptor(Box::new(descriptor)),
@@ -775,7 +781,10 @@ impl PipelineCache {
         let mut pipelines = mem::take(&mut self.pipelines);
 
         {
-            let mut new_pipelines = self.new_pipelines.lock().expect("Lock Poisoned");
+            let mut new_pipelines = self
+                .new_pipelines
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             for new_pipeline in new_pipelines.drain(..) {
                 let id = pipelines.len();
                 pipelines.push(new_pipeline);

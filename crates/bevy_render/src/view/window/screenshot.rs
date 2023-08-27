@@ -51,7 +51,7 @@ impl ScreenshotManager {
     ) -> Result<(), ScreenshotAlreadyRequestedError> {
         self.callbacks
             .get_mut()
-            .expect("Lock Poisoned")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .try_insert(window, Box::new(callback))
             .map(|_| ())
             .map_err(|_| ScreenshotAlreadyRequestedError)

@@ -236,7 +236,10 @@ impl<T: TypedProperty> GenericTypeCell<T> {
         // since `f` might want to call `get_or_insert` recursively
         // and we don't want a deadlock!
         {
-            let mapping = self.0.read().expect("Lock Poisoned");
+            let mapping = self
+                .0
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             if let Some(info) = mapping.get(&type_id) {
                 return info;
             }
@@ -244,7 +247,10 @@ impl<T: TypedProperty> GenericTypeCell<T> {
 
         let value = f();
 
-        let mut mapping = self.0.write().expect("Lock Poisoned");
+        let mut mapping = self
+            .0
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         mapping
             .entry(type_id)
             .insert({
