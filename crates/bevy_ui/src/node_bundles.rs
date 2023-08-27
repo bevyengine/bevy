@@ -5,7 +5,7 @@ use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
     BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
-    UiMaterial, UiTextureAtlasImage, ZIndex, UiMaterialNode,
+    UiMaterial, UiMaterialNode, UiTextureAtlasImage, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -365,7 +365,7 @@ impl<M: UiMaterial> Default for MaterialNodeBundle<M> {
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
-            material_node: Default::default()
+            material_node: Default::default(),
         }
     }
 }

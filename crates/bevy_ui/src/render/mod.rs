@@ -164,7 +164,7 @@ pub struct ExtractedUiNode {
     pub clip: Option<Rect>,
     pub flip_x: bool,
     pub flip_y: bool,
-    pub is_material: bool
+    pub is_material: bool,
 }
 
 #[derive(Resource, Default)]
@@ -243,7 +243,7 @@ pub fn extract_atlas_uinodes(
                 atlas_size: Some(atlas_size),
                 flip_x: atlas_image.flip_x,
                 flip_y: atlas_image.flip_y,
-                is_material: false
+                is_material: false,
             });
         }
     }
@@ -373,7 +373,7 @@ pub fn extract_uinode_borders(
                         clip: clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
-                        is_material: false
+                        is_material: false,
                     });
                 }
             }
@@ -394,7 +394,7 @@ pub fn extract_uinodes(
                 Option<&UiImage>,
                 &ComputedVisibility,
                 Option<&CalculatedClip>,
-                Option<&UiMaterialNode>
+                Option<&UiMaterialNode>,
             ),
             Without<UiTextureAtlasImage>,
         >,
@@ -436,7 +436,7 @@ pub fn extract_uinodes(
                 atlas_size: None,
                 flip_x,
                 flip_y,
-                is_material: maybe_material.is_some()
+                is_material: maybe_material.is_some(),
             });
         };
     }
@@ -582,7 +582,7 @@ pub fn extract_text_uinodes(
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
-                    is_material: false
+                    is_material: false,
                 });
             }
         }
@@ -650,7 +650,6 @@ pub fn prepare_uinodes(
     let mut end = 0;
     let mut current_batch_image = DEFAULT_IMAGE_HANDLE.typed();
     let mut last_z = 0.0;
-    
 
     #[inline]
     fn is_textured(image: &Handle<Image>) -> bool {
@@ -678,7 +677,7 @@ pub fn prepare_uinodes(
                 commands.spawn(UiBatch {
                     range: start..end,
                     image: current_batch_image.clone_weak(),
-                    z: last_z
+                    z: last_z,
                 });
                 start = end;
                 continue;

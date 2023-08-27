@@ -53,7 +53,7 @@ use crate::{
 pub const MATERIAL_UI_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 10074188772096983955);
 
-const UI_VERTEX_OUTPUT_SHADER_HANDLE: HandleUntyped = 
+const UI_VERTEX_OUTPUT_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 10123618247720234751);
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given
