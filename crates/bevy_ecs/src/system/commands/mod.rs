@@ -5,7 +5,7 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
-    world::{FromWorld, World},
+    world::{EntityMut, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
@@ -835,6 +835,43 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     pub fn commands(&mut self) -> &mut Commands<'w, 's> {
         self.commands
     }
+
+    /// Get mutable access to the target [`Entity`] through an [`EntityMut`].
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the associated entity does not exist.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component)]
+    /// # struct Health(u32);
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// # fn my_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// commands
+    ///     .entity(player.entity)
+    ///     .for_entity_mut(|mut entity| {
+    ///         entity.get_mut::<Health>().unwrap().0 *= 2;
+    ///     });
+    /// # }
+    /// # bevy_ecs::system::assert_is_system(my_system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`add`][`Self::add`] for direct [`World`] access.
+    pub fn for_entity_mut(
+        &mut self,
+        f: impl for<'e> FnOnce(EntityMut<'e>) + Send + 'static,
+    ) -> &mut Self {
+        self.add(move |entity: Entity, world: &mut World| {
+            let entity = world.entity_mut(entity);
+            f(entity);
+        })
+    }
 }
 
 impl<F> Command for F
@@ -1218,5 +1255,39 @@ mod tests {
         queue.apply(&mut world);
         assert!(!world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
+    }
+
+    #[test]
+    fn modify_components() {
+        let mut world = World::default();
+
+        let mut command_queue = CommandQueue::default();
+
+        let entity = Commands::new(&mut command_queue, &world)
+            .spawn((W(1u32), W(2u64)))
+            .id();
+        command_queue.apply(&mut world);
+        let results_before = world
+            .query::<(&W<u32>, &W<u64>)>()
+            .iter(&world)
+            .map(|(a, b)| (a.0, b.0))
+            .collect::<Vec<_>>();
+        assert_eq!(results_before, vec![(1u32, 2u64)]);
+
+        // test component modification
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .for_entity_mut(|mut entity| {
+                entity.get_mut::<W<u32>>().unwrap().0 *= 2;
+            });
+
+        command_queue.apply(&mut world);
+
+        let results_after = world
+            .query::<(&W<u32>, &W<u64>)>()
+            .iter(&world)
+            .map(|(a, b)| (a.0, b.0))
+            .collect::<Vec<_>>();
+        assert_eq!(results_after, vec![(2u32, 2u64)]);
     }
 }
