@@ -68,10 +68,10 @@ impl Plugin for BloomPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_bloom_textures.in_set(RenderSet::Prepare),
                     prepare_downsampling_pipeline.in_set(RenderSet::Prepare),
                     prepare_upsampling_pipeline.in_set(RenderSet::Prepare),
-                    queue_bloom_bind_groups.in_set(RenderSet::Queue),
+                    prepare_bloom_textures.in_set(RenderSet::PrepareResources),
+                    prepare_bloom_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             )
             // Add bloom to the 3d render graph
@@ -403,7 +403,7 @@ struct BloomBindGroups {
     sampler: Sampler,
 }
 
-fn queue_bloom_bind_groups(
+fn prepare_bloom_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     downsampling_pipeline: Res<BloomDownsamplingPipeline>,
