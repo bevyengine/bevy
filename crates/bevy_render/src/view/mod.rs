@@ -27,8 +27,8 @@ use std::sync::{
     Arc,
 };
 use wgpu::{
-    Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
-    TextureFormat, TextureUsages,
+    BufferUsages, Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor,
+    TextureDimension, TextureFormat, TextureUsages,
 };
 
 pub const VIEW_TYPE_HANDLE: HandleUntyped =
@@ -54,7 +54,6 @@ impl Plugin for ViewPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<ViewUniforms>()
                 .configure_set(Render, ViewSet::PrepareUniforms.in_set(RenderSet::Prepare))
                 .add_systems(
                     Render,
@@ -66,6 +65,12 @@ impl Plugin for ViewPlugin {
                             .after(crate::render_asset::prepare_assets::<Image>),
                     ),
                 );
+        }
+    }
+
+    fn finish(&self, app: &mut App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<ViewUniforms>();
         }
     }
 }
@@ -176,9 +181,22 @@ pub struct ViewUniform {
     mip_bias: f32,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct ViewUniforms {
     pub uniforms: DynamicUniformBuffer<ViewUniform>,
+}
+
+impl FromWorld for ViewUniforms {
+    fn from_world(world: &mut World) -> Self {
+        let mut uniforms = DynamicUniformBuffer::default();
+
+        let render_device = world.resource::<RenderDevice>();
+        if render_device.limits().max_storage_buffers_per_shader_stage > 0 {
+            uniforms.add_usages(BufferUsages::STORAGE);
+        }
+
+        Self { uniforms }
+    }
 }
 
 #[derive(Component)]
