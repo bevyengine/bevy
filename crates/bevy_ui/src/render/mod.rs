@@ -657,6 +657,19 @@ pub fn prepare_uinodes(
     }
 
     for extracted_uinode in extracted_uinodes.uinodes.drain(..) {
+        // If a Material based node is encountered, end the current batch and start a new one
+        // so that the Z-Order is still valid.
+        if extracted_uinode.is_material {
+            if start != end {
+                commands.spawn(UiBatch {
+                    range: start..end,
+                    image: current_batch_image.clone_weak(),
+                    z: last_z,
+                });
+            }
+            start = end;
+            continue;
+        }
         let mode = if is_textured(&extracted_uinode.image) {
             if current_batch_image.id() != extracted_uinode.image.id() {
                 if is_textured(&current_batch_image) && start != end {
@@ -671,17 +684,6 @@ pub fn prepare_uinodes(
             }
             TEXTURED_QUAD
         } else {
-            // If a Material based node is encountered, end the current batch and start a new one
-            // so that the Z-Order is still valid.
-            if extracted_uinode.is_material {
-                commands.spawn(UiBatch {
-                    range: start..end,
-                    image: current_batch_image.clone_weak(),
-                    z: last_z,
-                });
-                start = end;
-                continue;
-            }
             // Untextured `UiBatch`es are never spawned within the loop.
             // If all the `extracted_uinodes` are untextured a single untextured UiBatch will be spawned after the loop terminates.
             UNTEXTURED_QUAD

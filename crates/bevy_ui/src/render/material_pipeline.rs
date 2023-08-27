@@ -389,11 +389,12 @@ pub fn extract_material_uinodes<M: UiMaterial>(
             &Handle<M>,
             &ComputedVisibility,
             Option<&CalculatedClip>,
+            &UiMaterialNode,
         )>,
     >,
 ) {
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, handle, visibility, clip)) = uinode_query.get(*entity) {
+        if let Ok((uinode, transform, handle, visibility, clip, _)) = uinode_query.get(*entity) {
             if !visibility.is_visible() {
                 continue;
             }
