@@ -29,7 +29,7 @@ use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_reflect::TypeUuid;
 pub use extract_param::Extract;
 
-/// The `bevy_render` prelude.
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

@@ -20,7 +20,7 @@ pub mod touchpad;
 pub use axis::*;
 pub use input::*;
 
-/// The `bevy_input` prelude.
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

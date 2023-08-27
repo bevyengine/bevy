@@ -23,7 +23,7 @@ mod android_tracing;
 static GLOBAL: tracy_client::ProfiledAllocator<std::alloc::System> =
     tracy_client::ProfiledAllocator::new(std::alloc::System, 100);
 
-/// The `bevy_log` Prelude.
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use bevy_utils::tracing::{

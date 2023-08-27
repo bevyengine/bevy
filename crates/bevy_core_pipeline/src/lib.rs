@@ -24,7 +24,7 @@ pub mod experimental {
     }
 }
 
-/// The `bevy_core_pipeline` prelude.
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

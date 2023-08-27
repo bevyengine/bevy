@@ -20,7 +20,7 @@ pub use scene_filter::*;
 pub use scene_loader::*;
 pub use scene_spawner::*;
 
-/// The `bevy_scene` prelude.
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

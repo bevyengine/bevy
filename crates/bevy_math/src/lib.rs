@@ -16,7 +16,7 @@ pub use affine3::*;
 pub use ray::Ray;
 pub use rects::*;
 
-/// The `bevy_math` prelude.
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

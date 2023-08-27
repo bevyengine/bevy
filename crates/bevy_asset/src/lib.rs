@@ -28,7 +28,7 @@ mod loader;
 mod path;
 mod reflect;
 
-/// The `bevy_asset` prelude.
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

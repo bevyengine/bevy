@@ -12,7 +12,7 @@ pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
 pub use task_pool_options::*;
 
-/// The `bevy_core` Prelude.
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

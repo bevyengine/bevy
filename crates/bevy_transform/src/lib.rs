@@ -9,7 +9,7 @@ pub mod components;
 /// Systems responsible for transform propagation
 pub mod systems;
 
-/// The `bevy_transform` prelude.
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

@@ -31,7 +31,7 @@ pub use thread_executor::{ThreadExecutor, ThreadExecutorTicker};
 mod iter;
 pub use iter::ParallelIterator;
 
-/// The `bevy_tasks` prelude.
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

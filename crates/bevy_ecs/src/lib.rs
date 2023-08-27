@@ -25,7 +25,7 @@ use std::any::TypeId;
 
 pub use bevy_ptr as ptr;
 
-/// The `bevy_ecs` prelude.
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
