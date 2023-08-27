@@ -113,6 +113,11 @@ impl PhaseItem for TransparentUi {
     }
 
     #[inline]
+    fn sort(items: &mut [Self]) {
+        items.sort_by_key(|item| item.sort_key());
+    }
+
+    #[inline]
     fn batch_size(&self) -> usize {
         self.batch_size
     }
