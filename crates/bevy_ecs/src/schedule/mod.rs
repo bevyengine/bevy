@@ -541,7 +541,10 @@ mod tests {
             schedule.configure_set(TestSet::B.after(TestSet::A));
 
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(ScheduleBuildError::DependencyCycle)));
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::DependencyCycle(_))
+            ));
 
             fn foo() {}
             fn bar() {}
@@ -551,7 +554,10 @@ mod tests {
 
             schedule.add_systems((foo.after(bar), bar.after(foo)));
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(ScheduleBuildError::DependencyCycle)));
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::DependencyCycle(_))
+            ));
         }
 
         #[test]
@@ -570,7 +576,7 @@ mod tests {
             schedule.configure_set(TestSet::B.in_set(TestSet::A));
 
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(ScheduleBuildError::HierarchyCycle)));
+            assert!(matches!(result, Err(ScheduleBuildError::HierarchyCycle(_))));
         }
 
         #[test]
@@ -645,7 +651,7 @@ mod tests {
             let result = schedule.initialize(&mut world);
             assert!(matches!(
                 result,
-                Err(ScheduleBuildError::HierarchyRedundancy)
+                Err(ScheduleBuildError::HierarchyRedundancy(_))
             ));
         }
 
@@ -707,7 +713,7 @@ mod tests {
 
             schedule.add_systems((res_ref, res_mut));
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(ScheduleBuildError::Ambiguity)));
+            assert!(matches!(result, Err(ScheduleBuildError::Ambiguity(_))));
         }
     }
 }
