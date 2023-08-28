@@ -103,6 +103,13 @@ impl Schedules {
             schedule.check_change_ticks(change_tick);
         }
     }
+
+    /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
+    pub fn configure_schedules(&mut self, schedule_build_settings: ScheduleBuildSettings) {
+        for (_, schedule) in self.inner.iter_mut() {
+            schedule.set_build_settings(schedule_build_settings.clone());
+        }
+    }
 }
 
 fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
@@ -198,6 +205,11 @@ impl Schedule {
     pub fn set_build_settings(&mut self, settings: ScheduleBuildSettings) -> &mut Self {
         self.graph.settings = settings;
         self
+    }
+
+    /// Returns the schedule's current `ScheduleBuildSettings`.
+    pub fn get_build_settings(&self) -> ScheduleBuildSettings {
+        self.graph.settings.clone()
     }
 
     /// Returns the schedule's current execution strategy.
