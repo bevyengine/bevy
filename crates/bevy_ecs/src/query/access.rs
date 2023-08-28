@@ -229,7 +229,7 @@ pub struct FilteredAccess<T: SparseSetIndex> {
     access: Access<T>,
     // An array of filter sets to express `With` or `Without` clauses in disjunctive normal form, for example: `Or<(With<A>, With<B>)>`.
     // Filters like `(With<A>, Or<(With<B>, Without<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, Without<C>))>`.
-    filter_sets: Vec<AccessFilters<T>>,
+    pub(crate) filter_sets: Vec<AccessFilters<T>>,
 }
 
 impl<T: SparseSetIndex> Default for FilteredAccess<T> {
@@ -380,9 +380,9 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 }
 
 #[derive(Clone, Eq, PartialEq)]
-struct AccessFilters<T> {
-    with: FixedBitSet,
-    without: FixedBitSet,
+pub(crate) struct AccessFilters<T> {
+    pub(crate) with: FixedBitSet,
+    pub(crate) without: FixedBitSet,
     _index_type: PhantomData<T>,
 }
 
