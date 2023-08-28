@@ -5,7 +5,7 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
-    system::{IntoSystem, RunSystemCommand, RunSystemById, SystemId},
+    system::{IntoSystem, RunSystemById, RunSystemCommand, SystemId},
     world::{EntityMut, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;

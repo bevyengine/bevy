@@ -262,12 +262,17 @@ impl RunSystem for &mut World {
 
 /// The [`Command`] type for [`RunSystem`]
 #[derive(Debug, Clone)]
-pub struct RunSystemCommand<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> {
+pub struct RunSystemCommand<
+    M: Send + Sync + 'static,
+    S: IntoSystem<(), (), M> + Send + Sync + 'static,
+> {
     _phantom_marker: PhantomData<M>,
     system: S,
 }
 
-impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> RunSystemCommand<M, S> {
+impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static>
+    RunSystemCommand<M, S>
+{
     /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
     #[inline]
     #[must_use]
@@ -291,8 +296,8 @@ impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::*;
     use crate as bevy_ecs;
+    use crate::prelude::*;
 
     #[test]
     fn run_system() {
@@ -332,7 +337,7 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
-   #[allow(dead_code)]
+    #[allow(dead_code)]
     fn spawn_entity(mut commands: Commands) {
         commands.spawn_empty();
     }
