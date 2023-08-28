@@ -1,12 +1,9 @@
-use std::any::TypeId;
 use std::borrow::Cow;
 use std::ops::Not;
 
-use crate::component::{self, ComponentId};
-use crate::query::Access;
-use crate::system::{CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System};
-use crate::world::unsafe_world_cell::UnsafeWorldCell;
-use crate::world::World;
+use crate::system::{
+    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System,
+};
 
 /// A type-erased run condition stored in a [`Box`].
 pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
@@ -181,8 +178,6 @@ mod sealed {
 
 /// A collection of [run conditions](Condition) that may be useful in any bevy app.
 pub mod common_conditions {
-    use std::borrow::Cow;
-
     use super::NotSystem;
     use crate::{
         change_detection::DetectChanges,
@@ -987,96 +982,30 @@ pub mod common_conditions {
     {
         let condition = IntoSystem::into_system(condition);
         let name = format!("!{}", condition.name());
-        NotSystem::<T::System> {
-            condition,
-            name: Cow::Owned(name),
-        }
+        NotSystem::new(super::NotMarker, condition, name.into())
     }
 }
 
 /// Invokes [`Not`] with the output of another system.
 ///
 /// See [`common_conditions::not`] for examples.
-#[derive(Clone)]
-pub struct NotSystem<T: System>
-where
-    T::Out: Not,
-{
-    condition: T,
-    name: Cow<'static, str>,
-}
-impl<T: System> System for NotSystem<T>
+pub type NotSystem<T> = AdapterSystem<NotMarker, T>;
+
+/// Used with [`AdapterSystem`] to negate the output of a system via the [`Not`] operator.
+#[doc(hidden)]
+#[derive(Clone, Copy)]
+pub struct NotMarker;
+
+impl<T: System> Adapt<T> for NotMarker
 where
     T::Out: Not,
 {
     type In = T::In;
     type Out = <T::Out as Not>::Output;
 
-    fn name(&self) -> Cow<'static, str> {
-        self.name.clone()
+    fn adapt(&mut self, input: Self::In, run_system: impl FnOnce(T::In) -> T::Out) -> Self::Out {
+        !run_system(input)
     }
-
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<T>()
-    }
-
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.condition.component_access()
-    }
-
-    fn archetype_component_access(&self) -> &Access<crate::archetype::ArchetypeComponentId> {
-        self.condition.archetype_component_access()
-    }
-
-    fn is_send(&self) -> bool {
-        self.condition.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.condition.is_exclusive()
-    }
-
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
-        // SAFETY: The inner condition system asserts its own safety.
-        !self.condition.run_unsafe(input, world)
-    }
-
-    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
-        !self.condition.run(input, world)
-    }
-
-    fn apply_deferred(&mut self, world: &mut World) {
-        self.condition.apply_deferred(world);
-    }
-
-    fn initialize(&mut self, world: &mut World) {
-        self.condition.initialize(world);
-    }
-
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.condition.update_archetype_component_access(world);
-    }
-
-    fn check_change_tick(&mut self, change_tick: component::Tick) {
-        self.condition.check_change_tick(change_tick);
-    }
-
-    fn get_last_run(&self) -> component::Tick {
-        self.condition.get_last_run()
-    }
-
-    fn set_last_run(&mut self, last_run: component::Tick) {
-        self.condition.set_last_run(last_run);
-    }
-}
-
-// SAFETY: This trait is only implemented when the inner system is read-only.
-// The `Not` condition does not modify access, and thus cannot transform a read-only system into one that is not.
-unsafe impl<T> ReadOnlySystem for NotSystem<T>
-where
-    T: ReadOnlySystem,
-    T::Out: Not,
-{
 }
 
 /// Combines the outputs of two systems using the `&&` operator.
