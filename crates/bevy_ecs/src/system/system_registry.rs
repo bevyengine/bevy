@@ -327,7 +327,6 @@ mod tests {
         #[derive(Resource, Default)]
         struct ChangeDetector;
 
-        #[allow(dead_code)]
         fn count_up_iff_changed(
             mut counter: ResMut<Counter>,
             change_detector: ResMut<ChangeDetector>,
@@ -357,7 +356,7 @@ mod tests {
     #[test]
     fn local_variables() {
         // The `Local` begins at the default value of 0
-        fn doubling(mut last_counter: Local<Counter>, mut counter: ResMut<Counter>) {
+        fn doubling(last_counter: Local<Counter>, mut counter: ResMut<Counter>) {
             counter.0 += last_counter.0 .0;
             last_counter.0 .0 = counter.0;
         }
