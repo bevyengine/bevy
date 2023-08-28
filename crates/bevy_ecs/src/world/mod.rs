@@ -1748,9 +1748,9 @@ impl World {
     /// accessing the [`Schedules`] resource.
     ///
     /// The `Schedules` resource will be initialized if it does not already exist.
-    pub fn add_schedule(&mut self, schedule: Schedule, label: impl ScheduleLabel) {
+    pub fn add_schedule(&mut self, schedule: Schedule) {
         let mut schedules = self.get_resource_or_insert_with(Schedules::default);
-        schedules.insert(label, schedule);
+        schedules.insert(schedule);
     }
 
     /// Temporarily removes the schedule associated with `label` from the world,
@@ -1770,21 +1770,16 @@ impl World {
         f: impl FnOnce(&mut World, &mut Schedule) -> R,
     ) -> Result<R, TryRunScheduleError> {
         let label = label.as_ref();
-        let Some((extracted_label, mut schedule)) = self
+        let Some(mut schedule) = self
             .get_resource_mut::<Schedules>()
-            .and_then(|mut s| s.remove_entry(label))
+            .and_then(|mut s| s.remove(label))
         else {
             return Err(TryRunScheduleError(label.dyn_clone()));
         };
 
-        // TODO: move this span to Schedule::run
-        #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("schedule", name = ?extracted_label).entered();
         let value = f(self, &mut schedule);
 
-        let old = self
-            .resource_mut::<Schedules>()
-            .insert(extracted_label, schedule);
+        let old = self.resource_mut::<Schedules>().insert(schedule);
         if old.is_some() {
             warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten");
         }
@@ -1809,10 +1804,10 @@ impl World {
     /// #
     /// # let mut world = World::new();
     /// # world.insert_resource(Counter(0));
-    /// # let mut schedule = Schedule::new();
+    /// # let mut schedule = Schedule::new(MySchedule);
     /// # schedule.add_systems(tick_counter);
     /// # world.init_resource::<Schedules>();
-    /// # world.add_schedule(schedule, MySchedule);
+    /// # world.add_schedule(schedule);
     /// # fn tick_counter(mut counter: ResMut<Counter>) { counter.0 += 1; }
     /// // Run the schedule five times.
     /// world.schedule_scope(MySchedule, |world, schedule| {

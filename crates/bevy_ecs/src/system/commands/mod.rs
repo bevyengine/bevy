@@ -596,9 +596,9 @@ impl<'w, 's> Commands<'w, 's> {
 /// # let mut world = World::new();
 /// # world.init_resource::<Counter>();
 /// #
-/// # let mut setup_schedule = Schedule::new();
+/// # let mut setup_schedule = Schedule::default();
 /// # setup_schedule.add_systems(setup);
-/// # let mut assert_schedule = Schedule::new();
+/// # let mut assert_schedule = Schedule::default();
 /// # assert_schedule.add_systems(assert_names);
 /// #
 /// # setup_schedule.run(&mut world);

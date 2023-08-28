@@ -225,7 +225,7 @@ where
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # let mut schedule = Schedule::new();
+    /// # let mut schedule = Schedule::default();
     /// # fn a() {}
     /// # fn b() {}
     /// # fn condition() -> bool { true }
@@ -258,7 +258,7 @@ where
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # let mut schedule = Schedule::new();
+    /// # let mut schedule = Schedule::default();
     /// # fn a() {}
     /// # fn b() {}
     /// # fn condition() -> bool { true }
