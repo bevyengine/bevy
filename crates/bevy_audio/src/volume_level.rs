@@ -2,8 +2,19 @@
 #[derive(Clone, Copy, Debug)]
 pub enum VolumeLevel {
     /// Volume Amplitude Ratio (unitless)
+    /// 
+    /// # Notes
+    /// 
+    /// `Self::Amplitude(a)` is only defined for `a` between `f32::MIN_POSITIVE` and `f32::MAX`.
+    /// If `a` is any other value, `VolumeLevel` will be in an invalid state.
     Amplitude(f32),
     /// Decibels of Amplitude Ratio (dB)
+    /// 
+    /// # Notes
+    /// 
+    /// `Self::Decibels(a)` is defined for all non-`NaN` values of `a`. However, values with a
+    /// magnitude larger than `1,000` are largely meaningless due to the logarithmic nature of
+    /// the decibel scale.
     Decibels(f32),
 }
 
