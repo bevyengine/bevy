@@ -52,7 +52,8 @@ use crate::render::{
 #[derive(Default)]
 pub struct MeshRenderPlugin;
 
-const MAX_JOINTS: usize = 256;
+/// Maximum number of joints supported for skinned meshes.
+pub const MAX_JOINTS: usize = 256;
 const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
 pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
@@ -323,6 +324,7 @@ impl SkinnedMeshJoints {
             joints
                 .iter_many(&skin.joints)
                 .zip(inverse_bindposes.iter())
+                .take(MAX_JOINTS)
                 .map(|(joint, bindpose)| joint.affine() * *bindpose),
         );
         // iter_many will skip any failed fetches. This will cause it to assign the wrong bones,
