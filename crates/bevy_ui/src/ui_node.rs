@@ -1647,7 +1647,6 @@ mod tests {
 
     use super::Val;
 
-   
     #[test]
     fn val_evaluate() {
         let size = 250.;
