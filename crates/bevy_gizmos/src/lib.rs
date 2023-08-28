@@ -96,11 +96,16 @@ impl Plugin for GizmoPlugin {
                     .after(TransformSystem::TransformPropagate),
             );
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app
             .add_systems(ExtractSchedule, extract_gizmo_data)
-            .add_systems(Render, queue_line_gizmo_bind_group.in_set(RenderSet::Queue));
+            .add_systems(
+                Render,
+                prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
+            );
 
         #[cfg(feature = "bevy_sprite")]
         app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
@@ -109,7 +114,9 @@ impl Plugin for GizmoPlugin {
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         let render_device = render_app.world.resource::<RenderDevice>();
         let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -409,7 +416,7 @@ struct LineGizmoUniformBindgroup {
     bindgroup: BindGroup,
 }
 
-fn queue_line_gizmo_bind_group(
+fn prepare_line_gizmo_bind_group(
     mut commands: Commands,
     line_gizmo_uniform_layout: Res<LineGizmoUniformBindgroupLayout>,
     render_device: Res<RenderDevice>,
@@ -469,6 +476,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
         let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
             return RenderCommandResult::Failure;
         };
+
+        if line_gizmo.vertex_count < 2 {
+            return RenderCommandResult::Success;
+        }
 
         let instances = if line_gizmo.strip {
             let item_size = VertexFormat::Float32x3.size();

@@ -17,7 +17,7 @@ layout(set = 0, binding = 0) uniform CameraViewProj {
 };
 
 struct Mesh {
-    mat4 Model;
+    mat3x4 Model;
     mat4 InverseTransposeModel;
     uint flags;
 };
@@ -30,9 +30,18 @@ layout(set = 2, binding = 0) readonly buffer _Meshes {
 };
 #endif // PER_OBJECT_BUFFER_BATCH_SIZE
 
+mat4 affine_to_square(mat3x4 affine) {
+    return transpose(mat4(
+        affine[0],
+        affine[1],
+        affine[2],
+        vec4(0.0, 0.0, 0.0, 1.0)
+    ));
+}
+
 void main() {
     v_Uv = Vertex_Uv;
     gl_Position = ViewProj
-        * Meshes[gl_InstanceIndex].Model
+        * affine_to_square(Meshes[gl_InstanceIndex].Model)
         * vec4(Vertex_Position, 1.0);
 }

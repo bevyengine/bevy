@@ -102,6 +102,12 @@ impl AnimationClip {
         self.duration
     }
 
+    /// The bone ids mapped by their [`EntityPath`].
+    #[inline]
+    pub fn paths(&self) -> &HashMap<EntityPath, usize> {
+        &self.paths
+    }
+
     /// Add a [`VariableCurve`] to an [`EntityPath`].
     pub fn add_curve_to_path(&mut self, path: EntityPath, curve: VariableCurve) {
         // Update the duration of the animation by this curve duration if it's longer
@@ -335,9 +341,13 @@ fn verify_no_ancestor_player(
     player_parent: Option<&Parent>,
     parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
 ) -> bool {
-    let Some(mut current) = player_parent.map(Parent::get) else { return true };
+    let Some(mut current) = player_parent.map(Parent::get) else {
+        return true;
+    };
     loop {
-        let Ok((maybe_player, parent)) = parents.get(current) else { return true };
+        let Ok((maybe_player, parent)) = parents.get(current) else {
+            return true;
+        };
         if maybe_player.is_some() {
             return false;
         }
@@ -500,7 +510,9 @@ fn apply_animation(
         for (path, bone_id) in &animation_clip.paths {
             let cached_path = &mut animation.path_cache[*bone_id];
             let curves = animation_clip.get_curves(*bone_id).unwrap();
-            let Some(target) = entity_from_path(root, path, children, names, cached_path) else { continue };
+            let Some(target) = entity_from_path(root, path, children, names, cached_path) else {
+                continue;
+            };
             // SAFETY: The verify_no_ancestor_player check above ensures that two animation players cannot alias
             // any of their descendant Transforms.
             //
@@ -513,7 +525,9 @@ fn apply_animation(
             // This means only the AnimationPlayers closest to the root of the hierarchy will be able
             // to run their animation. Any players in the children or descendants will log a warning
             // and do nothing.
-            let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else { continue };
+            let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else {
+                continue;
+            };
             let mut morphs = unsafe { morphs.get_unchecked(target) };
             for curve in curves {
                 // Some curves have only one keyframe used to set a transform
