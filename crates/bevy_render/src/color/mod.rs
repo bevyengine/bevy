@@ -1990,8 +1990,14 @@ mod tests {
         let hsla = Color::hsla(0., 0., 0., 0.);
         let lcha = Color::lcha(0., 0., 0., 0.);
         assert_eq!(rgba_l, rgba_l.as_rgba_linear());
-        let Color::RgbaLinear { .. } = rgba.as_rgba_linear() else { panic!("from Rgba") };
-        let Color::RgbaLinear { .. } = hsla.as_rgba_linear() else { panic!("from Hsla") };
-        let Color::RgbaLinear { .. } = lcha.as_rgba_linear() else { panic!("from Lcha") };
+        let Color::RgbaLinear { .. } = rgba.as_rgba_linear() else {
+            panic!("from Rgba")
+        };
+        let Color::RgbaLinear { .. } = hsla.as_rgba_linear() else {
+            panic!("from Hsla")
+        };
+        let Color::RgbaLinear { .. } = lcha.as_rgba_linear() else {
+            panic!("from Lcha")
+        };
     }
 }
