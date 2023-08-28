@@ -113,12 +113,6 @@ pub fn prepare_fog(
         .write_buffer(&render_device, &render_queue);
 }
 
-/// Labels for fog-related systems
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum RenderFogSystems {
-    PrepareFog,
-}
-
 /// Inserted on each `Entity` with an `ExtractedView` to keep track of its offset
 /// in the `gpu_fogs` `DynamicUniformBuffer` within `FogMeta`
 #[derive(Component)]
@@ -137,16 +131,13 @@ impl Plugin for FogPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, FOG_SHADER_HANDLE, "fog.wgsl", Shader::from_wgsl);
 
-        app.add_plugin(ExtractComponentPlugin::<FogSettings>::default());
+        app.register_type::<FogSettings>();
+        app.add_plugins(ExtractComponentPlugin::<FogSettings>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<FogMeta>()
-                .add_systems(Render, prepare_fog.in_set(RenderFogSystems::PrepareFog))
-                .configure_set(
-                    Render,
-                    RenderFogSystems::PrepareFog.in_set(RenderSet::Prepare),
-                );
+                .add_systems(Render, prepare_fog.in_set(RenderSet::PrepareResources));
         }
     }
 }

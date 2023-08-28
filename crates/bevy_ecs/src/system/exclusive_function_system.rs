@@ -29,6 +29,8 @@ where
     marker: PhantomData<fn() -> Marker>,
 }
 
+/// A marker type used to distinguish exclusive function systems from regular function systems.
+#[doc(hidden)]
 pub struct IsExclusiveFunctionSystem;
 
 impl<Marker, F> IntoSystem<F::In, F::Out, (IsExclusiveFunctionSystem, Marker)> for F

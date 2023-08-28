@@ -52,8 +52,10 @@ impl Plugin for BloomPlugin {
         app.register_type::<BloomSettings>();
         app.register_type::<BloomPrefilterSettings>();
         app.register_type::<BloomCompositeMode>();
-        app.add_plugin(ExtractComponentPlugin::<BloomSettings>::default());
-        app.add_plugin(UniformComponentPlugin::<BloomUniforms>::default());
+        app.add_plugins((
+            ExtractComponentPlugin::<BloomSettings>::default(),
+            UniformComponentPlugin::<BloomUniforms>::default(),
+        ));
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -66,10 +68,10 @@ impl Plugin for BloomPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_bloom_textures.in_set(RenderSet::Prepare),
                     prepare_downsampling_pipeline.in_set(RenderSet::Prepare),
                     prepare_upsampling_pipeline.in_set(RenderSet::Prepare),
-                    queue_bloom_bind_groups.in_set(RenderSet::Queue),
+                    prepare_bloom_textures.in_set(RenderSet::PrepareResources),
+                    prepare_bloom_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             )
             // Add bloom to the 3d render graph
@@ -161,7 +163,10 @@ impl ViewNode for BloomNode {
             pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.main),
             pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_main),
             pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_final),
-        ) else { return Ok(()) };
+        )
+        else {
+            return Ok(());
+        };
 
         render_context.command_encoder().push_debug_group("bloom");
 
@@ -398,7 +403,7 @@ struct BloomBindGroups {
     sampler: Sampler,
 }
 
-fn queue_bloom_bind_groups(
+fn prepare_bloom_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     downsampling_pipeline: Res<BloomDownsamplingPipeline>,

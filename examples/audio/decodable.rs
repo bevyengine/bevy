@@ -3,14 +3,14 @@ use bevy::audio::AddAudioSource;
 use bevy::audio::AudioPlugin;
 use bevy::audio::Source;
 use bevy::prelude::*;
-use bevy::reflect::TypeUuid;
+use bevy::reflect::{TypePath, TypeUuid};
 use bevy::utils::Duration;
 
 // This struct usually contains the data for the audio being played.
 // This is where data read from an audio file would be stored, for example.
 // Implementing `TypeUuid` will automatically implement `Asset`.
 // This allows the type to be registered as an asset.
-#[derive(TypeUuid)]
+#[derive(TypePath, TypeUuid)]
 #[uuid = "c2090c23-78fd-44f1-8508-c89b1f3cec29"]
 struct SineAudio {
     frequency: f32,
@@ -93,10 +93,13 @@ fn main() {
     .run();
 }
 
-fn setup(mut assets: ResMut<Assets<SineAudio>>, audio: Res<Audio<SineAudio>>) {
+fn setup(mut assets: ResMut<Assets<SineAudio>>, mut commands: Commands) {
     // add a `SineAudio` to the asset server so that it can be played
     let audio_handle = assets.add(SineAudio {
         frequency: 440., //this is the frequency of A4
     });
-    audio.play(audio_handle);
+    commands.spawn(AudioSourceBundle {
+        source: audio_handle,
+        ..default()
+    });
 }

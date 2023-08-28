@@ -1,9 +1,9 @@
 use crate::{DynamicScene, Scene};
-use bevy_app::AppTypeRegistry;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},
-    event::{Events, ManualEventReader},
+    event::{Event, Events, ManualEventReader},
+    reflect::AppTypeRegistry,
     system::{Command, Resource},
     world::{Mut, World},
 };
@@ -11,6 +11,15 @@ use bevy_hierarchy::{AddChild, Parent};
 use bevy_utils::{tracing::error, HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
+
+/// Emitted when [`crate::SceneInstance`] becomes ready to use.
+///
+/// See also [`SceneSpawner::instance_is_ready`].
+#[derive(Event)]
+pub struct SceneInstanceReady {
+    /// Entity to which the scene was spawned as a child.
+    pub parent: Entity,
+}
 
 /// Information about a scene instance.
 #[derive(Debug)]
@@ -284,7 +293,9 @@ impl SceneSpawner {
                             parent,
                             child: entity,
                         }
-                        .write(world);
+                        .apply(world);
+
+                        world.send_event(SceneInstanceReady { parent });
                     }
                 }
             } else {

@@ -27,14 +27,9 @@ pub struct NonSendMarker;
 
 pub struct WindowRenderPlugin;
 
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub enum WindowSystem {
-    Prepare,
-}
-
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ScreenshotPlugin);
+        app.add_plugins(ScreenshotPlugin);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -42,8 +37,7 @@ impl Plugin for WindowRenderPlugin {
                 .init_resource::<WindowSurfaces>()
                 .init_non_send_resource::<NonSendMarker>()
                 .add_systems(ExtractSchedule, extract_windows)
-                .configure_set(Render, WindowSystem::Prepare.in_set(RenderSet::Prepare))
-                .add_systems(Render, prepare_windows.in_set(WindowSystem::Prepare));
+                .add_systems(Render, prepare_windows.in_set(RenderSet::ManageViews));
         }
     }
 
@@ -266,6 +260,7 @@ pub fn prepare_windows(
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             present_mode: match window.present_mode {
                 PresentMode::Fifo => wgpu::PresentMode::Fifo,
+                PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,
                 PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
                 PresentMode::Immediate => wgpu::PresentMode::Immediate,
                 PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,

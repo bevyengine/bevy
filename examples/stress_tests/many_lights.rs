@@ -15,20 +15,22 @@ use rand::{thread_rng, Rng};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                resolution: (1024.0, 768.0).into(),
-                title: "many_lights".into(),
-                present_mode: PresentMode::AutoNoVsync,
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    resolution: (1024.0, 768.0).into(),
+                    title: "many_lights".into(),
+                    present_mode: PresentMode::AutoNoVsync,
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_plugin(FrameTimeDiagnosticsPlugin)
-        .add_plugin(LogDiagnosticsPlugin::default())
+            FrameTimeDiagnosticsPlugin,
+            LogDiagnosticsPlugin::default(),
+            LogVisibleLights,
+        ))
         .add_systems(Startup, setup)
         .add_systems(Update, (move_camera, print_light_count))
-        .add_plugin(LogVisibleLights)
         .run();
 }
 

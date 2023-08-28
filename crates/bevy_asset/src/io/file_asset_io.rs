@@ -201,7 +201,9 @@ pub fn filesystem_watcher_system(
             } = event
             {
                 for path in &paths {
-                    let Some(set) = watcher.path_map.get(path) else {continue};
+                    let Some(set) = watcher.path_map.get(path) else {
+                        continue;
+                    };
                     for to_reload in set {
                         // When an asset is modified, note down the timestamp (overriding any previous modification events)
                         changed.insert(to_reload.to_owned(), Instant::now());
@@ -216,7 +218,7 @@ pub fn filesystem_watcher_system(
         // Unless we wait until we are sure the shader is finished being modified (and that there will be no more events coming),
         // we will sometimes get a crash when trying to reload a partially-modified shader.
         for (to_reload, _) in
-            changed.drain_filter(|_, last_modified| last_modified.elapsed() >= watcher.delay)
+            changed.extract_if(|_, last_modified| last_modified.elapsed() >= watcher.delay)
         {
             let _ = asset_server.load_untracked(to_reload.as_path().into(), true);
         }

@@ -21,12 +21,12 @@ pub struct AddChildInPlace {
     pub child: Entity,
 }
 impl Command for AddChildInPlace {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         let hierarchy_command = AddChild {
             child: self.child,
             parent: self.parent,
         };
-        hierarchy_command.write(world);
+        hierarchy_command.apply(world);
         // FIXME: Replace this closure with a `try` block. See: https://github.com/rust-lang/rust/issues/31436.
         let mut update_transform = || {
             let parent = *world.get_entity(self.parent)?.get::<GlobalTransform>()?;
@@ -49,9 +49,9 @@ pub struct RemoveParentInPlace {
     pub child: Entity,
 }
 impl Command for RemoveParentInPlace {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         let hierarchy_command = RemoveParent { child: self.child };
-        hierarchy_command.write(world);
+        hierarchy_command.apply(world);
         // FIXME: Replace this closure with a `try` block. See: https://github.com/rust-lang/rust/issues/31436.
         let mut update_transform = || {
             let child_global = *world.get_entity(self.child)?.get::<GlobalTransform>()?;

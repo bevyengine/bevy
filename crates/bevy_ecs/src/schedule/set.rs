@@ -14,7 +14,9 @@ use crate::system::{
 
 define_boxed_label!(ScheduleLabel);
 
+/// A shorthand for `Box<dyn SystemSet>`.
 pub type BoxedSystemSet = Box<dyn SystemSet>;
+/// A shorthand for `Box<dyn ScheduleLabel>`.
 pub type BoxedScheduleLabel = Box<dyn ScheduleLabel>;
 
 /// Types that identify logical groups of systems.
@@ -69,7 +71,7 @@ impl<T: 'static> SystemTypeSet<T> {
 impl<T> Debug for SystemTypeSet<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("SystemTypeSet")
-            .field(&std::any::type_name::<T>())
+            .field(&format_args!("fn {}()", &std::any::type_name::<T>()))
             .finish()
     }
 }
@@ -81,7 +83,7 @@ impl<T> Hash for SystemTypeSet<T> {
 }
 impl<T> Clone for SystemTypeSet<T> {
     fn clone(&self) -> Self {
-        Self(PhantomData)
+        *self
     }
 }
 
@@ -132,8 +134,10 @@ impl SystemSet for AnonymousSet {
 
 /// Types that can be converted into a [`SystemSet`].
 pub trait IntoSystemSet<Marker>: Sized {
+    /// The type of [`SystemSet`] this instance converts into.
     type Set: SystemSet;
 
+    /// Converts this instance to its associated [`SystemSet`] type.
     fn into_system_set(self) -> Self::Set;
 }
 

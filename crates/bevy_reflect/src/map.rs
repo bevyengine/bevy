@@ -2,9 +2,10 @@ use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 
+use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
-use crate::{Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo};
+use crate::{self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo};
 
 /// A trait used to power [map-like] operations via [reflection].
 ///
@@ -375,6 +376,8 @@ impl Reflect for DynamicMap {
     }
 }
 
+impl_type_path!((in bevy_reflect) DynamicMap);
+
 impl Debug for DynamicMap {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
@@ -510,7 +513,7 @@ mod tests {
 
     #[test]
     fn test_into_iter() {
-        let expected = vec!["foo", "bar", "baz"];
+        let expected = ["foo", "bar", "baz"];
 
         let mut map = DynamicMap::default();
         map.insert(0usize, expected[0].to_string());

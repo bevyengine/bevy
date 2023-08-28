@@ -32,15 +32,6 @@ use bevy_utils::{
 };
 use std::{hash::Hash, num::NonZeroU64};
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum RenderLightSystems {
-    ExtractClusters,
-    ExtractLights,
-    PrepareClusters,
-    PrepareLights,
-    QueueShadows,
-}
-
 #[derive(Component)]
 pub struct ExtractedPointLight {
     color: Color,
@@ -216,6 +207,12 @@ pub struct GpuLights {
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
 pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
+
+//NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
+// when loading the wgsl "pbr_functions.wgsl" in the function apply_fog.
+#[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
+#[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
 #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 4;
@@ -1603,6 +1600,9 @@ pub fn queue_shadows<M: Material>(
                         let mut mesh_key =
                             MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                                 | MeshPipelineKey::DEPTH_PREPASS;
+                        if mesh.morph_targets.is_some() {
+                            mesh_key |= MeshPipelineKey::MORPH_TARGETS;
+                        }
                         if is_directional_light {
                             mesh_key |= MeshPipelineKey::DEPTH_CLAMP_ORTHO;
                         }
@@ -1638,7 +1638,7 @@ pub fn queue_shadows<M: Material>(
                             draw_function: draw_shadow_mesh,
                             pipeline: pipeline_id,
                             entity,
-                            distance: 0.0, // TODO: sort back-to-front
+                            distance: 0.0, // TODO: sort front-to-back
                         });
                     }
                 }
@@ -1677,7 +1677,7 @@ impl PhaseItem for Shadow {
         // The shadow phase is sorted by pipeline id for performance reasons.
         // Grouping all draw commands using the same pipeline together performs
         // better than rebinding everything at a high rate.
-        radsort::sort_by_key(items, |item| item.pipeline.id());
+        radsort::sort_by_key(items, |item| item.sort_key());
     }
 }
 

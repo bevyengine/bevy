@@ -14,12 +14,12 @@ use bevy_ecs::{
     },
 };
 use bevy_log::error;
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{TypePath, TypeUuid};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
-    render_asset::{PrepareAssetSet, RenderAssets},
+    render_asset::{prepare_assets, RenderAssets},
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
@@ -60,11 +60,11 @@ use crate::{
 /// ```
 /// # use bevy_sprite::{Material2d, MaterialMesh2dBundle};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_reflect::TypeUuid;
+/// # use bevy_reflect::{TypeUuid, TypePath};
 /// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
 /// # use bevy_asset::{Handle, AssetServer, Assets};
 ///
-/// #[derive(AsBindGroup, TypeUuid, Debug, Clone)]
+/// #[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
 /// #[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
 /// pub struct CustomMaterial {
 ///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
@@ -111,7 +111,7 @@ use crate::{
 /// @group(1) @binding(2)
 /// var color_sampler: sampler;
 /// ```
-pub trait Material2d: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'static {
+pub trait Material2d: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {
@@ -152,7 +152,7 @@ where
 {
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
-            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
+            .add_plugins(ExtractComponentPlugin::<Handle<M>>::extract_visible());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -165,9 +165,11 @@ where
                     Render,
                     (
                         prepare_materials_2d::<M>
-                            .in_set(RenderSet::Prepare)
-                            .after(PrepareAssetSet::PreAssetPrepare),
-                        queue_material2d_meshes::<M>.in_set(RenderSet::Queue),
+                            .in_set(RenderSet::PrepareAssets)
+                            .after(prepare_assets::<Image>),
+                        queue_material2d_meshes::<M>
+                            .in_set(RenderSet::QueueMeshes)
+                            .after(prepare_materials_2d::<M>),
                     ),
                 );
         }
@@ -415,7 +417,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                             // camera. As such we can just use mesh_z as the distance
                             sort_key: FloatOrd(mesh_z),
                             // This material is not batched
-                            batch_range: None,
+                            batch_size: 1,
                         });
                     }
                 }

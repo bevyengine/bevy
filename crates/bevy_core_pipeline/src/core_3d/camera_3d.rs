@@ -104,7 +104,7 @@ impl Default for Camera3dBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             camera_3d: Default::default(),
-            tonemapping: Tonemapping::ReinhardLuminance,
+            tonemapping: Default::default(),
             dither: DebandDither::Enabled,
             color_grading: ColorGrading::default(),
         }

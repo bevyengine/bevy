@@ -1,3 +1,5 @@
+//! Contains APIs for ordering systems and executing them on a [`World`](crate::world::World)
+
 mod condition;
 mod config;
 mod executor;
@@ -237,7 +239,7 @@ mod tests {
                 partially_ordered == [8, 9, 10] || partially_ordered == [10, 8, 9],
                 "partially_ordered must be [8, 9, 10] or [10, 8, 9]"
             );
-            assert!(order.len() == 11, "must have exacty 11 order entries");
+            assert!(order.len() == 11, "must have exactly 11 order entries");
         }
     }
 
@@ -539,7 +541,10 @@ mod tests {
             schedule.configure_set(TestSet::B.after(TestSet::A));
 
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(ScheduleBuildError::DependencyCycle)));
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::DependencyCycle(_))
+            ));
 
             fn foo() {}
             fn bar() {}
@@ -549,7 +554,10 @@ mod tests {
 
             schedule.add_systems((foo.after(bar), bar.after(foo)));
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(ScheduleBuildError::DependencyCycle)));
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::DependencyCycle(_))
+            ));
         }
 
         #[test]
@@ -568,7 +576,7 @@ mod tests {
             schedule.configure_set(TestSet::B.in_set(TestSet::A));
 
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(ScheduleBuildError::HierarchyCycle)));
+            assert!(matches!(result, Err(ScheduleBuildError::HierarchyCycle(_))));
         }
 
         #[test]
@@ -643,7 +651,7 @@ mod tests {
             let result = schedule.initialize(&mut world);
             assert!(matches!(
                 result,
-                Err(ScheduleBuildError::HierarchyRedundancy)
+                Err(ScheduleBuildError::HierarchyRedundancy(_))
             ));
         }
 
@@ -705,7 +713,7 @@ mod tests {
 
             schedule.add_systems((res_ref, res_mut));
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(ScheduleBuildError::Ambiguity)));
+            assert!(matches!(result, Err(ScheduleBuildError::Ambiguity(_))));
         }
     }
 }

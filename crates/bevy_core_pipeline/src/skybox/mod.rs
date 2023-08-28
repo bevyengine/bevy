@@ -34,7 +34,7 @@ impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, SKYBOX_SHADER_HANDLE, "skybox.wgsl", Shader::from_wgsl);
 
-        app.add_plugin(ExtractComponentPlugin::<Skybox>::default());
+        app.add_plugins(ExtractComponentPlugin::<Skybox>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -47,7 +47,7 @@ impl Plugin for SkyboxPlugin {
                 Render,
                 (
                     prepare_skybox_pipelines.in_set(RenderSet::Prepare),
-                    queue_skybox_bind_groups.in_set(RenderSet::Queue),
+                    prepare_skybox_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             );
     }
@@ -209,7 +209,7 @@ fn prepare_skybox_pipelines(
 #[derive(Component)]
 pub struct SkyboxBindGroup(pub BindGroup);
 
-fn queue_skybox_bind_groups(
+fn prepare_skybox_bind_groups(
     mut commands: Commands,
     pipeline: Res<SkyboxPipeline>,
     view_uniforms: Res<ViewUniforms>,
