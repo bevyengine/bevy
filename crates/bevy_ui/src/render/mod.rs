@@ -38,8 +38,9 @@ use bevy_sprite::TextureAtlas;
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
-use bevy_utils::{FloatOrd, Uuid};
+use bevy_utils::FloatOrd;
 use bytemuck::{Pod, Zeroable};
+use std::mem::replace;
 use std::ops::Range;
 
 pub mod node {
@@ -663,6 +664,7 @@ pub fn queue_uinodes(
         transparent_phase
             .items
             .reserve(extracted_uinodes.uinodes.len());
+
         for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
             transparent_phase.add(TransparentUi {
                 draw_function,
@@ -706,11 +708,6 @@ pub fn prepare_uinodes(
         };
     }
 
-    #[inline]
-    fn is_textured(image: &Handle<Image>) -> bool {
-        image.id() != DEFAULT_IMAGE_HANDLE.id()
-    }
-
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         let mut batches: Vec<(Entity, UiBatch)> = Vec::with_capacity(*previous_len);
 
@@ -726,64 +723,85 @@ pub fn prepare_uinodes(
 
         // Vertex buffer index
         let mut index = 0;
-
         for mut ui_phase in &mut phases {
             let mut batch_item_index = 0;
-            let mut batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
+            let mut batch_image_handle = DEFAULT_IMAGE_HANDLE.id();
+
+            if let Some(gpu_image) = gpu_images.get(&DEFAULT_IMAGE_HANDLE.typed()) {
+                image_bind_groups
+                    .values
+                    .entry(Handle::weak(DEFAULT_IMAGE_HANDLE.id()))
+                    .or_insert_with(|| {
+                        render_device.create_bind_group(&BindGroupDescriptor {
+                            entries: &[
+                                BindGroupEntry {
+                                    binding: 0,
+                                    resource: BindingResource::TextureView(&gpu_image.texture_view),
+                                },
+                                BindGroupEntry {
+                                    binding: 1,
+                                    resource: BindingResource::Sampler(&gpu_image.sampler),
+                                },
+                            ],
+                            label: Some("ui_material_bind_group"),
+                            layout: &ui_pipeline.image_layout,
+                        })
+                    });
+            }
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(item.entity) {
-                    let mut existing_batch = batches
-                        .last_mut()
-                        .filter(|_| batch_image_handle == extracted_uinode.image.id());
-
-                    if existing_batch.is_none() {
-                        if let Some(gpu_image) = gpu_images.get(&extracted_uinode.image) {
-                            batch_item_index = item_index;
-                            batch_image_handle = extracted_uinode.image.id();
-
-                            let new_batch = UiBatch {
-                                range: index..index,
-                                image_handle_id: extracted_uinode.image.id(),
-                            };
-
-                            batches.push((item.entity, new_batch));
-
-                            image_bind_groups
-                                .values
-                                .entry(Handle::weak(batch_image_handle))
-                                .or_insert_with(|| {
-                                    render_device.create_bind_group(&BindGroupDescriptor {
-                                        entries: &[
-                                            BindGroupEntry {
-                                                binding: 0,
-                                                resource: BindingResource::TextureView(
-                                                    &gpu_image.texture_view,
-                                                ),
-                                            },
-                                            BindGroupEntry {
-                                                binding: 1,
-                                                resource: BindingResource::Sampler(
-                                                    &gpu_image.sampler,
-                                                ),
-                                            },
-                                        ],
-                                        label: Some("ui_material_bind_group"),
-                                        layout: &ui_pipeline.image_layout,
-                                    })
-                                });
-
-                            existing_batch = batches.last_mut();
+                    let existing_batch = if extracted_uinode.image.id() == DEFAULT_IMAGE_HANDLE.id()
+                        || extracted_uinode.image.id() == batch_image_handle
+                    {
+                        batches.last_mut()
+                    } else if let Some(gpu_image) = gpu_images.get(&extracted_uinode.image) {
+                        image_bind_groups
+                            .values
+                            .entry(Handle::weak(extracted_uinode.image.id()))
+                            .or_insert_with(|| {
+                                render_device.create_bind_group(&BindGroupDescriptor {
+                                    entries: &[
+                                        BindGroupEntry {
+                                            binding: 0,
+                                            resource: BindingResource::TextureView(
+                                                &gpu_image.texture_view,
+                                            ),
+                                        },
+                                        BindGroupEntry {
+                                            binding: 1,
+                                            resource: BindingResource::Sampler(&gpu_image.sampler),
+                                        },
+                                    ],
+                                    label: Some("ui_material_bind_group"),
+                                    layout: &ui_pipeline.image_layout,
+                                })
+                            });
+                        if replace(&mut batch_image_handle, extracted_uinode.image.id()) == DEFAULT_IMAGE_HANDLE.id() {
+                            let existing_batch = batches.last_mut().unwrap();
+                            existing_batch.1.image_handle_id = extracted_uinode.image.id();
+                            Some(existing_batch)
                         } else {
-                            continue;
+                            None
                         }
+                    } else {
+                        continue;
+                    };
+                    if existing_batch.is_none() {
+                        batch_item_index = item_index;
+                        let new_batch = UiBatch {
+                            range: index..index,
+                            image_handle_id: extracted_uinode.image.id(),
+                        };
+
+                        batches.push((item.entity, new_batch));
                     }
 
-                    let mode = if is_textured(&extracted_uinode.image) {
-                        TEXTURED_QUAD
-                    } else {
+                    let mode = if extracted_uinode.image.id() == DEFAULT_IMAGE_HANDLE.id() {
                         UNTEXTURED_QUAD
+                    } else {
+                        TEXTURED_QUAD
                     };
 
                     let mut uinode_rect = extracted_uinode.rect;
@@ -893,11 +911,9 @@ pub fn prepare_uinodes(
                         });
                     }
                     index += QUAD_INDICES.len() as u32;
-                    existing_batch.unwrap().1.range.end = index;
+                    batches.last_mut().unwrap().1.range.end = index;
                     ui_phase.items[batch_item_index].batch_size += 1;
-                } else {
-                    batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
-                }
+                } 
             }
         }
         ui_meta.vertices.write_buffer(&render_device, &render_queue);
