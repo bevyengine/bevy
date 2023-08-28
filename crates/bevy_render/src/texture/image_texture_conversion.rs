@@ -79,34 +79,20 @@ impl Image {
 
                 data = cast_slice(&raw_data).to_owned();
             }
-            DynamicImage::ImageRgb16(image) => {
-                width = image.width();
-                height = image.height();
-                format = TextureFormat::Rgba16Uint;
+            DynamicImage::ImageRgb16(i) => {
+                let i = DynamicImage::ImageRgb16(i).into_rgba16();
+                width = i.width();
+                height = i.height();
+                format = TextureFormat::Rgba16Unorm;
 
-                let mut local_data =
-                    Vec::with_capacity(width as usize * height as usize * format.pixel_size());
+                let raw_data = i.into_raw();
 
-                for pixel in image.into_raw().chunks_exact(3) {
-                    // TODO: use the array_chunks method once stabilised
-                    // https://github.com/rust-lang/rust/issues/74985
-                    let r = pixel[0];
-                    let g = pixel[1];
-                    let b = pixel[2];
-                    let a = u16::max_value();
-
-                    local_data.extend_from_slice(&r.to_ne_bytes());
-                    local_data.extend_from_slice(&g.to_ne_bytes());
-                    local_data.extend_from_slice(&b.to_ne_bytes());
-                    local_data.extend_from_slice(&a.to_ne_bytes());
-                }
-
-                data = local_data;
+                data = cast_slice(&raw_data).to_owned();
             }
             DynamicImage::ImageRgba16(i) => {
                 width = i.width();
                 height = i.height();
-                format = TextureFormat::Rgba16Uint;
+                format = TextureFormat::Rgba16Unorm;
 
                 let raw_data = i.into_raw();
 
