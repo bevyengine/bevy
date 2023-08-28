@@ -13,7 +13,7 @@ use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
     BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo,
-    TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
+    TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation, DefaultFontSize,
 };
 use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
@@ -82,6 +82,8 @@ fn create_text_measure(
     text: Ref<Text>,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextFlags>,
+    view_height: f32,
+    default_font_size: DefaultFontSize,
 ) {
     match text_pipeline.create_text_measure(
         fonts,
@@ -89,6 +91,8 @@ fn create_text_measure(
         scale_factor,
         text.alignment,
         text.linebreak_behavior,
+        view_height,
+        default_font_size
     ) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
@@ -129,11 +133,12 @@ pub fn measure_text_system(
     ui_scale: Res<UiScale>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(Ref<Text>, &mut ContentSize, &mut TextFlags), With<Node>>,
+    default_font_size: Res<DefaultFontSize>,
 ) {
-    let window_scale_factor = windows
+    let (window_scale_factor, view_height) = windows
         .get_single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.);
+        .map(|window| (window.resolution.scale_factor(), window.resolution.height()))
+        .unwrap_or((1., 600.));
 
     let scale_factor = ui_scale.0 * window_scale_factor;
 
@@ -149,6 +154,8 @@ pub fn measure_text_system(
                     text,
                     content_size,
                     text_flags,
+                    view_height,
+                    *default_font_size
                 );
             }
         }
@@ -164,6 +171,8 @@ pub fn measure_text_system(
                 text,
                 content_size,
                 text_flags,
+                view_height,
+                *default_font_size
             );
         }
     }
@@ -184,6 +193,8 @@ fn queue_text(
     node: Ref<Node>,
     mut text_flags: Mut<TextFlags>,
     mut text_layout_info: Mut<TextLayoutInfo>,
+    view_height: f32,
+    default_font_size: DefaultFontSize,
 ) {
     // Skip the text node if it is waiting for a new measure func
     if !text_flags.needs_new_measure_func {
@@ -208,6 +219,8 @@ fn queue_text(
             text_settings,
             font_atlas_warning,
             YAxisOrientation::TopToBottom,
+            view_height,
+            default_font_size,
         ) {
             Err(TextError::NoSuchFont) => {
                 // There was an error processing the text layout, try again next frame
@@ -245,12 +258,13 @@ pub fn text_system(
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(Ref<Node>, &Text, &mut TextLayoutInfo, &mut TextFlags)>,
+    default_font_size: Res<DefaultFontSize>,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let window_scale_factor = windows
+    let (window_scale_factor, view_height) = windows
         .get_single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.);
+        .map(|window| (window.resolution.scale_factor(), window.height()))
+        .unwrap_or((1., 600.));
 
     let scale_factor = ui_scale.0 * window_scale_factor;
 
@@ -271,6 +285,8 @@ pub fn text_system(
                     node,
                     text_flags,
                     text_layout_info,
+                    view_height,
+                    *default_font_size,
                 );
             }
         }
@@ -292,6 +308,8 @@ pub fn text_system(
                 node,
                 text_flags,
                 text_layout_info,
+                view_height,
+                *default_font_size,
             );
         }
     }

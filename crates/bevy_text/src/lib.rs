@@ -22,7 +22,7 @@ pub use text2d::*;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Font, Text, Text2dBundle, TextAlignment, TextError, TextSection, TextStyle};
+    pub use crate::{Font, Text, Text2dBundle, TextAlignment, TextError, TextSection, TextStyle, DefaultFontSize, FontSize};
 }
 
 use bevy_app::prelude::*;
@@ -88,6 +88,7 @@ impl Plugin for TextPlugin {
             .init_asset_loader::<FontLoader>()
             .init_resource::<TextSettings>()
             .init_resource::<FontAtlasWarning>()
+            .init_resource::<DefaultFontSize>()
             .insert_resource(TextPipeline::default())
             .add_systems(
                 PostUpdate,

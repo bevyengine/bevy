@@ -10,9 +10,9 @@ use bevy_utils::HashMap;
 use glyph_brush_layout::{FontId, GlyphPositioner, SectionGeometry, SectionText};
 
 use crate::{
-    compute_text_bounds, error::TextError, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font,
+    compute_text_bounds, error::TextError, glyph_brush::GlyphBrush, BreakLineOn, Font,
     FontAtlasSet, FontAtlasWarning, PositionedGlyph, TextAlignment, TextSection, TextSettings,
-    YAxisOrientation,
+    YAxisOrientation, DefaultFontSize,
 };
 
 #[derive(Default, Resource)]
@@ -54,6 +54,8 @@ impl TextPipeline {
         text_settings: &TextSettings,
         font_atlas_warning: &mut FontAtlasWarning,
         y_axis_orientation: YAxisOrientation,
+        viewport_height: f32,
+        default_font_size: DefaultFontSize,
     ) -> Result<TextLayoutInfo, TextError> {
         let mut scaled_fonts = Vec::with_capacity(sections.len());
         let sections = sections
@@ -63,7 +65,9 @@ impl TextPipeline {
                     .get(&section.style.font)
                     .ok_or(TextError::NoSuchFont)?;
                 let font_id = self.get_or_insert_font_id(&section.style.font, font);
-                let font_size = scale_value(section.style.font_size, scale_factor);
+                // let resolved_font_size = section.style.font_size.resolve(default_font_size, viewport_height);
+                // let font_size = scale_value(resolved_font_size, scale_factor);
+                let font_size = section.style.font_size.resolve(default_font_size, viewport_height, scale_factor);
 
                 scaled_fonts.push(ab_glyph::Font::as_scaled(&font.font, font_size));
 
@@ -109,6 +113,8 @@ impl TextPipeline {
         scale_factor: f64,
         text_alignment: TextAlignment,
         linebreak_behaviour: BreakLineOn,
+        viewport_height: f32,
+        default_font_size: DefaultFontSize,
     ) -> Result<TextMeasureInfo, TextError> {
         let mut auto_fonts = Vec::with_capacity(sections.len());
         let mut scaled_fonts = Vec::with_capacity(sections.len());
@@ -119,7 +125,7 @@ impl TextPipeline {
                 let font = fonts
                     .get(&section.style.font)
                     .ok_or(TextError::NoSuchFont)?;
-                let font_size = scale_value(section.style.font_size, scale_factor);
+                let font_size = section.style.font_size.resolve(default_font_size, viewport_height, scale_factor);
                 auto_fonts.push(font.font.clone());
                 let px_scale_font = ab_glyph::Font::into_scaled(font.font.clone(), font_size);
                 scaled_fonts.push(px_scale_font);

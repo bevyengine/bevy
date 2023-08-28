@@ -1,5 +1,5 @@
 use bevy_asset::Handle;
-use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent, system::Resource};
 use bevy_reflect::prelude::*;
 use bevy_render::color::Color;
 use bevy_utils::default;
@@ -174,7 +174,7 @@ pub struct TextStyle {
     ///
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
-    pub font_size: f32,
+    pub font_size: FontSize,
     pub color: Color,
 }
 
@@ -182,8 +182,57 @@ impl Default for TextStyle {
     fn default() -> Self {
         Self {
             font: DEFAULT_FONT_HANDLE.typed(),
-            font_size: 12.0,
+            font_size: FontSize::Default,
             color: Color::WHITE,
+        }
+    }
+}
+
+/// The default font size.
+/// Used when the size field of TextStyle is set to Default.
+#[derive(Resource, Clone, Copy, Debug)]
+pub enum DefaultFontSize {
+    /// Default font size in logical pixels
+    Px(f32),
+    /// Default font size expressed as a percentage of the height of the viewport.
+    Vh(f32),
+}
+
+impl Default for DefaultFontSize {
+    fn default() -> Self {
+        DefaultFontSize::Px(12.)
+    }
+}
+
+/// The size of a font
+#[derive(Default, Copy, Clone, Debug, Reflect)]
+pub enum FontSize {
+    /// The size of the font in logical pixels
+    Px(f32),
+    /// The size of the font expressed as a percentage of the height of the viewport.
+    Vh(f32),
+    /// Use the size from the `DefaultFontSize` resource
+    #[default]
+    Default,
+}
+
+impl From<DefaultFontSize> for FontSize {
+    fn from(value: DefaultFontSize) -> Self {
+        match value {
+            DefaultFontSize::Px(px) => FontSize::Px(px),
+            DefaultFontSize::Vh(vh) => FontSize::Vh(vh),
+        }
+    }
+}
+
+
+impl FontSize {
+    /// Resolve the `FontSize` to a numeric value in logical pixels.
+    pub fn resolve(self, default_font_size: DefaultFontSize, viewport_height: f32, scale_factor: f64) -> f32 {
+        match self {
+            FontSize::Px(px) => (px as f64 * scale_factor) as f32,
+            FontSize::Vh(vh) => viewport_height * vh / 100.,
+            FontSize::Default => Self::from(default_font_size).resolve(default_font_size, viewport_height, scale_factor),
         }
     }
 }
