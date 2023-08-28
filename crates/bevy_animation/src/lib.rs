@@ -625,10 +625,7 @@ fn apply_animation(
             let Some(target) = entity_from_path(root, path, children, names, cached_path) else {
                 continue;
             };
-<<<<<<< HEAD
             any_path_found = true;
-=======
->>>>>>> 165c47071 (Fix CI for Rust 1.72 (#9562))
             // SAFETY: The verify_no_ancestor_player check above ensures that two animation players cannot alias
             // any of their descendant Transforms.
             //

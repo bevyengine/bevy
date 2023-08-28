@@ -798,11 +798,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {
-<<<<<<< HEAD
             let Ok((material_handle, mesh_handle, mesh_transforms)) =
-=======
-            let Ok((material_handle, mesh_handle, mesh_transforms, batch_indices)) =
->>>>>>> 165c47071 (Fix CI for Rust 1.72 (#9562))
                 material_meshes.get(*visible_entity)
             else {
                 continue;
