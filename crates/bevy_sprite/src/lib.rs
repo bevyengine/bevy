@@ -108,6 +108,13 @@ impl Plugin for SpritePlugin {
     }
 }
 
+/// System calculating and inserting an [`Aabb`] component to entities with either:
+/// - a `Mesh2dHandle` component,
+/// - a `Sprite` and `Handle<Image>` components,
+/// - a `TextureAtlasSprite` and `Handle<TextureAtlas>` components,
+/// and without a [`NoFrustumCulling`] component.
+///
+/// Used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds_2d(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,

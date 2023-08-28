@@ -153,7 +153,13 @@ pub struct VisibilityBundle {
     pub computed: ComputedVisibility,
 }
 
-/// Use this component to opt-out of built-in frustum culling for Mesh entities
+/// Use this component to opt-out of built-in frustum culling for entities, see
+/// [`Frustum`].
+///
+/// It can be used for example:
+/// - when a [`Mesh`] is updated but its [`Aabb`] is not, which might happen with animations,
+/// - when using some light effects, like wanting a [`Mesh`] out of the [`Frustum`]
+/// to appear in the reflection of a [`Mesh`] within.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct NoFrustumCulling;
@@ -161,15 +167,12 @@ pub struct NoFrustumCulling;
 /// Collection of entities visible from the current view.
 ///
 /// This component contains all entities which are visible from the currently
-/// rendered view. The collection is updated automatically by the [`check_visibility()`]
-/// system, and renderers can use it to optimize rendering of a particular view, to
+/// rendered view. The collection is updated automatically by the [`VisibilitySystems::CheckVisibility`]
+/// system set, and renderers can use it to optimize rendering of a particular view, to
 /// prevent drawing items not visible from that view.
 ///
 /// This component is intended to be attached to the same entity as the [`Camera`] and
 /// the [`Frustum`] defining the view.
-///
-/// Currently this component is ignored by the sprite renderer, so sprite rendering
-/// is not optimized per view.
 #[derive(Clone, Component, Default, Debug, Reflect)]
 #[reflect(Component)]
 pub struct VisibleEntities {
@@ -193,13 +196,21 @@ impl VisibleEntities {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
+    /// Label for the [`calculate_bounds`] and `calculate_bounds_2d` systems,
+    /// calculating and inserting an [`Aabb`] to relevant entities.
     CalculateBounds,
+    /// Label for the [`apply_deferred`] call after [`VisibilitySystems::CalculateBounds`]
     CalculateBoundsFlush,
+    /// Label for the [`update_frusta<OrthographicProjection>`] system.
     UpdateOrthographicFrusta,
+    /// Label for the [`update_frusta<PerspectiveProjection>`] system.
     UpdatePerspectiveFrusta,
+    /// Label for the [`update_frusta<Projection>`] system.
     UpdateProjectionFrusta,
+    /// Label for the system propagating the [`ComputedVisibility`] in a
+    /// [`hierarchy`](bevy_hierarchy).
     VisibilityPropagate,
-    /// Label for the [`check_visibility()`] system updating each frame the [`ComputedVisibility`]
+    /// Label for the [`check_visibility`] system updating [`ComputedVisibility`]
     /// of each entity and the [`VisibleEntities`] of each view.
     CheckVisibility,
 }
@@ -253,6 +264,10 @@ impl Plugin for VisibilityPlugin {
     }
 }
 
+/// Computes and adds an [`Aabb`] component to entities with a
+/// [`Handle<Mesh>`](Mesh) component and without a [`NoFrustumCulling`] component.
+///
+/// This system is used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
@@ -267,6 +282,11 @@ pub fn calculate_bounds(
     }
 }
 
+/// Updates [`Frustum`].
+///
+/// This system is used in system sets [`VisibilitySystems::UpdateProjectionFrusta`],
+/// [`VisibilitySystems::UpdatePerspectiveFrusta`], and
+/// [`VisibilitySystems::UpdateOrthographicFrusta`].
 pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     mut views: Query<
         (&GlobalTransform, &T, &mut Frustum),
@@ -345,9 +365,9 @@ fn propagate_recursive(
     Ok(())
 }
 
-/// System updating the visibility of entities each frame.
+/// Updates the visibility of entities each frame.
 ///
-/// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each frame, it updates the
+/// This system is part of the [`VisibilitySystems::CheckVisibility`] set. Each frame, it updates the
 /// [`ComputedVisibility`] of all entities, and for each view also compute the [`VisibleEntities`]
 /// for that view.
 pub fn check_visibility(
