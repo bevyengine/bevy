@@ -1,5 +1,5 @@
 #import bevy_pbr::mesh_bindings    mesh
-#import bevy_pbr::mesh_functions   mesh_position_local_to_clip
+#import bevy_pbr::mesh_functions   get_model_matrix, mesh_position_local_to_clip
 
 #ifdef SKINNED
     #import bevy_pbr::skinning
@@ -23,7 +23,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #ifdef SKINNED
     let model = bevy_pbr::skinning::skin_model(vertex.joint_indexes, vertex.joint_weights);
 #else
-    let model = mesh[vertex.instance_index].model;
+    let model = get_model_matrix(vertex.instance_index);
 #endif
 
     var out: VertexOutput;

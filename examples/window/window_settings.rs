@@ -4,7 +4,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
+    window::{CursorGrabMode, PresentMode, PrimaryWindow, WindowLevel, WindowTheme},
 };
 
 fn main() {
@@ -24,6 +24,10 @@ fn main() {
                         maximize: false,
                         ..Default::default()
                     },
+                    // This will spawn an invisible window
+                    // The window will be made visible in the setup() function
+                    // This is useful when you want to avoid the white window that shows up before the GPU is ready to render the app.
+                    visible: false,
                     ..default()
                 }),
                 ..default()
@@ -31,6 +35,7 @@ fn main() {
             LogDiagnosticsPlugin::default(),
             FrameTimeDiagnosticsPlugin,
         ))
+        .add_systems(Startup, setup)
         .add_systems(
             Update,
             (
@@ -44,6 +49,13 @@ fn main() {
             ),
         )
         .run();
+}
+
+fn setup(mut primary_window: Query<&mut Window, With<PrimaryWindow>>) {
+    // At this point the gpu is ready to show the app so we can make the window visible
+    // There might still be a white frame when doing it in startup.
+    // Alternatively, you could have a system that waits a few seconds before making the window visible.
+    primary_window.single_mut().visible = true;
 }
 
 /// This system toggles the vsync mode when pressing the button V.

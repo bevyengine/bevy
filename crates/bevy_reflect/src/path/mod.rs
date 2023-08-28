@@ -1,51 +1,91 @@
 mod access;
+mod parse;
 
 use std::fmt;
-use std::num::ParseIntError;
 
 use crate::Reflect;
 use access::Access;
+use parse::PathParser;
 use thiserror::Error;
 
-type ParseResult<T> = Result<T, ReflectPathParseError>;
+pub use parse::ParseError;
+
+type PathResult<'a, T> = Result<T, ReflectPathError<'a>>;
 
 /// An error specific to accessing a field/index on a `Reflect`.
 #[derive(Debug, PartialEq, Eq, Error)]
 #[error(transparent)]
 pub struct AccessError<'a>(access::Error<'a>);
 
-/// A parse error for a path string.
-#[derive(Debug, PartialEq, Eq, Error)]
-pub enum ReflectPathParseError {
-    #[error("expected an identifier at offset {offset}")]
-    ExpectedIdent { offset: usize },
-
-    #[error("encountered an unexpected token `{token}`")]
-    UnexpectedToken { offset: usize, token: &'static str },
-
-    #[error("expected token `{token}`, but it wasn't there.")]
-    ExpectedToken { offset: usize, token: &'static str },
-
-    #[error("failed to parse a usize")]
-    IndexParseError(#[from] ParseIntError),
-}
-
 /// An error returned from a failed path string query.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ReflectPathError<'a> {
-    #[error("{error}")]
+    #[error("at {offset} in path specification: {error}")]
     InvalidAccess {
         /// Position in the path string.
         offset: usize,
         error: AccessError<'a>,
     },
+
     #[error("failed to downcast to the path result to the given type")]
     InvalidDowncast,
 
-    #[error(transparent)]
-    Parse(#[from] ReflectPathParseError),
+    #[error("at {offset} in '{path}': {error}")]
+    ParseError {
+        /// Position in `path`.
+        offset: usize,
+        path: &'a str,
+        error: ParseError<'a>,
+    },
 }
 
+/// Something that can be interpreted as a reflection path in [`GetPath`].
+pub trait ReflectPath<'a>: Sized {
+    /// Gets a reference to the specified element on the given [`Reflect`] object.
+    ///
+    /// See [`GetPath::reflect_path`] for more details,
+    /// see [`element`](Self::element) if you want a typed return value.
+    fn reflect_element(self, root: &dyn Reflect) -> PathResult<'a, &dyn Reflect>;
+
+    /// Gets a mutable reference to the specified element on the given [`Reflect`] object.
+    ///
+    /// See [`GetPath::reflect_path_mut`] for more details.
+    fn reflect_element_mut(self, root: &mut dyn Reflect) -> PathResult<'a, &mut dyn Reflect>;
+
+    /// Gets a `&T` to the specified element on the given [`Reflect`] object.
+    ///
+    /// See [`GetPath::path`] for more details.
+    fn element<T: Reflect>(self, root: &dyn Reflect) -> PathResult<'a, &T> {
+        self.reflect_element(root).and_then(|p| {
+            p.downcast_ref::<T>()
+                .ok_or(ReflectPathError::InvalidDowncast)
+        })
+    }
+
+    /// Gets a `&mut T` to the specified element on the given [`Reflect`] object.
+    ///
+    /// See [`GetPath::path_mut`] for more details.
+    fn element_mut<T: Reflect>(self, root: &mut dyn Reflect) -> PathResult<'a, &mut T> {
+        self.reflect_element_mut(root).and_then(|p| {
+            p.downcast_mut::<T>()
+                .ok_or(ReflectPathError::InvalidDowncast)
+        })
+    }
+}
+impl<'a> ReflectPath<'a> for &'a str {
+    fn reflect_element(self, mut root: &dyn Reflect) -> PathResult<'a, &dyn Reflect> {
+        for (access, offset) in PathParser::new(self) {
+            root = access?.element(root, offset)?;
+        }
+        Ok(root)
+    }
+    fn reflect_element_mut(self, mut root: &mut dyn Reflect) -> PathResult<'a, &mut dyn Reflect> {
+        for (access, offset) in PathParser::new(self) {
+            root = access?.element_mut(root, offset)?;
+        }
+        Ok(root)
+    }
+}
 /// A trait which allows nested [`Reflect`] values to be retrieved with path strings.
 ///
 /// Using these functions repeatedly with the same string requires parsing the string every time.
@@ -185,12 +225,14 @@ pub enum ReflectPathError<'a> {
 /// [`List`]: crate::List
 /// [`Array`]: crate::Array
 /// [`Enum`]: crate::Enum
-pub trait GetPath {
+pub trait GetPath: Reflect {
     /// Returns a reference to the value specified by `path`.
     ///
     /// To retrieve a statically typed reference, use
     /// [`path`][GetPath::path].
-    fn reflect_path<'p>(&self, path: &'p str) -> Result<&dyn Reflect, ReflectPathError<'p>>;
+    fn reflect_path<'p>(&self, path: impl ReflectPath<'p>) -> PathResult<'p, &dyn Reflect> {
+        path.reflect_element(self.as_reflect())
+    }
 
     /// Returns a mutable reference to the value specified by `path`.
     ///
@@ -198,8 +240,10 @@ pub trait GetPath {
     /// [`path_mut`][GetPath::path_mut].
     fn reflect_path_mut<'p>(
         &mut self,
-        path: &'p str,
-    ) -> Result<&mut dyn Reflect, ReflectPathError<'p>>;
+        path: impl ReflectPath<'p>,
+    ) -> PathResult<'p, &mut dyn Reflect> {
+        path.reflect_element_mut(self.as_reflect_mut())
+    }
 
     /// Returns a statically typed reference to the value specified by `path`.
     ///
@@ -208,11 +252,8 @@ pub trait GetPath {
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
     /// [`DynamicStruct`]: crate::DynamicStruct
-    fn path<'p, T: Reflect>(&self, path: &'p str) -> Result<&T, ReflectPathError<'p>> {
-        self.reflect_path(path).and_then(|p| {
-            p.downcast_ref::<T>()
-                .ok_or(ReflectPathError::InvalidDowncast)
-        })
+    fn path<'p, T: Reflect>(&self, path: impl ReflectPath<'p>) -> PathResult<'p, &T> {
+        path.element(self.as_reflect())
     }
 
     /// Returns a statically typed mutable reference to the value specified by `path`.
@@ -222,47 +263,13 @@ pub trait GetPath {
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
     /// [`DynamicStruct`]: crate::DynamicStruct
-    fn path_mut<'p, T: Reflect>(&mut self, path: &'p str) -> Result<&mut T, ReflectPathError<'p>> {
-        self.reflect_path_mut(path).and_then(|p| {
-            p.downcast_mut::<T>()
-                .ok_or(ReflectPathError::InvalidDowncast)
-        })
+    fn path_mut<'p, T: Reflect>(&mut self, path: impl ReflectPath<'p>) -> PathResult<'p, &mut T> {
+        path.element_mut(self.as_reflect_mut())
     }
 }
 
-impl<T: Reflect> GetPath for T {
-    fn reflect_path<'p>(&self, path: &'p str) -> Result<&dyn Reflect, ReflectPathError<'p>> {
-        (self as &dyn Reflect).reflect_path(path)
-    }
-
-    fn reflect_path_mut<'p>(
-        &mut self,
-        path: &'p str,
-    ) -> Result<&mut dyn Reflect, ReflectPathError<'p>> {
-        (self as &mut dyn Reflect).reflect_path_mut(path)
-    }
-}
-
-impl GetPath for dyn Reflect {
-    fn reflect_path<'p>(&self, path: &'p str) -> Result<&dyn Reflect, ReflectPathError<'p>> {
-        let mut current: &dyn Reflect = self;
-        for (access, offset) in PathParser::new(path) {
-            current = access?.element(current, offset)?;
-        }
-        Ok(current)
-    }
-
-    fn reflect_path_mut<'p>(
-        &mut self,
-        path: &'p str,
-    ) -> Result<&mut dyn Reflect, ReflectPathError<'p>> {
-        let mut current: &mut dyn Reflect = self;
-        for (access, offset) in PathParser::new(path) {
-            current = access?.element_mut(current, offset)?;
-        }
-        Ok(current)
-    }
-}
+// Implement `GetPath` for `dyn Reflect`
+impl<T: Reflect + ?Sized> GetPath for T {}
 
 /// A pre-parsed path to an element within a type.
 ///
@@ -297,7 +304,7 @@ impl ParsedPath {
     ///
     /// # Example
     /// ```
-    /// # use bevy_reflect::{ParsedPath, Reflect};
+    /// # use bevy_reflect::{ParsedPath, Reflect, ReflectPath};
     /// #[derive(Reflect)]
     /// struct Foo {
     ///   bar: Bar,
@@ -328,7 +335,7 @@ impl ParsedPath {
     /// assert_eq!(parsed_path.element::<u32>(&foo).unwrap(), &123);
     /// ```
     ///
-    pub fn parse(string: &str) -> Result<Self, ReflectPathError<'_>> {
+    pub fn parse(string: &str) -> PathResult<Self> {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {
             parts.push((access?.into_owned(), offset));
@@ -338,74 +345,26 @@ impl ParsedPath {
 
     /// Similar to [`Self::parse`] but only works on `&'static str`
     /// and does not allocate per named field.
-    pub fn parse_static(string: &'static str) -> Result<Self, ReflectPathError<'_>> {
+    pub fn parse_static(string: &'static str) -> PathResult<Self> {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {
             parts.push((access?, offset));
         }
         Ok(Self(parts.into_boxed_slice()))
     }
-
-    /// Gets a read-only reference to the specified element on the given [`Reflect`] object.
-    ///
-    /// Returns an error if the path is invalid for the provided type.
-    ///
-    /// See [`element_mut`](Self::reflect_element_mut) for a typed version of this method.
-    pub fn reflect_element<'r, 'p>(
-        &'p self,
-        root: &'r dyn Reflect,
-    ) -> Result<&'r dyn Reflect, ReflectPathError<'p>> {
-        let mut current = root;
-        for (access, offset) in self.0.iter() {
-            current = access.element(current, *offset)?;
+}
+impl<'a> ReflectPath<'a> for &'a ParsedPath {
+    fn reflect_element(self, mut root: &dyn Reflect) -> PathResult<'a, &dyn Reflect> {
+        for (access, offset) in &*self.0 {
+            root = access.element(root, *offset)?;
         }
-        Ok(current)
+        Ok(root)
     }
-
-    /// Gets a mutable reference to the specified element on the given [`Reflect`] object.
-    ///
-    /// Returns an error if the path is invalid for the provided type.
-    ///
-    /// See [`element_mut`](Self::element_mut) for a typed version of this method.
-    pub fn reflect_element_mut<'r, 'p>(
-        &'p self,
-        root: &'r mut dyn Reflect,
-    ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>> {
-        let mut current = root;
-        for (access, offset) in self.0.iter() {
-            current = access.element_mut(current, *offset)?;
+    fn reflect_element_mut(self, mut root: &mut dyn Reflect) -> PathResult<'a, &mut dyn Reflect> {
+        for (access, offset) in &*self.0 {
+            root = access.element_mut(root, *offset)?;
         }
-        Ok(current)
-    }
-
-    /// Gets a typed, read-only reference to the specified element on the given [`Reflect`] object.
-    ///
-    /// Returns an error if the path is invalid for the provided type.
-    ///
-    /// See [`reflect_element`](Self::reflect_element) for an untyped version of this method.
-    pub fn element<'r, 'p, T: Reflect>(
-        &'p self,
-        root: &'r dyn Reflect,
-    ) -> Result<&'r T, ReflectPathError<'p>> {
-        self.reflect_element(root).and_then(|p| {
-            p.downcast_ref::<T>()
-                .ok_or(ReflectPathError::InvalidDowncast)
-        })
-    }
-
-    /// Gets a typed, read-only reference to the specified element on the given [`Reflect`] object.
-    ///
-    /// Returns an error if the path is invalid for the provided type.
-    ///
-    /// See [`reflect_element_mut`](Self::reflect_element_mut) for an untyped version of this method.
-    pub fn element_mut<'r, 'p, T: Reflect>(
-        &'p self,
-        root: &'r mut dyn Reflect,
-    ) -> Result<&'r mut T, ReflectPathError<'p>> {
-        self.reflect_element_mut(root).and_then(|p| {
-            p.downcast_mut::<T>()
-                .ok_or(ReflectPathError::InvalidDowncast)
-        })
+        Ok(root)
     }
 }
 
@@ -417,139 +376,6 @@ impl fmt::Display for ParsedPath {
         Ok(())
     }
 }
-
-struct PathParser<'a> {
-    path: &'a str,
-    index: usize,
-}
-
-impl<'a> PathParser<'a> {
-    fn new(path: &'a str) -> Self {
-        Self { path, index: 0 }
-    }
-
-    fn next_token(&mut self) -> Option<Token<'a>> {
-        if self.index >= self.path.len() {
-            return None;
-        }
-
-        match self.path[self.index..].chars().next().unwrap() {
-            Token::DOT => {
-                self.index += 1;
-                return Some(Token::Dot);
-            }
-            Token::CROSSHATCH => {
-                self.index += 1;
-                return Some(Token::CrossHatch);
-            }
-            Token::OPEN_BRACKET => {
-                self.index += 1;
-                return Some(Token::OpenBracket);
-            }
-            Token::CLOSE_BRACKET => {
-                self.index += 1;
-                return Some(Token::CloseBracket);
-            }
-            _ => {}
-        }
-
-        // we can assume we are parsing an ident now
-        for (char_index, character) in self.path[self.index..].chars().enumerate() {
-            match character {
-                Token::DOT | Token::CROSSHATCH | Token::OPEN_BRACKET | Token::CLOSE_BRACKET => {
-                    let ident = Token::Ident(&self.path[self.index..self.index + char_index]);
-                    self.index += char_index;
-                    return Some(ident);
-                }
-                _ => {}
-            }
-        }
-        let ident = Token::Ident(&self.path[self.index..]);
-        self.index = self.path.len();
-        Some(ident)
-    }
-
-    fn token_to_access(&mut self, token: Token<'a>) -> ParseResult<Access<'a>> {
-        let current_offset = self.index;
-        match token {
-            Token::Dot => {
-                if let Some(Token::Ident(value)) = self.next_token() {
-                    value
-                        .parse::<usize>()
-                        .map(Access::TupleIndex)
-                        .or(Ok(Access::Field(value.into())))
-                } else {
-                    Err(ReflectPathParseError::ExpectedIdent {
-                        offset: current_offset,
-                    })
-                }
-            }
-            Token::CrossHatch => {
-                if let Some(Token::Ident(value)) = self.next_token() {
-                    Ok(Access::FieldIndex(value.parse::<usize>()?))
-                } else {
-                    Err(ReflectPathParseError::ExpectedIdent {
-                        offset: current_offset,
-                    })
-                }
-            }
-            Token::OpenBracket => {
-                let access = if let Some(Token::Ident(value)) = self.next_token() {
-                    Access::ListIndex(value.parse::<usize>()?)
-                } else {
-                    return Err(ReflectPathParseError::ExpectedIdent {
-                        offset: current_offset,
-                    });
-                };
-
-                if !matches!(self.next_token(), Some(Token::CloseBracket)) {
-                    return Err(ReflectPathParseError::ExpectedToken {
-                        offset: current_offset,
-                        token: Token::OPEN_BRACKET_STR,
-                    });
-                }
-
-                Ok(access)
-            }
-            Token::CloseBracket => Err(ReflectPathParseError::UnexpectedToken {
-                offset: current_offset,
-                token: Token::CLOSE_BRACKET_STR,
-            }),
-            Token::Ident(value) => value
-                .parse::<usize>()
-                .map(Access::TupleIndex)
-                .or(Ok(Access::Field(value.into()))),
-        }
-    }
-}
-
-impl<'a> Iterator for PathParser<'a> {
-    type Item = (ParseResult<Access<'a>>, usize);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let token = self.next_token()?;
-        let index = self.index;
-        Some((self.token_to_access(token), index))
-    }
-}
-
-enum Token<'a> {
-    Dot,
-    CrossHatch,
-    OpenBracket,
-    CloseBracket,
-    Ident(&'a str),
-}
-
-impl<'a> Token<'a> {
-    const DOT: char = '.';
-    const CROSSHATCH: char = '#';
-    const OPEN_BRACKET: char = '[';
-    const CLOSE_BRACKET: char = ']';
-    const OPEN_BRACKET_STR: &'static str = "[";
-    const CLOSE_BRACKET_STR: &'static str = "]";
-}
-
 #[cfg(test)]
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
@@ -574,12 +400,12 @@ mod tests {
     #[derive(Reflect)]
     struct B {
         foo: usize,
-        bar: C,
+        łørđ: C,
     }
 
     #[derive(Reflect)]
     struct C {
-        baz: f32,
+        mосква: f32,
     }
 
     #[derive(Reflect)]
@@ -592,7 +418,7 @@ mod tests {
     enum F {
         Unit,
         Tuple(u32, u32),
-        Struct { value: char },
+        Şķràźÿ { 東京: char },
     }
 
     fn a_sample() -> A {
@@ -600,13 +426,13 @@ mod tests {
             w: 1,
             x: B {
                 foo: 10,
-                bar: C { baz: 3.14 },
+                łørđ: C { mосква: 3.14 },
             },
-            y: vec![C { baz: 1.0 }, C { baz: 2.0 }],
+            y: vec![C { mосква: 1.0 }, C { mосква: 2.0 }],
             z: D(E(10.0, 42)),
             unit_variant: F::Unit,
             tuple_variant: F::Tuple(123, 321),
-            struct_variant: F::Struct { value: 'm' },
+            struct_variant: F::Şķràźÿ { 東京: 'm' },
             array: [86, 75, 309],
             tuple: (true, 1.23),
         }
@@ -614,6 +440,13 @@ mod tests {
 
     fn access_field(field: &'static str) -> Access {
         Access::Field(field.into())
+    }
+
+    type StaticError = ReflectPathError<'static>;
+
+    fn invalid_access(offset: usize, actual: TypeShape, expected: TypeShape) -> StaticError {
+        let error = AccessError(access::Error::Type { actual, expected });
+        ReflectPathError::InvalidAccess { offset, error }
     }
 
     #[test]
@@ -627,19 +460,19 @@ mod tests {
             &[(access_field("x"), 1), (access_field("foo"), 2)]
         );
         assert_eq!(
-            &*ParsedPath::parse("x.bar.baz").unwrap().0,
+            &*ParsedPath::parse("x.łørđ.mосква").unwrap().0,
             &[
                 (access_field("x"), 1),
-                (access_field("bar"), 2),
-                (access_field("baz"), 6)
+                (access_field("łørđ"), 2),
+                (access_field("mосква"), 10)
             ]
         );
         assert_eq!(
-            &*ParsedPath::parse("y[1].baz").unwrap().0,
+            &*ParsedPath::parse("y[1].mосква").unwrap().0,
             &[
                 (access_field("y"), 1),
                 (Access::ListIndex(1), 2),
-                (access_field("baz"), 5)
+                (access_field("mосква"), 5)
             ]
         );
         assert_eq!(
@@ -670,14 +503,14 @@ mod tests {
 
         let b = ParsedPath::parse("w").unwrap();
         let c = ParsedPath::parse("x.foo").unwrap();
-        let d = ParsedPath::parse("x.bar.baz").unwrap();
-        let e = ParsedPath::parse("y[1].baz").unwrap();
+        let d = ParsedPath::parse("x.łørđ.mосква").unwrap();
+        let e = ParsedPath::parse("y[1].mосква").unwrap();
         let f = ParsedPath::parse("z.0.1").unwrap();
         let g = ParsedPath::parse("x#0").unwrap();
         let h = ParsedPath::parse("x#1#0").unwrap();
         let i = ParsedPath::parse("unit_variant").unwrap();
         let j = ParsedPath::parse("tuple_variant.1").unwrap();
-        let k = ParsedPath::parse("struct_variant.value").unwrap();
+        let k = ParsedPath::parse("struct_variant.東京").unwrap();
         let l = ParsedPath::parse("struct_variant#0").unwrap();
         let m = ParsedPath::parse("array[2]").unwrap();
         let n = ParsedPath::parse("tuple.1").unwrap();
@@ -747,15 +580,15 @@ mod tests {
 
         assert_eq!(*a.path::<usize>("w").unwrap(), 1);
         assert_eq!(*a.path::<usize>("x.foo").unwrap(), 10);
-        assert_eq!(*a.path::<f32>("x.bar.baz").unwrap(), 3.14);
-        assert_eq!(*a.path::<f32>("y[1].baz").unwrap(), 2.0);
+        assert_eq!(*a.path::<f32>("x.łørđ.mосква").unwrap(), 3.14);
+        assert_eq!(*a.path::<f32>("y[1].mосква").unwrap(), 2.0);
         assert_eq!(*a.path::<usize>("z.0.1").unwrap(), 42);
         assert_eq!(*a.path::<usize>("x#0").unwrap(), 10);
         assert_eq!(*a.path::<f32>("x#1#0").unwrap(), 3.14);
 
         assert_eq!(*a.path::<F>("unit_variant").unwrap(), F::Unit);
         assert_eq!(*a.path::<u32>("tuple_variant.1").unwrap(), 321);
-        assert_eq!(*a.path::<char>("struct_variant.value").unwrap(), 'm');
+        assert_eq!(*a.path::<char>("struct_variant.東京").unwrap(), 'm');
         assert_eq!(*a.path::<char>("struct_variant#0").unwrap(), 'm');
 
         assert_eq!(*a.path::<i32>("array[2]").unwrap(), 309);
@@ -764,8 +597,8 @@ mod tests {
         *a.path_mut::<f32>("tuple.1").unwrap() = 3.21;
         assert_eq!(*a.path::<f32>("tuple.1").unwrap(), 3.21);
 
-        *a.path_mut::<f32>("y[1].baz").unwrap() = 3.0;
-        assert_eq!(a.y[1].baz, 3.0);
+        *a.path_mut::<f32>("y[1].mосква").unwrap() = 3.0;
+        assert_eq!(a.y[1].mосква, 3.0);
 
         *a.path_mut::<u32>("tuple_variant.0").unwrap() = 1337;
         assert_eq!(a.tuple_variant, F::Tuple(1337, 321));
@@ -791,40 +624,14 @@ mod tests {
                 }),
             }
         );
-
-        assert_eq!(
-            a.reflect_path("x..").err().unwrap(),
-            ReflectPathError::Parse(ReflectPathParseError::ExpectedIdent { offset: 2 })
-        );
-
         assert_eq!(
             a.reflect_path("x[0]").err().unwrap(),
-            ReflectPathError::InvalidAccess {
-                offset: 2,
-                error: AccessError(access::Error::Type {
-                    actual: TypeShape::Struct,
-                    expected: TypeShape::List
-                }),
-            }
+            invalid_access(2, TypeShape::Struct, TypeShape::List)
         );
-
         assert_eq!(
             a.reflect_path("y.x").err().unwrap(),
-            ReflectPathError::InvalidAccess {
-                offset: 2,
-                error: AccessError(access::Error::Type {
-                    actual: TypeShape::List,
-                    expected: TypeShape::Struct
-                }),
-            }
+            invalid_access(2, TypeShape::List, TypeShape::Struct)
         );
-
-        assert!(matches!(
-            a.reflect_path("y[badindex]"),
-            Err(ReflectPathError::Parse(
-                ReflectPathParseError::IndexParseError(_)
-            ))
-        ));
     }
 
     #[test]
@@ -842,8 +649,8 @@ mod tests {
             &[(Access::TupleIndex(5), 1)]
         );
         assert_eq!(
-            &*ParsedPath::parse("[0].bar").unwrap().0,
-            &[(Access::ListIndex(0), 1), (access_field("bar"), 4)]
+            &*ParsedPath::parse("[0].łørđ").unwrap().0,
+            &[(Access::ListIndex(0), 1), (access_field("łørđ"), 4)]
         );
     }
 }

@@ -1991,8 +1991,9 @@ impl World {
         f: impl FnOnce(&mut World, &mut Schedule) -> R,
     ) -> Result<R, TryRunScheduleError> {
         let label = label.as_ref();
-        let Some((extracted_label, mut schedule))
-            = self.get_resource_mut::<Schedules>().and_then(|mut s| s.remove_entry(label))
+        let Some((extracted_label, mut schedule)) = self
+            .get_resource_mut::<Schedules>()
+            .and_then(|mut s| s.remove_entry(label))
         else {
             return Err(TryRunScheduleError(label.dyn_clone()));
         };
@@ -2088,7 +2089,9 @@ impl World {
 }
 
 impl fmt::Debug for World {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // SAFETY: `UnsafeWorldCell` requires that this must only access metadata.
+        // Accessing any data stored in the world would be unsound.
         f.debug_struct("World")
             .field("id", &self.id)
             .field("entity_count", &self.entities.len())
