@@ -81,11 +81,12 @@ impl TextPipeline {
             self.brush
                 .compute_glyphs(&sections, bounds, text_alignment, linebreak_behavior)?;
 
-        if section_glyphs.is_empty() {
-            return Ok(TextLayoutInfo::default());
-        }
-
-        let size = compute_text_bounds(&section_glyphs, |index| &scaled_fonts[index]).size();
+        let size = compute_text_bounds(
+            &section_glyphs,
+            sections.iter().map(|section| section.text),
+            |index| &scaled_fonts[index],
+        )
+        .size();
 
         let glyphs = self.brush.process_glyphs(
             section_glyphs,
@@ -213,7 +214,12 @@ impl TextMeasureInfo {
             .line_breaker(self.linebreak_behaviour)
             .calculate_glyphs(&self.fonts, &geom, sections);
 
-        compute_text_bounds(&section_glyphs, |index| &self.scaled_fonts[index]).size()
+        compute_text_bounds(
+            &section_glyphs,
+            sections.iter().map(|section| section.text),
+            |index| &self.scaled_fonts[index],
+        )
+        .size()
     }
 
     pub fn compute_size(&self, bounds: Vec2) -> Vec2 {
