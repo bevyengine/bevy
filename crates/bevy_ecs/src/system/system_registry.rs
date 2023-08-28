@@ -195,12 +195,12 @@ impl World {
 
 /// The [`Command`] type for [`SystemRegistry::run_system`]
 #[derive(Debug, Clone)]
-pub struct RunSystem<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> {
+pub struct RunSystemCommand<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> {
     _phantom_marker: PhantomData<M>,
     system: S,
 }
 
-impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> RunSystem<M, S> {
+impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> RunSystemCommand<M, S> {
     /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
     #[inline]
     #[must_use]
@@ -213,7 +213,7 @@ impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static>
 }
 
 impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> Command
-    for RunSystem<M, S>
+    for RunSystemCommand<M, S>
 {
     #[inline]
     fn apply(self, world: &mut World) {
@@ -379,10 +379,10 @@ mod tests {
     #[test]
     fn run_system_through_command() {
         use crate::system::commands::Command;
-        use crate::system::RunSystem;
+        use crate::system::RunSystemCommand;
 
         let mut world = World::new();
-        let command = RunSystem::new(spawn_entity);
+        let command = RunSystemCommand::new(spawn_entity);
         assert_eq!(world.entities.len(), 0);
         command.apply(&mut world);
         assert_eq!(world.entities.len(), 1);
