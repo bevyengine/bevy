@@ -6,7 +6,7 @@ use crate::{
     bundle::Bundle,
     entity::{Entities, Entity},
     system::{IntoSystem, RunSystemCommand, RunSystemById, SystemId},
-    world::{FromWorld, World},
+    world::{EntityMut, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
