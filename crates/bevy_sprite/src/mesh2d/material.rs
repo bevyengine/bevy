@@ -16,7 +16,6 @@ use bevy_ecs::{
 use bevy_log::error;
 use bevy_reflect::{TypePath, TypeUuid};
 use bevy_render::{
-    extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
@@ -25,9 +24,9 @@ use bevy_render::{
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, OwnedBindingResource,
-        PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
-        SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout,
+        OwnedBindingResource, PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef,
+        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
     texture::FallbackImage,
@@ -40,8 +39,8 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 
 use crate::{
-    DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dUniform, SetMesh2dBindGroup,
-    SetMesh2dViewBindGroup,
+    DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dTransforms,
+    SetMesh2dBindGroup, SetMesh2dViewBindGroup,
 };
 
 /// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
@@ -151,8 +150,7 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.add_asset::<M>()
-            .add_plugins(ExtractComponentPlugin::<Handle<M>>::extract_visible());
+        app.add_asset::<M>();
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -160,7 +158,10 @@ where
                 .init_resource::<ExtractedMaterials2d<M>>()
                 .init_resource::<RenderMaterials2d<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
-                .add_systems(ExtractSchedule, extract_materials_2d::<M>)
+                .add_systems(
+                    ExtractSchedule,
+                    (extract_materials_2d::<M>, extract_material_meshes_2d::<M>),
+                )
                 .add_systems(
                     Render,
                     (
@@ -180,6 +181,26 @@ where
             render_app.init_resource::<Material2dPipeline<M>>();
         }
     }
+}
+
+fn extract_material_meshes_2d<M: Material2d>(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    query: Extract<Query<(Entity, &ViewVisibility, &Handle<M>)>>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, view_visibility, material) in &query {
+        if view_visibility.get() {
+            // NOTE: Material2dBindGroupId is inserted here to avoid a table move. Upcoming changes
+            // to use SparseSet for render world entity storage will do this automatically.
+            values.push((
+                entity,
+                (material.clone_weak(), Material2dBindGroupId::default()),
+            ));
+        }
+    }
+    *previous_len = values.len();
+    commands.insert_or_spawn_batch(values);
 }
 
 /// Render pipeline data for a given [`Material2d`]
@@ -335,7 +356,12 @@ pub fn queue_material2d_meshes<M: Material2d>(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials2d<M>>,
-    material2d_meshes: Query<(&Handle<M>, &Mesh2dHandle, &Mesh2dUniform)>,
+    mut material2d_meshes: Query<(
+        &Handle<M>,
+        &mut Material2dBindGroupId,
+        &Mesh2dHandle,
+        &Mesh2dTransforms,
+    )>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -380,8 +406,12 @@ pub fn queue_material2d_meshes<M: Material2d>(
         }
 
         for visible_entity in &visible_entities.entities {
-            if let Ok((material2d_handle, mesh2d_handle, mesh2d_uniform)) =
-                material2d_meshes.get(*visible_entity)
+            if let Ok((
+                material2d_handle,
+                mut material2d_bind_group_id,
+                mesh2d_handle,
+                mesh2d_uniform,
+            )) = material2d_meshes.get_mut(*visible_entity)
             {
                 if let Some(material2d) = render_materials.get(material2d_handle) {
                     if let Some(mesh) = render_meshes.get(&mesh2d_handle.0) {
@@ -406,7 +436,8 @@ pub fn queue_material2d_meshes<M: Material2d>(
                             }
                         };
 
-                        let mesh_z = mesh2d_uniform.transform.w_axis.z;
+                        *material2d_bind_group_id = material2d.get_bind_group_id();
+                        let mesh_z = mesh2d_uniform.transform.translation.z;
                         transparent_phase.add(Transparent2d {
                             entity: *visible_entity,
                             draw_function: draw_transparent_pbr,
@@ -416,8 +447,9 @@ pub fn queue_material2d_meshes<M: Material2d>(
                             // -z in front of the camera, the largest distance is -far with values increasing toward the
                             // camera. As such we can just use mesh_z as the distance
                             sort_key: FloatOrd(mesh_z),
-                            // This material is not batched
-                            batch_size: 1,
+                            // Batching is done in prepare_mesh2d_uniforms
+                            batch_range: 0..1,
+                            dynamic_offset: None,
                         });
                     }
                 }
@@ -426,11 +458,20 @@ pub fn queue_material2d_meshes<M: Material2d>(
     }
 }
 
+#[derive(Component, Default, PartialEq, Eq, Deref, DerefMut)]
+pub struct Material2dBindGroupId(Option<BindGroupId>);
+
 /// Data prepared for a [`Material2d`] instance.
 pub struct PreparedMaterial2d<T: Material2d> {
     pub bindings: Vec<OwnedBindingResource>,
     pub bind_group: BindGroup,
     pub key: T::Data,
+}
+
+impl<T: Material2d> PreparedMaterial2d<T> {
+    pub fn get_bind_group_id(&self) -> Material2dBindGroupId {
+        Material2dBindGroupId(Some(self.bind_group.id()))
+    }
 }
 
 #[derive(Resource)]

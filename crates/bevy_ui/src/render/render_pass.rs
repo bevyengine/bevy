@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use super::{UiBatch, UiImageBindGroups, UiMeta};
 use crate::{prelude::UiCameraConfig, DefaultCameraView};
 use bevy_asset::Handle;
@@ -13,6 +15,7 @@ use bevy_render::{
     view::*,
 };
 use bevy_utils::FloatOrd;
+use nonmax::NonMaxU32;
 
 pub struct UiPassNode {
     ui_view_query: QueryState<
@@ -91,7 +94,8 @@ pub struct TransparentUi {
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
-    pub batch_size: usize,
+    pub batch_range: Range<u32>,
+    pub dynamic_offset: Option<NonMaxU32>,
 }
 
 impl PhaseItem for TransparentUi {
@@ -118,8 +122,23 @@ impl PhaseItem for TransparentUi {
     }
 
     #[inline]
-    fn batch_size(&self) -> usize {
-        self.batch_size
+    fn batch_range(&self) -> &Range<u32> {
+        &self.batch_range
+    }
+
+    #[inline]
+    fn batch_range_mut(&mut self) -> &mut Range<u32> {
+        &mut self.batch_range
+    }
+
+    #[inline]
+    fn dynamic_offset(&self) -> Option<NonMaxU32> {
+        self.dynamic_offset
+    }
+
+    #[inline]
+    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
+        &mut self.dynamic_offset
     }
 }
 

@@ -30,7 +30,8 @@ use bevy_utils::{
     tracing::{error, warn},
     HashMap,
 };
-use std::{hash::Hash, num::NonZeroU64};
+use nonmax::NonMaxU32;
+use std::{hash::Hash, num::NonZeroU64, ops::Range};
 
 #[derive(Component)]
 pub struct ExtractedPointLight {
@@ -1641,6 +1642,8 @@ pub fn queue_shadows<M: Material>(
                             pipeline: pipeline_id,
                             entity,
                             distance: 0.0, // TODO: sort front-to-back
+                            batch_range: 0..1,
+                            dynamic_offset: None,
                         });
                     }
                 }
@@ -1654,6 +1657,8 @@ pub struct Shadow {
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
+    pub batch_range: Range<u32>,
+    pub dynamic_offset: Option<NonMaxU32>,
 }
 
 impl PhaseItem for Shadow {
@@ -1680,6 +1685,26 @@ impl PhaseItem for Shadow {
         // Grouping all draw commands using the same pipeline together performs
         // better than rebinding everything at a high rate.
         radsort::sort_by_key(items, |item| item.sort_key());
+    }
+
+    #[inline]
+    fn batch_range(&self) -> &Range<u32> {
+        &self.batch_range
+    }
+
+    #[inline]
+    fn batch_range_mut(&mut self) -> &mut Range<u32> {
+        &mut self.batch_range
+    }
+
+    #[inline]
+    fn dynamic_offset(&self) -> Option<NonMaxU32> {
+        self.dynamic_offset
+    }
+
+    #[inline]
+    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
+        &mut self.dynamic_offset
     }
 }
 

@@ -5,6 +5,7 @@ use crate::{
 };
 use bevy_ecs::{prelude::Component, system::Resource};
 use encase::{private::WriteInto, ShaderSize, ShaderType};
+use nonmax::NonMaxU32;
 use std::{marker::PhantomData, mem};
 use wgpu::{BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType, ShaderStages};
 
@@ -118,12 +119,22 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
 }
 
 /// An index into a [`GpuArrayBuffer`] for a given element.
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct GpuArrayBufferIndex<T: GpuArrayBufferable> {
     /// The index to use in a shader into the array.
     pub index: u32,
     /// The dynamic offset to use when setting the bind group in a pass.
     /// Only used on platforms that don't support storage buffers.
-    pub dynamic_offset: Option<u32>,
+    pub dynamic_offset: Option<NonMaxU32>,
     pub element_type: PhantomData<T>,
+}
+
+impl<T: GpuArrayBufferable> Default for GpuArrayBufferIndex<T> {
+    fn default() -> Self {
+        Self {
+            index: u32::MAX,
+            dynamic_offset: None,
+            element_type: Default::default(),
+        }
+    }
 }

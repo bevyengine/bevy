@@ -7,6 +7,7 @@ use encase::{
     private::{ArrayMetadata, BufferMut, Metadata, RuntimeSizedArray, WriteInto, Writer},
     ShaderType,
 };
+use nonmax::NonMaxU32;
 use std::{marker::PhantomData, num::NonZeroU64};
 use wgpu::{BindingResource, Limits};
 
@@ -77,7 +78,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
     pub fn push(&mut self, component: T) -> GpuArrayBufferIndex<T> {
         let result = GpuArrayBufferIndex {
             index: self.temp.0.len() as u32,
-            dynamic_offset: Some(self.current_offset),
+            dynamic_offset: NonMaxU32::new(self.current_offset),
             element_type: PhantomData,
         };
         self.temp.0.push(component);

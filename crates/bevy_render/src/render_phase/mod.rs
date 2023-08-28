@@ -31,6 +31,7 @@ mod rangefinder;
 
 pub use draw::*;
 pub use draw_state::*;
+use nonmax::NonMaxU32;
 pub use rangefinder::*;
 
 use crate::render_resource::{CachedRenderPipelineId, PipelineCache};
@@ -93,13 +94,13 @@ impl<I: PhaseItem> RenderPhase<I> {
         let mut index = 0;
         while index < self.items.len() {
             let item = &self.items[index];
-            let batch_size = item.batch_size();
-            if batch_size > 0 {
+            let batch_range = item.batch_range();
+            if batch_range.is_empty() {
+                index += 1;
+            } else {
                 let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
                 draw_function.draw(world, render_pass, view, item);
-                index += batch_size;
-            } else {
-                index += 1;
+                index += batch_range.len();
             }
         }
     }
@@ -124,13 +125,13 @@ impl<I: PhaseItem> RenderPhase<I> {
         let mut index = 0;
         while index < items.len() {
             let item = &items[index];
-            let batch_size = item.batch_size();
-            if batch_size > 0 {
+            let batch_range = item.batch_range();
+            if batch_range.is_empty() {
+                index += 1;
+            } else {
                 let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
                 draw_function.draw(world, render_pass, view, item);
-                index += batch_size;
-            } else {
-                index += 1;
+                index += batch_range.len();
             }
         }
     }
@@ -182,12 +183,14 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
         items.sort_unstable_by_key(|item| item.sort_key());
     }
 
-    /// The number of items to skip after rendering this [`PhaseItem`].
-    ///
-    /// Items with a `batch_size` of 0 will not be rendered.
-    fn batch_size(&self) -> usize {
-        1
-    }
+    /// The range of instances that the batch covers. After doing a batched draw, batch range
+    /// length phase items will be skipped. This design is to avoid having to restructure the
+    /// render phase unnecessarily.
+    fn batch_range(&self) -> &Range<u32>;
+    fn batch_range_mut(&mut self) -> &mut Range<u32>;
+
+    fn dynamic_offset(&self) -> Option<NonMaxU32>;
+    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32>;
 }
 
 /// A [`PhaseItem`] item, that automatically sets the appropriate render pipeline,

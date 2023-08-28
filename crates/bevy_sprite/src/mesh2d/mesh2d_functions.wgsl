@@ -2,6 +2,31 @@
 
 #import bevy_sprite::mesh2d_view_bindings  view
 #import bevy_sprite::mesh2d_bindings       mesh
+#import bevy_render::instance_index        get_instance_index
+
+fn affine_to_square(affine: mat3x4<f32>) -> mat4x4<f32> {
+    return transpose(mat4x4<f32>(
+        affine[0],
+        affine[1],
+        affine[2],
+        vec4<f32>(0.0, 0.0, 0.0, 1.0),
+    ));
+}
+
+fn mat2x4_f32_to_mat3x3_unpack(
+    a: mat2x4<f32>,
+    b: f32,
+) -> mat3x3<f32> {
+    return mat3x3<f32>(
+        a[0].xyz,
+        vec3<f32>(a[0].w, a[1].xy),
+        vec3<f32>(a[1].zw, b),
+    );
+}
+
+fn get_model_matrix(instance_index: u32) -> mat4x4<f32> {
+    return affine_to_square(mesh[get_instance_index(instance_index)].model);
+}
 
 fn mesh2d_position_local_to_world(model: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
     return model * vertex_position;
@@ -19,11 +44,10 @@ fn mesh2d_position_local_to_clip(model: mat4x4<f32>, vertex_position: vec4<f32>)
     return mesh2d_position_world_to_clip(world_position);
 }
 
-fn mesh2d_normal_local_to_world(vertex_normal: vec3<f32>) -> vec3<f32> {
-    return mat3x3<f32>(
-        mesh.inverse_transpose_model[0].xyz,
-        mesh.inverse_transpose_model[1].xyz,
-        mesh.inverse_transpose_model[2].xyz
+fn mesh2d_normal_local_to_world(vertex_normal: vec3<f32>, instance_index: u32) -> vec3<f32> {
+    return mat2x4_f32_to_mat3x3_unpack(
+        mesh[instance_index].inverse_transpose_model_a,
+        mesh[instance_index].inverse_transpose_model_b,
     ) * vertex_normal;
 }
 
