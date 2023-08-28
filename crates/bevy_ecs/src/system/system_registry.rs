@@ -1,5 +1,4 @@
 use bevy_utils::HashMap;
-use std::marker::PhantomData;
 
 use crate::system::{BoxedSystem, Command, IntoSystem};
 use crate::world::{Mut, World};
@@ -104,20 +103,6 @@ impl SystemRegistry {
         self.systems.remove(&id.0);
     }
 
-    /// Runs the supplied system on the [`World`] a single time.
-    ///
-    /// You do not need to register systems before they are run in this way.
-    /// Instead, systems will be automatically registered and removed when using this function.
-    ///
-    /// System state will not be reused between runs, so [`Local`](crate::system::Local) variables are not preserved between runs.
-    /// To preserve [`Local`](crate::system::Local) variables between runs, it's possible to register and run the system by id manually.
-    pub fn run<M, S: IntoSystem<(), (), M> + 'static>(&mut self, world: &mut World, system: S) {
-        let mut boxed_system: BoxedSystem = Box::new(IntoSystem::into_system(system));
-        boxed_system.initialize(world);
-        boxed_system.run((), world);
-        boxed_system.apply_deferred(world);
-    }
-
     /// Run the system by its [`SystemId`]
     ///
     /// Systems must be registered before they can be run.
@@ -160,22 +145,6 @@ impl World {
         self.resource_mut::<SystemRegistry>().register(system)
     }
 
-    /// Runs the supplied system on the [`World`] a single time.
-    ///
-    /// Calls [`SystemRegistry::run_system`].
-    #[inline]
-    pub fn run_system<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) {
-        if !self.contains_resource::<SystemRegistry>() {
-            panic!(
-                "SystemRegistry not found: Nested and recursive one-shot systems are not supported"
-            );
-        }
-
-        self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.run(world, system);
-        });
-    }
-
     /// Run the systems with the provided [`SystemId`].
     ///
     /// Calls [`SystemRegistry::run_by_id`].
@@ -190,34 +159,6 @@ impl World {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
             registry.run_by_id(world, id)
         })
-    }
-}
-
-/// The [`Command`] type for [`SystemRegistry::run_system`]
-#[derive(Debug, Clone)]
-pub struct RunSystemCommand<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> {
-    _phantom_marker: PhantomData<M>,
-    system: S,
-}
-
-impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> RunSystemCommand<M, S> {
-    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
-    #[inline]
-    #[must_use]
-    pub fn new(system: S) -> Self {
-        Self {
-            _phantom_marker: PhantomData::default(),
-            system,
-        }
-    }
-}
-
-impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> Command
-    for RunSystemCommand<M, S>
-{
-    #[inline]
-    fn apply(self, world: &mut World) {
-        world.run_system(self.system);
     }
 }
 
@@ -268,59 +209,6 @@ mod tests {
 
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
-
-    #[allow(dead_code)]
-    fn count_up(mut counter: ResMut<Counter>) {
-        counter.0 += 1;
-    }
-
-    #[test]
-    fn run_system() {
-        let mut world = World::new();
-        world.init_resource::<Counter>();
-        assert_eq!(*world.resource::<Counter>(), Counter(0));
-        world.run_system(count_up);
-        assert_eq!(*world.resource::<Counter>(), Counter(1));
-    }
-
-    #[test]
-    /// We need to ensure that the system registry is accessible
-    /// even after being used once.
-    fn run_two_systems() {
-        let mut world = World::new();
-        world.init_resource::<Counter>();
-        assert_eq!(*world.resource::<Counter>(), Counter(0));
-        world.run_system(count_up);
-        assert_eq!(*world.resource::<Counter>(), Counter(1));
-        world.run_system(count_up);
-        assert_eq!(*world.resource::<Counter>(), Counter(2));
-    }
-
-    #[allow(dead_code)]
-    fn spawn_entity(mut commands: Commands) {
-        commands.spawn_empty();
-    }
-
-    #[test]
-    fn command_processing() {
-        let mut world = World::new();
-        assert_eq!(world.entities.len(), 0);
-        world.run_system(spawn_entity);
-        assert_eq!(world.entities.len(), 1);
-    }
-
-    #[test]
-    fn non_send_resources() {
-        fn non_send_count_down(mut ns: NonSendMut<Counter>) {
-            ns.0 -= 1;
-        }
-
-        let mut world = World::new();
-        world.insert_non_send_resource(Counter(10));
-        assert_eq!(*world.non_send_resource::<Counter>(), Counter(10));
-        world.run_system(non_send_count_down);
-        assert_eq!(*world.non_send_resource::<Counter>(), Counter(9));
-    }
 
     #[test]
     fn change_detection() {
@@ -373,37 +261,5 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(4));
         let _ = world.run_system_by_id(id);
         assert_eq!(*world.resource::<Counter>(), Counter(8));
-    }
-
-    #[test]
-    fn run_system_through_command() {
-        use crate::system::commands::Command;
-        use crate::system::RunSystemCommand;
-
-        let mut world = World::new();
-        let command = RunSystemCommand::new(spawn_entity);
-        assert_eq!(world.entities.len(), 0);
-        command.apply(&mut world);
-        assert_eq!(world.entities.len(), 1);
-    }
-
-    #[test]
-    // This is a known limitation;
-    // if this test passes the docs must be updated
-    // to reflect the ability to chain run_system commands
-    #[should_panic]
-    fn system_recursion() {
-        fn count_to_ten(mut counter: ResMut<Counter>, mut commands: Commands) {
-            counter.0 += 1;
-            if counter.0 < 10 {
-                commands.run_system(count_to_ten);
-            }
-        }
-
-        let mut world = World::new();
-        world.init_resource::<Counter>();
-        assert_eq!(*world.resource::<Counter>(), Counter(0));
-        world.run_system(count_to_ten);
-        assert_eq!(*world.resource::<Counter>(), Counter(10));
     }
 }

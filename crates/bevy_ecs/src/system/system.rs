@@ -1,7 +1,9 @@
 use bevy_utils::tracing::warn;
 use core::fmt::Debug;
+use std::marker::PhantomData;
 
 use crate::component::Tick;
+use crate::system::Command;
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::{archetype::ArchetypeComponentId, component::ComponentId, query::Access, world::World};
 
@@ -258,10 +260,39 @@ impl RunSystem for &mut World {
     }
 }
 
+/// The [`Command`] type for [`RunSystem`]
+#[derive(Debug, Clone)]
+pub struct RunSystemCommand<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> {
+    _phantom_marker: PhantomData<M>,
+    system: S,
+}
+
+impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> RunSystemCommand<M, S> {
+    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
+    #[inline]
+    #[must_use]
+    pub fn new(system: S) -> Self {
+        Self {
+            _phantom_marker: PhantomData::default(),
+            system,
+        }
+    }
+}
+
+impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> Command
+    for RunSystemCommand<M, S>
+{
+    #[inline]
+    fn apply(self, world: &mut World) {
+        world.run_system(self.system);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::prelude::*;
+    use crate as bevy_ecs;
 
     #[test]
     fn run_system() {
@@ -278,5 +309,80 @@ mod tests {
         let n = world.run_system_with(1, system);
         assert_eq!(n, 2);
         assert_eq!(world.resource::<T>().0, 1);
+    }
+
+    #[derive(Resource, Default, PartialEq, Debug)]
+    struct Counter(u8);
+
+    #[allow(dead_code)]
+    fn count_up(mut counter: ResMut<Counter>) {
+        counter.0 += 1;
+    }
+
+    #[test]
+    /// We need to ensure that the system registry is accessible
+    /// even after being used once.
+    fn run_two_systems() {
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        assert_eq!(*world.resource::<Counter>(), Counter(0));
+        world.run_system(count_up);
+        assert_eq!(*world.resource::<Counter>(), Counter(1));
+        world.run_system(count_up);
+        assert_eq!(*world.resource::<Counter>(), Counter(2));
+    }
+
+   #[allow(dead_code)]
+    fn spawn_entity(mut commands: Commands) {
+        commands.spawn_empty();
+    }
+
+    #[test]
+    fn command_processing() {
+        let mut world = World::new();
+        assert_eq!(world.entities.len(), 0);
+        world.run_system(spawn_entity);
+        assert_eq!(world.entities.len(), 1);
+    }
+
+    #[test]
+    fn non_send_resources() {
+        fn non_send_count_down(mut ns: NonSendMut<Counter>) {
+            ns.0 -= 1;
+        }
+
+        let mut world = World::new();
+        world.insert_non_send_resource(Counter(10));
+        assert_eq!(*world.non_send_resource::<Counter>(), Counter(10));
+        world.run_system(non_send_count_down);
+        assert_eq!(*world.non_send_resource::<Counter>(), Counter(9));
+    }
+
+    #[test]
+    fn run_system_through_command() {
+        use crate::system::commands::Command;
+        use crate::system::RunSystemCommand;
+
+        let mut world = World::new();
+        let command = RunSystemCommand::new(spawn_entity);
+        assert_eq!(world.entities.len(), 0);
+        command.apply(&mut world);
+        assert_eq!(world.entities.len(), 1);
+    }
+
+    #[test]
+    fn system_recursion() {
+        fn count_to_ten(mut counter: ResMut<Counter>, mut commands: Commands) {
+            counter.0 += 1;
+            if counter.0 < 10 {
+                commands.run_system(count_to_ten);
+            }
+        }
+
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        assert_eq!(*world.resource::<Counter>(), Counter(0));
+        world.run_system(count_to_ten);
+        assert_eq!(*world.resource::<Counter>(), Counter(10));
     }
 }
