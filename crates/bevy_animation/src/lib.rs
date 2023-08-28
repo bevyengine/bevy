@@ -119,7 +119,7 @@ impl AnimationClip {
 
     /// Whether this animation clip can run on entity with given [`Name`].
     pub fn compatible_with(&self, name: &Name) -> bool {
-        self.paths.keys().all(|path| &path.parts[0] == name)
+        self.paths.keys().any(|path| &path.parts[0] == name)
     }
 }
 
@@ -406,8 +406,18 @@ fn entity_from_path(
     // PERF: finding the target entity can be optimised
     let mut current_entity = root;
     path_cache.resize(path.parts.len(), None);
-    // Ignore the first name, it is the root node which we already have
-    for (idx, part) in path.parts.iter().enumerate().skip(1) {
+
+    let mut parts = path.parts.iter().enumerate();
+
+    // check the first name is the root node which we already have
+    let Some((_, root_name)) = parts.next() else {
+        return None;
+    };
+    if names.get(current_entity) != Ok(root_name) {
+        return None;
+    }
+
+    for (idx, part) in parts {
         let mut found = false;
         let children = children.get(current_entity).ok()?;
         if let Some(cached) = path_cache[idx] {
@@ -608,12 +618,14 @@ fn apply_animation(
             return;
         }
 
+        let mut any_path_found = false;
         for (path, bone_id) in &animation_clip.paths {
             let cached_path = &mut animation.path_cache[*bone_id];
             let curves = animation_clip.get_curves(*bone_id).unwrap();
             let Some(target) = entity_from_path(root, path, children, names, cached_path) else {
                 continue;
             };
+            any_path_found = true;
             // SAFETY: The verify_no_ancestor_player check above ensures that two animation players cannot alias
             // any of their descendant Transforms.
             //
@@ -701,6 +713,10 @@ fn apply_animation(
                     }
                 }
             }
+        }
+
+        if !any_path_found {
+            warn!("Animation player on {root:?} did not match any entity paths.");
         }
     }
 }
