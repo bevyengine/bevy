@@ -37,8 +37,8 @@ use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashMap;
 use bevy_utils::FloatOrd;
+use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use std::mem::replace;
 use std::ops::Range;
@@ -778,7 +778,9 @@ pub fn prepare_uinodes(
                                     layout: &ui_pipeline.image_layout,
                                 })
                             });
-                        if replace(&mut batch_image_handle, extracted_uinode.image.id()) == DEFAULT_IMAGE_HANDLE.id() {
+                        if replace(&mut batch_image_handle, extracted_uinode.image.id())
+                            == DEFAULT_IMAGE_HANDLE.id()
+                        {
                             let existing_batch = batches.last_mut().unwrap();
                             existing_batch.1.image_handle_id = extracted_uinode.image.id();
                             Some(existing_batch)
@@ -913,7 +915,7 @@ pub fn prepare_uinodes(
                     index += QUAD_INDICES.len() as u32;
                     batches.last_mut().unwrap().1.range.end = index;
                     ui_phase.items[batch_item_index].batch_size += 1;
-                } 
+                }
             }
         }
         ui_meta.vertices.write_buffer(&render_device, &render_queue);
