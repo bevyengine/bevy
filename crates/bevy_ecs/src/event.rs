@@ -188,6 +188,165 @@ impl<E: Event> Events<E> {
             .start_event_count
             .min(self.events_b.start_event_count)
     }
+
+    /// "Sends" an `event` by writing it to the current event buffer. [`EventReader`]s can then read
+    /// the event.
+    pub fn send(&mut self, event: E) {
+        let event_id = EventId {
+            id: self.event_count,
+            _marker: PhantomData,
+        };
+        detailed_trace!("Events::send() -> id: {}", event_id);
+
+        let event_instance = EventInstance { event_id, event };
+
+        self.events_b.push(event_instance);
+        self.event_count += 1;
+    }
+
+    /// Sends the default value of the event. Useful when the event is an empty struct.
+    pub fn send_default(&mut self)
+    where
+        E: Default,
+    {
+        self.send(Default::default());
+    }
+
+    /// Gets a new [`ManualEventReader`]. This will include all events already in the event buffers.
+    pub fn get_reader(&self) -> ManualEventReader<E> {
+        ManualEventReader::default()
+    }
+
+    /// Gets a new [`ManualEventReader`]. This will ignore all events already in the event buffers.
+    /// It will read all future events.
+    pub fn get_reader_current(&self) -> ManualEventReader<E> {
+        ManualEventReader {
+            last_event_count: self.event_count,
+            ..Default::default()
+        }
+    }
+
+    /// Swaps the event buffers and clears the oldest event buffer. In general, this should be
+    /// called once per frame/update.
+    pub fn update(&mut self) {
+        std::mem::swap(&mut self.events_a, &mut self.events_b);
+        self.events_b.clear();
+        self.events_b.start_event_count = self.event_count;
+        debug_assert_eq!(
+            self.events_a.start_event_count + self.events_a.len(),
+            self.events_b.start_event_count
+        );
+    }
+
+    /// A system that calls [`Events::update`] once per frame.
+    pub fn update_system(mut events: ResMut<Self>) {
+        events.update();
+    }
+
+    #[inline]
+    fn reset_start_event_count(&mut self) {
+        self.events_a.start_event_count = self.event_count;
+        self.events_b.start_event_count = self.event_count;
+    }
+
+    /// Removes all events.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.reset_start_event_count();
+        self.events_a.clear();
+        self.events_b.clear();
+    }
+
+    /// Returns the number of events currently stored in the event buffer.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.events_a.len() + self.events_b.len()
+    }
+
+    /// Returns true if there are no events currently stored in the event buffer.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Creates a draining iterator that removes all events.
+    pub fn drain(&mut self) -> impl Iterator<Item = E> + '_ {
+        self.reset_start_event_count();
+
+        // Drain the oldest events first, then the newest
+        self.events_a
+            .drain(..)
+            .chain(self.events_b.drain(..))
+            .map(|i| i.event)
+    }
+
+    /// Iterates over events that happened since the last "update" call.
+    /// WARNING: You probably don't want to use this call. In most cases you should use an
+    /// [`EventReader`]. You should only use this if you know you only need to consume events
+    /// between the last `update()` call and your call to `iter_current_update_events`.
+    /// If events happen outside that window, they will not be handled. For example, any events that
+    /// happen after this call and before the next `update()` call will be dropped.
+    pub fn iter_current_update_events(&self) -> impl ExactSizeIterator<Item = &E> {
+        self.events_b.iter().map(|i| &i.event)
+    }
+
+    /// Get a specific event by id if it still exists in the events buffer.
+    pub fn get_event(&self, id: usize) -> Option<(&E, EventId<E>)> {
+        if id < self.oldest_id() {
+            return None;
+        }
+
+        let sequence = self.sequence(id);
+        let index = id.saturating_sub(sequence.start_event_count);
+
+        sequence
+            .get(index)
+            .map(|instance| (&instance.event, instance.event_id))
+    }
+
+    /// Oldest id still in the events buffer.
+    pub fn oldest_id(&self) -> usize {
+        self.events_a.start_event_count
+    }
+
+    /// Which event buffer is this event id a part of.
+    fn sequence(&self, id: usize) -> &EventSequence<E> {
+        if id < self.events_b.start_event_count {
+            &self.events_a
+        } else {
+            &self.events_b
+        }
+    }
+}
+
+impl<E: Event> std::iter::Extend<E> for Events<E> {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = E>,
+    {
+        let old_count = self.event_count;
+        let mut event_count = self.event_count;
+        let events = iter.into_iter().map(|event| {
+            let event_id = EventId {
+                id: event_count,
+                _marker: PhantomData,
+            };
+            event_count += 1;
+            EventInstance { event_id, event }
+        });
+
+        self.events_b.extend(events);
+
+        if old_count != event_count {
+            detailed_trace!(
+                "Events::extend() -> ids: ({}..{})",
+                self.event_count,
+                event_count
+            );
+        }
+
+        self.event_count = event_count;
+    }
 }
 
 #[derive(Debug)]
@@ -550,167 +709,6 @@ impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
 impl<'a, E: Event> ExactSizeIterator for ManualEventIteratorWithId<'a, E> {
     fn len(&self) -> usize {
         self.unread
-    }
-}
-
-impl<E: Event> Events<E> {
-    /// "Sends" an `event` by writing it to the current event buffer. [`EventReader`]s can then read
-    /// the event.
-    pub fn send(&mut self, event: E) {
-        let event_id = EventId {
-            id: self.event_count,
-            _marker: PhantomData,
-        };
-        detailed_trace!("Events::send() -> id: {}", event_id);
-
-        let event_instance = EventInstance { event_id, event };
-
-        self.events_b.push(event_instance);
-        self.event_count += 1;
-    }
-
-    /// Sends the default value of the event. Useful when the event is an empty struct.
-    pub fn send_default(&mut self)
-    where
-        E: Default,
-    {
-        self.send(Default::default());
-    }
-
-    /// Gets a new [`ManualEventReader`]. This will include all events already in the event buffers.
-    pub fn get_reader(&self) -> ManualEventReader<E> {
-        ManualEventReader::default()
-    }
-
-    /// Gets a new [`ManualEventReader`]. This will ignore all events already in the event buffers.
-    /// It will read all future events.
-    pub fn get_reader_current(&self) -> ManualEventReader<E> {
-        ManualEventReader {
-            last_event_count: self.event_count,
-            ..Default::default()
-        }
-    }
-
-    /// Swaps the event buffers and clears the oldest event buffer. In general, this should be
-    /// called once per frame/update.
-    pub fn update(&mut self) {
-        std::mem::swap(&mut self.events_a, &mut self.events_b);
-        self.events_b.clear();
-        self.events_b.start_event_count = self.event_count;
-        debug_assert_eq!(
-            self.events_a.start_event_count + self.events_a.len(),
-            self.events_b.start_event_count
-        );
-    }
-
-    /// A system that calls [`Events::update`] once per frame.
-    pub fn update_system(mut events: ResMut<Self>) {
-        events.update();
-    }
-
-    #[inline]
-    fn reset_start_event_count(&mut self) {
-        self.events_a.start_event_count = self.event_count;
-        self.events_b.start_event_count = self.event_count;
-    }
-
-    /// Removes all events.
-    #[inline]
-    pub fn clear(&mut self) {
-        self.reset_start_event_count();
-        self.events_a.clear();
-        self.events_b.clear();
-    }
-
-    /// Returns the number of events currently stored in the event buffer.
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.events_a.len() + self.events_b.len()
-    }
-
-    /// Returns true if there are no events currently stored in the event buffer.
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    /// Creates a draining iterator that removes all events.
-    pub fn drain(&mut self) -> impl Iterator<Item = E> + '_ {
-        self.reset_start_event_count();
-
-        // Drain the oldest events first, then the newest
-        self.events_a
-            .drain(..)
-            .chain(self.events_b.drain(..))
-            .map(|i| i.event)
-    }
-
-    /// Iterates over events that happened since the last "update" call.
-    /// WARNING: You probably don't want to use this call. In most cases you should use an
-    /// [`EventReader`]. You should only use this if you know you only need to consume events
-    /// between the last `update()` call and your call to `iter_current_update_events`.
-    /// If events happen outside that window, they will not be handled. For example, any events that
-    /// happen after this call and before the next `update()` call will be dropped.
-    pub fn iter_current_update_events(&self) -> impl ExactSizeIterator<Item = &E> {
-        self.events_b.iter().map(|i| &i.event)
-    }
-
-    /// Get a specific event by id if it still exists in the events buffer.
-    pub fn get_event(&self, id: usize) -> Option<(&E, EventId<E>)> {
-        if id < self.oldest_id() {
-            return None;
-        }
-
-        let sequence = self.sequence(id);
-        let index = id.saturating_sub(sequence.start_event_count);
-
-        sequence
-            .get(index)
-            .map(|instance| (&instance.event, instance.event_id))
-    }
-
-    /// Oldest id still in the events buffer.
-    pub fn oldest_id(&self) -> usize {
-        self.events_a.start_event_count
-    }
-
-    /// Which event buffer is this event id a part of.
-    fn sequence(&self, id: usize) -> &EventSequence<E> {
-        if id < self.events_b.start_event_count {
-            &self.events_a
-        } else {
-            &self.events_b
-        }
-    }
-}
-
-impl<E: Event> std::iter::Extend<E> for Events<E> {
-    fn extend<I>(&mut self, iter: I)
-    where
-        I: IntoIterator<Item = E>,
-    {
-        let old_count = self.event_count;
-        let mut event_count = self.event_count;
-        let events = iter.into_iter().map(|event| {
-            let event_id = EventId {
-                id: event_count,
-                _marker: PhantomData,
-            };
-            event_count += 1;
-            EventInstance { event_id, event }
-        });
-
-        self.events_b.extend(events);
-
-        if old_count != event_count {
-            detailed_trace!(
-                "Events::extend() -> ids: ({}..{})",
-                self.event_count,
-                event_count
-            );
-        }
-
-        self.event_count = event_count;
     }
 }
 
