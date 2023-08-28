@@ -6,10 +6,12 @@ use crate as bevy_ecs;
 use crate::{entity::Entity, system::Resource};
 use bevy_reflect::{impl_reflect_value, ReflectDeserialize, ReflectSerialize, TypeRegistryArc};
 
+mod bundle;
 mod component;
 mod map_entities;
 mod resource;
 
+pub use bundle::{ReflectBundle, ReflectBundleFns};
 pub use component::{ReflectComponent, ReflectComponentFns};
 pub use map_entities::ReflectMapEntities;
 pub use resource::{ReflectResource, ReflectResourceFns};
