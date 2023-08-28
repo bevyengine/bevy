@@ -781,9 +781,10 @@ pub fn prepare_uinodes(
                         if replace(&mut batch_image_handle, extracted_uinode.image.id())
                             == DEFAULT_IMAGE_HANDLE.id()
                         {
-                            let existing_batch = batches.last_mut().unwrap();
-                            existing_batch.1.image_handle_id = extracted_uinode.image.id();
-                            Some(existing_batch)
+                            batches.last_mut().map(|existing_batch| {
+                                existing_batch.1.image_handle_id = batch_image_handle;
+                                existing_batch
+                            })
                         } else {
                             None
                         }
