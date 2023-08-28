@@ -46,7 +46,6 @@ fn setup(
             Rotator,
         ))
         .with_children(|parent| {
-            // child cube
             parent.spawn(PbrBundle {
                 mesh: cube_handle,
                 material: cube_material_handle,
@@ -54,11 +53,13 @@ fn setup(
                 ..default()
             });
         });
+
     // light
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, -4.0),
         ..default()
     });
+
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(5.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),

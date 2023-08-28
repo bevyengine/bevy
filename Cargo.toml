@@ -625,13 +625,24 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "parenting"
-path = "examples/3d/parenting.rs"
+name = "parenting_flat"
+path = "examples/3d/parenting_flat.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.parenting]
-name = "Parenting"
-description = "Demonstrates parent->child relationships and relative transformations"
+[package.metadata.example.parenting_flat]
+name = "Parenting (Flat)"
+description = "Demonstrates parent->child relationships and relative transformations with a flat code structure."
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "parenting_nested"
+path = "examples/3d/parenting_nested.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.parenting_nested]
+name = "Parenting (Nested)"
+description = "Demonstrates parent->child relationships and relative transformations with a nested code structure."
 category = "3D Rendering"
 wasm = true
 
@@ -2133,13 +2144,24 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "ui"
-path = "examples/ui/ui.rs"
+name = "ui_nested"
+path = "examples/ui/ui_nested.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.ui]
-name = "UI"
-description = "Illustrates various features of Bevy UI"
+[package.metadata.example.ui_nested]
+name = "UI (Nested)"
+description = "Illustrates various features of Bevy UI in a nested code structure"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ui_flat"
+path = "examples/ui/ui_flat.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_flat]
+name = "UI (Flat)"
+description = "Illustrates various features of Bevy UI in a flat code structure"
 category = "UI (User Interface)"
 wasm = true
 
