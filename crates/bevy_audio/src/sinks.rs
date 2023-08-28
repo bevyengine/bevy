@@ -17,6 +17,7 @@ pub trait AudioSinkPlayback {
     /// will multiply each sample by this value.
     ///
     /// # Note on Audio Volume
+    ///
     /// An increase of 10 decibels (dB) roughly corresponds to the perceived volume doubling in intensity.
     /// As this function scales not the volume but the amplitude, a conversion might be necessary.
     /// For example, to halve the perceived volume you need to decrease the volume by 10 dB.
