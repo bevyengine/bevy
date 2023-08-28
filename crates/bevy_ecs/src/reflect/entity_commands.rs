@@ -192,7 +192,6 @@ fn insert_reflect(
     let type_info = component.type_name();
     let Some(mut entity) = world.get_entity_mut(entity) else {
         panic!("error[B0003]: Could not insert a reflected component (of type {}) for entity {entity:?} because it doesn't exist in this World.", component.type_name());
-
     };
     let Some(type_registration) = type_registry.get_with_name(type_info) else {
         panic!("Could not get type registration (for component type {}) because it doesn't exist in the TypeRegistry.", component.type_name());
@@ -254,11 +253,9 @@ fn remove_reflect(
     };
     let Some(type_registration) = type_registry.get_with_name(&component_type_name) else {
         return;
-
     };
     let Some(reflect_component) = type_registration.data::<ReflectComponent>() else {
         return;
-
     };
     reflect_component.remove(&mut entity);
 }
