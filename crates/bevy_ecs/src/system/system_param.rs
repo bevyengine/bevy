@@ -685,7 +685,7 @@ pub struct Local<'s, T: FromWorld + Send + 'static>(pub(crate) &'s mut T);
 // SAFETY: Local only accesses internal state
 unsafe impl<'s, T: FromWorld + Send + 'static> ReadOnlySystemParam for Local<'s, T> {}
 
-impl<'s, T: FromWorld + Send + Sync + 'static> Deref for Local<'s, T> {
+impl<'s, T: FromWorld + Send + 'static> Deref for Local<'s, T> {
     type Target = T;
 
     #[inline]
@@ -694,7 +694,7 @@ impl<'s, T: FromWorld + Send + Sync + 'static> Deref for Local<'s, T> {
     }
 }
 
-impl<'s, T: FromWorld + Send + Sync + 'static> DerefMut for Local<'s, T> {
+impl<'s, T: FromWorld + Send + 'static> DerefMut for Local<'s, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
@@ -1560,7 +1560,7 @@ mod tests {
         query::{ReadOnlyWorldQuery, WorldQuery},
         system::{assert_is_system, Query},
     };
-    use std::marker::PhantomData;
+    use std::{cell::RefCell, marker::PhantomData};
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
     #[test]
@@ -1725,5 +1725,18 @@ mod tests {
 
         fn my_system(_: InvariantParam) {}
         assert_is_system(my_system);
+    }
+
+    // Compile test for https://github.com/bevyengine/bevy/pull/9589.
+    #[test]
+    fn non_sync_local() {
+        fn non_sync_system(cell: Local<RefCell<u8>>) {
+            assert_eq!(*cell.borrow(), 0);
+        }
+
+        let mut world = World::new();
+        let mut schedule = crate::schedule::Schedule::new();
+        schedule.add_systems(non_sync_system);
+        schedule.run(&mut world);
     }
 }
