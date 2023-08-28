@@ -181,12 +181,14 @@ impl Schedule {
     }
 
     /// Configures a system set in this schedule, adding it if it does not exist.
+    #[track_caller]
     pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
         self.graph.configure_set(set);
         self
     }
 
     /// Configures a collection of system sets in this schedule, adding them if they does not exist.
+    #[track_caller]
     pub fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) -> &mut Self {
         self.graph.configure_sets(sets);
         self
@@ -656,6 +658,7 @@ impl ScheduleGraph {
         Ok(id)
     }
 
+    #[track_caller]
     fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) {
         let SystemSetConfigs { sets, chained } = sets.into_configs();
         let mut set_iter = sets.into_iter();
@@ -669,15 +672,25 @@ impl ScheduleGraph {
             }
         } else {
             for set in set_iter {
-                self.configure_set_inner(set).unwrap();
+                if let Err(e) = self.configure_set_inner(set) {
+                    // using `unwrap_or_else(panic!)` led to the error being reported
+                    // from this line instead of in the user code
+                    panic!("{e}");
+                };
             }
         }
     }
 
+    #[track_caller]
     fn configure_set(&mut self, set: impl IntoSystemSetConfig) {
-        self.configure_set_inner(set).unwrap();
+        if let Err(e) = self.configure_set_inner(set) {
+            // using `unwrap_or_else(panic!)` led to the error being reported
+            // from this line instead of in the user code
+            panic!("{e}");
+        };
     }
 
+    #[track_caller]
     fn configure_set_inner(
         &mut self,
         set: impl IntoSystemSetConfig,
@@ -1560,7 +1573,7 @@ impl ScheduleGraph {
 #[non_exhaustive]
 pub enum ScheduleBuildError {
     /// A system set contains itself.
-    #[error("`{0:?}` contains itself.")]
+    #[error("System set `{0}` contains itself.")]
     HierarchyLoop(String),
     /// The hierarchy of system sets contains a cycle.
     #[error("System set hierarchy contains cycle(s).\n{0}")]
@@ -1571,7 +1584,7 @@ pub enum ScheduleBuildError {
     #[error("System set hierarchy contains redundant edges.\n{0}")]
     HierarchyRedundancy(String),
     /// A system (set) has been told to run before itself.
-    #[error("`{0:?}` depends on itself.")]
+    #[error("System set `{0}` depends on itself.")]
     DependencyLoop(String),
     /// The dependency graph contains a cycle.
     #[error("System dependencies contain cycle(s).\n{0}")]

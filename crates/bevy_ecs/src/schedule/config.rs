@@ -393,6 +393,7 @@ pub struct SystemSetConfig {
 }
 
 impl SystemSetConfig {
+    #[track_caller]
     fn new(set: BoxedSystemSet) -> Self {
         // system type sets are automatically populated
         // to avoid unintentionally broad changes, they cannot be configured
@@ -449,6 +450,7 @@ pub trait IntoSystemSetConfig: Sized {
 }
 
 impl<S: SystemSet> IntoSystemSetConfig for S {
+    #[track_caller]
     fn into_config(self) -> SystemSetConfig {
         SystemSetConfig::new(Box::new(self))
     }
