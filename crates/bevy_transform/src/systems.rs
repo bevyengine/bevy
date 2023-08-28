@@ -21,7 +21,7 @@ pub fn sync_simple_transforms(
                 Without<Children>,
             ),
         >,
-        Query<(Ref<Transform>, &mut GlobalTransform), Without<Children>>,
+        Query<(Ref<Transform>, &mut GlobalTransform), (Without<Parent>, Without<Children>)>,
     )>,
     mut orphaned: RemovedComponents<Parent>,
 ) {
@@ -183,7 +183,7 @@ mod test {
     use bevy_app::prelude::*;
     use bevy_ecs::prelude::*;
     use bevy_ecs::system::CommandQueue;
-    use bevy_math::vec3;
+    use bevy_math::{vec3, Vec3};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
     use crate::components::{GlobalTransform, Transform};
@@ -480,5 +480,59 @@ mod test {
         );
 
         app.update();
+    }
+
+    #[test]
+    fn global_transform_should_not_be_overwritten_after_reparenting() {
+        let translation = Vec3::ONE;
+        let mut world = World::new();
+
+        // Create transform propagation schedule
+        let mut schedule = Schedule::default();
+        schedule.add_systems((sync_simple_transforms, propagate_transforms));
+
+        // Spawn a `TransformBundle` entity with a local translation of `Vec3::ONE`
+        let mut spawn_transform_bundle = || {
+            world
+                .spawn(TransformBundle::from_transform(
+                    Transform::from_translation(translation),
+                ))
+                .id()
+        };
+
+        // Spawn parent and child with identical transform bundles
+        let parent = spawn_transform_bundle();
+        let child = spawn_transform_bundle();
+        world.entity_mut(parent).add_child(child);
+
+        // Run schedule to propagate transforms
+        schedule.run(&mut world);
+
+        // Child should be positioned relative to its parent
+        let parent_global_transform = *world.entity(parent).get::<GlobalTransform>().unwrap();
+        let child_global_transform = *world.entity(child).get::<GlobalTransform>().unwrap();
+        assert!(parent_global_transform
+            .translation()
+            .abs_diff_eq(translation, 0.1));
+        assert!(child_global_transform
+            .translation()
+            .abs_diff_eq(2. * translation, 0.1));
+
+        // Reparent child
+        world.entity_mut(child).remove_parent();
+        world.entity_mut(parent).add_child(child);
+
+        // Run schedule to propagate transforms
+        schedule.run(&mut world);
+
+        // Translations should be unchanged after update
+        assert_eq!(
+            parent_global_transform,
+            *world.entity(parent).get::<GlobalTransform>().unwrap()
+        );
+        assert_eq!(
+            child_global_transform,
+            *world.entity(child).get::<GlobalTransform>().unwrap()
+        );
     }
 }
