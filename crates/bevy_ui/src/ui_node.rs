@@ -1720,9 +1720,7 @@ impl Default for ZIndex {
 mod tests {
     use crate::GridPlacement;
     use crate::ValArithmeticError;
-
     use super::Val;
-    use crate::ValArithmeticError;
     use bevy_math::vec2;
 
     #[test]
