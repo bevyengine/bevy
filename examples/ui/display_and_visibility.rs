@@ -412,7 +412,6 @@ where
         .spawn((
             ButtonBundle {
                 style: Style {
-                    //height: Val::Px(24.),
                     align_self: AlignSelf::FlexStart,
                     padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
                     ..Default::default()

@@ -1,3 +1,5 @@
+//! The keyboard input functionality.
+
 use crate::{ButtonState, Input};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::{

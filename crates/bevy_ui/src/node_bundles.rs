@@ -41,7 +41,7 @@ pub struct NodeBundle {
     pub transform: Transform,
     /// The global transform of the node
     ///
-    /// This component is automatically managed by the UI layout system.
+    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
@@ -100,13 +100,12 @@ pub struct ImageBundle {
     pub focus_policy: FocusPolicy,
     /// The transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `ImageBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `ImageBundle`, use the properties of the [`Style`] component.
+    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -147,13 +146,12 @@ pub struct AtlasImageBundle {
     pub image_size: UiImageSize,
     /// The transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `AtlasImageBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `AtlasImageBundle`, use the properties of the [`Style`] component.
+    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -189,13 +187,12 @@ pub struct TextBundle {
     pub focus_policy: FocusPolicy,
     /// The transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `TextBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `TextBundle`, use the properties of the [`Style`] component.
+    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -307,13 +304,12 @@ pub struct ButtonBundle {
     pub image: UiImage,
     /// The transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `ButtonBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `ButtonBundle`, use the properties of the [`Style`] component.
+    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,

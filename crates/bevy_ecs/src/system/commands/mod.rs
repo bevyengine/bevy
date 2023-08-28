@@ -5,7 +5,7 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
-    world::{FromWorld, World},
+    world::{EntityMut, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
@@ -642,8 +642,8 @@ impl<C: EntityCommand> Command for WithEntity<C> {
 
 /// A list of commands that will be run to modify an [entity](crate::entity).
 pub struct EntityCommands<'w, 's, 'a> {
-    entity: Entity,
-    commands: &'a mut Commands<'w, 's>,
+    pub(crate) entity: Entity,
+    pub(crate) commands: &'a mut Commands<'w, 's>,
 }
 
 impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
@@ -805,12 +805,13 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::world::EntityMut;
     /// # fn my_system(mut commands: Commands) {
     /// commands
     ///     .spawn_empty()
     ///     // Closures with this signature implement `EntityCommand`.
-    ///     .add(|id: Entity, world: &mut World| {
-    ///         println!("Executed an EntityCommand for {id:?}");
+    ///     .add(|entity: EntityMut| {
+    ///         println!("Executed an EntityCommand for {:?}", entity.id());
     ///     });
     /// # }
     /// # bevy_ecs::system::assert_is_system(my_system);
@@ -848,10 +849,10 @@ where
 
 impl<F> EntityCommand for F
 where
-    F: FnOnce(Entity, &mut World) + Send + 'static,
+    F: FnOnce(EntityMut) + Send + 'static,
 {
     fn apply(self, id: Entity, world: &mut World) {
-        self(id, world);
+        self(world.entity_mut(id));
     }
 }
 
