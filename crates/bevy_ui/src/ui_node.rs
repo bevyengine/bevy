@@ -237,17 +237,16 @@ pub enum ValArithmeticError {
 }
 
 impl Val {
-    /// Evaluates a [`Val`] and returns its value in logical pixels.
+    /// Resolves a [`Val`] to its value in logical pixels and returns this as an [`f32`].
     /// Returns a [`ValArithmeticError::NonEvaluateable`] if the [`Val`] is impossible to resolve into a concrete value.
-    /// Otherwise it returns an [`f32`] containing the resolved value in pixels.
     ///
     /// **Note:** If a [`Val::Px`] is resolved, it's inner value is returned unchanged.
     pub fn resolve(self, parent_size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
         match self {
             Val::Percent(value) => Ok(parent_size * value / 100.0),
             Val::Px(value) => Ok(value),
-            Val::Vw(value) => Ok( viewport_size.x * value / 100.0),
-            Val::Vh(value) => Ok( viewport_size.y * value / 100.0),
+            Val::Vw(value) => Ok(viewport_size.x * value / 100.0),
+            Val::Vh(value) => Ok(viewport_size.y * value / 100.0),
             Val::VMin(value) => Ok(viewport_size.min_element() * value / 100.0),
             Val::VMax(value) => Ok(viewport_size.max_element() * value / 100.0),
             Val::Auto => Err(ValArithmeticError::NonEvaluateable),
