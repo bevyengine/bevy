@@ -246,10 +246,10 @@ impl Val {
         match self {
             Val::Percent(value) => Ok(parent_size * value / 100.0),
             Val::Px(value) => Ok(value),
-            Val::Vw(value) => Ok(value * viewport_size.x),
-            Val::Vh(value) => Ok(value * viewport_size.y),
-            Val::VMin(value) => Ok(value * viewport_size.min_element()),
-            Val::VMax(value) => Ok(value * viewport_size.max_element()),
+            Val::Vw(value) => Ok( viewport_size.x * value / 100.0),
+            Val::Vh(value) => Ok( viewport_size.y * value / 100.0),
+            Val::VMin(value) => Ok(viewport_size.min_element() * value / 100.0),
+            Val::VMax(value) => Ok(viewport_size.max_element() * value / 100.0),
             Val::Auto => Err(ValArithmeticError::NonEvaluateable),
         }
     }
@@ -1747,6 +1747,7 @@ mod tests {
         let viewport_size = vec2(500., 500.);
 
         for value in (-10..10).map(|value| value as f32) {
+            // for a square viewport there should be no difference between `Vw` and `Vh` and between `Vmin` and `Vmax`.
             assert_eq!(
                 Val::Vw(value).resolve(size, viewport_size),
                 Val::Vh(value).resolve(size, viewport_size)
