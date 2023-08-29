@@ -8,8 +8,11 @@ use crate::{
     Extract,
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_ecs::system::{Res, ResMut};
-use bevy_ecs::{event::EventReader, system::Resource};
+use bevy_ecs::{event::Event, event::EventReader, system::Resource};
+use bevy_ecs::{
+    event::EventWriter,
+    system::{Res, ResMut},
+};
 use bevy_utils::{
     default,
     tracing::{debug, error},
@@ -49,6 +52,8 @@ pub enum Pipeline {
     ComputePipeline(ComputePipeline),
 }
 
+/// Internal ID of a pipeline. This type is not pub so that users must know the type of pipeline
+/// they are asking for.
 type CachedPipelineId = usize;
 
 /// Index of a cached render pipeline in a [`PipelineCache`].
@@ -76,6 +81,27 @@ impl CachedComputePipelineId {
     #[inline]
     pub fn id(&self) -> usize {
         self.0
+    }
+}
+
+/// Index of a cached pipeline of any kind in a [`PipelineCache`]. This is essentially a union of
+/// all pipeline ID types.
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum CachedAnyPipelineId {
+    RenderPipeline(CachedRenderPipelineId),
+    ComputePipeline(CachedComputePipelineId),
+}
+
+impl CachedAnyPipelineId {
+    fn from_id_and_descriptor(id: CachedPipelineId, descriptor: &PipelineDescriptor) -> Self {
+        match descriptor {
+            PipelineDescriptor::RenderPipelineDescriptor(_) => {
+                CachedAnyPipelineId::RenderPipeline(CachedRenderPipelineId(id))
+            }
+            PipelineDescriptor::ComputePipelineDescriptor(_) => {
+                CachedAnyPipelineId::ComputePipeline(CachedComputePipelineId(id))
+            }
+        }
     }
 }
 
@@ -115,6 +141,17 @@ impl CachedPipelineState {
             CachedPipelineState::Err(err) => panic!("{}", err),
         }
     }
+}
+
+/// Events from a [`PipelineCache`] about changes to the status of owned pipelines.
+#[derive(Event)]
+pub enum PipelineCacheEvent {
+    /// A pipeline GPU object was created successfully and is available (allocated on the GPU).
+    Created(CachedAnyPipelineId),
+    /// An error occurred while trying to create a pipeline GPU object.
+    FailedToCreate(CachedAnyPipelineId),
+    // A pipeline GPU object was invalidated and is no longer available in the cache.
+    Invalidated(CachedAnyPipelineId),
 }
 
 #[derive(Default)]
@@ -474,6 +511,7 @@ pub struct PipelineCache {
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
     new_pipelines: Mutex<Vec<CachedPipeline>>,
+    queued_events: Vec<PipelineCacheEvent>,
 }
 
 impl PipelineCache {
@@ -490,6 +528,7 @@ impl PipelineCache {
             waiting_pipelines: default(),
             new_pipelines: default(),
             pipelines: default(),
+            queued_events: default(),
         }
     }
 
@@ -629,7 +668,14 @@ impl PipelineCache {
         let pipelines_to_queue = self.shader_cache.set_shader(handle, shader.clone());
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
-            self.waiting_pipelines.insert(cached_pipeline);
+            if self.waiting_pipelines.insert(cached_pipeline) {
+                self.queued_events.push(PipelineCacheEvent::Invalidated(
+                    CachedAnyPipelineId::from_id_and_descriptor(
+                        cached_pipeline,
+                        &self.pipelines[cached_pipeline].descriptor,
+                    ),
+                ));
+            }
         }
     }
 
@@ -637,7 +683,14 @@ impl PipelineCache {
         let pipelines_to_queue = self.shader_cache.remove(shader);
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
-            self.waiting_pipelines.insert(cached_pipeline);
+            if self.waiting_pipelines.insert(cached_pipeline) {
+                self.queued_events.push(PipelineCacheEvent::Invalidated(
+                    CachedAnyPipelineId::from_id_and_descriptor(
+                        cached_pipeline,
+                        &self.pipelines[cached_pipeline].descriptor,
+                    ),
+                ));
+            }
         }
     }
 
@@ -790,17 +843,22 @@ impl PipelineCache {
                 continue;
             }
 
+            let any_pipeline_id;
             pipeline.state = match &pipeline.descriptor {
                 PipelineDescriptor::RenderPipelineDescriptor(descriptor) => {
+                    any_pipeline_id =
+                        CachedAnyPipelineId::RenderPipeline(CachedRenderPipelineId(id));
                     self.process_render_pipeline(id, descriptor)
                 }
                 PipelineDescriptor::ComputePipelineDescriptor(descriptor) => {
+                    any_pipeline_id =
+                        CachedAnyPipelineId::ComputePipeline(CachedComputePipelineId(id));
                     self.process_compute_pipeline(id, descriptor)
                 }
             };
 
-            if let CachedPipelineState::Err(err) = &pipeline.state {
-                match err {
+            match &pipeline.state {
+                CachedPipelineState::Err(err) => match err {
                     PipelineCacheError::ShaderNotLoaded(_)
                     | PipelineCacheError::ShaderImportNotYetAvailable => {
                         // retry
@@ -810,29 +868,43 @@ impl PipelineCache {
                     PipelineCacheError::ProcessShaderError(err) => {
                         let error_detail = err.emit_to_string(&self.shader_cache.composer);
                         error!("failed to process shader:\n{}", error_detail);
+                        self.queued_events
+                            .push(PipelineCacheEvent::FailedToCreate(any_pipeline_id));
                         continue;
                     }
                     PipelineCacheError::CreateShaderModule(description) => {
                         error!("failed to create shader module: {}", description);
+                        self.queued_events
+                            .push(PipelineCacheEvent::FailedToCreate(any_pipeline_id));
                         continue;
                     }
+                },
+                CachedPipelineState::Ok(_) => {
+                    self.queued_events
+                        .push(PipelineCacheEvent::Created(any_pipeline_id));
                 }
+                CachedPipelineState::Queued => unreachable!(),
             }
         }
 
         self.pipelines = pipelines;
     }
 
-    pub(crate) fn process_pipeline_queue_system(mut cache: ResMut<Self>) {
+    pub(crate) fn process_pipeline_queue_system(
+        mut cache: ResMut<Self>,
+        mut pipeline_cache_events: EventWriter<PipelineCacheEvent>,
+    ) {
         cache.process_queue();
+        pipeline_cache_events.send_batch(cache.queued_events.drain(..));
     }
 
     pub(crate) fn extract_shaders(
         mut cache: ResMut<Self>,
         shaders: Extract<Res<Assets<Shader>>>,
-        mut events: Extract<EventReader<AssetEvent<Shader>>>,
+        mut shader_asset_events: Extract<EventReader<AssetEvent<Shader>>>,
+        mut pipeline_cache_events: EventWriter<PipelineCacheEvent>,
     ) {
-        for event in events.iter() {
+        for event in shader_asset_events.iter() {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                     if let Some(shader) = shaders.get(handle) {
@@ -842,6 +914,7 @@ impl PipelineCache {
                 AssetEvent::Removed { handle } => cache.remove_shader(handle),
             }
         }
+        pipeline_cache_events.send_batch(cache.queued_events.drain(..));
     }
 }
 

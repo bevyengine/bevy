@@ -45,6 +45,7 @@ pub mod prelude {
 
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
+use render_resource::PipelineCacheEvent;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 use wgpu::Instance;
 
@@ -303,6 +304,7 @@ impl Plugin for RenderPlugin {
                 .add_schedule(Render::base_schedule())
                 .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(app.world.resource::<AssetServer>().clone())
+                .add_event::<PipelineCacheEvent>()
                 .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
                 .add_systems(
                     Render,
