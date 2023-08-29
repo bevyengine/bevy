@@ -73,9 +73,10 @@ fn button_system(
     }
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     warn!(include_str!("warning_string.txt"));
-
+    
+    let image = assets.load("branding/icon.png");
     let count = ROW_COLUMN_COUNT;
     let count_f = count as f32;
     let as_rainbow = |i: usize| Color::hsl((i as f32 / count_f) * 360.0, 0.9, 0.8);
@@ -108,6 +109,7 @@ fn setup(mut commands: Commands) {
                         spawn_text,
                         border,
                         border_color,
+                        &image,
                     );
                 }
             }
@@ -124,6 +126,7 @@ fn spawn_button(
     spawn_text: bool,
     border: UiRect,
     border_color: BorderColor,
+    image: &Handle<Image>,
 ) {
     let width = 90.0 / total;
     let mut builder = commands.spawn((
@@ -144,6 +147,10 @@ fn spawn_button(
         },
         IdleColor(background_color),
     ));
+
+    if (i + j) % 4 == 0 {
+        builder.insert(UiImage::new(image.clone()));
+    }
 
     if spawn_text {
         builder.with_children(|commands| {
