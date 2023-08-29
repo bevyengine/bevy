@@ -5,7 +5,7 @@
 //!
 //! //! To start the demo without borders run
 //! `cargo run --example many_buttons --release no-borders`
-//! 
+//!
 //! To start the demo without images run
 //! `cargo run --example many_buttons --release no-images`
 //!
@@ -78,13 +78,12 @@ fn button_system(
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     warn!(include_str!("warning_string.txt"));
-    let image =
-        if !std::env::args().any(|arg| arg == "no-images") {
-            Some(assets.load("branding/icon.png"))
-        } else { 
-            None
-        };
-            
+    let image = if !std::env::args().any(|arg| arg == "no-images") {
+        Some(assets.load("branding/icon.png"))
+    } else {
+        None
+    };
+
     let count = ROW_COLUMN_COUNT;
     let count_f = count as f32;
     let as_rainbow = |i: usize| Color::hsl((i as f32 / count_f) * 360.0, 0.9, 0.8);
