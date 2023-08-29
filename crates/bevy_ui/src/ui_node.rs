@@ -242,9 +242,9 @@ impl Val {
     /// Otherwise it returns an [`f32`] containing the resolved value in pixels.
     ///
     /// **Note:** If a [`Val::Px`] is resolved, it's inner value is returned unchanged.
-    pub fn resolve(self, size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
+    pub fn resolve(self, parent_size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
         match self {
-            Val::Percent(value) => Ok(size * value / 100.0),
+            Val::Percent(value) => Ok(parent_size * value / 100.0),
             Val::Px(value) => Ok(value),
             Val::Vw(value) => Ok(value * viewport_size.x),
             Val::Vh(value) => Ok(value * viewport_size.y),
