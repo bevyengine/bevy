@@ -692,7 +692,6 @@ pub fn queue_uinodes(
                 draw_function,
                 pipeline,
                 entity: commands.spawn_empty().id(),
-                //sort_key: extracted_range.stack_index,
                 // batch_size will be calculated in prepare_uinodes
                 batch_size: 0,
             });
