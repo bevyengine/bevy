@@ -1553,21 +1553,11 @@ impl ScheduleGraph {
             Consider adding `before`, `after`, or `ambiguous_with` relationships between these:\n",
         );
 
-        for (system_a, system_b, conflicts) in ambiguities {
-            let name_a = self.get_node_name(system_a);
-            let name_b = self.get_node_name(system_b);
-
-            debug_assert!(system_a.is_system(), "{name_a} is not a system.");
-            debug_assert!(system_b.is_system(), "{name_b} is not a system.");
-
+        for (name_a, name_b, conflicts) in self.conflicts_to_string(components) {
             writeln!(message, " -- {name_a} and {name_b}").unwrap();
-            if !conflicts.is_empty() {
-                let conflict_names: Vec<_> = conflicts
-                    .iter()
-                    .map(|id| components.get_name(*id).unwrap())
-                    .collect();
 
-                writeln!(message, "    conflict on: {conflict_names:?}").unwrap();
+            if !conflicts.is_empty() {
+                writeln!(message, "    conflict on: {conflicts:?}").unwrap();
             } else {
                 // one or both systems must be exclusive
                 let world = std::any::type_name::<World>();
@@ -1576,6 +1566,29 @@ impl ScheduleGraph {
         }
 
         message
+    }
+
+    /// convert conflics to human readable format
+    pub fn conflicts_to_string<'a>(
+        &'a self,
+        components: &'a Components,
+    ) -> impl Iterator<Item = (String, String, Vec<&str>)> + 'a {
+        self.conflicting_systems
+            .iter()
+            .map(move |(system_a, system_b, conflicts)| {
+                let name_a = self.get_node_name(system_a);
+                let name_b = self.get_node_name(system_b);
+
+                debug_assert!(system_a.is_system(), "{name_a} is not a system.");
+                debug_assert!(system_b.is_system(), "{name_b} is not a system.");
+
+                let conflict_names: Vec<_> = conflicts
+                    .iter()
+                    .map(|id| components.get_name(*id).unwrap())
+                    .collect();
+
+                (name_a, name_b, conflict_names)
+            })
     }
 
     fn traverse_sets_containing_node(&self, id: NodeId, f: &mut impl FnMut(NodeId) -> bool) {
