@@ -245,7 +245,8 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         ReflectComponent(ReflectComponentFns {
             insert: |entity, reflected_component| {
-                let component = C::from_reflect(reflected_component).unwrap();
+                let component: C =
+                    entity.world_scope(|world| from_reflect_or_world(reflected_component, world));
                 entity.insert(component);
             },
             apply: |entity, reflected_component| {
