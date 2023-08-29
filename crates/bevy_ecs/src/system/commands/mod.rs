@@ -522,7 +522,7 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Runs the supplied system on the [`World`] a single time.
     ///
-    /// Calls [`SystemRegistry::run_system`](crate::SystemRegistry::run_system).
+    /// Calls [`SystemRegistry::run_system`](crate::system::RunSystem::run_system).
     pub fn run_system<
         M: Send + Sync + 'static,
         S: IntoSystem<(), (), M> + Send + Sync + 'static,
@@ -535,7 +535,7 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Runs the system corresponding to the given [`SystemId`].
     ///
-    /// Calls [`SystemRegistry::run_system_by_id`](crate::SystemRegistry::run_system_by_id).
+    /// Calls [`SystemRegistry::run_system_by_id`](crate::system::SystemRegistry::run_by_id).
     pub fn run_system_by_id(&mut self, id: SystemId) {
         self.queue.push(RunSystemById::new(id));
     }

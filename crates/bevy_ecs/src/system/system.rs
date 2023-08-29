@@ -167,6 +167,30 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// This function is not an efficient method of running systems and its meant to be used as a utility
 /// for testing and/or diagnostics.
 ///
+/// Systems called through [`run_system`](crate::system::RunSystem::run_system) do not hold onto any state,
+/// as they are created and destroyed every time [`run_system`](crate::system::RunSystem::run_system) is called.
+/// Practically, this means that [`Local`](crate::system::Local) variables are
+/// reset on every run and change detection does not work.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::RunSystem;
+/// #[derive(Resource, Default)]
+/// struct Counter(u8);
+///
+/// fn increment(mut counter: Local<Counter>) {
+///    counter.0 .0 += 1;
+///    println!("{}", counter.0 .0);
+/// }
+///
+/// let mut world = World.default();
+/// world.run_system(increment); // prints 1
+/// world.run_system(increment); // still prints 1
+/// ```
+///
+/// If you do need systems to hold onto state between runs, use the [`SystemRegistry`](crate::system::SystemRegistry)
+/// and call by [`SystemId`](crate::system::SystemId).
+///
 /// # Usage
 /// Typically, to test a system, or to extract specific diagnostics information from a world,
 /// you'd need a [`Schedule`](crate::schedule::Schedule) to run the system. This can create redundant boilerplate code
