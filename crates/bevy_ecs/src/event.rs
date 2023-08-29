@@ -407,8 +407,22 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         self.reader.iter(&self.events)
     }
 
+    /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
+    /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
+    /// that happened before now.
+    #[deprecated = "use `.read()` instead."]
+    pub fn iter(&mut self) -> EventIterator<'_, E> {
+        self.reader.iter(&self.events)
+    }
+
     /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
     pub fn read_with_id(&mut self) -> EventIteratorWithId<'_, E> {
+        self.reader.iter_with_id(&self.events)
+    }
+
+    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
+    #[deprecated = "use `.read_with_id() instead."]
+    pub fn iter_with_id(&mut self) -> EventIteratorWithId<'_, E> {
         self.reader.iter_with_id(&self.events)
     }
 
