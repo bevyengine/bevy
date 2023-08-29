@@ -41,7 +41,7 @@ pub fn exit_on_primary_closed(
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
 pub fn close_when_requested(mut commands: Commands, mut closed: EventReader<WindowCloseRequested>) {
-    for event in closed.iter() {
+    for event in closed.read() {
         commands.entity(event.window).despawn();
     }
 }

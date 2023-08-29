@@ -13,7 +13,7 @@ struct EnemyDied(u32);
 struct Score(u32);
 
 fn update_score(mut dead_enemies: EventReader<EnemyDied>, mut score: ResMut<Score>) {
-    for value in dead_enemies.iter() {
+    for value in dead_enemies.read() {
         score.0 += value.0;
     }
 }

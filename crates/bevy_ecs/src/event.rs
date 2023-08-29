@@ -403,12 +403,12 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
     /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
-    pub fn iter(&mut self) -> EventIterator<'_, E> {
+    pub fn read(&mut self) -> EventIterator<'_, E> {
         self.reader.iter(&self.events)
     }
 
     /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
-    pub fn iter_with_id(&mut self) -> EventIteratorWithId<'_, E> {
+    pub fn read_with_id(&mut self) -> EventIteratorWithId<'_, E> {
         self.reader.iter_with_id(&self.events)
     }
 
@@ -1028,7 +1028,7 @@ mod tests {
 
         let mut schedule = Schedule::default();
         schedule.add_systems(|mut events: EventReader<TestEvent>| {
-            let mut iter = events.iter();
+            let mut iter = events.read();
 
             assert_eq!(iter.next(), Some(&TestEvent { i: 0 }));
             assert_eq!(iter.nth(2), Some(&TestEvent { i: 3 }));
@@ -1048,7 +1048,7 @@ mod tests {
 
         let mut reader =
             IntoSystem::into_system(|mut events: EventReader<TestEvent>| -> Option<TestEvent> {
-                events.iter().last().copied()
+                events.read().last().copied()
             });
         reader.initialize(&mut world);
 

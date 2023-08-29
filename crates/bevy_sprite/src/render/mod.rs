@@ -327,7 +327,7 @@ pub fn extract_sprite_events(
     let SpriteAssetEvents { ref mut images } = *events;
     images.clear();
 
-    for image in image_events.iter() {
+    for image in image_events.read() {
         // AssetEvent: !Clone
         images.push(match image {
             AssetEvent::Created { handle } => AssetEvent::Created {
