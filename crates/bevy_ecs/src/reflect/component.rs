@@ -59,9 +59,9 @@ use crate::{
     change_detection::Mut,
     component::Component,
     entity::Entity,
-    world::{unsafe_world_cell::UnsafeEntityCell, EntityRef, EntityWorldMut, FromWorld, World},
+    world::{unsafe_world_cell::UnsafeEntityCell, EntityRef, EntityWorldMut, World},
 };
-use bevy_reflect::{FromType, Reflect};
+use bevy_reflect::{FromReflect, FromType, Reflect};
 
 /// A struct used to operate on reflected [`Component`] of a type.
 ///
@@ -92,8 +92,6 @@ pub struct ReflectComponent(ReflectComponentFns);
 /// world.
 #[derive(Clone)]
 pub struct ReflectComponentFns {
-    /// Function pointer implementing [`ReflectComponent::from_world()`].
-    pub from_world: fn(&mut World) -> Box<dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::insert()`].
     pub insert: fn(&mut EntityWorldMut, &dyn Reflect),
     /// Function pointer implementing [`ReflectComponent::apply()`].
@@ -123,17 +121,12 @@ impl ReflectComponentFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Component + Reflect + FromWorld>() -> Self {
+    pub fn new<T: Component + Reflect + FromReflect>() -> Self {
         <ReflectComponent as FromType<T>>::from_type().0
     }
 }
 
 impl ReflectComponent {
-    /// Constructs default reflected [`Component`] from world using [`from_world()`](FromWorld::from_world).
-    pub fn from_world(&self, world: &mut World) -> Box<dyn Reflect> {
-        (self.0.from_world)(world)
-    }
-
     /// Insert a reflected [`Component`] into the entity like [`insert()`](EntityWorldMut::insert).
     pub fn insert(&self, entity: &mut EntityWorldMut, component: &dyn Reflect) {
         (self.0.insert)(entity, component);
@@ -245,13 +238,11 @@ impl ReflectComponent {
     }
 }
 
-impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
+impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         ReflectComponent(ReflectComponentFns {
-            from_world: |world| Box::new(C::from_world(world)),
             insert: |entity, reflected_component| {
-                let mut component = entity.world_scope(|world| C::from_world(world));
-                component.apply(reflected_component);
+                let component = C::from_reflect(reflected_component).unwrap();
                 entity.insert(component);
             },
             apply: |entity, reflected_component| {
@@ -262,8 +253,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                 if let Some(mut component) = entity.get_mut::<C>() {
                     component.apply(reflected_component);
                 } else {
-                    let mut component = entity.world_scope(|world| C::from_world(world));
-                    component.apply(reflected_component);
+                    let component = C::from_reflect(reflected_component).unwrap();
                     entity.insert(component);
                 }
             },
@@ -273,8 +263,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
             contains: |entity| entity.contains::<C>(),
             copy: |source_world, destination_world, source_entity, destination_entity| {
                 let source_component = source_world.get::<C>(source_entity).unwrap();
-                let mut destination_component = C::from_world(destination_world);
-                destination_component.apply(source_component);
+                let destination_component = C::from_reflect(source_component).unwrap();
                 destination_world
                     .entity_mut(destination_entity)
                     .insert(destination_component);
