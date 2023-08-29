@@ -415,7 +415,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         self.reader.read(&self.events)
     }
 
-    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
+    /// Like [`read`](Self::read), except also returning the [`EventId`] of the events.
     pub fn read_with_id(&mut self) -> EventIteratorWithId<'_, E> {
         self.reader.read_with_id(&self.events)
     }
@@ -559,7 +559,7 @@ impl<E: Event> Default for ManualEventReader<E> {
 
 #[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
 impl<E: Event> ManualEventReader<E> {
-    /// See [`EventReader::iter`]
+    /// See [`EventReader::read`]
     pub fn read<'a>(&'a mut self, events: &'a Events<E>) -> EventIterator<'a, E> {
         self.read_with_id(events).without_id()
     }
@@ -570,7 +570,7 @@ impl<E: Event> ManualEventReader<E> {
         self.read_with_id(events).without_id()
     }
 
-    /// See [`EventReader::iter_with_id`]
+    /// See [`EventReader::read_with_id`]
     pub fn read_with_id<'a>(&'a mut self, events: &'a Events<E>) -> EventIteratorWithId<'a, E> {
         EventIteratorWithId::new(self, events)
     }
