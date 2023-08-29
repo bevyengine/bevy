@@ -228,14 +228,27 @@ impl<E: Event> Events<E> {
 
     /// Swaps the event buffers and clears the oldest event buffer. In general, this should be
     /// called once per frame/update.
+    ///
+    /// If you need access to the events that were removed, consider using [`Events::update_drain`].
     pub fn update(&mut self) {
+        let _ = self.update_drain();
+    }
+
+    /// Swaps the event buffers and drains the oldest event buffer, returning an iterator
+    /// of all events that were removed. In general, this should be called once per frame/update.
+    ///
+    /// If you do not need to take ownership of the removed events, use [`Events::update`] instead.
+    #[must_use = "If you do not need the returned events, call .update() instead."]
+    pub fn update_drain(&mut self) -> impl Iterator<Item = E> + '_ {
         std::mem::swap(&mut self.events_a, &mut self.events_b);
-        self.events_b.clear();
+        let iter = self.events_b.events.drain(..);
         self.events_b.start_event_count = self.event_count;
         debug_assert_eq!(
             self.events_a.start_event_count + self.events_a.len(),
             self.events_b.start_event_count
         );
+
+        iter.map(|e| e.event)
     }
 
     /// A system that calls [`Events::update`] once per frame.
@@ -437,14 +450,6 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// For usage, see [`EventReader::is_empty()`].
     pub fn clear(&mut self) {
         self.reader.clear(&self.events);
-    }
-}
-
-impl<'a, 'w, 's, E: Event> IntoIterator for &'a mut EventReader<'w, 's, E> {
-    type Item = &'a E;
-    type IntoIter = EventIterator<'a, E>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
     }
 }
 
@@ -725,7 +730,7 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{prelude::World, system::SystemState};
+    use crate::system::assert_is_read_only_system;
 
     use super::*;
 
@@ -982,6 +987,31 @@ mod tests {
         assert!(is_empty, "EventReader should be empty");
     }
 
+    #[test]
+    fn test_update_drain() {
+        let mut events = Events::<TestEvent>::default();
+        let mut reader = events.get_reader();
+
+        events.send(TestEvent { i: 0 });
+        events.send(TestEvent { i: 1 });
+        assert_eq!(reader.iter(&events).count(), 2);
+
+        let mut old_events = Vec::from_iter(events.update_drain());
+        assert!(old_events.is_empty());
+
+        events.send(TestEvent { i: 2 });
+        assert_eq!(reader.iter(&events).count(), 1);
+
+        old_events.extend(events.update_drain());
+        assert_eq!(old_events.len(), 2);
+
+        old_events.extend(events.update_drain());
+        assert_eq!(
+            old_events,
+            &[TestEvent { i: 0 }, TestEvent { i: 1 }, TestEvent { i: 2 }]
+        );
+    }
+
     #[allow(clippy::iter_nth_zero)]
     #[test]
     fn test_event_iter_nth() {
@@ -996,7 +1026,7 @@ mod tests {
         world.send_event(TestEvent { i: 3 });
         world.send_event(TestEvent { i: 4 });
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         schedule.add_systems(|mut events: EventReader<TestEvent>| {
             let mut iter = events.iter();
 
@@ -1053,13 +1083,8 @@ mod tests {
 
     #[test]
     fn ensure_reader_readonly() {
-        fn read_for<E: Event>() {
-            let mut world = World::new();
-            world.init_resource::<Events<E>>();
-            let mut state = SystemState::<EventReader<E>>::new(&mut world);
-            // This can only work if EventReader only reads the world
-            let _reader = state.get(&world);
-        }
-        read_for::<EmptyTestEvent>();
+        fn reader_system(_: EventReader<EmptyTestEvent>) {}
+
+        assert_is_read_only_system(reader_system);
     }
 }

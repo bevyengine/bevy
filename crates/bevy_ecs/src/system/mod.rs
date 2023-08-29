@@ -55,7 +55,7 @@
 //!
 //! ```
 //! # use bevy_ecs::prelude::*;
-//! # let mut schedule = Schedule::new();
+//! # let mut schedule = Schedule::default();
 //! # let mut world = World::new();
 //! // Configure these systems to run in order using `chain()`.
 //! schedule.add_systems((print_first, print_last).chain());
@@ -172,7 +172,7 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # let mut schedule = Schedule::new();
+    /// # let mut schedule = Schedule::default();
     /// // Ignores the output of a system that may fail.
     /// schedule.add_systems(my_system.map(std::mem::drop));
     /// # let mut world = World::new();
@@ -1918,7 +1918,7 @@ mod tests {
 
         world.insert_resource(A);
         world.insert_resource(C(0));
-        let mut sched = Schedule::new();
+        let mut sched = Schedule::default();
         sched.add_systems(
             (
                 (|mut res: ResMut<C>| {

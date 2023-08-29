@@ -7,7 +7,7 @@ use std::any::TypeId;
 
 use crate::{
     prelude::Bundle,
-    world::{EntityMut, FromWorld, World},
+    world::{EntityWorldMut, FromWorld, World},
 };
 use bevy_reflect::{FromType, Reflect, ReflectRef, TypeRegistry};
 
@@ -28,13 +28,13 @@ pub struct ReflectBundleFns {
     /// Function pointer implementing [`ReflectBundle::from_world()`].
     pub from_world: fn(&mut World) -> Box<dyn Reflect>,
     /// Function pointer implementing [`ReflectBundle::insert()`].
-    pub insert: fn(&mut EntityMut, &dyn Reflect),
+    pub insert: fn(&mut EntityWorldMut, &dyn Reflect),
     /// Function pointer implementing [`ReflectBundle::apply()`].
-    pub apply: fn(&mut EntityMut, &dyn Reflect, &TypeRegistry),
+    pub apply: fn(&mut EntityWorldMut, &dyn Reflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut EntityMut, &dyn Reflect, &TypeRegistry),
+    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn Reflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::remove()`].
-    pub remove: fn(&mut EntityMut),
+    pub remove: fn(&mut EntityWorldMut),
 }
 
 impl ReflectBundleFns {
@@ -54,8 +54,8 @@ impl ReflectBundle {
         (self.0.from_world)(world)
     }
 
-    /// Insert a reflected [`Bundle`] into the entity like [`insert()`](crate::world::EntityMut::insert).
-    pub fn insert(&self, entity: &mut EntityMut, bundle: &dyn Reflect) {
+    /// Insert a reflected [`Bundle`] into the entity like [`insert()`](crate::world::EntityWorldMut::insert).
+    pub fn insert(&self, entity: &mut EntityWorldMut, bundle: &dyn Reflect) {
         (self.0.insert)(entity, bundle);
     }
 
@@ -64,14 +64,19 @@ impl ReflectBundle {
     /// # Panics
     ///
     /// Panics if there is no [`Bundle`] of the given type.
-    pub fn apply(&self, entity: &mut EntityMut, bundle: &dyn Reflect, registry: &TypeRegistry) {
+    pub fn apply(
+        &self,
+        entity: &mut EntityWorldMut,
+        bundle: &dyn Reflect,
+        registry: &TypeRegistry,
+    ) {
         (self.0.apply)(entity, bundle, registry);
     }
 
     /// Uses reflection to set the value of this [`Bundle`] type in the entity to the given value or insert a new one if it does not exist.
     pub fn apply_or_insert(
         &self,
-        entity: &mut EntityMut,
+        entity: &mut EntityWorldMut,
         bundle: &dyn Reflect,
         registry: &TypeRegistry,
     ) {
@@ -79,7 +84,7 @@ impl ReflectBundle {
     }
 
     /// Removes this [`Bundle`] type from the entity. Does nothing if it doesn't exist.
-    pub fn remove(&self, entity: &mut EntityMut) {
+    pub fn remove(&self, entity: &mut EntityWorldMut) {
         (self.0.remove)(entity);
     }
 
@@ -169,7 +174,11 @@ impl<B: Bundle + Reflect + FromWorld> FromType<B> for ReflectBundle {
     }
 }
 
-fn insert_field<B: 'static>(entity: &mut EntityMut, field: &dyn Reflect, registry: &TypeRegistry) {
+fn insert_field<B: 'static>(
+    entity: &mut EntityWorldMut,
+    field: &dyn Reflect,
+    registry: &TypeRegistry,
+) {
     if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(field.type_id()) {
         reflect_component.apply(entity, field);
     } else if let Some(reflect_bundle) = registry.get_type_data::<ReflectBundle>(field.type_id()) {
@@ -192,7 +201,7 @@ fn insert_field<B: 'static>(entity: &mut EntityMut, field: &dyn Reflect, registr
 }
 
 fn apply_or_insert_field<B: 'static>(
-    entity: &mut EntityMut,
+    entity: &mut EntityWorldMut,
     field: &dyn Reflect,
     registry: &TypeRegistry,
 ) {

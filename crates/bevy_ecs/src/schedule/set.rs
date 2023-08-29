@@ -199,9 +199,9 @@ mod tests {
 
         let mut world = World::new();
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::new(A);
         schedule.add_systems(|mut flag: ResMut<Flag>| flag.0 = true);
-        world.add_schedule(schedule, A);
+        world.add_schedule(schedule);
 
         let boxed: Box<dyn ScheduleLabel> = Box::new(A);
 

@@ -132,7 +132,7 @@ impl Render {
     pub fn base_schedule() -> Schedule {
         use RenderSet::*;
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::new(Self);
 
         // Create "stage-like" structure using buffer flushes + ordering
         schedule.add_systems((
@@ -295,12 +295,12 @@ impl Plugin for RenderPlugin {
             let mut render_app = App::empty();
             render_app.main_schedule_label = Box::new(Render);
 
-            let mut extract_schedule = Schedule::new();
+            let mut extract_schedule = Schedule::new(ExtractSchedule);
             extract_schedule.set_apply_final_deferred(false);
 
             render_app
-                .add_schedule(ExtractSchedule, extract_schedule)
-                .add_schedule(Render, Render::base_schedule())
+                .add_schedule(extract_schedule)
+                .add_schedule(Render::base_schedule())
                 .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(app.world.resource::<AssetServer>().clone())
                 .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
