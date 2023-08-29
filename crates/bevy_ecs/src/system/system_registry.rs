@@ -26,7 +26,7 @@ use bevy_ecs_macros::Resource;
 ///
 /// # Examples
 ///
-/// You can run a single system directly on the [`World``], while maintaining state.
+/// You can run a single system directly on the [`World`], while maintaining state.
 /// It's also possible to register two systems at once.
 ///
 /// ```rust

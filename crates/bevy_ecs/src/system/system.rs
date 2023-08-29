@@ -183,7 +183,7 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 ///    println!("{}", counter.0 .0);
 /// }
 ///
-/// let mut world = World.default();
+/// let mut world = World::default();
 /// world.run_system(increment); // prints 1
 /// world.run_system(increment); // still prints 1
 /// ```
@@ -302,7 +302,7 @@ impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static>
     #[must_use]
     pub fn new(system: S) -> Self {
         Self {
-            _phantom_marker: PhantomData::default(),
+            _phantom_marker: PhantomData,
             system,
         }
     }
