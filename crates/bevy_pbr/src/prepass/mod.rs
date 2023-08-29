@@ -80,7 +80,7 @@ where
         load_internal_asset!(
             app,
             PREPASS_BINDINGS_SHADER_HANDLE,
-            "prepass_bindings.wgsl",
+            "prepass_view_bindings.wgsl",
             Shader::from_wgsl
         );
 
@@ -843,17 +843,17 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
             Option<&'_ PreviousViewProjectionUniformOffset>,
         ),
         _entity: (),
-        prepass_view_bind_group: SystemParamItem<'w, '_, Self::Param>,
+        bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let prepass_view_bind_group = prepass_view_bind_group.into_inner();
+        let bind_groups = bind_groups.into_inner();
 
         if let Some(previous_view_projection_uniform_offset) =
             previous_view_projection_uniform_offset
         {
             pass.set_bind_group(
                 I,
-                prepass_view_bind_group.motion_vectors.as_ref().unwrap(),
+                bind_groups.motion_vectors.as_ref().unwrap(),
                 &[
                     view_uniform_offset.offset,
                     previous_view_projection_uniform_offset.offset,
@@ -862,7 +862,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
         } else {
             pass.set_bind_group(
                 I,
-                prepass_view_bind_group.no_motion_vectors.as_ref().unwrap(),
+                bind_groups.no_motion_vectors.as_ref().unwrap(),
                 &[view_uniform_offset.offset],
             );
         }
