@@ -94,7 +94,6 @@ pub fn build_ui_render(app: &mut App) {
         .add_systems(
             Render,
             (
-                queue_uinodes.in_set(RenderSet::Queue),
                 sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
                 prepare_uinodes.in_set(RenderSet::PrepareBindGroups),
             ),
@@ -663,42 +662,6 @@ pub struct UiBatch {
 const TEXTURED_QUAD: u32 = 0;
 const UNTEXTURED_QUAD: u32 = 1;
 
-#[allow(clippy::too_many_arguments)]
-pub fn queue_uinodes(
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    ui_pipeline: Res<UiPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
-    pipeline_cache: Res<PipelineCache>,
-    draw_functions: Res<DrawFunctions<TransparentUi>>,
-    mut commands: Commands,
-) {
-    let draw_function = draw_functions.read().id::<DrawUi>();
-    extracted_uinodes
-        .ranges
-        .sort_by_key(|extracted_range| extracted_range.stack_index);
-    for (view, mut transparent_phase) in &mut views {
-        let pipeline = pipelines.specialize(
-            &pipeline_cache,
-            &ui_pipeline,
-            UiPipelineKey { hdr: view.hdr },
-        );
-
-        transparent_phase
-            .items
-            .reserve(extracted_uinodes.ranges.len());
-        for _extracted_range in extracted_uinodes.ranges.iter() {
-            transparent_phase.add(TransparentUi {
-                draw_function,
-                pipeline,
-                entity: commands.spawn_empty().id(),
-                // batch_size will be calculated in prepare_uinodes
-                batch_size: 0,
-            });
-        }
-    }
-}
-
 #[derive(Resource, Default)]
 pub struct UiImageBindGroups {
     pub values: HashMap<Handle<Image>, BindGroup>,
@@ -715,10 +678,43 @@ pub fn prepare_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
-    mut phases: Query<&mut RenderPhase<TransparentUi>>,
     events: Res<SpriteAssetEvents>,
     mut previous_len: Local<usize>,
+    pipeline_cache: Res<PipelineCache>,
+    draw_functions: Res<DrawFunctions<TransparentUi>>,
+    mut render_phases: ParamSet<(
+        Query<&mut RenderPhase<TransparentUi>>,
+        Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    )>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
 ) {
+    let draw_function = draw_functions.read().id::<DrawUi>();
+
+    extracted_uinodes
+        .ranges
+        .sort_by_key(|extracted_range| extracted_range.stack_index);
+
+    for (view, mut transparent_phase) in &mut render_phases.p1() {
+        let pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_pipeline,
+            UiPipelineKey { hdr: view.hdr },
+        );
+
+        transparent_phase
+            .items
+            .reserve(extracted_uinodes.ranges.len());
+
+        for _extracted_range in extracted_uinodes.ranges.iter() {
+            transparent_phase.add(TransparentUi {
+                draw_function,
+                pipeline,
+                entity: commands.spawn_empty().id(),
+                batch_size: 0,
+            });
+        }
+    }
+
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
         match event {
@@ -730,6 +726,8 @@ pub fn prepare_uinodes(
     }
 
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
+        
+
         let mut batches: Vec<(Entity, UiBatch)> = Vec::with_capacity(*previous_len);
 
         ui_meta.vertices.clear();
@@ -744,7 +742,7 @@ pub fn prepare_uinodes(
 
         // Vertex buffer index
         let mut index = 0;
-        for mut ui_phase in &mut phases {
+        for mut ui_phase in &mut render_phases.p0() {
             let mut batch_item_index = 0;
             let mut batch_image_handle = DEFAULT_IMAGE_HANDLE.id();
 
