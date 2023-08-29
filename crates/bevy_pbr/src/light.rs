@@ -1066,10 +1066,10 @@ fn compute_aabb_for_cluster(
         .xyz();
 
         // translate the view depth into cluster depth 
-        // - z_far is the extent of the clusters
-        // - inverse_projection.z_axis.z is the far plane of the camera
-        p_min.z *= z_far / inverse_projection.z_axis.z;
-        p_max.z *= z_far / inverse_projection.z_axis.z;
+        let cam_far = inverse_projection.w_axis.z;
+        let cam_near = inverse_projection.z_axis.z + inverse_projection.w_axis.z;
+        p_min.z = -(((p_min.z - cam_near) / cam_far) * (z_far - z_near) + z_near);
+        p_max.z = -(((p_max.z - cam_near) / cam_far) * (z_far - z_near) + z_near);
 
         cluster_min = p_min.min(p_max);
         cluster_max = p_min.max(p_max);
@@ -1434,6 +1434,9 @@ pub(crate) fn assign_lights_to_clusters(
         );
 
         let inverse_projection = camera.projection_matrix().inverse();
+
+        println!("proj: {:?}", camera.projection_matrix());
+        println!("inv {:?}", camera.projection_matrix().inverse());
 
         for lights in &mut clusters.lights {
             lights.entities.clear();
