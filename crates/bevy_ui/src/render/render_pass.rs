@@ -86,7 +86,6 @@ impl Node for UiPassNode {
 }
 
 pub struct TransparentUi {
-    pub sort_key: u32,
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
@@ -94,7 +93,7 @@ pub struct TransparentUi {
 }
 
 impl PhaseItem for TransparentUi {
-    type SortKey = u32;
+    type SortKey = ();
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -103,7 +102,7 @@ impl PhaseItem for TransparentUi {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        self.sort_key
+        ()
     }
 
     #[inline]
@@ -112,8 +111,7 @@ impl PhaseItem for TransparentUi {
     }
 
     #[inline]
-    fn sort(items: &mut [Self]) {
-        items.sort_by_key(|item| item.sort_key());
+    fn sort(_items: &mut [Self]) {
     }
 
     #[inline]

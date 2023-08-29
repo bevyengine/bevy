@@ -180,15 +180,14 @@ impl ExtractedRange {
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
     //ranges: Vec<ExtractedRange>,
-    pub ranges: SparseSet<Entity, ExtractedRange>,
+    pub ranges: Vec<ExtractedRange>,
     uinodes: Vec<ExtractedUiNode>,
 }
 
 impl ExtractedUiNodes {
     /// Add a single `ExtractedUiNode` for rendering.
-    pub fn push_node(&mut self, entity: Entity, stack_index: u32, item: ExtractedUiNode) {
-        self.ranges.insert(
-            entity,
+    pub fn push_node(&mut self, stack_index: u32, item: ExtractedUiNode) {
+        self.ranges.push(
             ExtractedRange {
             stack_index,
             range: self.uinodes.len() as u32..(self.uinodes.len() + 1) as u32,
@@ -197,11 +196,10 @@ impl ExtractedUiNodes {
     }
 
     /// Add multiple `ExtractedUiNode`s for rendering.
-    pub fn push_nodes(&mut self, entity: Entity, stack_index: u32, items: impl Iterator<Item = ExtractedUiNode>) {
+    pub fn push_nodes(&mut self, stack_index: u32, items: impl Iterator<Item = ExtractedUiNode>) {
         let start = self.uinodes.len() as u32;
         self.uinodes.extend(items);
-        self.ranges.insert(
-            entity,
+        self.ranges.push(
             ExtractedRange {
             stack_index,
             range: start..self.uinodes.len() as u32,
@@ -285,7 +283,6 @@ pub fn extract_atlas_uinodes(
         atlas_size *= scale;
 
         extracted_uinodes.push_node(
-            commands.spawn_empty().id(),
             stack_index.0,
             ExtractedUiNode {
                 transform: transform.compute_matrix(),
@@ -403,7 +400,6 @@ pub fn extract_uinode_borders(
 
         let transform = global_transform.compute_matrix();
         extracted_uinodes.push_nodes(
-            commands.spawn_empty().id(),
             stack_index.0,
             border_rects
                 .into_iter()
@@ -466,7 +462,6 @@ pub fn extract_uinodes(
         };
         
         extracted_uinodes.push_node(
-            entity,
             stack_index.0,
             ExtractedUiNode {
                 transform: transform.compute_matrix(),
@@ -599,7 +594,6 @@ pub fn extract_text_uinodes(
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
         extracted_uinodes.push_nodes(
-            commands.spawn_empty().id(),
             stack_index.0,
             text_layout_info.glyphs.iter().map(
                 |PositionedGlyph {
@@ -678,186 +672,32 @@ const UNTEXTURED_QUAD: u32 = 1;
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_uinodes(
-    extracted_uinodes: Res<ExtractedUiNodes>,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
+    mut commands: Commands,
 ) {
-// <<<<<<< HEAD
-//     ui_meta.vertices.clear();
-
-//     extracted_uinodes
-//         .ranges
-//         .sort_by_key(|extracted_index| extracted_index.stack_index);
-
-//     let mut start = 0;
-//     let mut end = 0;
-//     let mut current_batch_image = DEFAULT_IMAGE_HANDLE.typed();
-//     let mut last_z = 0.0;
-//     let is_textured = |image: &Handle<Image>| image.id() != DEFAULT_IMAGE_HANDLE.id();
-
-//     for extracted_span in &extracted_uinodes.ranges {
-//         for extracted_uinode in &extracted_uinodes.uinodes[extracted_span.range()] {
-//             let mode = if is_textured(&extracted_uinode.image) {
-//                 if current_batch_image.id() != extracted_uinode.image.id() {
-//                     if is_textured(&current_batch_image) && start != end {
-//                         commands.spawn(UiBatch {
-//                             range: start..end,
-//                             image: current_batch_image,
-//                             z: last_z,
-//                         });
-//                         start = end;
-//                     }
-//                     current_batch_image = extracted_uinode.image.clone_weak();
-//                 }
-//                 TEXTURED_QUAD
-//             } else {
-//                 // Untextured `UiBatch`es are never spawned within the loop.
-//                 // If all the `extracted_uinodes` are untextured a single untextured UiBatch will be spawned after the loop terminates.
-//                 UNTEXTURED_QUAD
-//             };
-
-//             let mut uinode_rect = extracted_uinode.rect;
-
-//             let rect_size = uinode_rect.size().extend(1.0);
-
-//             // Specify the corners of the node
-//             let positions = QUAD_VERTEX_POSITIONS
-//                 .map(|pos| (extracted_uinode.transform * (pos * rect_size).extend(1.)).xyz());
-
-//             // Calculate the effect of clipping
-//             // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
-//             let mut positions_diff = if let Some(clip) = extracted_uinode.clip {
-//                 [
-//                     Vec2::new(
-//                         f32::max(clip.min.x - positions[0].x, 0.),
-//                         f32::max(clip.min.y - positions[0].y, 0.),
-//                     ),
-//                     Vec2::new(
-//                         f32::min(clip.max.x - positions[1].x, 0.),
-//                         f32::max(clip.min.y - positions[1].y, 0.),
-//                     ),
-//                     Vec2::new(
-//                         f32::min(clip.max.x - positions[2].x, 0.),
-//                         f32::min(clip.max.y - positions[2].y, 0.),
-//                     ),
-//                     Vec2::new(
-//                         f32::max(clip.min.x - positions[3].x, 0.),
-//                         f32::min(clip.max.y - positions[3].y, 0.),
-//                     ),
-//                 ]
-//             } else {
-//                 [Vec2::ZERO; 4]
-//             };
-
-//             let positions_clipped = [
-//                 positions[0] + positions_diff[0].extend(0.),
-//                 positions[1] + positions_diff[1].extend(0.),
-//                 positions[2] + positions_diff[2].extend(0.),
-//                 positions[3] + positions_diff[3].extend(0.),
-//             ];
-
-//             let transformed_rect_size = extracted_uinode.transform.transform_vector3(rect_size);
-
-//             // Don't try to cull nodes that have a rotation
-//             // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
-//             // In those two cases, the culling check can proceed normally as corners will be on
-//             // horizontal / vertical lines
-//             // For all other angles, bypass the culling check
-//             // This does not properly handles all rotations on all axis
-//             if extracted_uinode.transform.x_axis[1] == 0.0 {
-//                 // Cull nodes that are completely clipped
-//                 if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-//                     || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
-//                 {
-//                     continue;
-//                 }
-//             }
-//             let uvs = if mode == UNTEXTURED_QUAD {
-//                 [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
-//             } else {
-//                 let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
-//                 if extracted_uinode.flip_x {
-//                     std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
-//                     positions_diff[0].x *= -1.;
-//                     positions_diff[1].x *= -1.;
-//                     positions_diff[2].x *= -1.;
-//                     positions_diff[3].x *= -1.;
-//                 }
-//                 if extracted_uinode.flip_y {
-//                     std::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
-//                     positions_diff[0].y *= -1.;
-//                     positions_diff[1].y *= -1.;
-//                     positions_diff[2].y *= -1.;
-//                     positions_diff[3].y *= -1.;
-//                 }
-//                 [
-//                     Vec2::new(
-//                         uinode_rect.min.x + positions_diff[0].x,
-//                         uinode_rect.min.y + positions_diff[0].y,
-//                     ),
-//                     Vec2::new(
-//                         uinode_rect.max.x + positions_diff[1].x,
-//                         uinode_rect.min.y + positions_diff[1].y,
-//                     ),
-//                     Vec2::new(
-//                         uinode_rect.max.x + positions_diff[2].x,
-//                         uinode_rect.max.y + positions_diff[2].y,
-//                     ),
-//                     Vec2::new(
-//                         uinode_rect.min.x + positions_diff[3].x,
-//                         uinode_rect.max.y + positions_diff[3].y,
-//                     ),
-//                 ]
-//                 .map(|pos| pos / atlas_extent)
-//             };
-
-//             let color = extracted_uinode.color.as_linear_rgba_f32();
-//             for i in QUAD_INDICES {
-//                 ui_meta.vertices.push(UiVertex {
-//                     position: positions_clipped[i].into(),
-//                     uv: uvs[i].into(),
-//                     color,
-//                     mode,
-//                 });
-//             }
-
-//             last_z = extracted_uinode.transform.w_axis[2];
-//             end += QUAD_INDICES.len() as u32;
-//         }
-//     }
-
-//     // if start != end, there is one last batch to process
-//     if start != end {
-//         commands.spawn(UiBatch {
-//             range: start..end,
-//             image: current_batch_image,
-//             z: last_z,
-//         });
-//     }
-
-//     ui_meta.vertices.write_buffer(&render_device, &render_queue);
-
-//     extracted_uinodes.clear();
-// =======
     let draw_function = draw_functions.read().id::<DrawUi>();
+    extracted_uinodes.ranges.sort_by_key(|extracted_range| extracted_range.stack_index);
     for (view, mut transparent_phase) in &mut views {
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_pipeline,
             UiPipelineKey { hdr: view.hdr },
         );
+
         transparent_phase
             .items
             .reserve(extracted_uinodes.ranges.len());
-        for (entity, extracted_range) in extracted_uinodes.ranges.iter() {
+        for extracted_range in extracted_uinodes.ranges.iter() {
             transparent_phase.add(TransparentUi {
                 draw_function,
                 pipeline,
-                entity: *entity,
-                sort_key: extracted_range.stack_index,
+                entity: commands.spawn_empty().id(),
+                //sort_key: extracted_range.stack_index,
                 // batch_size will be calculated in prepare_uinodes
                 batch_size: 0,
             });
@@ -919,10 +759,8 @@ pub fn prepare_uinodes(
         for mut ui_phase in &mut phases {
             let mut batch_item_index = 0;
             let mut batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
-
-            for item_index in 0..ui_phase.items.len() {
-                let item = &mut ui_phase.items[item_index];
-                if let Some(extracted_range) = extracted_uinodes.ranges.get(item.entity) {
+                for (n, extracted_range) in extracted_uinodes.ranges.iter().enumerate() {
+                    
                     for node_index in extracted_range.range.start..extracted_range.range.end {
                         let extracted_uinode = &extracted_uinodes.uinodes[node_index as usize];
 
@@ -932,7 +770,7 @@ pub fn prepare_uinodes(
 
                         if existing_batch.is_none() {
                             if let Some(gpu_image) = gpu_images.get(&extracted_uinode.image) {
-                                batch_item_index = item_index;
+                                batch_item_index = n;
                                 batch_image_handle = extracted_uinode.image.id();
 
                                 let new_batch = UiBatch {
@@ -940,7 +778,8 @@ pub fn prepare_uinodes(
                                     image_handle_id: extracted_uinode.image.id(),
                                 };
 
-                                batches.push((item.entity, new_batch));
+                              batches.push((ui_phase.items[n].entity, new_batch));
+                              
 
                                 image_bind_groups
                                     .values
@@ -1088,14 +927,12 @@ pub fn prepare_uinodes(
                         existing_batch.unwrap().1.range.end = index;
                     }
                     ui_phase.items[batch_item_index].batch_size += 1;
-                } else {
-                    batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
-                }
-            }
+                } 
         }
         ui_meta.vertices.write_buffer(&render_device, &render_queue);
         *previous_len = batches.len();
         commands.insert_or_spawn_batch(batches);
     }
+    extracted_uinodes.ranges.clear();
     extracted_uinodes.uinodes.clear();
 }
