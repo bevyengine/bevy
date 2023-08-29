@@ -334,16 +334,16 @@ jobs:
           name: msrv
           path: msrv/
 
-  check-bevy-internal-imports-in-examples:
+  check-bevy-internal-imports:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
-      - name: Check for bevy_internal imports in examples
+      - name: Check for bevy_internal imports
         shell: bash
         run: |
           errors=""
-          for file in $(find examples -name '*.rs'); do
+          for file in $(find examples tests -name '*.rs'); do
               if grep -q "use bevy_internal" "$file"; then
                   errors+="ERROR: Detected 'use bevy_internal' in $file\n"
               fi
