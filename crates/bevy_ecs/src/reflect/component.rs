@@ -55,6 +55,9 @@
 //!
 //! [`get_type_registration`]: bevy_reflect::GetTypeRegistration::get_type_registration
 
+use std::any::TypeId;
+
+use super::{AppTypeRegistry, ReflectFromWorld};
 use crate::{
     change_detection::Mut,
     component::Component,
@@ -253,7 +256,8 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
                 if let Some(mut component) = entity.get_mut::<C>() {
                     component.apply(reflected_component);
                 } else {
-                    let component = C::from_reflect(reflected_component).unwrap();
+                    let component: C = entity
+                        .world_scope(|world| from_reflect_or_world(reflected_component, world));
                     entity.insert(component);
                 }
             },
@@ -263,7 +267,8 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
             contains: |entity| entity.contains::<C>(),
             copy: |source_world, destination_world, source_entity, destination_entity| {
                 let source_component = source_world.get::<C>(source_entity).unwrap();
-                let destination_component = C::from_reflect(source_component).unwrap();
+                let destination_component: C =
+                    from_reflect_or_world(source_component, destination_world);
                 destination_world
                     .entity_mut(destination_entity)
                     .insert(destination_component);
@@ -287,4 +292,20 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
             },
         })
     }
+}
+
+fn from_reflect_or_world<T: FromReflect>(reflected: &dyn Reflect, world: &mut World) -> T {
+    if let Some(value) = T::from_reflect(reflected) {
+        return value;
+    }
+
+    let reflect_from_world = world
+        .resource::<AppTypeRegistry>()
+        .read()
+        .get_type_data::<ReflectFromWorld>(TypeId::of::<T>())
+        .unwrap()
+        .clone();
+    let mut base = reflect_from_world.from_world(world);
+    base.apply(reflected);
+    T::take_from_reflect(base).ok().unwrap()
 }
