@@ -114,10 +114,11 @@ impl AssetIo for FileAssetIo {
         path: &Path,
     ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
         let root_path = self.root_path.to_owned();
-        Ok(Box::new(fs::read_dir(root_path.join(path))?.map(
+        let path = path.to_owned();
+        Ok(Box::new(fs::read_dir(root_path.join(&path))?.map(
             move |entry| {
-                let path = entry.unwrap().path();
-                path.strip_prefix(&root_path).unwrap().to_owned()
+                let file_name = entry.unwrap().file_name();
+                path.join(file_name)
             },
         )))
     }

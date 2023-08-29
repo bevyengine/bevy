@@ -27,7 +27,10 @@ impl Plugin for GlobalsPlugin {
                 .init_resource::<GlobalsBuffer>()
                 .init_resource::<Time>()
                 .add_systems(ExtractSchedule, (extract_frame_count, extract_time))
-                .add_systems(Render, prepare_globals_buffer.in_set(RenderSet::Prepare));
+                .add_systems(
+                    Render,
+                    prepare_globals_buffer.in_set(RenderSet::PrepareResources),
+                );
         }
     }
 }

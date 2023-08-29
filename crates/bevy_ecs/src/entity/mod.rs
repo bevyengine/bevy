@@ -21,8 +21,8 @@
 //! |Spawn an entity with components|[`Commands::spawn`]|[`World::spawn`]|
 //! |Spawn an entity without components|[`Commands::spawn_empty`]|[`World::spawn_empty`]|
 //! |Despawn an entity|[`EntityCommands::despawn`]|[`World::despawn`]|
-//! |Insert a component, bundle, or tuple of components and bundles to an entity|[`EntityCommands::insert`]|[`EntityMut::insert`]|
-//! |Remove a component, bundle, or tuple of components and bundles from an entity|[`EntityCommands::remove`]|[`EntityMut::remove`]|
+//! |Insert a component, bundle, or tuple of components and bundles to an entity|[`EntityCommands::insert`]|[`EntityWorldMut::insert`]|
+//! |Remove a component, bundle, or tuple of components and bundles from an entity|[`EntityCommands::remove`]|[`EntityWorldMut::remove`]|
 //!
 //! [`World`]: crate::world::World
 //! [`Commands::spawn`]: crate::system::Commands::spawn
@@ -33,8 +33,8 @@
 //! [`World::spawn`]: crate::world::World::spawn
 //! [`World::spawn_empty`]: crate::world::World::spawn_empty
 //! [`World::despawn`]: crate::world::World::despawn
-//! [`EntityMut::insert`]: crate::world::EntityMut::insert
-//! [`EntityMut::remove`]: crate::world::EntityMut::remove
+//! [`EntityWorldMut::insert`]: crate::world::EntityWorldMut::insert
+//! [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
 mod map_entities;
 
 pub use map_entities::*;
@@ -72,7 +72,7 @@ type IdCursor = isize;
 /// # Usage
 ///
 /// This data type is returned by iterating a `Query` that has `Entity` as part of its query fetch type parameter ([learn more]).
-/// It can also be obtained by calling [`EntityCommands::id`] or [`EntityMut::id`].
+/// It can also be obtained by calling [`EntityCommands::id`] or [`EntityWorldMut::id`].
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -84,7 +84,7 @@ type IdCursor = isize;
 /// }
 ///
 /// fn exclusive_system(world: &mut World) {
-///     // Calling `spawn` returns `EntityMut`.
+///     // Calling `spawn` returns `EntityWorldMut`.
 ///     let entity = world.spawn(SomeComponent).id();
 /// }
 /// #
@@ -111,7 +111,7 @@ type IdCursor = isize;
 ///
 /// [learn more]: crate::system::Query#entity-id-access
 /// [`EntityCommands::id`]: crate::system::EntityCommands::id
-/// [`EntityMut::id`]: crate::world::EntityMut::id
+/// [`EntityWorldMut::id`]: crate::world::EntityWorldMut::id
 /// [`EntityCommands`]: crate::system::EntityCommands
 /// [`Query::get`]: crate::system::Query::get
 /// [`World`]: crate::world::World
