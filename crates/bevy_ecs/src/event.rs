@@ -404,7 +404,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
     pub fn read(&mut self) -> EventIterator<'_, E> {
-        self.reader.iter(&self.events)
+        self.reader.read(&self.events)
     }
 
     /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
@@ -412,18 +412,18 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// that happened before now.
     #[deprecated = "use `.read()` instead."]
     pub fn iter(&mut self) -> EventIterator<'_, E> {
-        self.reader.iter(&self.events)
+        self.reader.read(&self.events)
     }
 
     /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
     pub fn read_with_id(&mut self) -> EventIteratorWithId<'_, E> {
-        self.reader.iter_with_id(&self.events)
+        self.reader.read_with_id(&self.events)
     }
 
     /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
     #[deprecated = "use `.read_with_id() instead."]
     pub fn iter_with_id(&mut self) -> EventIteratorWithId<'_, E> {
-        self.reader.iter_with_id(&self.events)
+        self.reader.read_with_id(&self.events)
     }
 
     /// Determines the number of events available to be read from this [`EventReader`] without consuming any.
@@ -560,11 +560,23 @@ impl<E: Event> Default for ManualEventReader<E> {
 #[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
 impl<E: Event> ManualEventReader<E> {
     /// See [`EventReader::iter`]
+    pub fn read<'a>(&'a mut self, events: &'a Events<E>) -> EventIterator<'a, E> {
+        self.read_with_id(events).without_id()
+    }
+
+    /// See [`EventReader::iter`]
+    #[deprecated = "use `.read()` instead."]
     pub fn iter<'a>(&'a mut self, events: &'a Events<E>) -> EventIterator<'a, E> {
-        self.iter_with_id(events).without_id()
+        self.read_with_id(events).without_id()
     }
 
     /// See [`EventReader::iter_with_id`]
+    pub fn read_with_id<'a>(&'a mut self, events: &'a Events<E>) -> EventIteratorWithId<'a, E> {
+        EventIteratorWithId::new(self, events)
+    }
+
+    /// See [`EventReader::iter_with_id`]
+    #[deprecated = "use `.read_with_id() instead."]
     pub fn iter_with_id<'a>(&'a mut self, events: &'a Events<E>) -> EventIteratorWithId<'a, E> {
         EventIteratorWithId::new(self, events)
     }
@@ -848,7 +860,7 @@ mod tests {
         events: &Events<E>,
         reader: &mut ManualEventReader<E>,
     ) -> Vec<E> {
-        reader.iter(events).cloned().collect::<Vec<E>>()
+        reader.read(events).cloned().collect::<Vec<E>>()
     }
 
     #[derive(Event, PartialEq, Eq, Debug)]
@@ -858,21 +870,21 @@ mod tests {
         let mut events = Events::<E>::default();
         let mut reader = events.get_reader();
 
-        assert!(reader.iter(&events).next().is_none());
+        assert!(reader.read(&events).next().is_none());
 
         events.send(E(0));
-        assert_eq!(*reader.iter(&events).next().unwrap(), E(0));
-        assert_eq!(reader.iter(&events).next(), None);
+        assert_eq!(*reader.read(&events).next().unwrap(), E(0));
+        assert_eq!(reader.read(&events).next(), None);
 
         events.send(E(1));
         clear_func(&mut events);
-        assert!(reader.iter(&events).next().is_none());
+        assert!(reader.read(&events).next().is_none());
 
         events.send(E(2));
         events.update();
         events.send(E(3));
 
-        assert!(reader.iter(&events).eq([E(2), E(3)].iter()));
+        assert!(reader.read(&events).eq([E(2), E(3)].iter()));
     }
 
     #[test]
@@ -894,7 +906,7 @@ mod tests {
 
         events.extend(vec![TestEvent { i: 0 }, TestEvent { i: 1 }]);
         assert!(reader
-            .iter(&events)
+            .read(&events)
             .eq([TestEvent { i: 0 }, TestEvent { i: 1 }].iter()));
     }
 
@@ -937,7 +949,7 @@ mod tests {
         events.send(TestEvent { i: 1 });
         events.send(TestEvent { i: 2 });
         let mut reader = events.get_reader();
-        let mut iter = reader.iter(&events);
+        let mut iter = reader.read(&events);
         assert_eq!(iter.len(), 3);
         iter.next();
         assert_eq!(iter.len(), 2);
@@ -1008,13 +1020,13 @@ mod tests {
 
         events.send(TestEvent { i: 0 });
         events.send(TestEvent { i: 1 });
-        assert_eq!(reader.iter(&events).count(), 2);
+        assert_eq!(reader.read(&events).count(), 2);
 
         let mut old_events = Vec::from_iter(events.update_drain());
         assert!(old_events.is_empty());
 
         events.send(TestEvent { i: 2 });
-        assert_eq!(reader.iter(&events).count(), 1);
+        assert_eq!(reader.read(&events).count(), 1);
 
         old_events.extend(events.update_drain());
         assert_eq!(old_events.len(), 2);
