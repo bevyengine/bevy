@@ -237,8 +237,8 @@ pub enum ValArithmeticError {
 }
 
 impl Val {
-    /// A convenience function for simple evaluation of [`Val::Percent`] variant into a concrete [`Val::Px`] value.
-    /// Returns a [`ValArithmeticError::NonEvaluateable`] if the [`Val`] is impossible to resolve into [`Val::Px`].
+    /// Evaluates a [`Val`] and returns its value in logical pixels.
+    /// Returns a [`ValArithmeticError::NonEvaluateable`] if the [`Val`] is impossible to resolve into a concrete value.
     /// Otherwise it returns an [`f32`] containing the resolved value in pixels.
     ///
     /// **Note:** If a [`Val::Px`] is resolved, it's inner value is returned unchanged.
@@ -1718,9 +1718,9 @@ impl Default for ZIndex {
 
 #[cfg(test)]
 mod tests {
+    use super::Val;
     use crate::GridPlacement;
     use crate::ValArithmeticError;
-    use super::Val;
     use bevy_math::vec2;
 
     #[test]
