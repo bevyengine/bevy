@@ -1433,9 +1433,6 @@ pub(crate) fn assign_lights_to_clusters(
 
         let inverse_projection = camera.projection_matrix().inverse();
 
-        println!("proj: {:?}", camera.projection_matrix());
-        println!("inv {:?}", camera.projection_matrix().inverse());
-
         for lights in &mut clusters.lights {
             lights.entities.clear();
             lights.point_light_count = 0;
