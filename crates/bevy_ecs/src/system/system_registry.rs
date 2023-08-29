@@ -54,6 +54,7 @@ use bevy_ecs_macros::Resource;
 /// #[derive(Resource, Default)]
 /// struct ChangeDetector;
 ///
+/// let mut world = World.default();
 /// world.init_resource::<ChangeDetector>();
 /// let detector = world.register_system(|change_detector: ResMut<ChangeDetector>| {
 ///     if change_detector.is_changed() {
@@ -62,6 +63,7 @@ use bevy_ecs_macros::Resource;
 ///         println!("Nothing happaned.");
 ///     }
 /// });
+///
 /// // Resources are changed when they are first added
 /// let _ = world.run_system_by_id(detector); // -> Something happened!
 /// let _ = world.run_system_by_id(detecotr); // -> Nothing happened.
