@@ -128,7 +128,7 @@ impl SystemRegistry {
 }
 
 impl World {
-    /// Registers a system in the [`SystemRegistry`]/
+    /// Registers a system in the [`SystemRegistry`].
     ///
     /// Calls [`SystemRegistry::register`].
     #[inline]
@@ -143,6 +143,20 @@ impl World {
         }
 
         self.resource_mut::<SystemRegistry>().register(system)
+    }
+
+    /// Removes a registered system in the [`SystemRegistry`].
+    ///
+    /// Calls [`SystemRegistry::remove`].
+    #[inline]
+    pub fn remove_system(&mut self, id: SystemId) {
+        if !self.contains_resource::<SystemRegistry>() {
+            panic!(
+                "SystemRegistry not found: Nested and recursive one-shot systems are not supported"
+            );
+        }
+
+        self.resource_mut::<SystemRegistry>().remove(id);
     }
 
     /// Run the systems with the provided [`SystemId`].

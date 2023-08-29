@@ -3,7 +3,7 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::system::{RunSystem, SystemId, SystemRegistryError};
 
 impl App {
-    /// Register a system with any number of [`SystemLabel`]s.
+    /// Register a system in the [`SystemRegistry`](bevy_ecs::system::SystemRegistry)
     ///
     /// Calls [`SystemRegistry::register_system`](bevy_ecs::system::SystemRegistry::register_system).
     pub fn register_system<M, S: IntoSystem<(), (), M> + 'static>(
@@ -12,6 +12,14 @@ impl App {
     ) -> &mut Self {
         self.world.register_system(system);
         self
+    }
+
+    /// Removes a registered system in the [`SystemRegistry`](bevy_ecs::system::SystemRegistry).
+    ///
+    /// Calls [`SystemRegistry::remove_system`](bevy_ecs::system::SystemRegistry::remove).
+    #[inline]
+    pub fn remove_system(&mut self, id: SystemId) {
+        self.world.remove_system(id);
     }
 
     /// Runs the supplied system on the [`World`] a single time.
@@ -23,9 +31,9 @@ impl App {
         self
     }
 
-    /// Run the systems corresponding to the label stored in the provided [`Callback`]
+    /// Run the systems corresponding to the id.
     ///
-    /// Calls [`SystemRegistry::run_callback`](bevy_ecs::system::SystemRegistry::run_callback).
+    /// Calls [`SystemRegistry::run_system_by_id`](bevy_ecs::system::SystemRegistry::run_system_by_id).
     #[inline]
     pub fn run_system_by_id(&mut self, system_id: SystemId) -> Result<(), SystemRegistryError> {
         self.world.run_system_by_id(system_id)
