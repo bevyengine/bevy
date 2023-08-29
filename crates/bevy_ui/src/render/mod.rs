@@ -2,7 +2,6 @@ mod pipeline;
 mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_ecs::storage::SparseSet;
 use bevy_hierarchy::Parent;
 use bevy_render::{ExtractSchedule, Render};
 use bevy_window::{PrimaryWindow, Window};
@@ -308,7 +307,6 @@ fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) 
 }
 
 pub fn extract_uinode_borders(
-    mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_scale: Extract<Res<UiScale>>,
@@ -427,7 +425,6 @@ pub fn extract_uinodes(
     uinode_query: Extract<
         Query<
             (
-                Entity,
                 &UiStackIndex,
                 &Node,
                 &GlobalTransform,
@@ -440,7 +437,7 @@ pub fn extract_uinodes(
         >,
     >,
 ) {
-    for (entity, stack_index, uinode, transform, color, maybe_image, visibility, clip) in
+    for (stack_index, uinode, transform, color, maybe_image, visibility, clip) in
         uinode_query.iter()
     {
         // Skip invisible and completely transparent nodes
@@ -552,7 +549,6 @@ pub fn extract_default_ui_camera_view<T: Component>(
 
 #[cfg(feature = "bevy_text")]
 pub fn extract_text_uinodes(
-    mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
@@ -691,7 +687,7 @@ pub fn queue_uinodes(
         transparent_phase
             .items
             .reserve(extracted_uinodes.ranges.len());
-        for extracted_range in extracted_uinodes.ranges.iter() {
+        for _extracted_range in extracted_uinodes.ranges.iter() {
             transparent_phase.add(TransparentUi {
                 draw_function,
                 pipeline,
@@ -949,6 +945,5 @@ pub fn prepare_uinodes(
         *previous_len = batches.len();
         commands.insert_or_spawn_batch(batches);
     }
-    extracted_uinodes.ranges.clear();
-    extracted_uinodes.uinodes.clear();
+    extracted_uinodes.clear();
 }
