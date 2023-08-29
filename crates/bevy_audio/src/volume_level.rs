@@ -5,50 +5,39 @@ pub enum VolumeLevel {
     ///
     /// # Notes
     ///
-    /// `Self::Amplitude(a)` is only defined for `a` between `f32::MIN_POSITIVE` and `f32::MAX`.
-    /// If `a` is any other value, `VolumeLevel` will be in an invalid state.
+    /// `Self::Amplitude(a)` is defined for all `f32` values. However, negative values represent a
+    /// phase inversion. If `a` and `b` have the same magnitude (`a.abs() == b.abs()`), but opposite
+    /// sign (`a == -b`), then `Self::Amplitude(a) == Self::Amplitude(b)`, as this phase information
+    /// is currently ignored. As such, you should use positive values for this variant to avoid confusion.
     Amplitude(f32),
     /// Decibels of Amplitude Ratio (dB)
     ///
     /// # Notes
     ///
-    /// `Self::Decibels(a)` is defined for all non-`NaN` values of `a`. However, values with a
-    /// magnitude larger than `1,000` are largely meaningless due to the logarithmic nature of
-    /// the decibel scale.
+    /// `Self::Decibels(a)` is defined for all values of `a`. However, values with a magnitude larger
+    /// than `800` are largely meaningless due to the logarithmic nature of the decibel scale.
     Decibels(f32),
 }
 
 impl VolumeLevel {
-    /// The amplitude ratio this represents. This value is bounded between
-    /// `f32::MIN_POSITIVE` and `f32::MAX`, with `1.` representing a neutral level.
+    /// The amplitude ratio this represents. This value is loosely bounded between
+    /// `0.` and `f32::MAX`, with `1.` representing a neutral level. Non-finite values
+    /// such as `infinity` and `NaN` will break out of this boundary.
     pub fn amplitude(&self) -> f32 {
-        let amplitude = match self {
-            Self::Amplitude(amplitude) => *amplitude,
+        match self {
+            Self::Amplitude(amplitude) => amplitude.abs(),
             Self::Decibels(db) => db_to_a(*db),
-        };
-
-        debug_assert!(
-            (f32::MIN_POSITIVE..=f32::MAX).contains(&amplitude),
-            "Amplitude value outside domain"
-        );
-
-        amplitude
+        }
     }
 
-    /// The decibels of amplitude ratio this represents. This value is bounded between
-    /// (approximately) `-800` and `800`, with `0.` representing a neutral level.
+    /// The decibels of amplitude ratio this represents. This value is loosely bounded between
+    /// (approximately) `-800` and `800`, with `0.` representing a neutral level. Non-finite values
+    /// such as `infinity` and `NaN` will break out of this boundary.
     pub fn decibels(&self) -> f32 {
-        let db = match self {
-            Self::Amplitude(amplitude) => a_to_db(*amplitude),
+        match self {
+            Self::Amplitude(amplitude) => a_to_db(amplitude.abs()),
             Self::Decibels(db) => *db,
-        };
-
-        debug_assert!(
-            (a_to_db(f32::MIN_POSITIVE)..=a_to_db(f32::MAX)).contains(&db),
-            "dB value outside domain"
-        );
-
-        db
+        }
     }
 }
 
@@ -63,7 +52,8 @@ impl PartialEq for VolumeLevel {
         use VolumeLevel::{Amplitude, Decibels};
 
         match (self, other) {
-            (Amplitude(a), Amplitude(b)) | (Decibels(a), Decibels(b)) => a == b,
+            (Amplitude(a), Amplitude(b)) => a.abs() == b.abs(),
+            (Decibels(a), Decibels(b)) => a == b,
             (a, b) => a.decibels() == b.decibels(),
         }
     }
@@ -76,7 +66,8 @@ impl PartialOrd for VolumeLevel {
         use VolumeLevel::{Amplitude, Decibels};
 
         Some(match (self, other) {
-            (Amplitude(a), Amplitude(b)) | (Decibels(a), Decibels(b)) => a.total_cmp(b),
+            (Amplitude(a), Amplitude(b)) => a.abs().total_cmp(&b.abs()),
+            (Decibels(a), Decibels(b)) => a.total_cmp(b),
             (a, b) => a.decibels().total_cmp(&b.decibels()),
         })
     }
@@ -138,7 +129,7 @@ mod tests {
         use VolumeLevel::{Amplitude, Decibels};
 
         for (db, amp) in DB_AMPLITUDE_TABLE {
-            for volume in [Amplitude(amp), Decibels(db)] {
+            for volume in [Amplitude(amp), Decibels(db), Amplitude(-amp)] {
                 let db_test = volume.decibels();
                 let amp_test = volume.amplitude();
 
@@ -161,5 +152,45 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn volume_conversion_special() {
+        use VolumeLevel::{Amplitude, Decibels};
+
+        assert!(
+            Decibels(f32::INFINITY).amplitude().is_infinite(),
+            "Infinite Decibels is equivalent to Infinite Amplitude"
+        );
+
+        assert!(
+            Amplitude(f32::INFINITY).decibels().is_infinite(),
+            "Infinite Amplitude is equivalent to Infinite Decibels"
+        );
+
+        assert!(
+            Amplitude(f32::NEG_INFINITY).decibels().is_infinite(),
+            "Negative Infinite Amplitude is equivalent to Infinite Decibels"
+        );
+
+        assert!(
+            Decibels(f32::NEG_INFINITY).amplitude().abs() == 0.,
+            "Negative Infinity Decibels is equivalent to Zero Amplitude"
+        );
+
+        assert!(
+            Amplitude(0.).decibels().is_infinite(),
+            "Zero Amplitude is equivalent to Negative Infinity Decibels"
+        );
+
+        assert!(
+            Decibels(f32::NAN).amplitude().is_nan(),
+            "NaN Decibels is equivalent to NaN Amplitude"
+        );
+
+        assert!(
+            Amplitude(f32::NAN).decibels().is_nan(),
+            "NaN Amplitude is equivalent to NaN Decibels"
+        );
     }
 }
