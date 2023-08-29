@@ -5,11 +5,8 @@
 //! Same as [`super::component`], but for bundles.
 use std::any::TypeId;
 
-use crate::{
-    prelude::Bundle,
-    world::{EntityWorldMut, FromWorld, World},
-};
-use bevy_reflect::{FromType, Reflect, ReflectRef, TypeRegistry};
+use crate::{prelude::Bundle, world::EntityWorldMut};
+use bevy_reflect::{FromReflect, FromType, Reflect, ReflectRef, TypeRegistry};
 
 use super::ReflectComponent;
 
@@ -25,8 +22,6 @@ pub struct ReflectBundle(ReflectBundleFns);
 /// The also [`super::component::ReflectComponentFns`].
 #[derive(Clone)]
 pub struct ReflectBundleFns {
-    /// Function pointer implementing [`ReflectBundle::from_world()`].
-    pub from_world: fn(&mut World) -> Box<dyn Reflect>,
     /// Function pointer implementing [`ReflectBundle::insert()`].
     pub insert: fn(&mut EntityWorldMut, &dyn Reflect),
     /// Function pointer implementing [`ReflectBundle::apply()`].
@@ -43,17 +38,12 @@ impl ReflectBundleFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Bundle + Reflect + FromWorld>() -> Self {
+    pub fn new<T: Bundle + Reflect + FromReflect>() -> Self {
         <ReflectBundle as FromType<T>>::from_type().0
     }
 }
 
 impl ReflectBundle {
-    /// Constructs default reflected [`Bundle`] from world using [`from_world()`](FromWorld::from_world).
-    pub fn from_world(&self, world: &mut World) -> Box<dyn Reflect> {
-        (self.0.from_world)(world)
-    }
-
     /// Insert a reflected [`Bundle`] into the entity like [`insert()`](EntityWorldMut::insert).
     pub fn insert(&self, entity: &mut EntityWorldMut, bundle: &dyn Reflect) {
         (self.0.insert)(entity, bundle);
@@ -123,50 +113,40 @@ impl ReflectBundle {
     }
 }
 
-impl<B: Bundle + Reflect + FromWorld> FromType<B> for ReflectBundle {
+impl<B: Bundle + Reflect + FromReflect> FromType<B> for ReflectBundle {
     fn from_type() -> Self {
         ReflectBundle(ReflectBundleFns {
-            from_world: |world| Box::new(B::from_world(world)),
             insert: |entity, reflected_bundle| {
-                let mut bundle = entity.world_scope(|world| B::from_world(world));
-                bundle.apply(reflected_bundle);
+                let bundle = B::from_reflect(reflected_bundle).unwrap();
                 entity.insert(bundle);
             },
-            apply: |entity, reflected_bundle, registry| {
-                let mut bundle = entity.world_scope(|world| B::from_world(world));
-                bundle.apply(reflected_bundle);
-
-                match bundle.reflect_ref() {
-                    ReflectRef::Struct(bundle) => bundle
-                        .iter_fields()
-                        .for_each(|field| insert_field::<B>(entity, field, registry)),
-                    ReflectRef::Tuple(bundle) => bundle
-                        .iter_fields()
-                        .for_each(|field| insert_field::<B>(entity, field, registry)),
-                    _ => panic!(
-                        "expected bundle `{}` to be named struct or tuple",
-                        // FIXME: once we have unique reflect, use `TypePath`.
-                        std::any::type_name::<B>(),
-                    ),
-                }
+            apply: |entity, reflected_bundle, registry| match reflected_bundle.reflect_ref() {
+                ReflectRef::Struct(bundle) => bundle
+                    .iter_fields()
+                    .for_each(|field| insert_field::<B>(entity, field, registry)),
+                ReflectRef::Tuple(bundle) => bundle
+                    .iter_fields()
+                    .for_each(|field| insert_field::<B>(entity, field, registry)),
+                _ => panic!(
+                    "expected bundle `{}` to be named struct or tuple",
+                    // FIXME: once we have unique reflect, use `TypePath`.
+                    std::any::type_name::<B>(),
+                ),
             },
-            apply_or_insert: |entity, reflected_bundle, registry| {
-                let mut bundle = entity.world_scope(|world| B::from_world(world));
-                bundle.apply(reflected_bundle);
-
-                match bundle.reflect_ref() {
-                    ReflectRef::Struct(bundle) => bundle
-                        .iter_fields()
-                        .for_each(|field| apply_or_insert_field::<B>(entity, field, registry)),
-                    ReflectRef::Tuple(bundle) => bundle
-                        .iter_fields()
-                        .for_each(|field| apply_or_insert_field::<B>(entity, field, registry)),
-                    _ => panic!(
-                        "expected bundle `{}` to be named struct or tuple",
-                        // FIXME: once we have unique reflect, use `TypePath`.
-                        std::any::type_name::<B>(),
-                    ),
-                }
+            apply_or_insert: |entity, reflected_bundle, registry| match reflected_bundle
+                .reflect_ref()
+            {
+                ReflectRef::Struct(bundle) => bundle
+                    .iter_fields()
+                    .for_each(|field| apply_or_insert_field::<B>(entity, field, registry)),
+                ReflectRef::Tuple(bundle) => bundle
+                    .iter_fields()
+                    .for_each(|field| apply_or_insert_field::<B>(entity, field, registry)),
+                _ => panic!(
+                    "expected bundle `{}` to be named struct or tuple",
+                    // FIXME: once we have unique reflect, use `TypePath`.
+                    std::any::type_name::<B>(),
+                ),
             },
             remove: |entity| {
                 entity.remove::<B>();
