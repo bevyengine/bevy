@@ -305,7 +305,12 @@ fn from_reflect_or_world<T: FromReflect>(reflected: &dyn Reflect, world: &mut Wo
         .get_type_data::<ReflectFromWorld>(TypeId::of::<T>())
         .unwrap()
         .clone();
-    let mut base = reflect_from_world.from_world(world);
-    base.apply(reflected);
-    T::take_from_reflect(base).ok().unwrap()
+    let mut value = *reflect_from_world
+        .from_world(world)
+        .into_any()
+        .downcast::<T>()
+        .ok()
+        .unwrap();
+    value.apply(reflected);
+    value
 }
