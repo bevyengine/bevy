@@ -1054,22 +1054,20 @@ fn compute_aabb_for_cluster(
             screen_size,
             inverse_projection,
             p_min,
-            1.0 - (ijk.z / cluster_dimensions.z as f32),
+            0.0,
         )
         .xyz();
         let mut p_max = screen_to_view(
             screen_size,
             inverse_projection,
             p_max,
-            1.0 - ((ijk.z + 1.0) / cluster_dimensions.z as f32),
+            0.0,
         )
         .xyz();
 
-        // translate the view depth into cluster depth 
-        let cam_far = inverse_projection.w_axis.z;
-        let cam_near = inverse_projection.z_axis.z + inverse_projection.w_axis.z;
-        p_min.z = -(((p_min.z - cam_near) / cam_far) * (z_far - z_near) + z_near);
-        p_max.z = -(((p_max.z - cam_near) / cam_far) * (z_far - z_near) + z_near);
+        // calculate cluster depth using z_near and z_far
+        p_min.z = -z_near + (z_near - z_far) * ijk.z / cluster_dimensions.z as f32;
+        p_max.z = -z_near + (z_near - z_far) * (ijk.z + 1.0) / cluster_dimensions.z as f32;
 
         cluster_min = p_min.min(p_max);
         cluster_max = p_min.max(p_max);
