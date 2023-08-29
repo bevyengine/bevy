@@ -1050,20 +1050,26 @@ fn compute_aabb_for_cluster(
 
         // Convert to view space at the cluster near and far planes
         // NOTE: 1.0 is the near plane due to using reverse z projections
-        let p_min = screen_to_view(
+        let mut p_min = screen_to_view(
             screen_size,
             inverse_projection,
             p_min,
             1.0 - (ijk.z / cluster_dimensions.z as f32),
         )
         .xyz();
-        let p_max = screen_to_view(
+        let mut p_max = screen_to_view(
             screen_size,
             inverse_projection,
             p_max,
             1.0 - ((ijk.z + 1.0) / cluster_dimensions.z as f32),
         )
         .xyz();
+
+        // translate the view depth into cluster depth 
+        // - z_far is the extent of the clusters
+        // - inverse_projection.z_axis.z is the far plane of the camera
+        p_min.z *= z_far / inverse_projection.z_axis.z;
+        p_max.z *= z_far / inverse_projection.z_axis.z;
 
         cluster_min = p_min.min(p_max);
         cluster_max = p_min.max(p_max);
