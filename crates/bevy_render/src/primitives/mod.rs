@@ -68,7 +68,7 @@ impl Aabb {
         let mut iter = iter.into_iter().map(|p| *p.borrow());
         let mut min = iter.next()?;
         let mut max = min;
-       for v in iter {
+        for v in iter {
             min = Vec3::min(min, v);
             max = Vec3::max(max, v);
         }
