@@ -179,8 +179,8 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// struct Counter(u8);
 ///
 /// fn increment(mut counter: Local<Counter>) {
-///    counter.0 .0 += 1;
-///    println!("{}", counter.0 .0);
+///    counter.0 += 1;
+///    println!("{}", counter.0);
 /// }
 ///
 /// let mut world = World::default();

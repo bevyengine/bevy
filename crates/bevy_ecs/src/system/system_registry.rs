@@ -35,8 +35,8 @@ use bevy_ecs_macros::Resource;
 /// struct Counter(u8);
 ///
 /// fn increment(mut counter: Local<Counter>) {
-///    counter.0 .0 += 1;
-///    println!("{}", counter.0 .0);
+///    counter.0 += 1;
+///    println!("{}", counter.0);
 /// }
 ///
 /// let mut world = World::default();
@@ -50,7 +50,7 @@ use bevy_ecs_macros::Resource;
 /// Change detection:
 ///
 /// ```rust
-/// # use bevy_ecs::
+/// # use bevy_ecs::prelude::*;
 /// #[derive(Resource, Default)]
 /// struct ChangeDetector;
 ///
