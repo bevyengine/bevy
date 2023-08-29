@@ -87,19 +87,19 @@ impl CachedComputePipelineId {
 /// Index of a cached pipeline of any kind in a [`PipelineCache`]. This is essentially a union of
 /// all pipeline ID types.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub enum CachedAnyPipelineId {
+pub enum AnyCachedPipelineId {
     RenderPipeline(CachedRenderPipelineId),
     ComputePipeline(CachedComputePipelineId),
 }
 
-impl CachedAnyPipelineId {
+impl AnyCachedPipelineId {
     fn from_id_and_descriptor(id: CachedPipelineId, descriptor: &PipelineDescriptor) -> Self {
         match descriptor {
             PipelineDescriptor::RenderPipelineDescriptor(_) => {
-                CachedAnyPipelineId::RenderPipeline(CachedRenderPipelineId(id))
+                AnyCachedPipelineId::RenderPipeline(CachedRenderPipelineId(id))
             }
             PipelineDescriptor::ComputePipelineDescriptor(_) => {
-                CachedAnyPipelineId::ComputePipeline(CachedComputePipelineId(id))
+                AnyCachedPipelineId::ComputePipeline(CachedComputePipelineId(id))
             }
         }
     }
@@ -147,11 +147,11 @@ impl CachedPipelineState {
 #[derive(Event)]
 pub enum PipelineCacheEvent {
     /// A pipeline GPU object was created successfully and is available (allocated on the GPU).
-    Created(CachedAnyPipelineId),
+    Created(AnyCachedPipelineId),
     /// An error occurred while trying to create a pipeline GPU object.
-    FailedToCreate(CachedAnyPipelineId),
+    FailedToCreate(AnyCachedPipelineId),
     // A pipeline GPU object was invalidated and is no longer available in the cache.
-    Invalidated(CachedAnyPipelineId),
+    Invalidated(AnyCachedPipelineId),
 }
 
 #[derive(Default)]
@@ -670,7 +670,7 @@ impl PipelineCache {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
             if self.waiting_pipelines.insert(cached_pipeline) {
                 self.queued_events.push(PipelineCacheEvent::Invalidated(
-                    CachedAnyPipelineId::from_id_and_descriptor(
+                    AnyCachedPipelineId::from_id_and_descriptor(
                         cached_pipeline,
                         &self.pipelines[cached_pipeline].descriptor,
                     ),
@@ -685,7 +685,7 @@ impl PipelineCache {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
             if self.waiting_pipelines.insert(cached_pipeline) {
                 self.queued_events.push(PipelineCacheEvent::Invalidated(
-                    CachedAnyPipelineId::from_id_and_descriptor(
+                    AnyCachedPipelineId::from_id_and_descriptor(
                         cached_pipeline,
                         &self.pipelines[cached_pipeline].descriptor,
                     ),
@@ -847,12 +847,12 @@ impl PipelineCache {
             pipeline.state = match &pipeline.descriptor {
                 PipelineDescriptor::RenderPipelineDescriptor(descriptor) => {
                     any_pipeline_id =
-                        CachedAnyPipelineId::RenderPipeline(CachedRenderPipelineId(id));
+                        AnyCachedPipelineId::RenderPipeline(CachedRenderPipelineId(id));
                     self.process_render_pipeline(id, descriptor)
                 }
                 PipelineDescriptor::ComputePipelineDescriptor(descriptor) => {
                     any_pipeline_id =
-                        CachedAnyPipelineId::ComputePipeline(CachedComputePipelineId(id));
+                        AnyCachedPipelineId::ComputePipeline(CachedComputePipelineId(id));
                     self.process_compute_pipeline(id, descriptor)
                 }
             };
