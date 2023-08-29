@@ -453,14 +453,6 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     }
 }
 
-impl<'a, 'w, 's, E: Event> IntoIterator for &'a mut EventReader<'w, 's, E> {
-    type Item = &'a E;
-    type IntoIter = EventIterator<'a, E>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
 /// Sends events of type `T`.
 ///
 /// # Usage
