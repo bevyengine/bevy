@@ -18,7 +18,7 @@ use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
-use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
+use taffy::Taffy;
 
 pub struct LayoutContext {
     pub scale_factor: f64,
@@ -42,7 +42,7 @@ impl LayoutContext {
 #[derive(Resource)]
 pub struct UiSurface {
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
-    window_nodes: HashMap<Entity, taffy::node::Node>,
+    window_root_nodes: HashMap<Entity, Vec<taffy::node::Node>>,
     taffy: Taffy,
 }
 
@@ -57,7 +57,7 @@ impl fmt::Debug for UiSurface {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("UiSurface")
             .field("entity_to_taffy", &self.entity_to_taffy)
-            .field("window_nodes", &self.window_nodes)
+            .field("window_nodes", &self.window_root_nodes)
             .finish()
     }
 }
@@ -68,7 +68,7 @@ impl Default for UiSurface {
         taffy.disable_rounding();
         Self {
             entity_to_taffy: Default::default(),
-            window_nodes: Default::default(),
+            window_root_nodes: Default::default(),
             taffy,
         }
     }
@@ -132,50 +132,29 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
-    /// Retrieve or insert the root layout node and update its size to match the size of the window.
-    pub fn update_window(&mut self, window: Entity, window_resolution: &WindowResolution) {
-        let taffy = &mut self.taffy;
-        let node = self
-            .window_nodes
-            .entry(window)
-            .or_insert_with(|| taffy.new_leaf(taffy::style::Style::default()).unwrap());
-
-        taffy
-            .set_style(
-                *node,
-                taffy::style::Style {
-                    size: taffy::geometry::Size {
-                        width: taffy::style::Dimension::Points(
-                            window_resolution.physical_width() as f32
-                        ),
-                        height: taffy::style::Dimension::Points(
-                            window_resolution.physical_height() as f32,
-                        ),
-                    },
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-    }
-
     /// Set the ui node entities without a [`Parent`] as children to the root node in the taffy layout.
     pub fn set_window_children(
         &mut self,
         parent_window: Entity,
         children: impl Iterator<Item = Entity>,
     ) {
-        let taffy_node = self.window_nodes.get(&parent_window).unwrap();
         let child_nodes = children
             .map(|e| *self.entity_to_taffy.get(&e).unwrap())
-            .collect::<Vec<taffy::node::Node>>();
-        self.taffy.set_children(*taffy_node, &child_nodes).unwrap();
+            .collect();
+        self.window_root_nodes.insert(parent_window, child_nodes);
     }
 
     /// Compute the layout for each window entity's corresponding root node in the layout.
-    pub fn compute_window_layouts(&mut self) {
-        for window_node in self.window_nodes.values() {
+    pub fn compute_window_layout(&mut self, window: Entity, window_resolution: &WindowResolution) {
+        let available_space = taffy::geometry::Size {
+            width: taffy::style::AvailableSpace::Definite(window_resolution.physical_width() as f32),
+            height: taffy::style::AvailableSpace::Definite(
+                window_resolution.physical_height() as f32
+            ),
+        };
+        for root_node in self.window_root_nodes.get(&window).unwrap() {
             self.taffy
-                .compute_layout(*window_node, Size::MAX_CONTENT)
+                .compute_layout(*root_node, available_space)
                 .unwrap();
         }
     }
@@ -251,11 +230,6 @@ pub fn ui_layout_system(
         .read()
         .any(|resized_window| resized_window.window == primary_window_entity);
 
-    // update window root nodes
-    for (entity, window) in windows.iter() {
-        ui_surface.update_window(entity, &window.resolution);
-    }
-
     let scale_factor = logical_to_physical_factor * ui_scale.0;
 
     let layout_context = LayoutContext::new(scale_factor, physical_size);
@@ -302,7 +276,9 @@ pub fn ui_layout_system(
     }
 
     // compute layouts
-    ui_surface.compute_window_layouts();
+    for (entity, window) in windows.iter() {
+        ui_surface.compute_window_layout(entity, &window.resolution);
+    }
 
     let inverse_target_scale_factor = 1. / scale_factor;
 

@@ -12,17 +12,19 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
         .iter()
         .map(|(entity, node)| (*node, *entity))
         .collect();
-    for (&entity, &node) in ui_surface.window_nodes.iter() {
+    for (&entity, nodes) in ui_surface.window_root_nodes.iter() {
         let mut out = String::new();
-        print_node(
-            ui_surface,
-            &taffy_to_entity,
-            entity,
-            node,
-            false,
-            String::new(),
-            &mut out,
-        );
+        for node in nodes {
+            print_node(
+                ui_surface,
+                &taffy_to_entity,
+                entity,
+                *node,
+                false,
+                String::new(),
+                &mut out,
+            );
+        }
         bevy_log::info!("Layout tree for window entity: {entity:?}\n{out}");
     }
 }
