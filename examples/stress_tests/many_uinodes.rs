@@ -104,7 +104,7 @@ fn extract<M: Component>(
             ExtractedUiNode {
                 transform: transform.compute_matrix(),
                 color: color.0,
-                rect: Rect {s
+                rect: Rect {
                     min: Vec2::ZERO,
                     max: size.0,
                 },
