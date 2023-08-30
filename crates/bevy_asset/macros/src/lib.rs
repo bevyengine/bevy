@@ -14,22 +14,6 @@ pub fn derive_asset(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let bevy_asset_path: Path = bevy_asset_path();
 
-    let mut field_visitors = Vec::new();
-    if let Data::Struct(data_struct) = &ast.data {
-        for field in data_struct.fields.iter() {
-            if field
-                .attrs
-                .iter()
-                .any(|a| a.path().is_ident(DEPENDENCY_ATTRIBUTE))
-            {
-                if let Some(field_ident) = &field.ident {
-                    field_visitors.push(quote! {
-                        #bevy_asset_path::VisitAssetDependencies::visit_dependencies(&self.#field_ident, visit);
-                    });
-                }
-            }
-        }
-    }
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();

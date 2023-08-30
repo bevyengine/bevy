@@ -41,7 +41,7 @@ impl<A: Asset> AssetId<A> {
     /// produce undefined behavior, so don't do it!
     pub const INVALID_UUID: Uuid = Uuid::from_u128(108428345662029828789348721013522787528);
 
-    /// Returns an [`AssetId`] with [`Self::INVALID_UUID`], which _should_ never be valid.
+    /// Returns an [`AssetId`] with [`Self::INVALID_UUID`], which _should_ never be assigned to.
     #[inline]
     pub const fn invalid() -> Self {
         Self::Uuid {

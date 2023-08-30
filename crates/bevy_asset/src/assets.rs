@@ -85,7 +85,7 @@ enum Entry<A: Asset> {
 }
 
 /// Stores [`Asset`] values in a Vec-like storage identified by [`AssetIndex].
-pub(crate) struct DenseAssetStorage<A: Asset> {
+struct DenseAssetStorage<A: Asset> {
     storage: Vec<Entry<A>>,
     len: u32,
     allocator: Arc<AssetIndexAllocator>,
