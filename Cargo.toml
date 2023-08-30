@@ -1788,6 +1788,19 @@ description = "Test rendering of many UI elements"
 category = "Stress Tests"
 wasm = true
 
+
+[[example]]
+name = "many_uinodes"
+path = "examples/stress_tests/many_uinodes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_uinodes]
+name = "Many UI nodes"
+description = "Test rendering of many UI elements"
+category = "Stress Tests"
+wasm = true
+
+
 [[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
