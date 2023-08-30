@@ -149,18 +149,7 @@ impl<A: Asset> PartialOrd for AssetId<A> {
 
 impl<A: Asset> Ord for AssetId<A> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match self {
-            AssetId::Index { index, .. } => match other {
-                AssetId::Index {
-                    index: other_index, ..
-                } => index.cmp(other_index),
-                AssetId::Uuid { .. } => std::cmp::Ordering::Less,
-            },
-            AssetId::Uuid { uuid } => match other {
-                AssetId::Index { .. } => std::cmp::Ordering::Greater,
-                AssetId::Uuid { uuid: other_uuid } => uuid.cmp(other_uuid),
-            },
-        }
+        self.internal().cmp(&other.internal())
     }
 }
 
@@ -357,7 +346,7 @@ impl<A: Asset> From<&Handle<A>> for UntypedAssetId {
 /// Do not _ever_ use this across asset types for comparison.
 /// [`InternalAssetId`] contains no type information and will happily collide
 /// with indices across types.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub(crate) enum InternalAssetId {
     Index(AssetIndex),
     Uuid(Uuid),
