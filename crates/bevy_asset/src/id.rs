@@ -299,22 +299,19 @@ impl UntypedAssetId {
 
 impl Display for UntypedAssetId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut writer = f.debug_struct("UntypedAssetId");
         match self {
             UntypedAssetId::Index { index, type_id } => {
-                write!(
-                    f,
-                    "UntypedAssetId{{ type_id: {:?} index: {}, generation: {}}}",
-                    *type_id, index.index, index.generation
-                )
+                writer
+                    .field("type_id", type_id)
+                    .field("index", &index.index)
+                    .field("generation", &index.generation);
             }
             UntypedAssetId::Uuid { uuid, type_id } => {
-                write!(
-                    f,
-                    "UntypedAssetId{{ type_id: {:?} uuid: {}}}",
-                    *type_id, uuid
-                )
+                writer.field("type_id", type_id).field("uuid", uuid);
             }
         }
+        writer.finish()
     }
 }
 
