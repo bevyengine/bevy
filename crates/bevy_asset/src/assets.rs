@@ -326,11 +326,14 @@ impl<A: Asset> Assets<A> {
     #[inline]
     pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
         let id: AssetId<A> = id.into();
-        self.queued_events.push(AssetEvent::Modified { id });
-        match id {
+        let result = match id {
             AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
             AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
+        };
+        if result.is_some() {
+            self.queued_events.push(AssetEvent::Modified { id });
         }
+        result
     }
 
     /// Removes (and returns) the [`Asset`] with the given `id`, if its exists.
