@@ -53,7 +53,7 @@ impl VolumeLevel {
     }
 }
 
-/// How should Bevy manage the sound playback?
+/// Playback mode controls
 #[derive(Debug, Clone, Copy)]
 pub enum PlaybackMode {
     /// Play the sound once. Do nothing when it ends.
