@@ -63,10 +63,10 @@ use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin
 #[cfg(target_os = "android")]
 pub static ANDROID_APP: std::sync::OnceLock<AndroidApp> = std::sync::OnceLock::new();
 
-/// A [`Plugin`] that uses [`winit`] to create and manage windows, and receive window and input
+/// A [`Plugin`] that uses `winit` to create and manage windows, and receive window and input
 /// events.
 ///
-/// This plugin will add systems and resources that sync with the [`winit`] backend and also
+/// This plugin will add systems and resources that sync with the `winit` backend and also
 /// replace the exising [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
 #[derive(Default)]
