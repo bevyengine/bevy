@@ -168,11 +168,11 @@ pub struct Schedule {
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
 struct DefaultSchedule;
 
-/// Creates a schedule with a default label. Only use in situations where
-/// where you don't care about the [`ScheduleLabel`]. Inserting a default schedule
-/// into the world risks overwriting another schedule. For most situations you should use
-/// [`Schedule::new`].
 impl Default for Schedule {
+    /// Creates a schedule with a default label. Only use in situations where
+    /// you don't care about the [`ScheduleLabel`]. Inserting a default schedule
+    /// into the world risks overwriting another schedule. For most situations
+    /// you should use [`Schedule::new`].
     fn default() -> Self {
         Self::new(DefaultSchedule)
     }
