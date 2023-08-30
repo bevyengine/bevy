@@ -126,8 +126,8 @@ Example | Description
 [Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene
 [Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)
 [Parallax Mapping](../examples/3d/parallax_mapping.rs) | Demonstrates use of a normal map and depth map for parallax mapping
+[Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations.
 [Parenting (Flat)](../examples/3d/parenting_flat.rs) | Demonstrates parent->child relationships and relative transformations with a flat code structure.
-[Parenting (Nested)](../examples/3d/parenting_nested.rs) | Demonstrates parent->child relationships and relative transformations with a nested code structure.
 [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
 [Render to Texture](../examples/3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
 [Screen Space Ambient Occlusion](../examples/3d/ssao.rs) | A scene showcasing screen space ambient occlusion
@@ -354,8 +354,8 @@ Example | Description
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
 [Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
+[UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
 [UI (Flat)](../examples/ui/ui_flat.rs) | Illustrates various features of Bevy UI in a flat code structure
-[UI (Nested)](../examples/ui/ui_nested.rs) | Illustrates various features of Bevy UI in a nested code structure
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
 [UI Texture Atlas](../examples/ui/ui_texture_atlas.rs) | Illustrates how to use TextureAtlases in UI
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
