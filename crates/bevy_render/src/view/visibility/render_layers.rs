@@ -39,7 +39,7 @@ impl std::iter::FromIterator<Layer> for RenderLayers {
 }
 
 impl Default for RenderLayers {
-    /// Defaults to containing to layer `0`, the first layer.
+    /// By default, this structure includes layer `0`, which represents the first layer.
     fn default() -> Self {
         RenderLayers::layer(0)
     }
