@@ -464,27 +464,12 @@ impl Mesh {
 
     /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
     pub fn compute_aabb(&self) -> Option<Aabb> {
-        if let Some(VertexAttributeValues::Float32x3(values)) =
-            self.attribute(Mesh::ATTRIBUTE_POSITION)
-        {
-            let mut minimum = VEC3_MAX;
-            let mut maximum = VEC3_MIN;
-            for p in values {
-                minimum = minimum.min(Vec3::from_slice(p));
-                maximum = maximum.max(Vec3::from_slice(p));
-            }
-            if minimum.x != std::f32::MAX
-                && minimum.y != std::f32::MAX
-                && minimum.z != std::f32::MAX
-                && maximum.x != std::f32::MIN
-                && maximum.y != std::f32::MIN
-                && maximum.z != std::f32::MIN
-            {
-                return Some(Aabb::from_min_max(minimum, maximum));
-            }
-        }
+        let Some(VertexAttributeValues::Float32x3(values)) =
+            self.attribute(Mesh::ATTRIBUTE_POSITION) else {
+                return None;
+            };
 
-        None
+        Aabb::enclosing(values.iter().map(|p| Vec3::from_slice(p)))
     }
 
     /// Whether this mesh has morph targets.
@@ -634,9 +619,6 @@ struct MeshAttributeData {
     attribute: MeshVertexAttribute,
     values: VertexAttributeValues,
 }
-
-const VEC3_MIN: Vec3 = Vec3::splat(std::f32::MIN);
-const VEC3_MAX: Vec3 = Vec3::splat(std::f32::MAX);
 
 fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
