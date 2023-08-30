@@ -10,6 +10,8 @@ use std::{
 /// A unique runtime-only identifier for an [`Asset`]. This is cheap to [`Copy`]/[`Clone`] and is not directly tied to the
 /// lifetime of the Asset. This means it _can_ point to an [`Asset`] that no longer exists.
 ///
+/// For an identifier tied to the lifetime of an asset, see [`Handle`].
+///
 /// For an "untyped" / "generic-less" id, see [`UntypedAssetId`].
 #[derive(Reflect)]
 pub enum AssetId<A: Asset> {
@@ -96,25 +98,7 @@ impl<A: Asset> Copy for AssetId<A> {}
 
 impl<A: Asset> Display for AssetId<A> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AssetId::Index { index, .. } => {
-                write!(
-                    f,
-                    "AssetId<{}>{{ index: {}, generation: {}}}",
-                    std::any::type_name::<A>(),
-                    index.index,
-                    index.generation
-                )
-            }
-            AssetId::Uuid { uuid } => {
-                write!(
-                    f,
-                    "AssetId<{}>{{uuid: {}}}",
-                    std::any::type_name::<A>(),
-                    uuid
-                )
-            }
-        }
+        Debug::fmt(self, f)
     }
 }
 impl<A: Asset> Debug for AssetId<A> {
