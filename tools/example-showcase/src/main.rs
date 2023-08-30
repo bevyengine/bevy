@@ -258,7 +258,6 @@ fn main() {
                 let result = cmd.output();
 
                 let duration = before.elapsed();
-                println!("took {duration:?}");
 
                 if (!report_details && result.is_ok())
                     || (report_details && result.as_ref().unwrap().status.success())
