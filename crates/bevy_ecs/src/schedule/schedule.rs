@@ -550,8 +550,8 @@ impl ScheduleGraph {
                     let Some(prev) = config_iter.next() else {
                         return AddSystemsInnerResult {
                             nodes: Vec::new(),
-                            densely_chained: true
-                        }
+                            densely_chained: true,
+                        };
                     };
                     let mut previous_result = self.add_systems_inner(prev, true);
                     densely_chained = previous_result.densely_chained;

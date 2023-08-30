@@ -86,7 +86,9 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         if !render_app
             .world
@@ -226,7 +228,8 @@ impl ViewNode for SsaoNode {
             pipeline_cache.get_compute_pipeline(pipelines.preprocess_depth_pipeline),
             pipeline_cache.get_compute_pipeline(pipelines.spatial_denoise_pipeline),
             pipeline_cache.get_compute_pipeline(pipeline_id.0),
-        ) else {
+        )
+        else {
             return Ok(());
         };
 
@@ -640,7 +643,9 @@ fn prepare_ssao_textures(
     views: Query<(Entity, &ExtractedCamera), With<ScreenSpaceAmbientOcclusionSettings>>,
 ) {
     for (entity, camera) in &views {
-        let Some(physical_viewport_size) = camera.physical_viewport_size else { continue };
+        let Some(physical_viewport_size) = camera.physical_viewport_size else {
+            continue;
+        };
         let size = Extent3d {
             width: physical_viewport_size.x,
             height: physical_viewport_size.y,

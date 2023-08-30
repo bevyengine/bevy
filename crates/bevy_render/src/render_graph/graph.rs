@@ -125,7 +125,9 @@ impl RenderGraph {
     /// It simply won't create a new edge.
     pub fn add_node_edges(&mut self, edges: &[&'static str]) {
         for window in edges.windows(2) {
-            let [a, b] = window else { break; };
+            let [a, b] = window else {
+                break;
+            };
             if let Err(err) = self.try_add_node_edge(*a, *b) {
                 match err {
                     // Already existing edges are very easy to produce with this api
