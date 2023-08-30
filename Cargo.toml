@@ -1445,6 +1445,16 @@ category = "Input"
 wasm = false
 
 [[example]]
+name = "gpu_picking"
+path = "examples/input/gpu_picking.rs"
+
+[package.metadata.example.gpu_picking]
+name = "GPU picking"
+description = "Mouse picking using the gpu"
+category = "Input"
+wasm = true
+
+[[example]]
 name = "keyboard_input"
 path = "examples/input/keyboard_input.rs"
 doc-scrape-examples = true

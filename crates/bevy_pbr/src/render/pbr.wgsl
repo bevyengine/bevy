@@ -18,13 +18,19 @@
 #import bevy_pbr::gtao_utils gtao_multibounce
 #endif
 
+struct FragmentOutput {
+    @location(0) color: vec4<f32>,
+#ifdef GPU_PICKING
+    @location(1) mesh_id: u32,
+#endif
+};
+
 @fragment
 fn fragment(
     in: MeshVertexOutput,
     @builtin(front_facing) is_front: bool,
-) -> @location(0) vec4<f32> {
+) -> FragmentOutput {
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
-
     let is_orthographic = view.projection[3].w == 1.0;
     let V = pbr_functions::calculate_view(in.world_position, is_orthographic);
 #ifdef VERTEX_UVS
@@ -165,5 +171,11 @@ fn fragment(
 #ifdef PREMULTIPLY_ALPHA
     output_color = pbr_functions::premultiply_alpha(pbr_bindings::material.flags, output_color);
 #endif
-    return output_color;
+
+    var out: FragmentOutput;
+    out.color = output_color;
+#ifdef GPU_PICKING
+    out.mesh_id = mesh[in.instance_index].id;
+#endif
+    return out;
 }

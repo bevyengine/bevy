@@ -7,6 +7,7 @@ use crate::{
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
+    picking::{ExtractedGpuPickingCamera, VisibleMeshIdTextures},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::RenderPhase,
     render_resource::{
@@ -34,8 +35,10 @@ impl ViewNode for MainOpaquePass3dNode {
         Option<&'static DepthPrepass>,
         Option<&'static NormalPrepass>,
         Option<&'static MotionVectorPrepass>,
+        Option<&'static ExtractedGpuPickingCamera>,
         Option<&'static SkyboxPipelineId>,
         Option<&'static SkyboxBindGroup>,
+        Option<&'static VisibleMeshIdTextures>,
         &'static ViewUniformOffset,
     );
 
@@ -53,8 +56,10 @@ impl ViewNode for MainOpaquePass3dNode {
             depth_prepass,
             normal_prepass,
             motion_vector_prepass,
+            gpu_picking_camera,
             skybox_pipeline,
             skybox_bind_group,
+            mesh_id_textures,
             view_uniform_offset,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
@@ -64,21 +69,34 @@ impl ViewNode for MainOpaquePass3dNode {
         #[cfg(feature = "trace")]
         let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
 
+        let mut color_attachments = vec![Some(target.get_color_attachment(Operations {
+            load: match camera_3d.clear_color {
+                ClearColorConfig::Default => LoadOp::Clear(world.resource::<ClearColor>().0.into()),
+                ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
+                ClearColorConfig::None => LoadOp::Load,
+            },
+            store: true,
+        }))];
+
+        if gpu_picking_camera.is_some() {
+            if let Some(mesh_id_textures) = mesh_id_textures {
+                color_attachments.push(Some(mesh_id_textures.get_color_attachment(Operations {
+                    load: match camera_3d.clear_color {
+                        ClearColorConfig::None => LoadOp::Load,
+                        // TODO clear this earlier?
+                        _ => LoadOp::Clear(VisibleMeshIdTextures::clear_color()),
+                    },
+                    store: true,
+                })));
+            }
+        }
+
         // Setup render pass
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("main_opaque_pass_3d"),
             // NOTE: The opaque pass loads the color
             // buffer as well as writing to it.
-            color_attachments: &[Some(target.get_color_attachment(Operations {
-                load: match camera_3d.clear_color {
-                    ClearColorConfig::Default => {
-                        LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                    }
-                    ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                    ClearColorConfig::None => LoadOp::Load,
-                },
-                store: true,
-            }))],
+            color_attachments: &color_attachments,
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &depth.view,
                 // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it

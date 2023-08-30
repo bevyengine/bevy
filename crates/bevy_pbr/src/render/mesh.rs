@@ -28,6 +28,7 @@ use bevy_render::{
         GpuBufferInfo, InnerMeshVertexBufferLayout, Mesh, MeshVertexBufferLayout,
         VertexAttributeDescriptor,
     },
+    picking::{VisibleMeshEntities, MESH_ID_TEXTURE_FORMAT},
     prelude::Msaa,
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, TrackedRenderPass},
@@ -175,6 +176,7 @@ impl Plugin for MeshRenderPlugin {
 pub struct MeshTransforms {
     pub transform: Affine3,
     pub previous_transform: Affine3,
+    pub id: u32,
     pub flags: u32,
 }
 
@@ -189,6 +191,7 @@ pub struct MeshUniform {
     //   [2].z
     pub inverse_transpose_model_a: [Vec4; 2],
     pub inverse_transpose_model_b: f32,
+    pub id: u32,
     pub flags: u32,
 }
 
@@ -236,6 +239,7 @@ impl From<&MeshTransforms> for MeshUniform {
                     .into(),
             ],
             inverse_transpose_model_b: inverse_transpose_model_3x3.z_axis.z,
+            id: mesh_transforms.id,
             flags: mesh_transforms.flags,
         }
     }
@@ -274,8 +278,10 @@ pub fn extract_meshes(
     let mut not_caster_commands = Vec::with_capacity(*prev_not_caster_commands_len);
     let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.get());
 
-    for (entity, _, transform, previous_transform, handle, not_receiver, not_caster) in
-        visible_meshes
+    let mut visible_mesh_entities = vec![Entity::PLACEHOLDER];
+
+    for (mesh_id, (entity, _, transform, previous_transform, handle, not_receiver, not_caster)) in
+        visible_meshes.enumerate()
     {
         let transform = transform.affine();
         let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
@@ -291,17 +297,21 @@ pub fn extract_meshes(
             transform: (&transform).into(),
             previous_transform: (&previous_transform).into(),
             flags: flags.bits(),
+            id: mesh_id as u32 + 1,
         };
         if not_caster.is_some() {
             not_caster_commands.push((entity, (handle.clone_weak(), transforms, NotShadowCaster)));
         } else {
             caster_commands.push((entity, (handle.clone_weak(), transforms)));
         }
+
+        visible_mesh_entities.push(entity);
     }
     *prev_caster_commands_len = caster_commands.len();
     *prev_not_caster_commands_len = not_caster_commands.len();
     commands.insert_or_spawn_batch(caster_commands);
     commands.insert_or_spawn_batch(not_caster_commands);
+    commands.insert_resource(VisibleMeshEntities(Some(visible_mesh_entities)));
 }
 
 #[derive(Component)]
@@ -745,6 +755,10 @@ bitflags::bitflags! {
         const DEPTH_CLAMP_ORTHO                 = (1 << 9);
         const TAA                               = (1 << 10);
         const MORPH_TARGETS                     = (1 << 11);
+        /// Indicates if the mesh should output it's entity index
+        const GPU_PICKING                       = (1 << 12);
+        /// Indicates if the entity index texture should be added as a target
+        const MESH_ID_TEXTURE_TARGET            = (1 << 13);
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
@@ -1023,6 +1037,25 @@ impl SpecializedMeshPipeline for MeshPipeline {
             });
         }
 
+        let mut targets = vec![Some(ColorTargetState {
+            format,
+            blend,
+            write_mask: ColorWrites::ALL,
+        })];
+
+        if key.contains(MeshPipelineKey::GPU_PICKING) {
+            shader_defs.push("GPU_PICKING".into());
+        }
+
+        if key.contains(MeshPipelineKey::MESH_ID_TEXTURE_TARGET) {
+            // we need to add the target even if the mesh isn't pickable
+            targets.push(Some(ColorTargetState {
+                format: MESH_ID_TEXTURE_FORMAT,
+                blend: None,
+                write_mask: ColorWrites::ALL,
+            }));
+        }
+
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
@@ -1034,11 +1067,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![Some(ColorTargetState {
-                    format,
-                    blend,
-                    write_mask: ColorWrites::ALL,
-                })],
+                targets,
             }),
             layout: bind_group_layout,
             push_constant_ranges,

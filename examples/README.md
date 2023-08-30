@@ -244,6 +244,7 @@ Example | Description
 Example | Description
 --- | ---
 [Char Input Events](../examples/input/char_input_events.rs) | Prints out all chars as they are inputted
+[GPU picking](../examples/input/gpu_picking.rs) | Mouse picking using the gpu
 [Gamepad Input](../examples/input/gamepad_input.rs) | Shows handling of gamepad input, connections, and disconnections
 [Gamepad Input Events](../examples/input/gamepad_input_events.rs) | Iterates and prints gamepad input and connection events
 [Gamepad Rumble](../examples/input/gamepad_rumble.rs) | Shows how to rumble a gamepad using force feedback

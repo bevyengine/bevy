@@ -2,6 +2,7 @@ use crate::core_3d::Transparent3d;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
+    picking::{ExtractedGpuPickingCamera, VisibleMeshIdTextures},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::RenderPhase,
     render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
@@ -21,12 +22,16 @@ impl ViewNode for MainTransparentPass3dNode {
         &'static RenderPhase<Transparent3d>,
         &'static ViewTarget,
         &'static ViewDepthTexture,
+        Option<&'static ExtractedGpuPickingCamera>,
+        Option<&'static VisibleMeshIdTextures>,
     );
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, transparent_phase, target, depth): QueryItem<Self::ViewQuery>,
+        (camera, transparent_phase, target, depth, gpu_picking_camera, mesh_id_textures): QueryItem<
+            Self::ViewQuery,
+        >,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
@@ -37,13 +42,27 @@ impl ViewNode for MainTransparentPass3dNode {
             #[cfg(feature = "trace")]
             let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
 
+            let mut color_attachments = vec![Some(target.get_color_attachment(Operations {
+                load: LoadOp::Load,
+                store: true,
+            }))];
+
+            if gpu_picking_camera.is_some() {
+                if let Some(mesh_id_textures) = mesh_id_textures {
+                    color_attachments.push(Some(mesh_id_textures.get_color_attachment(
+                        Operations {
+                            // The texture is already cleared in the opaque pass
+                            load: LoadOp::Load,
+                            store: true,
+                        },
+                    )));
+                }
+            }
+
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
                 // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                }))],
+                color_attachments: &color_attachments,
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: For the transparent pass we load the depth buffer. There should be no

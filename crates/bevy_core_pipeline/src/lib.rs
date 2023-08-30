@@ -6,6 +6,7 @@ pub mod clear_color;
 pub mod contrast_adaptive_sharpening;
 pub mod core_2d;
 pub mod core_3d;
+pub mod entity_index_buffer_copy;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod msaa_writeback;
@@ -40,6 +41,7 @@ use crate::{
     contrast_adaptive_sharpening::CASPlugin,
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
+    entity_index_buffer_copy::EntityIndexBufferCopyPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::FxaaPlugin,
     msaa_writeback::MsaaWritebackPlugin,
@@ -79,6 +81,7 @@ impl Plugin for CorePipelinePlugin {
                 BloomPlugin,
                 FxaaPlugin,
                 CASPlugin,
+                EntityIndexBufferCopyPlugin,
             ));
     }
 }

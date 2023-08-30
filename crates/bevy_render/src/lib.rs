@@ -13,6 +13,7 @@ pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
 pub mod mesh;
+pub mod picking;
 pub mod pipelined_rendering;
 pub mod primitives;
 pub mod render_asset;
