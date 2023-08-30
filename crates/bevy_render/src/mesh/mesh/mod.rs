@@ -465,9 +465,10 @@ impl Mesh {
     /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
     pub fn compute_aabb(&self) -> Option<Aabb> {
         let Some(VertexAttributeValues::Float32x3(values)) =
-            self.attribute(Mesh::ATTRIBUTE_POSITION) else {
-                return None;
-            };
+            self.attribute(Mesh::ATTRIBUTE_POSITION)
+        else {
+            return None;
+        };
 
         Aabb::enclosing(values.iter().map(|p| Vec3::from_slice(p)))
     }
