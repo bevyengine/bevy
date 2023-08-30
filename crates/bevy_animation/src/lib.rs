@@ -208,7 +208,7 @@ impl AnimationPlayer {
 
         // Add the current transition. If other transitions are still ongoing,
         // this will keep those transitions running and cause a transition between
-        // the output of that previous transition to the new animation
+        // the output of that previous transition to the new animation.
         self.transitions.push(AnimationTransition {
             current_weight: 1.0,
             weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
