@@ -31,7 +31,7 @@ use bevy_utils::HashMap;
 /// [`CalculateBounds`]: crate::view::visibility::VisibilitySystems::CalculateBounds
 /// [`Mesh`]: crate::mesh::Mesh
 /// [`Handle<Mesh>`]: crate::mesh::Mesh
-#[derive(Component, Clone, Copy, Debug, Default, Reflect)]
+#[derive(Component, Clone, Copy, Debug, Default, Reflect, PartialEq)]
 #[reflect(Component)]
 pub struct Aabb {
     pub center: Vec3A,
@@ -480,5 +480,29 @@ mod tests {
             radius: 4.4094,
         };
         assert!(frustum.intersects_sphere(&sphere, true));
+    }
+
+    #[test]
+    fn aabb_enclosing() {
+        assert_eq!(Aabb::enclosing(<[Vec3; 0]>::default()), None);
+        assert_eq!(
+            Aabb::enclosing(&[Vec3::ONE]).unwrap(),
+            Aabb::from_min_max(Vec3::ONE, Vec3::ONE)
+        );
+        assert_eq!(
+            Aabb::enclosing(&[Vec3::Y, Vec3::X, Vec3::Z]).unwrap(),
+            Aabb::from_min_max(Vec3::ZERO, Vec3::ONE)
+        );
+        assert_eq!(
+            Aabb::enclosing([
+                Vec3::NEG_X,
+                Vec3::X * 2.0,
+                Vec3::NEG_Y * 5.0,
+                Vec3::Z,
+                Vec3::ZERO
+            ])
+            .unwrap(),
+            Aabb::from_min_max(Vec3::new(-1.0, -5.0, 0.0), Vec3::new(2.0, 0.0, 1.0))
+        );
     }
 }
