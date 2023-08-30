@@ -178,8 +178,8 @@ pub struct AnimationPlayer {
 }
 
 impl AnimationPlayer {
-    /// Start playing an animation, resetting state of the player
-    /// This will use a linear blending between the previous and the new animation to make a smooth transition
+    /// Start playing an animation, resetting state of the player.
+    /// This will use a linear blending between the previous and the new animation to make a smooth transition.
     pub fn start(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
         self.animation = PlayingAnimation {
             animation_clip: handle,
@@ -193,8 +193,8 @@ impl AnimationPlayer {
         self
     }
 
-    /// Start playing an animation, resetting state of the player
-    /// This will use a linear blending between the previous and the new animation to make a smooth transition
+    /// Start playing an animation, resetting state of the player.
+    /// This will use a linear blending between the previous and the new animation to make a smooth transition.
     pub fn start_with_transition(
         &mut self,
         handle: Handle<AnimationClip>,
@@ -208,7 +208,7 @@ impl AnimationPlayer {
 
         // Add the current transition. If other transitions are still ongoing,
         // this will keep those transitions running and cause a transition between
-        // the output of that previous transition to the new animation.
+        // the output of that previous transition to the new animation
         self.transitions.push(AnimationTransition {
             current_weight: 1.0,
             weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
