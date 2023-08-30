@@ -636,13 +636,13 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "parenting_nested"
-path = "examples/3d/parenting_nested.rs"
+name = "parenting"
+path = "examples/3d/parenting.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.parenting_nested]
-name = "Parenting (Nested)"
-description = "Demonstrates parent->child relationships and relative transformations with a nested code structure."
+[package.metadata.example.parenting]
+name = "Parenting"
+description = "Demonstrates parent->child relationships and relative transformations."
 category = "3D Rendering"
 wasm = true
 
@@ -2144,13 +2144,13 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "ui_nested"
-path = "examples/ui/ui_nested.rs"
+name = "ui"
+path = "examples/ui/ui.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.ui_nested]
-name = "UI (Nested)"
-description = "Illustrates various features of Bevy UI in a nested code structure"
+[package.metadata.example.ui]
+name = "UI"
+description = "Illustrates various features of Bevy UI"
 category = "UI (User Interface)"
 wasm = true
 
