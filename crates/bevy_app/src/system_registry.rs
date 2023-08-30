@@ -1,5 +1,6 @@
 use crate::App;
 use bevy_ecs::prelude::*;
+use bevy_ecs::system::BoxedSystem;
 use bevy_ecs::system::{RunSystem, SystemId, SystemRegistryError};
 
 impl App {
@@ -15,11 +16,12 @@ impl App {
     }
 
     /// Removes a registered system in the [`SystemRegistry`](bevy_ecs::system::SystemRegistry).
+    /// It returns nothing if id has no corresponding system.
     ///
     /// Calls [`SystemRegistry::remove_system`](bevy_ecs::system::SystemRegistry::remove).
     #[inline]
-    pub fn remove_system(&mut self, id: SystemId) {
-        self.world.remove_system(id);
+    pub fn remove_system(&mut self, id: SystemId) -> Option<BoxedSystem> {
+        self.world.remove_system(id)
     }
 
     /// Runs the supplied system on the [`World`] a single time.

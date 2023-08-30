@@ -20,9 +20,8 @@ use bevy_ecs_macros::Resource;
 /// # Limitations
 ///
 ///  - Stored systems cannot be chained: they can neither have an [`In`](crate::system::In) nor return any values.
-///  - Stored systems cannot recurse: they cannot run other systems via
+///  - Stored systems cannot recurse or nest: they cannot run other systems via
 ///    the [`SystemRegistry`](crate::system::SystemRegistry) methods on [`World`] or [`Commands`](crate::system::Commands).
-///  - Exclusive systems cannot be used.
 ///
 /// # Examples
 ///
@@ -78,16 +77,22 @@ pub struct SystemRegistry {
 }
 
 /// An identifier for a system registered in the [`SystemRegistry`].
-#[derive(Debug, Clone, Copy)]
+///
+/// These are opaque identifiers, keyed to a specific [`SystemRegistry`],
+/// and are created via [`SystemRegistry::register`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SystemId(u32);
 
 impl SystemRegistry {
     /// Registers a system in the [`SystemRegistry`], so it can be run later.
     ///
-    /// It's possible to register the same system twice, creating two instances in the registry.
+    /// It's possible to register the same system twice, creating two or more distinct instances in the registry.
     #[inline]
     pub fn register<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) -> SystemId {
-        let id = self.last_id + 1;
+        let id = self
+            .last_id
+            .checked_add(1)
+            .expect("Maximum number of registered systems exceeded.");
         self.last_id = id;
         self.systems
             .insert(id, (false, Box::new(IntoSystem::into_system(system))));
@@ -95,15 +100,15 @@ impl SystemRegistry {
     }
 
     /// Removes a registered system from the [`SystemRegistry`], if the [`SystemId`] is not
-    /// registered, this function does nothing.
+    /// registered, it returns [`None`], otherwise it returns the system.
     #[inline]
-    pub fn remove(&mut self, id: SystemId) {
-        self.systems.remove(&id.0);
+    pub fn remove(&mut self, id: SystemId) -> Option<BoxedSystem> {
+        self.systems.remove(&id.0).unzip().1
     }
 
     /// Run the system by its [`SystemId`].
     ///
-    /// Systems must be registered before they can be run.
+    /// A [`SystemId`] can be obtained by registering it first via [`SystemRegistry::register`].
     #[inline]
     pub fn run_by_id(
         &mut self,
@@ -143,21 +148,22 @@ impl World {
         self.resource_mut::<SystemRegistry>().register(system)
     }
 
-    /// Removes a registered system in the [`SystemRegistry`].
+    /// Removes a registered system in the [`SystemRegistry`] and returns the system if it exists.
     ///
     /// Calls [`SystemRegistry::remove`].
     #[inline]
-    pub fn remove_system(&mut self, id: SystemId) {
+    pub fn remove_system(&mut self, id: SystemId) -> Option<BoxedSystem> {
         if !self.contains_resource::<SystemRegistry>() {
             panic!(
                 "SystemRegistry not found: Nested and recursive one-shot systems are not supported"
             );
         }
 
-        self.resource_mut::<SystemRegistry>().remove(id);
+        self.resource_mut::<SystemRegistry>().remove(id)
     }
 
     /// Run the systems with the provided [`SystemId`].
+    /// A [`SystemId`] can obtained by registering a system via `[world::register_system]`.
     ///
     /// Calls [`SystemRegistry::run_by_id`].
     #[inline]
