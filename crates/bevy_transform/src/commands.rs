@@ -4,8 +4,6 @@
 use bevy_ecs::{prelude::Entity, system::Command, system::EntityCommands, world::World};
 use bevy_hierarchy::{AddChild, RemoveParent};
 
-#[cfg(doc)]
-use bevy_hierarchy::BuildChildren;
 
 use crate::{GlobalTransform, Transform};
 
@@ -69,7 +67,7 @@ pub trait BuildChildrenTransformExt {
     /// Change this entity's parent while preserving this entity's [`GlobalTransform`]
     /// by updating its [`Transform`].
     ///
-    /// See [`BuildChildren::set_parent`] for a method that doesn't update the
+    /// See [`BuildChildren::set_parent`](bevy_hierarchy::child_builder::BuildChildren::set_parent) for a method that doesn't update the
     /// [`Transform`].
     ///
     /// Note that both the hierarchy and transform updates will only execute
@@ -80,7 +78,7 @@ pub trait BuildChildrenTransformExt {
     /// Make this entity parentless while preserving this entity's [`GlobalTransform`]
     /// by updating its [`Transform`] to be equal to its current [`GlobalTransform`].
     ///
-    /// See [`BuildChildren::remove_parent`] for a method that doesn't update the
+    /// See [`BuildChildren::remove_parent`](bevy_hierarchy::child_builder::BuildChildren::remove_parent) for a method that doesn't update the
     /// [`Transform`].
     ///
     /// Note that both the hierarchy and transform updates will only execute
