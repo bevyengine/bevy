@@ -51,8 +51,8 @@ impl AssetHandleProvider {
         asset_server_managed: bool,
         path: Option<AssetPath<'static>>,
         meta_transform: Option<MetaTransform>,
-    ) -> Arc<InternalAssetHandle> {
-        Arc::new(InternalAssetHandle {
+    ) -> Arc<StrongHandle> {
+        Arc::new(StrongHandle {
             id: id.untyped(self.type_id),
             drop_sender: self.drop_sender.clone(),
             meta_transform,
@@ -66,7 +66,7 @@ impl AssetHandleProvider {
         asset_server_managed: bool,
         path: Option<AssetPath<'static>>,
         meta_transform: Option<MetaTransform>,
-    ) -> Arc<InternalAssetHandle> {
+    ) -> Arc<StrongHandle> {
         let index = self.allocator.reserve();
         self.get_handle(
             InternalAssetId::Index(index),
@@ -80,7 +80,7 @@ impl AssetHandleProvider {
 /// The internal "strong" [`Asset`] handle storage for [`Handle::Strong`] and [`UntypedHandle::Strong`]. When this is dropped,
 /// the [`Asset`] will be freed. It also stores some asset metadata for easy access from handles.
 #[derive(TypePath)]
-pub struct InternalAssetHandle {
+pub struct StrongHandle {
     pub(crate) id: UntypedAssetId,
     pub(crate) asset_server_managed: bool,
     pub(crate) path: Option<AssetPath<'static>>,
@@ -91,20 +91,20 @@ pub struct InternalAssetHandle {
     pub(crate) drop_sender: Sender<DropEvent>,
 }
 
-impl Drop for InternalAssetHandle {
+impl Drop for StrongHandle {
     fn drop(&mut self) {
         if let Err(err) = self.drop_sender.send(DropEvent {
             id: self.id.internal(),
             asset_server_managed: self.asset_server_managed,
         }) {
-            println!("Failed to send DropEvent for InternalAssetHandle {:?}", err);
+            println!("Failed to send DropEvent for StrongHandle {:?}", err);
         }
     }
 }
 
-impl std::fmt::Debug for InternalAssetHandle {
+impl std::fmt::Debug for StrongHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("InternalAssetHandle")
+        f.debug_struct("StrongHandle")
             .field("id", &self.id)
             .field("asset_server_managed", &self.asset_server_managed)
             .field("path", &self.path)
@@ -126,7 +126,7 @@ impl std::fmt::Debug for InternalAssetHandle {
 pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
     /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.  
-    Strong(Arc<InternalAssetHandle>),
+    Strong(Arc<StrongHandle>),
     /// A "weak" reference to an [`Asset`]. If a [`Handle`] is [`Handle::Weak`], it does not necessarily reference a live [`Asset`],
     /// nor will it keep assets alive.
     Weak(AssetId<A>),
@@ -258,7 +258,7 @@ impl<A: Asset> Eq for Handle<A> {}
 /// See [`Handle`] for more information.
 #[derive(Clone)]
 pub enum UntypedHandle {
-    Strong(Arc<InternalAssetHandle>),
+    Strong(Arc<StrongHandle>),
     Weak(UntypedAssetId),
 }
 

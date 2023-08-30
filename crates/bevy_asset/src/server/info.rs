@@ -1,7 +1,7 @@
 use crate::{
     meta::{AssetHash, MetaTransform},
     AssetHandleProvider, AssetPath, DependencyLoadState, ErasedLoadedAsset, InternalAssetEvent,
-    InternalAssetHandle, LoadState, RecursiveDependencyLoadState, UntypedAssetId, UntypedHandle,
+    LoadState, RecursiveDependencyLoadState, StrongHandle, UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
 use bevy_log::warn;
@@ -14,7 +14,7 @@ use std::{
 
 #[derive(Debug)]
 pub(crate) struct AssetInfo {
-    weak_handle: Weak<InternalAssetHandle>,
+    weak_handle: Weak<StrongHandle>,
     pub(crate) path: Option<AssetPath<'static>>,
     pub(crate) load_state: LoadState,
     pub(crate) dep_load_state: DependencyLoadState,
@@ -37,7 +37,7 @@ pub(crate) struct AssetInfo {
 }
 
 impl AssetInfo {
-    fn new(weak_handle: Weak<InternalAssetHandle>, path: Option<AssetPath<'static>>) -> Self {
+    fn new(weak_handle: Weak<StrongHandle>, path: Option<AssetPath<'static>>) -> Self {
         Self {
             weak_handle,
             path,
