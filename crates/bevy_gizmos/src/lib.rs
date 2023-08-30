@@ -206,6 +206,8 @@ pub struct AabbGizmo {
     ///
     /// The default color from the [`GizmoConfig`] resource is used if `None`,
     pub color: Option<Color>,
+    /// Whether to draw the entity's bounding box
+    pub draw: bool,
 }
 
 fn draw_aabbs(
@@ -214,6 +216,10 @@ fn draw_aabbs(
     mut gizmos: Gizmos,
 ) {
     for (entity, &aabb, &transform, gizmo) in &query {
+        if !gizmo.draw {
+            continue;
+        }
+
         let color = gizmo
             .color
             .or(config.aabb.default_color)
