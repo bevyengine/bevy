@@ -51,7 +51,7 @@ impl Default for AssetIndexAllocator {
 
 impl AssetIndexAllocator {
     /// Reserves a new [`AssetIndex`], either by reusing a recycled index (with an incremented generation), or by creating a new index
-    /// by incrementing the global index counter.
+    /// by incrementing the index counter for a given asset type `A`.
     pub fn reserve(&self) -> AssetIndex {
         if let Ok(mut recycled) = self.recycled_queue_receiver.try_recv() {
             recycled.generation += 1;
