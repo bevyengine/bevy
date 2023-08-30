@@ -203,6 +203,25 @@ impl<A: Asset> DenseAssetStorage<A> {
     pub(crate) fn get_index_allocator(&self) -> Arc<AssetIndexAllocator> {
         self.allocator.clone()
     }
+
+    pub(crate) fn ids(&self) -> impl Iterator<Item = AssetId<A>> + '_ {
+        self.storage
+            .iter()
+            .enumerate()
+            .filter_map(|(i, v)| match v {
+                Entry::None => None,
+                Entry::Some { value, generation } => {
+                    if value.is_some() {
+                        Some(AssetId::from(AssetIndex {
+                            index: i as u32,
+                            generation: *generation,
+                        }))
+                    } else {
+                        None
+                    }
+                }
+            })
+    }
 }
 
 /// Stores [`Asset`] values identified by their [`AssetId`].
@@ -370,22 +389,7 @@ impl<A: Asset> Assets<A> {
     /// Returns an iterator over the [`AssetId`] of every [`Asset`] stored in this collection.
     pub fn ids(&self) -> impl Iterator<Item = AssetId<A>> + '_ {
         self.dense_storage
-            .storage
-            .iter()
-            .enumerate()
-            .filter_map(|(i, v)| match v {
-                Entry::None => None,
-                Entry::Some { value, generation } => {
-                    if value.is_some() {
-                        Some(AssetId::from(AssetIndex {
-                            index: i as u32,
-                            generation: *generation,
-                        }))
-                    } else {
-                        None
-                    }
-                }
-            })
+            .ids()
             .chain(self.hash_map.keys().map(|uuid| AssetId::from(*uuid)))
     }
 
