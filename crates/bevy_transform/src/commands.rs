@@ -4,7 +4,6 @@
 use bevy_ecs::{prelude::Entity, system::Command, system::EntityCommands, world::World};
 use bevy_hierarchy::{AddChild, RemoveParent};
 
-
 use crate::{GlobalTransform, Transform};
 
 /// Command similar to [`AddChild`], but updating the child transform to keep
