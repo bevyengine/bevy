@@ -1,4 +1,4 @@
-//! Extension to [`EntityCommands`] to modify [`bevy_hierarchy`] hierarchies
+//! Extension to [`EntityCommands`] to modify `bevy_hierarchy` hierarchies
 //! while preserving [`GlobalTransform`].
 
 use bevy_ecs::{prelude::Entity, system::Command, system::EntityCommands, world::World};
