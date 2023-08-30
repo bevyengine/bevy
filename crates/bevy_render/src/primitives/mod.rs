@@ -489,9 +489,8 @@ mod tests {
             Aabb::enclosing(vec![Vec3::ONE]).unwrap(),
             Aabb::from_min_max(Vec3::ONE, Vec3::ONE)
         );
-        #[allow(clippy::needless_borrow)] // We want to test that this works for slices.
         assert_eq!(
-            Aabb::enclosing(&[Vec3::Y, Vec3::X, Vec3::Z]).unwrap(),
+            Aabb::enclosing(&[Vec3::Y, Vec3::X, Vec3::Z][..]).unwrap(),
             Aabb::from_min_max(Vec3::ZERO, Vec3::ONE)
         );
         assert_eq!(
