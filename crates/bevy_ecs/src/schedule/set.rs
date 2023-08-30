@@ -71,7 +71,7 @@ impl<T: 'static> SystemTypeSet<T> {
 impl<T> Debug for SystemTypeSet<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("SystemTypeSet")
-            .field(&std::any::type_name::<T>())
+            .field(&format_args!("fn {}()", &std::any::type_name::<T>()))
             .finish()
     }
 }
@@ -83,7 +83,7 @@ impl<T> Hash for SystemTypeSet<T> {
 }
 impl<T> Clone for SystemTypeSet<T> {
     fn clone(&self) -> Self {
-        Self(PhantomData)
+        *self
     }
 }
 
@@ -198,9 +198,9 @@ mod tests {
 
         let mut world = World::new();
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::new(A);
         schedule.add_systems(|mut flag: ResMut<Flag>| flag.0 = true);
-        world.add_schedule(schedule, A);
+        world.add_schedule(schedule);
 
         let boxed: Box<dyn ScheduleLabel> = Box::new(A);
 

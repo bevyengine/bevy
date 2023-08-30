@@ -5,7 +5,7 @@ use bevy_ecs::{
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, BoxedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleLabel,
+        ScheduleBuildSettings, ScheduleLabel,
     },
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
@@ -384,15 +384,16 @@ impl App {
         if let Some(schedule) = schedules.get_mut(&schedule) {
             schedule.add_systems(systems);
         } else {
-            let mut new_schedule = Schedule::new();
+            let mut new_schedule = Schedule::new(schedule);
             new_schedule.add_systems(systems);
-            schedules.insert(schedule, new_schedule);
+            schedules.insert(new_schedule);
         }
 
         self
     }
 
     /// Configures a system set in the default schedule, adding the set if it does not exist.
+    #[track_caller]
     pub fn configure_set(
         &mut self,
         schedule: impl ScheduleLabel,
@@ -402,14 +403,15 @@ impl App {
         if let Some(schedule) = schedules.get_mut(&schedule) {
             schedule.configure_set(set);
         } else {
-            let mut new_schedule = Schedule::new();
+            let mut new_schedule = Schedule::new(schedule);
             new_schedule.configure_set(set);
-            schedules.insert(schedule, new_schedule);
+            schedules.insert(new_schedule);
         }
         self
     }
 
     /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.
+    #[track_caller]
     pub fn configure_sets(
         &mut self,
         schedule: impl ScheduleLabel,
@@ -419,9 +421,9 @@ impl App {
         if let Some(schedule) = schedules.get_mut(&schedule) {
             schedule.configure_sets(sets);
         } else {
-            let mut new_schedule = Schedule::new();
+            let mut new_schedule = Schedule::new(schedule);
             new_schedule.configure_sets(sets);
-            schedules.insert(schedule, new_schedule);
+            schedules.insert(new_schedule);
         }
         self
     }
@@ -796,9 +798,9 @@ impl App {
     /// # Warning
     /// This method will overwrite any existing schedule at that label.
     /// To avoid this behavior, use the `init_schedule` method instead.
-    pub fn add_schedule(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> &mut Self {
+    pub fn add_schedule(&mut self, schedule: Schedule) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
-        schedules.insert(label, schedule);
+        schedules.insert(schedule);
 
         self
     }
@@ -809,7 +811,7 @@ impl App {
     pub fn init_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
         if !schedules.contains(&label) {
-            schedules.insert(label, Schedule::new());
+            schedules.insert(Schedule::new(label));
         }
         self
     }
@@ -839,13 +841,24 @@ impl App {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         if schedules.get(&label).is_none() {
-            schedules.insert(label.dyn_clone(), Schedule::new());
+            schedules.insert(Schedule::new(label.dyn_clone()));
         }
 
         let schedule = schedules.get_mut(&label).unwrap();
         // Call the function f, passing in the schedule retrieved
         f(schedule);
 
+        self
+    }
+
+    /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
+    pub fn configure_schedules(
+        &mut self,
+        schedule_build_settings: ScheduleBuildSettings,
+    ) -> &mut Self {
+        self.world
+            .resource_mut::<Schedules>()
+            .configure_schedules(schedule_build_settings);
         self
     }
 }

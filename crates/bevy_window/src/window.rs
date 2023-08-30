@@ -2,7 +2,7 @@ use bevy_ecs::{
     entity::{Entity, EntityMapper, MapEntities},
     prelude::{Component, ReflectComponent},
 };
-use bevy_math::{DVec2, IVec2, Vec2};
+use bevy_math::{DVec2, IVec2, Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 #[cfg(feature = "serialize")]
@@ -316,9 +316,8 @@ impl Window {
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
     pub fn cursor_position(&self) -> Option<Vec2> {
-        self.internal
-            .physical_cursor_position
-            .map(|position| (position / self.scale_factor()).as_vec2())
+        self.physical_cursor_position()
+            .map(|position| (position.as_dvec2() / self.scale_factor()).as_vec2())
     }
 
     /// The cursor position in this window in physical pixels.
@@ -328,9 +327,17 @@ impl Window {
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
     pub fn physical_cursor_position(&self) -> Option<Vec2> {
-        self.internal
-            .physical_cursor_position
-            .map(|position| position.as_vec2())
+        match self.internal.physical_cursor_position {
+            Some(position) => {
+                let position = position.as_vec2();
+                if Rect::new(0., 0., self.width(), self.height()).contains(position) {
+                    Some(position)
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
     }
 
     /// Set the cursor position in this window in logical pixels.
