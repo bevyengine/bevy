@@ -504,19 +504,11 @@ impl AssetServer {
     }
 
     /// Retrieves the main [`LoadState`] of a given asset `id`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `id` is not currently known by the [`AssetServer`].
     pub fn load_state(&self, id: impl Into<UntypedAssetId>) -> LoadState {
         self.get_load_state(id).unwrap_or(LoadState::NotLoaded)
     }
 
     /// Retrieves the  [`RecursiveDependencyLoadState`] of a given asset `id`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `id` is not currently known by the [`AssetServer`].
     pub fn recursive_dependency_load_state(
         &self,
         id: impl Into<UntypedAssetId>,
