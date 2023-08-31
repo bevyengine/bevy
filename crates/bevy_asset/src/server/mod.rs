@@ -796,7 +796,6 @@ pub struct MissingAssetLoaderForExtensionError {
 /// An error that occurs when an [`AssetLoader`] is not registered for a given [`std::any::type_name`].
 #[derive(Error, Debug)]
 #[error("no `AssetLoader` found with the name '{type_name}'")]
-
 pub struct MissingAssetLoaderForTypeNameError {
     type_name: String,
 }
