@@ -28,7 +28,7 @@ pub fn exit_on_primary_closed(
     windows: Query<(), (With<Window>, With<PrimaryWindow>)>,
 ) {
     if windows.is_empty() {
-        bevy_utils::tracing::info!("Primary windows was closed, exiting");
+        bevy_utils::tracing::info!("Primary window was closed, exiting");
         app_exit_events.send(AppExit);
     }
 }
