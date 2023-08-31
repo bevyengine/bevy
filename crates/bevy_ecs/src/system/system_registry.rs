@@ -59,7 +59,7 @@ use bevy_ecs_macros::Resource;
 ///     if change_detector.is_changed() {
 ///         println!("Something happened!");
 ///     } else {
-///         println!("Nothing happaned.");
+///         println!("Nothing happened.");
 ///     }
 /// });
 ///
