@@ -11,13 +11,15 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::RenderPhase,
     render_resource::{
-        LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
+        LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDepthStencilAttachment, RenderPassDescriptor,
     },
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
+use smallvec::{smallvec, SmallVec};
 
 use super::{AlphaMask3d, Camera3dDepthLoadOp};
 
@@ -69,14 +71,16 @@ impl ViewNode for MainOpaquePass3dNode {
         #[cfg(feature = "trace")]
         let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
 
-        let mut color_attachments = vec![Some(target.get_color_attachment(Operations {
-            load: match camera_3d.clear_color {
-                ClearColorConfig::Default => LoadOp::Clear(world.resource::<ClearColor>().0.into()),
-                ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                ClearColorConfig::None => LoadOp::Load,
-            },
-            store: true,
-        }))];
+        let mut color_attachments: SmallVec<[Option<RenderPassColorAttachment>; 2]> =
+            smallvec![Some(target.get_color_attachment(Operations {
+                load: match camera_3d.clear_color {
+                    ClearColorConfig::Default =>
+                        LoadOp::Clear(world.resource::<ClearColor>().0.into()),
+                    ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
+                    ClearColorConfig::None => LoadOp::Load,
+                },
+                store: true,
+            }))];
 
         if gpu_picking_camera.is_some() {
             if let Some(mesh_id_textures) = mesh_id_textures {
