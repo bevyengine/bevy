@@ -29,14 +29,13 @@ use bevy_render::{
     extract_component::ExtractComponentPlugin,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
-        batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
-        DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
+        sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
+        RenderPhase,
     },
     render_resource::CachedRenderPipelineId,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::FloatOrd;
-use std::ops::Range;
 
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 
@@ -57,12 +56,7 @@ impl Plugin for Core2dPlugin {
             .add_systems(ExtractSchedule, extract_core_2d_camera_phases)
             .add_systems(
                 Render,
-                (
-                    sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort),
-                    batch_phase_system::<Transparent2d>
-                        .after(sort_phase_system::<Transparent2d>)
-                        .in_set(RenderSet::PhaseSort),
-                ),
+                sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort),
             );
 
         use graph::node::*;
@@ -89,8 +83,7 @@ pub struct Transparent2d {
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
-    /// Range in the vertex buffer of this item
-    pub batch_range: Option<Range<u32>>,
+    pub batch_size: usize,
 }
 
 impl PhaseItem for Transparent2d {
@@ -115,22 +108,17 @@ impl PhaseItem for Transparent2d {
     fn sort(items: &mut [Self]) {
         items.sort_by_key(|item| item.sort_key());
     }
+
+    #[inline]
+    fn batch_size(&self) -> usize {
+        self.batch_size
+    }
 }
 
 impl CachedRenderPipelinePhaseItem for Transparent2d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
-    }
-}
-
-impl BatchedPhaseItem for Transparent2d {
-    fn batch_range(&self) -> &Option<Range<u32>> {
-        &self.batch_range
-    }
-
-    fn batch_range_mut(&mut self) -> &mut Option<Range<u32>> {
-        &mut self.batch_range
     }
 }
 

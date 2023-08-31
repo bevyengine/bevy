@@ -84,7 +84,7 @@ impl GlyphBrush {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let text_bounds = compute_text_bounds(&glyphs, |index| &sections_data[index].3);
+        let text_bounds = compute_text_bounds(&glyphs, |index| sections_data[index].3);
 
         let mut positioned_glyphs = Vec::new();
         for sg in glyphs {
@@ -203,12 +203,12 @@ impl GlyphPlacementAdjuster {
 
 /// Computes the minimal bounding rectangle for a block of text.
 /// Ignores empty trailing lines.
-pub(crate) fn compute_text_bounds<'a, T>(
+pub(crate) fn compute_text_bounds<T>(
     section_glyphs: &[SectionGlyph],
-    get_scaled_font: impl Fn(usize) -> &'a PxScaleFont<T>,
+    get_scaled_font: impl Fn(usize) -> PxScaleFont<T>,
 ) -> bevy_math::Rect
 where
-    T: ab_glyph::Font + 'a,
+    T: ab_glyph::Font,
 {
     let mut text_bounds = Rect {
         min: Vec2::splat(std::f32::MAX),

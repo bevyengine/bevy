@@ -183,7 +183,6 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     width: Val::Percent(60.),
                     height: Val::Px(300.),
                     max_width: Val::Px(600.),
-                    max_height: Val::Auto,
                     ..default()
                 },
                 background_color: BackgroundColor(Color::Rgba {

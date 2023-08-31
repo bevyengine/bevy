@@ -53,19 +53,16 @@ impl Plugin for ViewPlugin {
             .add_plugins((ExtractResourcePlugin::<Msaa>::default(), VisibilityPlugin));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<ViewUniforms>()
-                .configure_set(Render, ViewSet::PrepareUniforms.in_set(RenderSet::Prepare))
-                .add_systems(
-                    Render,
-                    (
-                        prepare_view_uniforms.in_set(ViewSet::PrepareUniforms),
-                        prepare_view_targets
-                            .after(WindowSystem::Prepare)
-                            .in_set(RenderSet::Prepare)
-                            .after(crate::render_asset::prepare_assets::<Image>),
-                    ),
-                );
+            render_app.init_resource::<ViewUniforms>().add_systems(
+                Render,
+                (
+                    prepare_view_targets
+                        .in_set(RenderSet::ManageViews)
+                        .after(prepare_windows)
+                        .after(crate::render_asset::prepare_assets::<Image>),
+                    prepare_view_uniforms.in_set(RenderSet::PrepareResources),
+                ),
+            );
         }
     }
 }
@@ -516,11 +513,4 @@ fn prepare_view_targets(
             }
         }
     }
-}
-
-/// System sets for the [`view`](crate::view) module.
-#[derive(SystemSet, PartialEq, Eq, Hash, Debug, Clone)]
-pub enum ViewSet {
-    /// Prepares view uniforms
-    PrepareUniforms,
 }

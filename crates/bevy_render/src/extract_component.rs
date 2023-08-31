@@ -85,7 +85,7 @@ impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentP
                 .insert_resource(ComponentUniforms::<C>::default())
                 .add_systems(
                     Render,
-                    prepare_uniform_components::<C>.in_set(RenderSet::Prepare),
+                    prepare_uniform_components::<C>.in_set(RenderSet::PrepareResources),
                 );
         }
     }

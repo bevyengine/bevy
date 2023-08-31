@@ -4,9 +4,7 @@ use crate::{
     self as bevy_ecs,
     component::{Component, ComponentId, ComponentIdFor, Tick},
     entity::Entity,
-    event::{
-        Event, EventId, Events, ManualEventIterator, ManualEventIteratorWithId, ManualEventReader,
-    },
+    event::{Event, EventId, EventIterator, EventIteratorWithId, Events, ManualEventReader},
     prelude::Local,
     storage::SparseSet,
     system::{ReadOnlySystemParam, SystemMeta, SystemParam},
@@ -145,7 +143,7 @@ pub struct RemovedComponents<'w, 's, T: Component> {
 ///
 /// See [`RemovedComponents`].
 pub type RemovedIter<'a> = iter::Map<
-    iter::Flatten<option::IntoIter<iter::Cloned<ManualEventIterator<'a, RemovedComponentEntity>>>>,
+    iter::Flatten<option::IntoIter<iter::Cloned<EventIterator<'a, RemovedComponentEntity>>>>,
     fn(RemovedComponentEntity) -> Entity,
 >;
 
@@ -153,7 +151,7 @@ pub type RemovedIter<'a> = iter::Map<
 ///
 /// See [`RemovedComponents`].
 pub type RemovedIterWithId<'a> = iter::Map<
-    iter::Flatten<option::IntoIter<ManualEventIteratorWithId<'a, RemovedComponentEntity>>>,
+    iter::Flatten<option::IntoIter<EventIteratorWithId<'a, RemovedComponentEntity>>>,
     fn(
         (&RemovedComponentEntity, EventId<RemovedComponentEntity>),
     ) -> (Entity, EventId<RemovedComponentEntity>),
@@ -204,7 +202,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// that happened before now.
     pub fn iter(&mut self) -> RemovedIter<'_> {
         self.reader_mut_with_events()
-            .map(|(reader, events)| reader.iter(events).cloned())
+            .map(|(reader, events)| reader.read(events).cloned())
             .into_iter()
             .flatten()
             .map(RemovedComponentEntity::into)
@@ -213,7 +211,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
     pub fn iter_with_id(&mut self) -> RemovedIterWithId<'_> {
         self.reader_mut_with_events()
-            .map(|(reader, events)| reader.iter_with_id(events))
+            .map(|(reader, events)| reader.read_with_id(events))
             .into_iter()
             .flatten()
             .map(map_id_events)
