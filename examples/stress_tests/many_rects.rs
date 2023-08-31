@@ -56,24 +56,24 @@ fn main() {
             ExtractSchedule,
             (
                 extract_rect_iter_stack::<1>,
-                extract_rect_iter_stack::<2>.after(extract_rect_iter_stack::<1>),
-                extract_rect_iter_stack::<4>.after(extract_rect_iter_stack::<2>),
-                extract_rect_iter_stack::<8>.after(extract_rect_iter_stack::<4>),
-                extract_rect_iter_stack::<16>.after(extract_rect_iter_stack::<8>),
-                extract_rect_iter_stack::<32>.after(extract_rect_iter_stack::<16>),
-            ),
+                extract_rect_iter_stack::<2>,
+                extract_rect_iter_stack::<4>,
+                extract_rect_iter_stack::<8>,
+                extract_rect_iter_stack::<16>,
+                extract_rect_iter_stack::<32>,
+            ).chain(),
         );
     } else {
         render_app.add_systems(
             ExtractSchedule,
             (
                 extract_rect::<1>,
-                extract_rect::<2>.after(extract_rect::<1>),
-                extract_rect::<4>.after(extract_rect::<2>),
-                extract_rect::<8>.after(extract_rect::<4>),
-                extract_rect::<16>.after(extract_rect::<8>),
-                extract_rect::<32>.after(extract_rect::<16>),
-            ),
+                extract_rect::<2>,
+                extract_rect::<4>,
+                extract_rect::<8>,
+                extract_rect::<16>,
+                extract_rect::<32>,
+            ).chain(),
         );
     }
 
@@ -167,6 +167,7 @@ fn extract_rect<const N: usize>(
         >,
     >,
 ) {
+    println!("extract {N}");
     for (entity, stack_index, size, transform, color, maybe_image, visibility) in
         uinode_query.iter()
     {
