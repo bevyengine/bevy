@@ -1066,7 +1066,7 @@ mod tests {
 
             let ambiguities: Vec<_> = schedule
                 .graph()
-                .conflicts_to_string(world.components())
+                .conflicts_to_string(schedule.graph().conflicting_systems(), world.components())
                 .collect();
 
             assert_eq!(
