@@ -84,7 +84,7 @@ impl ViewNode for MainOpaquePass3dNode {
                     load: match camera_3d.clear_color {
                         ClearColorConfig::None => LoadOp::Load,
                         // TODO clear this earlier?
-                        _ => LoadOp::Clear(VisibleMeshIdTextures::clear_color()),
+                        _ => LoadOp::Clear(VisibleMeshIdTextures::CLEAR_COLOR),
                     },
                     store: true,
                 })));

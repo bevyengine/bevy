@@ -322,14 +322,12 @@ pub struct VisibleMeshIdTextures {
 
 impl VisibleMeshIdTextures {
     /// This is the color that will represent "no entity" in the mesh id buffer
-    pub fn clear_color() -> wgpu::Color {
-        Color {
-            r: 0.0,
-            g: 0.0,
-            b: 0.0,
-            a: 0.0,
-        }
-    }
+    pub const CLEAR_COLOR: wgpu::Color = Color {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 0.0,
+    };
 
     /// Retrieve this target's color attachment. This will use [`Self::sampled`] and resolve to [`Self::main`] if
     /// the target has sampling enabled. Otherwise it will use [`Self::main`] directly.
