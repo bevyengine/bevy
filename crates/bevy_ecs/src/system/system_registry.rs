@@ -22,7 +22,7 @@ use bevy_ecs_macros::Resource;
 ///  - Stored systems cannot be chained: they can neither have an [`In`](crate::system::In) nor return any values.
 ///  - Stored systems cannot recurse or nest: they cannot run other systems via
 ///    the [`SystemRegistry`](crate::system::SystemRegistry) methods on [`World`] or [`Commands`](crate::system::Commands).
-///
+///  - Exclusive systems cannot be used.
 /// # Examples
 ///
 /// You can run a single system directly on the [`World`], while maintaining state.

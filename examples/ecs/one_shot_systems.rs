@@ -20,8 +20,6 @@ fn main() {
 }
 
 // Any ordinary system can be run via commands.run_system or world.run_system.
-//
-// Chained systems, exclusive systems and systems which themselves run systems cannot be called in this way.
 fn count_entities(all_entities: Query<()>) {
     dbg!(all_entities.iter().count());
 }
