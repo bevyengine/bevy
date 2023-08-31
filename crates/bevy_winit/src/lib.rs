@@ -845,7 +845,7 @@ pub fn winit_runner(mut app: App) {
 
     trace!("starting winit event loop");
     if return_from_run {
-        pump_events(&mut event_loop, event_handler);
+        run_ondemand(&mut event_loop, event_handler);
     } else {
         run(event_loop, event_handler);
     }
