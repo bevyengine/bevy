@@ -13,6 +13,7 @@ use std::{
     marker::PhantomData,
     sync::{atomic::AtomicU32, Arc},
 };
+use thiserror::Error;
 
 /// A generational runtime-only identifier for a specific [`Asset`] stored in [`Assets`]. This is optimized for efficient runtime
 /// usage and is not suitable for identifying assets across app runs.
@@ -113,7 +114,11 @@ impl<A: Asset> DenseAssetStorage<A> {
     }
 
     /// Insert the value at the given index. Returns true if a value already exists (and was replaced)
-    pub(crate) fn insert(&mut self, index: AssetIndex, asset: A) -> bool {
+    pub(crate) fn insert(
+        &mut self,
+        index: AssetIndex,
+        asset: A,
+    ) -> Result<bool, InvalidGenerationError> {
         self.flush();
         let entry = &mut self.storage[index.index as usize];
         if let Entry::Some { value, generation } = entry {
@@ -123,9 +128,12 @@ impl<A: Asset> DenseAssetStorage<A> {
                     self.len += 1;
                 }
                 *value = Some(asset);
-                exists
+                Ok(exists)
             } else {
-                false
+                Err(InvalidGenerationError {
+                    index,
+                    current_generation: *generation,
+                })
             }
         } else {
             unreachable!("entries should always be valid after a flush");
@@ -267,7 +275,7 @@ impl<A: Asset> Assets<A> {
         let id: AssetId<A> = id.into();
         match id {
             AssetId::Index { index, .. } => {
-                self.insert_with_index(index, asset);
+                self.insert_with_index(index, asset).unwrap();
             }
             AssetId::Uuid { uuid } => {
                 self.insert_with_uuid(uuid, asset);
@@ -306,8 +314,12 @@ impl<A: Asset> Assets<A> {
         }
         result
     }
-    pub(crate) fn insert_with_index(&mut self, index: AssetIndex, asset: A) -> bool {
-        let replaced = self.dense_storage.insert(index, asset);
+    pub(crate) fn insert_with_index(
+        &mut self,
+        index: AssetIndex,
+        asset: A,
+    ) -> Result<bool, InvalidGenerationError> {
+        let replaced = self.dense_storage.insert(index, asset)?;
         if replaced {
             self.queued_events
                 .push(AssetEvent::Modified { id: index.into() });
@@ -315,14 +327,14 @@ impl<A: Asset> Assets<A> {
             self.queued_events
                 .push(AssetEvent::Added { id: index.into() });
         }
-        replaced
+        Ok(replaced)
     }
 
     /// Adds the given `asset` and allocates a new strong [`Handle`] for it.
     #[inline]
     pub fn add(&mut self, asset: A) -> Handle<A> {
         let index = self.dense_storage.allocator.reserve();
-        self.insert_with_index(index, asset);
+        self.insert_with_index(index, asset).unwrap();
         Handle::Strong(
             self.handle_provider
                 .get_handle(index.into(), false, None, None),
@@ -508,4 +520,11 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
             None
         }
     }
+}
+
+#[derive(Error, Debug)]
+#[error("AssetIndex {index:?} has an invalid generation. The current generation is: '{current_generation}'.")]
+pub struct InvalidGenerationError {
+    index: AssetIndex,
+    current_generation: u32,
 }
