@@ -2,7 +2,7 @@ use bevy_ecs::{
     entity::{Entity, EntityMapper, MapEntities},
     prelude::{Component, ReflectComponent},
 };
-use bevy_math::{DVec2, IVec2, Rect, Vec2};
+use bevy_math::{DVec2, IVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 #[cfg(feature = "serialize")]
@@ -329,16 +329,12 @@ impl Window {
     pub fn physical_cursor_position(&self) -> Option<Vec2> {
         match self.internal.physical_cursor_position {
             Some(position) => {
-                let position = position.as_vec2();
-                if Rect::new(
-                    0.,
-                    0.,
-                    self.physical_width() as f32,
-                    self.physical_height() as f32,
-                )
-                .contains(position)
+                if position.x >= 0.
+                    && position.y >= 0.
+                    && position.x < self.physical_width() as f64
+                    && position.y < self.physical_height() as f64
                 {
-                    Some(position)
+                    Some(position.as_vec2())
                 } else {
                     None
                 }
