@@ -53,10 +53,19 @@ pub enum ImageFormatSetting {
     Format(ImageFormat),
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize)]
 pub struct ImageLoaderSettings {
     pub format: ImageFormatSetting,
     pub is_srgb: bool,
+}
+
+impl Default for ImageLoaderSettings {
+    fn default() -> Self {
+        Self {
+            format: ImageFormatSetting::default(),
+            is_srgb: true,
+        }
+    }
 }
 
 impl AssetLoader for ImageLoader {
