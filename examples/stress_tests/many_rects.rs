@@ -61,7 +61,8 @@ fn main() {
                 extract_rect_iter_stack::<8>,
                 extract_rect_iter_stack::<16>,
                 extract_rect_iter_stack::<32>,
-            ).chain(),
+            )
+                .chain(),
         );
     } else {
         render_app.add_systems(
@@ -73,7 +74,8 @@ fn main() {
                 extract_rect::<8>,
                 extract_rect::<16>,
                 extract_rect::<32>,
-            ).chain(),
+            )
+                .chain(),
         );
     }
 
@@ -166,7 +168,7 @@ fn extract_rect<const N: usize>(
             With<ExtractionMarker<N>>,
         >,
     >,
-) {    
+) {
     for (entity, stack_index, size, transform, color, maybe_image, visibility) in
         uinode_query.iter()
     {
