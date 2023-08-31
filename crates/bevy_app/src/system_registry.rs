@@ -1,6 +1,6 @@
 use crate::App;
 use bevy_ecs::prelude::*;
-use bevy_ecs::system::BoxedSystem;
+use bevy_ecs::system::RegisteredSystem;
 use bevy_ecs::system::{RunSystem, SystemId, SystemRegistryError};
 
 impl App {
@@ -20,7 +20,7 @@ impl App {
     ///
     /// Calls [`SystemRegistry::remove_system`](bevy_ecs::system::SystemRegistry::remove).
     #[inline]
-    pub fn remove_system(&mut self, id: SystemId) -> Option<BoxedSystem> {
+    pub fn remove_system(&mut self, id: SystemId) -> Option<RegisteredSystem> {
         self.world.remove_system(id)
     }
 

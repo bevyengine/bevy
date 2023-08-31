@@ -69,11 +69,20 @@ use bevy_ecs_macros::Resource;
 /// world.resource_mut::<ChangeDetector>().set_changed();
 /// let _ = world.run_system_by_id(detector); // -> Something happened!
 /// ```
-
 #[derive(Resource, Default)]
 pub struct SystemRegistry {
     last_id: u32,
-    systems: HashMap<u32, (bool, BoxedSystem)>,
+    systems: HashMap<u32, RegisteredSystem>,
+}
+
+/// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
+///
+/// The [`SystemRegistry`] stores systems in this format.
+pub struct RegisteredSystem {
+    /// Shows whether or not the system is initialized.
+    pub initialized: bool,
+    /// The system stored in the [`SystemRegistry`].
+    pub system: BoxedSystem,
 }
 
 /// An identifier for a system registered in the [`SystemRegistry`].
@@ -94,16 +103,19 @@ impl SystemRegistry {
             .checked_add(1)
             .expect("Maximum number of registered systems exceeded.");
         self.last_id = id;
-        self.systems
-            .insert(id, (false, Box::new(IntoSystem::into_system(system))));
+        let registered_system = RegisteredSystem {
+            initialized: false,
+            system: Box::new(IntoSystem::into_system(system)),
+        };
+        self.systems.insert(id, registered_system);
         SystemId(id)
     }
 
     /// Removes a registered system from the [`SystemRegistry`], if the [`SystemId`] is not
     /// registered, it returns [`None`], otherwise it returns the system.
     #[inline]
-    pub fn remove(&mut self, id: SystemId) -> Option<BoxedSystem> {
-        self.systems.remove(&id.0).unzip().1
+    pub fn remove(&mut self, id: SystemId) -> Option<RegisteredSystem> {
+        self.systems.remove(&id.0)
     }
 
     /// Run the system by its [`SystemId`].
@@ -116,13 +128,16 @@ impl SystemRegistry {
         id: SystemId,
     ) -> Result<(), SystemRegistryError> {
         match self.systems.get_mut(&id.0) {
-            Some((initialized, matching_system)) => {
+            Some(RegisteredSystem {
+                initialized,
+                system,
+            }) => {
                 if !*initialized {
-                    matching_system.initialize(world);
+                    system.initialize(world);
                     *initialized = true;
                 }
-                matching_system.run((), world);
-                matching_system.apply_deferred(world);
+                system.run((), world);
+                system.apply_deferred(world);
                 Ok(())
             }
             None => Err(SystemRegistryError::SystemIdNotRegistered(id)),
@@ -152,7 +167,7 @@ impl World {
     ///
     /// Calls [`SystemRegistry::remove`].
     #[inline]
-    pub fn remove_system(&mut self, id: SystemId) -> Option<BoxedSystem> {
+    pub fn remove_system(&mut self, id: SystemId) -> Option<RegisteredSystem> {
         if !self.contains_resource::<SystemRegistry>() {
             panic!(
                 "SystemRegistry not found: Nested and recursive one-shot systems are not supported"
