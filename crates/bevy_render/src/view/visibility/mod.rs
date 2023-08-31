@@ -79,6 +79,7 @@ impl InheritedVisibility {
 
     /// Returns `true` if the entity is visible in the hierarchy.
     /// Otherwise, returns `false`.
+    #[inline]
     pub fn get(self) -> bool {
         self.0
     }
@@ -104,6 +105,7 @@ impl ViewVisibility {
 
     /// Returns `true` if the entity is visible in any view.
     /// Otherwise, returns `false`.
+    #[inline]
     pub fn get(self) -> bool {
         self.0
     }
@@ -120,6 +122,7 @@ impl ViewVisibility {
     ///
     /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
     /// [`CheckVisibility`]: VisibilitySystems::CheckVisibility
+    #[inline]
     pub fn set(&mut self) {
         self.0 = true;
     }
