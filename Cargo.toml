@@ -1790,13 +1790,13 @@ wasm = true
 
 
 [[example]]
-name = "many_uinodes"
-path = "examples/stress_tests/many_uinodes.rs"
+name = "many_rects"
+path = "examples/stress_tests/many_rects.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.many_uinodes]
-name = "Many UI nodes"
-description = "Test rendering of many UI elements"
+[package.metadata.example.many_rects]
+name = "Many Rects"
+description = "Benchmark to test UI rendering performance"
 category = "Stress Tests"
 wasm = true
 

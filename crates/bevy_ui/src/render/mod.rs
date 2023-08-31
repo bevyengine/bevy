@@ -726,8 +726,6 @@ pub fn prepare_uinodes(
     }
 
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        
-
         let mut batches: Vec<(Entity, UiBatch)> = Vec::with_capacity(*previous_len);
 
         ui_meta.vertices.clear();
