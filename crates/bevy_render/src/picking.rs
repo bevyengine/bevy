@@ -354,10 +354,7 @@ impl VisibleMeshIdTextures {
 /// This creates the required buffers for each camera
 fn prepare_buffers(
     render_device: Res<RenderDevice>,
-    mut cameras: Query<
-        (Entity, &ExtractedCamera, &mut ExtractedGpuPickingCamera),
-        Changed<ExtractedCamera>,
-    >,
+    mut cameras: Query<(Entity, &ExtractedCamera, &mut ExtractedGpuPickingCamera)>,
     mut buffer_cache: Local<HashMap<Entity, (BufferDimensions, [Buffer; BUFFER_COUNT])>>,
 ) {
     for (entity, camera, mut gpu_picking_camera) in &mut cameras {
@@ -404,6 +401,15 @@ fn prepare_buffers(
             entity_buffers: buffers.clone(),
             buffer_dimensions: *buffer_dimensions,
         });
+    }
+
+    // Clear buffers for cameras that don't exist anymore
+    // We can't rely on removal detection here because components in the render world aren't persisted
+    let keys = buffer_cache.keys().cloned().collect::<Vec<_>>();
+    for k in keys {
+        if !cameras.contains(k) {
+            buffer_cache.remove(&k);
+        }
     }
 }
 

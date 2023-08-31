@@ -42,6 +42,7 @@ impl ViewNode for MainTransparentPass3dNode {
             #[cfg(feature = "trace")]
             let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
 
+            // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
             let mut color_attachments = vec![Some(target.get_color_attachment(Operations {
                 load: LoadOp::Load,
                 store: true,
@@ -61,7 +62,6 @@ impl ViewNode for MainTransparentPass3dNode {
 
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
-                // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
                 color_attachments: &color_attachments,
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
