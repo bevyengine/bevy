@@ -384,9 +384,9 @@ impl App {
         if let Some(schedule) = schedules.get_mut(&schedule) {
             schedule.add_systems(systems);
         } else {
-            let mut new_schedule = Schedule::new();
+            let mut new_schedule = Schedule::new(schedule);
             new_schedule.add_systems(systems);
-            schedules.insert(schedule, new_schedule);
+            schedules.insert(new_schedule);
         }
 
         self
@@ -403,9 +403,9 @@ impl App {
         if let Some(schedule) = schedules.get_mut(&schedule) {
             schedule.configure_set(set);
         } else {
-            let mut new_schedule = Schedule::new();
+            let mut new_schedule = Schedule::new(schedule);
             new_schedule.configure_set(set);
-            schedules.insert(schedule, new_schedule);
+            schedules.insert(new_schedule);
         }
         self
     }
@@ -421,9 +421,9 @@ impl App {
         if let Some(schedule) = schedules.get_mut(&schedule) {
             schedule.configure_sets(sets);
         } else {
-            let mut new_schedule = Schedule::new();
+            let mut new_schedule = Schedule::new(schedule);
             new_schedule.configure_sets(sets);
-            schedules.insert(schedule, new_schedule);
+            schedules.insert(new_schedule);
         }
         self
     }
@@ -798,9 +798,9 @@ impl App {
     /// # Warning
     /// This method will overwrite any existing schedule at that label.
     /// To avoid this behavior, use the `init_schedule` method instead.
-    pub fn add_schedule(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> &mut Self {
+    pub fn add_schedule(&mut self, schedule: Schedule) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
-        schedules.insert(label, schedule);
+        schedules.insert(schedule);
 
         self
     }
@@ -811,7 +811,7 @@ impl App {
     pub fn init_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
         if !schedules.contains(&label) {
-            schedules.insert(label, Schedule::new());
+            schedules.insert(Schedule::new(label));
         }
         self
     }
@@ -841,7 +841,7 @@ impl App {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         if schedules.get(&label).is_none() {
-            schedules.insert(label.dyn_clone(), Schedule::new());
+            schedules.insert(Schedule::new(label.dyn_clone()));
         }
 
         let schedule = schedules.get_mut(&label).unwrap();

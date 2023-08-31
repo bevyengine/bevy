@@ -202,7 +202,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// that happened before now.
     pub fn iter(&mut self) -> RemovedIter<'_> {
         self.reader_mut_with_events()
-            .map(|(reader, events)| reader.iter(events).cloned())
+            .map(|(reader, events)| reader.read(events).cloned())
             .into_iter()
             .flatten()
             .map(RemovedComponentEntity::into)
@@ -211,7 +211,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
     pub fn iter_with_id(&mut self) -> RemovedIterWithId<'_> {
         self.reader_mut_with_events()
-            .map(|(reader, events)| reader.iter_with_id(events))
+            .map(|(reader, events)| reader.read_with_id(events))
             .into_iter()
             .flatten()
             .map(map_id_events)

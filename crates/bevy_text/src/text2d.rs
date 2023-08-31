@@ -165,7 +165,7 @@ pub fn update_text2d_layout(
     mut text_query: Query<(Entity, Ref<Text>, Ref<Text2dBounds>, &mut TextLayoutInfo)>,
 ) {
     // We need to consume the entire iterator, hence `last`
-    let factor_changed = scale_factor_changed.iter().last().is_some();
+    let factor_changed = scale_factor_changed.read().last().is_some();
 
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows

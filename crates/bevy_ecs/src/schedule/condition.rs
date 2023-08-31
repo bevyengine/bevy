@@ -26,7 +26,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 ///
 /// # #[derive(Resource)] struct DidRun(bool);
 /// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
-/// # let mut schedule = Schedule::new();
+/// # let mut schedule = Schedule::default();
 /// schedule.add_systems(my_system.run_if(every_other_time()));
 /// # let mut world = World::new();
 /// # world.insert_resource(DidRun(false));
@@ -46,13 +46,13 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// }
 ///
 /// # fn always_true() -> bool { true }
-/// # let mut schedule = Schedule::new();
+/// # let mut app = Schedule::default();
 /// # #[derive(Resource)] struct DidRun(bool);
 /// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
-/// schedule.add_systems(my_system.run_if(always_true.pipe(identity())));
+/// app.add_systems(my_system.run_if(always_true.pipe(identity())));
 /// # let mut world = World::new();
 /// # world.insert_resource(DidRun(false));
-/// # schedule.run(&mut world);
+/// # app.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
 pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// Returns a new run condition that only returns `true`
@@ -69,7 +69,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// #[derive(Resource, PartialEq)]
     /// struct R(u32);
     ///
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # fn my_system() {}
     /// app.add_systems(
@@ -86,7 +86,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, PartialEq)]
     /// # struct R(u32);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # fn my_system() {}
     /// app.add_systems(
@@ -123,7 +123,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// #[derive(Resource, PartialEq)]
     /// struct B(u32);
     ///
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # #[derive(Resource)] struct C(bool);
     /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
@@ -197,7 +197,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -238,7 +238,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_exists` will only return true if the given resource exists in the world
@@ -277,7 +277,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default, PartialEq)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -315,7 +315,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default, PartialEq)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_exists_and_equals` will only return true
@@ -358,7 +358,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_added` will only return true if the
@@ -408,7 +408,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -462,7 +462,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_exists_and_changed` will only return true if the
@@ -523,7 +523,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -593,7 +593,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -648,7 +648,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
@@ -695,7 +695,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
@@ -747,7 +747,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
@@ -813,7 +813,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
@@ -863,7 +863,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// # world.init_resource::<Events<MyEvent>>();
@@ -895,7 +895,7 @@ pub mod common_conditions {
         // calls of the run condition. Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
         // due to Bevy having a specialized implementation for events.
-        move |mut reader: EventReader<T>| reader.iter().count() > 0
+        move |mut reader: EventReader<T>| reader.read().count() > 0
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -907,7 +907,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -954,7 +954,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -1084,7 +1084,7 @@ mod tests {
     fn run_condition() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         // Run every other cycle
         schedule.add_systems(increment_counter.run_if(every_other_time));
@@ -1111,7 +1111,7 @@ mod tests {
     fn run_condition_combinators() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         // Always run
         schedule.add_systems(increment_counter.run_if(every_other_time.or_else(|| true)));
@@ -1128,7 +1128,7 @@ mod tests {
     fn multiple_run_conditions() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         // Run every other cycle
         schedule.add_systems(increment_counter.run_if(every_other_time).run_if(|| true));
@@ -1146,7 +1146,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Counter>();
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         // This should never run, if multiple run conditions worked
         // like an OR condition then it would always run

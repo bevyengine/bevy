@@ -136,7 +136,7 @@ fn extract_render_asset<A: RenderAsset>(
 ) {
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
-    for event in events.iter() {
+    for event in events.read() {
         match event {
             AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                 changed_assets.insert(handle.clone_weak());
