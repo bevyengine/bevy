@@ -1,3 +1,5 @@
+use std::borrow::Borrow;
+
 use bevy_ecs::{component::Component, prelude::Entity, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
 use bevy_reflect::Reflect;
@@ -29,7 +31,7 @@ use bevy_utils::HashMap;
 /// [`CalculateBounds`]: crate::view::visibility::VisibilitySystems::CalculateBounds
 /// [`Mesh`]: crate::mesh::Mesh
 /// [`Handle<Mesh>`]: crate::mesh::Mesh
-#[derive(Component, Clone, Copy, Debug, Default, Reflect)]
+#[derive(Component, Clone, Copy, Debug, Default, Reflect, PartialEq)]
 #[reflect(Component)]
 pub struct Aabb {
     pub center: Vec3A,
@@ -47,6 +49,30 @@ impl Aabb {
             center,
             half_extents,
         }
+    }
+
+    /// Returns a bounding box enclosing the specified set of points.
+    ///
+    /// Returns `None` if the iterator is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_math::{Vec3, Vec3A};
+    /// # use bevy_render::primitives::Aabb;
+    /// let bb = Aabb::enclosing([Vec3::X, Vec3::Z * 2.0, Vec3::Y * -0.5]).unwrap();
+    /// assert_eq!(bb.min(), Vec3A::new(0.0, -0.5, 0.0));
+    /// assert_eq!(bb.max(), Vec3A::new(1.0, 0.0, 2.0));
+    /// ```
+    pub fn enclosing<T: Borrow<Vec3>>(iter: impl IntoIterator<Item = T>) -> Option<Self> {
+        let mut iter = iter.into_iter().map(|p| *p.borrow());
+        let mut min = iter.next()?;
+        let mut max = min;
+        for v in iter {
+            min = Vec3::min(min, v);
+            max = Vec3::max(max, v);
+        }
+        Some(Self::from_min_max(min, max))
     }
 
     /// Calculate the relative radius of the AABB with respect to a plane
@@ -454,5 +480,29 @@ mod tests {
             radius: 4.4094,
         };
         assert!(frustum.intersects_sphere(&sphere, true));
+    }
+
+    #[test]
+    fn aabb_enclosing() {
+        assert_eq!(Aabb::enclosing(<[Vec3; 0]>::default()), None);
+        assert_eq!(
+            Aabb::enclosing(vec![Vec3::ONE]).unwrap(),
+            Aabb::from_min_max(Vec3::ONE, Vec3::ONE)
+        );
+        assert_eq!(
+            Aabb::enclosing(&[Vec3::Y, Vec3::X, Vec3::Z][..]).unwrap(),
+            Aabb::from_min_max(Vec3::ZERO, Vec3::ONE)
+        );
+        assert_eq!(
+            Aabb::enclosing([
+                Vec3::NEG_X,
+                Vec3::X * 2.0,
+                Vec3::NEG_Y * 5.0,
+                Vec3::Z,
+                Vec3::ZERO
+            ])
+            .unwrap(),
+            Aabb::from_min_max(Vec3::new(-1.0, -5.0, 0.0), Vec3::new(2.0, 0.0, 1.0))
+        );
     }
 }
