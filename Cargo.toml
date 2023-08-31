@@ -1789,6 +1789,18 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_rects"
+path = "examples/stress_tests/many_rects.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_rects]
+name = "Many Rects"
+description = "Benchmark to test UI rendering performance"
+category = "Stress Tests"
+wasm = true
+
+
+[[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
 doc-scrape-examples = true
