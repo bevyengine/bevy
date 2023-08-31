@@ -1048,7 +1048,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
 
         if key.contains(MeshPipelineKey::MESH_ID_TEXTURE_TARGET) {
-            // we need to add the target even if the mesh isn't pickable
+            // Event if GPU_PICKING is not in the key we still need to add the target.
+            // This is important because the target is for all meshes not just pickable meshes.
             targets.push(Some(ColorTargetState {
                 format: MESH_ID_TEXTURE_FORMAT,
                 blend: None,
