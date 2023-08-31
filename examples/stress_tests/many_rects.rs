@@ -4,7 +4,7 @@
 //! This bypasses the layout systems so that only the UI's rendering systems are put under stress.
 //!
 //! To run the demo with extraction iterating the UI stack use:
-//! `cargo run --example many_uirects --release iter-stack
+//! `cargo run --example many_uirects --release iter-stack`
 //!
 use bevy_internal::{
     render::{texture::DEFAULT_IMAGE_HANDLE, Extract, RenderApp},
