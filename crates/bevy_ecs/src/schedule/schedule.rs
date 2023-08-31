@@ -1553,7 +1553,7 @@ impl ScheduleGraph {
             Consider adding `before`, `after`, or `ambiguous_with` relationships between these:\n",
         );
 
-        for (name_a, name_b, conflicts) in self.conflicts_to_string(components) {
+        for (name_a, name_b, conflicts) in self.conflicts_to_string(ambiguities, components) {
             writeln!(message, " -- {name_a} and {name_b}").unwrap();
 
             if !conflicts.is_empty() {
@@ -1571,9 +1571,10 @@ impl ScheduleGraph {
     /// convert conflics to human readable format
     pub fn conflicts_to_string<'a>(
         &'a self,
+        ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
         components: &'a Components,
     ) -> impl Iterator<Item = (String, String, Vec<&str>)> + 'a {
-        self.conflicting_systems
+        ambiguities
             .iter()
             .map(move |(system_a, system_b, conflicts)| {
                 let name_a = self.get_node_name(system_a);
