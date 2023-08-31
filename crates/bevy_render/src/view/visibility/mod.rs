@@ -303,8 +303,8 @@ fn visibility_propagate_system(
     mut visibility_query: Query<(&Visibility, &mut InheritedVisibility)>,
     children_query: Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
 ) {
-    for (id, vis, parent, children) in &changed {
-        let is_visible = match vis {
+    for (entity, visibility, parent, children) in &changed {
+        let is_visible = match visibility {
             Visibility::Visible => true,
             Visibility::Hidden => false,
             Visibility::Inherited => match parent {
@@ -313,7 +313,7 @@ fn visibility_propagate_system(
             },
         };
         let (_, mut inherited_visiblity) = visibility_query
-            .get_mut(id)
+            .get_mut(entity)
             .expect("With<InheritedVisibility> ensures this query will return a value");
 
         // Only update the visibility if it has changed.
@@ -333,7 +333,7 @@ fn visibility_propagate_system(
 
 fn propagate_recursive(
     parent_is_visible: bool,
-    id: Entity,
+    entity: Entity,
     visibility_query: &mut Query<(&Visibility, &mut InheritedVisibility)>,
     children_query: &Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
     // BLOCKED: https://github.com/rust-lang/rust/issues/31436
@@ -341,20 +341,20 @@ fn propagate_recursive(
 ) -> Result<(), ()> {
     // Get the visibility components for the current entity.
     // If the entity does not have the requuired components, just return early.
-    let (vis, mut inherited_vis) = visibility_query.get_mut(id).map_err(drop)?;
+    let (visibility, mut inherited_visibility) = visibility_query.get_mut(entity).map_err(drop)?;
 
-    let is_visible = match vis {
+    let is_visible = match visibility {
         Visibility::Visible => true,
         Visibility::Hidden => false,
         Visibility::Inherited => parent_is_visible,
     };
 
     // Only update the visibility if it has changed.
-    if inherited_vis.get() != is_visible {
-        inherited_vis.0 = is_visible;
+    if inherited_visibility.get() != is_visible {
+        inherited_visibility.0 = is_visible;
 
         // Recursively update the visibility of each child.
-        for &child in children_query.get(id).ok().into_iter().flatten() {
+        for &child in children_query.get(entity).ok().into_iter().flatten() {
             let _ = propagate_recursive(is_visible, child, visibility_query, children_query);
         }
     }
