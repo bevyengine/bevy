@@ -133,5 +133,11 @@ fn sample_shadow_map(light_local: vec2<f32>, depth: f32, array_index: i32, texel
     return sample_shadow_map_jimenez_fourteen(light_local, depth, array_index, texel_size);
 #else ifdef SHADOW_FILTER_METHOD_HARDWARE_2X2
     return sample_shadow_map_hardware(light_local, depth, array_index);
+#else
+    // This needs a default return value to avoid shader compilation errors if it's compiled with no SHADOW_FILTER_METHOD_* defined.
+    // (eg. if the normal prepass is enabled it ends up compiling this due to the normal prepass depending on pbr_functions, which depends on shadows)
+    // This should never actually get used, as anyone using bevy's lighting/shadows should always have a SHADOW_FILTER_METHOD defined.
+    // Set to 0 to make it obvious that something is wrong.
+    return 0.0;
 #endif
 }
