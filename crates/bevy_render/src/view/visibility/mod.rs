@@ -196,7 +196,7 @@ pub enum VisibilitySystems {
     UpdatePerspectiveFrusta,
     /// Label for the [`update_frusta<Projection>`] system.
     UpdateProjectionFrusta,
-    /// Label for the system propagating the [`ComputedVisibility`] in a
+    /// Label for the system propagating the [`InheritedVisibility`] in a
     /// [`hierarchy`](bevy_hierarchy).
     VisibilityPropagate,
     /// Label for the [`check_visibility`] system updating [`ViewVisibility`]
