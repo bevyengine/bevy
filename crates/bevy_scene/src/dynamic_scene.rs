@@ -1,7 +1,7 @@
 use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use anyhow::Result;
 use bevy_ecs::{
-    entity::{Entity, EntityMap},
+    entity::Entity,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
@@ -66,7 +66,7 @@ impl DynamicScene {
     pub fn write_to_world_with(
         &self,
         world: &mut World,
-        entity_map: &mut EntityMap,
+        entity_map: &mut HashMap<Entity, Entity>,
         type_registry: &AppTypeRegistry,
     ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
@@ -154,7 +154,7 @@ impl DynamicScene {
     pub fn write_to_world(
         &self,
         world: &mut World,
-        entity_map: &mut EntityMap,
+        entity_map: &mut HashMap<Entity, Entity>,
     ) -> Result<(), SceneSpawnError> {
         let registry = world.resource::<AppTypeRegistry>().clone();
         self.write_to_world_with(world, entity_map, &registry)
@@ -182,8 +182,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::{entity::EntityMap, reflect::AppTypeRegistry, system::Command, world::World};
+    use bevy_ecs::{reflect::AppTypeRegistry, system::Command, world::World};
     use bevy_hierarchy::{AddChild, Parent};
+    use bevy_utils::HashMap;
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
 
@@ -212,11 +213,11 @@ mod tests {
         scene_builder.extract_entity(original_parent_entity);
         scene_builder.extract_entity(original_child_entity);
         let scene = scene_builder.build();
-        let mut entity_map = EntityMap::default();
+        let mut entity_map = HashMap::default();
         scene.write_to_world(&mut world, &mut entity_map).unwrap();
 
-        let from_scene_parent_entity = entity_map.get(original_parent_entity).unwrap();
-        let from_scene_child_entity = entity_map.get(original_child_entity).unwrap();
+        let &from_scene_parent_entity = entity_map.get(&original_parent_entity).unwrap();
+        let &from_scene_child_entity = entity_map.get(&original_child_entity).unwrap();
 
         // We then add the parent from the scene as a child of the original child
         // Hierarchy should look like:

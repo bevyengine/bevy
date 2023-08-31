@@ -1,13 +1,14 @@
 use crate::{
     environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
     GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
-    ScreenSpaceAmbientOcclusionTextures, ShadowSamplers, ViewClusterBindings, ViewFogUniformOffset,
-    ViewLightsUniformOffset, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
-    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers, ViewClusterBindings,
+    ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetId, Assets, Handle};
 use bevy_core_pipeline::{
+    core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
     prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
@@ -18,10 +19,9 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Mat3A, Mat4, Vec2};
+use bevy_math::{Affine3, Affine3A, Mat4, Vec2, Vec3Swizzles, Vec4};
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
-    gpu_component_array_buffer::GpuComponentArrayBufferPlugin,
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         GpuBufferInfo, InnerMeshVertexBufferLayout, Mesh, MeshVertexBufferLayout,
@@ -29,7 +29,7 @@ use bevy_render::{
     },
     prelude::Msaa,
     render_asset::RenderAssets,
-    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
@@ -41,6 +41,7 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, HashMap, Hashed};
+use fixedbitset::FixedBitSet;
 
 use crate::render::{
     morph::{extract_morphs, prepare_morphs, MorphIndex, MorphUniform},
@@ -50,7 +51,8 @@ use crate::render::{
 #[derive(Default)]
 pub struct MeshRenderPlugin;
 
-const MAX_JOINTS: usize = 256;
+/// Maximum number of joints supported for skinned meshes.
+pub const MAX_JOINTS: usize = 256;
 const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
 pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
@@ -105,8 +107,6 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, MORPH_HANDLE, "morph.wgsl", Shader::from_wgsl);
 
-        app.add_plugins(GpuComponentArrayBufferPlugin::<MeshUniform>::default());
-
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<SkinnedMeshUniform>()
@@ -119,10 +119,11 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        prepare_skinned_meshes.in_set(RenderSet::Prepare),
-                        prepare_morphs.in_set(RenderSet::Prepare),
-                        queue_mesh_bind_group.in_set(RenderSet::Queue),
-                        queue_mesh_view_bind_groups.in_set(RenderSet::Queue),
+                        prepare_mesh_uniforms.in_set(RenderSet::PrepareResources),
+                        prepare_skinned_meshes.in_set(RenderSet::PrepareResources),
+                        prepare_morphs.in_set(RenderSet::PrepareResources),
+                        prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
+                        prepare_mesh_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                     ),
                 );
         }
@@ -141,7 +142,11 @@ impl Plugin for MeshRenderPlugin {
                 ));
             }
 
-            render_app.init_resource::<MeshPipeline>();
+            render_app
+                .insert_resource(GpuArrayBuffer::<MeshUniform>::new(
+                    render_app.world.resource::<RenderDevice>(),
+                ))
+                .init_resource::<MeshPipeline>();
         }
 
         // Load the mesh_bindings shader module here as it depends on runtime information about
@@ -156,12 +161,74 @@ impl Plugin for MeshRenderPlugin {
     }
 }
 
-#[derive(Component, ShaderType, Clone)]
-pub struct MeshUniform {
-    pub transform: Mat4,
-    pub previous_transform: Mat4,
-    pub inverse_transpose_model: Mat4,
+#[derive(Component)]
+pub struct MeshTransforms {
+    pub transform: Affine3,
+    pub previous_transform: Affine3,
     pub flags: u32,
+}
+
+#[derive(ShaderType, Clone)]
+pub struct MeshUniform {
+    // Affine 4x3 matrices transposed to 3x4
+    pub transform: [Vec4; 3],
+    pub previous_transform: [Vec4; 3],
+    // 3x3 matrix packed in mat2x4 and f32 as:
+    //   [0].xyz, [1].x,
+    //   [1].yz, [2].xy
+    //   [2].z
+    pub inverse_transpose_model_a: [Vec4; 2],
+    pub inverse_transpose_model_b: f32,
+    pub flags: u32,
+}
+
+impl From<&MeshTransforms> for MeshUniform {
+    fn from(mesh_transforms: &MeshTransforms) -> Self {
+        let transpose_model_3x3 = mesh_transforms.transform.matrix3.transpose();
+        let transpose_previous_model_3x3 = mesh_transforms.previous_transform.matrix3.transpose();
+        let inverse_transpose_model_3x3 = Affine3A::from(&mesh_transforms.transform)
+            .inverse()
+            .matrix3
+            .transpose();
+        Self {
+            transform: [
+                transpose_model_3x3
+                    .x_axis
+                    .extend(mesh_transforms.transform.translation.x),
+                transpose_model_3x3
+                    .y_axis
+                    .extend(mesh_transforms.transform.translation.y),
+                transpose_model_3x3
+                    .z_axis
+                    .extend(mesh_transforms.transform.translation.z),
+            ],
+            previous_transform: [
+                transpose_previous_model_3x3
+                    .x_axis
+                    .extend(mesh_transforms.previous_transform.translation.x),
+                transpose_previous_model_3x3
+                    .y_axis
+                    .extend(mesh_transforms.previous_transform.translation.y),
+                transpose_previous_model_3x3
+                    .z_axis
+                    .extend(mesh_transforms.previous_transform.translation.z),
+            ],
+            inverse_transpose_model_a: [
+                (
+                    inverse_transpose_model_3x3.x_axis,
+                    inverse_transpose_model_3x3.y_axis.x,
+                )
+                    .into(),
+                (
+                    inverse_transpose_model_3x3.y_axis.yz(),
+                    inverse_transpose_model_3x3.z_axis.xy(),
+                )
+                    .into(),
+            ],
+            inverse_transpose_model_b: inverse_transpose_model_3x3.z_axis.z,
+            flags: mesh_transforms.flags,
+        }
+    }
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wgsl!
@@ -200,26 +267,25 @@ pub fn extract_meshes(
     for (entity, _, transform, previous_transform, handle, not_receiver, not_caster) in
         visible_meshes
     {
-        let transform = transform.compute_matrix();
+        let transform = transform.affine();
         let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
         let mut flags = if not_receiver.is_some() {
             MeshFlags::empty()
         } else {
             MeshFlags::SHADOW_RECEIVER
         };
-        if Mat3A::from_mat4(transform).determinant().is_sign_positive() {
+        if transform.matrix3.determinant().is_sign_positive() {
             flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
         }
-        let uniform = MeshUniform {
+        let transforms = MeshTransforms {
+            transform: (&transform).into(),
+            previous_transform: (&previous_transform).into(),
             flags: flags.bits(),
-            transform,
-            previous_transform,
-            inverse_transpose_model: transform.inverse().transpose(),
         };
         if not_caster.is_some() {
-            not_caster_commands.push((entity, (handle.clone_weak(), uniform, NotShadowCaster)));
+            not_caster_commands.push((entity, (handle.clone_weak(), transforms, NotShadowCaster)));
         } else {
-            caster_commands.push((entity, (handle.clone_weak(), uniform)));
+            caster_commands.push((entity, (handle.clone_weak(), transforms)));
         }
     }
     *prev_caster_commands_len = caster_commands.len();
@@ -248,6 +314,7 @@ impl SkinnedMeshJoints {
             joints
                 .iter_many(&skin.joints)
                 .zip(inverse_bindposes.iter())
+                .take(MAX_JOINTS)
                 .map(|(joint, bindpose)| joint.affine() * *bindpose),
         );
         // iter_many will skip any failed fetches. This will cause it to assign the wrong bones,
@@ -305,6 +372,63 @@ pub fn extract_skinned_meshes(
 
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn prepare_mesh_uniforms(
+    mut seen: Local<FixedBitSet>,
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    mut gpu_array_buffer: ResMut<GpuArrayBuffer<MeshUniform>>,
+    views: Query<(
+        &RenderPhase<Opaque3d>,
+        &RenderPhase<Transparent3d>,
+        &RenderPhase<AlphaMask3d>,
+    )>,
+    shadow_views: Query<&RenderPhase<Shadow>>,
+    meshes: Query<(Entity, &MeshTransforms)>,
+) {
+    gpu_array_buffer.clear();
+    seen.clear();
+
+    let mut indices = Vec::with_capacity(*previous_len);
+    let mut push_indices = |(mesh, mesh_uniform): (Entity, &MeshTransforms)| {
+        let index = mesh.index() as usize;
+        if !seen.contains(index) {
+            if index >= seen.len() {
+                seen.grow(index + 1);
+            }
+            seen.insert(index);
+            indices.push((mesh, gpu_array_buffer.push(mesh_uniform.into())));
+        }
+    };
+
+    for (opaque_phase, transparent_phase, alpha_phase) in &views {
+        meshes
+            .iter_many(opaque_phase.iter_entities())
+            .for_each(&mut push_indices);
+
+        meshes
+            .iter_many(transparent_phase.iter_entities())
+            .for_each(&mut push_indices);
+
+        meshes
+            .iter_many(alpha_phase.iter_entities())
+            .for_each(&mut push_indices);
+    }
+
+    for shadow_phase in &shadow_views {
+        meshes
+            .iter_many(shadow_phase.iter_entities())
+            .for_each(&mut push_indices);
+    }
+
+    *previous_len = indices.len();
+    commands.insert_or_spawn_batch(indices);
+
+    gpu_array_buffer.write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Resource, Clone)]
@@ -881,6 +1005,14 @@ impl SpecializedMeshPipeline for MeshPipeline {
             ));
         }
 
+        let mut push_constant_ranges = Vec::with_capacity(1);
+        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+            push_constant_ranges.push(PushConstantRange {
+                stages: ShaderStages::VERTEX,
+                range: 0..4,
+            });
+        }
+
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH_SHADER_HANDLE,
@@ -899,7 +1031,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 })],
             }),
             layout: bind_group_layout,
-            push_constant_ranges: Vec::new(),
+            push_constant_ranges,
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
@@ -963,7 +1095,7 @@ impl MeshBindGroups {
     }
 }
 
-pub fn queue_mesh_bind_group(
+pub fn prepare_mesh_bind_group(
     meshes: Res<RenderAssets<Mesh>>,
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
@@ -1039,7 +1171,7 @@ pub struct MeshViewBindGroup {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn queue_mesh_view_bind_groups(
+pub fn prepare_mesh_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mesh_pipeline: Res<MeshPipeline>,
@@ -1295,6 +1427,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
     ) -> RenderCommandResult {
         if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            pass.set_push_constants(
+                ShaderStages::VERTEX,
+                0,
+                &(batch_indices.index as i32).to_le_bytes(),
+            );
             match &gpu_mesh.buffer_info {
                 GpuBufferInfo::Indexed {
                     buffer,

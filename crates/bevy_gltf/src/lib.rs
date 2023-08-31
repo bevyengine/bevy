@@ -44,7 +44,8 @@ impl Plugin for GltfPlugin {
             .init_asset::<Gltf>()
             .init_asset::<GltfNode>()
             .init_asset::<GltfPrimitive>()
-            .init_asset::<GltfMesh>();
+            .init_asset::<GltfMesh>()
+            .preregister_asset_loader(&["gltf", "glb"]);
     }
 
     fn finish(&self, app: &mut App) {

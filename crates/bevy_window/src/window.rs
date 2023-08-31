@@ -2,7 +2,7 @@ use bevy_ecs::{
     entity::{Entity, EntityMapper, MapEntities},
     prelude::{Component, ReflectComponent},
 };
-use bevy_math::{DVec2, IVec2, Vec2};
+use bevy_math::{DVec2, IVec2, Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 #[cfg(feature = "serialize")]
@@ -213,6 +213,16 @@ pub struct Window {
     ///
     /// - iOS / Android / Web: Unsupported.
     pub window_theme: Option<WindowTheme>,
+    /// Sets the window's visibility.
+    ///
+    /// If `false`, this will hide the window the window completely, it won't appear on the screen or in the task bar.
+    /// If `true`, this will show the window.
+    /// Note that this doesn't change its focused or minimized state.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **Android / Wayland / Web:** Unsupported.
+    pub visible: bool,
 }
 
 impl Default for Window {
@@ -239,6 +249,7 @@ impl Default for Window {
             prevent_default_event_handling: true,
             canvas: None,
             window_theme: None,
+            visible: true,
         }
     }
 }
@@ -305,9 +316,8 @@ impl Window {
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
     pub fn cursor_position(&self) -> Option<Vec2> {
-        self.internal
-            .physical_cursor_position
-            .map(|position| (position / self.scale_factor()).as_vec2())
+        self.physical_cursor_position()
+            .map(|position| (position.as_dvec2() / self.scale_factor()).as_vec2())
     }
 
     /// The cursor position in this window in physical pixels.
@@ -317,9 +327,17 @@ impl Window {
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
     pub fn physical_cursor_position(&self) -> Option<Vec2> {
-        self.internal
-            .physical_cursor_position
-            .map(|position| position.as_vec2())
+        match self.internal.physical_cursor_position {
+            Some(position) => {
+                let position = position.as_vec2();
+                if Rect::new(0., 0., self.width(), self.height()).contains(position) {
+                    Some(position)
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
     }
 
     /// Set the cursor position in this window in logical pixels.
@@ -1016,7 +1034,7 @@ pub enum WindowTheme {
 ///
 /// ## Platform-specific
 ///
-/// **`iOS`**, **`Android`**, and the **`Web`** do not have window control buttons.  
+/// **`iOS`**, **`Android`**, and the **`Web`** do not have window control buttons.
 ///
 /// On some **`Linux`** environments these values have no effect.
 #[derive(Debug, Copy, Clone, PartialEq, Reflect)]

@@ -1,11 +1,11 @@
 use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::{
-    entity::EntityMap,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };
 use bevy_reflect::TypePath;
+use bevy_utils::HashMap;
 
 /// To spawn a scene, you can use either:
 /// * [`SceneSpawner::spawn`](crate::SceneSpawner::spawn)
@@ -29,7 +29,7 @@ impl Scene {
         type_registry: &AppTypeRegistry,
     ) -> Result<Scene, SceneSpawnError> {
         let mut world = World::new();
-        let mut entity_map = EntityMap::default();
+        let mut entity_map = HashMap::default();
         dynamic_scene.write_to_world_with(&mut world, &mut entity_map, type_registry)?;
 
         Ok(Self { world })
@@ -55,7 +55,7 @@ impl Scene {
         type_registry: &AppTypeRegistry,
     ) -> Result<InstanceInfo, SceneSpawnError> {
         let mut instance_info = InstanceInfo {
-            entity_map: EntityMap::default(),
+            entity_map: HashMap::default(),
         };
 
         let type_registry = type_registry.read();

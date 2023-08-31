@@ -37,7 +37,7 @@ impl Plugin for GpuFeatureSupportChecker {
 
     fn finish(&self, app: &mut App) {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return
+            return;
         };
 
         let render_device = render_app.world.resource::<RenderDevice>();

@@ -53,20 +53,17 @@ impl Measure for TextMeasure {
         _available_height: AvailableSpace,
     ) -> Vec2 {
         let x = width.unwrap_or_else(|| match available_width {
-            AvailableSpace::Definite(x) => x.clamp(
-                self.info.min_width_content_size.x,
-                self.info.max_width_content_size.x,
-            ),
-            AvailableSpace::MinContent => self.info.min_width_content_size.x,
-            AvailableSpace::MaxContent => self.info.max_width_content_size.x,
+            AvailableSpace::Definite(x) => x.clamp(self.info.min.x, self.info.max.x),
+            AvailableSpace::MinContent => self.info.min.x,
+            AvailableSpace::MaxContent => self.info.max.x,
         });
 
         height
             .map_or_else(
                 || match available_width {
                     AvailableSpace::Definite(_) => self.info.compute_size(Vec2::new(x, f32::MAX)),
-                    AvailableSpace::MinContent => Vec2::new(x, self.info.min_width_content_size.y),
-                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max_width_content_size.y),
+                    AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
+                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
                 },
                 |y| Vec2::new(x, y),
             )
@@ -77,24 +74,15 @@ impl Measure for TextMeasure {
 #[inline]
 fn create_text_measure(
     fonts: &Assets<Font>,
-    text_pipeline: &mut TextPipeline,
     scale_factor: f64,
     text: Ref<Text>,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextFlags>,
 ) {
-    match text_pipeline.create_text_measure(
-        fonts,
-        &text.sections,
-        scale_factor,
-        text.alignment,
-        text.linebreak_behavior,
-    ) {
+    match TextMeasureInfo::from_text(&text, fonts, scale_factor) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
-                content_size.set(FixedMeasure {
-                    size: measure.max_width_content_size,
-                });
+                content_size.set(FixedMeasure { size: measure.max });
             } else {
                 content_size.set(TextMeasure { info: measure });
             }
@@ -127,7 +115,6 @@ pub fn measure_text_system(
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
-    mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(Ref<Text>, &mut ContentSize, &mut TextFlags), With<Node>>,
 ) {
     let window_scale_factor = windows
@@ -135,21 +122,14 @@ pub fn measure_text_system(
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.);
 
-    let scale_factor = ui_scale.scale * window_scale_factor;
+    let scale_factor = ui_scale.0 * window_scale_factor;
 
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
         // scale factor unchanged, only create new measure funcs for modified text
         for (text, content_size, text_flags) in text_query.iter_mut() {
             if text.is_changed() || text_flags.needs_new_measure_func {
-                create_text_measure(
-                    &fonts,
-                    &mut text_pipeline,
-                    scale_factor,
-                    text,
-                    content_size,
-                    text_flags,
-                );
+                create_text_measure(&fonts, scale_factor, text, content_size, text_flags);
             }
         }
     } else {
@@ -157,14 +137,7 @@ pub fn measure_text_system(
         *last_scale_factor = scale_factor;
 
         for (text, content_size, text_flags) in text_query.iter_mut() {
-            create_text_measure(
-                &fonts,
-                &mut text_pipeline,
-                scale_factor,
-                text,
-                content_size,
-                text_flags,
-            );
+            create_text_measure(&fonts, scale_factor, text, content_size, text_flags);
         }
     }
 }
@@ -252,7 +225,7 @@ pub fn text_system(
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.);
 
-    let scale_factor = ui_scale.scale * window_scale_factor;
+    let scale_factor = ui_scale.0 * window_scale_factor;
 
     if *last_scale_factor == scale_factor {
         // Scale factor unchanged, only recompute text for modified text nodes

@@ -52,10 +52,13 @@ fn setup(
     // Build a `TextureAtlas` using the individual sprites
     let mut texture_atlas_builder = TextureAtlasBuilder::default();
     let loaded_folder = loaded_folders.get(&rpg_sprite_handles.0).unwrap();
-    for handle in loaded_folder.handles.iter() {
+    for handle in loaded_folder.handles.read() {
         let id = handle.id().typed_unchecked::<Image>();
         let Some(texture) = textures.get(id) else {
-            warn!("{:?} did not resolve to an `Image` asset.", asset_server.get_path(id));
+            warn!(
+                "{:?} did not resolve to an `Image` asset.",
+                handle.path().unwrap()
+            );
             continue;
         };
 

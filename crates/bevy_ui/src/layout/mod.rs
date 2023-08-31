@@ -248,7 +248,7 @@ pub fn ui_layout_system(
         };
 
     let resized = resize_events
-        .iter()
+        .read()
         .any(|resized_window| resized_window.window == primary_window_entity);
 
     // update window root nodes
@@ -256,7 +256,7 @@ pub fn ui_layout_system(
         ui_surface.update_window(entity, &window.resolution);
     }
 
-    let scale_factor = logical_to_physical_factor * ui_scale.scale;
+    let scale_factor = logical_to_physical_factor * ui_scale.0;
 
     let layout_context = LayoutContext::new(scale_factor, physical_size);
 
@@ -366,9 +366,9 @@ pub fn ui_layout_system(
 }
 
 #[inline]
-/// Round `value` to the closest whole integer, with ties (values with a fractional part equal to 0.5) rounded towards positive infinity.
+/// Round `value` to the nearest whole integer, with ties (values with a fractional part equal to 0.5) rounded towards positive infinity.
 fn round_ties_up(value: f32) -> f32 {
-    if 0. <= value || value.fract() != 0.5 {
+    if value.fract() != -0.5 {
         // The `round` function rounds ties away from zero. For positive numbers "away from zero" is towards positive infinity.
         // So for all positive values, and negative values with a fractional part not equal to 0.5, `round` returns the correct result.
         value.round()
@@ -379,13 +379,27 @@ fn round_ties_up(value: f32) -> f32 {
 }
 
 #[inline]
-/// Rust `f32` only has support for rounding ties away from zero.
-/// When rounding the layout coordinates we need to round ties up, otherwise we can gain a pixel.
-/// For example consider a node with left and right bounds of -50.5 and 49.5 (width: 49.5 - (-50.5) == 100).
-/// After rounding left and right away from zero we get -51 and 50 (width: 50 - (-51) == 101), gaining a pixel.
+/// Rounds layout coordinates by rounding ties upwards.
+///
+/// Rounding ties up avoids gaining a pixel when rounding bounds that span from negative to positive.
+///
+/// Example: The width between bounds of -50.5 and 49.5 before rounding is 100, using:
+/// - `f32::round`: width becomes 101 (rounds to -51 and 50).
+/// - `round_ties_up`: width is 100 (rounds to -50 and 50).
 fn round_layout_coords(value: Vec2) -> Vec2 {
     Vec2 {
         x: round_ties_up(value.x),
         y: round_ties_up(value.y),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::layout::round_layout_coords;
+    use bevy_math::vec2;
+
+    #[test]
+    fn round_layout_coords_must_round_ties_up() {
+        assert_eq!(round_layout_coords(vec2(-50.5, 49.5)), vec2(-50., 50.));
     }
 }

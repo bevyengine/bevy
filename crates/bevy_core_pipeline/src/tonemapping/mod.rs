@@ -96,7 +96,7 @@ impl Plugin for TonemappingPlugin {
                 .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
                 .add_systems(
                     Render,
-                    queue_view_tonemapping_pipelines.in_set(RenderSet::Queue),
+                    prepare_view_tonemapping_pipelines.in_set(RenderSet::Prepare),
                 );
         }
     }
@@ -271,7 +271,7 @@ impl FromWorld for TonemappingPipeline {
 #[derive(Component)]
 pub struct ViewTonemappingPipeline(CachedRenderPipelineId);
 
-pub fn queue_view_tonemapping_pipelines(
+pub fn prepare_view_tonemapping_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,

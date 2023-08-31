@@ -17,7 +17,7 @@ impl Plugin for BlitPlugin {
 
     fn finish(&self, app: &mut App) {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return
+            return;
         };
 
         render_app

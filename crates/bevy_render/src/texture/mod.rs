@@ -35,9 +35,7 @@ pub use image_loader::*;
 pub use texture_cache::*;
 
 use crate::{
-    render_asset::{PrepareAssetSet, RenderAssetPlugin},
-    renderer::RenderDevice,
-    Render, RenderApp, RenderSet,
+    render_asset::RenderAssetPlugin, renderer::RenderDevice, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AssetApp, Assets, Handle};
@@ -84,12 +82,10 @@ impl Plugin for ImagePlugin {
             app.init_asset_loader::<HdrTextureLoader>();
         }
 
-        app.add_plugins(RenderAssetPlugin::<Image>::with_prepare_asset_set(
-            PrepareAssetSet::PreAssetPrepare,
-        ))
-        .register_type::<Image>()
-        .init_asset::<Image>()
-        .register_asset_reflect::<Image>();
+        app.add_plugins(RenderAssetPlugin::<Image>::default())
+            .register_type::<Image>()
+            .init_asset::<Image>()
+            .register_asset_reflect::<Image>();
         app.world
             .resource_mut::<Assets<Image>>()
             .insert(Handle::default(), Image::default());
@@ -111,6 +107,17 @@ impl Plugin for ImagePlugin {
                 update_texture_cache_system.in_set(RenderSet::Cleanup),
             );
         }
+
+        #[cfg(any(
+            feature = "png",
+            feature = "dds",
+            feature = "tga",
+            feature = "jpeg",
+            feature = "bmp",
+            feature = "basis-universal",
+            feature = "ktx2",
+        ))]
+        app.preregister_asset_loader(IMG_FILE_EXTENSIONS);
     }
 
     fn finish(&self, app: &mut App) {

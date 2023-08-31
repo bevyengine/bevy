@@ -539,6 +539,29 @@ impl AssetServer {
         Some(info.path.as_ref()?.to_owned())
     }
 
+    /// Pre-register a loader that will later be added.
+    ///
+    /// Assets loaded with matching extensions will be blocked until the
+    /// real loader is added.
+    pub fn preregister_loader(&self, extensions: &[&str]) {
+        error!("pre-registering loaders is not supported yet")
+        // let mut loaders = self.server.loaders.write();
+        // let loader_index = loaders.len();
+        // for extension in extensions {
+        //     if self
+        //         .server
+        //         .extension_to_loader_index
+        //         .write()
+        //         .insert(extension.to_string(), loader_index)
+        //         .is_some()
+        //     {
+        //         warn!("duplicate preregistration for `{extension}`, any assets loaded with the previous loader will never complete.");
+        //     }
+        // }
+        // let (sender, receiver) = async_channel::bounded(1);
+        // loaders.push(MaybeAssetLoader::Pending { sender, receiver });
+    }
+
     /// Retrieve a handle for the given path. This will create a handle (and [`AssetInfo`]) if it does not exist
     pub(crate) fn get_or_create_path_handle(
         &self,

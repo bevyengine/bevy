@@ -18,7 +18,7 @@ use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
-    render_asset::{PrepareAssetSet, RenderAssets},
+    render_asset::{prepare_assets, RenderAssets},
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
@@ -161,9 +161,11 @@ where
                     Render,
                     (
                         prepare_materials_2d::<M>
-                            .in_set(RenderSet::Prepare)
-                            .after(PrepareAssetSet::PreAssetPrepare),
-                        queue_material2d_meshes::<M>.in_set(RenderSet::Queue),
+                            .in_set(RenderSet::PrepareAssets)
+                            .after(prepare_assets::<Image>),
+                        queue_material2d_meshes::<M>
+                            .in_set(RenderSet::QueueMeshes)
+                            .after(prepare_materials_2d::<M>),
                     ),
                 );
         }
@@ -411,7 +413,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                             // camera. As such we can just use mesh_z as the distance
                             sort_key: FloatOrd(mesh_z),
                             // This material is not batched
-                            batch_range: None,
+                            batch_size: 1,
                         });
                     }
                 }
@@ -461,7 +463,7 @@ pub fn extract_materials_2d<M: Material2d>(
 ) {
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
-    for event in events.iter() {
+    for event in events.read() {
         match event {
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                 changed_assets.insert(*id);

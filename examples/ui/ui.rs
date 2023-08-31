@@ -29,7 +29,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(NodeBundle {
             style: Style {
                 width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
@@ -317,7 +316,7 @@ fn mouse_scroll(
     mut query_list: Query<(&mut ScrollingList, &mut Style, &Parent, &Node)>,
     query_node: Query<&Node>,
 ) {
-    for mouse_wheel_event in mouse_wheel_events.iter() {
+    for mouse_wheel_event in mouse_wheel_events.read() {
         for (mut scrolling_list, mut style, parent, list_node) in &mut query_list {
             let items_height = list_node.size().y;
             let container_height = query_node.get(parent.get()).unwrap().size().y;

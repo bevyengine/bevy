@@ -17,7 +17,7 @@ pub struct ImageLoader {
     supported_compressed_formats: CompressedImageFormats,
 }
 
-const FILE_EXTENSIONS: &[&str] = &[
+pub(crate) const IMG_FILE_EXTENSIONS: &[&str] = &[
     #[cfg(feature = "basis-universal")]
     "basis",
     #[cfg(feature = "bmp")]
@@ -101,7 +101,7 @@ impl AssetLoader for ImageLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        FILE_EXTENSIONS
+        IMG_FILE_EXTENSIONS
     }
 }
 

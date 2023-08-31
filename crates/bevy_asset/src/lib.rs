@@ -245,6 +245,9 @@ pub trait AssetApp {
     fn register_asset_reflect<A>(&mut self) -> &mut Self
     where
         A: Asset + Reflect + FromReflect + GetTypeRegistration;
+    /// Preregisters a loader for the given extensions, that will block asset loads until a real loader
+    /// is registered.
+    fn preregister_asset_loader(&mut self, extensions: &[&str]) -> &mut Self;
 }
 
 impl AssetApp for App {
@@ -298,6 +301,13 @@ impl AssetApp for App {
             type_registry.register_type_data::<Handle<A>, ReflectHandle>();
         }
 
+        self
+    }
+
+    fn preregister_asset_loader(&mut self, extensions: &[&str]) -> &mut Self {
+        self.world
+            .resource_mut::<AssetServer>()
+            .preregister_loader(extensions);
         self
     }
 }

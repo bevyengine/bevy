@@ -29,7 +29,7 @@ pub fn remove_dropped_font_atlas_sets(
     mut font_events: EventReader<AssetEvent<Font>>,
 ) {
     // Clean up font atlas sets for removed fonts
-    for event in font_events.iter() {
+    for event in font_events.read() {
         if let AssetEvent::Removed { id } = event {
             font_atlas_sets.sets.remove(id);
         }

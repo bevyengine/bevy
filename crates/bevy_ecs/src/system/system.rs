@@ -8,6 +8,8 @@ use crate::{archetype::ArchetypeComponentId, component::ComponentId, query::Acce
 use std::any::TypeId;
 use std::borrow::Cow;
 
+use super::IntoSystem;
+
 /// An ECS system that can be added to a [`Schedule`](crate::schedule::Schedule)
 ///
 /// Systems are functions with all arguments implementing
@@ -147,20 +149,134 @@ pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, syst
     }
 }
 
-impl Debug for dyn System<In = (), Out = ()> {
+impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "System {}: {{{}}}", self.name(), {
-            if self.is_send() {
-                if self.is_exclusive() {
-                    "is_send is_exclusive"
-                } else {
-                    "is_send"
-                }
-            } else if self.is_exclusive() {
-                "is_exclusive"
-            } else {
-                ""
-            }
-        },)
+        f.debug_struct("System")
+            .field("name", &self.name())
+            .field("is_exclusive", &self.is_exclusive())
+            .field("is_send", &self.is_send())
+            .finish_non_exhaustive()
+    }
+}
+
+/// Trait used to run a system immediately on a [`World`].
+///
+/// # Warning
+/// This function is not an efficient method of running systems and its meant to be used as a utility
+/// for testing and/or diagnostics.
+///
+/// # Usage
+/// Typically, to test a system, or to extract specific diagnostics information from a world,
+/// you'd need a [`Schedule`](crate::schedule::Schedule) to run the system. This can create redundant boilerplate code
+/// when writing tests or trying to quickly iterate on debug specific systems.
+///
+/// For these situations, this function can be useful because it allows you to execute a system
+/// immediately with some custom input and retrieve its output without requiring the necessary boilerplate.
+///
+/// # Examples
+///
+/// ## Immediate Command Execution
+///
+/// This usage is helpful when trying to test systems or functions that operate on [`Commands`](crate::system::Commands):
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::RunSystem;
+/// let mut world = World::default();
+/// let entity = world.run_system(|mut commands: Commands| {
+///     commands.spawn_empty().id()
+/// });
+/// # assert!(world.get_entity(entity).is_some());
+/// ```
+///
+/// ## Immediate Queries
+///
+/// This usage is helpful when trying to run an arbitrary query on a world for testing or debugging purposes:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::RunSystem;
+///
+/// #[derive(Component)]
+/// struct T(usize);
+///
+/// let mut world = World::default();
+/// world.spawn(T(0));
+/// world.spawn(T(1));
+/// world.spawn(T(1));
+/// let count = world.run_system(|query: Query<&T>| {
+///     query.iter().filter(|t| t.0 == 1).count()
+/// });
+///
+/// # assert_eq!(count, 2);
+/// ```
+///
+/// Note that instead of closures you can also pass in regular functions as systems:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::RunSystem;
+///
+/// #[derive(Component)]
+/// struct T(usize);
+///
+/// fn count(query: Query<&T>) -> usize {
+///     query.iter().filter(|t| t.0 == 1).count()
+/// }
+///
+/// let mut world = World::default();
+/// world.spawn(T(0));
+/// world.spawn(T(1));
+/// world.spawn(T(1));
+/// let count = world.run_system(count);
+///
+/// # assert_eq!(count, 2);
+/// ```
+pub trait RunSystem: Sized {
+    /// Runs a system and applies its deferred parameters.
+    fn run_system<T: IntoSystem<(), Out, Marker>, Out, Marker>(self, system: T) -> Out {
+        self.run_system_with((), system)
+    }
+
+    /// Runs a system with given input and applies its deferred parameters.
+    fn run_system_with<T: IntoSystem<In, Out, Marker>, In, Out, Marker>(
+        self,
+        input: In,
+        system: T,
+    ) -> Out;
+}
+
+impl RunSystem for &mut World {
+    fn run_system_with<T: IntoSystem<In, Out, Marker>, In, Out, Marker>(
+        self,
+        input: In,
+        system: T,
+    ) -> Out {
+        let mut system: T::System = IntoSystem::into_system(system);
+        system.initialize(self);
+        let out = system.run(input, self);
+        system.apply_deferred(self);
+        out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::prelude::*;
+
+    #[test]
+    fn run_system() {
+        struct T(usize);
+
+        impl Resource for T {}
+
+        fn system(In(n): In<usize>, mut commands: Commands) -> usize {
+            commands.insert_resource(T(n));
+            n + 1
+        }
+
+        let mut world = World::default();
+        let n = world.run_system_with(1, system);
+        assert_eq!(n, 2);
+        assert_eq!(world.resource::<T>().0, 1);
     }
 }
