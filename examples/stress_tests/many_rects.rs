@@ -166,8 +166,7 @@ fn extract_rect<const N: usize>(
             With<ExtractionMarker<N>>,
         >,
     >,
-) {
-    println!("extract {N}");
+) {    
     for (entity, stack_index, size, transform, color, maybe_image, visibility) in
         uinode_query.iter()
     {
