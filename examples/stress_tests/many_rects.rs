@@ -251,24 +251,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         rect_stack.push(builder.id());
     }
     rect_stack.shuffle(&mut rng);
-    
-    let bundles: Vec<_> = rect_stack.iter().enumerate().map(|(stack_index, entity)| {
-        (*entity, {
-            let w = rng.gen_range(MIN_EDGE..MAX_EDGE);
-            let h = rng.gen_range(MIN_EDGE..MAX_EDGE);
-            let x = rng.gen_range(0.0..WIDTH);
-            let y = rng.gen_range(0.0..HEIGHT);
-            let color = *colors.choose(&mut rng).unwrap();
-            (
-                Size(Vec2::new(w, h)),
-                Transform::from_translation(Vec3::new(x, y, 1.0)),
-                GlobalTransform::default(),
-                StackIndex(stack_index),
-                BackgroundColor(color),
-                VisibilityBundle::default(),
-            )
+
+    let bundles: Vec<_> = rect_stack
+        .iter()
+        .enumerate()
+        .map(|(stack_index, entity)| {
+            (*entity, {
+                let w = rng.gen_range(MIN_EDGE..MAX_EDGE);
+                let h = rng.gen_range(MIN_EDGE..MAX_EDGE);
+                let x = rng.gen_range(0.0..WIDTH);
+                let y = rng.gen_range(0.0..HEIGHT);
+                let color = *colors.choose(&mut rng).unwrap();
+                (
+                    Size(Vec2::new(w, h)),
+                    Transform::from_translation(Vec3::new(x, y, 1.0)),
+                    GlobalTransform::default(),
+                    StackIndex(stack_index),
+                    BackgroundColor(color),
+                    VisibilityBundle::default(),
+                )
+            })
         })
-    }).collect();
+        .collect();
 
     commands.insert_or_spawn_batch(bundles);
     commands.insert_resource(rect_stack);
