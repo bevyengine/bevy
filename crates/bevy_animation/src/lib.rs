@@ -625,9 +625,7 @@ fn apply_animation(
             let Some(target) = entity_from_path(root, path, children, names, cached_path) else {
                 continue;
             };
-
             any_path_found = true;
-
             // SAFETY: The verify_no_ancestor_player check above ensures that two animation players cannot alias
             // any of their descendant Transforms.
             //
