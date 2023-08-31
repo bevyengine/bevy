@@ -330,7 +330,14 @@ impl Window {
         match self.internal.physical_cursor_position {
             Some(position) => {
                 let position = position.as_vec2();
-                if Rect::new(0., 0., self.width(), self.height()).contains(position) {
+                if Rect::new(
+                    0.,
+                    0.,
+                    self.physical_width() as f32,
+                    self.physical_height() as f32,
+                )
+                .contains(position)
+                {
                     Some(position)
                 } else {
                     None
