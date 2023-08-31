@@ -3,8 +3,8 @@
 //! Gpu picking is a way to generate a texture of all the rendered entities and
 //! use this texture to determine exactly which entity is under the mouse.
 
-use bevy::prelude::*;
-use bevy_internal::{
+use bevy::{
+    prelude::*,
     reflect::{TypePath, TypeUuid},
     render::{
         picking::{GpuPickingCamera, GpuPickingMesh, GpuPickingPlugin},
