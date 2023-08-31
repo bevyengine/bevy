@@ -35,7 +35,7 @@ fn main() {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 resolution: (WIDTH, HEIGHT).into(),
-                title: "many_uinodes".into(),
+                title: "many_rects".into(),
                 present_mode: PresentMode::AutoNoVsync,
                 ..default()
             }),
