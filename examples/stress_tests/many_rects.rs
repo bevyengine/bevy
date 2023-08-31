@@ -23,7 +23,7 @@ const MIN_EDGE: f32 = 10.;
 const MAX_EDGE: f32 = 150.;
 const WIDTH: f32 = 1024.;
 const HEIGHT: f32 = 768.;
-const STACK_SIZE: usize = 10000;
+const STACK_SIZE: usize = 33000;
 const TEXTURED_RATIO: f32 = 0.2;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -221,13 +221,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let mut rng = rand::rngs::StdRng::seed_from_u64(SEED);
     let mut rect_stack = RectStack(Vec::with_capacity(STACK_SIZE));
     for _ in 0..STACK_SIZE {
-        let n = rng.gen_range(0..6);
+        let n = rng.gen_range(0..63);
         let mut builder = match n {
-            0 => commands.spawn(ExtractionMarker::<1>),
-            1 => commands.spawn(ExtractionMarker::<2>),
-            2 => commands.spawn(ExtractionMarker::<4>),
-            3 => commands.spawn(ExtractionMarker::<8>),
-            4 => commands.spawn(ExtractionMarker::<16>),
+            0..= 31 => commands.spawn(ExtractionMarker::<1>),
+            32..= 47 => commands.spawn(ExtractionMarker::<2>),
+            48..= 55 => commands.spawn(ExtractionMarker::<4>),
+            56..= 59 => commands.spawn(ExtractionMarker::<8>),
+            60..= 61 => commands.spawn(ExtractionMarker::<16>),
             _ => commands.spawn(ExtractionMarker::<32>),
         };
         if rng.gen::<f32>() <= TEXTURED_RATIO {
