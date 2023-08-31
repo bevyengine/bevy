@@ -54,8 +54,6 @@ use wgpu::{
 
 pub const MESH_ID_TEXTURE_FORMAT: TextureFormat = TextureFormat::R16Uint;
 
-const BUFFER_COUNT: usize = 2;
-
 /// This plugin enables the gpu picking feature of bevy.
 pub struct GpuPickingPlugin;
 impl Plugin for GpuPickingPlugin {
@@ -89,7 +87,7 @@ impl Plugin for GpuPickingPlugin {
 #[derive(Resource)]
 pub struct CurrentGpuPickingBufferIndex(usize);
 fn increment_index(mut curr_index: ResMut<CurrentGpuPickingBufferIndex>) {
-    curr_index.0 = (curr_index.0 + 1) % BUFFER_COUNT;
+    curr_index.0 = (curr_index.0 + 1) % 2;
 }
 
 /// Marker component to indicate that a mesh should be available for gpu picking
@@ -193,7 +191,7 @@ impl ExtractedGpuPickingCamera {
         };
 
         // Copy current frame to next buffer
-        let copy_index = (current_buffer_index.0 + 1) % BUFFER_COUNT;
+        let copy_index = (current_buffer_index.0 + 1) % 2;
         buffers.copy_texture_to_buffer(encoder, texture, copy_index);
 
         // Map current buffer that will be copied and sent after the graph has finished
@@ -222,7 +220,7 @@ struct GpuPickingData {
 /// Contains the buffers and their dimensions required for gpu picking
 #[derive(Clone)]
 struct GpuPickingCameraBuffers {
-    entity_buffers: [Buffer; BUFFER_COUNT],
+    entity_buffers: [Buffer; 2],
     // All buffers have the same dimension so we only need one
     buffer_dimensions: BufferDimensions,
 }
@@ -352,51 +350,30 @@ impl VisibleMeshIdTextures {
 }
 
 /// This creates the required buffers for each camera
+/// It will take care of clearing buffers that don't have any associated cameras
 fn prepare_buffers(
     render_device: Res<RenderDevice>,
     mut cameras: Query<(Entity, &ExtractedCamera, &mut ExtractedGpuPickingCamera)>,
-    mut buffer_cache: Local<HashMap<Entity, (BufferDimensions, [Buffer; BUFFER_COUNT])>>,
+    mut buffer_cache: Local<HashMap<Entity, (BufferDimensions, [Buffer; 2])>>,
 ) {
     for (entity, camera, mut gpu_picking_camera) in &mut cameras {
         let Some(size) = camera.physical_target_size else {
             continue;
         };
 
-        // We only want to create a buffer when there's no buffers in the cache
-        // or when the dimensions don't match
-        let mut create_buffer = true;
-        if let Some((buffer_dimensions, _)) = buffer_cache.get(&entity) {
-            // We could potentially account for padding and only re-create buffers
-            // when the full size of the buffer doesn't match
-            create_buffer = buffer_dimensions.width != size.x as usize
-                || buffer_dimensions.height != size.y as usize;
-        }
-
-        if create_buffer {
-            let buffer_dimensions =
-                BufferDimensions::new(size.x as usize, size.y as usize, MESH_ID_TEXTURE_FORMAT);
-            let desc = BufferDescriptor {
-                label: None,
-                size: buffer_dimensions.size() as u64,
-                usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
-                mapped_at_creation: false,
-            };
-            let entity_buffers = [
-                render_device.create_buffer(&BufferDescriptor {
-                    label: Some("Entity Buffer 0"),
-                    ..desc
-                }),
-                render_device.create_buffer(&BufferDescriptor {
-                    label: Some("Entity Buffer 1"),
-                    ..desc
-                }),
-            ];
-            buffer_cache.insert(entity, (buffer_dimensions, entity_buffers));
-        }
-
         let (buffer_dimensions, buffers) = buffer_cache
-            .get(&entity)
-            .expect("Buffers should have been created already");
+            .entry(entity)
+            .and_modify(|(buffer_dimensions, buffers)| {
+                if buffer_dimensions.width != size.x as usize
+                    || buffer_dimensions.height != size.y as usize
+                {
+                    let (new_dims, new_buffers) = create_entity_buffers(&render_device, size);
+                    *buffer_dimensions = new_dims;
+                    *buffers = new_buffers;
+                }
+            })
+            .or_insert_with(|| create_entity_buffers(&render_device, size));
+
         gpu_picking_camera.buffers = Some(GpuPickingCameraBuffers {
             entity_buffers: buffers.clone(),
             buffer_dimensions: *buffer_dimensions,
@@ -411,6 +388,33 @@ fn prepare_buffers(
             buffer_cache.remove(&k);
         }
     }
+}
+
+/// Creates the buffers that will be used to draw the entity index
+/// Also returns the dimensions of the buffers
+fn create_entity_buffers(
+    render_device: &RenderDevice,
+    size: UVec2,
+) -> (BufferDimensions, [Buffer; 2]) {
+    let buffer_dimensions =
+        BufferDimensions::new(size.x as usize, size.y as usize, MESH_ID_TEXTURE_FORMAT);
+    let desc = BufferDescriptor {
+        label: None,
+        size: buffer_dimensions.size() as u64,
+        usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+    };
+    let entity_buffers = [
+        render_device.create_buffer(&BufferDescriptor {
+            label: Some("Entity Buffer 0"),
+            ..desc
+        }),
+        render_device.create_buffer(&BufferDescriptor {
+            label: Some("Entity Buffer 1"),
+            ..desc
+        }),
+    ];
+    (buffer_dimensions, entity_buffers)
 }
 
 /// Used to represent the size of a [`Buffer`] and the padding required for each row.

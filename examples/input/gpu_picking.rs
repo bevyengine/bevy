@@ -152,7 +152,9 @@ fn mouse_picking(
         };
     };
 
-    let Some(moved_event) = cursor_moved.iter().last() else { return; };
+    let Some(moved_event) = cursor_moved.read().last() else {
+        return;
+    };
     let mouse_position = moved_event.position.as_uvec2();
 
     for gpu_picking_camera in &gpu_picking_cameras {
