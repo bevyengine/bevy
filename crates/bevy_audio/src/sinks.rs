@@ -15,6 +15,14 @@ pub trait AudioSinkPlayback {
     ///
     /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0`
     /// will multiply each sample by this value.
+    ///
+    /// # Note on Audio Volume
+    ///
+    /// An increase of 10 decibels (dB) roughly corresponds to the perceived volume doubling in intensity.
+    /// As this function scales not the volume but the amplitude, a conversion might be necessary.
+    /// For example, to halve the perceived volume you need to decrease the volume by 10 dB.
+    /// This corresponds to 20log(x) = -10dB, solving x = 10^(-10/20) = 0.316.
+    /// Multiply the current volume by 0.316 to halve the perceived volume.
     fn set_volume(&self, volume: f32);
 
     /// Gets the speed of the sound.

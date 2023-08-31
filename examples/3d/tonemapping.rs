@@ -307,7 +307,7 @@ fn update_image_viewer(
 ) {
     let mut new_image: Option<Handle<Image>> = None;
 
-    for event in drop_events.iter() {
+    for event in drop_events.read() {
         match event {
             FileDragAndDrop::DroppedFile { path_buf, .. } => {
                 new_image = Some(asset_server.load(path_buf.to_string_lossy().to_string()));
@@ -328,7 +328,7 @@ fn update_image_viewer(
                 }
             }
 
-            for event in image_events.iter() {
+            for event in image_events.read() {
                 let image_changed_h = match event {
                     AssetEvent::Created { handle } | AssetEvent::Modified { handle } => handle,
                     _ => continue,

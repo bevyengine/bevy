@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::ops::Range;
 
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasSprite},
@@ -11,16 +11,16 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{
     prelude::*,
+    storage::SparseSet,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Rect, Vec2};
-use bevy_reflect::Uuid;
 use bevy_render::{
     color::Color,
     render_asset::RenderAssets,
     render_phase::{
-        BatchedPhaseItem, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-        RenderPhase, SetItemPipeline, TrackedRenderPass,
+        DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
+        TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
@@ -34,8 +34,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::FloatOrd;
-use bevy_utils::HashMap;
+use bevy_utils::{FloatOrd, HashMap, Uuid};
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
@@ -296,9 +295,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
     }
 }
 
-#[derive(Component, Clone, Copy)]
 pub struct ExtractedSprite {
-    pub entity: Entity,
     pub transform: GlobalTransform,
     pub color: Color,
     /// Select an area of the texture
@@ -315,7 +312,7 @@ pub struct ExtractedSprite {
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
-    pub sprites: Vec<ExtractedSprite>,
+    pub sprites: SparseSet<Entity, ExtractedSprite>,
 }
 
 #[derive(Resource, Default)]
@@ -330,7 +327,7 @@ pub fn extract_sprite_events(
     let SpriteAssetEvents { ref mut images } = *events;
     images.clear();
 
-    for image in image_events.iter() {
+    for image in image_events.read() {
         // AssetEvent: !Clone
         images.push(match image {
             AssetEvent::Created { handle } => AssetEvent::Created {
@@ -368,24 +365,25 @@ pub fn extract_sprites(
         )>,
     >,
 ) {
-    extracted_sprites.sprites.clear();
     for (entity, visibility, sprite, transform, handle) in sprite_query.iter() {
         if !visibility.is_visible() {
             continue;
         }
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
-        extracted_sprites.sprites.push(ExtractedSprite {
+        extracted_sprites.sprites.insert(
             entity,
-            color: sprite.color,
-            transform: *transform,
-            rect: sprite.rect,
-            // Pass the custom size
-            custom_size: sprite.custom_size,
-            flip_x: sprite.flip_x,
-            flip_y: sprite.flip_y,
-            image_handle_id: handle.id(),
-            anchor: sprite.anchor.as_vec(),
-        });
+            ExtractedSprite {
+                color: sprite.color,
+                transform: *transform,
+                rect: sprite.rect,
+                // Pass the custom size
+                custom_size: sprite.custom_size,
+                flip_x: sprite.flip_x,
+                flip_y: sprite.flip_y,
+                image_handle_id: handle.id(),
+                anchor: sprite.anchor.as_vec(),
+            },
+        );
     }
     for (entity, visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
         if !visibility.is_visible() {
@@ -404,19 +402,21 @@ pub fn extract_sprites(
                         )
                     }),
             );
-            extracted_sprites.sprites.push(ExtractedSprite {
+            extracted_sprites.sprites.insert(
                 entity,
-                color: atlas_sprite.color,
-                transform: *transform,
-                // Select the area in the texture atlas
-                rect,
-                // Pass the custom size
-                custom_size: atlas_sprite.custom_size,
-                flip_x: atlas_sprite.flip_x,
-                flip_y: atlas_sprite.flip_y,
-                image_handle_id: texture_atlas.texture.id(),
-                anchor: atlas_sprite.anchor.as_vec(),
-            });
+                ExtractedSprite {
+                    color: atlas_sprite.color,
+                    transform: *transform,
+                    // Select the area in the texture atlas
+                    rect,
+                    // Pass the custom size
+                    custom_size: atlas_sprite.custom_size,
+                    flip_x: atlas_sprite.flip_x,
+                    flip_y: atlas_sprite.flip_y,
+                    image_handle_id: texture_atlas.texture.id(),
+                    anchor: atlas_sprite.anchor.as_vec(),
+                },
+            );
         }
     }
 }
@@ -469,8 +469,9 @@ const QUAD_UVS: [Vec2; 4] = [
     Vec2::new(0., 0.),
 ];
 
-#[derive(Component, Eq, PartialEq, Copy, Clone)]
+#[derive(Component)]
 pub struct SpriteBatch {
+    range: Range<u32>,
     image_handle_id: HandleId,
     colored: bool,
 }
@@ -482,20 +483,13 @@ pub struct ImageBindGroups {
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_sprites(
-    mut commands: Commands,
     mut view_entities: Local<FixedBitSet>,
     draw_functions: Res<DrawFunctions<Transparent2d>>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut sprite_meta: ResMut<SpriteMeta>,
-    view_uniforms: Res<ViewUniforms>,
     sprite_pipeline: Res<SpritePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SpritePipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    mut image_bind_groups: ResMut<ImageBindGroups>,
-    gpu_images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
-    mut extracted_sprites: ResMut<ExtractedSprites>,
+    extracted_sprites: Res<ExtractedSprites>,
     mut views: Query<(
         &mut RenderPhase<Transparent2d>,
         &VisibleEntities,
@@ -503,6 +497,100 @@ pub fn queue_sprites(
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
+) {
+    let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
+
+    let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
+
+    for (mut transparent_phase, visible_entities, view, tonemapping, dither) in &mut views {
+        let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
+
+        if !view.hdr {
+            if let Some(tonemapping) = tonemapping {
+                view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
+                view_key |= match tonemapping {
+                    Tonemapping::None => SpritePipelineKey::TONEMAP_METHOD_NONE,
+                    Tonemapping::Reinhard => SpritePipelineKey::TONEMAP_METHOD_REINHARD,
+                    Tonemapping::ReinhardLuminance => {
+                        SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
+                    }
+                    Tonemapping::AcesFitted => SpritePipelineKey::TONEMAP_METHOD_ACES_FITTED,
+                    Tonemapping::AgX => SpritePipelineKey::TONEMAP_METHOD_AGX,
+                    Tonemapping::SomewhatBoringDisplayTransform => {
+                        SpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+                    }
+                    Tonemapping::TonyMcMapface => SpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
+                    Tonemapping::BlenderFilmic => SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+                };
+            }
+            if let Some(DebandDither::Enabled) = dither {
+                view_key |= SpritePipelineKey::DEBAND_DITHER;
+            }
+        }
+
+        let pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &sprite_pipeline,
+            view_key | SpritePipelineKey::from_colored(false),
+        );
+        let colored_pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &sprite_pipeline,
+            view_key | SpritePipelineKey::from_colored(true),
+        );
+
+        view_entities.clear();
+        view_entities.extend(visible_entities.entities.iter().map(|e| e.index() as usize));
+
+        transparent_phase
+            .items
+            .reserve(extracted_sprites.sprites.len());
+
+        for (entity, extracted_sprite) in extracted_sprites.sprites.iter() {
+            if !view_entities.contains(entity.index() as usize) {
+                continue;
+            }
+
+            // These items will be sorted by depth with other phase items
+            let sort_key = FloatOrd(extracted_sprite.transform.translation().z);
+
+            // Add the item to the render phase
+            if extracted_sprite.color != Color::WHITE {
+                transparent_phase.add(Transparent2d {
+                    draw_function: draw_sprite_function,
+                    pipeline: colored_pipeline,
+                    entity: *entity,
+                    sort_key,
+                    // batch_size will be calculated in prepare_sprites
+                    batch_size: 0,
+                });
+            } else {
+                transparent_phase.add(Transparent2d {
+                    draw_function: draw_sprite_function,
+                    pipeline,
+                    entity: *entity,
+                    sort_key,
+                    // batch_size will be calculated in prepare_sprites
+                    batch_size: 0,
+                });
+            }
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn prepare_sprites(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    mut sprite_meta: ResMut<SpriteMeta>,
+    view_uniforms: Res<ViewUniforms>,
+    sprite_pipeline: Res<SpritePipeline>,
+    mut image_bind_groups: ResMut<ImageBindGroups>,
+    gpu_images: Res<RenderAssets<Image>>,
+    mut extracted_sprites: ResMut<ExtractedSprites>,
+    mut phases: Query<&mut RenderPhase<Transparent2d>>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
@@ -515,9 +603,8 @@ pub fn queue_sprites(
         };
     }
 
-    let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
-
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
+        let mut batches: Vec<(Entity, SpriteBatch)> = Vec::with_capacity(*previous_len);
         let sprite_meta = &mut sprite_meta;
 
         // Clear the vertex buffers
@@ -533,210 +620,141 @@ pub fn queue_sprites(
             layout: &sprite_pipeline.view_layout,
         }));
 
-        let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
-
         // Vertex buffer indices
         let mut index = 0;
         let mut colored_index = 0;
 
-        // FIXME: VisibleEntities is ignored
-
-        let extracted_sprites = &mut extracted_sprites.sprites;
-        // Sort sprites by z for correct transparency and then by handle to improve batching
-        // NOTE: This can be done independent of views by reasonably assuming that all 2D views look along the negative-z axis in world space
-        extracted_sprites.sort_unstable_by(|a, b| {
-            match a
-                .transform
-                .translation()
-                .z
-                .partial_cmp(&b.transform.translation().z)
-            {
-                Some(Ordering::Equal) | None => a.image_handle_id.cmp(&b.image_handle_id),
-                Some(other) => other,
-            }
-        });
         let image_bind_groups = &mut *image_bind_groups;
 
-        for (mut transparent_phase, visible_entities, view, tonemapping, dither) in &mut views {
-            let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
+        for mut transparent_phase in &mut phases {
+            let mut batch_item_index = 0;
+            let mut batch_image_size = Vec2::ZERO;
+            let mut batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
+            let mut batch_colored = false;
 
-            if !view.hdr {
-                if let Some(tonemapping) = tonemapping {
-                    view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
-                    view_key |= match tonemapping {
-                        Tonemapping::None => SpritePipelineKey::TONEMAP_METHOD_NONE,
-                        Tonemapping::Reinhard => SpritePipelineKey::TONEMAP_METHOD_REINHARD,
-                        Tonemapping::ReinhardLuminance => {
-                            SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
-                        }
-                        Tonemapping::AcesFitted => SpritePipelineKey::TONEMAP_METHOD_ACES_FITTED,
-                        Tonemapping::AgX => SpritePipelineKey::TONEMAP_METHOD_AGX,
-                        Tonemapping::SomewhatBoringDisplayTransform => {
-                            SpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
-                        }
-                        Tonemapping::TonyMcMapface => {
-                            SpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE
-                        }
-                        Tonemapping::BlenderFilmic => {
-                            SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC
-                        }
-                    };
-                }
-                if let Some(DebandDither::Enabled) = dither {
-                    view_key |= SpritePipelineKey::DEBAND_DITHER;
-                }
-            }
-
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &sprite_pipeline,
-                view_key | SpritePipelineKey::from_colored(false),
-            );
-            let colored_pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &sprite_pipeline,
-                view_key | SpritePipelineKey::from_colored(true),
-            );
-
-            view_entities.clear();
-            view_entities.extend(visible_entities.entities.iter().map(|e| e.index() as usize));
-            transparent_phase.items.reserve(extracted_sprites.len());
-
-            // Impossible starting values that will be replaced on the first iteration
-            let mut current_batch = SpriteBatch {
-                image_handle_id: HandleId::Id(Uuid::nil(), u64::MAX),
-                colored: false,
-            };
-            let mut current_batch_entity = Entity::PLACEHOLDER;
-            let mut current_image_size = Vec2::ZERO;
-            // Add a phase item for each sprite, and detect when successive items can be batched.
+            // Iterate through the phase items and detect when successive sprites that can be batched.
             // Spawn an entity with a `SpriteBatch` component for each possible batch.
             // Compatible items share the same entity.
-            // Batches are merged later (in `batch_phase_system()`), so that they can be interrupted
-            // by any other phase item (and they can interrupt other items from batching).
-            for extracted_sprite in extracted_sprites.iter() {
-                if !view_entities.contains(extracted_sprite.entity.index() as usize) {
-                    continue;
-                }
-                let new_batch = SpriteBatch {
-                    image_handle_id: extracted_sprite.image_handle_id,
-                    colored: extracted_sprite.color != Color::WHITE,
-                };
-                if new_batch != current_batch {
-                    // Set-up a new possible batch
-                    if let Some(gpu_image) =
-                        gpu_images.get(&Handle::weak(new_batch.image_handle_id))
-                    {
-                        current_batch = new_batch;
-                        current_image_size = Vec2::new(gpu_image.size.x, gpu_image.size.y);
-                        current_batch_entity = commands.spawn(current_batch).id();
+            for item_index in 0..transparent_phase.items.len() {
+                let item = &mut transparent_phase.items[item_index];
+                if let Some(extracted_sprite) = extracted_sprites.sprites.get(item.entity) {
+                    // Take a reference to an existing compatible batch if one exists
+                    let mut existing_batch = batches.last_mut().filter(|_| {
+                        batch_image_handle == extracted_sprite.image_handle_id
+                            && batch_colored == (extracted_sprite.color != Color::WHITE)
+                    });
 
-                        image_bind_groups
-                            .values
-                            .entry(Handle::weak(current_batch.image_handle_id))
-                            .or_insert_with(|| {
-                                render_device.create_bind_group(&BindGroupDescriptor {
-                                    entries: &[
-                                        BindGroupEntry {
-                                            binding: 0,
-                                            resource: BindingResource::TextureView(
-                                                &gpu_image.texture_view,
-                                            ),
-                                        },
-                                        BindGroupEntry {
-                                            binding: 1,
-                                            resource: BindingResource::Sampler(&gpu_image.sampler),
-                                        },
-                                    ],
-                                    label: Some("sprite_material_bind_group"),
-                                    layout: &sprite_pipeline.material_layout,
-                                })
+                    if existing_batch.is_none() {
+                        if let Some(gpu_image) =
+                            gpu_images.get(&Handle::weak(extracted_sprite.image_handle_id))
+                        {
+                            batch_item_index = item_index;
+                            batch_image_size = Vec2::new(gpu_image.size.x, gpu_image.size.y);
+                            batch_image_handle = extracted_sprite.image_handle_id;
+                            batch_colored = extracted_sprite.color != Color::WHITE;
+
+                            let new_batch = SpriteBatch {
+                                range: if batch_colored {
+                                    colored_index..colored_index
+                                } else {
+                                    index..index
+                                },
+                                colored: batch_colored,
+                                image_handle_id: batch_image_handle,
+                            };
+
+                            batches.push((item.entity, new_batch));
+
+                            image_bind_groups
+                                .values
+                                .entry(Handle::weak(batch_image_handle))
+                                .or_insert_with(|| {
+                                    render_device.create_bind_group(&BindGroupDescriptor {
+                                        entries: &[
+                                            BindGroupEntry {
+                                                binding: 0,
+                                                resource: BindingResource::TextureView(
+                                                    &gpu_image.texture_view,
+                                                ),
+                                            },
+                                            BindGroupEntry {
+                                                binding: 1,
+                                                resource: BindingResource::Sampler(
+                                                    &gpu_image.sampler,
+                                                ),
+                                            },
+                                        ],
+                                        label: Some("sprite_material_bind_group"),
+                                        layout: &sprite_pipeline.material_layout,
+                                    })
+                                });
+                            existing_batch = batches.last_mut();
+                        } else {
+                            continue;
+                        }
+                    }
+
+                    // Calculate vertex data for this item
+                    let mut uvs = QUAD_UVS;
+                    if extracted_sprite.flip_x {
+                        uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
+                    }
+                    if extracted_sprite.flip_y {
+                        uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
+                    }
+
+                    // By default, the size of the quad is the size of the texture
+                    let mut quad_size = batch_image_size;
+
+                    // If a rect is specified, adjust UVs and the size of the quad
+                    if let Some(rect) = extracted_sprite.rect {
+                        let rect_size = rect.size();
+                        for uv in &mut uvs {
+                            *uv = (rect.min + *uv * rect_size) / batch_image_size;
+                        }
+                        quad_size = rect_size;
+                    }
+
+                    // Override the size if a custom one is specified
+                    if let Some(custom_size) = extracted_sprite.custom_size {
+                        quad_size = custom_size;
+                    }
+
+                    // Apply size and global transform
+                    let positions = QUAD_VERTEX_POSITIONS.map(|quad_pos| {
+                        extracted_sprite
+                            .transform
+                            .transform_point(
+                                ((quad_pos - extracted_sprite.anchor) * quad_size).extend(0.),
+                            )
+                            .into()
+                    });
+
+                    // Store the vertex data and add the item to the render phase
+                    if batch_colored {
+                        let vertex_color = extracted_sprite.color.as_linear_rgba_f32();
+                        for i in QUAD_INDICES {
+                            sprite_meta.colored_vertices.push(ColoredSpriteVertex {
+                                position: positions[i],
+                                uv: uvs[i].into(),
+                                color: vertex_color,
                             });
+                        }
+                        colored_index += QUAD_INDICES.len() as u32;
+                        existing_batch.unwrap().1.range.end = colored_index;
                     } else {
-                        // Skip this item if the texture is not ready
-                        continue;
+                        for i in QUAD_INDICES {
+                            sprite_meta.vertices.push(SpriteVertex {
+                                position: positions[i],
+                                uv: uvs[i].into(),
+                            });
+                        }
+                        index += QUAD_INDICES.len() as u32;
+                        existing_batch.unwrap().1.range.end = index;
                     }
-                }
-
-                // Calculate vertex data for this item
-
-                let mut uvs = QUAD_UVS;
-                if extracted_sprite.flip_x {
-                    uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
-                }
-                if extracted_sprite.flip_y {
-                    uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
-                }
-
-                // By default, the size of the quad is the size of the texture
-                let mut quad_size = current_image_size;
-
-                // If a rect is specified, adjust UVs and the size of the quad
-                if let Some(rect) = extracted_sprite.rect {
-                    let rect_size = rect.size();
-                    for uv in &mut uvs {
-                        *uv = (rect.min + *uv * rect_size) / current_image_size;
-                    }
-                    quad_size = rect_size;
-                }
-
-                // Override the size if a custom one is specified
-                if let Some(custom_size) = extracted_sprite.custom_size {
-                    quad_size = custom_size;
-                }
-
-                // Apply size and global transform
-                let positions = QUAD_VERTEX_POSITIONS.map(|quad_pos| {
-                    extracted_sprite
-                        .transform
-                        .transform_point(
-                            ((quad_pos - extracted_sprite.anchor) * quad_size).extend(0.),
-                        )
-                        .into()
-                });
-
-                // These items will be sorted by depth with other phase items
-                let sort_key = FloatOrd(extracted_sprite.transform.translation().z);
-
-                // Store the vertex data and add the item to the render phase
-                if current_batch.colored {
-                    let vertex_color = extracted_sprite.color.as_linear_rgba_f32();
-                    for i in QUAD_INDICES {
-                        sprite_meta.colored_vertices.push(ColoredSpriteVertex {
-                            position: positions[i],
-                            uv: uvs[i].into(),
-                            color: vertex_color,
-                        });
-                    }
-                    let item_start = colored_index;
-                    colored_index += QUAD_INDICES.len() as u32;
-                    let item_end = colored_index;
-
-                    transparent_phase.add(Transparent2d {
-                        draw_function: draw_sprite_function,
-                        pipeline: colored_pipeline,
-                        entity: current_batch_entity,
-                        sort_key,
-                        batch_range: Some(item_start..item_end),
-                    });
+                    transparent_phase.items[batch_item_index].batch_size += 1;
                 } else {
-                    for i in QUAD_INDICES {
-                        sprite_meta.vertices.push(SpriteVertex {
-                            position: positions[i],
-                            uv: uvs[i].into(),
-                        });
-                    }
-                    let item_start = index;
-                    index += QUAD_INDICES.len() as u32;
-                    let item_end = index;
-
-                    transparent_phase.add(Transparent2d {
-                        draw_function: draw_sprite_function,
-                        pipeline,
-                        entity: current_batch_entity,
-                        sort_key,
-                        batch_range: Some(item_start..item_end),
-                    });
+                    batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
                 }
             }
         }
@@ -746,7 +764,10 @@ pub fn queue_sprites(
         sprite_meta
             .colored_vertices
             .write_buffer(&render_device, &render_queue);
+        *previous_len = batches.len();
+        commands.insert_or_spawn_batch(batches);
     }
+    extracted_sprites.sprites.clear();
 }
 
 pub type DrawSprite = (
@@ -786,7 +807,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
     fn render<'w>(
         _item: &P,
         _view: (),
-        sprite_batch: &'_ SpriteBatch,
+        batch: &'_ SpriteBatch,
         image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -796,7 +817,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
             I,
             image_bind_groups
                 .values
-                .get(&Handle::weak(sprite_batch.image_handle_id))
+                .get(&Handle::weak(batch.image_handle_id))
                 .unwrap(),
             &[],
         );
@@ -805,25 +826,25 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
 }
 
 pub struct DrawSpriteBatch;
-impl<P: BatchedPhaseItem> RenderCommand<P> for DrawSpriteBatch {
+impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
     type Param = SRes<SpriteMeta>;
     type ViewWorldQuery = ();
     type ItemWorldQuery = Read<SpriteBatch>;
 
     fn render<'w>(
-        item: &P,
+        _item: &P,
         _view: (),
-        sprite_batch: &'_ SpriteBatch,
+        batch: &'_ SpriteBatch,
         sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let sprite_meta = sprite_meta.into_inner();
-        if sprite_batch.colored {
+        if batch.colored {
             pass.set_vertex_buffer(0, sprite_meta.colored_vertices.buffer().unwrap().slice(..));
         } else {
             pass.set_vertex_buffer(0, sprite_meta.vertices.buffer().unwrap().slice(..));
         }
-        pass.draw(item.batch_range().as_ref().unwrap().clone(), 0..1);
+        pass.draw(batch.range.clone(), 0..1);
         RenderCommandResult::Success
     }
 }

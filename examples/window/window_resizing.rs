@@ -86,7 +86,7 @@ fn on_resize_system(
     mut resize_reader: EventReader<WindowResized>,
 ) {
     let mut text = q.single_mut();
-    for e in resize_reader.iter() {
+    for e in resize_reader.read() {
         // When resolution is being changed
         text.sections[0].value = format!("{:.1} x {:.1}", e.width, e.height);
     }

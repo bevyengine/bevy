@@ -237,7 +237,7 @@ fn setup(
                     TextBundle::from_section(label, label_text_style.clone())
                         .with_style(Style {
                             position_type: PositionType::Absolute,
-                            bottom: Val::Px(0.),
+                            bottom: Val::ZERO,
                             ..default()
                         })
                         .with_no_wrap(),

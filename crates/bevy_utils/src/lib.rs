@@ -298,6 +298,30 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
     }
 }
 
+/// Calls the [`tracing::info!`] macro on a value.
+pub fn info<T: Debug>(data: T) {
+    tracing::info!("{:?}", data);
+}
+
+/// Calls the [`tracing::debug!`] macro on a value.
+pub fn dbg<T: Debug>(data: T) {
+    tracing::debug!("{:?}", data);
+}
+
+/// Processes a [`Result`] by calling the [`tracing::warn!`] macro in case of an [`Err`] value.
+pub fn warn<E: Debug>(result: Result<(), E>) {
+    if let Err(warn) = result {
+        tracing::warn!("{:?}", warn);
+    }
+}
+
+/// Processes a [`Result`] by calling the [`tracing::error!`] macro in case of an [`Err`] value.
+pub fn error<E: Debug>(result: Result<(), E>) {
+    if let Err(error) = result {
+        tracing::error!("{:?}", error);
+    }
+}
+
 /// Like [`tracing::trace`], but conditional on cargo feature `detailed_trace`.
 #[macro_export]
 macro_rules! detailed_trace {
