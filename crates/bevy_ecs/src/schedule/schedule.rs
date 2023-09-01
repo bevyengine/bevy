@@ -192,7 +192,7 @@ impl Schedule {
 
     /// Add a collection of systems to the schedule.
     pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.graph.add_systems_inner(systems.into_configs(), false);
+        self.graph.process_configs(systems.into_configs(), false);
         self
     }
 
@@ -522,21 +522,6 @@ impl ScheduleGraph {
         &self.conflicting_systems
     }
 
-    /// Adds the systems to the graph.
-    ///
-    /// `collect_nodes` controls whether the `NodeId`s of the processed systems are stored in the returned [`ProcessConfigsResult`].
-    ///
-    /// The fields on the returned [`ProcessConfigsResult`] are:
-    /// - `nodes`: a vector of all node ids contained in the nested `SystemConfigs`
-    /// - `densely_chained`: a boolean that is true if all nested systems are linearly chained (with successive `after` orderings) in the order they are defined
-    fn add_systems_inner(
-        &mut self,
-        configs: SystemConfigs,
-        collect_nodes: bool,
-    ) -> ProcessConfigsResult {
-        self.process_configs(configs, collect_nodes)
-    }
-
     /// Adds the config nodes to the graph.
     ///
     /// `collect_nodes` controls whether the `NodeId`s of the processed config nodes are stored in the returned [`ProcessConfigsResult`].
@@ -545,6 +530,7 @@ impl ScheduleGraph {
     /// The fields on the returned [`ProcessConfigsResult`] are:
     /// - `nodes`: a vector of all node ids contained in the nested `NodeConfigs`
     /// - `densely_chained`: a boolean that is true if all nested nodes are linearly chained (with successive `after` orderings) in the order they are defined
+    #[track_caller]
     fn process_configs<T: ProcessNodeConfig>(
         &mut self,
         configs: NodeConfigs<T>,
@@ -705,23 +691,7 @@ impl ScheduleGraph {
 
     #[track_caller]
     fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) {
-        self.configure_sets_inner(sets.into_configs(), false);
-    }
-
-    /// Adds the systems sets to the graph.
-    ///
-    /// `collect_nodes` controls whether the `NodeId`s of the processed system sets are stored in the returned [`ProcessConfigsResult`].
-    ///
-    /// The fields on the returned [`ProcessConfigsResult`] are:
-    /// - `nodes`: a vector of all node ids contained in the nested `SystemSetConfigs`
-    /// - `densely_chained`: a boolean that is true if all nested system sets are linearly chained (with successive `after` orderings) in the order they are defined
-    #[track_caller]
-    fn configure_sets_inner(
-        &mut self,
-        configs: SystemSetConfigs,
-        collect_nodes: bool,
-    ) -> ProcessConfigsResult {
-        self.process_configs(configs, collect_nodes)
+        self.process_configs(sets.into_configs(), false);
     }
 
     fn configure_set_inner(&mut self, set: SystemSetConfig) -> Result<NodeId, ScheduleBuildError> {
