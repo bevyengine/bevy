@@ -41,11 +41,11 @@ jobs:
       - name: install dependencies
         run: |
           sudo apt-get update -y -qq
-          sudo add-apt-repository ppa:oibaf/graphics-drivers -y
+          sudo add-apt-repository ppa:kisak/kisak-mesa -y
           sudo apt-get update
           sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
       - name: Test
-        run: xvfb-run cargo test --no-default-features
+        run: xvfb-run cargo test
 
   test-macos:
     name: Test Suite (MacOS)
