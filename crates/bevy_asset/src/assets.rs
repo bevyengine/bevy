@@ -146,7 +146,7 @@ impl<T: Asset> Assets<T> {
     /// Get mutable access to the asset for the given handle.
     ///
     /// This is the main method for mutably accessing asset data from an [Assets] collection. If you
-    /// do not need mutable access to the asset, you may also use [get](Assets::get).
+    /// do not need mutable access to the asset, you may also use [`get`](Assets::get).
     pub fn get_mut(&mut self, handle: &Handle<T>) -> Option<&mut T> {
         let id: HandleId = handle.into();
         self.events.send(AssetEvent::Modified {
@@ -317,6 +317,10 @@ pub trait AddAsset {
     fn add_asset_loader<T>(&mut self, loader: T) -> &mut Self
     where
         T: AssetLoader;
+
+    /// Preregisters a loader for the given extensions, that will block asset loads until a real loader
+    /// is registered.
+    fn preregister_asset_loader(&mut self, extensions: &[&str]) -> &mut Self;
 }
 
 impl AddAsset for App {
@@ -402,6 +406,13 @@ impl AddAsset for App {
         T: AssetLoader,
     {
         self.world.resource_mut::<AssetServer>().add_loader(loader);
+        self
+    }
+
+    fn preregister_asset_loader(&mut self, extensions: &[&str]) -> &mut Self {
+        self.world
+            .resource_mut::<AssetServer>()
+            .preregister_loader(extensions);
         self
     }
 }

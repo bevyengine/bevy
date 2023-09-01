@@ -74,7 +74,10 @@ impl Plugin for GameOfLifeComputePlugin {
         // for operation on by the compute shader and display on the sprite.
         app.add_plugins(ExtractResourcePlugin::<GameOfLifeImage>::default());
         let render_app = app.sub_app_mut(RenderApp);
-        render_app.add_systems(Render, queue_bind_group.in_set(RenderSet::Queue));
+        render_app.add_systems(
+            Render,
+            prepare_bind_group.in_set(RenderSet::PrepareBindGroups),
+        );
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
         render_graph.add_node("game_of_life", GameOfLifeNode::default());
@@ -96,7 +99,7 @@ struct GameOfLifeImage(Handle<Image>);
 #[derive(Resource)]
 struct GameOfLifeImageBindGroup(BindGroup);
 
-fn queue_bind_group(
+fn prepare_bind_group(
     mut commands: Commands,
     pipeline: Res<GameOfLifePipeline>,
     gpu_images: Res<RenderAssets<Image>>,

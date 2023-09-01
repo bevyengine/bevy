@@ -152,16 +152,22 @@ impl WhereClauseOptions {
             })
             .unzip();
 
-        let (parameter_types, parameter_trait_bounds): (Vec<_>, Vec<_>) = meta
-            .type_path()
-            .generics()
-            .type_params()
-            .map(|param| {
-                let ident = param.ident.clone();
-                let bounds = quote!(#bevy_reflect_path::TypePath);
-                (ident, bounds)
-            })
-            .unzip();
+        let (parameter_types, parameter_trait_bounds): (Vec<_>, Vec<_>) =
+            if meta.traits().type_path_attrs().should_auto_derive() {
+                meta.type_path()
+                    .generics()
+                    .type_params()
+                    .map(|param| {
+                        let ident = param.ident.clone();
+                        let bounds = quote!(#bevy_reflect_path::TypePath);
+                        (ident, bounds)
+                    })
+                    .unzip()
+            } else {
+                // If we don't need to derive `TypePath` for the type parameters,
+                // we can skip adding its bound to the `where` clause.
+                (Vec::new(), Vec::new())
+            };
 
         Self {
             active_types: active_types.into_boxed_slice(),

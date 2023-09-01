@@ -11,7 +11,7 @@ use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
-    SpotLight, SpotLightBundle, StandardMaterial,
+    SpotLight, SpotLightBundle, StandardMaterial, MAX_JOINTS,
 };
 use bevy_render::{
     camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
@@ -489,6 +489,7 @@ async fn load_gltf<'a, 'b>(
             }
         }
 
+        let mut warned_about_max_joints = HashSet::new();
         for (&entity, &skin_index) in &entity_to_skin_index_map {
             let mut entity = world.entity_mut(entity);
             let skin = gltf.skins().nth(skin_index).unwrap();
@@ -497,6 +498,16 @@ async fn load_gltf<'a, 'b>(
                 .map(|node| node_index_to_entity_map[&node.index()])
                 .collect();
 
+            if joint_entities.len() > MAX_JOINTS && warned_about_max_joints.insert(skin_index) {
+                warn!(
+                    "The glTF skin {:?} has {} joints, but the maximum supported is {}",
+                    skin.name()
+                        .map(|name| name.to_string())
+                        .unwrap_or_else(|| skin.index().to_string()),
+                    joint_entities.len(),
+                    MAX_JOINTS
+                );
+            }
             entity.insert(SkinnedMesh {
                 inverse_bindposes: skinned_mesh_inverse_bindposes[skin_index].clone(),
                 joints: joint_entities,
@@ -678,7 +689,8 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
                 Some(Face::Back)
             },
             occlusion_texture,
-            emissive: Color::rgb_linear(emissive[0], emissive[1], emissive[2]),
+            emissive: Color::rgb_linear(emissive[0], emissive[1], emissive[2])
+                * material.emissive_strength().unwrap_or(1.0),
             emissive_texture,
             unlit: material.unlit(),
             alpha_mode: alpha_mode(material),
@@ -858,7 +870,7 @@ fn load_node(
                             // For a point light, luminous power = 4 * pi * luminous intensity
                             intensity: light.intensity() * std::f32::consts::PI * 4.0,
                             range: light.range().unwrap_or(20.0),
-                            radius: light.range().unwrap_or(0.0),
+                            radius: 0.0,
                             ..Default::default()
                         },
                         ..Default::default()

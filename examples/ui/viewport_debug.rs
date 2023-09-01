@@ -28,7 +28,7 @@ enum Coords {
 
 fn main() {
     App::new()
-        .insert_resource(UiScale { scale: 2.0 })
+        .insert_resource(UiScale(2.0))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 resolution: [1600., 1200.].into(),

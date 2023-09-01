@@ -39,12 +39,11 @@ pub struct QueryState<Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
 
 impl<Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for QueryState<Q, F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "QueryState<Q, F> matched_table_ids: {} matched_archetype_ids: {}",
-            self.matched_table_ids.len(),
-            self.matched_archetype_ids.len()
-        )
+        f.debug_struct("QueryState")
+            .field("world_id", &self.world_id)
+            .field("matched_table_count", &self.matched_table_ids.len())
+            .field("matched_archetype_count", &self.matched_archetype_ids.len())
+            .finish_non_exhaustive()
     }
 }
 

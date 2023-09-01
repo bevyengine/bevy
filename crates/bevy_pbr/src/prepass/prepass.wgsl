@@ -3,6 +3,7 @@
 #import bevy_pbr::skinning
 #import bevy_pbr::morph
 #import bevy_pbr::mesh_bindings mesh
+#import bevy_render::instance_index get_instance_index
 
 // Most of these attributes are not used in the default prepass fragment shader, but they are still needed so we can
 // pass them to custom prepass shaders like pbr_prepass.wgsl.
@@ -91,7 +92,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #else // SKINNED
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
-    var model = mesh[vertex_no_morph.instance_index].model;
+    var model = bevy_pbr::mesh_functions::get_model_matrix(vertex_no_morph.instance_index);
 #endif // SKINNED
 
     out.clip_position = bevy_pbr::mesh_functions::mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
@@ -112,7 +113,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
         vertex.normal,
         // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
         // See https://github.com/gfx-rs/naga/issues/2416
-        vertex_no_morph.instance_index
+        get_instance_index(vertex_no_morph.instance_index)
     );
 #endif // SKINNED
 
@@ -122,7 +123,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
         vertex.tangent,
         // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
         // See https://github.com/gfx-rs/naga/issues/2416
-        vertex_no_morph.instance_index
+        get_instance_index(vertex_no_morph.instance_index)
     );
 #endif // VERTEX_TANGENTS
 #endif // NORMAL_PREPASS
@@ -132,7 +133,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
     out.previous_world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(
-        mesh[vertex_no_morph.instance_index].previous_model,
+        bevy_pbr::mesh_functions::get_previous_model_matrix(vertex_no_morph.instance_index),
         vec4<f32>(vertex.position, 1.0)
     );
 #endif // MOTION_VECTOR_PREPASS

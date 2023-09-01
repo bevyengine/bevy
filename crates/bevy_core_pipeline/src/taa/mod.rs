@@ -10,7 +10,7 @@ use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryItem, With},
-    schedule::{apply_deferred, IntoSystemConfigs},
+    schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -31,7 +31,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
-    view::{prepare_view_uniforms, ExtractedView, Msaa, ViewTarget},
+    view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 
@@ -57,7 +57,9 @@ impl Plugin for TemporalAntiAliasPlugin {
         app.insert_resource(Msaa::Off)
             .register_type::<TemporalAntiAliasSettings>();
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app
             .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
@@ -65,12 +67,9 @@ impl Plugin for TemporalAntiAliasPlugin {
             .add_systems(
                 Render,
                 (
-                    (prepare_taa_jitter_and_mip_bias, apply_deferred)
-                        .chain()
-                        .before(prepare_view_uniforms)
-                        .in_set(RenderSet::Prepare),
-                    prepare_taa_history_textures.in_set(RenderSet::Prepare),
+                    prepare_taa_jitter_and_mip_bias.in_set(RenderSet::ManageViews),
                     prepare_taa_pipelines.in_set(RenderSet::Prepare),
+                    prepare_taa_history_textures.in_set(RenderSet::PrepareResources),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<TAANode>>(CORE_3D, draw_3d_graph::node::TAA)
@@ -86,7 +85,9 @@ impl Plugin for TemporalAntiAliasPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app.init_resource::<TAAPipeline>();
     }
@@ -188,11 +189,7 @@ impl ViewNode for TAANode {
         ) else {
             return Ok(());
         };
-        let (
-            Some(taa_pipeline),
-            Some(prepass_motion_vectors_texture),
-            Some(prepass_depth_texture),
-        ) = (
+        let (Some(taa_pipeline), Some(prepass_motion_vectors_texture), Some(prepass_depth_texture)) = (
             pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
             &prepass_textures.motion_vectors,
             &prepass_textures.depth,

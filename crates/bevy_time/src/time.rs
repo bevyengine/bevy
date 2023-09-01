@@ -4,6 +4,10 @@ use bevy_utils::{Duration, Instant};
 
 /// A clock that tracks how much it has advanced (and how much real time has elapsed) since
 /// its previous update and since its creation.
+///
+/// See [`TimeUpdateStrategy`], which allows you to customize the way that this is updated each frame.
+///
+/// [`TimeUpdateStrategy`]: crate::TimeUpdateStrategy
 #[derive(Resource, Reflect, Debug, Clone)]
 #[reflect(Resource, Default)]
 pub struct Time {
@@ -120,7 +124,7 @@ impl Time {
     ///     world.insert_resource(time);
     ///     world.insert_resource(Health { health_value: 0.2 });
     ///
-    ///     let mut schedule = Schedule::new();
+    ///     let mut schedule = Schedule::default();
     ///     schedule.add_systems(health_system);
     ///
     ///     // Simulate that 30 ms have passed
