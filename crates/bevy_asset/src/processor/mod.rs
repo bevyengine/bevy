@@ -652,7 +652,7 @@ impl AssetProcessor {
                 })?;
                 let (meta, processor) = match minimal.asset {
                     AssetActionMinimal::Load { loader } => {
-                        let loader = server.get_asset_loader_with_type_name(&loader)?;
+                        let loader = server.get_asset_loader_with_type_name(&loader).await?;
                         let meta = loader.deserialize_meta(&meta_bytes)?;
                         (meta, None)
                     }
@@ -679,7 +679,7 @@ impl AssetProcessor {
                     let meta = processor.default_meta();
                     (meta, Some(processor))
                 } else {
-                    match server.get_path_asset_loader(&asset_path) {
+                    match server.get_path_asset_loader(&asset_path).await {
                         Ok(loader) => (loader.default_meta(), None),
                         Err(MissingAssetLoaderForExtensionError { .. }) => {
                             let meta: Box<dyn AssetMetaDyn> =

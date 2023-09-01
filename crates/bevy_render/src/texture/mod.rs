@@ -117,7 +117,7 @@ impl Plugin for ImagePlugin {
             feature = "basis-universal",
             feature = "ktx2",
         ))]
-        app.preregister_asset_loader(IMG_FILE_EXTENSIONS);
+        app.preregister_asset_loader::<ImageLoader>(IMG_FILE_EXTENSIONS);
     }
 
     fn finish(&self, app: &mut App) {

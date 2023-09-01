@@ -230,7 +230,7 @@ impl<'a> ProcessContext<'a> {
     ) -> Result<ErasedLoadedAsset, AssetLoadError> {
         let server = &self.processor.server;
         let loader_name = std::any::type_name::<L>();
-        let loader = server.get_asset_loader_with_type_name(loader_name)?;
+        let loader = server.get_asset_loader_with_type_name(loader_name).await?;
         let loaded_asset = server
             .load_with_meta_loader_and_reader(
                 self.path,
