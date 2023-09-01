@@ -219,13 +219,8 @@ impl Drop for UiExtractionBuffer<'_> {
 }
 
 impl ExtractedUiNodes {
-    pub fn get_buffer<'a>(&'a mut self) -> UiExtractionBuffer<'a> {
+    pub fn get_buffer(&mut self) -> UiExtractionBuffer<'_> {
         UiExtractionBuffer(self)
-    }
-
-    #[inline]
-    fn get_key(&self, stack_index: u32) -> u32 {
-        (stack_index << 8) | (self.discriminator as u32)
     }
 
     /// Clear the buffers

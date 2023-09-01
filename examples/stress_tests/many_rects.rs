@@ -122,7 +122,7 @@ fn extract_rect_iter_stack<const N: usize>(
             } else {
                 (DEFAULT_IMAGE_HANDLE.typed(), false, false)
             };
-            extracted_uinodes.push_nodes(
+            extraction_buffer.extend(
                 stack_index as u32,
                 (0..N).map(|_| ExtractedUiNode {
                     transform: transform.compute_matrix(),
@@ -175,9 +175,9 @@ fn extract_rect<const N: usize>(
         } else {
             (DEFAULT_IMAGE_HANDLE.typed(), false, false)
         };
-        extracted_uinodes.push_nodes(
+        extraction_buffer.extend(
             stack_index.0 as u32,
-            (0..N).map(|_| extendUiNode {
+            (0..N).map(|_| ExtractedUiNode {
                 transform: transform.compute_matrix(),
                 color: color.0,
                 rect: Rect {
@@ -192,7 +192,6 @@ fn extract_rect<const N: usize>(
             }),
         );
     }
-    extracted_uinodes.finish();
 }
 
 #[derive(Component)]

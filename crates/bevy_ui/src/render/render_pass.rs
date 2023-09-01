@@ -101,9 +101,7 @@ impl PhaseItem for TransparentUi {
     }
 
     #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        ()
-    }
+    fn sort_key(&self) -> Self::SortKey {}
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
