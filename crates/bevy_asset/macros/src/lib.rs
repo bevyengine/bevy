@@ -14,7 +14,6 @@ pub fn derive_asset(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let bevy_asset_path: Path = bevy_asset_path();
 
-
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
     let dependency_visitor = match derive_dependency_visitor_internal(&ast, &bevy_asset_path) {
