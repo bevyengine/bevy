@@ -73,7 +73,7 @@ fn parse_scene(scene_path: String) -> (String, usize) {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let scene_path = std::env::args()
         .nth(1)
-        .unwrap_or_else(|| "models/FlightHelmet/FlightHelmet.gltf".to_string());
+        .unwrap_or_else(|| "assets/models/FlightHelmet/FlightHelmet.gltf".to_string());
     info!("Loading {}", scene_path);
     let (file_path, scene_index) = parse_scene(scene_path);
 
@@ -137,8 +137,10 @@ fn setup_scene_after_load(
                 ..default()
             },
             EnvironmentMapLight {
-                diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-                specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+                diffuse_map: asset_server
+                    .load("assets/environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+                specular_map: asset_server
+                    .load("assets/environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             },
             camera_controller,
         ));
