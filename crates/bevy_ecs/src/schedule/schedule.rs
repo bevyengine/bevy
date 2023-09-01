@@ -516,22 +516,22 @@ impl ScheduleGraph {
         })
     }
 
-    /// Adds the config items to the graph.
+    /// Adds the config nodes to the graph.
     ///
-    /// `collect_nodes` controls whether the `NodeId`s of the processed config items are stored in the returned [`ProcessConfigsResult`].
-    /// `process_config` is the function which processes each individual config item and returns a corresponding `NodeId`.
+    /// `collect_nodes` controls whether the `NodeId`s of the processed config nodes are stored in the returned [`ProcessConfigsResult`].
+    /// `process_config` is the function which processes each individual config node and returns a corresponding `NodeId`.
     ///
     /// The fields on the returned [`ProcessConfigsResult`] are:
-    /// - `nodes`: a vector of all node ids contained in the nested `ItemConfigs`
-    /// - `densely_chained`: a boolean that is true if all nested items are linearly chained (with successive `after` orderings) in the order they are defined
+    /// - `nodes`: a vector of all node ids contained in the nested `NodeConfigs`
+    /// - `densely_chained`: a boolean that is true if all nested nodes are linearly chained (with successive `after` orderings) in the order they are defined
     fn process_configs<T>(
         &mut self,
-        configs: ItemConfigs<T>,
+        configs: NodeConfigs<T>,
         collect_nodes: bool,
-        process_config: &mut impl FnMut(&mut Self, ItemConfig<T>) -> NodeId,
+        process_config: &mut impl FnMut(&mut Self, NodeConfig<T>) -> NodeId,
     ) -> ProcessConfigsResult {
         match configs {
-            ItemConfigs::ItemConfig(config) => {
+            NodeConfigs::NodeConfig(config) => {
                 let node_id = process_config(self, config);
                 if collect_nodes {
                     ProcessConfigsResult {
@@ -545,7 +545,7 @@ impl ScheduleGraph {
                     }
                 }
             }
-            ItemConfigs::Configs {
+            NodeConfigs::Configs {
                 mut configs,
                 collective_conditions,
                 chained,
@@ -677,7 +677,7 @@ impl ScheduleGraph {
 
         // system init has to be deferred (need `&mut World`)
         self.uninit.push((id, 0));
-        self.systems.push(SystemNode::new(config.item));
+        self.systems.push(SystemNode::new(config.node));
         self.system_conditions.push(config.conditions);
 
         Ok(id)
@@ -706,7 +706,7 @@ impl ScheduleGraph {
 
     fn configure_set_inner(&mut self, set: SystemSetConfig) -> Result<NodeId, ScheduleBuildError> {
         let SystemSetConfig {
-            item: set,
+            node: set,
             graph_info,
             mut conditions,
         } = set;
@@ -1246,11 +1246,11 @@ impl ScheduleGraph {
 
 /// Values returned by [`ScheduleGraph::process_configs`]
 struct ProcessConfigsResult {
-    /// All nodes contained inside this process_configs call's [`ItemConfigs`] hierarchy,
+    /// All nodes contained inside this process_configs call's [`NodeConfigs`] hierarchy,
     /// if `ancestor_chained` is true
     nodes: Vec<NodeId>,
-    /// True if and only if all nodes are "densely chained", meaning that all nested items
-    /// are linearly chained (as if `after` system ordering had been applied between each item)
+    /// True if and only if all nodes are "densely chained", meaning that all nested nodes
+    /// are linearly chained (as if `after` system ordering had been applied between each node)
     /// in the order they are defined
     densely_chained: bool,
 }

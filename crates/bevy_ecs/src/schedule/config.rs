@@ -47,24 +47,24 @@ impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
     }
 }
 
-/// Stores configuration for a single generic item.
-pub struct ItemConfig<T> {
-    pub(crate) item: T,
+/// Stores configuration for a single generic node.
+pub struct NodeConfig<T> {
+    pub(crate) node: T,
     pub(crate) graph_info: GraphInfo,
     pub(crate) conditions: Vec<BoxedCondition>,
 }
 
 /// Stores configuration for a single system.
-pub type SystemConfig = ItemConfig<BoxedSystem>;
+pub type SystemConfig = NodeConfig<BoxedSystem>;
 
-/// A collections of generic [`ItemConfig`]s.
-pub enum ItemConfigs<T> {
-    /// Configuratin for a single item.
-    ItemConfig(ItemConfig<T>),
+/// A collections of generic [`NodeConfig`]s.
+pub enum NodeConfigs<T> {
+    /// Configuratin for a single node.
+    NodeConfig(NodeConfig<T>),
     /// Configuration for a tuple of nested `Configs` instances.
     Configs {
         /// Configuration for each element of the tuple.
-        configs: Vec<ItemConfigs<T>>,
+        configs: Vec<NodeConfigs<T>>,
         /// Run conditions applied to everything in the tuple.
         collective_conditions: Vec<BoxedCondition>,
         /// If `true`, adds `before -> after` ordering constraints between the successive elements.
@@ -73,14 +73,14 @@ pub enum ItemConfigs<T> {
 }
 
 /// A collection of [`SystemConfig`].
-pub type SystemConfigs = ItemConfigs<BoxedSystem>;
+pub type SystemConfigs = NodeConfigs<BoxedSystem>;
 
 impl SystemConfigs {
     fn new_system(system: BoxedSystem) -> Self {
         // include system in its default sets
         let sets = system.default_system_sets().into_iter().collect();
-        Self::ItemConfig(SystemConfig {
-            item: system,
+        Self::NodeConfig(SystemConfig {
+            node: system,
             graph_info: GraphInfo {
                 sets,
                 ..Default::default()
@@ -90,10 +90,10 @@ impl SystemConfigs {
     }
 }
 
-impl<T> ItemConfigs<T> {
+impl<T> NodeConfigs<T> {
     pub(crate) fn in_set_inner(&mut self, set: BoxedSystemSet) {
         match self {
-            Self::ItemConfig(config) => {
+            Self::NodeConfig(config) => {
                 config.graph_info.sets.push(set);
             }
             Self::Configs { configs, .. } => {
@@ -106,7 +106,7 @@ impl<T> ItemConfigs<T> {
 
     fn before_inner(&mut self, set: BoxedSystemSet) {
         match self {
-            Self::ItemConfig(config) => {
+            Self::NodeConfig(config) => {
                 config
                     .graph_info
                     .dependencies
@@ -122,7 +122,7 @@ impl<T> ItemConfigs<T> {
 
     fn after_inner(&mut self, set: BoxedSystemSet) {
         match self {
-            Self::ItemConfig(config) => {
+            Self::NodeConfig(config) => {
                 config
                     .graph_info
                     .dependencies
@@ -138,7 +138,7 @@ impl<T> ItemConfigs<T> {
 
     fn distributive_run_if_inner<M>(&mut self, condition: impl Condition<M> + Clone) {
         match self {
-            Self::ItemConfig(config) => {
+            Self::NodeConfig(config) => {
                 config.conditions.push(new_condition(condition));
             }
             Self::Configs { configs, .. } => {
@@ -151,7 +151,7 @@ impl<T> ItemConfigs<T> {
 
     fn ambiguous_with_inner(&mut self, set: BoxedSystemSet) {
         match self {
-            Self::ItemConfig(config) => {
+            Self::NodeConfig(config) => {
                 ambiguous_with(&mut config.graph_info, set);
             }
             Self::Configs { configs, .. } => {
@@ -164,7 +164,7 @@ impl<T> ItemConfigs<T> {
 
     fn ambiguous_with_all_inner(&mut self) {
         match self {
-            Self::ItemConfig(config) => {
+            Self::NodeConfig(config) => {
                 config.graph_info.ambiguous_with = Ambiguity::IgnoreAll;
             }
             Self::Configs { configs, .. } => {
@@ -177,7 +177,7 @@ impl<T> ItemConfigs<T> {
 
     pub(crate) fn run_if_inner(&mut self, condition: BoxedCondition) {
         match self {
-            Self::ItemConfig(config) => {
+            Self::NodeConfig(config) => {
                 config.conditions.push(condition);
             }
             Self::Configs {
@@ -191,7 +191,7 @@ impl<T> ItemConfigs<T> {
 
     fn chain_inner(mut self) -> Self {
         match &mut self {
-            Self::ItemConfig(_) => { /* no op */ }
+            Self::NodeConfig(_) => { /* no op */ }
             Self::Configs { chained, .. } => {
                 *chained = true;
             }
@@ -393,7 +393,7 @@ macro_rules! impl_system_collection {
 all_tuples!(impl_system_collection, 1, 20, P, S);
 
 /// A [`SystemSet`] with scheduling metadata.
-pub type SystemSetConfig = ItemConfig<BoxedSystemSet>;
+pub type SystemSetConfig = NodeConfig<BoxedSystemSet>;
 
 impl SystemSetConfig {
     pub(super) fn new(set: BoxedSystemSet) -> Self {
@@ -405,7 +405,7 @@ impl SystemSetConfig {
         );
 
         Self {
-            item: set,
+            node: set,
             graph_info: GraphInfo::default(),
             conditions: Vec::new(),
         }
@@ -413,7 +413,7 @@ impl SystemSetConfig {
 }
 
 /// A collection of [`SystemSetConfig`].
-pub type SystemSetConfigs = ItemConfigs<BoxedSystemSet>;
+pub type SystemSetConfigs = NodeConfigs<BoxedSystemSet>;
 
 /// Types that can convert into a [`SystemSetConfigs`].
 pub trait IntoSystemSetConfigs
@@ -524,19 +524,19 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
 
 impl<S: SystemSet> IntoSystemSetConfigs for S {
     fn into_configs(self) -> SystemSetConfigs {
-        SystemSetConfigs::ItemConfig(SystemSetConfig::new(Box::new(self)))
+        SystemSetConfigs::NodeConfig(SystemSetConfig::new(Box::new(self)))
     }
 }
 
 impl IntoSystemSetConfigs for BoxedSystemSet {
     fn into_configs(self) -> SystemSetConfigs {
-        SystemSetConfigs::ItemConfig(SystemSetConfig::new(self))
+        SystemSetConfigs::NodeConfig(SystemSetConfig::new(self))
     }
 }
 
 impl IntoSystemSetConfigs for SystemSetConfig {
     fn into_configs(self) -> SystemSetConfigs {
-        SystemSetConfigs::ItemConfig(self)
+        SystemSetConfigs::NodeConfig(self)
     }
 }
 
