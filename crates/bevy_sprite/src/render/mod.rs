@@ -760,7 +760,7 @@ pub fn prepare_sprites(
             .write_buffer(&render_device, &render_queue);
 
         if sprite_meta.sprite_index_buffer.len() != 6 {
-            sprite_meta.sprite_index_buffer.values_mut().reserve(6);
+            sprite_meta.sprite_index_buffer.clear();
 
             // NOTE: This code is creating 6 indices pointing to 4 vertices.
             // The vertices form the corners of a quad based on their two least significant bits.
