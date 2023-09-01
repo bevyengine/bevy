@@ -349,8 +349,14 @@ impl AssetProcessor {
                 }
             },
         }
-        if let Err(err) = self.destination_writer().remove_directory(path).await {
-            error!("Failed to remove destination folder that no longer exists in asset source {path:?}: {err}");
+        if let Err(AssetWriterError::Io(err)) =
+            self.destination_writer().remove_directory(path).await
+        {
+            // we can ignore NotFound because if the "final" file in a folder was removed
+            // then we automatically clean up this folder
+            if err.kind() != ErrorKind::NotFound {
+                error!("Failed to remove destination folder that no longer exists in asset source {path:?}: {err}");
+            }
         }
     }
 
