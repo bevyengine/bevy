@@ -333,8 +333,6 @@ pub fn winit_runner(mut app: App) {
         .remove_non_send_resource::<EventLoop<()>>()
         .unwrap();
 
-    let return_from_run = app.world.resource::<WinitSettings>().return_from_run;
-
     app.world
         .insert_non_send_resource(event_loop.create_proxy());
 
@@ -833,9 +831,5 @@ pub fn winit_runner(mut app: App) {
     };
 
     trace!("starting winit event loop");
-    if return_from_run {
-        run_ondemand(&mut event_loop, event_handler);
-    } else {
-        run(event_loop, event_handler);
-    }
+    run(event_loop, event_handler);
 }

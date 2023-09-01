@@ -4,32 +4,6 @@ use bevy_utils::Duration;
 /// Settings for the [`WinitPlugin`](super::WinitPlugin).
 #[derive(Debug, Resource)]
 pub struct WinitSettings {
-    /// Controls how the [`EventLoop`](winit::event_loop::EventLoop) is deployed.
-    ///
-    /// - If this value is set to `false` (default), [`run`] is called, and exiting the loop will
-    /// terminate the program.
-    /// - If this value is set to `true`, [`run_ondemand`] is called, and exiting the loop will
-    /// return control to the caller.
-    ///
-    /// **Note:** This cannot be changed while the loop is running. `winit` also discourages use of
-    /// `run_ondemand`.
-    ///
-    /// # Supported platforms
-    ///
-    /// `run_ondemand` is only available on the following `target_os` environments:
-    /// - `windows`
-    /// - `macos`
-    /// - `linux`
-    /// - `freebsd`
-    /// - `openbsd`
-    /// - `netbsd`
-    /// - `dragonfly`
-    ///
-    /// The runner will panic if this is set to `true` on other platforms.
-    ///
-    /// [`run`]: https://docs.rs/winit/latest/winit/event_loop/struct.EventLoop.html#method.run
-    /// [`run_ondemand`]: https://docs.rs/winit/0.29.1-beta/winit/platform/run_ondemand/trait.EventLoopExtRunOnDemand.html#tymethod.run_ondemand
-    pub return_from_run: bool,
     /// Determines how frequently the application can update when it has focus.
     pub focused_mode: UpdateMode,
     /// Determines how frequently the application can update when it's out of focus.
@@ -81,7 +55,6 @@ impl WinitSettings {
 impl Default for WinitSettings {
     fn default() -> Self {
         WinitSettings {
-            return_from_run: false,
             focused_mode: UpdateMode::Continuous,
             unfocused_mode: UpdateMode::Continuous,
         }
