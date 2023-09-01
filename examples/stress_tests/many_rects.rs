@@ -99,7 +99,7 @@ fn extract_rect_iter_stack<const N: usize>(
                 &GlobalTransform,
                 &BackgroundColor,
                 Option<&UiImage>,
-                &ComputedVisibility,
+                &ViewVisibility,
             ),
             With<ExtractionMarker<N>>,
         >,
@@ -109,7 +109,7 @@ fn extract_rect_iter_stack<const N: usize>(
     for (stack_index, entity) in ui_stack.iter().enumerate() {
         if let Ok((size, transform, color, maybe_image, visibility)) = uinode_query.get(*entity) {
             // Skip invisible and completely transparent nodes
-            if !visibility.is_visible() || color.0.a() == 0.0 {
+            if !visibility.get() || color.0.a() == 0.0 {
                 continue;
             }
 
@@ -153,7 +153,7 @@ fn extract_rect<const N: usize>(
                 &GlobalTransform,
                 &BackgroundColor,
                 Option<&UiImage>,
-                &ComputedVisibility,
+                &ViewVisibility,
             ),
             With<ExtractionMarker<N>>,
         >,
@@ -162,7 +162,7 @@ fn extract_rect<const N: usize>(
     let mut extraction_buffer = extracted_uinodes.get_buffer();
     for (stack_index, size, transform, color, maybe_image, visibility) in uinode_query.iter() {
         // Skip invisible and completely transparent nodes
-        if !visibility.is_visible() || color.0.a() == 0.0 {
+        if !visibility.get() || color.0.a() == 0.0 {
             continue;
         }
 
