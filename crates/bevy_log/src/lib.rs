@@ -15,6 +15,8 @@
 #[cfg(feature = "trace")]
 use std::panic;
 
+use std::path::PathBuf;
+
 #[cfg(target_os = "android")]
 mod android_tracing;
 
@@ -31,6 +33,7 @@ pub mod prelude {
     };
 }
 
+use bevy_ecs::system::Resource;
 pub use bevy_utils::tracing::{
     debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     Level,
@@ -61,6 +64,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///         .add_plugins(DefaultPlugins.set(LogPlugin {
 ///             level: Level::DEBUG,
 ///             filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
+///             file_appender_settings: None
 ///         }))
 ///         .run();
 /// }
@@ -97,6 +101,13 @@ pub struct LogPlugin {
     /// Filters out logs that are "less than" the given level.
     /// This can be further filtered using the `filter` setting.
     pub level: Level,
+
+    /// Configure file logging
+    ///
+    /// ## Platform-specific
+    ///
+    /// **`WASM`** does not support logging to a file.
+    pub file_appender_settings: Option<FileAppenderSettings>,
 }
 
 impl Default for LogPlugin {
@@ -104,6 +115,60 @@ impl Default for LogPlugin {
         Self {
             filter: "wgpu=error,naga=warn".to_string(),
             level: Level::INFO,
+            file_appender_settings: None,
+        }
+    }
+}
+
+/// Enum to control how often a new log file will be created
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Rolling {
+    /// Creates a new file every minute and appends the date to the file name
+    /// Date format: YYYY-MM-DD-HH-mm
+    Minutely,
+    /// Creates a new file every hour and appends the date to the file name
+    /// Date format: YYYY-MM-DD-HH
+    Hourly,
+    /// Creates a new file every day and appends the date to the file name
+    /// Date format: YYYY-MM-DD
+    Daily,
+    /// Never creates a new file
+    Never,
+}
+
+impl From<Rolling> for tracing_appender::rolling::Rotation {
+    fn from(val: Rolling) -> Self {
+        match val {
+            Rolling::Minutely => tracing_appender::rolling::Rotation::MINUTELY,
+            Rolling::Hourly => tracing_appender::rolling::Rotation::HOURLY,
+            Rolling::Daily => tracing_appender::rolling::Rotation::DAILY,
+            Rolling::Never => tracing_appender::rolling::Rotation::NEVER,
+        }
+    }
+}
+
+#[derive(Resource)]
+struct FileAppenderWorkerGuard(tracing_appender::non_blocking::WorkerGuard);
+
+/// Settings to control how to log to a file
+#[derive(Debug, Clone)]
+pub struct FileAppenderSettings {
+    /// Controls how often a new file will be created
+    pub rolling: Rolling,
+    /// The path of the directory where the log files will be added
+    ///
+    /// Defaults to the local directory
+    pub path: PathBuf,
+    /// The prefix added when creating a file
+    pub prefix: String,
+}
+
+impl Default for FileAppenderSettings {
+    fn default() -> Self {
+        Self {
+            rolling: Rolling::Never,
+            path: PathBuf::from("."),
+            prefix: String::from("log"),
         }
     }
 }
@@ -130,51 +195,86 @@ impl Plugin for LogPlugin {
         #[cfg(feature = "trace")]
         let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
 
-        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+        #[cfg(not(target_arch = "wasm32"))]
         {
-            #[cfg(feature = "tracing-chrome")]
-            let chrome_layer = {
-                let mut layer = tracing_chrome::ChromeLayerBuilder::new();
-                if let Ok(path) = std::env::var("TRACE_CHROME") {
-                    layer = layer.file(path);
-                }
-                let (chrome_layer, guard) = layer
-                    .name_fn(Box::new(|event_or_span| match event_or_span {
-                        tracing_chrome::EventOrSpan::Event(event) => event.metadata().name().into(),
-                        tracing_chrome::EventOrSpan::Span(span) => {
-                            if let Some(fields) =
-                                span.extensions().get::<FormattedFields<DefaultFields>>()
-                            {
-                                format!("{}: {}", span.metadata().name(), fields.fields.as_str())
-                            } else {
-                                span.metadata().name().into()
+            #[cfg(not(target_os = "android"))]
+            let subscriber = {
+                #[cfg(feature = "tracing-chrome")]
+                let chrome_layer = {
+                    let mut layer = tracing_chrome::ChromeLayerBuilder::new();
+                    if let Ok(path) = std::env::var("TRACE_CHROME") {
+                        layer = layer.file(path);
+                    }
+                    let (chrome_layer, guard) = layer
+                        .name_fn(Box::new(|event_or_span| match event_or_span {
+                            tracing_chrome::EventOrSpan::Event(event) => {
+                                event.metadata().name().into()
                             }
-                        }
-                    }))
-                    .build();
-                app.world.insert_non_send_resource(guard);
-                chrome_layer
+                            tracing_chrome::EventOrSpan::Span(span) => {
+                                if let Some(fields) =
+                                    span.extensions().get::<FormattedFields<DefaultFields>>()
+                                {
+                                    format!(
+                                        "{}: {}",
+                                        span.metadata().name(),
+                                        fields.fields.as_str()
+                                    )
+                                } else {
+                                    span.metadata().name().into()
+                                }
+                            }
+                        }))
+                        .build();
+                    app.world.insert_non_send_resource(guard);
+                    chrome_layer
+                };
+
+                #[cfg(feature = "tracing-tracy")]
+                let tracy_layer = tracing_tracy::TracyLayer::new();
+
+                let fmt_layer =
+                    tracing_subscriber::fmt::Layer::default().with_writer(std::io::stderr);
+
+                // bevy_render::renderer logs a `tracy.frame_mark` event every frame
+                // at Level::INFO. Formatted logs should omit it.
+                #[cfg(feature = "tracing-tracy")]
+                let fmt_layer =
+                    fmt_layer.with_filter(tracing_subscriber::filter::FilterFn::new(|meta| {
+                        meta.fields().field("tracy.frame_mark").is_none()
+                    }));
+
+                let subscriber = subscriber.with(fmt_layer);
+
+                #[cfg(feature = "tracing-chrome")]
+                let subscriber = subscriber.with(chrome_layer);
+                #[cfg(feature = "tracing-tracy")]
+                let subscriber = subscriber.with(tracy_layer);
+                subscriber
             };
 
-            #[cfg(feature = "tracing-tracy")]
-            let tracy_layer = tracing_tracy::TracyLayer::new();
+            let file_appender_layer = if let Some(settings) = &self.file_appender_settings {
+                if settings.rolling == Rolling::Never && settings.prefix.is_empty() {
+                    panic!("Using the Rolling::Never variant with no prefix will result in an empty filename which is invalid");
+                }
+                let file_appender = tracing_appender::rolling::RollingFileAppender::new(
+                    settings.rolling.into(),
+                    &settings.path,
+                    &settings.prefix,
+                );
 
-            let fmt_layer = tracing_subscriber::fmt::Layer::default().with_writer(std::io::stderr);
+                let (non_blocking, worker_guard) = tracing_appender::non_blocking(file_appender);
+                // WARN We need to keep this somewhere so it doesn't get dropped.
+                // If it gets dropped then it will silently stop writing to the file
+                app.insert_resource(FileAppenderWorkerGuard(worker_guard));
 
-            // bevy_render::renderer logs a `tracy.frame_mark` event every frame
-            // at Level::INFO. Formatted logs should omit it.
-            #[cfg(feature = "tracing-tracy")]
-            let fmt_layer =
-                fmt_layer.with_filter(tracing_subscriber::filter::FilterFn::new(|meta| {
-                    meta.fields().field("tracy.frame_mark").is_none()
-                }));
-
-            let subscriber = subscriber.with(fmt_layer);
-
-            #[cfg(feature = "tracing-chrome")]
-            let subscriber = subscriber.with(chrome_layer);
-            #[cfg(feature = "tracing-tracy")]
-            let subscriber = subscriber.with(tracy_layer);
+                let file_fmt_layer = tracing_subscriber::fmt::Layer::default()
+                    .with_ansi(false)
+                    .with_writer(non_blocking);
+                Some(file_fmt_layer)
+            } else {
+                None
+            };
+            let subscriber = subscriber.with(file_appender_layer);
 
             finished_subscriber = subscriber;
         }
