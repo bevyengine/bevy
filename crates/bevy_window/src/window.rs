@@ -1071,3 +1071,58 @@ impl Default for EnabledButtons {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Checks that `Window::physical_cursor_position` returns the cursor position if it is within
+    // the bounds of the window.
+    #[test]
+    fn cursor_position_within_window_bounds() {
+        let mut window = Window {
+            resolution: WindowResolution::new(800., 600.),
+            ..Default::default()
+        };
+
+        window.set_physical_cursor_position(Some(DVec2::new(0., 300.)));
+        assert_eq!(window.physical_cursor_position(), Some(Vec2::new(0., 300.)));
+
+        window.set_physical_cursor_position(Some(DVec2::new(400., 0.)));
+        assert_eq!(window.physical_cursor_position(), Some(Vec2::new(400., 0.)));
+
+        window.set_physical_cursor_position(Some(DVec2::new(799.999, 300.)));
+        assert_eq!(
+            window.physical_cursor_position(),
+            Some(Vec2::new(799.999, 300.)),
+        );
+
+        window.set_physical_cursor_position(Some(DVec2::new(400., 599.999)));
+        assert_eq!(
+            window.physical_cursor_position(),
+            Some(Vec2::new(400., 599.999))
+        );
+    }
+
+    // Checks that `Window::physical_cursor_position` returns `None` if the cursor position is not
+    // within the bounds of the window.
+    #[test]
+    fn cursor_position_not_within_window_bounds() {
+        let mut window = Window {
+            resolution: WindowResolution::new(800., 600.),
+            ..Default::default()
+        };
+
+        window.set_physical_cursor_position(Some(DVec2::new(-0.001, 300.)));
+        assert!(window.physical_cursor_position().is_none());
+
+        window.set_physical_cursor_position(Some(DVec2::new(400., -0.001)));
+        assert!(window.physical_cursor_position().is_none());
+
+        window.set_physical_cursor_position(Some(DVec2::new(800., 300.)));
+        assert!(window.physical_cursor_position().is_none());
+
+        window.set_physical_cursor_position(Some(DVec2::new(400., 600.)));
+        assert!(window.physical_cursor_position().is_none());
+    }
+}
