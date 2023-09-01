@@ -199,6 +199,10 @@ impl AssetInfos {
 
     pub(crate) fn get_path_handle(&self, path: AssetPath) -> Option<UntypedHandle> {
         let id = *self.path_to_id.get(&path)?;
+        self.get_id_handle(id)
+    }
+
+    pub(crate) fn get_id_handle(&self, id: UntypedAssetId) -> Option<UntypedHandle> {
         let info = self.infos.get(&id)?;
         let strong_handle = info.weak_handle.upgrade()?;
         Some(UntypedHandle::Strong(strong_handle))

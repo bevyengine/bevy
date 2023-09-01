@@ -9,8 +9,8 @@ use crate::{
         MetaTransform, Settings,
     },
     path::AssetPath,
-    Asset, AssetEvent, AssetHandleProvider, Assets, DeserializeMetaError, ErasedLoadedAsset,
-    Handle, UntypedAssetId, UntypedHandle,
+    Asset, AssetEvent, AssetHandleProvider, AssetId, Assets, DeserializeMetaError,
+    ErasedLoadedAsset, Handle, UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info, warn};
@@ -555,6 +555,14 @@ impl AssetServer {
     pub fn get_handle<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Option<Handle<A>> {
         self.get_handle_untyped(path)
             .map(|h| h.typed_debug_checked())
+    }
+
+    pub fn get_id_handle<A: Asset>(&self, id: AssetId<A>) -> Option<Handle<A>> {
+        self.get_id_handle_untyped(id.untyped()).map(|h| h.typed())
+    }
+
+    pub fn get_id_handle_untyped(&self, id: UntypedAssetId) -> Option<UntypedHandle> {
+        self.data.infos.read().get_id_handle(id)
     }
 
     /// Returns an active untyped handle for the given path, if the asset at the given path has already started loading,
