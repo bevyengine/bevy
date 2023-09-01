@@ -178,45 +178,61 @@ impl ExtractedRange {
 
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
-    //ranges: Vec<ExtractedRange>,
-    pub ranges: Vec<ExtractedRange>,
+    ranges: Vec<ExtractedRange>,
     uinodes: Vec<ExtractedUiNode>,
     discriminator: u8,
 }
 
-impl ExtractedUiNodes {
-    pub fn finish(&mut self) {
-        self.discriminator += 1;
+pub struct UiExtractionBuffer<'a>(&'a mut ExtractedUiNodes);
+
+impl UiExtractionBuffer<'_> {
+    #[inline]
+    fn get_key(&self, stack_index: u32) -> u32 {
+        (stack_index << 8) | (self.0.discriminator as u32)
     }
 
-    #[inline]
-    pub fn get_key(&self, stack_index: u32) -> u32 {
-        (stack_index << 8) | (self.discriminator as u32)
-    }
-    
     /// Add a single `ExtractedUiNode` for rendering.
-    pub fn push_node(&mut self, stack_index: u32, item: ExtractedUiNode) {
-        self.ranges.push(ExtractedRange {
+    pub fn push(&mut self, stack_index: u32, item: ExtractedUiNode) {
+        let start = self.0.uinodes.len() as u32;
+        self.0.ranges.push(ExtractedRange {
             sort_key: self.get_key(stack_index),
-            range: self.uinodes.len() as u32..(self.uinodes.len() + 1) as u32,
+            range: start..start + 1,
         });
-        self.uinodes.push(item);
+        self.0.uinodes.push(item);
     }
 
     /// Add multiple `ExtractedUiNode`s for rendering.
-    pub fn push_nodes(&mut self, stack_index: u32, items: impl Iterator<Item = ExtractedUiNode>) {
-        let start = self.uinodes.len() as u32;
-        self.uinodes.extend(items);
-        self.ranges.push(ExtractedRange {
+    pub fn extend(&mut self, stack_index: u32, items: impl Iterator<Item = ExtractedUiNode>) {
+        let start = self.0.uinodes.len() as u32;
+        self.0.uinodes.extend(items);
+        self.0.ranges.push(ExtractedRange {
             sort_key: self.get_key(stack_index),
-            range: start..self.uinodes.len() as u32,
+            range: start..self.0.uinodes.len() as u32,
         });
+    }
+}
+
+impl Drop for UiExtractionBuffer<'_> {
+    fn drop(&mut self) {
+        self.0.discriminator += 1;
+    }
+}
+
+impl ExtractedUiNodes {
+    pub fn get_buffer<'a>(&'a mut self) -> UiExtractionBuffer<'a> {
+        UiExtractionBuffer(self)
+    }
+
+    #[inline]
+    fn get_key(&self, stack_index: u32) -> u32 {
+        (stack_index << 8) | (self.discriminator as u32)
     }
 
     /// Clear the buffers
     fn clear(&mut self) {
         self.ranges.clear();
         self.uinodes.clear();
+        self.discriminator = 0;
     }
 }
 
@@ -240,6 +256,8 @@ pub fn extract_atlas_uinodes(
         >,
     >,
 ) {
+    let mut extraction_buffer = extracted_uinodes.get_buffer();
+
     for (
         stack_index,
         uinode,
@@ -288,7 +306,7 @@ pub fn extract_atlas_uinodes(
         atlas_rect.max *= scale;
         atlas_size *= scale;
 
-        extracted_uinodes.push_node(
+        extraction_buffer.push(
             stack_index.0,
             ExtractedUiNode {
                 transform: transform.compute_matrix(),
@@ -302,7 +320,6 @@ pub fn extract_atlas_uinodes(
             },
         );
     }
-    extracted_uinodes.finish();
 }
 
 fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
@@ -338,6 +355,7 @@ pub fn extract_uinode_borders(
     >,
     node_query: Extract<Query<&Node>>,
 ) {
+    let mut extraction_buffer = extracted_uinodes.get_buffer();
     let image = bevy_render::texture::DEFAULT_IMAGE_HANDLE.typed();
 
     let ui_logical_viewport_size = windows
@@ -405,7 +423,7 @@ pub fn extract_uinode_borders(
         ];
 
         let transform = global_transform.compute_matrix();
-        extracted_uinodes.push_nodes(
+        extraction_buffer.extend(
             stack_index.0,
             border_rects
                 .into_iter()
@@ -428,7 +446,6 @@ pub fn extract_uinode_borders(
                 }),
         );
     }
-    extracted_uinodes.finish();
 }
 
 pub fn extract_uinodes(
@@ -449,6 +466,7 @@ pub fn extract_uinodes(
         >,
     >,
 ) {
+    let mut extration_buffer = extracted_uinodes.get_buffer();
     for (stack_index, uinode, transform, color, maybe_image, visibility, clip) in
         uinode_query.iter()
     {
@@ -467,7 +485,7 @@ pub fn extract_uinodes(
             (DEFAULT_IMAGE_HANDLE.typed(), false, false)
         };
 
-        extracted_uinodes.push_node(
+        extration_buffer.push(
             stack_index.0,
             ExtractedUiNode {
                 transform: transform.compute_matrix(),
@@ -484,7 +502,6 @@ pub fn extract_uinodes(
             },
         );
     }
-    extracted_uinodes.finish();
 }
 
 /// The UI camera is "moved back" by this many units (plus the [`UI_CAMERA_TRANSFORM_OFFSET`]) and also has a view
@@ -578,6 +595,7 @@ pub fn extract_text_uinodes(
         )>,
     >,
 ) {
+    let mut extraction_buffer = extracted_uinodes.get_buffer();
     // TODO: Support window-independent UI scale: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
@@ -599,7 +617,7 @@ pub fn extract_text_uinodes(
 
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
-        extracted_uinodes.push_nodes(
+        extraction_buffer.extend(
             stack_index.0,
             text_layout_info.glyphs.iter().map(
                 |PositionedGlyph {
@@ -632,7 +650,6 @@ pub fn extract_text_uinodes(
             ),
         );
     }
-    extracted_uinodes.finish();
 }
 
 #[repr(C)]
@@ -682,10 +699,8 @@ pub struct UiImageBindGroups {
     pub values: HashMap<Handle<Image>, BindGroup>,
 }
 
-pub fn queue_uinodes(
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-) {
-        extracted_uinodes
+pub fn queue_uinodes(mut extracted_uinodes: ResMut<ExtractedUiNodes>) {
+    extracted_uinodes
         .ranges
         .sort_unstable_by_key(|extracted_range| extracted_range.sort_key);
 
@@ -715,7 +730,6 @@ pub fn prepare_uinodes(
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
 
-
     for (view, mut transparent_phase) in &mut render_phases.p1() {
         let pipeline = pipelines.specialize(
             &pipeline_cache,
@@ -723,18 +737,15 @@ pub fn prepare_uinodes(
             UiPipelineKey { hdr: view.hdr },
         );
 
-        transparent_phase
-            .items
-            .reserve(extracted_uinodes.ranges.len());
-
-        for _extracted_range in extracted_uinodes.ranges.iter() {
-            transparent_phase.add(TransparentUi {
+        transparent_phase.items.extend(
+            std::iter::repeat_with(|| TransparentUi {
                 draw_function,
                 pipeline,
                 entity: commands.spawn_empty().id(),
                 batch_size: 0,
-            });
-        }
+            })
+            .take(extracted_uinodes.ranges.len()),
+        );
     }
 
     // If an image has changed, the GpuImage has (probably) changed
@@ -745,6 +756,28 @@ pub fn prepare_uinodes(
                 image_bind_groups.values.remove(handle)
             }
         };
+    }
+
+    if let Some(gpu_image) = gpu_images.get(&DEFAULT_IMAGE_HANDLE.typed()) {
+        image_bind_groups
+            .values
+            .entry(Handle::weak(DEFAULT_IMAGE_HANDLE.id()))
+            .or_insert_with(|| {
+                render_device.create_bind_group(&BindGroupDescriptor {
+                    entries: &[
+                        BindGroupEntry {
+                            binding: 0,
+                            resource: BindingResource::TextureView(&gpu_image.texture_view),
+                        },
+                        BindGroupEntry {
+                            binding: 1,
+                            resource: BindingResource::Sampler(&gpu_image.sampler),
+                        },
+                    ],
+                    label: Some("ui_material_bind_group"),
+                    layout: &ui_pipeline.image_layout,
+                })
+            });
     }
 
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
@@ -766,32 +799,8 @@ pub fn prepare_uinodes(
             let mut batch_item_index = 0;
             let mut batch_image_handle = DEFAULT_IMAGE_HANDLE.id();
 
-            if let Some(gpu_image) = gpu_images.get(&DEFAULT_IMAGE_HANDLE.typed()) {
-                image_bind_groups
-                    .values
-                    .entry(Handle::weak(DEFAULT_IMAGE_HANDLE.id()))
-                    .or_insert_with(|| {
-                        render_device.create_bind_group(&BindGroupDescriptor {
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(&gpu_image.texture_view),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&gpu_image.sampler),
-                                },
-                            ],
-                            label: Some("ui_material_bind_group"),
-                            layout: &ui_pipeline.image_layout,
-                        })
-                    });
-            }
-
             for (n, extracted_range) in extracted_uinodes.ranges.iter().enumerate() {
-                for node_index in extracted_range.range.start..extracted_range.range.end {
-                    let extracted_uinode = &extracted_uinodes.uinodes[node_index as usize];
-
+                for extracted_uinode in &extracted_uinodes.uinodes[extracted_range.range()] {
                     let existing_batch = if extracted_uinode.image.id() == DEFAULT_IMAGE_HANDLE.id()
                         || extracted_uinode.image.id() == batch_image_handle
                     {

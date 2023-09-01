@@ -105,6 +105,7 @@ fn extract_rect_iter_stack<const N: usize>(
         >,
     >,
 ) {
+    let mut extraction_buffer = extracted_uinodes.get_buffer();
     for (stack_index, entity) in ui_stack.iter().enumerate() {
         if let Ok((size, transform, color, maybe_image, visibility)) = uinode_query.get(*entity) {
             // Skip invisible and completely transparent nodes
@@ -139,7 +140,6 @@ fn extract_rect_iter_stack<const N: usize>(
             );
         }
     }
-    extracted_uinodes.finish();
 }
 
 fn extract_rect<const N: usize>(
@@ -159,9 +159,8 @@ fn extract_rect<const N: usize>(
         >,
     >,
 ) {
-    for (stack_index, size, transform, color, maybe_image, visibility) in
-        uinode_query.iter()
-    {
+    let mut extraction_buffer = extracted_uinodes.get_buffer();
+    for (stack_index, size, transform, color, maybe_image, visibility) in uinode_query.iter() {
         // Skip invisible and completely transparent nodes
         if !visibility.is_visible() || color.0.a() == 0.0 {
             continue;
@@ -178,7 +177,7 @@ fn extract_rect<const N: usize>(
         };
         extracted_uinodes.push_nodes(
             stack_index.0 as u32,
-            (0..N).map(|_| ExtractedUiNode {
+            (0..N).map(|_| extendUiNode {
                 transform: transform.compute_matrix(),
                 color: color.0,
                 rect: Rect {
@@ -222,11 +221,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     for _ in 0..STACK_SIZE {
         let n = rng.gen_range(0..63);
         let mut builder = match n {
-            0..= 31 => commands.spawn(ExtractionMarker::<1>),
-            32..= 47 => commands.spawn(ExtractionMarker::<2>),
-            48..= 55 => commands.spawn(ExtractionMarker::<4>),
-            56..= 59 => commands.spawn(ExtractionMarker::<8>),
-            60..= 61 => commands.spawn(ExtractionMarker::<16>),
+            0..=31 => commands.spawn(ExtractionMarker::<1>),
+            32..=47 => commands.spawn(ExtractionMarker::<2>),
+            48..=55 => commands.spawn(ExtractionMarker::<4>),
+            56..=59 => commands.spawn(ExtractionMarker::<8>),
+            60..=61 => commands.spawn(ExtractionMarker::<16>),
             _ => commands.spawn(ExtractionMarker::<32>),
         };
         if rng.gen::<f32>() <= TEXTURED_RATIO {
