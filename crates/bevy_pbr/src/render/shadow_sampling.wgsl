@@ -97,14 +97,14 @@ fn sample_shadow_map_jimenez_fourteen(light_local: vec2<f32>, depth: f32, array_
     // We need the constant sample offsets (the vec2<f32> stuff) here rather than in a const
     // to avoid a dx12 shader compilation bug
     // https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
-    let sample_offset1 = (rotation_matrix * vec2<f32>(-0.7071,  0.7071)) * uv_offset_scale;
-    let sample_offset2 = (rotation_matrix * vec2<f32>(-0.0000, -0.8750)) * uv_offset_scale;
-    let sample_offset3 = (rotation_matrix * vec2<f32>( 0.5303,  0.5303)) * uv_offset_scale;
-    let sample_offset4 = (rotation_matrix * vec2<f32>(-0.6250, -0.0000)) * uv_offset_scale;
-    let sample_offset5 = (rotation_matrix * vec2<f32>( 0.3536, -0.3536)) * uv_offset_scale;
-    let sample_offset6 = (rotation_matrix * vec2<f32>(-0.0000,  0.3750)) * uv_offset_scale;
-    let sample_offset7 = (rotation_matrix * vec2<f32>(-0.1768, -0.1768)) * uv_offset_scale;
-    let sample_offset8 = (rotation_matrix * vec2<f32>( 0.1250,  0.0000)) * uv_offset_scale;
+    let sample_offset1 = (rotation_matrix * vec2(-0.7071,  0.7071)) * uv_offset_scale;
+    let sample_offset2 = (rotation_matrix * vec2(-0.0000, -0.8750)) * uv_offset_scale;
+    let sample_offset3 = (rotation_matrix * vec2( 0.5303,  0.5303)) * uv_offset_scale;
+    let sample_offset4 = (rotation_matrix * vec2(-0.6250, -0.0000)) * uv_offset_scale;
+    let sample_offset5 = (rotation_matrix * vec2( 0.3536, -0.3536)) * uv_offset_scale;
+    let sample_offset6 = (rotation_matrix * vec2(-0.0000,  0.3750)) * uv_offset_scale;
+    let sample_offset7 = (rotation_matrix * vec2(-0.1768, -0.1768)) * uv_offset_scale;
+    let sample_offset8 = (rotation_matrix * vec2( 0.1250,  0.0000)) * uv_offset_scale;
 
     var sum = 0.0;
     sum += sample_shadow_map_hardware(light_local + sample_offset1, depth, array_index);
