@@ -1,11 +1,11 @@
 use anyhow::Result;
 use bevy_asset::{Asset, AssetLoader, LoadContext, LoadedAsset};
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{TypePath, TypeUuid};
 use bevy_utils::BoxedFuture;
 use std::{io::Cursor, sync::Arc};
 
 /// A source of audio data
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(Debug, Clone, TypeUuid, TypePath)]
 #[uuid = "7a14806a-672b-443b-8d16-4f18afefa463"]
 pub struct AudioSource {
     /// Raw data of the audio source.
@@ -68,7 +68,7 @@ impl AssetLoader for AudioLoader {
 /// in order to be registered.
 /// Types that implement this trait usually contain raw sound data that can be converted into an iterator of samples.
 /// This trait is implemented for [`AudioSource`].
-/// Check the example `audio/decodable` for how to implement this trait on a custom type.
+/// Check the example [`decodable`](https://github.com/bevyengine/bevy/blob/latest/examples/audio/decodable.rs) for how to implement this trait on a custom type.
 pub trait Decodable: Send + Sync + 'static {
     /// The type of the audio samples.
     /// Usually a [`u16`], [`i16`] or [`f32`], as those implement [`rodio::Sample`].

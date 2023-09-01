@@ -4,64 +4,46 @@ use crate::{
     prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
     skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
-    render_graph::{Node, NodeRunError, RenderGraphContext},
+    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::RenderPhase,
     render_resource::{
         LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
     },
     renderer::RenderContext,
-    view::{ExtractedView, ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
 use super::{AlphaMask3d, Camera3dDepthLoadOp};
 
-/// A [`Node`] that runs the [`Opaque3d`] and [`AlphaMask3d`] [`RenderPhase`].
-pub struct MainOpaquePass3dNode {
-    query: QueryState<
-        (
-            &'static ExtractedCamera,
-            &'static RenderPhase<Opaque3d>,
-            &'static RenderPhase<AlphaMask3d>,
-            &'static Camera3d,
-            &'static ViewTarget,
-            &'static ViewDepthTexture,
-            Option<&'static DepthPrepass>,
-            Option<&'static NormalPrepass>,
-            Option<&'static MotionVectorPrepass>,
-            Option<&'static SkyboxPipelineId>,
-            Option<&'static SkyboxBindGroup>,
-            &'static ViewUniformOffset,
-        ),
-        With<ExtractedView>,
-    >,
-}
-
-impl FromWorld for MainOpaquePass3dNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            query: world.query_filtered(),
-        }
-    }
-}
-
-impl Node for MainOpaquePass3dNode {
-    fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
-    }
+/// A [`bevy_render::render_graph::Node`] that runs the [`Opaque3d`] and [`AlphaMask3d`] [`RenderPhase`].
+#[derive(Default)]
+pub struct MainOpaquePass3dNode;
+impl ViewNode for MainOpaquePass3dNode {
+    type ViewQuery = (
+        &'static ExtractedCamera,
+        &'static RenderPhase<Opaque3d>,
+        &'static RenderPhase<AlphaMask3d>,
+        &'static Camera3d,
+        &'static ViewTarget,
+        &'static ViewDepthTexture,
+        Option<&'static DepthPrepass>,
+        Option<&'static NormalPrepass>,
+        Option<&'static MotionVectorPrepass>,
+        Option<&'static SkyboxPipelineId>,
+        Option<&'static SkyboxBindGroup>,
+        &'static ViewUniformOffset,
+    );
 
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let view_entity = graph.view_entity();
-        let Ok((
+        (
             camera,
             opaque_phase,
             alpha_mask_phase,
@@ -74,11 +56,9 @@ impl Node for MainOpaquePass3dNode {
             skybox_pipeline,
             skybox_bind_group,
             view_uniform_offset,
-        )) = self.query.get_manual(world, view_entity) else {
-            // No window
-            return Ok(());
-        };
-
+        ): QueryItem<Self::ViewQuery>,
+        world: &World,
+    ) -> Result<(), NodeRunError> {
         // Run the opaque pass, sorted front-to-back
         // NOTE: Scoped to drop the mutable borrow of render_context
         #[cfg(feature = "trace")]
@@ -125,6 +105,8 @@ impl Node for MainOpaquePass3dNode {
             render_pass.set_camera_viewport(viewport);
         }
 
+        let view_entity = graph.view_entity();
+
         // Opaque draws
         opaque_phase.render(&mut render_pass, world, view_entity);
 
@@ -134,13 +116,17 @@ impl Node for MainOpaquePass3dNode {
         }
 
         // Draw the skybox using a fullscreen triangle
-        if let (Some(skybox_pipeline), Some(skybox_bind_group)) =
+        if let (Some(skybox_pipeline), Some(SkyboxBindGroup(skybox_bind_group))) =
             (skybox_pipeline, skybox_bind_group)
         {
             let pipeline_cache = world.resource::<PipelineCache>();
             if let Some(pipeline) = pipeline_cache.get_render_pipeline(skybox_pipeline.0) {
                 render_pass.set_render_pipeline(pipeline);
-                render_pass.set_bind_group(0, &skybox_bind_group.0, &[view_uniform_offset.offset]);
+                render_pass.set_bind_group(
+                    0,
+                    &skybox_bind_group.0,
+                    &[view_uniform_offset.offset, skybox_bind_group.1],
+                );
                 render_pass.draw(0..3, 0..1);
             }
         }

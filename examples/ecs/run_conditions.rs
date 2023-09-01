@@ -18,15 +18,20 @@ fn main() {
                     // The common_conditions module has a few useful run conditions
                     // for checking resources and states. These are included in the prelude.
                     .run_if(resource_exists::<InputCounter>())
-                    // This is a custom run condition, defined using a system that returns
-                    // a `bool` and which has read-only `SystemParam`s.
-                    // Both run conditions must return `true` in order for the system to run.
-                    // Note that this second run condition will be evaluated even if the first returns `false`.
-                    .run_if(has_user_input),
+                    // `.or_else()` is a run condition combinator that only evaluates the second condition
+                    // if the first condition returns `false`. This behavior is known as "short-circuiting",
+                    // and is how the `||` operator works in Rust (as well as most C-family languages).
+                    // In this case, the `has_user_input` run condition will be evaluated since the `Unused` resource has not been initialized.
+                    .run_if(resource_exists::<Unused>().or_else(
+                        // This is a custom run condition, defined using a system that returns
+                        // a `bool` and which has read-only `SystemParam`s.
+                        // Both run conditions must return `true` in order for the system to run.
+                        // Note that this second run condition will be evaluated even if the first returns `false`.
+                        has_user_input,
+                    )),
                 print_input_counter
                     // `.and_then()` is a run condition combinator that only evaluates the second condition
-                    // if the first condition returns `true`. This behavior is known as "short-circuiting",
-                    // and is how the `&&` operator works in Rust (as well as most C-family languages).
+                    // if the first condition returns `true`, analogous to the `&&` operator.
                     // In this case, the short-circuiting behavior prevents the second run condition from
                     // panicking if the `InputCounter` resource has not been initialized.
                     .run_if(resource_exists::<InputCounter>().and_then(
@@ -50,6 +55,9 @@ fn main() {
 
 #[derive(Resource, Default)]
 struct InputCounter(usize);
+
+#[derive(Resource)]
+struct Unused;
 
 /// Return true if any of the defined inputs were just pressed.
 /// This is a custom run condition, it can take any normal system parameters as long as

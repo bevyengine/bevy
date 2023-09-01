@@ -6,16 +6,20 @@
 //! This is a fairly low level example and assumes some familiarity with rendering concepts and wgpu.
 
 use bevy::{
+    asset::ChangeWatcher,
     core_pipeline::{
         clear_color::ClearColorConfig, core_3d,
         fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     },
+    ecs::query::QueryItem,
     prelude::*,
     render::{
         extract_component::{
             ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
         },
-        render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
+        render_graph::{
+            NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
+        },
         render_resource::{
             BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
             BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
@@ -26,19 +30,22 @@ use bevy::{
         },
         renderer::{RenderContext, RenderDevice},
         texture::BevyDefault,
-        view::{ExtractedView, ViewTarget},
+        view::ViewTarget,
         RenderApp,
     },
+    utils::Duration,
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            // Hot reloading the shader works correctly
-            watch_for_changes: true,
-            ..default()
-        }))
-        .add_plugin(PostProcessPlugin)
+        .add_plugins((
+            DefaultPlugins.set(AssetPlugin {
+                // Hot reloading the shader works correctly
+                watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
+                ..default()
+            }),
+            PostProcessPlugin,
+        ))
         .add_systems(Startup, setup)
         .add_systems(Update, (rotate, update_settings))
         .run();
@@ -49,18 +56,19 @@ struct PostProcessPlugin;
 
 impl Plugin for PostProcessPlugin {
     fn build(&self, app: &mut App) {
-        app
+        app.add_plugins((
             // The settings will be a component that lives in the main world but will
             // be extracted to the render world every frame.
             // This makes it possible to control the effect from the main world.
             // This plugin will take care of extracting it automatically.
             // It's important to derive [`ExtractComponent`] on [`PostProcessingSettings`]
             // for this plugin to work correctly.
-            .add_plugin(ExtractComponentPlugin::<PostProcessSettings>::default())
+            ExtractComponentPlugin::<PostProcessSettings>::default(),
             // The settings will also be the data used in the shader.
             // This plugin will prepare the component for the GPU by creating a uniform buffer
             // and writing the data to that buffer every frame.
-            .add_plugin(UniformComponentPlugin::<PostProcessSettings>::default());
+            UniformComponentPlugin::<PostProcessSettings>::default(),
+        ));
 
         // We need to get the render app from the main app
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -68,8 +76,6 @@ impl Plugin for PostProcessPlugin {
         };
 
         render_app
-            // Initialize the pipeline
-            .init_resource::<PostProcessPipeline>()
             // Bevy's renderer uses a render graph which is a collection of nodes in a directed acyclic graph.
             // It currently runs on each view/camera and executes each node in the specified order.
             // It will make sure that any node that needs a dependency from another node
@@ -80,8 +86,11 @@ impl Plugin for PostProcessPlugin {
             // you need to extract it manually or with the plugin like above.
             // Add a [`Node`] to the [`RenderGraph`]
             // The Node needs to impl FromWorld
-            .add_render_graph_node::<PostProcessNode>(
-                // Specifiy the name of the graph, in this case we want the graph for 3d
+            //
+            // The [`ViewNodeRunner`] is a special [`Node`] that will automatically run the node for each view
+            // matching the [`ViewQuery`]
+            .add_render_graph_node::<ViewNodeRunner<PostProcessNode>>(
+                // Specify the name of the graph, in this case we want the graph for 3d
                 core_3d::graph::NAME,
                 // It also needs the name of the node
                 PostProcessNode::NAME,
@@ -97,66 +106,60 @@ impl Plugin for PostProcessPlugin {
                 ],
             );
     }
+
+    fn finish(&self, app: &mut App) {
+        // We need to get the render app from the main app
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            // Initialize the pipeline
+            .init_resource::<PostProcessPipeline>();
+    }
 }
 
-/// The post process node used for the render graph
-struct PostProcessNode {
-    // The node needs a query to gather data from the ECS in order to do its rendering,
-    // but it's not a normal system so we need to define it manually.
-    query: QueryState<&'static ViewTarget, With<ExtractedView>>,
-}
-
+// The post process node used for the render graph
+#[derive(Default)]
+struct PostProcessNode;
 impl PostProcessNode {
     pub const NAME: &str = "post_process";
 }
 
-impl FromWorld for PostProcessNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            query: QueryState::new(world),
-        }
-    }
-}
-
-impl Node for PostProcessNode {
-    // This will run every frame before the run() method
-    // The important difference is that `self` is `mut` here
-    fn update(&mut self, world: &mut World) {
-        // Since this is not a system we need to update the query manually.
-        // This is mostly boilerplate. There are plans to remove this in the future.
-        // For now, you can just copy it.
-        self.query.update_archetypes(world);
-    }
+// The ViewNode trait is required by the ViewNodeRunner
+impl ViewNode for PostProcessNode {
+    // The node needs a query to gather data from the ECS in order to do its rendering,
+    // but it's not a normal system so we need to define it manually.
+    //
+    // This query will only run on the view entity
+    type ViewQuery = &'static ViewTarget;
 
     // Runs the node logic
     // This is where you encode draw commands.
     //
-    // This will run on every view on which the graph is running. If you don't want your effect to run on every camera,
-    // you'll need to make sure you have a marker component to identify which camera(s) should run the effect.
+    // This will run on every view on which the graph is running.
+    // If you don't want your effect to run on every camera,
+    // you'll need to make sure you have a marker component as part of [`ViewQuery`]
+    // to identify which camera(s) should run the effect.
     fn run(
         &self,
-        graph_context: &mut RenderGraphContext,
+        _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
+        view_target: QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        // Get the entity of the view for the render graph where this node is running
-        let view_entity = graph_context.view_entity();
-
-        // We get the data we need from the world based on the view entity passed to the node.
-        // The data is the query that was defined earlier in the [`PostProcessNode`]
-        let Ok(view_target) = self.query.get_manual(world, view_entity) else {
-            return Ok(());
-        };
-
-        // Get the pipeline resource that contains the global data we need to create the render pipeline
+        // Get the pipeline resource that contains the global data we need
+        // to create the render pipeline
         let post_process_pipeline = world.resource::<PostProcessPipeline>();
 
         // The pipeline cache is a cache of all previously created pipelines.
-        // It is required to avoid creating a new pipeline each frame, which is expensive due to shader compilation.
+        // It is required to avoid creating a new pipeline each frame,
+        // which is expensive due to shader compilation.
         let pipeline_cache = world.resource::<PipelineCache>();
 
         // Get the pipeline from the cache
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(post_process_pipeline.pipeline_id) else {
+        let Some(pipeline) = pipeline_cache.get_render_pipeline(post_process_pipeline.pipeline_id)
+        else {
             return Ok(());
         };
 
@@ -177,9 +180,11 @@ impl Node for PostProcessNode {
 
         // The bind_group gets created each frame.
         //
-        // Normally, you would create a bind_group in the Queue set, but this doesn't work with the post_process_write().
+        // Normally, you would create a bind_group in the Queue set,
+        // but this doesn't work with the post_process_write().
         // The reason it doesn't work is because each post_process_write will alternate the source/destination.
-        // The only way to have the correct source/destination for the bind_group is to make sure you get it during the node execution.
+        // The only way to have the correct source/destination for the bind_group
+        // is to make sure you get it during the node execution.
         let bind_group = render_context
             .render_device()
             .create_bind_group(&BindGroupDescriptor {
@@ -269,7 +274,7 @@ impl FromWorld for PostProcessPipeline {
                     ty: BindingType::Buffer {
                         ty: bevy::render::render_resource::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: None,
+                        min_binding_size: Some(PostProcessSettings::min_size()),
                     },
                     count: None,
                 },
@@ -304,8 +309,8 @@ impl FromWorld for PostProcessPipeline {
                         write_mask: ColorWrites::ALL,
                     })],
                 }),
-                // All of the following property are not important for this effect so just use the default values.
-                // This struct doesn't have the Default trai implemented because not all field can have a default value.
+                // All of the following properties are not important for this effect so just use the default values.
+                // This struct doesn't have the Default trait implemented because not all field can have a default value.
                 primitive: PrimitiveState::default(),
                 depth_stencil: None,
                 multisample: MultisampleState::default(),
@@ -324,6 +329,9 @@ impl FromWorld for PostProcessPipeline {
 #[derive(Component, Default, Clone, Copy, ExtractComponent, ShaderType)]
 struct PostProcessSettings {
     intensity: f32,
+    // WebGL2 structs must be 16 byte aligned.
+    #[cfg(feature = "webgl2")]
+    _webgl2_padding: Vec3,
 }
 
 /// Set up a simple 3D scene
@@ -345,7 +353,10 @@ fn setup(
         },
         // Add the setting to the camera.
         // This component is also used to determine on which camera to run the post processing effect.
-        PostProcessSettings { intensity: 0.02 },
+        PostProcessSettings {
+            intensity: 0.02,
+            ..default()
+        },
     ));
 
     // cube
@@ -387,7 +398,8 @@ fn update_settings(mut settings: Query<&mut PostProcessSettings>, time: Res<Time
         // Scale it to a more reasonable level
         intensity *= 0.015;
 
-        // Set the intensity. This will then be extracted to the render world and uploaded to the gpu automatically.
+        // Set the intensity.
+        // This will then be extracted to the render world and uploaded to the gpu automatically by the [`UniformComponentPlugin`]
         setting.intensity = intensity;
     }
 }

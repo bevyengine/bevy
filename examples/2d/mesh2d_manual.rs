@@ -32,8 +32,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(ColoredMesh2dPlugin)
+        .add_plugins((DefaultPlugins, ColoredMesh2dPlugin))
         .add_systems(Startup, star)
         .run();
 }
@@ -99,7 +98,7 @@ fn star(
     // We can now spawn the entities for the star and the camera
     commands.spawn((
         // We use a marker component to identify the custom colored meshes
-        ColoredMesh2d::default(),
+        ColoredMesh2d,
         // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead of 3d
         Mesh2dHandle(meshes.add(star)),
         // This bundle's components are needed for something to be rendered
@@ -215,14 +214,11 @@ type DrawColoredMesh2d = (
 // using `include_str!()`, or loaded like any other asset with `asset_server.load()`.
 const COLORED_MESH2D_SHADER: &str = r"
 // Import the standard 2d mesh uniforms and set their bind groups
-#import bevy_sprite::mesh2d_types
-#import bevy_sprite::mesh2d_view_bindings
+#import bevy_sprite::mesh2d_types as MeshTypes
+#import bevy_sprite::mesh2d_functions as MeshFunctions
 
 @group(1) @binding(0)
-var<uniform> mesh: Mesh2d;
-
-// NOTE: Bindings must come before functions that use them!
-#import bevy_sprite::mesh2d_functions
+var<uniform> mesh: MeshTypes::Mesh2d;
 
 // The structure of the vertex buffer is as specified in `specialize()`
 struct Vertex {
@@ -242,7 +238,7 @@ struct VertexOutput {
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     // Project the world position of the mesh into screen position
-    out.clip_position = mesh2d_position_local_to_clip(mesh.model, vec4<f32>(vertex.position, 1.0));
+    out.clip_position = MeshFunctions::mesh2d_position_local_to_clip(mesh.model, vec4<f32>(vertex.position, 1.0));
     // Unpack the `u32` from the vertex buffer into the `vec4<f32>` used by the fragment shader
     out.color = vec4<f32>((vec4<u32>(vertex.color) >> vec4<u32>(0u, 8u, 16u, 24u)) & vec4<u32>(255u)) / 255.0;
     return out;
@@ -274,17 +270,23 @@ impl Plugin for ColoredMesh2dPlugin {
         let mut shaders = app.world.resource_mut::<Assets<Shader>>();
         shaders.set_untracked(
             COLORED_MESH2D_SHADER_HANDLE,
-            Shader::from_wgsl(COLORED_MESH2D_SHADER),
+            Shader::from_wgsl(COLORED_MESH2D_SHADER, file!()),
         );
 
-        // Register our custom draw function and pipeline, and add our render systems
+        // Register our custom draw function, and add our render systems
         app.get_sub_app_mut(RenderApp)
             .unwrap()
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
-            .init_resource::<ColoredMesh2dPipeline>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
             .add_systems(ExtractSchedule, extract_colored_mesh2d)
-            .add_systems(Render, queue_colored_mesh2d.in_set(RenderSet::Queue));
+            .add_systems(Render, queue_colored_mesh2d.in_set(RenderSet::QueueMeshes));
+    }
+
+    fn finish(&self, app: &mut App) {
+        // Register our custom pipeline
+        app.get_sub_app_mut(RenderApp)
+            .unwrap()
+            .init_resource::<ColoredMesh2dPipeline>();
     }
 }
 
@@ -355,7 +357,7 @@ pub fn queue_colored_mesh2d(
                     // in order to get correct transparency
                     sort_key: FloatOrd(mesh_z),
                     // This material is not batched
-                    batch_range: None,
+                    batch_size: 1,
                 });
             }
         }

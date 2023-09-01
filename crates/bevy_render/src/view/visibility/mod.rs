@@ -6,10 +6,8 @@ use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
-use bevy_reflect::Reflect;
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
-use bevy_transform::components::GlobalTransform;
-use bevy_transform::TransformSystem;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_transform::{components::GlobalTransform, TransformSystem};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
@@ -25,11 +23,11 @@ use crate::{
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
 ///
 /// If an entity is hidden in this way, all [`Children`] (and all of their children and so on) who
-/// are set to `Inherited` will also be hidden.
+/// are set to [`Inherited`](Self::Inherited) will also be hidden.
 ///
 /// This is done by the `visibility_propagate_system` which uses the entity hierarchy and
 /// `Visibility` to set the values of each entity's [`ComputedVisibility`] component.
-#[derive(Component, Clone, Copy, Reflect, FromReflect, Debug, PartialEq, Eq, Default)]
+#[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default)]
 #[reflect(Component, Default)]
 pub enum Visibility {
     /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`Parent`].
@@ -63,12 +61,13 @@ impl std::cmp::PartialEq<&Visibility> for Visibility {
 }
 
 bitflags::bitflags! {
-    #[derive(Reflect)]
+    #[derive(Clone, Debug, Eq, PartialEq)]
     pub(super) struct ComputedVisibilityFlags: u8 {
         const VISIBLE_IN_VIEW = 1 << 0;
         const VISIBLE_IN_HIERARCHY = 1 << 1;
     }
 }
+bevy_reflect::impl_reflect_value!((in bevy_render::view) ComputedVisibilityFlags);
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
 #[derive(Component, Clone, Reflect, Debug, Eq, PartialEq)]
@@ -95,7 +94,7 @@ impl ComputedVisibility {
     /// Reading it during [`Update`](bevy_app::Update) will yield the value from the previous frame.
     #[inline]
     pub fn is_visible(&self) -> bool {
-        self.flags.bits == ComputedVisibilityFlags::all().bits
+        self.flags.bits() == ComputedVisibilityFlags::all().bits()
     }
 
     /// Whether this entity is visible in the entity hierarchy, which is determined by the [`Visibility`] component.
@@ -154,22 +153,26 @@ pub struct VisibilityBundle {
     pub computed: ComputedVisibility,
 }
 
-/// Use this component to opt-out of built-in frustum culling for Mesh entities
-#[derive(Component)]
+/// Use this component to opt-out of built-in frustum culling for entities, see
+/// [`Frustum`].
+///
+/// It can be used for example:
+/// - when a [`Mesh`] is updated but its [`Aabb`] is not, which might happen with animations,
+/// - when using some light effects, like wanting a [`Mesh`] out of the [`Frustum`]
+/// to appear in the reflection of a [`Mesh`] within.
+#[derive(Component, Default, Reflect)]
+#[reflect(Component, Default)]
 pub struct NoFrustumCulling;
 
 /// Collection of entities visible from the current view.
 ///
 /// This component contains all entities which are visible from the currently
-/// rendered view. The collection is updated automatically by the [`check_visibility()`]
-/// system, and renderers can use it to optimize rendering of a particular view, to
+/// rendered view. The collection is updated automatically by the [`VisibilitySystems::CheckVisibility`]
+/// system set, and renderers can use it to optimize rendering of a particular view, to
 /// prevent drawing items not visible from that view.
 ///
 /// This component is intended to be attached to the same entity as the [`Camera`] and
 /// the [`Frustum`] defining the view.
-///
-/// Currently this component is ignored by the sprite renderer, so sprite rendering
-/// is not optimized per view.
 #[derive(Clone, Component, Default, Debug, Reflect)]
 #[reflect(Component)]
 pub struct VisibleEntities {
@@ -193,13 +196,21 @@ impl VisibleEntities {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
+    /// Label for the [`calculate_bounds`] and `calculate_bounds_2d` systems,
+    /// calculating and inserting an [`Aabb`] to relevant entities.
     CalculateBounds,
+    /// Label for the [`apply_deferred`] call after [`VisibilitySystems::CalculateBounds`]
     CalculateBoundsFlush,
+    /// Label for the [`update_frusta<OrthographicProjection>`] system.
     UpdateOrthographicFrusta,
+    /// Label for the [`update_frusta<PerspectiveProjection>`] system.
     UpdatePerspectiveFrusta,
+    /// Label for the [`update_frusta<Projection>`] system.
     UpdateProjectionFrusta,
+    /// Label for the system propagating the [`ComputedVisibility`] in a
+    /// [`hierarchy`](bevy_hierarchy).
     VisibilityPropagate,
-    /// Label for the [`check_visibility()`] system updating each frame the [`ComputedVisibility`]
+    /// Label for the [`check_visibility`] system updating [`ComputedVisibility`]
     /// of each entity and the [`VisibleEntities`] of each view.
     CheckVisibility,
 }
@@ -212,10 +223,7 @@ impl Plugin for VisibilityPlugin {
 
         app
             // We add an AABB component in CalculateBounds, which must be ready on the same frame.
-            .add_systems(
-                PostUpdate,
-                apply_system_buffers.in_set(CalculateBoundsFlush),
-            )
+            .add_systems(PostUpdate, apply_deferred.in_set(CalculateBoundsFlush))
             .configure_set(PostUpdate, CalculateBoundsFlush.after(CalculateBounds))
             .add_systems(
                 PostUpdate,
@@ -256,6 +264,10 @@ impl Plugin for VisibilityPlugin {
     }
 }
 
+/// Computes and adds an [`Aabb`] component to entities with a
+/// [`Handle<Mesh>`](Mesh) component and without a [`NoFrustumCulling`] component.
+///
+/// This system is used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
@@ -270,8 +282,16 @@ pub fn calculate_bounds(
     }
 }
 
+/// Updates [`Frustum`].
+///
+/// This system is used in system sets [`VisibilitySystems::UpdateProjectionFrusta`],
+/// [`VisibilitySystems::UpdatePerspectiveFrusta`], and
+/// [`VisibilitySystems::UpdateOrthographicFrusta`].
 pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
-    mut views: Query<(&GlobalTransform, &T, &mut Frustum)>,
+    mut views: Query<
+        (&GlobalTransform, &T, &mut Frustum),
+        Or<(Changed<GlobalTransform>, Changed<T>)>,
+    >,
 ) {
     for (transform, projection, mut frustum) in &mut views {
         let view_projection =
@@ -345,9 +365,9 @@ fn propagate_recursive(
     Ok(())
 }
 
-/// System updating the visibility of entities each frame.
+/// Updates the visibility of entities each frame.
 ///
-/// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each frame, it updates the
+/// This system is part of the [`VisibilitySystems::CheckVisibility`] set. Each frame, it updates the
 /// [`ComputedVisibility`] of all entities, and for each view also compute the [`VisibleEntities`]
 /// for that view.
 pub fn check_visibility(
@@ -370,7 +390,7 @@ pub fn check_visibility(
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
         visible_entities.entities.clear();
-        visible_aabb_query.par_iter_mut().for_each_mut(
+        visible_aabb_query.par_iter_mut().for_each(
             |(
                 entity,
                 mut computed_visibility,
@@ -392,7 +412,7 @@ pub fn check_visibility(
 
                 // If we have an aabb and transform, do frustum culling
                 if maybe_no_frustum_culling.is_none() {
-                    let model = transform.compute_matrix();
+                    let model = transform.affine();
                     let model_sphere = Sphere {
                         center: model.transform_point3a(model_aabb.center),
                         radius: transform.radius_vec3a(model_aabb.half_extents),
@@ -415,7 +435,7 @@ pub fn check_visibility(
             },
         );
 
-        visible_no_aabb_query.par_iter_mut().for_each_mut(
+        visible_no_aabb_query.par_iter_mut().for_each(
             |(entity, mut computed_visibility, maybe_entity_mask)| {
                 // skip computing visibility for entities that are configured to be hidden. is_visible_in_view has already been set to false
                 // in visibility_propagate_system

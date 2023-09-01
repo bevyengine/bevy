@@ -107,10 +107,10 @@ fn setup(
 
 /// Fades the alpha channel of all materials between 0 and 1 over time.
 /// Each blend mode responds differently to this:
-/// - `Opaque`: Ignores alpha channel altogether, these materials stay completely opaque.
-/// - `Mask(f32)`: Object appears when the alpha value goes above the mask's threshold, disappears
+/// - [`Opaque`](AlphaMode::Opaque): Ignores alpha channel altogether, these materials stay completely opaque.
+/// - [`Mask(f32)`](AlphaMode::Mask): Object appears when the alpha value goes above the mask's threshold, disappears
 ///                when the alpha value goes back below the threshold.
-/// - `Blend`: Object fades in and out smoothly.
+/// - [`Blend`](AlphaMode::Blend): Object fades in and out smoothly.
 pub fn fade_transparency(time: Res<Time>, mut materials: ResMut<Assets<StandardMaterial>>) {
     let alpha = (time.elapsed_seconds().sin() / 2.0) + 0.5;
     for (_, material) in materials.iter_mut() {

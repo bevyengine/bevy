@@ -1,4 +1,4 @@
-//! This example illustrates the usage of the `WorldQuery` derive macro, which allows
+//! This example illustrates the usage of the [`WorldQuery`] derive macro, which allows
 //! defining custom query and filter types.
 //!
 //! While regular tuple queries work great in most of simple scenarios, using custom queries

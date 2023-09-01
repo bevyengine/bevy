@@ -37,9 +37,7 @@ fn main() {
         .add_state::<GameState>()
         .add_systems(Startup, setup)
         // Adds the plugins for each state
-        .add_plugin(splash::SplashPlugin)
-        .add_plugin(menu::MenuPlugin)
-        .add_plugin(game::GamePlugin)
+        .add_plugins((splash::SplashPlugin, menu::MenuPlugin, game::GamePlugin))
         .run();
 }
 
@@ -85,7 +83,7 @@ mod splash {
                     style: Style {
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        width: Val::Percent(100.0),
                         ..default()
                     },
                     ..default()
@@ -96,7 +94,7 @@ mod splash {
                 parent.spawn(ImageBundle {
                     style: Style {
                         // This will set the logo to be 200px wide, and auto adjust its height
-                        size: Size::new(Val::Px(200.0), Val::Auto),
+                        width: Val::Px(200.0),
                         ..default()
                     },
                     image: UiImage::new(icon),
@@ -145,17 +143,14 @@ mod game {
 
     fn game_setup(
         mut commands: Commands,
-        asset_server: Res<AssetServer>,
         display_quality: Res<DisplayQuality>,
         volume: Res<Volume>,
     ) {
-        let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-
         commands
             .spawn((
                 NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        width: Val::Percent(100.0),
                         // center children
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
@@ -187,9 +182,9 @@ mod game {
                             TextBundle::from_section(
                                 "Will be back to the menu shortly...",
                                 TextStyle {
-                                    font: font.clone(),
                                     font_size: 80.0,
                                     color: TEXT_COLOR,
+                                    ..default()
                                 },
                             )
                             .with_style(Style {
@@ -202,25 +197,25 @@ mod game {
                                 TextSection::new(
                                     format!("quality: {:?}", *display_quality),
                                     TextStyle {
-                                        font: font.clone(),
                                         font_size: 60.0,
                                         color: Color::BLUE,
+                                        ..default()
                                     },
                                 ),
                                 TextSection::new(
                                     " - ",
                                     TextStyle {
-                                        font: font.clone(),
                                         font_size: 60.0,
                                         color: TEXT_COLOR,
+                                        ..default()
                                     },
                                 ),
                                 TextSection::new(
                                     format!("volume: {:?}", *volume),
                                     TextStyle {
-                                        font: font.clone(),
                                         font_size: 60.0,
                                         color: Color::GREEN,
+                                        ..default()
                                     },
                                 ),
                             ])
@@ -366,7 +361,7 @@ mod menu {
     ) {
         for (interaction, mut color, selected) in &mut interaction_query {
             *color = match (*interaction, selected) {
-                (Interaction::Clicked, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
+                (Interaction::Pressed, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
                 (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
                 (Interaction::Hovered, None) => HOVERED_BUTTON.into(),
                 (Interaction::None, None) => NORMAL_BUTTON.into(),
@@ -383,7 +378,7 @@ mod menu {
         mut setting: ResMut<T>,
     ) {
         for (interaction, button_setting, entity) in &interaction_query {
-            if *interaction == Interaction::Clicked && *setting != *button_setting {
+            if *interaction == Interaction::Pressed && *setting != *button_setting {
                 let (previous_button, mut previous_color) = selected_query.single_mut();
                 *previous_color = NORMAL_BUTTON.into();
                 commands.entity(previous_button).remove::<SelectedOption>();
@@ -398,35 +393,34 @@ mod menu {
     }
 
     fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        let font = asset_server.load("fonts/FiraSans-Bold.ttf");
         // Common style for all buttons on the screen
         let button_style = Style {
-            size: Size::new(Val::Px(250.0), Val::Px(65.0)),
+            width: Val::Px(250.0),
+            height: Val::Px(65.0),
             margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
         };
         let button_icon_style = Style {
-            size: Size::new(Val::Px(30.0), Val::Auto),
+            width: Val::Px(30.0),
             // This takes the icons out of the flexbox flow, to be positioned exactly
             position_type: PositionType::Absolute,
             // The icon will be close to the left border of the button
             left: Val::Px(10.0),
-            right: Val::Auto,
             ..default()
         };
         let button_text_style = TextStyle {
-            font: font.clone(),
             font_size: 40.0,
             color: TEXT_COLOR,
+            ..default()
         };
 
         commands
             .spawn((
                 NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        width: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -452,9 +446,9 @@ mod menu {
                             TextBundle::from_section(
                                 "Bevy Game Menu UI",
                                 TextStyle {
-                                    font: font.clone(),
                                     font_size: 80.0,
                                     color: TEXT_COLOR,
+                                    ..default()
                                 },
                             )
                             .with_style(Style {
@@ -531,9 +525,10 @@ mod menu {
             });
     }
 
-    fn settings_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    fn settings_menu_setup(mut commands: Commands) {
         let button_style = Style {
-            size: Size::new(Val::Px(200.0), Val::Px(65.0)),
+            width: Val::Px(200.0),
+            height: Val::Px(65.0),
             margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
@@ -541,16 +536,16 @@ mod menu {
         };
 
         let button_text_style = TextStyle {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 40.0,
             color: TEXT_COLOR,
+            ..default()
         };
 
         commands
             .spawn((
                 NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        width: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -596,29 +591,26 @@ mod menu {
             });
     }
 
-    fn display_settings_menu_setup(
-        mut commands: Commands,
-        asset_server: Res<AssetServer>,
-        display_quality: Res<DisplayQuality>,
-    ) {
+    fn display_settings_menu_setup(mut commands: Commands, display_quality: Res<DisplayQuality>) {
         let button_style = Style {
-            size: Size::new(Val::Px(200.0), Val::Px(65.0)),
+            width: Val::Px(200.0),
+            height: Val::Px(65.0),
             margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
         };
         let button_text_style = TextStyle {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 40.0,
             color: TEXT_COLOR,
+            ..default()
         };
 
         commands
             .spawn((
                 NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        width: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -662,15 +654,19 @@ mod menu {
                                     DisplayQuality::Medium,
                                     DisplayQuality::High,
                                 ] {
-                                    let mut entity = parent.spawn(ButtonBundle {
-                                        style: Style {
-                                            size: Size::new(Val::Px(150.0), Val::Px(65.0)),
-                                            ..button_style.clone()
+                                    let mut entity = parent.spawn((
+                                        ButtonBundle {
+                                            style: Style {
+                                                width: Val::Px(150.0),
+                                                height: Val::Px(65.0),
+                                                ..button_style.clone()
+                                            },
+                                            background_color: NORMAL_BUTTON.into(),
+                                            ..default()
                                         },
-                                        background_color: NORMAL_BUTTON.into(),
-                                        ..default()
-                                    });
-                                    entity.insert(quality_setting).with_children(|parent| {
+                                        quality_setting,
+                                    ));
+                                    entity.with_children(|parent| {
                                         parent.spawn(TextBundle::from_section(
                                             format!("{quality_setting:?}"),
                                             button_text_style.clone(),
@@ -698,29 +694,26 @@ mod menu {
             });
     }
 
-    fn sound_settings_menu_setup(
-        mut commands: Commands,
-        asset_server: Res<AssetServer>,
-        volume: Res<Volume>,
-    ) {
+    fn sound_settings_menu_setup(mut commands: Commands, volume: Res<Volume>) {
         let button_style = Style {
-            size: Size::new(Val::Px(200.0), Val::Px(65.0)),
+            width: Val::Px(200.0),
+            height: Val::Px(65.0),
             margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
         };
         let button_text_style = TextStyle {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 40.0,
             color: TEXT_COLOR,
+            ..default()
         };
 
         commands
             .spawn((
                 NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        width: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -756,15 +749,18 @@ mod menu {
                                     button_text_style.clone(),
                                 ));
                                 for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
-                                    let mut entity = parent.spawn(ButtonBundle {
-                                        style: Style {
-                                            size: Size::new(Val::Px(30.0), Val::Px(65.0)),
-                                            ..button_style.clone()
+                                    let mut entity = parent.spawn((
+                                        ButtonBundle {
+                                            style: Style {
+                                                width: Val::Px(30.0),
+                                                height: Val::Px(65.0),
+                                                ..button_style.clone()
+                                            },
+                                            background_color: NORMAL_BUTTON.into(),
+                                            ..default()
                                         },
-                                        background_color: NORMAL_BUTTON.into(),
-                                        ..default()
-                                    });
-                                    entity.insert(Volume(volume_setting));
+                                        Volume(volume_setting),
+                                    ));
                                     if *volume == Volume(volume_setting) {
                                         entity.insert(SelectedOption);
                                     }
@@ -796,7 +792,7 @@ mod menu {
         mut game_state: ResMut<NextState<GameState>>,
     ) {
         for (interaction, menu_button_action) in &interaction_query {
-            if *interaction == Interaction::Clicked {
+            if *interaction == Interaction::Pressed {
                 match menu_button_action {
                     MenuButtonAction::Quit => app_exit_events.send(AppExit),
                     MenuButtonAction::Play => {

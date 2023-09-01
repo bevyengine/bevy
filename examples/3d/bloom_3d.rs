@@ -25,7 +25,6 @@ fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
     commands.spawn((
         Camera3dBundle {
@@ -66,8 +65,8 @@ fn setup_scene(
         .unwrap(),
     );
 
-    for x in -10..10 {
-        for z in -10..10 {
+    for x in -5..5 {
+        for z in -5..5 {
             let mut hasher = DefaultHasher::new();
             (x, z).hash(&mut hasher);
             let rand = (hasher.finish() - 2) % 6;
@@ -76,7 +75,7 @@ fn setup_scene(
                 0 => material_emissive1.clone(),
                 1 => material_emissive2.clone(),
                 2 => material_emissive3.clone(),
-                3 | 4 | 5 => material_non_emissive.clone(),
+                3..=5 => material_non_emissive.clone(),
                 _ => unreachable!(),
             };
 
@@ -92,19 +91,20 @@ fn setup_scene(
         }
     }
 
+    // example instructions
     commands.spawn(
         TextBundle::from_section(
             "",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 18.0,
+                font_size: 20.0,
                 color: Color::BLACK,
+                ..default()
             },
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );

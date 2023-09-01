@@ -26,7 +26,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(NodeBundle {
             style: Style {
                 // fill the entire window
-                size: Size::all(Val::Percent(100.)),
+                width: Val::Percent(100.),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 ..Default::default()
@@ -65,7 +65,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             builder
                 .spawn(NodeBundle {
                     style: Style {
-                        min_size: Size::new(Val::Px(850.), Val::Px(1020.)),
+                        width: Val::Px(850.),
+                        height: Val::Px(1020.),
                         flex_direction: FlexDirection::Column,
                         ..Default::default()
                     },
@@ -124,7 +125,8 @@ fn spawn_child_node(
                 flex_direction: FlexDirection::Column,
                 align_items,
                 justify_content,
-                size: Size::all(Val::Px(160.)),
+                width: Val::Px(160.),
+                height: Val::Px(160.),
                 margin: UiRect::all(MARGIN),
                 ..Default::default()
             },
@@ -160,12 +162,7 @@ fn spawn_nested_text_bundle(
         .spawn(NodeBundle {
             style: Style {
                 margin,
-                padding: UiRect {
-                    top: Val::Px(1.),
-                    left: Val::Px(5.),
-                    right: Val::Px(5.),
-                    bottom: Val::Px(1.),
-                },
+                padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
                 ..Default::default()
             },
             background_color: BackgroundColor(background_color),

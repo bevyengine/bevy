@@ -30,19 +30,7 @@ use bevy_utils::{
     tracing::{error, warn},
     HashMap,
 };
-use std::{
-    hash::Hash,
-    num::{NonZeroU32, NonZeroU64},
-};
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum RenderLightSystems {
-    ExtractClusters,
-    ExtractLights,
-    PrepareClusters,
-    PrepareLights,
-    QueueShadows,
-}
+use std::{hash::Hash, num::NonZeroU64};
 
 #[derive(Component)]
 pub struct ExtractedPointLight {
@@ -215,14 +203,21 @@ pub struct GpuLights {
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
     environment_map_smallest_specular_mip_level: u32,
+    environment_map_intensity: f32,
 }
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
 pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
+
+//NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
+// when loading the wgsl "pbr_functions.wgsl" in the function apply_fog.
+#[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
+#[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
-#[cfg(not(feature = "webgl"))]
+#[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 4;
-#[cfg(feature = "webgl")]
+#[cfg(all(feature = "webgl", target_arch = "wasm32"))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 1;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
@@ -686,13 +681,13 @@ pub fn prepare_lights(
     let mut point_lights: Vec<_> = point_lights.iter().collect::<Vec<_>>();
     let mut directional_lights: Vec<_> = directional_lights.iter().collect::<Vec<_>>();
 
-    #[cfg(not(feature = "webgl"))]
+    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
     let max_texture_array_layers = render_device.limits().max_texture_array_layers as usize;
-    #[cfg(not(feature = "webgl"))]
+    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
     let max_texture_cubes = max_texture_array_layers / 6;
-    #[cfg(feature = "webgl")]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
     let max_texture_array_layers = 1;
-    #[cfg(feature = "webgl")]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
     let max_texture_cubes = 1;
 
     if !*max_directional_lights_warning_emitted && directional_lights.len() > MAX_DIRECTIONAL_LIGHTS
@@ -832,7 +827,7 @@ pub fn prepare_lights(
                 .xyz()
                 .extend(1.0 / (light.range * light.range)),
             position_radius: light.transform.translation().extend(light.radius),
-            flags: flags.bits,
+            flags: flags.bits(),
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
             spot_light_tan_angle,
@@ -862,12 +857,12 @@ pub fn prepare_lights(
         gpu_directional_lights[index] = GpuDirectionalLight {
             // Filled in later.
             cascades: [GpuDirectionalCascade::default(); MAX_CASCADES_PER_LIGHT],
-            // premultiply color by intensity
+            // premultiply color by illuminance
             // we don't use the alpha at all, so no reason to multiply only [0..3]
             color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * light.illuminance,
             // direction is negated to be ready for N.L
             dir_to_light: light.transform.back(),
-            flags: flags.bits,
+            flags: flags.bits(),
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
             num_cascades: num_cascades as u32,
@@ -956,6 +951,9 @@ pub fn prepare_lights(
                 .and_then(|env_map| images.get(&env_map.specular_map))
                 .map(|specular_map| specular_map.mip_level_count - 1)
                 .unwrap_or(0),
+            environment_map_intensity: environment_map
+                .map(|env_map| env_map.intensity)
+                .unwrap_or(1.0),
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
@@ -986,7 +984,7 @@ pub fn prepare_lights(
                             base_mip_level: 0,
                             mip_level_count: None,
                             base_array_layer: (light_index * 6 + face_index) as u32,
-                            array_layer_count: NonZeroU32::new(1),
+                            array_layer_count: Some(1u32),
                         });
 
                 let view_light_entity = commands
@@ -1048,7 +1046,7 @@ pub fn prepare_lights(
                         base_mip_level: 0,
                         mip_level_count: None,
                         base_array_layer: (num_directional_cascades_enabled + light_index) as u32,
-                        array_layer_count: NonZeroU32::new(1),
+                        array_layer_count: Some(1u32),
                     });
 
             let view_light_entity = commands
@@ -1112,7 +1110,7 @@ pub fn prepare_lights(
                             base_mip_level: 0,
                             mip_level_count: None,
                             base_array_layer: directional_depth_texture_array_index,
-                            array_layer_count: NonZeroU32::new(1),
+                            array_layer_count: Some(1u32),
                         });
                 directional_depth_texture_array_index += 1;
 
@@ -1153,9 +1151,9 @@ pub fn prepare_lights(
                 .create_view(&TextureViewDescriptor {
                     label: Some("point_light_shadow_map_array_texture_view"),
                     format: None,
-                    #[cfg(not(feature = "webgl"))]
+                    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
                     dimension: Some(TextureViewDimension::CubeArray),
-                    #[cfg(feature = "webgl")]
+                    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                     dimension: Some(TextureViewDimension::Cube),
                     aspect: TextureAspect::All,
                     base_mip_level: 0,
@@ -1168,9 +1166,9 @@ pub fn prepare_lights(
             .create_view(&TextureViewDescriptor {
                 label: Some("directional_light_shadow_map_array_texture_view"),
                 format: None,
-                #[cfg(not(feature = "webgl"))]
+                #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
                 dimension: Some(TextureViewDimension::D2Array),
-                #[cfg(feature = "webgl")]
+                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                 dimension: Some(TextureViewDimension::D2),
                 aspect: TextureAspect::All,
                 base_mip_level: 0,
@@ -1594,16 +1592,19 @@ pub fn queue_shadows<M: Material>(
                         let mut mesh_key =
                             MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                                 | MeshPipelineKey::DEPTH_PREPASS;
+                        if mesh.morph_targets.is_some() {
+                            mesh_key |= MeshPipelineKey::MORPH_TARGETS;
+                        }
                         if is_directional_light {
                             mesh_key |= MeshPipelineKey::DEPTH_CLAMP_ORTHO;
                         }
                         let alpha_mode = material.properties.alpha_mode;
                         match alpha_mode {
-                            AlphaMode::Mask(_) => {
-                                mesh_key |= MeshPipelineKey::ALPHA_MASK;
-                            }
-                            AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add => {
-                                mesh_key |= MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA;
+                            AlphaMode::Mask(_)
+                            | AlphaMode::Blend
+                            | AlphaMode::Premultiplied
+                            | AlphaMode::Add => {
+                                mesh_key |= MeshPipelineKey::MAY_DISCARD;
                             }
                             _ => {}
                         }
@@ -1629,7 +1630,7 @@ pub fn queue_shadows<M: Material>(
                             draw_function: draw_shadow_mesh,
                             pipeline: pipeline_id,
                             entity,
-                            distance: 0.0, // TODO: sort back-to-front
+                            distance: 0.0, // TODO: sort front-to-back
                         });
                     }
                 }
@@ -1668,7 +1669,7 @@ impl PhaseItem for Shadow {
         // The shadow phase is sorted by pipeline id for performance reasons.
         // Grouping all draw commands using the same pipeline together performs
         // better than rebinding everything at a high rate.
-        radsort::sort_by_key(items, |item| item.pipeline.id());
+        radsort::sort_by_key(items, |item| item.sort_key());
     }
 }
 

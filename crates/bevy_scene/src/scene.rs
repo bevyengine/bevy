@@ -1,10 +1,9 @@
-use bevy_app::AppTypeRegistry;
 use bevy_ecs::{
-    entity::EntityMap,
-    reflect::{ReflectComponent, ReflectMapEntities, ReflectResource},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{TypePath, TypeUuid};
+use bevy_utils::HashMap;
 
 use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
 
@@ -14,7 +13,7 @@ use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
 /// * adding the [`Handle<Scene>`](bevy_asset::Handle) to an entity (the scene will only be
 /// visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
-#[derive(Debug, TypeUuid)]
+#[derive(Debug, TypeUuid, TypePath)]
 #[uuid = "c156503c-edd9-4ec7-8d33-dab392df03cd"]
 pub struct Scene {
     pub world: World,
@@ -31,7 +30,7 @@ impl Scene {
         type_registry: &AppTypeRegistry,
     ) -> Result<Scene, SceneSpawnError> {
         let mut world = World::new();
-        let mut entity_map = EntityMap::default();
+        let mut entity_map = HashMap::default();
         dynamic_scene.write_to_world_with(&mut world, &mut entity_map, type_registry)?;
 
         Ok(Self { world })
@@ -57,7 +56,7 @@ impl Scene {
         type_registry: &AppTypeRegistry,
     ) -> Result<InstanceInfo, SceneSpawnError> {
         let mut instance_info = InstanceInfo {
-            entity_map: EntityMap::default(),
+            entity_map: HashMap::default(),
         };
 
         let type_registry = type_registry.read();
@@ -120,9 +119,7 @@ impl Scene {
 
         for registration in type_registry.iter() {
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
-                map_entities_reflect
-                    .map_entities(world, &instance_info.entity_map)
-                    .unwrap();
+                map_entities_reflect.map_all_entities(world, &mut instance_info.entity_map);
             }
         }
 

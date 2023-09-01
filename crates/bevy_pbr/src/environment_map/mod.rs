@@ -28,7 +28,7 @@ impl Plugin for EnvironmentMapPlugin {
         );
 
         app.register_type::<EnvironmentMapLight>()
-            .add_plugin(ExtractComponentPlugin::<EnvironmentMapLight>::default());
+            .add_plugins(ExtractComponentPlugin::<EnvironmentMapLight>::default());
     }
 }
 
@@ -50,6 +50,10 @@ impl Plugin for EnvironmentMapPlugin {
 pub struct EnvironmentMapLight {
     pub diffuse_map: Handle<Image>,
     pub specular_map: Handle<Image>,
+    /// Scale factor applied to both the diffuse and specular cubemap.
+    /// After applying this multiplier to the image samples, the resulting values should
+    /// be in units of [cd/m^2](https://en.wikipedia.org/wiki/Candela_per_square_metre).
+    pub intensity: f32,
 }
 
 impl EnvironmentMapLight {

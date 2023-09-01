@@ -21,8 +21,7 @@ use bevy::{
 fn main() {
     App::new()
         .insert_resource(Msaa::Off)
-        .add_plugins(DefaultPlugins)
-        .add_plugin(TemporalAntiAliasPlugin)
+        .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, (modify_aa, modify_sharpening, update_ui))
         .run();
@@ -324,14 +323,13 @@ fn setup(
         },
     ));
 
-    // UI
+    // example instructions
     commands.spawn(
         TextBundle::from_section(
             "",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 20.0,
-                color: Color::BLACK,
+                font_size: 20.,
+                ..default()
             },
         )
         .with_style(Style {

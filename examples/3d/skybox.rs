@@ -76,7 +76,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         CameraController::default(),
-        Skybox(skybox_handle.clone()),
+        Skybox {
+            image: skybox_handle.clone(),
+            brightness: 1.0,
+        },
     ));
 
     // ambient light
@@ -145,7 +148,7 @@ fn asset_loaded(
         && asset_server.get_load_state(cubemap.image_handle.clone_weak()) == LoadState::Loaded
     {
         info!("Swapping to {}...", CUBEMAPS[cubemap.index].0);
-        let mut image = images.get_mut(&cubemap.image_handle).unwrap();
+        let image = images.get_mut(&cubemap.image_handle).unwrap();
         // NOTE: PNGs do not have any metadata that could indicate they contain a cubemap texture,
         // so they appear as one texture. The following code reconfigures the texture as necessary.
         if image.texture_descriptor.array_layer_count() == 1 {
@@ -159,7 +162,7 @@ fn asset_loaded(
         }
 
         for mut skybox in &mut skyboxes {
-            skybox.0 = cubemap.image_handle.clone();
+            skybox.image = cubemap.image_handle.clone();
         }
 
         cubemap.is_loaded = true;
@@ -209,7 +212,7 @@ impl Default for CameraController {
             key_right: KeyCode::D,
             key_up: KeyCode::E,
             key_down: KeyCode::Q,
-            key_run: KeyCode::LShift,
+            key_run: KeyCode::ShiftLeft,
             mouse_key_enable_mouse: MouseButton::Left,
             keyboard_key_enable_mouse: KeyCode::M,
             walk_speed: 2.0,
@@ -291,7 +294,7 @@ pub fn camera_controller(
         // Handle mouse input
         let mut mouse_delta = Vec2::ZERO;
         if mouse_button_input.pressed(options.mouse_key_enable_mouse) || *move_toggled {
-            for mouse_event in mouse_events.iter() {
+            for mouse_event in mouse_events.read() {
                 mouse_delta += mouse_event.delta;
             }
         }

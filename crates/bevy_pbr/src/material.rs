@@ -1,12 +1,13 @@
 use crate::{
     render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
-    MeshUniform, PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems, SetMeshBindGroup,
-    SetMeshViewBindGroup, Shadow,
+    MeshTransforms, PrepassPipelinePlugin, PrepassPlugin, ScreenSpaceAmbientOcclusionSettings,
+    SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
+    experimental::taa::TemporalAntiAliasSettings,
     prepass::NormalPrepass,
     tonemapping::{DebandDither, Tonemapping},
 };
@@ -18,12 +19,12 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{TypePath, TypeUuid};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
-    render_asset::{PrepareAssetSet, RenderAssets},
+    render_asset::{prepare_assets, RenderAssets},
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
@@ -58,11 +59,11 @@ use std::marker::PhantomData;
 /// ```
 /// # use bevy_pbr::{Material, MaterialMeshBundle};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_reflect::TypeUuid;
+/// # use bevy_reflect::{TypeUuid, TypePath};
 /// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
 /// # use bevy_asset::{Handle, AssetServer, Assets};
 ///
-/// #[derive(AsBindGroup, TypeUuid, Debug, Clone)]
+/// #[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
 /// #[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
 /// pub struct CustomMaterial {
 ///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
@@ -105,7 +106,7 @@ use std::marker::PhantomData;
 /// @group(1) @binding(2)
 /// var color_sampler: sampler;
 /// ```
-pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'static {
+pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {
@@ -187,7 +188,7 @@ where
 {
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
-            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
+            .add_plugins(ExtractComponentPlugin::<Handle<M>>::extract_visible());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -196,7 +197,6 @@ where
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
-                .init_resource::<MaterialPipeline<M>>()
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
@@ -205,19 +205,29 @@ where
                     Render,
                     (
                         prepare_materials::<M>
-                            .in_set(RenderSet::Prepare)
-                            .after(PrepareAssetSet::PreAssetPrepare),
-                        render::queue_shadows::<M>.in_set(RenderLightSystems::QueueShadows),
-                        queue_material_meshes::<M>.in_set(RenderSet::Queue),
+                            .in_set(RenderSet::PrepareAssets)
+                            .after(prepare_assets::<Image>),
+                        render::queue_shadows::<M>
+                            .in_set(RenderSet::QueueMeshes)
+                            .after(prepare_materials::<M>),
+                        queue_material_meshes::<M>
+                            .in_set(RenderSet::QueueMeshes)
+                            .after(prepare_materials::<M>),
                     ),
                 );
         }
 
         // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
-        app.add_plugin(PrepassPipelinePlugin::<M>::default());
+        app.add_plugins(PrepassPipelinePlugin::<M>::default());
 
         if self.prepass_enabled {
-            app.add_plugin(PrepassPlugin::<M>::default());
+            app.add_plugins(PrepassPlugin::<M>::default());
+        }
+    }
+
+    fn finish(&self, app: &mut App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<MaterialPipeline<M>>();
         }
     }
 }
@@ -373,7 +383,7 @@ pub fn queue_material_meshes<M: Material>(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
-    material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
+    material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshTransforms)>,
     images: Res<RenderAssets<Image>>,
     mut views: Query<(
         &ExtractedView,
@@ -381,7 +391,9 @@ pub fn queue_material_meshes<M: Material>(
         Option<&Tonemapping>,
         Option<&DebandDither>,
         Option<&EnvironmentMapLight>,
+        Option<&ScreenSpaceAmbientOcclusionSettings>,
         Option<&NormalPrepass>,
+        Option<&TemporalAntiAliasSettings>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
@@ -395,7 +407,9 @@ pub fn queue_material_meshes<M: Material>(
         tonemapping,
         dither,
         environment_map,
+        ssao,
         normal_prepass,
+        taa_settings,
         mut opaque_phase,
         mut alpha_mask_phase,
         mut transparent_phase,
@@ -410,6 +424,10 @@ pub fn queue_material_meshes<M: Material>(
 
         if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
+        }
+
+        if taa_settings.is_some() {
+            view_key |= MeshPipelineKey::TAA;
         }
 
         let environment_map_loaded = match environment_map {
@@ -443,9 +461,13 @@ pub fn queue_material_meshes<M: Material>(
             }
         }
 
+        if ssao.is_some() {
+            view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+        }
+
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
-            if let Ok((material_handle, mesh_handle, mesh_uniform)) =
+            if let Ok((material_handle, mesh_handle, mesh_transforms)) =
                 material_meshes.get(*visible_entity)
             {
                 if let (Some(mesh), Some(material)) = (
@@ -455,6 +477,9 @@ pub fn queue_material_meshes<M: Material>(
                     let mut mesh_key =
                         MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                             | view_key;
+                    if mesh.morph_targets.is_some() {
+                        mesh_key |= MeshPipelineKey::MORPH_TARGETS;
+                    }
                     match material.properties.alpha_mode {
                         AlphaMode::Blend => {
                             mesh_key |= MeshPipelineKey::BLEND_ALPHA;
@@ -466,6 +491,9 @@ pub fn queue_material_meshes<M: Material>(
                         }
                         AlphaMode::Multiply => {
                             mesh_key |= MeshPipelineKey::BLEND_MULTIPLY;
+                        }
+                        AlphaMode::Mask(_) => {
+                            mesh_key |= MeshPipelineKey::MAY_DISCARD;
                         }
                         _ => (),
                     }
@@ -487,7 +515,8 @@ pub fn queue_material_meshes<M: Material>(
                         }
                     };
 
-                    let distance = rangefinder.distance(&mesh_uniform.transform)
+                    let distance = rangefinder
+                        .distance_translation(&mesh_transforms.transform.translation)
                         + material.properties.depth_bias;
                     match material.properties.alpha_mode {
                         AlphaMode::Opaque => {
@@ -496,6 +525,7 @@ pub fn queue_material_meshes<M: Material>(
                                 draw_function: draw_opaque_pbr,
                                 pipeline: pipeline_id,
                                 distance,
+                                batch_size: 1,
                             });
                         }
                         AlphaMode::Mask(_) => {
@@ -504,6 +534,7 @@ pub fn queue_material_meshes<M: Material>(
                                 draw_function: draw_alpha_mask_pbr,
                                 pipeline: pipeline_id,
                                 distance,
+                                batch_size: 1,
                             });
                         }
                         AlphaMode::Blend
@@ -515,6 +546,7 @@ pub fn queue_material_meshes<M: Material>(
                                 draw_function: draw_transparent_pbr,
                                 pipeline: pipeline_id,
                                 distance,
+                                batch_size: 1,
                             });
                         }
                     }
@@ -576,7 +608,7 @@ pub fn extract_materials<M: Material>(
 ) {
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
-    for event in events.iter() {
+    for event in events.read() {
         match event {
             AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                 changed_assets.insert(handle.clone_weak());
