@@ -133,21 +133,27 @@ impl AssetPlugin {
 
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut App) {
-        let mut asset_providers = AssetProviders::default();
+        app.init_resource::<AssetProviders>();
         {
             match self {
                 AssetPlugin::Unprocessed {
                     source,
                     watch_for_changes,
                 } => {
-                    let source_reader = asset_providers.get_source_reader(source);
+                    let source_reader = app
+                        .world
+                        .resource_mut::<AssetProviders>()
+                        .get_source_reader(source);
                     app.insert_resource(AssetServer::new(source_reader, *watch_for_changes));
                 }
                 AssetPlugin::Processed {
                     destination,
                     watch_for_changes,
                 } => {
-                    let destination_reader = asset_providers.get_destination_reader(destination);
+                    let destination_reader = app
+                        .world
+                        .resource_mut::<AssetProviders>()
+                        .get_destination_reader(destination);
                     app.insert_resource(AssetServer::new(destination_reader, *watch_for_changes));
                 }
                 AssetPlugin::ProcessedDev {
@@ -155,6 +161,7 @@ impl Plugin for AssetPlugin {
                     destination,
                     watch_for_changes,
                 } => {
+                    let mut asset_providers = app.world.resource_mut::<AssetProviders>();
                     let processor = AssetProcessor::new(&mut asset_providers, source, destination);
                     let destination_reader = asset_providers.get_destination_reader(source);
                     // the main asset server gates loads based on asset state
@@ -172,7 +179,6 @@ impl Plugin for AssetPlugin {
             }
         }
         app.init_asset::<LoadedFolder>()
-            .insert_resource(asset_providers)
             .add_systems(PostUpdate, server::handle_internal_asset_events);
     }
 }
