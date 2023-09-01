@@ -495,7 +495,7 @@ mod tests {
         panic!("Ran out of loops to return `Some` from `predicate`");
     }
 
-    const LARGE_ITERATION_COUNT: usize = 5;
+    const LARGE_ITERATION_COUNT: usize = 50;
 
     fn get<A: Asset>(world: &World, id: AssetId<A>) -> Option<&A> {
         world.resource::<Assets<A>>().get(id)
@@ -872,12 +872,6 @@ mod tests {
         app.init_asset::<CoolText>()
             .register_asset_loader(CoolTextLoader);
         let asset_server = app.world.resource::<AssetServer>().clone();
-
-        gate_opener.open(a_path);
-        gate_opener.open(b_path);
-        gate_opener.open(c_path);
-        gate_opener.open(d_path);
-
         let handle: Handle<CoolText> = asset_server.load(a_path);
         let a_id = handle.id();
         {
@@ -894,6 +888,10 @@ mod tests {
         }
 
         app.world.spawn(handle);
+        gate_opener.open(a_path);
+        gate_opener.open(b_path);
+        gate_opener.open(c_path);
+        gate_opener.open(d_path);
 
         run_app_until(&mut app, |world| {
             let a_text = get::<CoolText>(world, a_id)?;
