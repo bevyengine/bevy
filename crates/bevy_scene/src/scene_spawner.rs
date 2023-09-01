@@ -151,7 +151,7 @@ impl SceneSpawner {
         world.resource_scope(|world, scenes: Mut<Assets<DynamicScene>>| {
             let scene = scenes
                 .get(id)
-                .ok_or_else(|| SceneSpawnError::NonExistentScene { id })?;
+                .ok_or(SceneSpawnError::NonExistentScene { id })?;
             scene.write_to_world(world, entity_map)
         })
     }
@@ -173,7 +173,7 @@ impl SceneSpawner {
         world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
             let scene = scenes
                 .get(id)
-                .ok_or_else(|| SceneSpawnError::NonExistentRealScene { id })?;
+                .ok_or(SceneSpawnError::NonExistentRealScene { id })?;
 
             let instance_info =
                 scene.write_to_world_with(world, &world.resource::<AppTypeRegistry>().clone())?;
@@ -231,7 +231,7 @@ impl SceneSpawner {
                         .insert(instance_id, InstanceInfo { entity_map });
                     let spawned = self
                         .spawned_dynamic_scenes
-                        .entry(id.clone())
+                        .entry(id)
                         .or_insert_with(Vec::new);
                     spawned.push(instance_id);
                 }

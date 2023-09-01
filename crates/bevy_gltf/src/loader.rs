@@ -93,7 +93,7 @@ impl AssetLoader for GltfLoader {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            Ok(load_gltf(self, &mut bytes, load_context).await?)
+            Ok(load_gltf(self, &bytes, load_context).await?)
         })
     }
 
@@ -274,7 +274,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             gltf_texture,
                             buffer_data,
                             linear_textures,
-                            &parent_path,
+                            parent_path,
                             loader.supported_compressed_formats,
                         )
                         .await

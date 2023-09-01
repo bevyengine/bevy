@@ -62,17 +62,19 @@ impl Plugin for CustomAssetReaderPlugin {
             .get_resource_or_insert_with::<AssetProviders>(Default::default);
         asset_providers.insert_reader("CustomAssetReader", || {
             Box::new(CustomAssetReader(FileAssetReader::new("assets")))
-        })
+        });
     }
 }
 
 fn main() {
     App::new()
-        .add_plugin(CustomAssetReaderPlugin)
-        .add_plugins(DefaultPlugins.set(AssetPlugin::Unprocessed {
-            source: AssetProvider::Custom("CustomAssetReader".to_string()),
-            watch_for_changes: false,
-        }))
+        .add_plugins((
+            CustomAssetReaderPlugin,
+            DefaultPlugins.set(AssetPlugin::Unprocessed {
+                source: AssetProvider::Custom("CustomAssetReader".to_string()),
+                watch_for_changes: false,
+            }),
+        ))
         .add_systems(Startup, setup)
         .run();
 }

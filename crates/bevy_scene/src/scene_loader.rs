@@ -42,7 +42,7 @@ impl AssetLoader for SceneLoader {
             let scene_deserializer = SceneDeserializer {
                 type_registry: &self.type_registry.read(),
             };
-            Ok(scene_deserializer
+            scene_deserializer
                 .deserialize(&mut deserializer)
                 .map_err(|e| {
                     let span_error = deserializer.span_error(e);
@@ -52,7 +52,7 @@ impl AssetLoader for SceneLoader {
                         load_context.path().to_string_lossy(),
                         span_error.position,
                     )
-                })?)
+                })
         })
     }
 

@@ -247,25 +247,23 @@ impl AssetLoader for ShaderLoader {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
             let shader = match ext {
-                "spv" => {
-                    Shader::from_spirv(Vec::from(bytes), load_context.path().to_string_lossy())
-                }
+                "spv" => Shader::from_spirv(bytes, load_context.path().to_string_lossy()),
                 "wgsl" => Shader::from_wgsl(
-                    String::from_utf8(Vec::from(bytes))?,
+                    String::from_utf8(bytes)?,
                     load_context.path().to_string_lossy(),
                 ),
                 "vert" => Shader::from_glsl(
-                    String::from_utf8(Vec::from(bytes))?,
+                    String::from_utf8(bytes)?,
                     naga::ShaderStage::Vertex,
                     load_context.path().to_string_lossy(),
                 ),
                 "frag" => Shader::from_glsl(
-                    String::from_utf8(Vec::from(bytes))?,
+                    String::from_utf8(bytes)?,
                     naga::ShaderStage::Fragment,
                     load_context.path().to_string_lossy(),
                 ),
                 "comp" => Shader::from_glsl(
-                    String::from_utf8(Vec::from(bytes))?,
+                    String::from_utf8(bytes)?,
                     naga::ShaderStage::Compute,
                     load_context.path().to_string_lossy(),
                 ),

@@ -246,7 +246,7 @@ impl ShaderCache {
         let shader = self
             .shaders
             .get(&id)
-            .ok_or_else(|| PipelineCacheError::ShaderNotLoaded(id))?;
+            .ok_or(PipelineCacheError::ShaderNotLoaded(id))?;
         let data = self.data.entry(id).or_default();
         let n_asset_imports = shader
             .imports()

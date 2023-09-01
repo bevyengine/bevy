@@ -695,12 +695,11 @@ pub fn prepare_uinodes(
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
         match event {
-            AssetEvent::Added { .. } => {}
+            AssetEvent::Added { .. } |
+            // Images don't have dependencies
+            AssetEvent::LoadedWithDependencies { .. } => {}
             AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
                 image_bind_groups.values.remove(id);
-            }
-            AssetEvent::LoadedWithDependencies { .. } => {
-                // TODO: handle this
             }
         };
     }

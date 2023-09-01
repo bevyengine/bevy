@@ -1625,7 +1625,7 @@ impl Default for BorderColor {
 }
 
 /// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct UiImage {
     /// Handle to the texture
@@ -1634,16 +1634,6 @@ pub struct UiImage {
     pub flip_x: bool,
     /// Whether the image should be flipped along its y-axis
     pub flip_y: bool,
-}
-
-impl Default for UiImage {
-    fn default() -> UiImage {
-        UiImage {
-            texture: Default::default(),
-            flip_x: false,
-            flip_y: false,
-        }
-    }
 }
 
 impl UiImage {

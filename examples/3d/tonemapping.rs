@@ -339,7 +339,7 @@ fn update_image_viewer(
                             let size = image_changed.size().normalize_or_zero() * 1.4;
                             // Resize Mesh
                             let quad = Mesh::from(shape::Quad::new(size));
-                            let _ = meshes.insert(mesh_h, quad);
+                            meshes.insert(mesh_h, quad);
                         }
                     }
                 }

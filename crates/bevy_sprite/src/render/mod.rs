@@ -328,7 +328,7 @@ pub fn extract_sprite_events(
     images.clear();
 
     for event in image_events.read() {
-        images.push(event.clone());
+        images.push(*event);
     }
 }
 
@@ -587,11 +587,12 @@ pub fn prepare_sprites(
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
         match event {
-            AssetEvent::Added { .. } => {}
+            AssetEvent::Added {..} |
+            // images don't have dependencies
+            AssetEvent::LoadedWithDependencies { .. } => {}
             AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
                 image_bind_groups.values.remove(id);
             }
-            AssetEvent::LoadedWithDependencies { .. } => { /* images don't have dependencies */ }
         };
     }
 

@@ -34,7 +34,7 @@ fn check_textures(
     mut events: EventReader<AssetEvent<LoadedFolder>>,
 ) {
     // Advance the `AppState` once all sprite handles have been loaded by the `AssetServer`
-    for event in events.iter() {
+    for event in events.read() {
         if event.is_loaded_with_dependencies(&rpg_sprite_folder.0) {
             next_state.set(AppState::Finished);
         }
@@ -52,7 +52,7 @@ fn setup(
     // Build a `TextureAtlas` using the individual sprites
     let mut texture_atlas_builder = TextureAtlasBuilder::default();
     let loaded_folder = loaded_folders.get(&rpg_sprite_handles.0).unwrap();
-    for handle in loaded_folder.handles.read() {
+    for handle in loaded_folder.handles.iter() {
         let id = handle.id().typed_unchecked::<Image>();
         let Some(texture) = textures.get(id) else {
             warn!(
