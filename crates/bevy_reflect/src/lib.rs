@@ -573,14 +573,14 @@ pub mod __macro_exports {
 #[cfg(test)]
 #[allow(clippy::disallowed_types, clippy::approx_constant)]
 mod tests {
-    use bevy_utils::HashMap;
     #[cfg(feature = "glam")]
-    use glam::{vec3, Vec3};
+    use ::glam::{vec3, Vec3};
+    use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
+    use bevy_utils::HashMap;
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
-    use serde::{de::DeserializeSeed, Deserialize, Serialize};
     use std::{
         any::TypeId,
         borrow::Cow,
