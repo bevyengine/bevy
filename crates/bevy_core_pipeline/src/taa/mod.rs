@@ -10,7 +10,7 @@ use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryItem, With},
-    schedule::{apply_deferred, IntoSystemConfigs},
+    schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -31,7 +31,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
-    view::{prepare_view_uniforms, ExtractedView, Msaa, ViewTarget},
+    view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 
@@ -67,12 +67,9 @@ impl Plugin for TemporalAntiAliasPlugin {
             .add_systems(
                 Render,
                 (
-                    (prepare_taa_jitter_and_mip_bias, apply_deferred)
-                        .chain()
-                        .before(prepare_view_uniforms)
-                        .in_set(RenderSet::Prepare),
-                    prepare_taa_history_textures.in_set(RenderSet::Prepare),
+                    prepare_taa_jitter_and_mip_bias.in_set(RenderSet::ManageViews),
                     prepare_taa_pipelines.in_set(RenderSet::Prepare),
+                    prepare_taa_history_textures.in_set(RenderSet::PrepareResources),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<TAANode>>(CORE_3D, draw_3d_graph::node::TAA)

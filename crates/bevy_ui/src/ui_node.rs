@@ -10,7 +10,10 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use std::ops::{Div, DivAssign, Mul, MulAssign};
+use std::{
+    num::{NonZeroI16, NonZeroU16},
+    ops::{Div, DivAssign, Mul, MulAssign},
+};
 use thiserror::Error;
 
 /// Describes the size of a UI node
@@ -234,93 +237,20 @@ pub enum ValArithmeticError {
 }
 
 impl Val {
-    /// Tries to add the values of two [`Val`]s.
-    /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
-    /// When adding non-numeric [`Val`]s, it returns the value unchanged.
-    pub fn try_add(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
-        match (self, rhs) {
-            (Val::Auto, Val::Auto) => Ok(*self),
-            (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value + rhs_value)),
-            (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value + rhs_value)),
-            _ => Err(ValArithmeticError::NonIdenticalVariants),
-        }
-    }
-
-    /// Adds `rhs` to `self` and assigns the result to `self` (see [`Val::try_add`])
-    pub fn try_add_assign(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
-        *self = self.try_add(rhs)?;
-        Ok(())
-    }
-
-    /// Tries to subtract the values of two [`Val`]s.
-    /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
-    /// When adding non-numeric [`Val`]s, it returns the value unchanged.
-    pub fn try_sub(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
-        match (self, rhs) {
-            (Val::Auto, Val::Auto) => Ok(*self),
-            (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value - rhs_value)),
-            (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value - rhs_value)),
-            _ => Err(ValArithmeticError::NonIdenticalVariants),
-        }
-    }
-
-    /// Subtracts `rhs` from `self` and assigns the result to `self` (see [`Val::try_sub`])
-    pub fn try_sub_assign(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
-        *self = self.try_sub(rhs)?;
-        Ok(())
-    }
-
-    /// A convenience function for simple evaluation of [`Val::Percent`] variant into a concrete [`Val::Px`] value.
-    /// Returns a [`ValArithmeticError::NonEvaluateable`] if the [`Val`] is impossible to evaluate into [`Val::Px`].
-    /// Otherwise it returns an [`f32`] containing the evaluated value in pixels.
+    /// Resolves a [`Val`] to its value in logical pixels and returns this as an [`f32`].
+    /// Returns a [`ValArithmeticError::NonEvaluateable`] if the [`Val`] is impossible to resolve into a concrete value.
     ///
-    /// **Note:** If a [`Val::Px`] is evaluated, it's inner value returned unchanged.
-    pub fn evaluate(&self, size: f32) -> Result<f32, ValArithmeticError> {
+    /// **Note:** If a [`Val::Px`] is resolved, it's inner value is returned unchanged.
+    pub fn resolve(self, parent_size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
         match self {
-            Val::Percent(value) => Ok(size * value / 100.0),
-            Val::Px(value) => Ok(*value),
-            _ => Err(ValArithmeticError::NonEvaluateable),
+            Val::Percent(value) => Ok(parent_size * value / 100.0),
+            Val::Px(value) => Ok(value),
+            Val::Vw(value) => Ok(viewport_size.x * value / 100.0),
+            Val::Vh(value) => Ok(viewport_size.y * value / 100.0),
+            Val::VMin(value) => Ok(viewport_size.min_element() * value / 100.0),
+            Val::VMax(value) => Ok(viewport_size.max_element() * value / 100.0),
+            Val::Auto => Err(ValArithmeticError::NonEvaluateable),
         }
-    }
-
-    /// Similar to [`Val::try_add`], but performs [`Val::evaluate`] on both values before adding.
-    /// Returns an [`f32`] value in pixels.
-    pub fn try_add_with_size(&self, rhs: Val, size: f32) -> Result<f32, ValArithmeticError> {
-        let lhs = self.evaluate(size)?;
-        let rhs = rhs.evaluate(size)?;
-
-        Ok(lhs + rhs)
-    }
-
-    /// Similar to [`Val::try_add_assign`], but performs [`Val::evaluate`] on both values before adding.
-    /// The value gets converted to [`Val::Px`].
-    pub fn try_add_assign_with_size(
-        &mut self,
-        rhs: Val,
-        size: f32,
-    ) -> Result<(), ValArithmeticError> {
-        *self = Val::Px(self.evaluate(size)? + rhs.evaluate(size)?);
-        Ok(())
-    }
-
-    /// Similar to [`Val::try_sub`], but performs [`Val::evaluate`] on both values before subtracting.
-    /// Returns an [`f32`] value in pixels.
-    pub fn try_sub_with_size(&self, rhs: Val, size: f32) -> Result<f32, ValArithmeticError> {
-        let lhs = self.evaluate(size)?;
-        let rhs = rhs.evaluate(size)?;
-
-        Ok(lhs - rhs)
-    }
-
-    /// Similar to [`Val::try_sub_assign`], but performs [`Val::evaluate`] on both values before adding.
-    /// The value gets converted to [`Val::Px`].
-    pub fn try_sub_assign_with_size(
-        &mut self,
-        rhs: Val,
-        size: f32,
-    ) -> Result<(), ValArithmeticError> {
-        *self = Val::Px(self.try_add_with_size(rhs, size)?);
-        Ok(())
     }
 }
 
@@ -1470,99 +1400,144 @@ impl From<RepeatedGridTrack> for Vec<RepeatedGridTrack> {
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Line-based_Placement_with_CSS_Grid>
 pub struct GridPlacement {
     /// The grid line at which the item should start. Lines are 1-indexed. Negative indexes count backwards from the end of the grid. Zero is not a valid index.
-    pub(crate) start: Option<i16>,
+    pub(crate) start: Option<NonZeroI16>,
     /// How many grid tracks the item should span. Defaults to 1.
-    pub(crate) span: Option<u16>,
-    /// The grid line at which the node should end. Lines are 1-indexed. Negative indexes count backwards from the end of the grid. Zero is not a valid index.
-    pub(crate) end: Option<i16>,
+    pub(crate) span: Option<NonZeroU16>,
+    /// The grid line at which the item should end. Lines are 1-indexed. Negative indexes count backwards from the end of the grid. Zero is not a valid index.
+    pub(crate) end: Option<NonZeroI16>,
 }
 
 impl GridPlacement {
     pub const DEFAULT: Self = Self {
         start: None,
-        span: Some(1),
+        span: Some(unsafe { NonZeroU16::new_unchecked(1) }),
         end: None,
     };
 
     /// Place the grid item automatically (letting the `span` default to `1`).
     pub fn auto() -> Self {
-        Self {
-            start: None,
-            end: None,
-            span: Some(1),
-        }
+        Self::DEFAULT
     }
 
     /// Place the grid item automatically, specifying how many tracks it should `span`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `span` is `0`
     pub fn span(span: u16) -> Self {
         Self {
             start: None,
             end: None,
-            span: Some(span),
+            span: try_into_grid_span(span).expect("Invalid span value of 0."),
         }
     }
 
     /// Place the grid item specifying the `start` grid line (letting the `span` default to `1`).
+    ///
+    /// # Panics
+    ///
+    /// Panics if `start` is `0`
     pub fn start(start: i16) -> Self {
         Self {
-            start: Some(start),
-            end: None,
-            span: Some(1),
+            start: try_into_grid_index(start).expect("Invalid start value of 0."),
+            ..Self::DEFAULT
         }
     }
 
     /// Place the grid item specifying the `end` grid line (letting the `span` default to `1`).
+    ///
+    /// # Panics
+    ///
+    /// Panics if `end` is `0`
     pub fn end(end: i16) -> Self {
         Self {
-            start: None,
-            end: Some(end),
-            span: Some(1),
+            end: try_into_grid_index(end).expect("Invalid end value of 0."),
+            ..Self::DEFAULT
         }
     }
 
     /// Place the grid item specifying the `start` grid line and how many tracks it should `span`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `start` or `span` is `0`
     pub fn start_span(start: i16, span: u16) -> Self {
         Self {
-            start: Some(start),
+            start: try_into_grid_index(start).expect("Invalid start value of 0."),
             end: None,
-            span: Some(span),
+            span: try_into_grid_span(span).expect("Invalid span value of 0."),
         }
     }
 
     /// Place the grid item specifying `start` and `end` grid lines (`span` will be inferred)
+    ///
+    /// # Panics
+    ///
+    /// Panics if `start` or `end` is `0`
     pub fn start_end(start: i16, end: i16) -> Self {
         Self {
-            start: Some(start),
-            end: Some(end),
+            start: try_into_grid_index(start).expect("Invalid start value of 0."),
+            end: try_into_grid_index(end).expect("Invalid end value of 0."),
             span: None,
         }
     }
 
     /// Place the grid item specifying the `end` grid line and how many tracks it should `span`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `end` or `span` is `0`
     pub fn end_span(end: i16, span: u16) -> Self {
         Self {
             start: None,
-            end: Some(end),
-            span: Some(span),
+            end: try_into_grid_index(end).expect("Invalid end value of 0."),
+            span: try_into_grid_span(span).expect("Invalid span value of 0."),
         }
     }
 
     /// Mutate the item, setting the `start` grid line
+    ///
+    /// # Panics
+    ///
+    /// Panics if `start` is `0`
     pub fn set_start(mut self, start: i16) -> Self {
-        self.start = Some(start);
+        self.start = try_into_grid_index(start).expect("Invalid start value of 0.");
         self
     }
 
     /// Mutate the item, setting the `end` grid line
+    ///
+    /// # Panics
+    ///
+    /// Panics if `end` is `0`
     pub fn set_end(mut self, end: i16) -> Self {
-        self.end = Some(end);
+        self.end = try_into_grid_index(end).expect("Invalid end value of 0.");
         self
     }
 
     /// Mutate the item, setting the number of tracks the item should `span`
+    ///
+    /// # Panics
+    ///
+    /// Panics if `span` is `0`
     pub fn set_span(mut self, span: u16) -> Self {
-        self.span = Some(span);
+        self.span = try_into_grid_span(span).expect("Invalid span value of 0.");
         self
+    }
+
+    /// Returns the grid line at which the item should start, or `None` if not set.
+    pub fn get_start(self) -> Option<i16> {
+        self.start.map(NonZeroI16::get)
+    }
+
+    /// Returns the grid line at which the item should end, or `None` if not set.
+    pub fn get_end(self) -> Option<i16> {
+        self.end.map(NonZeroI16::get)
+    }
+
+    /// Returns span for this grid item, or `None` if not set.
+    pub fn get_span(self) -> Option<u16> {
+        self.span.map(NonZeroU16::get)
     }
 }
 
@@ -1570,6 +1545,29 @@ impl Default for GridPlacement {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+/// Convert an `i16` to `NonZeroI16`, fails on `0` and returns the `InvalidZeroIndex` error.
+fn try_into_grid_index(index: i16) -> Result<Option<NonZeroI16>, GridPlacementError> {
+    Ok(Some(
+        NonZeroI16::new(index).ok_or(GridPlacementError::InvalidZeroIndex)?,
+    ))
+}
+
+/// Convert a `u16` to `NonZeroU16`, fails on `0` and returns the `InvalidZeroSpan` error.
+fn try_into_grid_span(span: u16) -> Result<Option<NonZeroU16>, GridPlacementError> {
+    Ok(Some(
+        NonZeroU16::new(span).ok_or(GridPlacementError::InvalidZeroSpan)?,
+    ))
+}
+
+/// Errors that occur when setting contraints for a `GridPlacement`
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
+pub enum GridPlacementError {
+    #[error("Zero is not a valid grid position")]
+    InvalidZeroIndex,
+    #[error("Spans cannot be zero length")]
+    InvalidZeroSpan,
 }
 
 /// The background color of the node
@@ -1719,136 +1717,66 @@ impl Default for ZIndex {
 
 #[cfg(test)]
 mod tests {
-    use crate::ValArithmeticError;
-
     use super::Val;
-
-    #[test]
-    fn val_try_add() {
-        let auto_sum = Val::Auto.try_add(Val::Auto).unwrap();
-        let px_sum = Val::Px(20.).try_add(Val::Px(22.)).unwrap();
-        let percent_sum = Val::Percent(50.).try_add(Val::Percent(50.)).unwrap();
-
-        assert_eq!(auto_sum, Val::Auto);
-        assert_eq!(px_sum, Val::Px(42.));
-        assert_eq!(percent_sum, Val::Percent(100.));
-    }
-
-    #[test]
-    fn val_try_add_to_self() {
-        let mut val = Val::Px(5.);
-
-        val.try_add_assign(Val::Px(3.)).unwrap();
-
-        assert_eq!(val, Val::Px(8.));
-    }
-
-    #[test]
-    fn val_try_sub() {
-        let auto_sum = Val::Auto.try_sub(Val::Auto).unwrap();
-        let px_sum = Val::Px(72.).try_sub(Val::Px(30.)).unwrap();
-        let percent_sum = Val::Percent(100.).try_sub(Val::Percent(50.)).unwrap();
-
-        assert_eq!(auto_sum, Val::Auto);
-        assert_eq!(px_sum, Val::Px(42.));
-        assert_eq!(percent_sum, Val::Percent(50.));
-    }
-
-    #[test]
-    fn different_variant_val_try_add() {
-        let different_variant_sum_1 = Val::Px(50.).try_add(Val::Percent(50.));
-        let different_variant_sum_2 = Val::Percent(50.).try_add(Val::Auto);
-
-        assert_eq!(
-            different_variant_sum_1,
-            Err(ValArithmeticError::NonIdenticalVariants)
-        );
-        assert_eq!(
-            different_variant_sum_2,
-            Err(ValArithmeticError::NonIdenticalVariants)
-        );
-    }
-
-    #[test]
-    fn different_variant_val_try_sub() {
-        let different_variant_diff_1 = Val::Px(50.).try_sub(Val::Percent(50.));
-        let different_variant_diff_2 = Val::Percent(50.).try_sub(Val::Auto);
-
-        assert_eq!(
-            different_variant_diff_1,
-            Err(ValArithmeticError::NonIdenticalVariants)
-        );
-        assert_eq!(
-            different_variant_diff_2,
-            Err(ValArithmeticError::NonIdenticalVariants)
-        );
-    }
+    use crate::GridPlacement;
+    use crate::ValArithmeticError;
+    use bevy_math::vec2;
 
     #[test]
     fn val_evaluate() {
         let size = 250.;
-        let result = Val::Percent(80.).evaluate(size).unwrap();
+        let viewport_size = vec2(1000., 500.);
+        let result = Val::Percent(80.).resolve(size, viewport_size).unwrap();
 
         assert_eq!(result, size * 0.8);
     }
 
     #[test]
-    fn val_evaluate_px() {
+    fn val_resolve_px() {
         let size = 250.;
-        let result = Val::Px(10.).evaluate(size).unwrap();
+        let viewport_size = vec2(1000., 500.);
+        let result = Val::Px(10.).resolve(size, viewport_size).unwrap();
 
         assert_eq!(result, 10.);
     }
 
     #[test]
-    fn val_invalid_evaluation() {
+    fn val_resolve_viewport_coords() {
         let size = 250.;
-        let evaluate_auto = Val::Auto.evaluate(size);
+        let viewport_size = vec2(500., 500.);
 
-        assert_eq!(evaluate_auto, Err(ValArithmeticError::NonEvaluateable));
+        for value in (-10..10).map(|value| value as f32) {
+            // for a square viewport there should be no difference between `Vw` and `Vh` and between `Vmin` and `Vmax`.
+            assert_eq!(
+                Val::Vw(value).resolve(size, viewport_size),
+                Val::Vh(value).resolve(size, viewport_size)
+            );
+            assert_eq!(
+                Val::VMin(value).resolve(size, viewport_size),
+                Val::VMax(value).resolve(size, viewport_size)
+            );
+            assert_eq!(
+                Val::VMin(value).resolve(size, viewport_size),
+                Val::Vw(value).resolve(size, viewport_size)
+            );
+        }
+
+        let viewport_size = vec2(1000., 500.);
+        assert_eq!(Val::Vw(100.).resolve(size, viewport_size).unwrap(), 1000.);
+        assert_eq!(Val::Vh(100.).resolve(size, viewport_size).unwrap(), 500.);
+        assert_eq!(Val::Vw(60.).resolve(size, viewport_size).unwrap(), 600.);
+        assert_eq!(Val::Vh(40.).resolve(size, viewport_size).unwrap(), 200.);
+        assert_eq!(Val::VMin(50.).resolve(size, viewport_size).unwrap(), 250.);
+        assert_eq!(Val::VMax(75.).resolve(size, viewport_size).unwrap(), 750.);
     }
 
     #[test]
-    fn val_try_add_with_size() {
+    fn val_auto_is_non_resolveable() {
         let size = 250.;
+        let viewport_size = vec2(1000., 500.);
+        let resolve_auto = Val::Auto.resolve(size, viewport_size);
 
-        let px_sum = Val::Px(21.).try_add_with_size(Val::Px(21.), size).unwrap();
-        let percent_sum = Val::Percent(20.)
-            .try_add_with_size(Val::Percent(30.), size)
-            .unwrap();
-        let mixed_sum = Val::Px(20.)
-            .try_add_with_size(Val::Percent(30.), size)
-            .unwrap();
-
-        assert_eq!(px_sum, 42.);
-        assert_eq!(percent_sum, 0.5 * size);
-        assert_eq!(mixed_sum, 20. + 0.3 * size);
-    }
-
-    #[test]
-    fn val_try_sub_with_size() {
-        let size = 250.;
-
-        let px_sum = Val::Px(60.).try_sub_with_size(Val::Px(18.), size).unwrap();
-        let percent_sum = Val::Percent(80.)
-            .try_sub_with_size(Val::Percent(30.), size)
-            .unwrap();
-        let mixed_sum = Val::Percent(50.)
-            .try_sub_with_size(Val::Px(30.), size)
-            .unwrap();
-
-        assert_eq!(px_sum, 42.);
-        assert_eq!(percent_sum, 0.5 * size);
-        assert_eq!(mixed_sum, 0.5 * size - 30.);
-    }
-
-    #[test]
-    fn val_try_add_non_numeric_with_size() {
-        let size = 250.;
-
-        let percent_sum = Val::Auto.try_add_with_size(Val::Auto, size);
-
-        assert_eq!(percent_sum, Err(ValArithmeticError::NonEvaluateable));
+        assert_eq!(resolve_auto, Err(ValArithmeticError::NonEvaluateable));
     }
 
     #[test]
@@ -1866,5 +1794,31 @@ mod tests {
     #[test]
     fn default_val_equals_const_default_val() {
         assert_eq!(Val::default(), Val::DEFAULT);
+    }
+
+    #[test]
+    fn invalid_grid_placement_values() {
+        assert!(std::panic::catch_unwind(|| GridPlacement::span(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(-1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_start(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_end(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_span(0)).is_err());
+    }
+
+    #[test]
+    fn grid_placement_accessors() {
+        assert_eq!(GridPlacement::start(5).get_start(), Some(5));
+        assert_eq!(GridPlacement::end(-4).get_end(), Some(-4));
+        assert_eq!(GridPlacement::span(2).get_span(), Some(2));
+        assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
+        assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
+        assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
     }
 }

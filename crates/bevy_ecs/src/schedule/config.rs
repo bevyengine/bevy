@@ -91,14 +91,15 @@ impl SystemConfigs {
 }
 
 impl<T> NodeConfigs<T> {
-    pub(crate) fn in_set_inner(&mut self, set: BoxedSystemSet) {
+    /// Adds a new boxed system set to the systems.
+    pub fn in_set_dyn(&mut self, set: BoxedSystemSet) {
         match self {
             Self::NodeConfig(config) => {
                 config.graph_info.sets.push(set);
             }
             Self::Configs { configs, .. } => {
-                for configs in configs {
-                    configs.in_set_inner(set.dyn_clone());
+                for config in configs {
+                    config.in_set_dyn(set.dyn_clone());
                 }
             }
         }
@@ -175,7 +176,11 @@ impl<T> NodeConfigs<T> {
         }
     }
 
-    pub(crate) fn run_if_inner(&mut self, condition: BoxedCondition) {
+    /// Adds a new boxed run condition to the systems.
+    ///
+    /// This is useful if you have a run condition whose concrete type is unknown.
+    /// Prefer `run_if` for run conditions whose type is known at compile time.
+    pub fn run_if_dyn(&mut self, condition: BoxedCondition) {
         match self {
             Self::NodeConfig(config) => {
                 config.conditions.push(condition);
@@ -238,7 +243,7 @@ where
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # let mut schedule = Schedule::new();
+    /// # let mut schedule = Schedule::default();
     /// # fn a() {}
     /// # fn b() {}
     /// # fn condition() -> bool { true }
@@ -271,7 +276,7 @@ where
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # let mut schedule = Schedule::new();
+    /// # let mut schedule = Schedule::default();
     /// # fn a() {}
     /// # fn b() {}
     /// # fn condition() -> bool { true }
@@ -325,7 +330,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
             "adding arbitrary systems to a system type set is not allowed"
         );
 
-        self.in_set_inner(set.dyn_clone());
+        self.in_set_dyn(set.dyn_clone());
 
         self
     }
@@ -359,7 +364,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
     }
 
     fn run_if<M>(mut self, condition: impl Condition<M>) -> SystemConfigs {
-        self.run_if_inner(new_condition(condition));
+        self.run_if_dyn(new_condition(condition));
         self
     }
 
@@ -396,6 +401,7 @@ all_tuples!(impl_system_collection, 1, 20, P, S);
 pub type SystemSetConfig = NodeConfig<BoxedSystemSet>;
 
 impl SystemSetConfig {
+    #[track_caller]
     pub(super) fn new(set: BoxedSystemSet) -> Self {
         // system type sets are automatically populated
         // to avoid unintentionally broad changes, they cannot be configured
@@ -479,7 +485,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
             set.system_type().is_none(),
             "adding arbitrary systems to a system type set is not allowed"
         );
-        self.in_set_inner(set.dyn_clone());
+        self.in_set_dyn(set.dyn_clone());
 
         self
     }
@@ -499,7 +505,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
     }
 
     fn run_if<M>(mut self, condition: impl Condition<M>) -> SystemSetConfigs {
-        self.run_if_inner(new_condition(condition));
+        self.run_if_dyn(new_condition(condition));
 
         self
     }
