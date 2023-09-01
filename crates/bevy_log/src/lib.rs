@@ -161,6 +161,8 @@ pub struct FileAppenderSettings {
     pub path: PathBuf,
     /// The prefix added when creating a file
     pub prefix: String,
+    /// When this is enabled, a panic hook will be used and any panic will be logged as an error
+    pub use_panic_hook: bool,
 }
 
 impl Default for FileAppenderSettings {
@@ -169,6 +171,7 @@ impl Default for FileAppenderSettings {
             rolling: Rolling::Never,
             path: PathBuf::from("."),
             prefix: String::from("log"),
+            use_panic_hook: true,
         }
     }
 }
@@ -253,6 +256,16 @@ impl Plugin for LogPlugin {
             };
 
             let file_appender_layer = if let Some(settings) = &self.file_appender_settings {
+                if settings.use_panic_hook {
+                    std::panic::set_hook(Box::new(|panic_info| {
+                        if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
+                            error!("panic occurred: {s:?}");
+                        } else {
+                            error!("panic occurred");
+                        }
+                    }));
+                }
+
                 if settings.rolling == Rolling::Never && settings.prefix.is_empty() {
                     panic!("Using the Rolling::Never variant with no prefix will result in an empty filename which is invalid");
                 }
