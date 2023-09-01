@@ -699,8 +699,6 @@ pub fn queue_uinodes(mut extracted_uinodes: ResMut<ExtractedUiNodes>) {
     extracted_uinodes
         .ranges
         .sort_unstable_by_key(|extracted_range| extracted_range.sort_key);
-
-    extracted_uinodes.discriminator = 0;
 }
 
 #[allow(clippy::too_many_arguments)]
