@@ -98,7 +98,7 @@ fn setup(
         style: Style {
             position_type: PositionType::Absolute,
             top: Val::Px(130.0),
-            right: Val::Px(0.0),
+            right: Val::ZERO,
             ..default()
         },
         transform: Transform {

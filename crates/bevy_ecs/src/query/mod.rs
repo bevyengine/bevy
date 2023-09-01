@@ -789,7 +789,7 @@ mod tests {
             }
         }
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         schedule.add_systems((propagate_system, modify_system).chain());
         schedule.run(&mut world);
         world.clear_trackers();
