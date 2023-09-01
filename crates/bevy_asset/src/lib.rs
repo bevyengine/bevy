@@ -737,15 +737,17 @@ mod tests {
             let (c_load, c_deps, c_rec_deps) = asset_server.get_load_states(c_id).unwrap();
             assert_eq!(c_text.text, "c");
             assert_eq!(c_text.embedded, "ab");
-            assert_eq!(c_load, LoadState::Loaded);
-            assert_eq!(c_deps, DependencyLoadState::Loaded);
-            assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Loaded);
 
             let d_id = c_text.dependencies[0].id();
             let d_text = get::<CoolText>(world, d_id)?;
             let (d_load, d_deps, d_rec_deps) = asset_server.get_load_states(d_id).unwrap();
             assert_eq!(d_text.text, "d");
             assert_eq!(d_text.embedded, "");
+
+            assert_eq!(c_load, LoadState::Loaded);
+            assert_eq!(c_deps, DependencyLoadState::Loaded);
+            assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Loaded);
+
             assert_eq!(d_load, LoadState::Loaded);
             assert_eq!(d_deps, DependencyLoadState::Loaded);
             assert_eq!(d_rec_deps, RecursiveDependencyLoadState::Loaded);
