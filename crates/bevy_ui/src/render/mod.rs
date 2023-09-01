@@ -165,7 +165,7 @@ pub struct ExtractedUiNode {
 }
 
 pub struct ExtractedRange {
-    stack_index: u32,
+    sort_key: u32,
     range: Range<u32>,
 }
 
@@ -181,13 +181,23 @@ pub struct ExtractedUiNodes {
     //ranges: Vec<ExtractedRange>,
     pub ranges: Vec<ExtractedRange>,
     uinodes: Vec<ExtractedUiNode>,
+    discriminator: u8,
 }
 
 impl ExtractedUiNodes {
+    pub fn finish(&mut self) {
+        self.discriminator += 1;
+    }
+
+    #[inline]
+    pub fn get_key(&self, stack_index: u32) -> u32 {
+        (stack_index << 8) | (self.discriminator as u32)
+    }
+    
     /// Add a single `ExtractedUiNode` for rendering.
     pub fn push_node(&mut self, stack_index: u32, item: ExtractedUiNode) {
         self.ranges.push(ExtractedRange {
-            stack_index,
+            sort_key: self.get_key(stack_index),
             range: self.uinodes.len() as u32..(self.uinodes.len() + 1) as u32,
         });
         self.uinodes.push(item);
@@ -198,7 +208,7 @@ impl ExtractedUiNodes {
         let start = self.uinodes.len() as u32;
         self.uinodes.extend(items);
         self.ranges.push(ExtractedRange {
-            stack_index,
+            sort_key: self.get_key(stack_index),
             range: start..self.uinodes.len() as u32,
         });
     }
@@ -673,7 +683,9 @@ pub fn queue_uinodes(
 ) {
         extracted_uinodes
         .ranges
-        .sort_by_key(|extracted_range| extracted_range.stack_index);
+        .sort_unstable_by_key(|extracted_range| extracted_range.sort_key);
+
+    extracted_uinodes.discriminator = 0;
 }
 
 #[allow(clippy::too_many_arguments)]
