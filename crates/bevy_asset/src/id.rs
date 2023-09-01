@@ -227,7 +227,7 @@ pub enum UntypedAssetId {
 impl UntypedAssetId {
     /// Converts this to a "typed" [`AssetId`] without checking the stored type to see if it matches the target `A` [`Asset`] type.
     /// This should only be called if you are _absolutely certain_ the asset type matches the stored type. And even then, you should
-    /// consider using [`UntypedAssetId::type_debug_checked`] instead.
+    /// consider using [`UntypedAssetId::typed_debug_checked`] instead.
     #[inline]
     pub fn typed_unchecked<A: Asset>(self) -> AssetId<A> {
         match self {

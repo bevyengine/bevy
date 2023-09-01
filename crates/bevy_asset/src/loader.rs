@@ -283,7 +283,7 @@ impl<'a> LoadContext<'a> {
 
     /// Begins a new labeled asset load. Use the returned [`LoadContext`] to load
     /// dependencies for the new asset and call [`LoadContext::finish`] to finalize the asset load.
-    /// When finished, make sure you call [`LoadContext::add_labled_asset`] to add the results back to the parent
+    /// When finished, make sure you call [`LoadContext::add_labeled_asset`] to add the results back to the parent
     /// context.
     /// Prefer [`LoadContext::labeled_asset_scope`] when possible, which will automatically add
     /// the labeled [`LoadContext`] back to the parent context.
@@ -430,7 +430,8 @@ impl<'a> LoadContext<'a> {
     /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the asset.
     /// If the current context is a normal [`AssetServer::load`], an actual asset load will be kicked off immediately, which ensures the load happens
     /// as soon as possible.
-    /// If the current context is an [`AssetServer::load_direct_async`] (such as in the [`AssetProcessor`](crate::processor::AssetProcessor)),
+    /// "Normal loads" kicked from within a normal Bevy App will generally configure the context to kick off loads immediately.  
+    /// If the current context is configured to not load dependencies automatically (ex: [`AssetProcessor`](crate::processor::AssetProcessor)),
     /// a load will not be kicked off automatically. It is then the calling context's responsibility to begin a load if necessary.
     pub fn load<'b, A: Asset>(&mut self, path: impl Into<AssetPath<'b>>) -> Handle<A> {
         let path = path.into().to_owned();

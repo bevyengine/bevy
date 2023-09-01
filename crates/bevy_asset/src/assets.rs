@@ -140,7 +140,7 @@ impl<A: Asset> DenseAssetStorage<A> {
         }
     }
 
-    /// Removes the asset stored at the given [`index`] and returns it as [`Some`] (if the asset exists).
+    /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
     pub(crate) fn remove(&mut self, index: AssetIndex) -> Option<A> {
         self.flush();
         let value = match &mut self.storage[index.index as usize] {
