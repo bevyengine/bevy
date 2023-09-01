@@ -225,7 +225,7 @@ impl AssetInfos {
         )
     }
 
-    /// Updates AssetInfo / load state for an asset that has finished loading (and relevant dependencies / dependants).
+    /// Updates [`AssetInfo`] / load state for an asset that has finished loading (and relevant dependencies / dependants).
     pub(crate) fn process_asset_load(
         &mut self,
         loaded_asset_id: UntypedAssetId,

@@ -54,11 +54,11 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError>;
     /// Returns the default meta value for the [`AssetLoader`] (erased as [`Box<dyn AssetMetaDyn>`]).
     fn default_meta(&self) -> Box<dyn AssetMetaDyn>;
-    /// Returns the type_name of the [`AssetLoader`].
+    /// Returns the type name of the [`AssetLoader`].
     fn type_name(&self) -> &'static str;
     /// Returns the [`TypeId`] of the [`AssetLoader`].
     fn type_id(&self) -> TypeId;
-    /// Returns the type_name of the top-level [`Asset`] loaded by the [`AssetLoader`].
+    /// Returns the type name of the top-level [`Asset`] loaded by the [`AssetLoader`].
     fn asset_type_name(&self) -> &'static str;
     /// Returns the [`TypeId`] of the top-level [`Asset`] loaded by the [`AssetLoader`].
     fn asset_type_id(&self) -> TypeId;

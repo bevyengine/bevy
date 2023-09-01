@@ -281,12 +281,10 @@ impl AssetProcessor {
                     Ok(is_directory) => {
                         if is_directory {
                             self.handle_removed_folder(&path).await;
+                        } else if is_meta {
+                            self.handle_removed_meta(&path).await;
                         } else {
-                            if is_meta {
-                                self.handle_removed_meta(&path).await;
-                            } else {
-                                self.handle_removed_asset(path).await;
-                            }
+                            self.handle_removed_asset(path).await;
                         }
                     }
                     Err(err) => {
@@ -326,13 +324,13 @@ impl AssetProcessor {
             "Meta for asset {:?} was removed. Attempting to re-process",
             path
         );
-        self.process_asset(&path).await;
+        self.process_asset(path).await;
     }
 
     /// Removes all processed assets stored at the given path (respecting transactionality), then removes the folder itself.
     async fn handle_removed_folder(&self, path: &Path) {
         debug!("Removing folder {:?} because source was removed", path);
-        match self.destination_reader().read_directory(&path).await {
+        match self.destination_reader().read_directory(path).await {
             Ok(mut path_stream) => {
                 while let Some(child_path) = path_stream.next().await {
                     self.handle_removed_asset(child_path).await;
@@ -351,7 +349,7 @@ impl AssetProcessor {
                 }
             },
         }
-        if let Err(err) = self.destination_writer().remove_directory(&path).await {
+        if let Err(err) = self.destination_writer().remove_directory(path).await {
             error!("Failed to remove destination folder that no longer exists in asset source {path:?}: {err}");
         }
     }
@@ -602,10 +600,11 @@ impl AssetProcessor {
             if parent == Path::new("") {
                 break;
             }
-            if let Err(_) = self
+            if self
                 .destination_writer()
                 .remove_empty_directory(parent)
                 .await
+                .is_err()
             {
                 // if we fail to delete a folder, stop walking up the tree
                 break;
@@ -1217,7 +1216,7 @@ impl ProcessorAssetInfos {
                 if let Some(status) = new_info.status {
                     new_info.status_sender.broadcast(status).await.unwrap();
                 }
-                new_info.dependants.iter().map(|d| d.clone()).collect()
+                new_info.dependants.iter().cloned().collect()
             };
             // Queue the asset for a reprocess check, in case it needs new meta.
             self.check_reprocess_queue.push_back(new.path().to_owned());

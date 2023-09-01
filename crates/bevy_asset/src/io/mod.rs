@@ -158,7 +158,7 @@ pub trait AssetWriter: Send + Sync + 'static {
     ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(async move {
             let mut writer = self.write(path).await?;
-            writer.write_all(&bytes).await?;
+            writer.write_all(bytes).await?;
             writer.flush().await?;
             Ok(())
         })
@@ -171,7 +171,7 @@ pub trait AssetWriter: Send + Sync + 'static {
     ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(async move {
             let mut meta_writer = self.write_meta(path).await?;
-            meta_writer.write_all(&bytes).await?;
+            meta_writer.write_all(bytes).await?;
             meta_writer.flush().await?;
             Ok(())
         })

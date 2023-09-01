@@ -39,12 +39,7 @@ impl<A: Asset> AssetEvent<A> {
 
 impl<A: Asset> Clone for AssetEvent<A> {
     fn clone(&self) -> Self {
-        match self {
-            Self::Added { id } => Self::Added { id: *id },
-            Self::Modified { id } => Self::Modified { id: *id },
-            Self::Removed { id } => Self::Removed { id: *id },
-            Self::LoadedWithDependencies { id } => Self::LoadedWithDependencies { id: *id },
-        }
+        *self
     }
 }
 

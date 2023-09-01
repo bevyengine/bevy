@@ -66,6 +66,7 @@ impl FileWatcher {
                                         sender.send(AssetSourceEvent::ModifiedAsset(path)).unwrap();
                                     }
                                 }
+                                notify::EventKind::Remove(RemoveKind::Any) |
                                 // Because this is debounced over a reasonable period of time, "From" events are assumed to be "dangling" without
                                 // a follow up "To" event. Without debouncing, "From" -> "To" -> "Both" events are emitted for renames.
                                 // If a From is dangling, it is assumed to be "removed" from the context of the asset system.
@@ -133,13 +134,6 @@ impl FileWatcher {
                                         }
                                     }
                                 }
-                                notify::EventKind::Remove(RemoveKind::Any) => {
-                                    let (path, is_meta) =
-                                        get_asset_path(&owned_root, &event.paths[0]);
-                                    sender
-                                        .send(AssetSourceEvent::RemovedUnknown { path, is_meta })
-                                        .unwrap();
-                                }
                                 notify::EventKind::Remove(RemoveKind::File) => {
                                     let (path, is_meta) =
                                         get_asset_path(&owned_root, &event.paths[0]);
@@ -158,7 +152,7 @@ impl FileWatcher {
                         }
                     }
                     Err(errors) => errors.iter().for_each(|error| {
-                        error!("Encountered a filesystem watcher error {error:?}")
+                        error!("Encountered a filesystem watcher error {error:?}");
                     }),
                 }
             },

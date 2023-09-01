@@ -502,7 +502,7 @@ mod tests {
         mut reader: EventReader<AssetEvent<CoolText>>,
         mut storage: ResMut<StoredEvents>,
     ) {
-        storage.0.extend(reader.iter().cloned());
+        storage.0.extend(reader.read().cloned());
     }
 
     #[test]
@@ -1075,7 +1075,7 @@ mod tests {
             let asset_server = world.resource::<AssetServer>();
             let loaded_folders = world.resource::<Assets<LoadedFolder>>();
             let cool_texts = world.resource::<Assets<CoolText>>();
-            for event in reader.iter(events) {
+            for event in reader.read(events) {
                 if let AssetEvent::LoadedWithDependencies { id } = event {
                     if *id == handle.id() {
                         let loaded_folder = loaded_folders.get(&handle).unwrap();

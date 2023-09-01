@@ -25,7 +25,7 @@ pub struct AssetIndex {
     pub(crate) index: u32,
 }
 
-/// Allocates generational [`AssetIndex] values and facilitates their reuse.
+/// Allocates generational [`AssetIndex`] values and facilitates their reuse.
 pub(crate) struct AssetIndexAllocator {
     /// A monotonically increasing index.
     next_index: AtomicU32,
@@ -85,7 +85,7 @@ enum Entry<A: Asset> {
     },
 }
 
-/// Stores [`Asset`] values in a Vec-like storage identified by [`AssetIndex].
+/// Stores [`Asset`] values in a Vec-like storage identified by [`AssetIndex`].
 struct DenseAssetStorage<A: Asset> {
     storage: Vec<Entry<A>>,
     len: u32,

@@ -122,7 +122,7 @@ impl<'a> AssetPath<'a> {
     }
 
     /// Returns the full extension (including multiple '.' values).
-    /// Ex: Returns "config.ron" for "my_asset.config.ron"
+    /// Ex: Returns `"config.ron"` for `"my_asset.config.ron"`
     pub fn get_full_extension(&self) -> Option<String> {
         let file_name = self.path.file_name()?.to_str()?;
         let index = file_name.find('.')?;

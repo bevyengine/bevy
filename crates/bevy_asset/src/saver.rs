@@ -67,7 +67,7 @@ impl<'a, A: Asset> Deref for SavedAsset<'a, A> {
     type Target = A;
 
     fn deref(&self) -> &Self::Target {
-        &self.value
+        self.value
     }
 }
 

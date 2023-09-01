@@ -255,6 +255,6 @@ impl<'a> ProcessContext<'a> {
     /// The source bytes of the asset being processed.
     #[inline]
     pub fn asset_bytes(&self) -> &[u8] {
-        &self.asset_bytes
+        self.asset_bytes
     }
 }

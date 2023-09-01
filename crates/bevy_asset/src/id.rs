@@ -84,13 +84,7 @@ impl<A: Asset> Default for AssetId<A> {
 
 impl<A: Asset> Clone for AssetId<A> {
     fn clone(&self) -> Self {
-        match self {
-            Self::Index { index, .. } => Self::Index {
-                index: *index,
-                marker: PhantomData,
-            },
-            Self::Uuid { uuid } => Self::Uuid { uuid: *uuid },
-        }
+        *self
     }
 }
 
