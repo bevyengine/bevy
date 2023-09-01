@@ -266,7 +266,7 @@ pub fn extract_atlas_uinodes(
     ) in uinode_query.iter()
     {
         // Skip invisible and completely transparent nodes
-        if !view_visibility.get()  || color.0.a() == 0.0 {
+        if !view_visibility.get() || color.0.a() == 0.0 {
             continue;
         }
 
