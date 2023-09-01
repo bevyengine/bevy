@@ -31,7 +31,7 @@ fn touch_camera(
 ) {
     let window = windows.single();
 
-    for touch in touches.iter() {
+    for touch in touches.read() {
         if touch.phase == TouchPhase::Started {
             *last_position = None;
         }

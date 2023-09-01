@@ -4,7 +4,7 @@ use bevy_ecs::{
     entity::Entity,
     prelude::Events,
     system::{Command, Commands, EntityCommands},
-    world::{EntityMut, World},
+    world::{EntityWorldMut, World},
 };
 use smallvec::SmallVec;
 
@@ -460,7 +460,7 @@ pub struct WorldChildBuilder<'w> {
 impl<'w> WorldChildBuilder<'w> {
     /// Spawns an entity with the given bundle and inserts it into the parent entity's [`Children`].
     /// Also adds [`Parent`] component to the created entity.
-    pub fn spawn(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityMut<'_> {
+    pub fn spawn(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityWorldMut<'_> {
         let entity = self.world.spawn((bundle, Parent(self.parent))).id();
         push_child_unchecked(self.world, self.parent, entity);
         push_events(
@@ -475,7 +475,7 @@ impl<'w> WorldChildBuilder<'w> {
 
     /// Spawns an [`Entity`] with no components and inserts it into the parent entity's [`Children`].
     /// Also adds [`Parent`] component to the created entity.
-    pub fn spawn_empty(&mut self) -> EntityMut<'_> {
+    pub fn spawn_empty(&mut self) -> EntityWorldMut<'_> {
         let entity = self.world.spawn(Parent(self.parent)).id();
         push_child_unchecked(self.world, self.parent, entity);
         push_events(
@@ -554,7 +554,7 @@ pub trait BuildWorldChildren {
     fn remove_parent(&mut self) -> &mut Self;
 }
 
-impl<'w> BuildWorldChildren for EntityMut<'w> {
+impl<'w> BuildWorldChildren for EntityWorldMut<'w> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self {
         let parent = self.id();
         self.world_scope(|world| {

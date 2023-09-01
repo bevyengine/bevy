@@ -146,7 +146,7 @@ impl<T: Asset> Assets<T> {
     /// Get mutable access to the asset for the given handle.
     ///
     /// This is the main method for mutably accessing asset data from an [Assets] collection. If you
-    /// do not need mutable access to the asset, you may also use [get](Assets::get).
+    /// do not need mutable access to the asset, you may also use [`get`](Assets::get).
     pub fn get_mut(&mut self, handle: &Handle<T>) -> Option<&mut T> {
         let id: HandleId = handle.into();
         self.events.send(AssetEvent::Modified {
