@@ -1,12 +1,9 @@
-use std::any::TypeId;
 use std::borrow::Cow;
 use std::ops::Not;
 
-use crate::component::{self, ComponentId};
-use crate::query::Access;
-use crate::system::{CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System};
-use crate::world::unsafe_world_cell::UnsafeWorldCell;
-use crate::world::World;
+use crate::system::{
+    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System,
+};
 
 /// A type-erased run condition stored in a [`Box`].
 pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
@@ -29,7 +26,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 ///
 /// # #[derive(Resource)] struct DidRun(bool);
 /// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
-/// # let mut schedule = Schedule::new();
+/// # let mut schedule = Schedule::default();
 /// schedule.add_systems(my_system.run_if(every_other_time()));
 /// # let mut world = World::new();
 /// # world.insert_resource(DidRun(false));
@@ -49,13 +46,13 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// }
 ///
 /// # fn always_true() -> bool { true }
-/// # let mut schedule = Schedule::new();
+/// # let mut app = Schedule::default();
 /// # #[derive(Resource)] struct DidRun(bool);
 /// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
-/// schedule.add_systems(my_system.run_if(always_true.pipe(identity())));
+/// app.add_systems(my_system.run_if(always_true.pipe(identity())));
 /// # let mut world = World::new();
 /// # world.insert_resource(DidRun(false));
-/// # schedule.run(&mut world);
+/// # app.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
 pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// Returns a new run condition that only returns `true`
@@ -72,7 +69,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// #[derive(Resource, PartialEq)]
     /// struct R(u32);
     ///
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # fn my_system() {}
     /// app.add_systems(
@@ -89,7 +86,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, PartialEq)]
     /// # struct R(u32);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # fn my_system() {}
     /// app.add_systems(
@@ -126,7 +123,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// #[derive(Resource, PartialEq)]
     /// struct B(u32);
     ///
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # #[derive(Resource)] struct C(bool);
     /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
@@ -181,8 +178,6 @@ mod sealed {
 
 /// A collection of [run conditions](Condition) that may be useful in any bevy app.
 pub mod common_conditions {
-    use std::borrow::Cow;
-
     use super::NotSystem;
     use crate::{
         change_detection::DetectChanges,
@@ -202,7 +197,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -243,7 +238,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_exists` will only return true if the given resource exists in the world
@@ -282,7 +277,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default, PartialEq)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -320,7 +315,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default, PartialEq)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_exists_and_equals` will only return true
@@ -363,7 +358,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_added` will only return true if the
@@ -413,7 +408,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -467,7 +462,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// app.add_systems(
     ///     // `resource_exists_and_changed` will only return true if the
@@ -528,7 +523,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -598,7 +593,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -653,7 +648,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
@@ -700,7 +695,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
@@ -752,7 +747,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
@@ -818,7 +813,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
@@ -868,7 +863,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// # world.init_resource::<Events<MyEvent>>();
@@ -900,7 +895,7 @@ pub mod common_conditions {
         // calls of the run condition. Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
         // due to Bevy having a specialized implementation for events.
-        move |mut reader: EventReader<T>| reader.iter().count() > 0
+        move |mut reader: EventReader<T>| reader.read().count() > 0
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -912,7 +907,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -959,7 +954,7 @@ pub mod common_conditions {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
-    /// # let mut app = Schedule::new();
+    /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
@@ -987,96 +982,30 @@ pub mod common_conditions {
     {
         let condition = IntoSystem::into_system(condition);
         let name = format!("!{}", condition.name());
-        NotSystem::<T::System> {
-            condition,
-            name: Cow::Owned(name),
-        }
+        NotSystem::new(super::NotMarker, condition, name.into())
     }
 }
 
 /// Invokes [`Not`] with the output of another system.
 ///
 /// See [`common_conditions::not`] for examples.
-#[derive(Clone)]
-pub struct NotSystem<T: System>
-where
-    T::Out: Not,
-{
-    condition: T,
-    name: Cow<'static, str>,
-}
-impl<T: System> System for NotSystem<T>
+pub type NotSystem<T> = AdapterSystem<NotMarker, T>;
+
+/// Used with [`AdapterSystem`] to negate the output of a system via the [`Not`] operator.
+#[doc(hidden)]
+#[derive(Clone, Copy)]
+pub struct NotMarker;
+
+impl<T: System> Adapt<T> for NotMarker
 where
     T::Out: Not,
 {
     type In = T::In;
     type Out = <T::Out as Not>::Output;
 
-    fn name(&self) -> Cow<'static, str> {
-        self.name.clone()
+    fn adapt(&mut self, input: Self::In, run_system: impl FnOnce(T::In) -> T::Out) -> Self::Out {
+        !run_system(input)
     }
-
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<T>()
-    }
-
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.condition.component_access()
-    }
-
-    fn archetype_component_access(&self) -> &Access<crate::archetype::ArchetypeComponentId> {
-        self.condition.archetype_component_access()
-    }
-
-    fn is_send(&self) -> bool {
-        self.condition.is_send()
-    }
-
-    fn is_exclusive(&self) -> bool {
-        self.condition.is_exclusive()
-    }
-
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
-        // SAFETY: The inner condition system asserts its own safety.
-        !self.condition.run_unsafe(input, world)
-    }
-
-    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
-        !self.condition.run(input, world)
-    }
-
-    fn apply_deferred(&mut self, world: &mut World) {
-        self.condition.apply_deferred(world);
-    }
-
-    fn initialize(&mut self, world: &mut World) {
-        self.condition.initialize(world);
-    }
-
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.condition.update_archetype_component_access(world);
-    }
-
-    fn check_change_tick(&mut self, change_tick: component::Tick) {
-        self.condition.check_change_tick(change_tick);
-    }
-
-    fn get_last_run(&self) -> component::Tick {
-        self.condition.get_last_run()
-    }
-
-    fn set_last_run(&mut self, last_run: component::Tick) {
-        self.condition.set_last_run(last_run);
-    }
-}
-
-// SAFETY: This trait is only implemented when the inner system is read-only.
-// The `Not` condition does not modify access, and thus cannot transform a read-only system into one that is not.
-unsafe impl<T> ReadOnlySystem for NotSystem<T>
-where
-    T: ReadOnlySystem,
-    T::Out: Not,
-{
 }
 
 /// Combines the outputs of two systems using the `&&` operator.
@@ -1155,7 +1084,7 @@ mod tests {
     fn run_condition() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         // Run every other cycle
         schedule.add_systems(increment_counter.run_if(every_other_time));
@@ -1182,7 +1111,7 @@ mod tests {
     fn run_condition_combinators() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         // Always run
         schedule.add_systems(increment_counter.run_if(every_other_time.or_else(|| true)));
@@ -1199,7 +1128,7 @@ mod tests {
     fn multiple_run_conditions() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         // Run every other cycle
         schedule.add_systems(increment_counter.run_if(every_other_time).run_if(|| true));
@@ -1217,7 +1146,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Counter>();
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         // This should never run, if multiple run conditions worked
         // like an OR condition then it would always run

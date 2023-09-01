@@ -149,7 +149,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// # score_changed.initialize(&mut world);
     /// # score_changed.run((), &mut world);
     /// #
-    /// # let mut schedule = Schedule::new();
+    /// # let mut schedule = Schedule::default();
     /// # schedule.add_systems(reset_score);
     /// #
     /// # // first time `reset_score` runs, the score is changed.
@@ -214,7 +214,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// # score_changed_event.initialize(&mut world);
     /// # score_changed_event.run((), &mut world);
     /// #
-    /// # let mut schedule = Schedule::new();
+    /// # let mut schedule = Schedule::default();
     /// # schedule.add_systems(reset_score);
     /// #
     /// # // first time `reset_score` runs, the score is changed.

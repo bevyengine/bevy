@@ -1,3 +1,5 @@
+//! The gamepad input functionality.
+
 use crate::{Axis, ButtonState, Input};
 use bevy_ecs::event::{Event, EventReader, EventWriter};
 use bevy_ecs::{
@@ -1021,7 +1023,7 @@ pub fn gamepad_connection_system(
     mut button_axis: ResMut<Axis<GamepadButton>>,
     mut button_input: ResMut<Input<GamepadButton>>,
 ) {
-    for connection_event in connection_events.iter() {
+    for connection_event in connection_events.read() {
         let gamepad = connection_event.gamepad;
 
         if let GamepadConnection::Connected(info) = &connection_event.connection {
@@ -1166,7 +1168,7 @@ pub fn gamepad_axis_event_system(
     mut gamepad_axis: ResMut<Axis<GamepadAxis>>,
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
 ) {
-    for axis_event in axis_events.iter() {
+    for axis_event in axis_events.read() {
         let axis = GamepadAxis::new(axis_event.gamepad, axis_event.axis_type);
         gamepad_axis.set(axis, axis_event.value);
     }
@@ -1179,7 +1181,7 @@ pub fn gamepad_button_event_system(
     mut button_input_events: EventWriter<GamepadButtonInput>,
     settings: Res<GamepadSettings>,
 ) {
-    for button_event in button_changed_events.iter() {
+    for button_event in button_changed_events.read() {
         let button = GamepadButton::new(button_event.gamepad, button_event.button_type);
         let value = button_event.value;
         let button_property = settings.get_button_settings(button);
@@ -1256,7 +1258,7 @@ pub fn gamepad_event_system(
     mut button_input: ResMut<Input<GamepadButton>>,
 ) {
     button_input.bypass_change_detection().clear();
-    for gamepad_event in gamepad_events.iter() {
+    for gamepad_event in gamepad_events.read() {
         match gamepad_event {
             GamepadEvent::Connection(connection_event) => {
                 connection_events.send(connection_event.clone());

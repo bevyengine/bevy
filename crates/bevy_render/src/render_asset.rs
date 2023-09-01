@@ -4,6 +4,7 @@ use bevy_asset::{Asset, AssetEvent, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
+    schedule::SystemConfigs,
     system::{StaticSystemParam, SystemParam, SystemParamItem},
 };
 use bevy_utils::{HashMap, HashSet};
@@ -20,7 +21,7 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
 /// Therefore it is converted into a [`RenderAsset::ExtractedAsset`], which may be the same type
 /// as the render asset itself.
 ///
-/// After that in the [`RenderSet::Prepare`](crate::RenderSet::Prepare) step the extracted asset
+/// After that in the [`RenderSet::PrepareAssets`](crate::RenderSet::PrepareAssets) step the extracted asset
 /// is transformed into its GPU-representation of type [`RenderAsset::PreparedAsset`].
 pub trait RenderAsset: Asset {
     /// The representation of the asset in the "render world".
@@ -40,65 +41,62 @@ pub trait RenderAsset: Asset {
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>>;
 }
 
-#[derive(Clone, Hash, Debug, Default, PartialEq, Eq, SystemSet)]
-pub enum PrepareAssetSet {
-    PreAssetPrepare,
-    #[default]
-    AssetPrepare,
-    PostAssetPrepare,
-}
-
 /// This plugin extracts the changed assets from the "app world" into the "render world"
 /// and prepares them for the GPU. They can then be accessed from the [`RenderAssets`] resource.
 ///
 /// Therefore it sets up the [`ExtractSchedule`](crate::ExtractSchedule) and
-/// [`RenderSet::Prepare`](crate::RenderSet::Prepare) steps for the specified [`RenderAsset`].
-pub struct RenderAssetPlugin<A: RenderAsset> {
-    prepare_asset_set: PrepareAssetSet,
-    phantom: PhantomData<fn() -> A>,
+/// [`RenderSet::PrepareAssets`](crate::RenderSet::PrepareAssets) steps for the specified [`RenderAsset`].
+///
+/// The `AFTER` generic parameter can be used to specify that `A::prepare_asset` should not be run until
+/// `prepare_assets::<AFTER>` has completed. This allows the `prepare_asset` function to depend on another
+/// prepared [`RenderAsset`], for example `Mesh::prepare_asset` relies on `RenderAssets::<Image>` for morph
+/// targets, so the plugin is created as `RenderAssetPlugin::<Mesh, Image>::default()`.
+pub struct RenderAssetPlugin<A: RenderAsset, AFTER: RenderAssetDependency + 'static = ()> {
+    phantom: PhantomData<fn() -> (A, AFTER)>,
 }
 
-impl<A: RenderAsset> RenderAssetPlugin<A> {
-    pub fn with_prepare_asset_set(prepare_asset_set: PrepareAssetSet) -> Self {
-        Self {
-            prepare_asset_set,
-            phantom: PhantomData,
-        }
-    }
-}
-
-impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
+impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Default
+    for RenderAssetPlugin<A, AFTER>
+{
     fn default() -> Self {
         Self {
-            prepare_asset_set: Default::default(),
-            phantom: PhantomData,
+            phantom: Default::default(),
         }
     }
 }
 
-impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
+impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
+    for RenderAssetPlugin<A, AFTER>
+{
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<RenderAssets<A>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
-                .add_systems(ExtractSchedule, extract_render_asset::<A>)
-                .configure_sets(
-                    Render,
-                    (
-                        PrepareAssetSet::PreAssetPrepare,
-                        PrepareAssetSet::AssetPrepare,
-                        PrepareAssetSet::PostAssetPrepare,
-                    )
-                        .chain()
-                        .in_set(RenderSet::Prepare),
-                )
-                .add_systems(
-                    Render,
-                    prepare_assets::<A>.in_set(self.prepare_asset_set.clone()),
-                );
+                .add_systems(ExtractSchedule, extract_render_asset::<A>);
+            AFTER::register_system(
+                render_app,
+                prepare_assets::<A>.in_set(RenderSet::PrepareAssets),
+            );
         }
+    }
+}
+
+// helper to allow specifying dependencies between render assets
+pub trait RenderAssetDependency {
+    fn register_system(render_app: &mut App, system: SystemConfigs);
+}
+
+impl RenderAssetDependency for () {
+    fn register_system(render_app: &mut App, system: SystemConfigs) {
+        render_app.add_systems(Render, system);
+    }
+}
+
+impl<A: RenderAsset> RenderAssetDependency for A {
+    fn register_system(render_app: &mut App, system: SystemConfigs) {
+        render_app.add_systems(Render, system.after(prepare_assets::<A>));
     }
 }
 
@@ -138,7 +136,7 @@ fn extract_render_asset<A: RenderAsset>(
 ) {
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
-    for event in events.iter() {
+    for event in events.read() {
         match event {
             AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                 changed_assets.insert(handle.clone_weak());

@@ -21,7 +21,7 @@ use crate::{
     converters::{convert_enabled_buttons, convert_window_level, convert_window_theme},
 };
 
-/// A resource mapping window entities to their [`winit`]-backend [`Window`](winit::window::Window)
+/// A resource mapping window entities to their `winit`-backend [`Window`](winit::window::Window)
 /// states.
 #[derive(Debug, Default)]
 pub struct WinitWindows {

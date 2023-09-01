@@ -54,7 +54,7 @@ impl Plugin for SkyboxPlugin {
                 Render,
                 (
                     prepare_skybox_pipelines.in_set(RenderSet::Prepare),
-                    queue_skybox_bind_groups.in_set(RenderSet::Queue),
+                    prepare_skybox_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             );
     }
@@ -259,7 +259,7 @@ fn prepare_skybox_pipelines(
 #[derive(Component)]
 pub struct SkyboxBindGroup(pub (BindGroup, u32));
 
-fn queue_skybox_bind_groups(
+fn prepare_skybox_bind_groups(
     mut commands: Commands,
     pipeline: Res<SkyboxPipeline>,
     view_uniforms: Res<ViewUniforms>,
