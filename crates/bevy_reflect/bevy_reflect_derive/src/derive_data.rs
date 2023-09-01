@@ -195,7 +195,8 @@ impl<'a> ReflectDerive<'a> {
                     let syn::Expr::Lit(syn::ExprLit {
                         lit: syn::Lit::Str(lit),
                         ..
-                    }) = &pair.value else {
+                    }) = &pair.value
+                    else {
                         return Err(syn::Error::new(
                             pair.span(),
                             format_args!("`#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` must be a string literal"),
@@ -211,7 +212,8 @@ impl<'a> ReflectDerive<'a> {
                     let syn::Expr::Lit(syn::ExprLit {
                         lit: syn::Lit::Str(lit),
                         ..
-                    }) = &pair.value else {
+                    }) = &pair.value
+                    else {
                         return Err(syn::Error::new(
                             pair.span(),
                             format_args!("`#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` must be a string literal"),

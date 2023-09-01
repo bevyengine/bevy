@@ -124,7 +124,7 @@ impl Time {
     ///     world.insert_resource(time);
     ///     world.insert_resource(Health { health_value: 0.2 });
     ///
-    ///     let mut schedule = Schedule::new();
+    ///     let mut schedule = Schedule::default();
     ///     schedule.add_systems(health_system);
     ///
     ///     // Simulate that 30 ms have passed

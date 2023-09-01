@@ -308,6 +308,10 @@ pub(crate) fn changed_windows(
                 winit_window.set_theme(window.window_theme.map(convert_window_theme));
             }
 
+            if window.visible != cache.window.visible {
+                winit_window.set_visible(window.visible);
+            }
+
             cache.window = window.clone();
         }
     }

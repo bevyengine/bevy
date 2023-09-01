@@ -53,10 +53,15 @@ impl Node for CASNode {
         let sharpening_pipeline = world.resource::<CASPipeline>();
         let uniforms = world.resource::<ComponentUniforms<CASUniform>>();
 
-        let Ok((target, pipeline, uniform_index)) = self.query.get_manual(world, view_entity) else { return Ok(()) };
+        let Ok((target, pipeline, uniform_index)) = self.query.get_manual(world, view_entity)
+        else {
+            return Ok(());
+        };
 
         let uniforms_id = uniforms.buffer().unwrap().id();
-        let Some(uniforms) = uniforms.binding() else { return Ok(()) };
+        let Some(uniforms) = uniforms.binding() else {
+            return Ok(());
+        };
 
         let pipeline = pipeline_cache.get_render_pipeline(pipeline.0).unwrap();
 

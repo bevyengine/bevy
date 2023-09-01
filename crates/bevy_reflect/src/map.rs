@@ -513,7 +513,7 @@ mod tests {
 
     #[test]
     fn test_into_iter() {
-        let expected = vec!["foo", "bar", "baz"];
+        let expected = ["foo", "bar", "baz"];
 
         let mut map = DynamicMap::default();
         map.insert(0usize, expected[0].to_string());

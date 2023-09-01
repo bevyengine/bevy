@@ -91,7 +91,7 @@ fn handle_inputs(
 
             let resume = !player.is_paused();
             // set the current animation to its start and pause it to reset to its starting state
-            player.set_elapsed(0.0).pause();
+            player.seek_to(0.0).pause();
 
             clips.advance_to_next();
             let current_clip = clips.current();
