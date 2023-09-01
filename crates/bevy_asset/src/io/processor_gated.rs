@@ -4,10 +4,10 @@ use crate::{
     AssetPath,
 };
 use anyhow::Result;
+use async_lock::RwLockReadGuardArc;
 use bevy_log::trace;
 use bevy_utils::BoxedFuture;
 use futures_io::AsyncRead;
-use parking_lot::lock_api::ArcRwLockReadGuard;
 use std::{path::Path, pin::Pin, sync::Arc};
 
 /// An [`AssetReader`] that will prevent asset (and asset metadata) read futures from returning for a
@@ -33,12 +33,12 @@ impl ProcessorGatedReader {
     async fn get_transaction_lock(
         &self,
         path: &Path,
-    ) -> Result<ArcRwLockReadGuard<parking_lot::RawRwLock, ()>, AssetReaderError> {
+    ) -> Result<RwLockReadGuardArc<()>, AssetReaderError> {
         let infos = self.processor_data.asset_infos.read().await;
         let info = infos
             .get(&AssetPath::new(path.to_owned(), None))
             .ok_or_else(|| AssetReaderError::NotFound(path.to_owned()))?;
-        Ok(info.file_transaction_lock.read_arc())
+        Ok(info.file_transaction_lock.read_arc().await)
     }
 }
 
@@ -140,14 +140,11 @@ impl AssetReader for ProcessorGatedReader {
 /// An [`AsyncRead`] impl that will hold its asset's transaction lock until [`TransactionLockedReader`] is dropped.
 pub struct TransactionLockedReader<'a> {
     reader: Box<Reader<'a>>,
-    _file_transaction_lock: ArcRwLockReadGuard<parking_lot::RawRwLock, ()>,
+    _file_transaction_lock: RwLockReadGuardArc<()>,
 }
 
 impl<'a> TransactionLockedReader<'a> {
-    fn new(
-        reader: Box<Reader<'a>>,
-        file_transaction_lock: ArcRwLockReadGuard<parking_lot::RawRwLock, ()>,
-    ) -> Self {
+    fn new(reader: Box<Reader<'a>>, file_transaction_lock: RwLockReadGuardArc<()>) -> Self {
         Self {
             reader,
             _file_transaction_lock: file_transaction_lock,

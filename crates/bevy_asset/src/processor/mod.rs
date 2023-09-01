@@ -742,7 +742,7 @@ impl AssetProcessor {
         let _transaction_lock = {
             let mut infos = self.data.asset_infos.write().await;
             let info = infos.get_or_insert(asset_path.clone());
-            info.file_transaction_lock.write_arc()
+            info.file_transaction_lock.write_arc().await
         };
 
         // NOTE: if processing the asset fails this will produce an "unfinished" log entry, forcing a rebuild on next run.
@@ -988,7 +988,7 @@ pub(crate) struct ProcessorAssetInfo {
     ///     * this second scenario almost certainly isn't possible with the current implementation, but its worth protecting against
     /// This lock defends against those scenarios by ensuring readers don't read while processed files are being written. And it ensures
     /// Because this lock is shared across meta and asset bytes, readers can esure they don't read "old" versions of metadata with "new" asset data.  
-    pub(crate) file_transaction_lock: Arc<RwLock<()>>,
+    pub(crate) file_transaction_lock: Arc<async_lock::RwLock<()>>,
     status_sender: async_broadcast::Sender<ProcessStatus>,
     status_receiver: async_broadcast::Receiver<ProcessStatus>,
 }
