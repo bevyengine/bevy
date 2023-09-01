@@ -1257,10 +1257,15 @@ enum ReportCycles {
 // methods for reporting errors
 impl ScheduleGraph {
     fn get_node_name(&self, id: &NodeId) -> String {
+        self.get_node_name_inner(id, self.settings.report_sets)
+    }
+
+    #[inline]
+    fn get_node_name_inner(&self, id: &NodeId, report_sets: bool) -> String {
         let mut name = match id {
             NodeId::System(_) => {
                 let name = self.systems[id.index()].get().unwrap().name().to_string();
-                if self.settings.report_sets {
+                if report_sets {
                     let sets = self.names_of_sets_containing_node(id);
                     if sets.is_empty() {
                         name
@@ -1294,7 +1299,8 @@ impl ScheduleGraph {
             self.hierarchy
                 .graph
                 .edges_directed(*id, Direction::Outgoing)
-                .map(|(_, member_id, _)| self.get_node_name(&member_id))
+                // never get the sets of the members or this will infinite recurse when the report_sets setting is on.
+                .map(|(_, member_id, _)| self.get_node_name_inner(&member_id, false))
                 .reduce(|a, b| format!("{a}, {b}"))
                 .unwrap_or_default()
         )

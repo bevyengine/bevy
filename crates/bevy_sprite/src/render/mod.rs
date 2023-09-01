@@ -28,8 +28,8 @@ use bevy_render::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
     view::{
-        ComputedVisibility, ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset,
-        ViewUniforms, VisibleEntities,
+        ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
+        ViewVisibility, VisibleEntities,
     },
     Extract,
 };
@@ -338,7 +338,7 @@ pub fn extract_sprites(
     sprite_query: Extract<
         Query<(
             Entity,
-            &ComputedVisibility,
+            &ViewVisibility,
             &Sprite,
             &GlobalTransform,
             &Handle<Image>,
@@ -347,15 +347,15 @@ pub fn extract_sprites(
     atlas_query: Extract<
         Query<(
             Entity,
-            &ComputedVisibility,
+            &ViewVisibility,
             &TextureAtlasSprite,
             &GlobalTransform,
             &Handle<TextureAtlas>,
         )>,
     >,
 ) {
-    for (entity, visibility, sprite, transform, handle) in sprite_query.iter() {
-        if !visibility.is_visible() {
+    for (entity, view_visibility, sprite, transform, handle) in sprite_query.iter() {
+        if !view_visibility.get() {
             continue;
         }
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
@@ -374,8 +374,10 @@ pub fn extract_sprites(
             },
         );
     }
-    for (entity, visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
-        if !visibility.is_visible() {
+    for (entity, view_visibility, atlas_sprite, transform, texture_atlas_handle) in
+        atlas_query.iter()
+    {
+        if !view_visibility.get() {
             continue;
         }
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {

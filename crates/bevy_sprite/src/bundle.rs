@@ -6,7 +6,7 @@ use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
     texture::Image,
-    view::{ComputedVisibility, Visibility},
+    view::{InheritedVisibility, ViewVisibility, Visibility},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
@@ -18,8 +18,10 @@ pub struct SpriteBundle {
     pub texture: Handle<Image>,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    pub view_visibility: ViewVisibility,
 }
 
 /// A Bundle of components for drawing a single sprite from a sprite sheet (also referred
@@ -35,6 +37,7 @@ pub struct SpriteSheetBundle {
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    pub view_visibility: ViewVisibility,
 }
