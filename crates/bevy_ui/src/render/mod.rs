@@ -94,6 +94,7 @@ pub fn build_ui_render(app: &mut App) {
         .add_systems(
             Render,
             (
+                queue_uinodes.in_set(RenderSet::Queue),
                 sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
                 prepare_uinodes.in_set(RenderSet::PrepareBindGroups),
             ),
@@ -667,6 +668,14 @@ pub struct UiImageBindGroups {
     pub values: HashMap<Handle<Image>, BindGroup>,
 }
 
+pub fn queue_uinodes(
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+) {
+        extracted_uinodes
+        .ranges
+        .sort_by_key(|extracted_range| extracted_range.stack_index);
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_uinodes(
     mut commands: Commands,
@@ -690,9 +699,6 @@ pub fn prepare_uinodes(
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
 
-    extracted_uinodes
-        .ranges
-        .sort_by_key(|extracted_range| extracted_range.stack_index);
 
     for (view, mut transparent_phase) in &mut render_phases.p1() {
         let pipeline = pipelines.specialize(
