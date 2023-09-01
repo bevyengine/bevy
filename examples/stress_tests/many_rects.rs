@@ -89,7 +89,6 @@ pub struct ExtractionMarker<const N: usize>;
 pub struct RectStack(Vec<Entity>);
 
 fn extract_rect_iter_stack<const N: usize>(
-    mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
     ui_stack: Extract<Res<RectStack>>,
@@ -140,16 +139,15 @@ fn extract_rect_iter_stack<const N: usize>(
             );
         }
     }
+    extracted_uinodes.finish();
 }
 
 fn extract_rect<const N: usize>(
-    mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
     uinode_query: Extract<
         Query<
             (
-                Entity,
                 &StackIndex,
                 &Size,
                 &GlobalTransform,
@@ -161,7 +159,7 @@ fn extract_rect<const N: usize>(
         >,
     >,
 ) {
-    for (entity, stack_index, size, transform, color, maybe_image, visibility) in
+    for (stack_index, size, transform, color, maybe_image, visibility) in
         uinode_query.iter()
     {
         // Skip invisible and completely transparent nodes
@@ -195,6 +193,7 @@ fn extract_rect<const N: usize>(
             }),
         );
     }
+    extracted_uinodes.finish();
 }
 
 #[derive(Component)]

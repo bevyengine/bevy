@@ -302,6 +302,7 @@ pub fn extract_atlas_uinodes(
             },
         );
     }
+    extracted_uinodes.finish();
 }
 
 fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
@@ -427,6 +428,7 @@ pub fn extract_uinode_borders(
                 }),
         );
     }
+    extracted_uinodes.finish();
 }
 
 pub fn extract_uinodes(
@@ -482,6 +484,7 @@ pub fn extract_uinodes(
             },
         );
     }
+    extracted_uinodes.finish();
 }
 
 /// The UI camera is "moved back" by this many units (plus the [`UI_CAMERA_TRANSFORM_OFFSET`]) and also has a view
@@ -629,6 +632,7 @@ pub fn extract_text_uinodes(
             ),
         );
     }
+    extracted_uinodes.finish();
 }
 
 #[repr(C)]
