@@ -354,7 +354,7 @@ pub fn scene_spawner_system(world: &mut World) {
         let scene_spawner = &mut *scene_spawner;
         for event in scene_spawner
             .scene_asset_event_reader
-            .iter(scene_asset_events)
+            .read(scene_asset_events)
         {
             if let AssetEvent::Modified { handle } = event {
                 if scene_spawner.spawned_dynamic_scenes.contains_key(handle) {

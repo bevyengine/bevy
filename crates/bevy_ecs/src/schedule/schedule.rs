@@ -41,8 +41,8 @@ impl Schedules {
     ///
     /// If the map already had an entry for `label`, `schedule` is inserted,
     /// and the old schedule is returned. Otherwise, `None` is returned.
-    pub fn insert(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> Option<Schedule> {
-        let label = label.dyn_clone();
+    pub fn insert(&mut self, schedule: Schedule) -> Option<Schedule> {
+        let label = schedule.name.dyn_clone();
         self.inner.insert(label, schedule)
     }
 
@@ -158,22 +158,31 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 /// }
 /// ```
 pub struct Schedule {
+    name: BoxedScheduleLabel,
     graph: ScheduleGraph,
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
     executor_initialized: bool,
 }
 
+#[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
+struct DefaultSchedule;
+
 impl Default for Schedule {
+    /// Creates a schedule with a default label. Only use in situations where
+    /// you don't care about the [`ScheduleLabel`]. Inserting a default schedule
+    /// into the world risks overwriting another schedule. For most situations
+    /// you should use [`Schedule::new`].
     fn default() -> Self {
-        Self::new()
+        Self::new(DefaultSchedule)
     }
 }
 
 impl Schedule {
     /// Constructs an empty `Schedule`.
-    pub fn new() -> Self {
+    pub fn new(label: impl ScheduleLabel) -> Self {
         Self {
+            name: label.dyn_clone(),
             graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
             executor: make_executor(ExecutorKind::default()),
@@ -237,8 +246,12 @@ impl Schedule {
 
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("schedule", name = ?self.name).entered();
+
         world.check_change_ticks();
-        self.initialize(world).unwrap_or_else(|e| panic!("{e}"));
+        self.initialize(world)
+            .unwrap_or_else(|e| panic!("Error when intializing schedule {:?}: {e}", self.name));
         self.executor.run(&mut self.executable, world);
     }
 
@@ -250,7 +263,7 @@ impl Schedule {
         if self.graph.changed {
             self.graph.initialize(world);
             self.graph
-                .update_schedule(&mut self.executable, world.components())?;
+                .update_schedule(&mut self.executable, world.components(), &self.name)?;
             self.graph.changed = false;
             self.executor_initialized = false;
         }
@@ -882,13 +895,14 @@ impl ScheduleGraph {
     pub fn build_schedule(
         &mut self,
         components: &Components,
+        schedule_label: &BoxedScheduleLabel,
     ) -> Result<SystemSchedule, ScheduleBuildError> {
         // check hierarchy for cycles
         self.hierarchy.topsort =
             self.topsort_graph(&self.hierarchy.graph, ReportCycles::Hierarchy)?;
 
         let hier_results = check_graph(&self.hierarchy.graph, &self.hierarchy.topsort);
-        self.optionally_check_hierarchy_conflicts(&hier_results.transitive_edges)?;
+        self.optionally_check_hierarchy_conflicts(&hier_results.transitive_edges, schedule_label)?;
 
         // remove redundant edges
         self.hierarchy.graph = hier_results.transitive_reduction;
@@ -932,7 +946,7 @@ impl ScheduleGraph {
         // check for conflicts
         let conflicting_systems =
             self.get_conflicting_systems(&flat_results.disconnected, &ambiguous_with_flattened);
-        self.optionally_check_conflicts(&conflicting_systems, components)?;
+        self.optionally_check_conflicts(&conflicting_systems, components, schedule_label)?;
         self.conflicting_systems = conflicting_systems;
 
         // build the schedule
@@ -1182,6 +1196,7 @@ impl ScheduleGraph {
         &mut self,
         schedule: &mut SystemSchedule,
         components: &Components,
+        schedule_label: &BoxedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if !self.uninit.is_empty() {
             return Err(ScheduleBuildError::Uninitialized);
@@ -1206,7 +1221,7 @@ impl ScheduleGraph {
             self.system_set_conditions[id.index()] = conditions;
         }
 
-        *schedule = self.build_schedule(components)?;
+        *schedule = self.build_schedule(components, schedule_label)?;
 
         // move systems into new schedule
         for &id in &schedule.system_ids {
@@ -1242,10 +1257,15 @@ enum ReportCycles {
 // methods for reporting errors
 impl ScheduleGraph {
     fn get_node_name(&self, id: &NodeId) -> String {
+        self.get_node_name_inner(id, self.settings.report_sets)
+    }
+
+    #[inline]
+    fn get_node_name_inner(&self, id: &NodeId, report_sets: bool) -> String {
         let mut name = match id {
             NodeId::System(_) => {
                 let name = self.systems[id.index()].get().unwrap().name().to_string();
-                if self.settings.report_sets {
+                if report_sets {
                     let sets = self.names_of_sets_containing_node(id);
                     if sets.is_empty() {
                         name
@@ -1279,7 +1299,8 @@ impl ScheduleGraph {
             self.hierarchy
                 .graph
                 .edges_directed(*id, Direction::Outgoing)
-                .map(|(_, member_id, _)| self.get_node_name(&member_id))
+                // never get the sets of the members or this will infinite recurse when the report_sets setting is on.
+                .map(|(_, member_id, _)| self.get_node_name_inner(&member_id, false))
                 .reduce(|a, b| format!("{a}, {b}"))
                 .unwrap_or_default()
         )
@@ -1297,6 +1318,7 @@ impl ScheduleGraph {
     fn optionally_check_hierarchy_conflicts(
         &self,
         transitive_edges: &[(NodeId, NodeId)],
+        schedule_label: &BoxedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if self.settings.hierarchy_detection == LogLevel::Ignore || transitive_edges.is_empty() {
             return Ok(());
@@ -1306,7 +1328,10 @@ impl ScheduleGraph {
         match self.settings.hierarchy_detection {
             LogLevel::Ignore => unreachable!(),
             LogLevel::Warn => {
-                error!("{}", message);
+                error!(
+                    "Schedule {schedule_label:?} has redundant edges:\n {}",
+                    message
+                );
                 Ok(())
             }
             LogLevel::Error => Err(ScheduleBuildError::HierarchyRedundancy(message)),
@@ -1505,6 +1530,7 @@ impl ScheduleGraph {
         &self,
         conflicts: &[(NodeId, NodeId, Vec<ComponentId>)],
         components: &Components,
+        schedule_label: &BoxedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if self.settings.ambiguity_detection == LogLevel::Ignore || conflicts.is_empty() {
             return Ok(());
@@ -1514,7 +1540,7 @@ impl ScheduleGraph {
         match self.settings.ambiguity_detection {
             LogLevel::Ignore => Ok(()),
             LogLevel::Warn => {
-                warn!("{}", message);
+                warn!("Schedule {schedule_label:?} has ambiguities.\n{}", message);
                 Ok(())
             }
             LogLevel::Error => Err(ScheduleBuildError::Ambiguity(message)),
@@ -1533,21 +1559,11 @@ impl ScheduleGraph {
             Consider adding `before`, `after`, or `ambiguous_with` relationships between these:\n",
         );
 
-        for (system_a, system_b, conflicts) in ambiguities {
-            let name_a = self.get_node_name(system_a);
-            let name_b = self.get_node_name(system_b);
-
-            debug_assert!(system_a.is_system(), "{name_a} is not a system.");
-            debug_assert!(system_b.is_system(), "{name_b} is not a system.");
-
+        for (name_a, name_b, conflicts) in self.conflicts_to_string(ambiguities, components) {
             writeln!(message, " -- {name_a} and {name_b}").unwrap();
-            if !conflicts.is_empty() {
-                let conflict_names: Vec<_> = conflicts
-                    .iter()
-                    .map(|id| components.get_name(*id).unwrap())
-                    .collect();
 
-                writeln!(message, "    conflict on: {conflict_names:?}").unwrap();
+            if !conflicts.is_empty() {
+                writeln!(message, "    conflict on: {conflicts:?}").unwrap();
             } else {
                 // one or both systems must be exclusive
                 let world = std::any::type_name::<World>();
@@ -1556,6 +1572,30 @@ impl ScheduleGraph {
         }
 
         message
+    }
+
+    /// convert conflics to human readable format
+    pub fn conflicts_to_string<'a>(
+        &'a self,
+        ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
+        components: &'a Components,
+    ) -> impl Iterator<Item = (String, String, Vec<&str>)> + 'a {
+        ambiguities
+            .iter()
+            .map(move |(system_a, system_b, conflicts)| {
+                let name_a = self.get_node_name(system_a);
+                let name_b = self.get_node_name(system_b);
+
+                debug_assert!(system_a.is_system(), "{name_a} is not a system.");
+                debug_assert!(system_b.is_system(), "{name_b} is not a system.");
+
+                let conflict_names: Vec<_> = conflicts
+                    .iter()
+                    .map(|id| components.get_name(*id).unwrap())
+                    .collect();
+
+                (name_a, name_b, conflict_names)
+            })
     }
 
     fn traverse_sets_containing_node(&self, id: NodeId, f: &mut impl FnMut(NodeId) -> bool) {
@@ -1689,7 +1729,7 @@ mod tests {
         struct Set;
 
         let mut world = World::new();
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         schedule.configure_set(Set.run_if(|| false));
         schedule.add_systems(

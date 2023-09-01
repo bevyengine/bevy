@@ -158,12 +158,12 @@ pub struct Edges {
 
 impl Edges {
     /// Checks the cache for the target archetype when adding a bundle to the
-    /// source archetype. For more information, see [`EntityMut::insert`].
+    /// source archetype. For more information, see [`EntityWorldMut::insert`].
     ///
     /// If this returns `None`, it means there has not been a transition from
     /// the source archetype via the provided bundle.
     ///
-    /// [`EntityMut::insert`]: crate::world::EntityMut::insert
+    /// [`EntityWorldMut::insert`]: crate::world::EntityWorldMut::insert
     #[inline]
     pub fn get_add_bundle(&self, bundle_id: BundleId) -> Option<ArchetypeId> {
         self.get_add_bundle_internal(bundle_id)
@@ -177,9 +177,9 @@ impl Edges {
     }
 
     /// Caches the target archetype when adding a bundle to the source archetype.
-    /// For more information, see [`EntityMut::insert`].
+    /// For more information, see [`EntityWorldMut::insert`].
     ///
-    /// [`EntityMut::insert`]: crate::world::EntityMut::insert
+    /// [`EntityWorldMut::insert`]: crate::world::EntityWorldMut::insert
     #[inline]
     pub(crate) fn insert_add_bundle(
         &mut self,
@@ -197,7 +197,7 @@ impl Edges {
     }
 
     /// Checks the cache for the target archetype when removing a bundle to the
-    /// source archetype. For more information, see [`EntityMut::remove`].
+    /// source archetype. For more information, see [`EntityWorldMut::remove`].
     ///
     /// If this returns `None`, it means there has not been a transition from
     /// the source archetype via the provided bundle.
@@ -205,16 +205,16 @@ impl Edges {
     /// If this returns `Some(None)`, it means that the bundle cannot be removed
     /// from the source archetype.
     ///
-    /// [`EntityMut::remove`]: crate::world::EntityMut::remove
+    /// [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
     #[inline]
     pub fn get_remove_bundle(&self, bundle_id: BundleId) -> Option<Option<ArchetypeId>> {
         self.remove_bundle.get(bundle_id).cloned()
     }
 
     /// Caches the target archetype when removing a bundle to the source archetype.
-    /// For more information, see [`EntityMut::remove`].
+    /// For more information, see [`EntityWorldMut::remove`].
     ///
-    /// [`EntityMut::remove`]: crate::world::EntityMut::remove
+    /// [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
     #[inline]
     pub(crate) fn insert_remove_bundle(
         &mut self,
@@ -225,21 +225,21 @@ impl Edges {
     }
 
     /// Checks the cache for the target archetype when removing a bundle to the
-    /// source archetype. For more information, see [`EntityMut::remove`].
+    /// source archetype. For more information, see [`EntityWorldMut::remove`].
     ///
     /// If this returns `None`, it means there has not been a transition from
     /// the source archetype via the provided bundle.
     ///
-    /// [`EntityMut::remove`]: crate::world::EntityMut::remove
+    /// [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
     #[inline]
     pub fn get_take_bundle(&self, bundle_id: BundleId) -> Option<Option<ArchetypeId>> {
         self.take_bundle.get(bundle_id).cloned()
     }
 
     /// Caches the target archetype when removing a bundle to the source archetype.
-    /// For more information, see [`EntityMut::take`].
+    /// For more information, see [`EntityWorldMut::take`].
     ///
-    /// [`EntityMut::take`]: crate::world::EntityMut::take
+    /// [`EntityWorldMut::take`]: crate::world::EntityWorldMut::take
     #[inline]
     pub(crate) fn insert_take_bundle(
         &mut self,

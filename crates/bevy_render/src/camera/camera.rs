@@ -575,11 +575,11 @@ pub fn camera_system<T: CameraProjection + Component>(
     let primary_window = primary_window.iter().next();
 
     let mut changed_window_ids = HashSet::new();
-    changed_window_ids.extend(window_created_events.iter().map(|event| event.window));
-    changed_window_ids.extend(window_resized_events.iter().map(|event| event.window));
+    changed_window_ids.extend(window_created_events.read().map(|event| event.window));
+    changed_window_ids.extend(window_resized_events.read().map(|event| event.window));
 
     let changed_image_handles: HashSet<&Handle<Image>> = image_asset_events
-        .iter()
+        .read()
         .filter_map(|event| {
             if let AssetEvent::Modified { handle } = event {
                 Some(handle)

@@ -832,7 +832,7 @@ impl PipelineCache {
         shaders: Extract<Res<Assets<Shader>>>,
         mut events: Extract<EventReader<AssetEvent<Shader>>>,
     ) {
-        for event in events.iter() {
+        for event in events.read() {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                     if let Some(shader) = shaders.get(handle) {

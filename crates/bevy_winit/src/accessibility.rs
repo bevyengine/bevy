@@ -46,7 +46,7 @@ fn handle_window_focus(
     adapters: NonSend<AccessKitAdapters>,
     mut focused: EventReader<WindowFocused>,
 ) {
-    for event in focused.iter() {
+    for event in focused.read() {
         if let Some(adapter) = adapters.get(&event.window) {
             adapter.update_if_active(|| {
                 let focus_id = (*focus).unwrap_or_else(|| event.window);
@@ -68,7 +68,7 @@ fn window_closed(
     mut receivers: ResMut<WinitActionHandlers>,
     mut events: EventReader<WindowClosed>,
 ) {
-    for WindowClosed { window, .. } in events.iter() {
+    for WindowClosed { window, .. } in events.read() {
         adapters.remove(window);
         receivers.remove(window);
     }
