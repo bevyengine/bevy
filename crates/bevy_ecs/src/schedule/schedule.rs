@@ -511,9 +511,7 @@ impl ScheduleGraph {
         configs: SystemConfigs,
         collect_nodes: bool,
     ) -> ProcessConfigsResult {
-        self.process_configs(configs, collect_nodes, &mut |this, config| {
-            this.add_system_inner(config).unwrap()
-        })
+        self.process_configs(configs, collect_nodes)
     }
 
     /// Adds the config nodes to the graph.
@@ -524,15 +522,14 @@ impl ScheduleGraph {
     /// The fields on the returned [`ProcessConfigsResult`] are:
     /// - `nodes`: a vector of all node ids contained in the nested `NodeConfigs`
     /// - `densely_chained`: a boolean that is true if all nested nodes are linearly chained (with successive `after` orderings) in the order they are defined
-    fn process_configs<T>(
+    fn process_configs<T: ProcessNodeConfig>(
         &mut self,
         configs: NodeConfigs<T>,
         collect_nodes: bool,
-        process_config: &mut impl FnMut(&mut Self, NodeConfig<T>) -> NodeId,
     ) -> ProcessConfigsResult {
         match configs {
             NodeConfigs::NodeConfig(config) => {
-                let node_id = process_config(self, config);
+                let node_id = T::process_config(self, config);
                 if collect_nodes {
                     ProcessConfigsResult {
                         densely_chained: true,
@@ -576,10 +573,10 @@ impl ScheduleGraph {
                             densely_chained: true,
                         };
                     };
-                    let mut previous_result = self.process_configs(prev, true, process_config);
+                    let mut previous_result = self.process_configs(prev, true);
                     densely_chained = previous_result.densely_chained;
                     for current in config_iter {
-                        let current_result = self.process_configs(current, true, process_config);
+                        let current_result = self.process_configs(current, true);
                         densely_chained = densely_chained && current_result.densely_chained;
                         match (
                             previous_result.densely_chained,
@@ -648,7 +645,7 @@ impl ScheduleGraph {
                     }
                 } else {
                     for config in config_iter {
-                        let result = self.process_configs(config, collect_nodes, process_config);
+                        let result = self.process_configs(config, collect_nodes);
                         densely_chained = densely_chained && result.densely_chained;
                         if collect_nodes {
                             nodes_in_scope.extend(result.nodes);
@@ -699,9 +696,7 @@ impl ScheduleGraph {
         configs: SystemSetConfigs,
         collect_nodes: bool,
     ) -> ProcessConfigsResult {
-        self.process_configs(configs, collect_nodes, &mut |this, config| {
-            this.configure_set_inner(config).unwrap()
-        })
+        self.process_configs(configs, collect_nodes)
     }
 
     fn configure_set_inner(&mut self, set: SystemSetConfig) -> Result<NodeId, ScheduleBuildError> {
@@ -1253,6 +1248,24 @@ struct ProcessConfigsResult {
     /// are linearly chained (as if `after` system ordering had been applied between each node)
     /// in the order they are defined
     densely_chained: bool,
+}
+
+/// Trait used by [`ScheduleGraph::process_configs`] to process a single [`NodeConfig`].
+trait ProcessNodeConfig: Sized {
+    /// Process a single [`NodeConfig`].
+    fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId;
+}
+
+impl ProcessNodeConfig for BoxedSystem {
+    fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId {
+        schedule_graph.add_system_inner(config).unwrap()
+    }
+}
+
+impl ProcessNodeConfig for BoxedSystemSet {
+    fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId {
+        schedule_graph.configure_set_inner(config).unwrap()
+    }
 }
 
 /// Used to select the appropriate reporting function.
