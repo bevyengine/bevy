@@ -98,7 +98,7 @@ impl Plugin for EnvironmentMapLightPlugin {
             .add_systems(
                 Render,
                 prepare_generate_environment_map_lights_for_skyboxes_bind_groups
-                    .in_set(RenderSet::Prepare),
+                    .in_set(RenderSet::PrepareBindGroups),
             );
     }
 }
