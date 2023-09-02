@@ -16,7 +16,7 @@ use crate::{
     system::Resource,
 };
 use bevy_ptr::Ptr;
-use std::{any::TypeId, cell::UnsafeCell, marker::PhantomData};
+use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -230,13 +230,6 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.bundles
-    }
-
-    /// Reads the current change tick of this world.
-    #[inline]
-    #[deprecated = "this method has been renamed to `UnsafeWorldCell::change_tick`"]
-    pub fn read_change_tick(self) -> Tick {
-        self.change_tick()
     }
 
     /// Gets the current change tick of this world.
@@ -564,6 +557,13 @@ impl<'w> UnsafeWorldCell<'w> {
             .non_send_resources
             .get(component_id)?
             .get_with_ticks()
+    }
+}
+
+impl Debug for UnsafeWorldCell<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        // SAFETY: World's Debug implementation only accesses metadata.
+        Debug::fmt(unsafe { self.world_metadata() }, f)
     }
 }
 

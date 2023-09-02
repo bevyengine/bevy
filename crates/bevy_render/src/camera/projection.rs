@@ -197,6 +197,8 @@ pub enum ScalingMode {
 ///
 /// Note that the scale of the projection and the apparent size of objects are inversely proportional.
 /// As the size of the projection increases, the size of objects decreases.
+///
+/// Note also that the view frustum is centered at the origin.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct OrthographicProjection {
@@ -204,7 +206,7 @@ pub struct OrthographicProjection {
     ///
     /// Objects closer than this will not be rendered.
     ///
-    /// Defaults to `0.0`
+    /// Defaults to `-1000.0`
     pub near: f32,
     /// The distance of the far clipping plane in world units.
     ///
@@ -227,7 +229,7 @@ pub struct OrthographicProjection {
     pub viewport_origin: Vec2,
     /// How the projection will scale when the viewport is resized.
     ///
-    /// Defaults to `ScalingMode::WindowScale(1.0)`
+    /// Defaults to `ScalingMode::WindowSize(1.0)`
     pub scaling_mode: ScalingMode,
     /// Scales the projection in world units.
     ///
@@ -315,7 +317,7 @@ impl Default for OrthographicProjection {
     fn default() -> Self {
         OrthographicProjection {
             scale: 1.0,
-            near: 0.0,
+            near: -1000.0,
             far: 1000.0,
             viewport_origin: Vec2::new(0.5, 0.5),
             scaling_mode: ScalingMode::WindowSize(1.0),

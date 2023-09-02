@@ -4,7 +4,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
+    window::{CursorGrabMode, PresentMode, PrimaryWindow, WindowLevel, WindowTheme},
 };
 
 fn main() {
@@ -20,6 +20,14 @@ fn main() {
                     // Tells wasm not to override default event handling, like F5, Ctrl+R etc.
                     prevent_default_event_handling: false,
                     window_theme: Some(WindowTheme::Dark),
+                    enabled_buttons: bevy::window::EnabledButtons {
+                        maximize: false,
+                        ..Default::default()
+                    },
+                    // This will spawn an invisible window
+                    // The window will be made visible in the setup() function
+                    // This is useful when you want to avoid the white window that shows up before the GPU is ready to render the app.
+                    visible: false,
                     ..default()
                 }),
                 ..default()
@@ -27,6 +35,7 @@ fn main() {
             LogDiagnosticsPlugin::default(),
             FrameTimeDiagnosticsPlugin,
         ))
+        .add_systems(Startup, setup)
         .add_systems(
             Update,
             (
@@ -34,11 +43,19 @@ fn main() {
                 toggle_theme,
                 toggle_cursor,
                 toggle_vsync,
+                toggle_window_controls,
                 cycle_cursor_icon,
                 switch_level,
             ),
         )
         .run();
+}
+
+fn setup(mut primary_window: Query<&mut Window, With<PrimaryWindow>>) {
+    // At this point the gpu is ready to show the app so we can make the window visible
+    // There might still be a white frame when doing it in startup.
+    // Alternatively, you could have a system that waits a few seconds before making the window visible.
+    primary_window.single_mut().visible = true;
 }
 
 /// This system toggles the vsync mode when pressing the button V.
@@ -73,6 +90,31 @@ fn switch_level(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
             WindowLevel::AlwaysOnTop => WindowLevel::AlwaysOnBottom,
         };
         info!("WINDOW_LEVEL: {:?}", window.window_level);
+    }
+}
+
+/// This system toggles the window controls when pressing buttons 1, 2 and 3
+///
+/// This feature only works on some platforms. Please check the
+/// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.enabled_buttons)
+/// for more details.
+fn toggle_window_controls(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
+    let toggle_minimize = input.just_pressed(KeyCode::Key1);
+    let toggle_maximize = input.just_pressed(KeyCode::Key2);
+    let toggle_close = input.just_pressed(KeyCode::Key3);
+
+    if toggle_minimize || toggle_maximize || toggle_close {
+        let mut window = windows.single_mut();
+
+        if toggle_minimize {
+            window.enabled_buttons.minimize = !window.enabled_buttons.minimize;
+        }
+        if toggle_maximize {
+            window.enabled_buttons.maximize = !window.enabled_buttons.maximize;
+        }
+        if toggle_close {
+            window.enabled_buttons.close = !window.enabled_buttons.close;
+        }
     }
 }
 

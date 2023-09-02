@@ -59,7 +59,20 @@ pub fn get_short_name(full_name: &str) -> String {
 
 #[inline(always)]
 fn collapse_type_name(string: &str) -> &str {
-    string.split("::").last().unwrap()
+    // Enums types are retained.
+    // As heuristic, we assume the enum type to be uppercase.
+    let mut segments = string.rsplit("::");
+    let (last, second_last): (&str, Option<&str>) = (segments.next().unwrap(), segments.next());
+    let Some(second_last) = second_last else {
+        return last;
+    };
+
+    if second_last.starts_with(char::is_uppercase) {
+        let index = string.len() - last.len() - second_last.len() - 2;
+        &string[index..]
+    } else {
+        last
+    }
 }
 
 #[cfg(test)]
@@ -100,6 +113,19 @@ mod name_formatting_tests {
     #[test]
     fn multiple_type_parameters() {
         assert_eq!(get_short_name("a<B, C>"), "a<B, C>".to_string());
+    }
+
+    #[test]
+    fn enums() {
+        assert_eq!(get_short_name("Option::None"), "Option::None".to_string());
+        assert_eq!(
+            get_short_name("Option::Some(2)"),
+            "Option::Some(2)".to_string()
+        );
+        assert_eq!(
+            get_short_name("bevy_render::RenderSet::Prepare"),
+            "RenderSet::Prepare".to_string()
+        );
     }
 
     #[test]

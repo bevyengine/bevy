@@ -114,10 +114,11 @@ impl AssetIo for FileAssetIo {
         path: &Path,
     ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
         let root_path = self.root_path.to_owned();
-        Ok(Box::new(fs::read_dir(root_path.join(path))?.map(
+        let path = path.to_owned();
+        Ok(Box::new(fs::read_dir(root_path.join(&path))?.map(
             move |entry| {
-                let path = entry.unwrap().path();
-                path.strip_prefix(&root_path).unwrap().to_owned()
+                let file_name = entry.unwrap().file_name();
+                path.join(file_name)
             },
         )))
     }
@@ -201,7 +202,9 @@ pub fn filesystem_watcher_system(
             } = event
             {
                 for path in &paths {
-                    let Some(set) = watcher.path_map.get(path) else {continue};
+                    let Some(set) = watcher.path_map.get(path) else {
+                        continue;
+                    };
                     for to_reload in set {
                         // When an asset is modified, note down the timestamp (overriding any previous modification events)
                         changed.insert(to_reload.to_owned(), Instant::now());

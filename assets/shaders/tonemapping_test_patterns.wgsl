@@ -4,7 +4,7 @@
 #import bevy_pbr::utils               PI
 
 #ifdef TONEMAP_IN_SHADER
-#import bevy_core_pipeline::tonemapping
+#import bevy_core_pipeline::tonemapping tone_mapping
 #endif
 
 // Sweep across hues on y axis with value from 0.0 to +15EV across x axis 

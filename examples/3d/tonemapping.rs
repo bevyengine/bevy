@@ -135,6 +135,10 @@ fn setup_basic_scene(
     }
 
     // spheres
+    let sphere_mesh = meshes.add(Mesh::from(shape::UVSphere {
+        radius: 0.125,
+        ..default()
+    }));
     for i in 0..6 {
         let j = i % 3;
         let s_val = if i < 3 { 0.0 } else { 0.2 };
@@ -162,11 +166,7 @@ fn setup_basic_scene(
         };
         commands.spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::UVSphere {
-                    radius: 0.125,
-                    sectors: 128,
-                    stacks: 128,
-                })),
+                mesh: sphere_mesh.clone(),
                 material,
                 transform: Transform::from_xyz(
                     j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } - 0.4,
@@ -307,7 +307,7 @@ fn update_image_viewer(
 ) {
     let mut new_image: Option<Handle<Image>> = None;
 
-    for event in drop_events.iter() {
+    for event in drop_events.read() {
         match event {
             FileDragAndDrop::DroppedFile { path_buf, .. } => {
                 new_image = Some(asset_server.load(path_buf.to_string_lossy().to_string()));
@@ -328,7 +328,7 @@ fn update_image_viewer(
                 }
             }
 
-            for event in image_events.iter() {
+            for event in image_events.read() {
                 let image_changed_h = match event {
                     AssetEvent::Created { handle } | AssetEvent::Modified { handle } => handle,
                     _ => continue,

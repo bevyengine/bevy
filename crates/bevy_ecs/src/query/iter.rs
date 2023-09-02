@@ -6,7 +6,7 @@ use crate::{
     storage::{TableId, TableRow, Tables},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use std::{borrow::Borrow, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit};
+use std::{borrow::Borrow, iter::FusedIterator, mem::MaybeUninit};
 
 use super::ReadOnlyWorldQuery;
 
@@ -163,7 +163,9 @@ where
             // SAFETY: set_archetype was called prior.
             // `location.archetype_row` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
             if F::filter_fetch(&mut self.filter, entity, location.table_row) {
-                // SAFETY: set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
+                // SAFETY:
+                // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
+                // - fetch is only called once for each entity.
                 return Some(Q::fetch(&mut self.fetch, entity, location.table_row));
             }
         }
@@ -344,7 +346,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
             match self.cursors[i].next(self.tables, self.archetypes, self.query_state) {
                 Some(_) => {
                     for j in (i + 1)..K {
-                        self.cursors[j] = self.cursors[j - 1].clone_cursor();
+                        self.cursors[j] = self.cursors[j - 1].clone();
                         match self.cursors[j].next(self.tables, self.archetypes, self.query_state) {
                             Some(_) => {}
                             None if i > 0 => continue 'outer,
@@ -453,28 +455,19 @@ struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     current_len: usize,
     // either table row or archetype index, depending on whether both `Q`'s and `F`'s fetches are dense
     current_row: usize,
-    phantom: PhantomData<Q>,
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, Q, F> {
-    /// This function is safe to call if `(Q, F): ReadOnlyWorldQuery` holds.
-    ///
-    /// # Safety
-    /// While calling this method on its own cannot cause UB it is marked `unsafe` as the caller must ensure
-    /// that the returned value is not used in any way that would cause two `QueryItem<Q>` for the same
-    /// `archetype_row` or `table_row` to be alive at the same time.
-    unsafe fn clone_cursor(&self) -> Self {
+impl<Q: WorldQuery, F: ReadOnlyWorldQuery> Clone for QueryIterationCursor<'_, '_, Q, F> {
+    fn clone(&self) -> Self {
         Self {
             table_id_iter: self.table_id_iter.clone(),
             archetype_id_iter: self.archetype_id_iter.clone(),
             table_entities: self.table_entities,
             archetype_entities: self.archetype_entities,
-            // SAFETY: upheld by caller invariants
-            fetch: Q::clone_fetch(&self.fetch),
-            filter: F::clone_fetch(&self.filter),
+            fetch: self.fetch.clone(),
+            filter: self.filter.clone(),
             current_len: self.current_len,
             current_row: self.current_row,
-            phantom: PhantomData,
         }
     }
 }
@@ -515,7 +508,6 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
             archetype_id_iter: query_state.matched_archetype_ids.iter(),
             current_len: 0,
             current_row: 0,
-            phantom: PhantomData,
         }
     }
 
@@ -593,8 +585,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                     continue;
                 }
 
-                // SAFETY: set_table was called prior.
-                // `current_row` is a table row in range of the current table, because if it was not, then the if above would have been executed.
+                // SAFETY:
+                // - set_table was called prior.
+                // - `current_row` must be a table row in range of the current table,
+                //   because if it was not, then the if above would have been executed.
+                // - fetch is only called once for each `entity`.
                 let item = Q::fetch(&mut self.fetch, *entity, row);
 
                 self.current_row += 1;
@@ -633,8 +628,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                     continue;
                 }
 
-                // SAFETY: set_archetype was called prior, `current_row` is an archetype index in range of the current archetype
-                // `current_row` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
+                // SAFETY:
+                // - set_archetype was called prior.
+                // - `current_row` must be an archetype index row in range of the current archetype,
+                //   because if it was not, then the if above would have been executed.
+                // - fetch is only called once for each `archetype_entity`.
                 let item = Q::fetch(
                     &mut self.fetch,
                     archetype_entity.entity(),

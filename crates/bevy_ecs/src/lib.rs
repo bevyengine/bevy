@@ -30,6 +30,10 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectResource};
+    #[allow(deprecated)]
+    pub use crate::system::adapter::{
+        self as system_adapter, dbg, error, ignore, info, unwrap, warn,
+    };
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -37,7 +41,7 @@ pub mod prelude {
         component::Component,
         entity::Entity,
         event::{Event, EventReader, EventWriter, Events},
-        query::{Added, AnyOf, Changed, Or, QueryState, With, Without},
+        query::{Added, AnyOf, Changed, Has, Or, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, Condition,
@@ -45,12 +49,10 @@ pub mod prelude {
             OnEnter, OnExit, OnTransition, Schedule, Schedules, State, States, SystemSet,
         },
         system::{
-            adapter as system_adapter,
-            adapter::{dbg, error, ignore, info, unwrap, warn},
             Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
             ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemParamFunction,
         },
-        world::{EntityRef, FromWorld, World},
+        world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
     };
 }
 

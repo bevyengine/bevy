@@ -1,11 +1,11 @@
-use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, Startup, StateTransition, Update};
+use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, BoxedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleLabel,
+        ScheduleBuildSettings, ScheduleLabel,
     },
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
@@ -328,7 +328,7 @@ impl App {
 
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
-    /// [`StateTransition`] so that transitions happen before [`Update`] and
+    /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update) and
     /// a instance of [`run_enter_schedule::<S>`] in [`StateTransition`] with a
     /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
     /// initial state.
@@ -355,30 +355,6 @@ impl App {
         // gracefully if they aren't present.
 
         self
-    }
-
-    /// Adds a system to the default system set and schedule of the app's [`Schedules`].
-    ///
-    /// Refer to the [system module documentation](bevy_ecs::system) to see how a system
-    /// can be defined.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # fn my_system() {}
-    /// # let mut app = App::new();
-    /// #
-    /// app.add_system(my_system);
-    /// ```
-    #[deprecated(
-        since = "0.11.0",
-        note = "Please use `add_systems` instead. If you didn't change the default base set, you should use `add_systems(Update, your_system).`"
-    )]
-    pub fn add_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.add_systems(Update, system)
     }
 
     /// Adds a system to the given schedule in this app's [`Schedules`].
@@ -408,68 +384,16 @@ impl App {
         if let Some(schedule) = schedules.get_mut(&schedule) {
             schedule.add_systems(systems);
         } else {
-            let mut new_schedule = Schedule::new();
+            let mut new_schedule = Schedule::new(schedule);
             new_schedule.add_systems(systems);
-            schedules.insert(schedule, new_schedule);
+            schedules.insert(new_schedule);
         }
 
         self
     }
 
-    /// Adds a system to [`Startup`].
-    ///
-    /// These systems will run exactly once, at the start of the [`App`]'s lifecycle.
-    /// To add a system that runs every frame, see [`add_system`](Self::add_system).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// fn my_startup_system(_commands: Commands) {
-    ///     println!("My startup system");
-    /// }
-    ///
-    /// App::new()
-    ///     .add_systems(Startup, my_startup_system);
-    /// ```
-    #[deprecated(
-        since = "0.11.0",
-        note = "Please use `add_systems` instead. If you didn't change the default base set, you should use `add_systems(Startup, your_system).`"
-    )]
-    pub fn add_startup_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.add_systems(Startup, system)
-    }
-
-    /// Adds a collection of systems to [`Startup`].
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # let mut app = App::new();
-    /// # fn startup_system_a() {}
-    /// # fn startup_system_b() {}
-    /// # fn startup_system_c() {}
-    /// #
-    /// app.add_systems(Startup, (
-    ///     startup_system_a,
-    ///     startup_system_b,
-    ///     startup_system_c,
-    /// ));
-    /// ```
-    #[deprecated(
-        since = "0.11.0",
-        note = "Please use `add_systems` instead. If you didn't change the default base set, you should use `add_systems(Startup, your_system).`"
-    )]
-    pub fn add_startup_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.add_systems(Startup, systems.into_configs())
-    }
-
     /// Configures a system set in the default schedule, adding the set if it does not exist.
+    #[track_caller]
     pub fn configure_set(
         &mut self,
         schedule: impl ScheduleLabel,
@@ -479,14 +403,15 @@ impl App {
         if let Some(schedule) = schedules.get_mut(&schedule) {
             schedule.configure_set(set);
         } else {
-            let mut new_schedule = Schedule::new();
+            let mut new_schedule = Schedule::new(schedule);
             new_schedule.configure_set(set);
-            schedules.insert(schedule, new_schedule);
+            schedules.insert(new_schedule);
         }
         self
     }
 
     /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.
+    #[track_caller]
     pub fn configure_sets(
         &mut self,
         schedule: impl ScheduleLabel,
@@ -496,9 +421,9 @@ impl App {
         if let Some(schedule) = schedules.get_mut(&schedule) {
             schedule.configure_sets(sets);
         } else {
-            let mut new_schedule = Schedule::new();
+            let mut new_schedule = Schedule::new(schedule);
             new_schedule.configure_sets(sets);
-            schedules.insert(schedule, new_schedule);
+            schedules.insert(new_schedule);
         }
         self
     }
@@ -656,43 +581,7 @@ impl App {
         self
     }
 
-    /// Adds a single [`Plugin`].
-    ///
-    /// One of Bevy's core principles is modularity. All Bevy engine features are implemented
-    /// as [`Plugin`]s. This includes internal features like the renderer.
-    ///
-    /// Bevy also provides a few sets of default [`Plugin`]s. See [`add_plugins`](Self::add_plugins).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// #
-    /// # // Dummies created to avoid using `bevy_log`,
-    /// # // which pulls in too many dependencies and breaks rust-analyzer
-    /// # pub mod bevy_log {
-    /// #     use bevy_app::prelude::*;
-    /// #     #[derive(Default)]
-    /// #     pub struct LogPlugin;
-    /// #     impl Plugin for LogPlugin{
-    /// #        fn build(&self, app: &mut App) {}
-    /// #     }
-    /// # }
-    /// App::new().add_plugin(bevy_log::LogPlugin::default());
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// Panics if the plugin was already added to the application.
-    #[deprecated(since = "0.11.0", note = "Please use `add_plugins` instead.")]
-    pub fn add_plugin<T>(&mut self, plugin: T) -> &mut Self
-    where
-        T: Plugin,
-    {
-        self.add_plugins(plugin)
-    }
-
-    /// Boxed variant of [`add_plugin`](App::add_plugin) that can be used from a
+    /// Boxed variant of [`add_plugins`](App::add_plugins) that can be used from a
     /// [`PluginGroup`](super::PluginGroup)
     pub(crate) fn add_boxed_plugin(
         &mut self,
@@ -799,6 +688,7 @@ impl App {
     /// Panics if one of the plugins was already added to the application.
     ///
     /// [`PluginGroup`]:super::PluginGroup
+    #[track_caller]
     pub fn add_plugins<M>(&mut self, plugins: impl Plugins<M>) -> &mut Self {
         plugins.add_to_app(self);
         self
@@ -908,9 +798,9 @@ impl App {
     /// # Warning
     /// This method will overwrite any existing schedule at that label.
     /// To avoid this behavior, use the `init_schedule` method instead.
-    pub fn add_schedule(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> &mut Self {
+    pub fn add_schedule(&mut self, schedule: Schedule) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
-        schedules.insert(label, schedule);
+        schedules.insert(schedule);
 
         self
     }
@@ -921,7 +811,7 @@ impl App {
     pub fn init_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
         if !schedules.contains(&label) {
-            schedules.insert(label, Schedule::new());
+            schedules.insert(Schedule::new(label));
         }
         self
     }
@@ -951,13 +841,24 @@ impl App {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         if schedules.get(&label).is_none() {
-            schedules.insert(label.dyn_clone(), Schedule::new());
+            schedules.insert(Schedule::new(label.dyn_clone()));
         }
 
         let schedule = schedules.get_mut(&label).unwrap();
         // Call the function f, passing in the schedule retrieved
         f(schedule);
 
+        self
+    }
+
+    /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
+    pub fn configure_schedules(
+        &mut self,
+        schedule_build_settings: ScheduleBuildSettings,
+    ) -> &mut Self {
+        self.world
+            .resource_mut::<Schedules>()
+            .configure_schedules(schedule_build_settings);
         self
     }
 }

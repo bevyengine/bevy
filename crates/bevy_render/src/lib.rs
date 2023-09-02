@@ -11,6 +11,7 @@ pub mod extract_component;
 mod extract_param;
 pub mod extract_resource;
 pub mod globals;
+pub mod gpu_component_array_buffer;
 pub mod mesh;
 pub mod pipelined_rendering;
 pub mod primitives;
@@ -25,6 +26,7 @@ pub mod texture;
 pub mod view;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
+use bevy_reflect::TypeUuid;
 pub use extract_param::Extract;
 
 pub mod prelude {
@@ -36,7 +38,7 @@ pub mod prelude {
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
-        view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
+        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
         ExtractSchedule,
     };
 }
@@ -48,14 +50,15 @@ use wgpu::Instance;
 
 use crate::{
     camera::CameraPlugin,
-    mesh::{morph::MorphPlugin, MeshPlugin},
+    mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
+    render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     settings::WgpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin, SubApp};
-use bevy_asset::{AddAsset, AssetServer};
+use bevy_asset::{load_internal_asset, AddAsset, AssetServer, HandleUntyped};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
 use std::{
@@ -81,21 +84,31 @@ pub enum RenderSet {
     /// The copy of [`apply_deferred`] that runs at the beginning of this schedule.
     /// This is used for applying the commands from the [`ExtractSchedule`]
     ExtractCommands,
-    /// Prepare render resources from the extracted data for the GPU.
-    Prepare,
-    /// The copy of [`apply_deferred`] that runs immediately after [`Prepare`](RenderSet::Prepare).
-    PrepareFlush,
-    /// Create [`BindGroups`](render_resource::BindGroup) that depend on
-    /// [`Prepare`](RenderSet::Prepare) data and queue up draw calls to run during the
-    /// [`Render`](RenderSet::Render) step.
+    /// Prepare assets that have been created/modified/removed this frame.
+    PrepareAssets,
+    /// Create any additional views such as those used for shadow mapping.
+    ManageViews,
+    /// The copy of [`apply_deferred`] that runs immediately after [`ManageViews`](RenderSet::ManageViews).
+    ManageViewsFlush,
+    /// Queue drawable entities as phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
+    /// ready for sorting
     Queue,
-    /// The copy of [`apply_deferred`] that runs immediately after [`Queue`](RenderSet::Queue).
-    QueueFlush,
+    /// A sub-set within Queue where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
+    QueueMeshes,
     // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
     /// Sort the [`RenderPhases`](render_phase::RenderPhase) here.
     PhaseSort,
-    /// The copy of [`apply_deferred`] that runs immediately after [`PhaseSort`](RenderSet::PhaseSort).
-    PhaseSortFlush,
+    /// Prepare render resources from extracted data for the GPU based on their sorted order.
+    /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on those data.
+    Prepare,
+    /// A sub-set within Prepare for initializing buffers, textures and uniforms for use in bind groups.
+    PrepareResources,
+    /// The copy of [`apply_deferred`] that runs between [`PrepareResources`](RenderSet::PrepareResources) and ['PrepareBindGroups'](RenderSet::PrepareBindGroups).
+    PrepareResourcesFlush,
+    /// A sub-set within Prepare for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
+    PrepareBindGroups,
+    /// The copy of [`apply_deferred`] that runs immediately after [`Prepare`](RenderSet::Prepare).
+    PrepareFlush,
     /// Actual rendering happens here.
     /// In most cases, only the render backend should insert resources here.
     Render,
@@ -119,32 +132,44 @@ impl Render {
     pub fn base_schedule() -> Schedule {
         use RenderSet::*;
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::new(Self);
 
         // Create "stage-like" structure using buffer flushes + ordering
         schedule.add_systems((
-            apply_deferred.in_set(PrepareFlush),
-            apply_deferred.in_set(QueueFlush),
-            apply_deferred.in_set(PhaseSortFlush),
+            apply_deferred.in_set(ManageViewsFlush),
+            apply_deferred.in_set(PrepareResourcesFlush),
             apply_deferred.in_set(RenderFlush),
+            apply_deferred.in_set(PrepareFlush),
             apply_deferred.in_set(CleanupFlush),
         ));
 
         schedule.configure_sets(
             (
                 ExtractCommands,
+                ManageViews,
+                ManageViewsFlush,
+                Queue,
+                PhaseSort,
                 Prepare,
                 PrepareFlush,
-                Queue,
-                QueueFlush,
-                PhaseSort,
-                PhaseSortFlush,
                 Render,
                 RenderFlush,
                 Cleanup,
                 CleanupFlush,
             )
                 .chain(),
+        );
+
+        schedule.configure_sets((ExtractCommands, PrepareAssets, Prepare).chain());
+        schedule.configure_set(
+            QueueMeshes
+                .in_set(RenderSet::Queue)
+                .after(prepare_assets::<Mesh>),
+        );
+        schedule.configure_sets(
+            (PrepareResources, PrepareResourcesFlush, PrepareBindGroups)
+                .chain()
+                .in_set(Prepare),
         );
 
         schedule
@@ -207,6 +232,9 @@ struct FutureRendererResources(
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
 
+pub const INSTANCE_INDEX_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 10313207077636615845);
+
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`](RenderSet) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
@@ -267,12 +295,12 @@ impl Plugin for RenderPlugin {
             let mut render_app = App::empty();
             render_app.main_schedule_label = Box::new(Render);
 
-            let mut extract_schedule = Schedule::new();
+            let mut extract_schedule = Schedule::new(ExtractSchedule);
             extract_schedule.set_apply_final_deferred(false);
 
             render_app
-                .add_schedule(ExtractSchedule, extract_schedule)
-                .add_schedule(Render, Render::base_schedule())
+                .add_schedule(extract_schedule)
+                .add_schedule(Render::base_schedule())
                 .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(app.world.resource::<AssetServer>().clone())
                 .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
@@ -329,7 +357,7 @@ impl Plugin for RenderPlugin {
         }
 
         app.add_plugins((
-            ValidParentCheckPlugin::<view::ComputedVisibility>::default(),
+            ValidParentCheckPlugin::<view::InheritedVisibility>::default(),
             WindowRenderPlugin,
             CameraPlugin,
             ViewPlugin,
@@ -353,6 +381,16 @@ impl Plugin for RenderPlugin {
     }
 
     fn finish(&self, app: &mut App) {
+        load_internal_asset!(
+            app,
+            INSTANCE_INDEX_SHADER_HANDLE,
+            "instance_index.wgsl",
+            Shader::from_wgsl_with_defs,
+            vec![
+                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+                "BASE_INSTANCE_WORKAROUND".into()
+            ]
+        );
         if let Some(future_renderer_resources) =
             app.world.remove_resource::<FutureRendererResources>()
         {

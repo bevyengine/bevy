@@ -53,20 +53,17 @@ impl Measure for TextMeasure {
         _available_height: AvailableSpace,
     ) -> Vec2 {
         let x = width.unwrap_or_else(|| match available_width {
-            AvailableSpace::Definite(x) => x.clamp(
-                self.info.min_width_content_size.x,
-                self.info.max_width_content_size.x,
-            ),
-            AvailableSpace::MinContent => self.info.min_width_content_size.x,
-            AvailableSpace::MaxContent => self.info.max_width_content_size.x,
+            AvailableSpace::Definite(x) => x.clamp(self.info.min.x, self.info.max.x),
+            AvailableSpace::MinContent => self.info.min.x,
+            AvailableSpace::MaxContent => self.info.max.x,
         });
 
         height
             .map_or_else(
                 || match available_width {
                     AvailableSpace::Definite(_) => self.info.compute_size(Vec2::new(x, f32::MAX)),
-                    AvailableSpace::MinContent => Vec2::new(x, self.info.min_width_content_size.y),
-                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max_width_content_size.y),
+                    AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
+                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
                 },
                 |y| Vec2::new(x, y),
             )
@@ -77,29 +74,20 @@ impl Measure for TextMeasure {
 #[inline]
 fn create_text_measure(
     fonts: &Assets<Font>,
-    text_pipeline: &mut TextPipeline,
     scale_factor: f64,
     text: Ref<Text>,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextFlags>,
 ) {
-    match text_pipeline.create_text_measure(
-        fonts,
-        &text.sections,
-        scale_factor,
-        text.alignment,
-        text.linebreak_behavior,
-    ) {
+    match TextMeasureInfo::from_text(&text, fonts, scale_factor) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
-                content_size.set(FixedMeasure {
-                    size: measure.max_width_content_size,
-                });
+                content_size.set(FixedMeasure { size: measure.max });
             } else {
                 content_size.set(TextMeasure { info: measure });
             }
 
-            // Text measure func created succesfully, so set `TextFlags` to schedule a recompute
+            // Text measure func created successfully, so set `TextFlags` to schedule a recompute
             text_flags.needs_new_measure_func = false;
             text_flags.needs_recompute = true;
         }
@@ -113,14 +101,20 @@ fn create_text_measure(
     };
 }
 
-/// Creates a `Measure` for text nodes that allows the UI to determine the appropriate amount of space
+/// Generates a new [`Measure`] for a text node on changes to its [`Text`] component.
+/// A `Measure` is used by the UI's layout algorithm to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
+///
+/// * All measures are regenerated if the primary window's scale factor or [`UiScale`] is changed.
+/// * Changes that only modify the colors of a `Text` do not require a new `Measure`. This system
+/// is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
+/// color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
+/// method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
     mut last_scale_factor: Local<f64>,
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
-    mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(Ref<Text>, &mut ContentSize, &mut TextFlags), With<Node>>,
 ) {
     let window_scale_factor = windows
@@ -128,21 +122,14 @@ pub fn measure_text_system(
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.);
 
-    let scale_factor = ui_scale.scale * window_scale_factor;
+    let scale_factor = ui_scale.0 * window_scale_factor;
 
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
         // scale factor unchanged, only create new measure funcs for modified text
         for (text, content_size, text_flags) in text_query.iter_mut() {
             if text.is_changed() || text_flags.needs_new_measure_func {
-                create_text_measure(
-                    &fonts,
-                    &mut text_pipeline,
-                    scale_factor,
-                    text,
-                    content_size,
-                    text_flags,
-                );
+                create_text_measure(&fonts, scale_factor, text, content_size, text_flags);
             }
         }
     } else {
@@ -150,14 +137,7 @@ pub fn measure_text_system(
         *last_scale_factor = scale_factor;
 
         for (text, content_size, text_flags) in text_query.iter_mut() {
-            create_text_measure(
-                &fonts,
-                &mut text_pipeline,
-                scale_factor,
-                text,
-                content_size,
-                text_flags,
-            );
+            create_text_measure(&fonts, scale_factor, text, content_size, text_flags);
         }
     }
 }
@@ -184,7 +164,8 @@ fn queue_text(
             // With `NoWrap` set, no constraints are placed on the width of the text.
             Vec2::splat(f32::INFINITY)
         } else {
-            node.physical_size(scale_factor)
+            // `scale_factor` is already multiplied by `UiScale`
+            node.physical_size(scale_factor, 1.)
         };
 
         match text_pipeline.queue_text(
@@ -216,8 +197,9 @@ fn queue_text(
     }
 }
 
-/// Updates the layout and size information whenever the text or style is changed.
-/// This information is computed by the `TextPipeline` on insertion, then stored.
+/// Updates the layout and size information for a UI text node on changes to the size value of its [`Node`] component,
+/// or when the `needs_recompute` field of [`TextFlags`] is set to true.
+/// This information is computed by the [`TextPipeline`] and then stored in [`TextLayoutInfo`].
 ///
 /// ## World Resources
 ///
@@ -243,7 +225,7 @@ pub fn text_system(
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.);
 
-    let scale_factor = ui_scale.scale * window_scale_factor;
+    let scale_factor = ui_scale.0 * window_scale_factor;
 
     if *last_scale_factor == scale_factor {
         // Scale factor unchanged, only recompute text for modified text nodes

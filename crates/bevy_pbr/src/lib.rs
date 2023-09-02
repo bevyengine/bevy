@@ -56,14 +56,10 @@ use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::CameraUpdateSystem,
-    extract_resource::ExtractResourcePlugin,
-    prelude::Color,
-    render_graph::RenderGraph,
-    render_phase::sort_phase_system,
-    render_resource::Shader,
-    view::{ViewSet, VisibilitySystems},
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    camera::CameraUpdateSystem, extract_resource::ExtractResourcePlugin, prelude::Color,
+    render_asset::prepare_assets, render_graph::RenderGraph, render_phase::sort_phase_system,
+    render_resource::Shader, texture::Image, view::VisibilitySystems, ExtractSchedule, Render,
+    RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
 use environment_map::EnvironmentMapPlugin;
@@ -166,6 +162,7 @@ impl Plugin for PbrPlugin {
         );
 
         app.register_asset_reflect::<StandardMaterial>()
+            .register_type::<AlphaMode>()
             .register_type::<AmbientLight>()
             .register_type::<Cascade>()
             .register_type::<CascadeShadowConfig>()
@@ -222,7 +219,7 @@ impl Plugin for PbrPlugin {
                         .after(CameraUpdateSystem),
                     update_directional_light_frusta
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
-                        // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
+                        // This must run after CheckVisibility because it relies on `ViewVisibility`
                         .after(VisibilitySystems::CheckVisibility)
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::UpdateDirectionalLightCascades)
@@ -244,7 +241,7 @@ impl Plugin for PbrPlugin {
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::UpdateLightFrusta)
                         // NOTE: This MUST be scheduled AFTER the core renderer visibility check
-                        // because that resets entity ComputedVisibility for the first view
+                        // because that resets entity `ViewVisibility` for the first view
                         // which would override any results from this otherwise
                         .after(VisibilitySystems::CheckVisibility),
                 ),
@@ -268,37 +265,18 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
-            .configure_sets(
-                Render,
-                (
-                    RenderLightSystems::PrepareLights.in_set(RenderSet::Prepare),
-                    RenderLightSystems::PrepareClusters.in_set(RenderSet::Prepare),
-                    RenderLightSystems::QueueShadows.in_set(RenderSet::Queue),
-                ),
-            )
             .add_systems(
                 ExtractSchedule,
-                (
-                    render::extract_clusters.in_set(RenderLightSystems::ExtractClusters),
-                    render::extract_lights.in_set(RenderLightSystems::ExtractLights),
-                ),
+                (render::extract_clusters, render::extract_lights),
             )
             .add_systems(
                 Render,
                 (
                     render::prepare_lights
-                        .before(ViewSet::PrepareUniforms)
-                        .in_set(RenderLightSystems::PrepareLights),
-                    // A sync is needed after prepare_lights, before prepare_view_uniforms,
-                    // because prepare_lights creates new views for shadow mapping
-                    apply_deferred
-                        .in_set(RenderSet::Prepare)
-                        .after(RenderLightSystems::PrepareLights)
-                        .before(ViewSet::PrepareUniforms),
-                    render::prepare_clusters
-                        .after(render::prepare_lights)
-                        .in_set(RenderLightSystems::PrepareClusters),
+                        .in_set(RenderSet::ManageViews)
+                        .after(prepare_assets::<Image>),
                     sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort),
+                    render::prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
             .init_resource::<LightMeta>();

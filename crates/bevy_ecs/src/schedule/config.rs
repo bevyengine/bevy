@@ -5,7 +5,6 @@ use crate::{
         condition::{BoxedCondition, Condition},
         graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{BoxedSystemSet, IntoSystemSet, SystemSet},
-        ScheduleLabel,
     },
     system::{BoxedSystem, IntoSystem, System},
 };
@@ -84,14 +83,15 @@ impl SystemConfigs {
         })
     }
 
-    pub(crate) fn in_set_inner(&mut self, set: BoxedSystemSet) {
+    /// Adds a new boxed system set to the systems.
+    pub fn in_set_dyn(&mut self, set: BoxedSystemSet) {
         match self {
             SystemConfigs::SystemConfig(config) => {
                 config.graph_info.sets.push(set);
             }
             SystemConfigs::Configs { configs, .. } => {
                 for config in configs {
-                    config.in_set_inner(set.dyn_clone());
+                    config.in_set_dyn(set.dyn_clone());
                 }
             }
         }
@@ -168,7 +168,11 @@ impl SystemConfigs {
         }
     }
 
-    pub(crate) fn run_if_inner(&mut self, condition: BoxedCondition) {
+    /// Adds a new boxed run condition to the systems.
+    ///
+    /// This is useful if you have a run condition whose concrete type is unknown.
+    /// Prefer `run_if` for run conditions whose type is known at compile time.
+    pub fn run_if_dyn(&mut self, condition: BoxedCondition) {
         match self {
             SystemConfigs::SystemConfig(config) => {
                 config.conditions.push(condition);
@@ -221,7 +225,7 @@ where
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # let mut schedule = Schedule::new();
+    /// # let mut schedule = Schedule::default();
     /// # fn a() {}
     /// # fn b() {}
     /// # fn condition() -> bool { true }
@@ -254,7 +258,7 @@ where
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # let mut schedule = Schedule::new();
+    /// # let mut schedule = Schedule::default();
     /// # fn a() {}
     /// # fn b() {}
     /// # fn condition() -> bool { true }
@@ -294,35 +298,6 @@ where
     fn chain(self) -> SystemConfigs {
         self.into_configs().chain()
     }
-
-    /// This used to add the system to `CoreSchedule::Startup`.
-    /// This was a shorthand for `self.in_schedule(CoreSchedule::Startup)`.
-    ///
-    /// # Panics
-    ///
-    /// Always panics. Please migrate to the new `App::add_systems` with the `Startup` schedule:
-    /// Ex: `app.add_system(foo.on_startup())` -> `app.add_systems(Startup, foo)`
-    #[deprecated(
-        since = "0.11.0",
-        note = "`app.add_system(foo.on_startup())` has been deprecated in favor of `app.add_systems(Startup, foo)`. Please migrate to that API."
-    )]
-    fn on_startup(self) -> SystemConfigs {
-        panic!("`app.add_system(foo.on_startup())` has been deprecated in favor of `app.add_systems(Startup, foo)`. Please migrate to that API.");
-    }
-
-    /// This used to add the system to the provided `schedule`.
-    ///
-    /// # Panics
-    ///
-    /// Always panics. Please migrate to the new `App::add_systems`:
-    /// Ex: `app.add_system(foo.in_schedule(SomeSchedule))` -> `app.add_systems(SomeSchedule, foo)`
-    #[deprecated(
-        since = "0.11.0",
-        note = "`app.add_system(foo.in_schedule(SomeSchedule))` has been deprecated in favor of `app.add_systems(SomeSchedule, foo)`. Please migrate to that API."
-    )]
-    fn in_schedule(self, _schedule: impl ScheduleLabel) -> SystemConfigs {
-        panic!("`app.add_system(foo.in_schedule(SomeSchedule))` has been deprecated in favor of `app.add_systems(SomeSchedule, foo)`. Please migrate to that API.");
-    }
 }
 
 impl IntoSystemConfigs<()> for SystemConfigs {
@@ -337,7 +312,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
             "adding arbitrary systems to a system type set is not allowed"
         );
 
-        self.in_set_inner(set.dyn_clone());
+        self.in_set_dyn(set.dyn_clone());
 
         self
     }
@@ -371,7 +346,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
     }
 
     fn run_if<M>(mut self, condition: impl Condition<M>) -> SystemConfigs {
-        self.run_if_inner(new_condition(condition));
+        self.run_if_dyn(new_condition(condition));
         self
     }
 
@@ -418,6 +393,7 @@ pub struct SystemSetConfig {
 }
 
 impl SystemSetConfig {
+    #[track_caller]
     fn new(set: BoxedSystemSet) -> Self {
         // system type sets are automatically populated
         // to avoid unintentionally broad changes, they cannot be configured
@@ -471,38 +447,10 @@ pub trait IntoSystemSetConfig: Sized {
     fn ambiguous_with_all(self) -> SystemSetConfig {
         self.into_config().ambiguous_with_all()
     }
-
-    /// This used to configure the set in the `CoreSchedule::Startup` schedule.
-    /// This was a shorthand for `self.in_schedule(CoreSchedule::Startup)`.
-    ///
-    /// # Panics
-    ///
-    /// Always panics. Please migrate to the new `App::configure_set` with the `Startup` schedule:
-    /// Ex: `app.configure_set(MySet.on_startup())` -> `app.configure_set(Startup, MySet)`
-    #[deprecated(
-        since = "0.11.0",
-        note = "`app.configure_set(MySet.on_startup())` has been deprecated in favor of `app.configure_set(Startup, MySet)`. Please migrate to that API."
-    )]
-    fn on_startup(self) -> SystemSetConfigs {
-        panic!("`app.configure_set(MySet.on_startup())` has been deprecated in favor of `app.configure_set(Startup, MySet)`. Please migrate to that API.");
-    }
-
-    /// This used to configure the set in the provided `schedule`.
-    ///
-    /// # Panics
-    ///
-    /// Always panics. Please migrate to the new `App::configure_set`:
-    /// Ex: `app.configure_set(MySet.in_schedule(SomeSchedule))` -> `app.configure_set(SomeSchedule, MySet)`
-    #[deprecated(
-        since = "0.11.0",
-        note = "`app.configure_set(MySet.in_schedule(SomeSchedule))` has been deprecated in favor of `app.configure_set(SomeSchedule, MySet)`. Please migrate to that API."
-    )]
-    fn in_schedule(self, _schedule: impl ScheduleLabel) -> SystemSetConfigs {
-        panic!("`app.configure_set(MySet.in_schedule(SomeSchedule))` has been deprecated in favor of `app.configure_set(SomeSchedule, MySet)`. Please migrate to that API.");
-    }
 }
 
 impl<S: SystemSet> IntoSystemSetConfig for S {
+    #[track_caller]
     fn into_config(self) -> SystemSetConfig {
         SystemSetConfig::new(Box::new(self))
     }
@@ -610,35 +558,6 @@ where
     /// Ordering constraints will be applied between the successive elements.
     fn chain(self) -> SystemSetConfigs {
         self.into_configs().chain()
-    }
-
-    /// This used to configure the sets in the `CoreSchedule::Startup` schedule.
-    /// This was a shorthand for `self.in_schedule(CoreSchedule::Startup)`.
-    ///
-    /// # Panics
-    ///
-    /// Always panics. Please migrate to the new `App::configure_sets` with the `Startup` schedule:
-    /// Ex: `app.configure_sets((A, B).on_startup())` -> `app.configure_sets(Startup, (A, B))`
-    #[deprecated(
-        since = "0.11.0",
-        note = "`app.configure_sets((A, B).on_startup())` has been deprecated in favor of `app.configure_sets(Startup, (A, B))`. Please migrate to that API."
-    )]
-    fn on_startup(self) -> SystemSetConfigs {
-        panic!("`app.configure_sets((A, B).on_startup())` has been deprecated in favor of `app.configure_sets(Startup, (A, B))`. Please migrate to that API.");
-    }
-
-    /// This used to configure the sets in the provided `schedule`.
-    ///
-    /// # Panics
-    ///
-    /// Always panics. Please migrate to the new `App::configure_set`:
-    /// Ex: `app.configure_sets((A, B).in_schedule(SomeSchedule))` -> `app.configure_sets(SomeSchedule, (A, B))`
-    #[deprecated(
-        since = "0.11.0",
-        note = "`app.configure_sets((A, B).in_schedule(SomeSchedule))` has been deprecated in favor of `app.configure_sets(SomeSchedule, (A, B))`. Please migrate to that API."
-    )]
-    fn in_schedule(self, _schedule: impl ScheduleLabel) -> SystemSetConfigs {
-        panic!("`app.configure_sets((A, B).in_schedule(SomeSchedule))` has been deprecated in favor of `app.configure_sets(SomeSchedule, (A, B))`. Please migrate to that API.");
     }
 }
 

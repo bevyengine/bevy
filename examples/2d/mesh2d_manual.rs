@@ -279,7 +279,7 @@ impl Plugin for ColoredMesh2dPlugin {
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
             .add_systems(ExtractSchedule, extract_colored_mesh2d)
-            .add_systems(Render, queue_colored_mesh2d.in_set(RenderSet::Queue));
+            .add_systems(Render, queue_colored_mesh2d.in_set(RenderSet::QueueMeshes));
     }
 
     fn finish(&self, app: &mut App) {
@@ -296,11 +296,11 @@ pub fn extract_colored_mesh2d(
     mut previous_len: Local<usize>,
     // When extracting, you must use `Extract` to mark the `SystemParam`s
     // which should be taken from the main world.
-    query: Extract<Query<(Entity, &ComputedVisibility), With<ColoredMesh2d>>>,
+    query: Extract<Query<(Entity, &ViewVisibility), With<ColoredMesh2d>>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, computed_visibility) in &query {
-        if !computed_visibility.is_visible() {
+    for (entity, view_visibility) in &query {
+        if !view_visibility.get() {
             continue;
         }
         values.push((entity, ColoredMesh2d));
@@ -357,7 +357,7 @@ pub fn queue_colored_mesh2d(
                     // in order to get correct transparency
                     sort_key: FloatOrd(mesh_z),
                     // This material is not batched
-                    batch_range: None,
+                    batch_size: 1,
                 });
             }
         }

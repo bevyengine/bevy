@@ -59,8 +59,6 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     ) {
     }
 
-    unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
-
     const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => true,
@@ -162,8 +160,6 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     ) {
     }
 
-    unsafe fn clone_fetch<'w>(_fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {}
-
     const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => true,
@@ -259,6 +255,15 @@ pub struct OrFetch<'w, T: WorldQuery> {
     matches: bool,
 }
 
+impl<T: WorldQuery> Clone for OrFetch<'_, T> {
+    fn clone(&self) -> Self {
+        Self {
+            fetch: self.fetch.clone(),
+            matches: self.matches,
+        }
+    }
+}
+
 macro_rules! impl_query_filter_tuple {
     ($(($filter: ident, $state: ident)),*) => {
         #[allow(unused_variables)]
@@ -286,18 +291,6 @@ macro_rules! impl_query_filter_tuple {
                     fetch: $filter::init_fetch(world, $filter, last_run, this_run),
                     matches: false,
                 },)*)
-            }
-
-            unsafe fn clone_fetch<'w>(
-                fetch: &Self::Fetch<'w>,
-            ) -> Self::Fetch<'w> {
-                let ($($filter,)*) = &fetch;
-                ($(
-                    OrFetch {
-                        fetch: $filter::clone_fetch(&$filter.fetch),
-                        matches: $filter.matches,
-                    },
-                )*)
             }
 
             #[inline]
@@ -403,10 +396,10 @@ macro_rules! impl_tick_filter {
         pub struct $name<T>(PhantomData<T>);
 
         #[doc(hidden)]
+        #[derive(Clone)]
         $(#[$fetch_meta])*
-        pub struct $fetch_name<'w, T> {
-            table_ticks: Option< ThinSlicePtr<'w, UnsafeCell<Tick>>>,
-            marker: PhantomData<T>,
+        pub struct $fetch_name<'w> {
+            table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
             sparse_set: Option<&'w ComponentSparseSet>,
             last_run: Tick,
             this_run: Tick,
@@ -414,7 +407,7 @@ macro_rules! impl_tick_filter {
 
         // SAFETY: `Self::ReadOnly` is the same as `Self`
         unsafe impl<T: Component> WorldQuery for $name<T> {
-            type Fetch<'w> = $fetch_name<'w, T>;
+            type Fetch<'w> = $fetch_name<'w>;
             type Item<'w> = bool;
             type ReadOnly = Self;
             type State = ComponentId;
@@ -440,21 +433,8 @@ macro_rules! impl_tick_filter {
                                  .get(id)
                                  .debug_checked_unwrap()
                         }),
-                    marker: PhantomData,
                     last_run,
                     this_run,
-                }
-            }
-
-            unsafe fn clone_fetch<'w>(
-                fetch: &Self::Fetch<'w>,
-            ) -> Self::Fetch<'w> {
-                $fetch_name {
-                    table_ticks: fetch.table_ticks,
-                    sparse_set: fetch.sparse_set,
-                    last_run: fetch.last_run,
-                    this_run: fetch.this_run,
-                    marker: PhantomData,
                 }
             }
 

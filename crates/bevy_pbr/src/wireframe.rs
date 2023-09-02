@@ -1,5 +1,5 @@
-use crate::MeshPipeline;
-use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
+use crate::{DrawMesh, MeshPipelineKey, SetMeshBindGroup, SetMeshViewBindGroup};
+use crate::{MeshPipeline, MeshTransforms};
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::core_3d::Opaque3d;
@@ -49,7 +49,7 @@ impl Plugin for WireframePlugin {
             render_app
                 .add_render_command::<Opaque3d, DrawWireframes>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
-                .add_systems(Render, queue_wireframes.in_set(RenderSet::Queue));
+                .add_systems(Render, queue_wireframes.in_set(RenderSet::QueueMeshes));
         }
     }
 
@@ -117,8 +117,8 @@ fn queue_wireframes(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     mut material_meshes: ParamSet<(
-        Query<(Entity, &Handle<Mesh>, &MeshUniform)>,
-        Query<(Entity, &Handle<Mesh>, &MeshUniform), With<Wireframe>>,
+        Query<(Entity, &Handle<Mesh>, &MeshTransforms)>,
+        Query<(Entity, &Handle<Mesh>, &MeshTransforms), With<Wireframe>>,
     )>,
     mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<Opaque3d>)>,
 ) {
@@ -129,7 +129,7 @@ fn queue_wireframes(
 
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let add_render_phase =
-            |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
+            |(entity, mesh_handle, mesh_transforms): (Entity, &Handle<Mesh>, &MeshTransforms)| {
                 if let Some(mesh) = render_meshes.get(mesh_handle) {
                     let key = view_key
                         | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
@@ -150,7 +150,9 @@ fn queue_wireframes(
                         entity,
                         pipeline: pipeline_id,
                         draw_function: draw_custom,
-                        distance: rangefinder.distance(&mesh_uniform.transform),
+                        distance: rangefinder
+                            .distance_translation(&mesh_transforms.transform.translation),
+                        batch_size: 1,
                     });
                 }
             };

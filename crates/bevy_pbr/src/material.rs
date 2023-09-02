@@ -1,7 +1,7 @@
 use crate::{
     render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
-    MeshUniform, PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems,
-    ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
+    MeshTransforms, PrepassPipelinePlugin, PrepassPlugin, ScreenSpaceAmbientOcclusionSettings,
+    SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -24,7 +24,7 @@ use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
-    render_asset::{PrepareAssetSet, RenderAssets},
+    render_asset::{prepare_assets, RenderAssets},
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
@@ -205,10 +205,14 @@ where
                     Render,
                     (
                         prepare_materials::<M>
-                            .in_set(RenderSet::Prepare)
-                            .after(PrepareAssetSet::PreAssetPrepare),
-                        render::queue_shadows::<M>.in_set(RenderLightSystems::QueueShadows),
-                        queue_material_meshes::<M>.in_set(RenderSet::Queue),
+                            .in_set(RenderSet::PrepareAssets)
+                            .after(prepare_assets::<Image>),
+                        render::queue_shadows::<M>
+                            .in_set(RenderSet::QueueMeshes)
+                            .after(prepare_materials::<M>),
+                        queue_material_meshes::<M>
+                            .in_set(RenderSet::QueueMeshes)
+                            .after(prepare_materials::<M>),
                     ),
                 );
         }
@@ -379,7 +383,7 @@ pub fn queue_material_meshes<M: Material>(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
-    material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
+    material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshTransforms)>,
     images: Res<RenderAssets<Image>>,
     mut views: Query<(
         &ExtractedView,
@@ -463,7 +467,7 @@ pub fn queue_material_meshes<M: Material>(
 
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
-            if let Ok((material_handle, mesh_handle, mesh_uniform)) =
+            if let Ok((material_handle, mesh_handle, mesh_transforms)) =
                 material_meshes.get(*visible_entity)
             {
                 if let (Some(mesh), Some(material)) = (
@@ -511,7 +515,8 @@ pub fn queue_material_meshes<M: Material>(
                         }
                     };
 
-                    let distance = rangefinder.distance(&mesh_uniform.transform)
+                    let distance = rangefinder
+                        .distance_translation(&mesh_transforms.transform.translation)
                         + material.properties.depth_bias;
                     match material.properties.alpha_mode {
                         AlphaMode::Opaque => {
@@ -520,6 +525,7 @@ pub fn queue_material_meshes<M: Material>(
                                 draw_function: draw_opaque_pbr,
                                 pipeline: pipeline_id,
                                 distance,
+                                batch_size: 1,
                             });
                         }
                         AlphaMode::Mask(_) => {
@@ -528,6 +534,7 @@ pub fn queue_material_meshes<M: Material>(
                                 draw_function: draw_alpha_mask_pbr,
                                 pipeline: pipeline_id,
                                 distance,
+                                batch_size: 1,
                             });
                         }
                         AlphaMode::Blend
@@ -539,6 +546,7 @@ pub fn queue_material_meshes<M: Material>(
                                 draw_function: draw_transparent_pbr,
                                 pipeline: pipeline_id,
                                 distance,
+                                batch_size: 1,
                             });
                         }
                     }
@@ -600,7 +608,7 @@ pub fn extract_materials<M: Material>(
 ) {
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
-    for event in events.iter() {
+    for event in events.read() {
         match event {
             AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                 changed_assets.insert(handle.clone_weak());
