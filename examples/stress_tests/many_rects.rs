@@ -6,10 +6,8 @@
 //! To run the demo with extraction iterating the UI stack use:
 //! `cargo run --example many_rects --release iter-stack`
 //!
-use bevy_internal::{
-    render::{texture::DEFAULT_IMAGE_HANDLE, Extract, RenderApp},
-    ui::{ExtractedUiNode, ExtractedUiNodes},
-};
+use bevy::render::{texture::DEFAULT_IMAGE_HANDLE, Extract, RenderApp};
+use bevy::ui::{ExtractedUiNode, ExtractedUiNodes};
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
