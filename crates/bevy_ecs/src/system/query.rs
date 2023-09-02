@@ -934,6 +934,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
+    /// If the declared access for a given component is read-only, only an immutable reference will be returned.
+    ///
     /// # Example
     ///
     /// Here, `get_mut` is used to retrieve the exact query item of the entity specified by the `PoisonedCharacter` resource.
@@ -1063,6 +1065,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns a shared reference to the component `T` of the given [`Entity`].
     ///
+    /// Unlike [`Query::get`], this method returns only a single component,
+    /// rather than the entire query item declared in the first type parameter.
+    ///
+    /// Note that the component must both be present on the entity and the access declared on the query,
+    /// via the first "fetch" type parameter.
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
     /// # Example
@@ -1077,8 +1084,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// # #[derive(Component)]
     /// # struct Character { name: String }
     /// #
+    /// # #[derive(Component)]
+    /// # struct IrrelevantComponent;
+    ///
     /// fn print_selected_character_name_system(
-    ///        query: Query<&Character>,
+    ///        query: Query<(&Character, &IrrelevantComponent)>,
     ///        selection: Res<SelectedCharacter>
     /// )
     /// {
@@ -1121,7 +1131,14 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns a mutable reference to the component `T` of the given entity.
     ///
+    /// Unlike [`Query::get_mut`], this method returns only a single component,
+    /// rather than the entire query item declared in the first type parameter.
+    ///
+    /// Note that the component must both be present on the entity and the access declared on the query,
+    /// via the first "fetch" type parameter.
     /// In case of a nonexisting entity or mismatched component, a [`QueryComponentError`] is returned instead.
+    ///
+    /// If the declared access for the provided component is read-only, only an immutable reference will be returned.
     ///
     /// # Example
     ///
@@ -1135,7 +1152,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// # #[derive(Component)]
     /// # struct Health(u32);
     /// #
-    /// fn poison_system(mut query: Query<&mut Health>, poisoned: Res<PoisonedCharacter>) {
+    /// #[derive(Component)]
+    /// # struct IrrelevantComponent;
+
+    ///
+    /// fn poison_system(mut query: Query<(&mut Health, &IrrelevantComponent)>, poisoned: Res<PoisonedCharacter>) {
     ///     if let Ok(mut health) = query.get_component_mut::<Health>(poisoned.character_id) {
     ///         health.0 -= 1;
     ///     }
