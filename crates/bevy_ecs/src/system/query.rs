@@ -1091,6 +1091,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// # See also
     ///
+    /// - [`component`](Self::component) a panicking version of this function.
     /// - [`get_component_mut`](Self::get_component_mut) to get a mutable reference of a component.
     #[inline]
     pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
@@ -1145,6 +1146,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// # See also
     ///
+    /// - [`component_mut`](Self::component_mut) a panicking version of this function.
     /// - [`get_component`](Self::get_component) to get a shared reference of a component.
     #[inline]
     pub fn get_component_mut<T: Component>(
@@ -1163,6 +1165,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// # See also
     ///
+    /// - [`get_component`](Self::get_component) a non-panicking version of this function.
     /// - [`component_mut`](Self::component_mut) to get a mutable reference of a component.
     #[inline]
     #[track_caller]
@@ -1186,6 +1189,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// # See also
     ///
+    /// - [`get_component_mut`](Self::get_component_mut) a non-panicking version of this function.
     /// - [`component`](Self::component) to get a shared reference of a component.
     #[inline]
     #[track_caller]
