@@ -12,7 +12,7 @@ use crate::view::{InheritedVisibility, ViewVisibility, Visibility};
 ///
 /// Hierarchies of entities must contain
 /// all the [`Component`]s in this `Bundle`
-/// to work correctly.
+/// to be rendered correctly.
 ///
 /// [`Component`]: bevy_ecs::component::Component
 #[derive(Bundle, Debug, Default)]
