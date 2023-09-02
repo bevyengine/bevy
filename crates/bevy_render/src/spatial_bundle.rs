@@ -10,7 +10,7 @@ use crate::view::{InheritedVisibility, ViewVisibility, Visibility};
 /// but also visibility components,
 /// which determine whether the entity is visible or not.
 ///
-/// Hierarchies of entities must contain
+/// Parent-child hierarchies of entities must contain
 /// all the [`Component`]s in this `Bundle`
 /// to be rendered correctly.
 ///
