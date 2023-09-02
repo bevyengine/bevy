@@ -441,7 +441,7 @@ fn buttons_handler<T>(
     T: Send + Sync,
     Target<T>: TargetUpdate + Component,
 {
-    for event in &mut click_events {
+    for event in &mut click_events.read() {
         if let Ok(clicked_visible_button) = visibility_button_query.get(event.0) {
             let target = clicked_visible_button.0;
             let children = clicked_visible_button.1;
