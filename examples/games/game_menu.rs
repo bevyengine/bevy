@@ -789,7 +789,7 @@ mod menu {
         mut menu_state: ResMut<NextState<MenuState>>,
         mut game_state: ResMut<NextState<GameState>>,
     ) {
-        for event in &mut click_events.read() {
+        for event in click_events.read() {
             if let Ok(menu_button) = menu_buttons.get(event.0) {
                 match menu_button {
                     MenuButtonAction::Quit => app_exit_events.send(AppExit),

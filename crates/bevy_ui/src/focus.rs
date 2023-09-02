@@ -58,15 +58,15 @@ impl Default for Interaction {
 
 /// Holds the last interaction that occurred for a UI node.
 ///
-/// This is commonly used by adding `LastInteraction` as a member variable
-/// to a UI node such that `Click` events are sent on click/press-release action.
+/// This is commonly used by adding this component
+/// to a UI node such that [`Click`] events are sent on click/press-release action.
 #[derive(Component, Default, Debug, Clone)]
 pub struct LastInteraction(Interaction);
 
 /// Used to publish which entity was clicked
 ///
-/// Commonly used by creating a UI node that contains `LastInteraction` as a member
-/// and then using `EventReader<Click>` to obtain the list of clicked UI nodes.
+/// Commonly used by creating a UI node that contains [`LastInteraction`] and [`Interaction`] components
+/// and then using [`EventReader<Click>`] to obtain the list of clicked UI nodes.
 ///
 /// Note click captures the full click/press-release action.
 #[derive(Event)]
@@ -319,7 +319,7 @@ pub fn ui_focus_system(
 }
 
 /// The system that sends a click event to publish which entities where clicked
-/// for all UI nodes that contain the `LastInteraction` `Component`
+/// for all UI nodes that contain the [`LastInteraction`] component
 ///
 /// Included by default with `UiPlugin`.
 pub fn ui_click(
