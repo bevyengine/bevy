@@ -151,7 +151,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// # Safety
     ///
-    /// - `world` must have permission to ready any components required by this instance's `F` [`WorldQuery`].
+    /// - `world` must have permission to read any components required by this instance's `F` [`WorldQuery`].
     /// - `world` must match the one used to create this [`QueryState`].
     #[inline]
     pub(crate) unsafe fn is_empty_unsafe_world_cell(
