@@ -33,7 +33,7 @@ struct Args {
 
     /// whether to vary the material data in each instance.
     #[argh(switch)]
-    vary_material_data: bool,
+    vary_per_instance: bool,
 
     /// the number of different textures from which to randomly select the material base color. 0 means no textures.
     #[argh(option, default = "0")]
@@ -206,7 +206,7 @@ fn init_materials(
     textures: &[Handle<Image>],
     assets: &mut Assets<StandardMaterial>,
 ) -> Vec<Handle<StandardMaterial>> {
-    let capacity = if args.vary_material_data {
+    let capacity = if args.vary_per_instance {
         match args.layout {
             Layout::Cube => (WIDTH - WIDTH / 10) * (HEIGHT - HEIGHT / 10),
             Layout::Sphere => WIDTH * HEIGHT * 4,
