@@ -66,7 +66,7 @@ pub struct LastInteraction(Interaction);
 /// Used to publish which entity was clicked
 ///
 /// Commonly used by creating a UI node that contains [`LastInteraction`] and [`Interaction`] components
-/// and then using [`EventReader<Click>`] to obtain the list of clicked UI nodes.
+/// and then using [`EventReader<Click>`](event::EventReader) to obtain the list of clicked UI nodes.
 ///
 /// Note click captures the full click/press-release action.
 #[derive(Event)]
