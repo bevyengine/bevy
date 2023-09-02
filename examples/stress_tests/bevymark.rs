@@ -326,11 +326,7 @@ fn bird_velocity_transform(
         }
     }
     (
-        Transform {
-            translation,
-            scale: Vec3::splat(BIRD_SCALE),
-            ..default()
-        },
+        Transform::from_translation(translation).with_scale(Vec3::splat(BIRD_SCALE)),
         velocity,
     )
 }
