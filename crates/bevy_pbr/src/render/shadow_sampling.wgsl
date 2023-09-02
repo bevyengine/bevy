@@ -94,8 +94,6 @@ fn sample_shadow_map_jimenez_fourteen(light_local: vec2<f32>, depth: f32, array_
     let f = map(0.00390625, 0.022949219, 0.015, 0.035, texel_size);
     let uv_offset_scale = f / (texel_size * shadow_map_size);
 
-    // We need the constant sample offsets (the vec2<f32> stuff) here rather than in a const
-    // to avoid a dx12 shader compilation bug
     // https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
     let sample_offset1 = (rotation_matrix * vec2(-0.7071,  0.7071)) * uv_offset_scale;
     let sample_offset2 = (rotation_matrix * vec2(-0.0000, -0.8750)) * uv_offset_scale;
