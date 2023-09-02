@@ -1,3 +1,7 @@
+// The shader reads the previous frame's state from the `input` texture, and writes the new state of
+// each pixel to the `output` texture. The textures are flipped each step to progress the
+// simulation.
+
 @group(0) @binding(0) var input: texture_storage_2d<r32float, read>;
 
 @group(0) @binding(1) var output: texture_storage_2d<r32float, write>;
