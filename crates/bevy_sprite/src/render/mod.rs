@@ -764,7 +764,7 @@ pub fn prepare_sprites(
 
             // NOTE: This code is creating 6 indices pointing to 4 vertices.
             // The vertices form the corners of a quad based on their two least significant bits.
-            // 01   11
+            // 10   11
             //
             // 00   01
             // The sprite shader can then use the two least significant bits as the vertex index.
