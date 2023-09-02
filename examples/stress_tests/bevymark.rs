@@ -218,25 +218,32 @@ fn setup(
     };
 
     commands.spawn(Camera2dBundle::default());
-    commands.spawn((
-        TextBundle::from_sections([
-            text_section(Color::GREEN, "Bird Count"),
-            text_section(Color::CYAN, ""),
-            text_section(Color::GREEN, "\nFPS (raw): "),
-            text_section(Color::CYAN, ""),
-            text_section(Color::GREEN, "\nFPS (SMA): "),
-            text_section(Color::CYAN, ""),
-            text_section(Color::GREEN, "\nFPS (EMA): "),
-            text_section(Color::CYAN, ""),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(5.0),
-            left: Val::Px(5.0),
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                padding: UiRect::all(Val::Px(5.0)),
+                ..default()
+            },
+            z_index: ZIndex::Global(i32::MAX),
+            background_color: Color::BLACK.with_a(0.75).into(),
             ..default()
-        }),
-        StatsText,
-    ));
+        })
+        .with_children(|c| {
+            c.spawn((
+                TextBundle::from_sections([
+                    text_section(Color::GREEN, "Bird Count: "),
+                    text_section(Color::CYAN, ""),
+                    text_section(Color::GREEN, "\nFPS (raw): "),
+                    text_section(Color::CYAN, ""),
+                    text_section(Color::GREEN, "\nFPS (SMA): "),
+                    text_section(Color::CYAN, ""),
+                    text_section(Color::GREEN, "\nFPS (EMA): "),
+                    text_section(Color::CYAN, ""),
+                ]),
+                StatsText,
+            ));
+        });
 
     let mut scheduled = BirdScheduled {
         per_wave: args.per_wave,
