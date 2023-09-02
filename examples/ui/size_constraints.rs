@@ -7,7 +7,14 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_event::<ButtonActivatedEvent>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_buttons, update_radio_buttons_colors))
+        .add_systems(
+            Update,
+            (
+                update_buttons,
+                update_radio_buttons_colors,
+                button_activated,
+            ),
+        )
         .run();
 }
 
@@ -293,6 +300,15 @@ fn spawn_button(
         });
 }
 
+fn button_activated(
+    mut button_activated_event: EventWriter<ButtonActivatedEvent>,
+    mut click_events: EventReader<Click>,
+) {
+    for event in &mut click_events.read() {
+        button_activated_event.send(ButtonActivatedEvent(event.0));
+    }
+}
+
 fn update_buttons(
     mut button_query: Query<
         (Entity, &Interaction, &Constraint, &ButtonValue),
@@ -301,28 +317,24 @@ fn update_buttons(
     mut bar_query: Query<&mut Style, With<Bar>>,
     mut text_query: Query<&mut Text>,
     children_query: Query<&Children>,
-    mut button_activated_event: EventWriter<ButtonActivatedEvent>,
 ) {
     let mut style = bar_query.single_mut();
     for (button_id, interaction, constraint, value) in button_query.iter_mut() {
         match interaction {
-            Interaction::Pressed => {
-                button_activated_event.send(ButtonActivatedEvent(button_id));
-                match constraint {
-                    Constraint::FlexBasis => {
-                        style.flex_basis = value.0;
-                    }
-                    Constraint::Width => {
-                        style.width = value.0;
-                    }
-                    Constraint::MinWidth => {
-                        style.min_width = value.0;
-                    }
-                    Constraint::MaxWidth => {
-                        style.max_width = value.0;
-                    }
+            Interaction::Pressed => match constraint {
+                Constraint::FlexBasis => {
+                    style.flex_basis = value.0;
                 }
-            }
+                Constraint::Width => {
+                    style.width = value.0;
+                }
+                Constraint::MinWidth => {
+                    style.min_width = value.0;
+                }
+                Constraint::MaxWidth => {
+                    style.max_width = value.0;
+                }
+            },
             Interaction::Hovered => {
                 if let Ok(children) = children_query.get(button_id) {
                     for &child in children {
