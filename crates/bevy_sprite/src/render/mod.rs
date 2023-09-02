@@ -241,19 +241,19 @@ impl SpecializedRenderPipeline for SpritePipeline {
             array_stride: 80,
             step_mode: VertexStepMode::Instance,
             attributes: vec![
-                // @location(0) i_model_x: vec4<f32>,
+                // @location(0) i_model_transpose_col0: vec4<f32>,
                 VertexAttribute {
                     format: VertexFormat::Float32x4,
                     offset: 0,
                     shader_location: 0,
                 },
-                // @location(1) i_col1_ty: vec4<f32>,
+                // @location(1) i_model_transpose_col1: vec4<f32>,
                 VertexAttribute {
                     format: VertexFormat::Float32x4,
                     offset: 16,
                     shader_location: 1,
                 },
-                // @location(2) i_col2_tz: vec4<f32>,
+                // @location(2) i_model_transpose_col2: vec4<f32>,
                 VertexAttribute {
                     format: VertexFormat::Float32x4,
                     offset: 32,
