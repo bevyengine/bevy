@@ -5,16 +5,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_event::<ButtonActivatedEvent>()
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                update_buttons,
-                update_radio_buttons_colors,
-                button_activated,
-            ),
-        )
+        .add_systems(Update, (update_buttons, update_radio_buttons_colors))
         .run();
 }
 
@@ -41,9 +33,6 @@ enum Constraint {
 
 #[derive(Copy, Clone, Component)]
 struct ButtonValue(Val);
-
-#[derive(Event)]
-struct ButtonActivatedEvent(Entity);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
@@ -300,15 +289,6 @@ fn spawn_button(
         });
 }
 
-fn button_activated(
-    mut button_activated_event: EventWriter<ButtonActivatedEvent>,
-    mut click_events: EventReader<Click>,
-) {
-    for event in &mut click_events.read() {
-        button_activated_event.send(ButtonActivatedEvent(event.0));
-    }
-}
-
 fn update_buttons(
     mut button_query: Query<
         (Entity, &Interaction, &Constraint, &ButtonValue),
@@ -370,13 +350,13 @@ fn update_buttons(
 }
 
 fn update_radio_buttons_colors(
-    mut event_reader: EventReader<ButtonActivatedEvent>,
+    mut click_events: EventReader<Click>,
     button_query: Query<(Entity, &Constraint, &Interaction)>,
     mut color_query: Query<&mut BackgroundColor>,
     mut text_query: Query<&mut Text>,
     children_query: Query<&Children>,
 ) {
-    for &ButtonActivatedEvent(button_id) in event_reader.read() {
+    for &Click(button_id) in click_events.read() {
         let target_constraint = button_query.get_component::<Constraint>(button_id).unwrap();
         for (id, constraint, interaction) in button_query.iter() {
             if target_constraint == constraint {
