@@ -356,7 +356,8 @@ fn update_radio_buttons_colors(
     mut text_query: Query<&mut Text>,
     children_query: Query<&Children>,
 ) {
-    for &Click(button_id) in click_events.read() {
+    for event in click_events.read() {
+        let button_id = event.0;
         let target_constraint = button_query.get_component::<Constraint>(button_id).unwrap();
         for (id, constraint, interaction) in button_query.iter() {
             if target_constraint == constraint {

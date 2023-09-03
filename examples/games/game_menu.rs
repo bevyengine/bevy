@@ -789,8 +789,8 @@ mod menu {
         mut menu_state: ResMut<NextState<MenuState>>,
         mut game_state: ResMut<NextState<GameState>>,
     ) {
-        for &Click(clicked_entity) in click_events.read() {
-            if let Ok(menu_button) = menu_buttons.get(clicked_entity) {
+        for event in click_events.read() {
+            if let Ok(menu_button) = menu_buttons.get(event.0) {
                 match menu_button {
                     MenuButtonAction::Quit => app_exit_events.send(AppExit),
                     MenuButtonAction::Play => {
