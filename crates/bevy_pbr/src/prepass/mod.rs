@@ -28,13 +28,13 @@ use bevy_render::{
     },
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntries, BindGroupLayout,
-        BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendState,
+        BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState,
         BufferBindingType, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
         DepthStencilState, DynamicUniformBuffer, FragmentState, FrontFace, MultisampleState,
         PipelineCache, PolygonMode, PrimitiveState, PushConstantRange, RenderPipelineDescriptor,
         Shader, ShaderRef, ShaderStages, ShaderType, SpecializedMeshPipeline,
         SpecializedMeshPipelineError, SpecializedMeshPipelines, StencilFaceState, StencilState,
-        TextureSampleType, TextureViewDimension, VertexState,
+        TextureSampleType, TextureView, TextureViewDimension, VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{FallbackImagesDepth, FallbackImagesMsaa},
@@ -587,11 +587,7 @@ pub fn get_bindings<'a>(
     fallback_images: &'a mut FallbackImagesMsaa,
     fallback_depths: &'a mut FallbackImagesDepth,
     msaa: &'a Msaa,
-) -> (
-    BindingResource<'a>,
-    BindingResource<'a>,
-    BindingResource<'a>,
-) {
+) -> (&'a TextureView, &'a TextureView, &'a TextureView) {
     let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
         Some(texture) => &texture.default_view,
         None => {
@@ -615,11 +611,7 @@ pub fn get_bindings<'a>(
         None => normal_motion_vectors_fallback,
     };
 
-    (
-        BindingResource::TextureView(depth_view),
-        BindingResource::TextureView(normal_view),
-        BindingResource::TextureView(motion_vectors_view),
-    )
+    (depth_view, normal_view, motion_vectors_view)
 }
 
 // Extract the render phases for the prepass
