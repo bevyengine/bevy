@@ -3,7 +3,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
-    event::EventWriter,
+    event,
     prelude::{Changed, Component, Event, With},
     query::WorldQuery,
     reflect::ReflectComponent,
@@ -323,7 +323,7 @@ pub fn ui_focus_system(
 ///
 /// Included by default with `UiPlugin`.
 pub fn ui_click(
-    mut click_events: EventWriter<Click>,
+    mut click_events: event::EventWriter<Click>,
     mut buttons: Query<(Entity, &Interaction, &mut LastInteraction), Changed<Interaction>>,
 ) {
     for (entity, &interaction, mut last_interaction) in &mut buttons {
