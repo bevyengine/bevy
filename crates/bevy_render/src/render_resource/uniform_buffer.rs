@@ -10,7 +10,7 @@ use encase::{
 };
 use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
 
-use super::AsBinding;
+use super::IntoBinding;
 
 /// Stores data to be transferred to the GPU and made accessible to shaders as a uniform buffer.
 ///
@@ -271,9 +271,9 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     }
 }
 
-impl<'a, T: ShaderType + WriteInto> AsBinding<'a> for &'a DynamicUniformBuffer<T> {
+impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a DynamicUniformBuffer<T> {
     #[inline]
-    fn as_binding(self) -> BindingResource<'a> {
+    fn into_binding(self) -> BindingResource<'a> {
         self.binding().unwrap()
     }
 }

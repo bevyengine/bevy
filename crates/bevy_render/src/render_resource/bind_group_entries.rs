@@ -74,10 +74,10 @@ pub struct BindGroupEntries<'b, const N: usize> {
 
 impl<'b, const N: usize> BindGroupEntries<'b, N> {
     #[inline]
-    pub fn sequential(resources: impl AsBindingArray<'b, N>) -> Self {
+    pub fn sequential(resources: impl IntoBindingArray<'b, N>) -> Self {
         let mut i = 0;
         Self {
-            entries: resources.as_array().map(|resource| {
+            entries: resources.into_array().map(|resource| {
                 let binding = i;
                 i += 1;
                 BindGroupEntry { binding, resource }
@@ -86,10 +86,10 @@ impl<'b, const N: usize> BindGroupEntries<'b, N> {
     }
 
     #[inline]
-    pub fn with_indexes(indexed_resources: impl AsIndexedBindingArray<'b, N>) -> Self {
+    pub fn with_indexes(indexed_resources: impl IntoIndexedBindingArray<'b, N>) -> Self {
         Self {
             entries: indexed_resources
-                .as_array()
+                .into_array()
                 .map(|(binding, resource)| BindGroupEntry { binding, resource }),
         }
     }
@@ -103,49 +103,49 @@ impl<'b, const N: usize> std::ops::Deref for BindGroupEntries<'b, N> {
     }
 }
 
-pub trait AsBinding<'a> {
-    fn as_binding(self) -> BindingResource<'a>;
+pub trait IntoBinding<'a> {
+    fn into_binding(self) -> BindingResource<'a>;
 }
 
-impl<'a> AsBinding<'a> for &'a TextureView {
+impl<'a> IntoBinding<'a> for &'a TextureView {
     #[inline]
-    fn as_binding(self) -> BindingResource<'a> {
+    fn into_binding(self) -> BindingResource<'a> {
         BindingResource::TextureView(self)
     }
 }
 
-impl<'a> AsBinding<'a> for &'a [&'a wgpu::TextureView] {
+impl<'a> IntoBinding<'a> for &'a [&'a wgpu::TextureView] {
     #[inline]
-    fn as_binding(self) -> BindingResource<'a> {
+    fn into_binding(self) -> BindingResource<'a> {
         BindingResource::TextureViewArray(self)
     }
 }
 
-impl<'a> AsBinding<'a> for &'a Sampler {
+impl<'a> IntoBinding<'a> for &'a Sampler {
     #[inline]
-    fn as_binding(self) -> BindingResource<'a> {
+    fn into_binding(self) -> BindingResource<'a> {
         BindingResource::Sampler(self)
     }
 }
 
-impl<'a> AsBinding<'a> for BindingResource<'a> {
+impl<'a> IntoBinding<'a> for BindingResource<'a> {
     #[inline]
-    fn as_binding(self) -> BindingResource<'a> {
+    fn into_binding(self) -> BindingResource<'a> {
         self
     }
 }
 
-pub trait AsBindingArray<'b, const N: usize> {
-    fn as_array(self) -> [BindingResource<'b>; N];
+pub trait IntoBindingArray<'b, const N: usize> {
+    fn into_array(self) -> [BindingResource<'b>; N];
 }
 
 macro_rules! impl_to_binding_slice {
     ($N: expr, $(($T: ident, $I: ident)),*) => {
-        impl<'b, $($T: AsBinding<'b>),*> AsBindingArray<'b, $N> for ($($T,)*) {
+        impl<'b, $($T: IntoBinding<'b>),*> IntoBindingArray<'b, $N> for ($($T,)*) {
             #[inline]
-            fn as_array(self) -> [BindingResource<'b>; $N] {
+            fn into_array(self) -> [BindingResource<'b>; $N] {
                 let ($($I,)*) = self;
-                [$($I.as_binding(), )*]
+                [$($I.into_binding(), )*]
             }
         }
     }
@@ -153,17 +153,17 @@ macro_rules! impl_to_binding_slice {
 
 all_tuples_with_size!(impl_to_binding_slice, 1, 32, T, s);
 
-pub trait AsIndexedBindingArray<'b, const N: usize> {
-    fn as_array(self) -> [(u32, BindingResource<'b>); N];
+pub trait IntoIndexedBindingArray<'b, const N: usize> {
+    fn into_array(self) -> [(u32, BindingResource<'b>); N];
 }
 
 macro_rules! impl_to_indexed_binding_slice {
     ($N: expr, $(($T: ident, $S: ident, $I: ident)),*) => {
-        impl<'b, $($T: AsBinding<'b>),*> AsIndexedBindingArray<'b, $N> for ($((u32, $T),)*) {
+        impl<'b, $($T: IntoBinding<'b>),*> IntoIndexedBindingArray<'b, $N> for ($((u32, $T),)*) {
             #[inline]
-            fn as_array(self) -> [(u32, BindingResource<'b>); $N] {
+            fn into_array(self) -> [(u32, BindingResource<'b>); $N] {
                 let ($(($S, $I),)*) = self;
-                [$(($S, $I.as_binding())), *]
+                [$(($S, $I.into_binding())), *]
             }
         }
     }
@@ -176,10 +176,10 @@ pub struct DynamicBindGroupEntries<'b> {
 }
 
 impl<'b> DynamicBindGroupEntries<'b> {
-    pub fn sequential<const N: usize>(entries: impl AsBindingArray<'b, N>) -> Self {
+    pub fn sequential<const N: usize>(entries: impl IntoBindingArray<'b, N>) -> Self {
         Self {
             entries: entries
-                .as_array()
+                .into_array()
                 .into_iter()
                 .enumerate()
                 .map(|(ix, resource)| BindGroupEntry {
@@ -192,12 +192,12 @@ impl<'b> DynamicBindGroupEntries<'b> {
 
     pub fn extend_sequential<const N: usize>(
         mut self,
-        entries: impl AsBindingArray<'b, N>,
+        entries: impl IntoBindingArray<'b, N>,
     ) -> Self {
         let start = self.entries.last().unwrap().binding + 1;
         self.entries.extend(
             entries
-                .as_array()
+                .into_array()
                 .into_iter()
                 .enumerate()
                 .map(|(ix, resource)| BindGroupEntry {
@@ -208,10 +208,10 @@ impl<'b> DynamicBindGroupEntries<'b> {
         self
     }
 
-    pub fn new_with_indexes<const N: usize>(entries: impl AsIndexedBindingArray<'b, N>) -> Self {
+    pub fn new_with_indexes<const N: usize>(entries: impl IntoIndexedBindingArray<'b, N>) -> Self {
         Self {
             entries: entries
-                .as_array()
+                .into_array()
                 .into_iter()
                 .map(|(binding, resource)| BindGroupEntry { binding, resource })
                 .collect(),
@@ -220,11 +220,11 @@ impl<'b> DynamicBindGroupEntries<'b> {
 
     pub fn extend_with_indexes<const N: usize>(
         mut self,
-        entries: impl AsIndexedBindingArray<'b, N>,
+        entries: impl IntoIndexedBindingArray<'b, N>,
     ) -> Self {
         self.entries.extend(
             entries
-                .as_array()
+                .into_array()
                 .into_iter()
                 .map(|(binding, resource)| BindGroupEntry { binding, resource }),
         );
