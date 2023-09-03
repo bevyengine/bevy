@@ -27,14 +27,14 @@ use bevy_render::{
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroup, BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
         ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
         DynamicUniformBuffer, FragmentState, FrontFace, MultisampleState, PipelineCache,
         PolygonMode, PrimitiveState, PushConstantRange, RenderPipelineDescriptor, Shader,
         ShaderRef, ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
         SpecializedMeshPipelines, StencilFaceState, StencilState, TextureSampleType,
-        TextureViewDimension, VertexState,
+        TextureViewDimension, VertexState, BindGroupEntries,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{FallbackImagesDepth, FallbackImagesMsaa},
@@ -587,8 +587,7 @@ pub fn get_bindings<'a>(
     fallback_images: &'a mut FallbackImagesMsaa,
     fallback_depths: &'a mut FallbackImagesDepth,
     msaa: &'a Msaa,
-    bindings: [u32; 3],
-) -> [BindGroupEntry<'a>; 3] {
+) -> (BindingResource<'a>, BindingResource<'a>, BindingResource<'a>) {
     let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
         Some(texture) => &texture.default_view,
         None => {
@@ -612,20 +611,11 @@ pub fn get_bindings<'a>(
         None => normal_motion_vectors_fallback,
     };
 
-    [
-        BindGroupEntry {
-            binding: bindings[0],
-            resource: BindingResource::TextureView(depth_view),
-        },
-        BindGroupEntry {
-            binding: bindings[1],
-            resource: BindingResource::TextureView(normal_view),
-        },
-        BindGroupEntry {
-            binding: bindings[2],
-            resource: BindingResource::TextureView(motion_vectors_view),
-        },
-    ]
+    (
+        BindingResource::TextureView(depth_view),
+        BindingResource::TextureView(normal_view),
+        BindingResource::TextureView(motion_vectors_view),
+    )
 }
 
 // Extract the render phases for the prepass
@@ -705,16 +695,10 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
     ) {
         prepass_view_bind_group.no_motion_vectors =
             Some(render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: view_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: globals_binding.clone(),
-                    },
-                ],
+                entries: &BindGroupEntries::sequential((
+                    view_binding.clone(),
+                    globals_binding.clone(),
+                )),
                 label: Some("prepass_view_no_motion_vectors_bind_group"),
                 layout: &prepass_pipeline.view_layout_no_motion_vectors,
             }));
@@ -722,20 +706,11 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
         if let Some(previous_view_proj_binding) = previous_view_proj_uniforms.uniforms.binding() {
             prepass_view_bind_group.motion_vectors =
                 Some(render_device.create_bind_group(&BindGroupDescriptor {
-                    entries: &[
-                        BindGroupEntry {
-                            binding: 0,
-                            resource: view_binding,
-                        },
-                        BindGroupEntry {
-                            binding: 1,
-                            resource: globals_binding,
-                        },
-                        BindGroupEntry {
-                            binding: 2,
-                            resource: previous_view_proj_binding,
-                        },
-                    ],
+                    entries: &BindGroupEntries::sequential((
+                        view_binding,
+                        globals_binding,
+                        previous_view_proj_binding,
+                    )),
                     label: Some("prepass_view_motion_vectors_bind_group"),
                     layout: &prepass_pipeline.view_layout_motion_vectors,
                 }));

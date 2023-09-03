@@ -11,7 +11,7 @@ use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
     prepass::ViewPrepassTextures,
     tonemapping::{
-        get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
+        get_lut_bind_group_layout_entries, Tonemapping, TonemappingLuts, get_lut_bindings,
     },
 };
 use bevy_ecs::{
@@ -1236,89 +1236,46 @@ pub fn prepare_mesh_view_bind_groups(
                 &mesh_pipeline.view_layout
             };
 
-            let mut entries = vec![
-                BindGroupEntry {
-                    binding: 0,
-                    resource: view_binding.clone(),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: light_binding.clone(),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::TextureView(
-                        &view_shadow_bindings.point_light_depth_texture_view,
-                    ),
-                },
-                BindGroupEntry {
-                    binding: 3,
-                    resource: BindingResource::Sampler(&shadow_samplers.point_light_sampler),
-                },
-                BindGroupEntry {
-                    binding: 4,
-                    resource: BindingResource::TextureView(
-                        &view_shadow_bindings.directional_light_depth_texture_view,
-                    ),
-                },
-                BindGroupEntry {
-                    binding: 5,
-                    resource: BindingResource::Sampler(&shadow_samplers.directional_light_sampler),
-                },
-                BindGroupEntry {
-                    binding: 6,
-                    resource: point_light_binding.clone(),
-                },
-                BindGroupEntry {
-                    binding: 7,
-                    resource: view_cluster_bindings.light_index_lists_binding().unwrap(),
-                },
-                BindGroupEntry {
-                    binding: 8,
-                    resource: view_cluster_bindings.offsets_and_counts_binding().unwrap(),
-                },
-                BindGroupEntry {
-                    binding: 9,
-                    resource: globals.clone(),
-                },
-                BindGroupEntry {
-                    binding: 10,
-                    resource: fog_binding.clone(),
-                },
-                BindGroupEntry {
-                    binding: 11,
-                    resource: BindingResource::TextureView(
-                        ssao_textures
-                            .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
-                            .unwrap_or(&fallback_ssao),
-                    ),
-                },
-            ];
+            let mut entries = DynamicBindGroupEntries::sequential((
+                // 0
+                view_binding.clone(),
+                light_binding.clone(),
+                &view_shadow_bindings.point_light_depth_texture_view,
+                &shadow_samplers.point_light_sampler,
+                &view_shadow_bindings.directional_light_depth_texture_view,
+                // 5
+                &shadow_samplers.directional_light_sampler,
+                point_light_binding.clone(),
+                view_cluster_bindings.light_index_lists_binding().unwrap(),
+                view_cluster_bindings.offsets_and_counts_binding().unwrap(),
+                globals.clone(),
+                // 10
+                fog_binding.clone(),
+                ssao_textures
+                    .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
+                    .unwrap_or(&fallback_ssao),
+            ));
 
-            let env_map = environment_map::get_bindings(
+            // 12 - 14
+            entries = entries.extend_sequential(environment_map::get_bindings(
                 environment_map,
                 &images,
                 &fallback_cubemap,
-                [12, 13, 14],
-            );
-            entries.extend_from_slice(&env_map);
+            ));
 
-            let tonemapping_luts =
-                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [15, 16]);
-            entries.extend_from_slice(&tonemapping_luts);
+            // 15 - 16
+            entries = entries.extend_sequential(get_lut_bindings(&images, &tonemapping_luts, tonemapping));
 
             // When using WebGL, we can't have a depth texture with multisampling
-            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
-                || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
-            {
-                entries.extend_from_slice(&prepass::get_bindings(
+            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1 {
+                // 17 - 19
+                entries = entries.extend_sequential(prepass::get_bindings(
                     prepass_textures,
                     &mut fallback_images,
                     &mut fallback_depths,
                     &msaa,
-                    [17, 18, 19],
                 ));
-            }
+            } 
 
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &entries,

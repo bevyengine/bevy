@@ -12,6 +12,7 @@ use bevy::{
         RenderApp,
     },
 };
+use bevy_internal::render::render_resource::BindGroupEntries;
 use std::{num::NonZeroU32, process::exit};
 
 fn main() {
@@ -126,16 +127,10 @@ impl AsBindGroup for BindlessMaterial {
         let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             label: "bindless_material_bind_group".into(),
             layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureViewArray(&textures[..]),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::Sampler(&fallback_image.sampler),
-                },
-            ],
+            entries: &BindGroupEntries::sequential((
+                &textures[..],
+                &fallback_image.sampler,
+            )),
         });
 
         Ok(PreparedBindGroup {

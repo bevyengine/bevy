@@ -22,7 +22,7 @@ use bevy_render::{
         DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
         TrackedRenderPass,
     },
-    render_resource::*,
+    render_resource::{*, BindGroupEntries},
     renderer::{RenderDevice, RenderQueue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
@@ -670,20 +670,10 @@ pub fn prepare_sprites(
                                 .entry(Handle::weak(batch_image_handle))
                                 .or_insert_with(|| {
                                     render_device.create_bind_group(&BindGroupDescriptor {
-                                        entries: &[
-                                            BindGroupEntry {
-                                                binding: 0,
-                                                resource: BindingResource::TextureView(
-                                                    &gpu_image.texture_view,
-                                                ),
-                                            },
-                                            BindGroupEntry {
-                                                binding: 1,
-                                                resource: BindingResource::Sampler(
-                                                    &gpu_image.sampler,
-                                                ),
-                                            },
-                                        ],
+                                        entries: &BindGroupEntries::sequential((
+                                            &gpu_image.texture_view,
+                                            &gpu_image.sampler,
+                                        )),
                                         label: Some("sprite_material_bind_group"),
                                         layout: &sprite_pipeline.material_layout,
                                     })

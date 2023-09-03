@@ -4,7 +4,7 @@ mod render_pass;
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::storage::SparseSet;
 use bevy_hierarchy::Parent;
-use bevy_render::{ExtractSchedule, Render};
+use bevy_render::{ExtractSchedule, Render, render_resource::BindGroupEntries};
 use bevy_window::{PrimaryWindow, Window};
 pub use pipeline::*;
 pub use render_pass::*;
@@ -755,20 +755,10 @@ pub fn prepare_uinodes(
                                 .entry(Handle::weak(batch_image_handle))
                                 .or_insert_with(|| {
                                     render_device.create_bind_group(&BindGroupDescriptor {
-                                        entries: &[
-                                            BindGroupEntry {
-                                                binding: 0,
-                                                resource: BindingResource::TextureView(
-                                                    &gpu_image.texture_view,
-                                                ),
-                                            },
-                                            BindGroupEntry {
-                                                binding: 1,
-                                                resource: BindingResource::Sampler(
-                                                    &gpu_image.sampler,
-                                                ),
-                                            },
-                                        ],
+                                        entries: &BindGroupEntries::sequential((
+                                            &gpu_image.texture_view,
+                                            &gpu_image.sampler,
+                                        )),
                                         label: Some("ui_material_bind_group"),
                                         layout: &ui_pipeline.image_layout,
                                     })

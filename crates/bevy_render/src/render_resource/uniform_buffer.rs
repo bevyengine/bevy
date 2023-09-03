@@ -10,6 +10,8 @@ use encase::{
 };
 use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
 
+use super::AsBinding;
+
 /// Stores data to be transferred to the GPU and made accessible to shaders as a uniform buffer.
 ///
 /// Uniform buffers are available to shaders on a read-only basis. Uniform buffers are commonly used to make available to shaders
@@ -266,5 +268,12 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     pub fn clear(&mut self) {
         self.scratch.as_mut().clear();
         self.scratch.set_offset(0);
+    }
+}
+
+impl<'a, T: ShaderType + WriteInto> AsBinding<'a> for &'a DynamicUniformBuffer<T> {
+    #[inline]
+    fn as_binding(self) -> BindingResource<'a> {
+        self.binding().unwrap()
     }
 }

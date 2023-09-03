@@ -10,7 +10,7 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
-    Render, RenderSet,
+    Render, RenderSet, render_resource::BindGroupEntries,
 };
 use bevy_render::{render_resource::*, RenderApp};
 
@@ -96,16 +96,10 @@ impl Node for MsaaWritebackNode {
                     .create_bind_group(&BindGroupDescriptor {
                         label: None,
                         layout: &blit_pipeline.texture_bind_group,
-                        entries: &[
-                            BindGroupEntry {
-                                binding: 0,
-                                resource: BindingResource::TextureView(post_process.source),
-                            },
-                            BindGroupEntry {
-                                binding: 1,
-                                resource: BindingResource::Sampler(&blit_pipeline.sampler),
-                            },
-                        ],
+                        entries: &BindGroupEntries::sequential((
+                            post_process.source,
+                            &blit_pipeline.sampler,
+                        ))
                     });
 
             let mut render_pass = render_context

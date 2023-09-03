@@ -11,13 +11,13 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
+        BindGroup, BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
         DepthStencilState, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
         RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages, ShaderType,
         SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilState,
-        TextureFormat, TextureSampleType, TextureViewDimension, VertexState,
+        TextureFormat, TextureSampleType, TextureViewDimension, VertexState, BindGroupEntries,
     },
     renderer::RenderDevice,
     texture::{BevyDefault, Image},
@@ -224,20 +224,11 @@ fn prepare_skybox_bind_groups(
             let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 label: Some("skybox_bind_group"),
                 layout: &pipeline.bind_group_layout,
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::TextureView(&skybox.texture_view),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Sampler(&skybox.sampler),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: view_uniforms,
-                    },
-                ],
+                entries: &BindGroupEntries::sequential((
+                    &skybox.texture_view,
+                    &skybox.sampler,
+                    view_uniforms,
+                ))
             });
 
             commands.entity(entity).insert(SkyboxBindGroup(bind_group));

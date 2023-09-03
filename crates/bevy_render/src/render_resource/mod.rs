@@ -12,6 +12,7 @@ mod shader;
 mod storage_buffer;
 mod texture;
 mod uniform_buffer;
+mod bind_group_entries;
 
 pub use bind_group::*;
 pub use bind_group_layout::*;
@@ -25,6 +26,7 @@ pub use shader::*;
 pub use storage_buffer::*;
 pub use texture::*;
 pub use uniform_buffer::*;
+pub use bind_group_entries::*;
 
 // TODO: decide where re-exports should go
 pub use wgpu::{

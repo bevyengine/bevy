@@ -21,8 +21,8 @@ use bevy::{
             NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
         },
         render_resource::{
-            BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-            BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
+            BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor,
+            BindGroupLayoutEntry, BindingType, CachedRenderPipelineId,
             ColorTargetState, ColorWrites, FragmentState, MultisampleState, Operations,
             PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
             RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
@@ -35,6 +35,7 @@ use bevy::{
     },
     utils::Duration,
 };
+use bevy_internal::render::render_resource::BindGroupEntries;
 
 fn main() {
     App::new()
@@ -191,23 +192,11 @@ impl ViewNode for PostProcessNode {
                 label: Some("post_process_bind_group"),
                 layout: &post_process_pipeline.layout,
                 // It's important for this to match the BindGroupLayout defined in the PostProcessPipeline
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        // Make sure to use the source view
-                        resource: BindingResource::TextureView(post_process.source),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        // Use the sampler created for the pipeline
-                        resource: BindingResource::Sampler(&post_process_pipeline.sampler),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        // Set the settings binding
-                        resource: settings_binding.clone(),
-                    },
-                ],
+                entries: &BindGroupEntries::sequential((
+                    post_process.source,
+                    &post_process_pipeline.sampler,
+                    settings_binding.clone(),
+                )),
             });
 
         // Begin the render pass
