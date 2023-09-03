@@ -21,6 +21,7 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 bevy_ecs_macros = { path = "macros", version = "0.12.0-dev" }
 
+parking_lot = "0.12.1"
 async-channel = "1.4"
 event-listener = "2.5"
 thread_local = "1.1.4"
