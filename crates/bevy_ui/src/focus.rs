@@ -170,7 +170,6 @@ pub fn ui_focus_system(
             if let Some(mut interaction) = node.interaction {
                 if *interaction == Interaction::Pressed {
                     *interaction = Interaction::None;
-                    click_events.send(Click(node.entity));
                 }
             }
         }
@@ -257,6 +256,10 @@ pub fn ui_focus_system(
                 }
 
                 if contains_cursor {
+                    // Emit a click signal for nodes that have been hovered over, then pressed and released
+                    if mouse_released {
+                        click_events.send(Click(*entity));
+                    }
                     Some(*entity)
                 } else {
                     if let Some(mut interaction) = node.interaction {
