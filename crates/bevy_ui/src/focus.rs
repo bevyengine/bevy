@@ -4,7 +4,7 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
     event,
-    prelude::{Changed, Component, Event, With},
+    prelude::{Component, Event, With},
     query::WorldQuery,
     reflect::ReflectComponent,
     system::{Local, Query, Res},
@@ -159,6 +159,7 @@ pub fn ui_focus_system(
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
+    mut click_events: event::EventWriter<Click>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -176,6 +177,7 @@ pub fn ui_focus_system(
             if let Some(mut interaction) = node.interaction {
                 if *interaction == Interaction::Pressed {
                     *interaction = Interaction::None;
+                    click_events.send(Click(node.entity));
                 }
             }
         }
@@ -315,23 +317,5 @@ pub fn ui_focus_system(
                 interaction.set_if_neq(Interaction::None);
             }
         }
-    }
-}
-
-/// The system that sends a click event to publish which entities where clicked
-/// for all UI nodes that contain the [`LastInteraction`] component
-///
-/// Included by default with `UiPlugin`.
-pub fn ui_click(
-    mut click_events: event::EventWriter<Click>,
-    mut buttons: Query<(Entity, &Interaction, &mut LastInteraction), Changed<Interaction>>,
-) {
-    for (entity, &interaction, mut last_interaction) in &mut buttons {
-        // Publish a click event for every entity that has changed in one cycle from
-        // `Interaction::Hovered` to `Interaction::Pressed`
-        if interaction == Interaction::Hovered && last_interaction.0 == Interaction::Pressed {
-            click_events.send(Click(entity));
-        }
-        last_interaction.0 = interaction;
     }
 }
