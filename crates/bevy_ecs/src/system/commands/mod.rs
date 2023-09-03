@@ -716,10 +716,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
     pub fn insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.commands.add(Insert {
-            entity: self.entity,
-            bundle,
-        });
+        self.add(Insert { bundle });
         self
     }
 
@@ -947,21 +944,17 @@ impl Command for Despawn {
 
 /// A [`Command`] that adds the components in a [`Bundle`] to an entity.
 pub struct Insert<T> {
-    /// The entity to which the components will be added.
-    pub entity: Entity,
     /// The [`Bundle`] containing the components that will be added to the entity.
     pub bundle: T,
 }
 
-impl<T> Command for Insert<T>
+impl<T> EntityCommand for Insert<T>
 where
-    T: Bundle + 'static,
+    T: Bundle,
 {
-    fn apply(self, world: &mut World) {
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
-            entity.insert(self.bundle);
-        } else {
-            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), self.entity);
+    fn apply(self, id: Entity, world: &mut World) {
+        if let Some(mut entity_mut) = world.get_entity_mut(id) {
+            entity_mut.insert(self.bundle);
         }
     }
 }
