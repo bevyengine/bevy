@@ -364,15 +364,13 @@ pub fn winit_runner(mut app: App) {
         }
 
         match event {
-            event::Event::NewEvents(start_cause) => match start_cause {
-                _ => {
-                    if let Some(t) = runner_state.scheduled_update {
-                        let now = Instant::now();
-                        let remaining = t.checked_duration_since(now).unwrap_or(Duration::ZERO);
-                        runner_state.wait_elapsed = remaining.is_zero();
-                    }
+            event::Event::NewEvents(_) => {
+                if let Some(t) = runner_state.scheduled_update {
+                    let now = Instant::now();
+                    let remaining = t.checked_duration_since(now).unwrap_or(Duration::ZERO);
+                    runner_state.wait_elapsed = remaining.is_zero();
                 }
-            },
+            }
             event::Event::WindowEvent {
                 event, window_id, ..
             } => {
