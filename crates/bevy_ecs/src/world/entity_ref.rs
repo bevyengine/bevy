@@ -890,6 +890,75 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Removes a dynamic [`Component`] from the entity.
+    ///
+    /// You should prefer to use the typed API [`EntityWorldMut::remove`] where possible.
+    ///
+    /// # Safety
+    ///
+    /// - [`ComponentId`] must be from the same world as [`EntityWorldMut`]
+    pub unsafe fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
+        let archetypes = &mut self.world.archetypes;
+        let storages = &mut self.world.storages;
+        let components = &mut self.world.components;
+        let entities = &mut self.world.entities;
+        let removed_components = &mut self.world.removed_components;
+
+        let (bundle_info, _storage_type) = self
+            .world
+            .bundles
+            .init_component_info(components, component_id);
+
+        let old_location = self.location;
+        // SAFETY: `archetype_id` exists because it is referenced in the old `EntityLocation` which is valid,
+        // components exist in `bundle_info` because `Bundles::init_info` initializes a `BundleInfo` containing all components of the bundle type `T`
+        let new_archetype_id = remove_bundle_from_archetype(
+            archetypes,
+            storages,
+            components,
+            old_location.archetype_id,
+            bundle_info,
+            true,
+        )
+        .expect("intersections should always return a result");
+
+        if new_archetype_id == old_location.archetype_id {
+            return self;
+        }
+
+        let old_archetype = &mut archetypes[old_location.archetype_id];
+        let entity = self.entity;
+        if old_archetype.contains(component_id) {
+            removed_components.send(component_id, entity);
+
+            // Make sure to drop components stored in sparse sets.
+            // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
+            if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
+                storages
+                    .sparse_sets
+                    .get_mut(component_id)
+                    .unwrap()
+                    .remove(entity);
+            }
+        }
+
+        // TODO: document why this is safe
+        {
+            Self::move_entity_from_remove::<true>(
+                entity,
+                &mut self.location,
+                old_location.archetype_id,
+                old_location,
+                entities,
+                archetypes,
+                storages,
+                new_archetype_id,
+            );
+        }
+
+        self
+    }
+
     /// Despawns the current entity.
     pub fn despawn(self) {
         debug!("Despawning entity {:?}", self.entity);
@@ -1575,6 +1644,20 @@ mod tests {
             .collect();
 
         assert_eq!(dynamic_components, static_components);
+    }
+
+    #[test]
+    fn entity_mut_remove_by_id() {
+        let mut world = World::new();
+        let test_component_id = world.init_component::<TestComponent>();
+
+        let mut entity = world.spawn(TestComponent(42));
+        // SAFETY: `test_component_id` matches the component id
+        unsafe { entity.remove_by_id(test_component_id) };
+
+        let components: Vec<_> = world.query::<&TestComponent>().iter(&world).collect();
+
+        assert_eq!(components, vec![] as Vec<&TestComponent>);
     }
 
     #[derive(Component)]
