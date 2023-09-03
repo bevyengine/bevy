@@ -79,10 +79,29 @@ pub struct SystemRegistry {
 ///
 /// The [`SystemRegistry`] stores systems in this format.
 pub struct RegisteredSystem {
-    /// Shows whether or not the system is initialized.
-    pub initialized: bool,
-    /// The system stored in the [`SystemRegistry`].
-    pub system: BoxedSystem,
+    initialized: bool,
+    system: BoxedSystem,
+}
+
+/// A system that has been removed from the registry.
+/// It contains the system and whether or not it has been initialized.
+///
+/// This struct is returned by [`SystemRegistry::remove`].
+pub struct RemovedSystem {
+    initialized: bool,
+    system: BoxedSystem,
+}
+
+impl RemovedSystem {
+    /// Is the system initialized?
+    /// A system is initialized the first time it's ran.
+    pub fn initialized(&self) -> bool {
+        self.initialized
+    }
+    /// The system removed from the [`SystemRegistry`]
+    pub fn system(self) -> BoxedSystem {
+        self.system
+    }
 }
 
 /// An identifier for a system registered in the [`SystemRegistry`].
@@ -112,10 +131,13 @@ impl SystemRegistry {
     }
 
     /// Removes a registered system from the [`SystemRegistry`], if the [`SystemId`] is not
-    /// registered, it returns [`None`], otherwise it returns the system.
+    /// registered, it returns a [`SystemRegistryError::SystemIdNotRegistered`], otherwise it returns the system.
     #[inline]
-    pub fn remove(&mut self, id: SystemId) -> Option<RegisteredSystem> {
-        self.systems.remove(&id.0)
+    pub fn remove(&mut self, id: SystemId) -> Result<RemovedSystem, SystemRegistryError> {
+        self.systems
+            .remove(&id.0)
+            .map(|RegisteredSystem { initialized, system }| RemovedSystem { initialized, system })
+            .ok_or(SystemRegistryError::SystemIdNotRegistered(id))
     }
 
     /// Run the system by its [`SystemId`].
@@ -167,7 +189,7 @@ impl World {
     ///
     /// Calls [`SystemRegistry::remove`].
     #[inline]
-    pub fn remove_system(&mut self, id: SystemId) -> Option<RegisteredSystem> {
+    pub fn remove_system(&mut self, id: SystemId) -> Result<RemovedSystem, SystemRegistryError> {
         if !self.contains_resource::<SystemRegistry>() {
             panic!(
                 "SystemRegistry not found: Nested and recursive one-shot systems are not supported"
