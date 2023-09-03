@@ -21,14 +21,14 @@ use bevy_render::{
     prelude::Camera,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
-        AddressMode, BindGroup, BindGroupDescriptor, BindGroupLayout,
-        BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
-        BufferBindingType, CachedComputePipelineId, ComputePassDescriptor,
-        ComputePipelineDescriptor, Extent3d, FilterMode, PipelineCache, Sampler,
-        SamplerBindingType, SamplerDescriptor, Shader, ShaderDefVal, ShaderStages, ShaderType,
-        SpecializedComputePipeline, SpecializedComputePipelines, StorageTextureAccess,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-        TextureView, TextureViewDescriptor, TextureViewDimension, BindGroupEntries,
+        AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntries, BindGroupLayout,
+        BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType,
+        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, Extent3d,
+        FilterMode, PipelineCache, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
+        ShaderDefVal, ShaderStages, ShaderType, SpecializedComputePipeline,
+        SpecializedComputePipelines, StorageTextureAccess, TextureDescriptor, TextureDimension,
+        TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
+        TextureViewDimension,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
@@ -838,7 +838,7 @@ fn prepare_ssao_bind_groups(
                 &ssao_textures
                     .screen_space_ambient_occlusion_texture
                     .default_view,
-            ))
+            )),
         });
 
         commands.entity(entity).insert(SsaoBindGroups {

@@ -11,13 +11,13 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
-        DepthStencilState, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
-        RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages, ShaderType,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilState,
-        TextureFormat, TextureSampleType, TextureViewDimension, VertexState, BindGroupEntries,
+        BindGroup, BindGroupDescriptor, BindGroupEntries, BindGroupLayout,
+        BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState,
+        BufferBindingType, CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction,
+        DepthBiasState, DepthStencilState, FragmentState, MultisampleState, PipelineCache,
+        PrimitiveState, RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages,
+        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState,
+        StencilState, TextureFormat, TextureSampleType, TextureViewDimension, VertexState,
     },
     renderer::RenderDevice,
     texture::{BevyDefault, Image},
@@ -228,7 +228,7 @@ fn prepare_skybox_bind_groups(
                     &skybox.texture_view,
                     &skybox.sampler,
                     view_uniforms,
-                ))
+                )),
             });
 
             commands.entity(entity).insert(SkyboxBindGroup(bind_group));

@@ -8,9 +8,10 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
+    render_resource::BindGroupEntries,
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
-    Render, RenderSet, render_resource::BindGroupEntries,
+    Render, RenderSet,
 };
 use bevy_render::{render_resource::*, RenderApp};
 
@@ -99,7 +100,7 @@ impl Node for MsaaWritebackNode {
                         entries: &BindGroupEntries::sequential((
                             post_process.source,
                             &blit_pipeline.sampler,
-                        ))
+                        )),
                     });
 
             let mut render_pass = render_context

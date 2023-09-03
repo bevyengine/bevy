@@ -1,10 +1,10 @@
 use bevy_utils::all_tuples_with_size;
 use wgpu::{BindGroupEntry, BindingResource};
 
-use super::{TextureView, Sampler};
+use super::{Sampler, TextureView};
 
 /// Helper for constructing bindgroups.
-/// 
+///
 /// Allows constructing the descriptor's entries as:
 /// ```
 /// render_device.create_bind_group(&BindGroupDescriptor {
@@ -16,9 +16,9 @@ use super::{TextureView, Sampler};
 ///     )).as_slice(),
 /// });
 /// ```
-/// 
+///
 /// instead of
-/// 
+///
 /// ```
 /// render_device.create_bind_group(&BindGroupDescriptor {
 ///     label: Some("my_bind_group"),
@@ -35,9 +35,9 @@ use super::{TextureView, Sampler};
 ///     ],
 /// });
 /// ```
-/// 
+///
 /// or
-/// 
+///
 /// ```
 /// render_device.create_bind_group(&BindGroupDescriptor {
 ///     label: Some("my_bind_group"),
@@ -48,9 +48,9 @@ use super::{TextureView, Sampler};
 ///     )).as_slice(),
 /// });
 /// ```
-/// 
-/// instead of 
-/// 
+///
+/// instead of
+///
 /// ```
 /// render_device.create_bind_group(&BindGroupDescriptor {
 ///     label: Some("my_bind_group"),
@@ -69,28 +69,28 @@ use super::{TextureView, Sampler};
 /// ```
 
 pub struct BindGroupEntries<'b, const N: usize> {
-    entries: [BindGroupEntry<'b>; N]
+    entries: [BindGroupEntry<'b>; N],
 }
 
 impl<'b, const N: usize> BindGroupEntries<'b, N> {
     #[inline]
     pub fn sequential(resources: impl AsBindingArray<'b, N>) -> Self {
         let mut i = 0;
-        Self { 
+        Self {
             entries: resources.as_array().map(|resource| {
                 let binding = i;
                 i += 1;
-                BindGroupEntry{ binding, resource }
-            })
+                BindGroupEntry { binding, resource }
+            }),
         }
     }
 
     #[inline]
     pub fn with_indexes(indexed_resources: impl AsIndexedBindingArray<'b, N>) -> Self {
-        Self { 
-            entries: indexed_resources.as_array().map(|(binding, resource)| {
-                BindGroupEntry{ binding, resource }
-            })
+        Self {
+            entries: indexed_resources
+                .as_array()
+                .map(|(binding, resource)| BindGroupEntry { binding, resource }),
         }
     }
 }
@@ -98,7 +98,7 @@ impl<'b, const N: usize> BindGroupEntries<'b, N> {
 impl<'b, const N: usize> std::ops::Deref for BindGroupEntries<'b, N> {
     type Target = [BindGroupEntry<'b>];
 
-    fn deref(&self) -> &[BindGroupEntry<'b>] { 
+    fn deref(&self) -> &[BindGroupEntry<'b>] {
         &self.entries
     }
 }
@@ -114,7 +114,7 @@ impl<'a> AsBinding<'a> for &'a TextureView {
     }
 }
 
-impl<'a> AsBinding<'a> for &'a[&'a wgpu::TextureView] {
+impl<'a> AsBinding<'a> for &'a [&'a wgpu::TextureView] {
     #[inline]
     fn as_binding(self) -> BindingResource<'a> {
         BindingResource::TextureViewArray(self)
@@ -138,8 +138,6 @@ impl<'a> AsBinding<'a> for BindingResource<'a> {
 pub trait AsBindingArray<'b, const N: usize> {
     fn as_array(self) -> [BindingResource<'b>; N];
 }
-
-
 
 macro_rules! impl_to_binding_slice {
     ($N: expr, $(($T: ident, $I: ident)),*) => {
@@ -180,24 +178,56 @@ pub struct DynamicBindGroupEntries<'b> {
 impl<'b> DynamicBindGroupEntries<'b> {
     pub fn sequential<const N: usize>(entries: impl AsBindingArray<'b, N>) -> Self {
         Self {
-            entries: entries.as_array().into_iter().enumerate().map(|(ix, resource)| BindGroupEntry { binding: ix as u32, resource }).collect()
+            entries: entries
+                .as_array()
+                .into_iter()
+                .enumerate()
+                .map(|(ix, resource)| BindGroupEntry {
+                    binding: ix as u32,
+                    resource,
+                })
+                .collect(),
         }
     }
 
-    pub fn extend_sequential<const N: usize>(mut self, entries: impl AsBindingArray<'b, N>) -> Self {
+    pub fn extend_sequential<const N: usize>(
+        mut self,
+        entries: impl AsBindingArray<'b, N>,
+    ) -> Self {
         let start = self.entries.last().unwrap().binding + 1;
-        self.entries.extend(entries.as_array().into_iter().enumerate().map(|(ix, resource)| BindGroupEntry { binding: start + ix as u32, resource }));
+        self.entries.extend(
+            entries
+                .as_array()
+                .into_iter()
+                .enumerate()
+                .map(|(ix, resource)| BindGroupEntry {
+                    binding: start + ix as u32,
+                    resource,
+                }),
+        );
         self
     }
 
     pub fn new_with_indexes<const N: usize>(entries: impl AsIndexedBindingArray<'b, N>) -> Self {
         Self {
-            entries: entries.as_array().into_iter().map(|(binding, resource)| BindGroupEntry { binding, resource }).collect()
+            entries: entries
+                .as_array()
+                .into_iter()
+                .map(|(binding, resource)| BindGroupEntry { binding, resource })
+                .collect(),
         }
     }
 
-    pub fn extend_with_indexes<const N: usize>(mut self, entries: impl AsIndexedBindingArray<'b, N>) -> Self {
-        self.entries.extend(entries.as_array().into_iter().map(|(binding, resource)| BindGroupEntry { binding, resource }));
+    pub fn extend_with_indexes<const N: usize>(
+        mut self,
+        entries: impl AsIndexedBindingArray<'b, N>,
+    ) -> Self {
+        self.entries.extend(
+            entries
+                .as_array()
+                .into_iter()
+                .map(|(binding, resource)| BindGroupEntry { binding, resource }),
+        );
         self
     }
 }
@@ -205,7 +235,7 @@ impl<'b> DynamicBindGroupEntries<'b> {
 impl<'b> std::ops::Deref for DynamicBindGroupEntries<'b> {
     type Target = [BindGroupEntry<'b>];
 
-    fn deref(&self) -> &[BindGroupEntry<'b>] { 
+    fn deref(&self) -> &[BindGroupEntry<'b>] {
         &self.entries
     }
 }

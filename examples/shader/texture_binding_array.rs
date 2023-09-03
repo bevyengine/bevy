@@ -127,10 +127,7 @@ impl AsBindGroup for BindlessMaterial {
         let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             label: "bindless_material_bind_group".into(),
             layout,
-            entries: &BindGroupEntries::sequential((
-                &textures[..],
-                &fallback_image.sampler,
-            )),
+            entries: &BindGroupEntries::sequential((&textures[..], &fallback_image.sampler)),
         });
 
         Ok(PreparedBindGroup {

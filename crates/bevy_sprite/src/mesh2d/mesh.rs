@@ -14,7 +14,7 @@ use bevy_render::{
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::{*, BindGroupEntries},
+    render_resource::{BindGroupEntries, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
@@ -519,10 +519,7 @@ pub fn prepare_mesh2d_view_bind_groups(
     ) {
         for entity in &views {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &BindGroupEntries::sequential((
-                    view_binding.clone(),
-                    globals.clone(),
-                )),
+                entries: &BindGroupEntries::sequential((view_binding.clone(), globals.clone())),
                 label: Some("mesh2d_view_bind_group"),
                 layout: &mesh2d_pipeline.view_layout,
             });

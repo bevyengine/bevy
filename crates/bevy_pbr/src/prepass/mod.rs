@@ -27,14 +27,14 @@ use bevy_render::{
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
-        ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
-        DynamicUniformBuffer, FragmentState, FrontFace, MultisampleState, PipelineCache,
-        PolygonMode, PrimitiveState, PushConstantRange, RenderPipelineDescriptor, Shader,
-        ShaderRef, ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-        SpecializedMeshPipelines, StencilFaceState, StencilState, TextureSampleType,
-        TextureViewDimension, VertexState, BindGroupEntries,
+        BindGroup, BindGroupDescriptor, BindGroupEntries, BindGroupLayout,
+        BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendState,
+        BufferBindingType, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
+        DepthStencilState, DynamicUniformBuffer, FragmentState, FrontFace, MultisampleState,
+        PipelineCache, PolygonMode, PrimitiveState, PushConstantRange, RenderPipelineDescriptor,
+        Shader, ShaderRef, ShaderStages, ShaderType, SpecializedMeshPipeline,
+        SpecializedMeshPipelineError, SpecializedMeshPipelines, StencilFaceState, StencilState,
+        TextureSampleType, TextureViewDimension, VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{FallbackImagesDepth, FallbackImagesMsaa},
@@ -587,7 +587,11 @@ pub fn get_bindings<'a>(
     fallback_images: &'a mut FallbackImagesMsaa,
     fallback_depths: &'a mut FallbackImagesDepth,
     msaa: &'a Msaa,
-) -> (BindingResource<'a>, BindingResource<'a>, BindingResource<'a>) {
+) -> (
+    BindingResource<'a>,
+    BindingResource<'a>,
+    BindingResource<'a>,
+) {
     let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
         Some(texture) => &texture.default_view,
         None => {

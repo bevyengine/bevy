@@ -11,7 +11,7 @@ use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
     prepass::ViewPrepassTextures,
     tonemapping::{
-        get_lut_bind_group_layout_entries, Tonemapping, TonemappingLuts, get_lut_bindings,
+        get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
     },
 };
 use bevy_ecs::{
@@ -1264,10 +1264,15 @@ pub fn prepare_mesh_view_bind_groups(
             ));
 
             // 15 - 16
-            entries = entries.extend_sequential(get_lut_bindings(&images, &tonemapping_luts, tonemapping));
+            entries = entries.extend_sequential(get_lut_bindings(
+                &images,
+                &tonemapping_luts,
+                tonemapping,
+            ));
 
             // When using WebGL, we can't have a depth texture with multisampling
-            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1 {
+            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1
+            {
                 // 17 - 19
                 entries = entries.extend_sequential(prepass::get_bindings(
                     prepass_textures,
@@ -1275,7 +1280,7 @@ pub fn prepare_mesh_view_bind_groups(
                     &mut fallback_depths,
                     &msaa,
                 ));
-            } 
+            }
 
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &entries,

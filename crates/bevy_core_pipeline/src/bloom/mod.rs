@@ -20,7 +20,7 @@ use bevy_render::{
     },
     prelude::Color,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::{*, BindGroupEntries},
+    render_resource::{BindGroupEntries, *},
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
@@ -183,7 +183,7 @@ impl ViewNode for BloomNode {
                             view_target.main_texture_view(),
                             &bind_groups.sampler,
                             uniforms.clone(),
-                        ))
+                        )),
                     });
 
             let view = &bloom_texture.view(0);
@@ -414,7 +414,7 @@ fn prepare_bloom_bind_groups(
                     &bloom_texture.view(mip - 1),
                     sampler,
                     uniforms.binding().unwrap(),
-                ))
+                )),
             }));
         }
 
@@ -427,7 +427,7 @@ fn prepare_bloom_bind_groups(
                     &bloom_texture.view(mip),
                     sampler,
                     uniforms.binding().unwrap(),
-                ))
+                )),
             }));
         }
 

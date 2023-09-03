@@ -7,8 +7,8 @@ use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex},
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BufferId, Operations,
-        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, TextureViewId, BindGroupEntries,
+        BindGroup, BindGroupDescriptor, BindGroupEntries, BufferId, Operations, PipelineCache,
+        RenderPassColorAttachment, RenderPassDescriptor, TextureViewId,
     },
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},

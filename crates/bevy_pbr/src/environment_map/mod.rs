@@ -7,8 +7,8 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
-        BindGroupLayoutEntry, BindingType, SamplerBindingType,
-        Shader, ShaderStages, TextureSampleType, TextureViewDimension, TextureView, Sampler,
+        BindGroupLayoutEntry, BindingType, Sampler, SamplerBindingType, Shader, ShaderStages,
+        TextureSampleType, TextureView, TextureViewDimension,
     },
     texture::{FallbackImageCubemap, Image},
 };
