@@ -1,5 +1,6 @@
 #![allow(clippy::type_complexity)]
 
+pub mod solari;
 pub mod wireframe;
 
 mod alpha;

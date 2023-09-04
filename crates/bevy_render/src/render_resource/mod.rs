@@ -48,6 +48,10 @@ pub use wgpu::{
     VertexFormat, VertexState as RawVertexState, VertexStepMode,
 };
 
+pub mod raytrace {
+    pub use wgpu::ray_tracing::*;
+}
+
 pub mod encase {
     pub use bevy_encase_derive::ShaderType;
     pub use encase::*;
