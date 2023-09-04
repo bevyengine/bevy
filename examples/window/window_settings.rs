@@ -35,7 +35,6 @@ fn main() {
             LogDiagnosticsPlugin::default(),
             FrameTimeDiagnosticsPlugin,
         ))
-        .add_systems(Startup, setup)
         .add_systems(
             Update,
             (
@@ -46,16 +45,21 @@ fn main() {
                 toggle_window_controls,
                 cycle_cursor_icon,
                 switch_level,
+                toggle_visible,
             ),
         )
         .run();
 }
 
-fn setup(mut primary_window: Query<&mut Window, With<PrimaryWindow>>) {
-    // At this point the gpu is ready to show the app so we can make the window visible
-    // There might still be a white frame when doing it in startup.
-    // Alternatively, you could have a system that waits a few seconds before making the window visible.
-    primary_window.single_mut().visible = true;
+fn toggle_visible(mut primary_window: Query<&mut Window, With<PrimaryWindow>>, time: Res<Time>) {
+    let mut window = primary_window.single_mut();
+    // The delay may be different for your app or system.
+    if !window.visible && time.elapsed_seconds() >= 1.0 {
+        // At this point the gpu is ready to show the app so we can make the window visible.
+        // Alternatively, you could toggle the visibility in Startup.
+        // It will work, but it will have one white frame before it starts rendering
+        window.visible = true;
+    }
 }
 
 /// This system toggles the vsync mode when pressing the button V.
