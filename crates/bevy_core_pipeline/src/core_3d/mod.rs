@@ -25,6 +25,7 @@ pub mod graph {
 }
 pub const CORE_3D: &str = graph::NAME;
 
+// PERF: vulkan docs recommend using 24 bit depth for better performance
 #[derive(Resource, ExtractResource, Clone)]
 pub struct Core3DDepthFormat(pub TextureFormat);
 
@@ -90,7 +91,7 @@ impl Plugin for Core3dPlugin {
                 ExtractComponentPlugin::<Camera3d>::default(),
                 ExtractResourcePlugin::<Core3DDepthFormat>::default(),
             ))
-            .add_systems(PostUpdate, (check_msaa, check_depth_format));
+            .add_systems(PostUpdate, (check_msaa, select_depth_stencil_format));
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -413,7 +414,6 @@ pub fn prepare_core_3d_depth_textures(
                     mip_level_count: 1,
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,
-                    // PERF: vulkan docs recommend using 24 bit depth for better performance
                     format: depth_format.0,
                     usage,
                     view_formats: &[],
@@ -433,9 +433,9 @@ pub fn prepare_core_3d_depth_textures(
 // Disable msaa and warn if using deferred rendering
 pub fn check_msaa(
     mut msaa: ResMut<Msaa>,
-    views_3d: Query<Entity, (With<Camera>, With<DeferredPrepass>)>,
+    deferred_views: Query<Entity, (With<Camera>, With<DeferredPrepass>)>,
 ) {
-    if !views_3d.is_empty() {
+    if !deferred_views.is_empty() {
         match *msaa {
             Msaa::Off => (),
             _ => {
@@ -447,13 +447,13 @@ pub fn check_msaa(
 }
 
 // Automatically selects a supported depth stencil format if required.
-pub fn check_depth_format(
+pub fn select_depth_stencil_format(
     render_device: Option<Res<RenderDevice>>,
     mut depth_format: ResMut<Core3DDepthFormat>,
-    views_3d: Query<Entity, (With<Camera>, With<DeferredPrepass>)>,
+    deferred_views: Query<Entity, (With<Camera>, With<DeferredPrepass>)>,
 ) {
     if let Some(render_device) = render_device {
-        if !views_3d.is_empty() {
+        if !deferred_views.is_empty() {
             match depth_format.0 {
                 TextureFormat::Depth24PlusStencil8 | TextureFormat::Depth32FloatStencil8 => (),
                 _ => {

@@ -68,7 +68,7 @@ impl ViewNode for MainOpaquePass3dNode {
                 ClearColorConfig::None => LoadOp::Load,
             }
         } else {
-            // If the deferred pass has run, don't clear again in this pass.
+            // If the deferred lighting pass has run, don't clear again in this pass.
             LoadOp::Load
         };
 

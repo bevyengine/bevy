@@ -7,7 +7,7 @@ const DEFERRED_FLAGS_UNLIT_BIT: u32                 = 1u;
 const DEFERRED_FLAGS_FOG_ENABLED_BIT: u32           = 2u;
 const DEFERRED_MESH_FLAGS_SHADOW_RECEIVER_BIT: u32  = 4u;
 
-fn deferred_flags_from_mesh_mat_flags(mesh_flags: u32, mat_flags: u32) -> u32 {
+fn deferred_flags_from_mesh_material_flags(mesh_flags: u32, mat_flags: u32) -> u32 {
     var flags = 0u;
     flags |= u32((mesh_flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u) * DEFERRED_MESH_FLAGS_SHADOW_RECEIVER_BIT;
     flags |= u32((mat_flags & STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) * DEFERRED_FLAGS_FOG_ENABLED_BIT;
@@ -15,7 +15,7 @@ fn deferred_flags_from_mesh_mat_flags(mesh_flags: u32, mat_flags: u32) -> u32 {
     return flags;
 }
 
-fn mesh_mat_flags_from_deferred_flags(deferred_flags: u32) -> vec2<u32> {
+fn mesh_material_flags_from_deferred_flags(deferred_flags: u32) -> vec2<u32> {
     var mat_flags = 0u;
     var mesh_flags = 0u;
     mesh_flags |= u32((deferred_flags & DEFERRED_MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u) * MESH_FLAGS_SHADOW_RECEIVER_BIT;
@@ -73,6 +73,7 @@ fn unpack_flags(packed: u32) -> u32 {
 
 // The builtin one didn't work in webgl.
 // "'unpackUnorm4x8' : no matching overloaded function found"
+// https://github.com/gfx-rs/naga/issues/2006
 fn unpack_unorm4x8_(v: u32) -> vec4<f32> {
     return vec4(
         f32(v & 0xffu),

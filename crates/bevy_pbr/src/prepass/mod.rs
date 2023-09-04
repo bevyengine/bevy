@@ -385,7 +385,7 @@ where
         bind_group_layouts.insert(1, self.material_layout.clone());
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-        shader_defs.push("WEBGL".into());
+        shader_defs.push("WEBGL2".into());
 
         shader_defs.push("VERTEX_OUTPUT_INSTANCE_INDEX".into());
 
@@ -658,9 +658,9 @@ pub fn get_bind_group_layout_entries(
 }
 
 // Needed so the texture views can live long enough.
-pub struct DepthBindingsSet([TextureView; 4]);
+pub struct PrepassBindingsSet([TextureView; 4]);
 
-impl DepthBindingsSet {
+impl PrepassBindingsSet {
     pub fn get_entries(&self, bindings: [u32; 4]) -> [BindGroupEntry; 4] {
         [
             BindGroupEntry {
@@ -736,7 +736,7 @@ pub fn get_bindings(
     fallback_images: &mut FallbackImageMsaa,
     msaa: &Msaa,
     depth_format: TextureFormat,
-) -> DepthBindingsSet {
+) -> PrepassBindingsSet {
     let depth_desc = TextureViewDescriptor {
         label: Some("prepass_depth"),
         aspect: TextureAspect::DepthOnly,
@@ -776,7 +776,7 @@ pub fn get_bindings(
     }
     .clone();
 
-    DepthBindingsSet([depth_view, normal_view, motion_vectors_view, deferred_view])
+    PrepassBindingsSet([depth_view, normal_view, motion_vectors_view, deferred_view])
 }
 
 // Extract the render phases for the prepass

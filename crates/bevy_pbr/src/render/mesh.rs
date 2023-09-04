@@ -864,7 +864,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-        shader_defs.push("WEBGL".into());
+        shader_defs.push("WEBGL2".into());
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());

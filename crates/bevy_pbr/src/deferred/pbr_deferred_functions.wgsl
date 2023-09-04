@@ -63,7 +63,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
      // Some models have baked occlusion, GLTF only supports monochrome. 
      // Real time occlusion is applied in the deferred lighting pass.
     let occlusion = dot(in.occlusion, vec3<f32>(0.2126, 0.7152, 0.0722));
-#ifdef WEBGL // More crunched for webgl so we can also fit depth.
+#ifdef WEBGL2 // More crunched for webgl so we can also fit depth.
     var props = deft::pack_unorm3x4_plus_unorm_20_(vec4(
         in.material.reflectance,
         in.material.metallic,
@@ -76,7 +76,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
         occlusion, // is this worth including?
         0.0)); // spare
 #endif // WEBGL
-    let flags = deft::deferred_flags_from_mesh_mat_flags(in.flags, in.material.flags);
+    let flags = deft::deferred_flags_from_mesh_material_flags(in.flags, in.material.flags);
     let oct_nor = deft::octa_encode(normalize(in.N));
     var base_color_srgb = vec3(0.0);
     var emissive = in.material.emissive.rgb;
@@ -102,7 +102,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     pbr.material = standard_material_new();
 
     let flags = deft::unpack_flags(gbuffer.a);
-    let deferred_flags = deft::mesh_mat_flags_from_deferred_flags(flags);
+    let deferred_flags = deft::mesh_material_flags_from_deferred_flags(flags);
     pbr.flags = deferred_flags.x;
     pbr.material.flags = deferred_flags.y;
 
@@ -116,7 +116,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
         pbr.material.base_color = vec4(pow(base_rough.rgb, vec3(2.2)), 1.0);
         pbr.material.emissive = vec4(emissive, 1.0);
     }
-#ifdef WEBGL // More crunched for webgl so we can also fit depth.
+#ifdef WEBGL2 // More crunched for webgl so we can also fit depth.
     let props = deft::unpack_unorm3x4_plus_unorm_20_(gbuffer.b);
     // Bias to 0.5 since that's the value for almost all materials.
     pbr.material.reflectance = saturate(props.r - 0.03333333333); 

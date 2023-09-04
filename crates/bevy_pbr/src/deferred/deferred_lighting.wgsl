@@ -23,7 +23,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     let deferred_data = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
 
-#ifdef WEBGL
+#ifdef WEBGL2
     frag_coord.z = deft::unpack_unorm3x4_plus_unorm_20_(deferred_data.b).w;
 #else
     frag_coord.z = bevy_pbr::prepass_utils::prepass_depth(in.position, 0u);
