@@ -1740,6 +1740,7 @@ impl Node for ShadowPassNode {
                             }),
                             stencil_ops: None,
                         }),
+                        ..Default::default()
                     });
 
                 shadow_phase.render(&mut render_pass, world, view_light_entity);

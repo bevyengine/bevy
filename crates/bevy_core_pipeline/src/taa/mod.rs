@@ -253,7 +253,7 @@ impl ViewNode for TAANode {
                         ops: Operations::default(),
                     }),
                 ],
-                depth_stencil_attachment: None,
+                ..Default::default()
             });
             taa_pass.set_render_pipeline(taa_pipeline);
             taa_pass.set_bind_group(0, &taa_bind_group, &[]);

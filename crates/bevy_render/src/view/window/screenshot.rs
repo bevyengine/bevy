@@ -300,7 +300,7 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                             store: true,
                         },
                     })],
-                    depth_stencil_attachment: None,
+                    ..Default::default()
                 });
                 pass.set_pipeline(pipeline);
                 pass.set_bind_group(0, &memory.bind_group, &[]);

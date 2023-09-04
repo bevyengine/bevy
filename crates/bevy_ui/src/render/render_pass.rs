@@ -77,7 +77,7 @@ impl Node for UiPassNode {
                 load: LoadOp::Load,
                 store: true,
             }))],
-            depth_stencil_attachment: None,
+            ..Default::default()
         });
 
         transparent_phase.render(&mut render_pass, world, view_entity);

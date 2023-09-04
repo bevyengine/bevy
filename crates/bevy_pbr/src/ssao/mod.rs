@@ -246,6 +246,7 @@ impl ViewNode for SsaoNode {
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
                         label: Some("ssao_preprocess_depth_pass"),
+                        timestamp_writes: None,
                     });
             preprocess_depth_pass.set_pipeline(preprocess_depth_pipeline);
             preprocess_depth_pass.set_bind_group(0, &bind_groups.preprocess_depth_bind_group, &[]);
@@ -267,6 +268,7 @@ impl ViewNode for SsaoNode {
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
                         label: Some("ssao_gtao_pass"),
+                        timestamp_writes: None,
                     });
             gtao_pass.set_pipeline(gtao_pipeline);
             gtao_pass.set_bind_group(0, &bind_groups.gtao_bind_group, &[]);
@@ -288,6 +290,7 @@ impl ViewNode for SsaoNode {
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
                         label: Some("ssao_spatial_denoise_pass"),
+                        timestamp_writes: None,
                     });
             spatial_denoise_pass.set_pipeline(spatial_denoise_pipeline);
             spatial_denoise_pass.set_bind_group(0, &bind_groups.spatial_denoise_bind_group, &[]);

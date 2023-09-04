@@ -259,6 +259,9 @@ pub async fn initialize_renderer(
             max_bindings_per_bind_group: limits
                 .max_bindings_per_bind_group
                 .min(constrained_limits.max_bindings_per_bind_group),
+            max_non_sampler_bindings: limits
+                .max_non_sampler_bindings
+                .min(constrained_limits.max_non_sampler_bindings),
         };
     }
 

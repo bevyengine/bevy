@@ -69,7 +69,7 @@ impl Node for MainPass2dNode {
                     },
                     store: true,
                 }))],
-                depth_stencil_attachment: None,
+                ..Default::default()
             });
 
             if let Some(viewport) = camera.viewport.as_ref() {

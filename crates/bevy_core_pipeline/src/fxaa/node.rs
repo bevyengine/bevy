@@ -91,7 +91,7 @@ impl ViewNode for FxaaNode {
                 resolve_target: None,
                 ops: Operations::default(),
             })],
-            depth_stencil_attachment: None,
+            ..Default::default()
         };
 
         let mut render_pass = render_context
