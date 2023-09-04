@@ -219,7 +219,7 @@ impl Plugin for PbrPlugin {
                         .after(CameraUpdateSystem),
                     update_directional_light_frusta
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
-                        // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
+                        // This must run after CheckVisibility because it relies on `ViewVisibility`
                         .after(VisibilitySystems::CheckVisibility)
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::UpdateDirectionalLightCascades)
@@ -241,7 +241,7 @@ impl Plugin for PbrPlugin {
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::UpdateLightFrusta)
                         // NOTE: This MUST be scheduled AFTER the core renderer visibility check
-                        // because that resets entity ComputedVisibility for the first view
+                        // because that resets entity `ViewVisibility` for the first view
                         // which would override any results from this otherwise
                         .after(VisibilitySystems::CheckVisibility),
                 ),

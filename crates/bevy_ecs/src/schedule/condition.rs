@@ -895,7 +895,7 @@ pub mod common_conditions {
         // calls of the run condition. Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
         // due to Bevy having a specialized implementation for events.
-        move |mut reader: EventReader<T>| reader.iter().count() > 0
+        move |mut reader: EventReader<T>| reader.read().count() > 0
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`

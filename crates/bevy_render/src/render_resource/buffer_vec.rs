@@ -144,6 +144,14 @@ impl<T: Pod> BufferVec<T> {
     pub fn clear(&mut self) {
         self.values.clear();
     }
+
+    pub fn values(&self) -> &Vec<T> {
+        &self.values
+    }
+
+    pub fn values_mut(&mut self) -> &mut Vec<T> {
+        &mut self.values
+    }
 }
 
 impl<T: Pod> Extend<T> for BufferVec<T> {

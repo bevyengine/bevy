@@ -37,7 +37,7 @@ use bevy_render::{
         BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImagesDepth,
         FallbackImagesMsaa, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
-    view::{ComputedVisibility, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
@@ -261,7 +261,7 @@ pub fn extract_meshes(
     meshes_query: Extract<
         Query<(
             Entity,
-            &ComputedVisibility,
+            &ViewVisibility,
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
@@ -272,7 +272,7 @@ pub fn extract_meshes(
 ) {
     let mut caster_commands = Vec::with_capacity(*prev_caster_commands_len);
     let mut not_caster_commands = Vec::with_capacity(*prev_not_caster_commands_len);
-    let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.is_visible());
+    let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.get());
 
     for (entity, _, transform, previous_transform, handle, not_receiver, not_caster) in
         visible_meshes
@@ -354,7 +354,7 @@ pub fn extract_skinned_meshes(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut uniform: ResMut<SkinnedMeshUniform>,
-    query: Extract<Query<(Entity, &ComputedVisibility, &SkinnedMesh)>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &SkinnedMesh)>>,
     inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
     joint_query: Extract<Query<&GlobalTransform>>,
 ) {
@@ -362,8 +362,8 @@ pub fn extract_skinned_meshes(
     let mut values = Vec::with_capacity(*previous_len);
     let mut last_start = 0;
 
-    for (entity, computed_visibility, skin) in &query {
-        if !computed_visibility.is_visible() {
+    for (entity, view_visibility, skin) in &query {
+        if !view_visibility.get() {
             continue;
         }
         // PERF: This can be expensive, can we move this to prepare?

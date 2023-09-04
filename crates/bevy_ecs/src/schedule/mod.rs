@@ -1014,7 +1014,7 @@ mod tests {
 
             let ambiguities: Vec<_> = schedule
                 .graph()
-                .conflicts_to_string(world.components())
+                .conflicts_to_string(schedule.graph().conflicting_systems(), world.components())
                 .collect();
 
             let expected = &[
@@ -1044,6 +1044,39 @@ mod tests {
             for entry in expected {
                 assert!(ambiguities.contains(entry));
             }
+        }
+
+        // Test that anonymous set names work properly
+        // Related issue https://github.com/bevyengine/bevy/issues/9641
+        #[test]
+        fn anonymous_set_name() {
+            use super::*;
+
+            #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
+            struct TestSchedule;
+
+            let mut schedule = Schedule::new(TestSchedule);
+            schedule.add_systems((resmut_system, resmut_system).run_if(|| true));
+
+            let mut world = World::new();
+            schedule.graph_mut().initialize(&mut world);
+            let _ = schedule
+                .graph_mut()
+                .build_schedule(world.components(), &TestSchedule.dyn_clone());
+
+            let ambiguities: Vec<_> = schedule
+                .graph()
+                .conflicts_to_string(schedule.graph().conflicting_systems(), world.components())
+                .collect();
+
+            assert_eq!(
+                ambiguities[0],
+                (
+                    "resmut_system (in set (resmut_system, resmut_system))".to_string(),
+                    "resmut_system (in set (resmut_system, resmut_system))".to_string(),
+                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
+                )
+            );
         }
     }
 }
