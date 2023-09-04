@@ -256,7 +256,7 @@ pub fn ui_focus_system(
                 }
 
                 if contains_cursor {
-                    // Emit a click signal for nodes that have been hovered over, then pressed and released
+                    // Emit a click event only if mouse was released under the button
                     if mouse_released {
                         click_events.send(Click(*entity));
                     }
