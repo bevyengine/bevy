@@ -6,7 +6,7 @@ use super::{Sampler, TextureView};
 /// Helper for constructing bindgroups.
 ///
 /// Allows constructing the descriptor's entries as:
-/// ```
+/// ```no_run
 /// render_device.create_bind_group(
 ///     Some("my_bind_group"),
 ///     &my_layout,
@@ -19,7 +19,7 @@ use super::{Sampler, TextureView};
 ///
 /// instead of
 ///
-/// ```
+/// ```no_run
 /// render_device.create_bind_group(
 ///     Some("my_bind_group"),
 ///     &my_layout,
@@ -38,7 +38,7 @@ use super::{Sampler, TextureView};
 ///
 /// or
 ///
-/// ```
+/// ```no_run
 /// render_device.create_bind_group(
 ///     Some("my_bind_group"),
 ///     &my_layout,
@@ -51,7 +51,7 @@ use super::{Sampler, TextureView};
 ///
 /// instead of
 ///
-/// ```
+/// ```no_run
 /// render_device.create_bind_group(&BindGroupDescriptor {
 ///     Some("my_bind_group"),
 ///     &my_layout,
