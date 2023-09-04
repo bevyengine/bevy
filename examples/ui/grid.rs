@@ -185,12 +185,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     max_width: Val::Px(600.),
                     ..default()
                 },
-                background_color: BackgroundColor(Color::Rgba {
-                    red: 255.0,
-                    green: 255.0,
-                    blue: 255.0,
-                    alpha: 0.8,
-                }),
+                background_color: BackgroundColor(Color::rgba(1., 1., 1., 0.8)),
                 ..default()
             });
         });

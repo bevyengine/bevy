@@ -575,7 +575,7 @@ pub fn extract_text_uinodes(
             } in &text_layout_info.glyphs
             {
                 if *section_index != current_section {
-                    color = text.sections[*section_index].style.color.as_rgba_linear();
+                    color = text.sections[*section_index].style.color;
                     current_section = *section_index;
                 }
                 let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
