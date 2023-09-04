@@ -6,13 +6,12 @@ use bevy::{
     reflect::{TypePath, TypeUuid},
     render::{
         render_asset::RenderAssets,
-        render_resource::{AsBindGroupError, PreparedBindGroup, *},
+        render_resource::{AsBindGroupError, BindGroupEntries, PreparedBindGroup, *},
         renderer::RenderDevice,
         texture::FallbackImage,
         RenderApp,
     },
 };
-use bevy_internal::render::render_resource::BindGroupEntries;
 use std::{num::NonZeroU32, process::exit};
 
 fn main() {
