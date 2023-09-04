@@ -1136,12 +1136,14 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         &self,
         entity: Entity,
     ) -> Result<Mut<'_, T>, QueryComponentError> {
+        // This check is required to ensure soundness in the case of `to_readonly().get_component_mut()`
+        // See the comments on the `force_read_only_component_access` field for more info.
         if self.force_read_only_component_access {
             return Err(QueryComponentError::MissingWriteAccess);
         }
 
-        // SAFETY: this check is required to ensure soundness in the case of `to_readonly().get_component_mut()`
-        // See the comments on the `force_read_only_component_access` field for more info.
+        // SAFETY: The above check ensures we are not a readonly query.
+        // It is the callers responsibility to ensure multiple mutable access is not provided.
         unsafe {
             self.state
                 .get_component_unchecked_mut(self.world, entity, self.last_run, self.this_run)
