@@ -10,7 +10,7 @@ use super::{Sampler, TextureView};
 /// render_device.create_bind_group(
 ///     Some("my_bind_group"),
 ///     &my_layout,
-///     BindGroupEntries::with_indexes((
+///     &BindGroupEntries::with_indexes((
 ///         (2, &my_sampler),
 ///         (3, my_uniform),
 ///     )).as_slice(),
@@ -42,7 +42,7 @@ use super::{Sampler, TextureView};
 /// render_device.create_bind_group(
 ///     Some("my_bind_group"),
 ///     &my_layout,
-///     BindGroupEntries::sequential((
+///     &BindGroupEntries::sequential((
 ///         &my_sampler,
 ///         my_uniform,
 ///     )).as_slice(),
