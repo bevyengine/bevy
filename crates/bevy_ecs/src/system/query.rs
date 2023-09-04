@@ -8,7 +8,7 @@ use crate::{
     },
     world::{unsafe_world_cell::UnsafeWorldCell, Mut},
 };
-use std::borrow::Borrow;
+use std::{any::TypeId, borrow::Borrow};
 
 /// [System parameter] that provides selective access to the [`Component`] data stored in a [`World`].
 ///
@@ -1395,11 +1395,18 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// ```
     #[inline]
     pub fn contains(&self, entity: Entity) -> bool {
-        let state = self.state.as_nop();
+        let Self {
+            world,
+            last_run,
+            this_run,
+            state,
+            ..
+        } = self;
 
-        let result =
-            // SAFETY: NopFetch does not access any members while &self ensures no one has exclusive access
-            unsafe { state.get_unchecked_manual(self.world, entity, self.last_run, self.this_run) };
+        let state = state.as_nop();
+
+        // SAFETY: NopFetch does not access any members while &self ensures no one has exclusive access
+        let result = unsafe { state.get_unchecked_manual(*world, entity, *last_run, *this_run) };
 
         result.is_ok()
     }
