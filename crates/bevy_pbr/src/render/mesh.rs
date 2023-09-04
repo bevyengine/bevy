@@ -247,8 +247,10 @@ impl From<&MeshTransforms> for MeshUniform {
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
-    struct MeshFlags: u32 {
+    pub struct MeshFlags: u32 {
         const SHADOW_RECEIVER            = (1 << 0);
+        const SKINNED                    = (1 << 1);
+        const MORPH_TARGETS              = (1 << 2);
         // Indicates the sign of the determinant of the 3x3 model matrix. If the sign is positive,
         // then the flag should be set, else it should not be set.
         const SIGN_DETERMINANT_MODEL_3X3 = (1 << 31);
@@ -413,6 +415,7 @@ struct BatchMeta<'mat, 'mesh> {
     /// dynamic offsets.
     material_binding_meta: Option<&'mat MaterialBindGroupId>,
     mesh_handle: Option<&'mesh Handle<Mesh>>,
+    mesh_flags: u32,
     dynamic_offset: Option<NonMaxU32>,
 }
 
@@ -422,6 +425,7 @@ impl<'mat, 'mesh> BatchMeta<'mat, 'mesh> {
         self.pipeline_id == other.pipeline_id
             && self.draw_function_id == other.draw_function_id
             && self.mesh_handle == other.mesh_handle
+            && (self.mesh_flags & (MeshFlags::SKINNED | MeshFlags::MORPH_TARGETS).bits()) == 0
             && self.dynamic_offset == other.dynamic_offset
             && (!consider_material || self.material_binding_meta == other.material_binding_meta)
     }
@@ -470,6 +474,7 @@ fn process_phase<I: CachedRenderPipelinePhaseItem>(
             draw_function_id: Some(item.draw_function()),
             material_binding_meta,
             mesh_handle: Some(mesh_handle),
+            mesh_flags: mesh_transforms.flags,
             dynamic_offset: gpu_array_buffer_index.dynamic_offset,
         };
         if !batch_meta.matches(&batch.meta, consider_material) {
@@ -939,7 +944,7 @@ impl MeshPipelineKey {
     }
 }
 
-fn is_skinned(layout: &Hashed<InnerMeshVertexBufferLayout>) -> bool {
+pub fn is_skinned(layout: &Hashed<InnerMeshVertexBufferLayout>) -> bool {
     layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX) && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
 }
 pub fn setup_morph_and_skinning_defs(
