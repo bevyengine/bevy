@@ -27,14 +27,14 @@ use bevy_render::{
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntries, BindGroupLayout,
-        BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState,
-        BufferBindingType, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
-        DepthStencilState, DynamicUniformBuffer, FragmentState, FrontFace, MultisampleState,
-        PipelineCache, PolygonMode, PrimitiveState, PushConstantRange, RenderPipelineDescriptor,
-        Shader, ShaderRef, ShaderStages, ShaderType, SpecializedMeshPipeline,
-        SpecializedMeshPipelineError, SpecializedMeshPipelines, StencilFaceState, StencilState,
-        TextureSampleType, TextureView, TextureViewDimension, VertexState,
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType, ColorTargetState,
+        ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, DynamicUniformBuffer,
+        FragmentState, FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
+        PushConstantRange, RenderPipelineDescriptor, Shader, ShaderRef, ShaderStages, ShaderType,
+        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        StencilFaceState, StencilState, TextureSampleType, TextureView, TextureViewDimension,
+        VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{FallbackImagesDepth, FallbackImagesMsaa},
@@ -689,27 +689,22 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
     ) {
-        prepass_view_bind_group.no_motion_vectors =
-            Some(render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &BindGroupEntries::sequential((
-                    view_binding.clone(),
-                    globals_binding.clone(),
-                )),
-                label: Some("prepass_view_no_motion_vectors_bind_group"),
-                layout: &prepass_pipeline.view_layout_no_motion_vectors,
-            }));
+        prepass_view_bind_group.no_motion_vectors = Some(render_device.create_bind_group(
+            Some("prepass_view_no_motion_vectors_bind_group"),
+            &prepass_pipeline.view_layout_no_motion_vectors,
+            &BindGroupEntries::sequential((view_binding.clone(), globals_binding.clone())),
+        ));
 
         if let Some(previous_view_proj_binding) = previous_view_proj_uniforms.uniforms.binding() {
-            prepass_view_bind_group.motion_vectors =
-                Some(render_device.create_bind_group(&BindGroupDescriptor {
-                    entries: &BindGroupEntries::sequential((
-                        view_binding,
-                        globals_binding,
-                        previous_view_proj_binding,
-                    )),
-                    label: Some("prepass_view_motion_vectors_bind_group"),
-                    layout: &prepass_pipeline.view_layout_motion_vectors,
-                }));
+            prepass_view_bind_group.motion_vectors = Some(render_device.create_bind_group(
+                Some("prepass_view_motion_vectors_bind_group"),
+                &prepass_pipeline.view_layout_motion_vectors,
+                &BindGroupEntries::sequential((
+                    view_binding,
+                    globals_binding,
+                    previous_view_proj_binding,
+                )),
+            ));
         }
     }
 }

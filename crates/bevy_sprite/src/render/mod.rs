@@ -611,14 +611,14 @@ pub fn prepare_sprites(
         sprite_meta.vertices.clear();
         sprite_meta.colored_vertices.clear();
 
-        sprite_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[BindGroupEntry {
+        sprite_meta.view_bind_group = Some(render_device.create_bind_group(
+            Some("sprite_view_bind_group"),
+            &sprite_pipeline.view_layout,
+            &[BindGroupEntry {
                 binding: 0,
                 resource: view_binding,
             }],
-            label: Some("sprite_view_bind_group"),
-            layout: &sprite_pipeline.view_layout,
-        }));
+        ));
 
         // Vertex buffer indices
         let mut index = 0;
@@ -669,14 +669,14 @@ pub fn prepare_sprites(
                                 .values
                                 .entry(Handle::weak(batch_image_handle))
                                 .or_insert_with(|| {
-                                    render_device.create_bind_group(&BindGroupDescriptor {
-                                        entries: &BindGroupEntries::sequential((
+                                    render_device.create_bind_group(
+                                        Some("sprite_material_bind_group"),
+                                        &sprite_pipeline.material_layout,
+                                        &BindGroupEntries::sequential((
                                             &gpu_image.texture_view,
                                             &gpu_image.sampler,
                                         )),
-                                        label: Some("sprite_material_bind_group"),
-                                        layout: &sprite_pipeline.material_layout,
-                                    })
+                                    )
                                 });
                             existing_batch = batches.last_mut();
                         } else {

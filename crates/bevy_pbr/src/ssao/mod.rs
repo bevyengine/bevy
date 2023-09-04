@@ -21,14 +21,13 @@ use bevy_render::{
     prelude::Camera,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
-        AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntries, BindGroupLayout,
-        BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType,
-        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, Extent3d,
-        FilterMode, PipelineCache, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderDefVal, ShaderStages, ShaderType, SpecializedComputePipeline,
-        SpecializedComputePipelines, StorageTextureAccess, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
-        TextureViewDimension,
+        AddressMode, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntry, BindingType, BufferBindingType, CachedComputePipelineId,
+        ComputePassDescriptor, ComputePipelineDescriptor, Extent3d, FilterMode, PipelineCache,
+        Sampler, SamplerBindingType, SamplerDescriptor, Shader, ShaderDefVal, ShaderStages,
+        ShaderType, SpecializedComputePipeline, SpecializedComputePipelines, StorageTextureAccess,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        TextureView, TextureViewDescriptor, TextureViewDimension,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
@@ -780,14 +779,11 @@ fn prepare_ssao_bind_groups(
     };
 
     for (entity, ssao_textures, prepass_textures) in &views {
-        let common_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("ssao_common_bind_group"),
-            layout: &pipelines.common_bind_group_layout,
-            entries: &BindGroupEntries::sequential((
-                &pipelines.point_clamp_sampler,
-                view_uniforms.clone(),
-            )),
-        });
+        let common_bind_group = render_device.create_bind_group(
+            Some("ssao_common_bind_group"),
+            &pipelines.common_bind_group_layout,
+            &BindGroupEntries::sequential((&pipelines.point_clamp_sampler, view_uniforms.clone())),
+        );
 
         let create_depth_view = |mip_level| {
             ssao_textures
@@ -803,10 +799,10 @@ fn prepare_ssao_bind_groups(
                 })
         };
 
-        let preprocess_depth_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("ssao_preprocess_depth_bind_group"),
-            layout: &pipelines.preprocess_depth_bind_group_layout,
-            entries: &BindGroupEntries::sequential((
+        let preprocess_depth_bind_group = render_device.create_bind_group(
+            Some("ssao_preprocess_depth_bind_group"),
+            &pipelines.preprocess_depth_bind_group_layout,
+            &BindGroupEntries::sequential((
                 &prepass_textures.depth.as_ref().unwrap().default_view,
                 &create_depth_view(0),
                 &create_depth_view(1),
@@ -814,12 +810,12 @@ fn prepare_ssao_bind_groups(
                 &create_depth_view(3),
                 &create_depth_view(4),
             )),
-        });
+        );
 
-        let gtao_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("ssao_gtao_bind_group"),
-            layout: &pipelines.gtao_bind_group_layout,
-            entries: &BindGroupEntries::sequential((
+        let gtao_bind_group = render_device.create_bind_group(
+            Some("ssao_gtao_bind_group"),
+            &pipelines.gtao_bind_group_layout,
+            &BindGroupEntries::sequential((
                 &ssao_textures.preprocessed_depth_texture.default_view,
                 &prepass_textures.normal.as_ref().unwrap().default_view,
                 &pipelines.hilbert_index_lut,
@@ -827,19 +823,19 @@ fn prepare_ssao_bind_groups(
                 &ssao_textures.depth_differences_texture.default_view,
                 globals_uniforms.clone(),
             )),
-        });
+        );
 
-        let spatial_denoise_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("ssao_spatial_denoise_bind_group"),
-            layout: &pipelines.spatial_denoise_bind_group_layout,
-            entries: &BindGroupEntries::sequential((
+        let spatial_denoise_bind_group = render_device.create_bind_group(
+            Some("ssao_spatial_denoise_bind_group"),
+            &pipelines.spatial_denoise_bind_group_layout,
+            &BindGroupEntries::sequential((
                 &ssao_textures.ssao_noisy_texture.default_view,
                 &ssao_textures.depth_differences_texture.default_view,
                 &ssao_textures
                     .screen_space_ambient_occlusion_texture
                     .default_view,
             )),
-        });
+        );
 
         commands.entity(entity).insert(SsaoBindGroups {
             common_bind_group,

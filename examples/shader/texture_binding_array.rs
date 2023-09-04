@@ -124,11 +124,11 @@ impl AsBindGroup for BindlessMaterial {
             textures[id] = &*image.texture_view;
         }
 
-        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: "bindless_material_bind_group".into(),
+        let bind_group = render_device.create_bind_group(
+            "bindless_material_bind_group".into(),
             layout,
-            entries: &BindGroupEntries::sequential((&textures[..], &fallback_image.sampler)),
-        });
+            &BindGroupEntries::sequential((&textures[..], &fallback_image.sampler)),
+        );
 
         Ok(PreparedBindGroup {
             bindings: vec![],

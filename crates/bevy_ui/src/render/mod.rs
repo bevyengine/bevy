@@ -715,14 +715,14 @@ pub fn prepare_uinodes(
         let mut batches: Vec<(Entity, UiBatch)> = Vec::with_capacity(*previous_len);
 
         ui_meta.vertices.clear();
-        ui_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[BindGroupEntry {
+        ui_meta.view_bind_group = Some(render_device.create_bind_group(
+            Some("ui_view_bind_group"),
+            &ui_pipeline.view_layout,
+            &[BindGroupEntry {
                 binding: 0,
                 resource: view_binding,
             }],
-            label: Some("ui_view_bind_group"),
-            layout: &ui_pipeline.view_layout,
-        }));
+        ));
 
         // Vertex buffer index
         let mut index = 0;
@@ -754,14 +754,14 @@ pub fn prepare_uinodes(
                                 .values
                                 .entry(Handle::weak(batch_image_handle))
                                 .or_insert_with(|| {
-                                    render_device.create_bind_group(&BindGroupDescriptor {
-                                        entries: &BindGroupEntries::sequential((
+                                    render_device.create_bind_group(
+                                        Some("ui_material_bind_group"),
+                                        &ui_pipeline.image_layout,
+                                        &BindGroupEntries::sequential((
                                             &gpu_image.texture_view,
                                             &gpu_image.sampler,
                                         )),
-                                        label: Some("ui_material_bind_group"),
-                                        layout: &ui_pipeline.image_layout,
-                                    })
+                                    )
                                 });
 
                             existing_batch = batches.last_mut();

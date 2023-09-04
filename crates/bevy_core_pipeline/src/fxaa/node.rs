@@ -6,7 +6,7 @@ use bevy_ecs::query::QueryItem;
 use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntries, FilterMode, Operations, PipelineCache,
+        BindGroup, BindGroupEntries, FilterMode, Operations, PipelineCache,
         RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor, TextureViewId,
     },
     renderer::RenderContext,
@@ -60,14 +60,11 @@ impl ViewNode for FxaaNode {
                         ..default()
                     });
 
-                let bind_group =
-                    render_context
-                        .render_device()
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: None,
-                            layout: &fxaa_pipeline.texture_bind_group,
-                            entries: &BindGroupEntries::sequential((source, &sampler)),
-                        });
+                let bind_group = render_context.render_device().create_bind_group(
+                    None,
+                    &fxaa_pipeline.texture_bind_group,
+                    &BindGroupEntries::sequential((source, &sampler)),
+                );
 
                 let (_, bind_group) = cached_bind_group.insert((source.id(), bind_group));
                 bind_group

@@ -389,14 +389,14 @@ pub fn prepare_windows(
                 usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
-            let bind_group = render_device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("screenshot-to-screen-bind-group"),
-                layout: &screenshot_pipeline.bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
+            let bind_group = render_device.create_bind_group(
+                Some("screenshot-to-screen-bind-group"),
+                &screenshot_pipeline.bind_group_layout,
+                &[wgpu::BindGroupEntry {
                     binding: 0,
                     resource: wgpu::BindingResource::TextureView(&texture_view),
                 }],
-            });
+            );
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &screenshot_pipeline,

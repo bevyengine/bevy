@@ -452,14 +452,11 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             ) -> Result<#render_path::render_resource::PreparedBindGroup<Self::Data>, #render_path::render_resource::AsBindGroupError> {
                 let bindings = vec![#(#binding_impls,)*];
 
-                let bind_group = {
-                    let descriptor = #render_path::render_resource::BindGroupDescriptor {
-                        entries: &[#(#bind_group_entries,)*],
-                        label: None,
-                        layout: &layout,
-                    };
-                    render_device.create_bind_group(&descriptor)
-                };
+                let bind_group = render_device.create_bind_group(
+                    None,
+                    &layout,
+                    &[#(#bind_group_entries,)*],
+                );
 
                 Ok(#render_path::render_resource::PreparedBindGroup {
                     bindings,

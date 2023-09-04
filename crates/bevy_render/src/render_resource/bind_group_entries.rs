@@ -7,23 +7,23 @@ use super::{Sampler, TextureView};
 ///
 /// Allows constructing the descriptor's entries as:
 /// ```
-/// render_device.create_bind_group(&BindGroupDescriptor {
-///     label: Some("my_bind_group"),
-///     layout: &my_layout,
-///     entries: BindGroupEntries::with_indexes((
+/// render_device.create_bind_group(
+///     Some("my_bind_group"),
+///     &my_layout,
+///     BindGroupEntries::with_indexes((
 ///         (2, &my_sampler),
 ///         (3, my_uniform),
 ///     )).as_slice(),
-/// });
+/// );
 /// ```
 ///
 /// instead of
 ///
 /// ```
-/// render_device.create_bind_group(&BindGroupDescriptor {
-///     label: Some("my_bind_group"),
-///     layout: &my_layout,
-///     entries: &[
+/// render_device.create_bind_group(
+///     Some("my_bind_group"),
+///     &my_layout,
+///     &[
 ///         BindGroupEntry {
 ///             binding: 2,
 ///             resource: BindingResource::Sampler(&my_sampler),
@@ -33,29 +33,29 @@ use super::{Sampler, TextureView};
 ///             resource: my_uniform,
 ///         },
 ///     ],
-/// });
+/// );
 /// ```
 ///
 /// or
 ///
 /// ```
-/// render_device.create_bind_group(&BindGroupDescriptor {
-///     label: Some("my_bind_group"),
-///     layout: &my_layout,
-///     entries: BindGroupEntries::sequential((
+/// render_device.create_bind_group(
+///     Some("my_bind_group"),
+///     &my_layout,
+///     BindGroupEntries::sequential((
 ///         &my_sampler,
 ///         my_uniform,
 ///     )).as_slice(),
-/// });
+/// );
 /// ```
 ///
 /// instead of
 ///
 /// ```
 /// render_device.create_bind_group(&BindGroupDescriptor {
-///     label: Some("my_bind_group"),
-///     layout: &my_layout,
-///     entries: &[
+///     Some("my_bind_group"),
+///     &my_layout,
+///     &[
 ///         BindGroupEntry {
 ///             binding: 0,
 ///             resource: BindingResource::Sampler(&my_sampler),
@@ -65,7 +65,7 @@ use super::{Sampler, TextureView};
 ///             resource: my_uniform,
 ///         },
 ///     ],
-/// });
+/// );
 /// ```
 
 pub struct BindGroupEntries<'b, const N: usize> {

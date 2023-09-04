@@ -21,13 +21,13 @@ use bevy_render::{
     prelude::{Camera, Projection},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
-        BindGroupDescriptor, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingType, CachedRenderPipelineId, ColorTargetState, ColorWrites,
-        Extent3d, FilterMode, FragmentState, MultisampleState, Operations, PipelineCache,
-        PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor,
-        Sampler, SamplerBindingType, SamplerDescriptor, Shader, ShaderStages,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
+        BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
+        BindingType, CachedRenderPipelineId, ColorTargetState, ColorWrites, Extent3d, FilterMode,
+        FragmentState, MultisampleState, Operations, PipelineCache, PrimitiveState,
+        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
+        SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsages, TextureViewDimension,
     },
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
@@ -198,21 +198,18 @@ impl ViewNode for TAANode {
         };
         let view_target = view_target.post_process_write();
 
-        let taa_bind_group =
-            render_context
-                .render_device()
-                .create_bind_group(&BindGroupDescriptor {
-                    label: Some("taa_bind_group"),
-                    layout: &pipelines.taa_bind_group_layout,
-                    entries: &BindGroupEntries::sequential((
-                        view_target.source,
-                        &taa_history_textures.read.default_view,
-                        &prepass_motion_vectors_texture.default_view,
-                        &prepass_depth_texture.default_view,
-                        &pipelines.nearest_sampler,
-                        &pipelines.linear_sampler,
-                    )),
-                });
+        let taa_bind_group = render_context.render_device().create_bind_group(
+            Some("taa_bind_group"),
+            &pipelines.taa_bind_group_layout,
+            &BindGroupEntries::sequential((
+                view_target.source,
+                &taa_history_textures.read.default_view,
+                &prepass_motion_vectors_texture.default_view,
+                &prepass_depth_texture.default_view,
+                &pipelines.nearest_sampler,
+                &pipelines.linear_sampler,
+            )),
+        );
 
         {
             let mut taa_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {

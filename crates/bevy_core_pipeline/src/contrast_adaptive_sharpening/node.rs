@@ -7,7 +7,7 @@ use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex},
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntries, BufferId, Operations, PipelineCache,
+        BindGroup, BindGroupEntries, BufferId, Operations, PipelineCache,
         RenderPassColorAttachment, RenderPassDescriptor, TextureViewId,
     },
     renderer::RenderContext,
@@ -77,18 +77,15 @@ impl Node for CASNode {
                 bind_group
             }
             cached_bind_group => {
-                let bind_group =
-                    render_context
-                        .render_device()
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: Some("cas_bind_group"),
-                            layout: &sharpening_pipeline.texture_bind_group,
-                            entries: &BindGroupEntries::sequential((
-                                view_target.source,
-                                &sharpening_pipeline.sampler,
-                                uniforms,
-                            )),
-                        });
+                let bind_group = render_context.render_device().create_bind_group(
+                    Some("cas_bind_group"),
+                    &sharpening_pipeline.texture_bind_group,
+                    &BindGroupEntries::sequential((
+                        view_target.source,
+                        &sharpening_pipeline.sampler,
+                        uniforms,
+                    )),
+                );
 
                 let (_, _, bind_group) =
                     cached_bind_group.insert((uniforms_id, source.id(), bind_group));

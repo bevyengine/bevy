@@ -1282,11 +1282,8 @@ pub fn prepare_mesh_view_bind_groups(
                 ));
             }
 
-            let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &entries,
-                label: Some("mesh_view_bind_group"),
-                layout,
-            });
+            let view_bind_group =
+                render_device.create_bind_group(Some("mesh_view_bind_group"), layout, &entries);
 
             commands.entity(entity).insert(MeshViewBindGroup {
                 value: view_bind_group,
