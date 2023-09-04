@@ -6,12 +6,17 @@ use thiserror::Error;
 
 use palette::{convert::FromColorUnclamped, encoding, rgb::Rgb, Clamp, IntoColor, Srgb, WithAlpha};
 
-// This implements conversion to and from all Palette colors.
+/// Concrete [`Color`] which is used to unify the various color-interacting systems
+/// across this crate. The core of this type is its interop with [`palette`], [`encase`],
+/// [`wgpu`], [`serde`], and [`bevy_reflect`].
+/// 
+/// To perform color manipulation, it is recommended to treat [`Color`] as an at-rest type, and
+/// then use [`palette`] methods to enter and exit from a colorspace that best matches your
+/// desired operations.
 #[derive(
     FromColorUnclamped, WithAlpha, Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect,
 )]
 #[reflect(PartialEq, Serialize, Deserialize)]
-// We have to tell Palette that we will take care of converting to/from sRGB.
 #[palette(skip_derives(Rgb), rgb_standard = "encoding::Srgb")]
 pub struct Color {
     /// Red channel. [0.0, 1.0]
@@ -23,53 +28,6 @@ pub struct Color {
     /// Alpha channel. [0.0, 1.0]
     #[palette(alpha)]
     a: f32,
-}
-
-// Convert from any kind of f32 sRGB.
-impl<S> FromColorUnclamped<Rgb<S, f32>> for Color
-where
-    Srgb: FromColorUnclamped<Rgb<S, f32>>,
-{
-    fn from_color_unclamped(color: Rgb<S, f32>) -> Color {
-        let srgb = Srgb::from_color_unclamped(color);
-        Color {
-            r: srgb.red,
-            g: srgb.green,
-            b: srgb.blue,
-            a: 1.0,
-        }
-    }
-}
-
-// Convert into any kind of f32 sRGB.
-impl<S> FromColorUnclamped<Color> for Rgb<S, f32>
-where
-    Rgb<S, f32>: FromColorUnclamped<Srgb>,
-{
-    fn from_color_unclamped(color: Color) -> Self {
-        let srgb = Srgb::new(color.r, color.g, color.b);
-        Self::from_color_unclamped(srgb)
-    }
-}
-
-// There's no blanket implementation for Self -> Self, unlike the From trait.
-// This is to better allow cases like Self<A> -> Self<B>.
-impl FromColorUnclamped<Color> for Color {
-    fn from_color_unclamped(color: Color) -> Color {
-        color
-    }
-}
-
-// Add the required clamping.
-impl Clamp for Color {
-    fn clamp(self) -> Self {
-        Color {
-            r: self.r.clamp(0., 1.),
-            g: self.g.clamp(0., 1.),
-            b: self.b.clamp(0., 1.),
-            a: self.a.clamp(0., 1.),
-        }
-    }
 }
 
 impl Color {
@@ -496,11 +454,62 @@ impl Color {
         *self = self.with_a(a);
         self
     }
+
+    pub fn mix_in<C: FromColorUnclamped<Self> + palette::Mix + palette::Clamp>(self, rhs: Self, amount: f32) -> Self {
+        C::from_color_unclamped(self).mix(rhs.into_color(), amount).into_color()
+    }
 }
 
 impl Default for Color {
     fn default() -> Self {
         Color::WHITE
+    }
+}
+
+// Convert from any kind of f32 sRGB.
+impl<S> FromColorUnclamped<Rgb<S, f32>> for Color
+where
+    Srgb: FromColorUnclamped<Rgb<S, f32>>,
+{
+    fn from_color_unclamped(color: Rgb<S, f32>) -> Color {
+        let srgb = Srgb::from_color_unclamped(color);
+        Color {
+            r: srgb.red,
+            g: srgb.green,
+            b: srgb.blue,
+            a: 1.0,
+        }
+    }
+}
+
+// Convert into any kind of f32 sRGB.
+impl<S> FromColorUnclamped<Color> for Rgb<S, f32>
+where
+    Rgb<S, f32>: FromColorUnclamped<Srgb>,
+{
+    fn from_color_unclamped(color: Color) -> Self {
+        let srgb = Srgb::new(color.r, color.g, color.b);
+        Self::from_color_unclamped(srgb)
+    }
+}
+
+// There's no blanket implementation for Self -> Self, unlike the From trait.
+// This is to better allow cases like Self<A> -> Self<B>.
+impl FromColorUnclamped<Color> for Color {
+    fn from_color_unclamped(color: Color) -> Color {
+        color
+    }
+}
+
+// Add the required clamping.
+impl Clamp for Color {
+    fn clamp(self) -> Self {
+        Color {
+            r: self.r.clamp(0., 1.),
+            g: self.g.clamp(0., 1.),
+            b: self.b.clamp(0., 1.),
+            a: self.a.clamp(0., 1.),
+        }
     }
 }
 
@@ -784,6 +793,8 @@ const fn hex_value(b: u8) -> Result<u8, u8> {
 
 #[cfg(test)]
 mod tests {
+    use palette::Mix;
+
     use super::*;
 
     #[test]
@@ -898,5 +909,13 @@ mod tests {
         mutated_color *= transformation;
 
         assert_eq!(starting_color * transformation, mutated_color,);
+    }
+
+    #[test]
+    fn lerp() {
+        let color_start = Color::BLUE;
+        let color_end = Color::RED;
+
+        let color_mix: Color = palette::Oklcha::from_color_unclamped(color_start).mix(color_end.into_color(), 0.5).into_color();
     }
 }
