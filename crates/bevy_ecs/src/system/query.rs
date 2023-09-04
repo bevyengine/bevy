@@ -1077,6 +1077,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// # See also
     ///
+    /// - [`component`](Self::component) a panicking version of this function.
     /// - [`get_component_mut`](Self::get_component_mut) to get a mutable reference of a component.
     #[inline]
     pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
@@ -1085,7 +1086,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns a mutable reference to the component `T` of the given entity.
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryComponentError`] is returned instead.
+    /// In case of a nonexisting entity, mismatched component or missing write acess, a [`QueryComponentError`] is returned instead.
     ///
     /// # Example
     ///
@@ -1109,6 +1110,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// # See also
     ///
+    /// - [`component_mut`](Self::component_mut) a panicking version of this function.
     /// - [`get_component`](Self::get_component) to get a shared reference of a component.
     #[inline]
     pub fn get_component_mut<T: Component>(
@@ -1117,6 +1119,54 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ) -> Result<Mut<'_, T>, QueryComponentError> {
         // SAFETY: unique access to query (preventing aliased access)
         unsafe { self.get_component_unchecked_mut(entity) }
+    }
+
+    /// Returns a shared reference to the component `T` of the given [`Entity`].
+    ///
+    /// # Panics
+    ///
+    /// Panics in case of a nonexisting entity or mismatched component.
+    ///
+    /// # See also
+    ///
+    /// - [`get_component`](Self::get_component) a non-panicking version of this function.
+    /// - [`component_mut`](Self::component_mut) to get a mutable reference of a component.
+    #[inline]
+    #[track_caller]
+    pub fn component<T: Component>(&self, entity: Entity) -> &T {
+        match self.get_component(entity) {
+            Ok(component) => component,
+            Err(error) => {
+                panic!(
+                    "Cannot get component `{:?}` from {entity:?}: {error}",
+                    TypeId::of::<T>()
+                )
+            }
+        }
+    }
+
+    /// Returns a mutable reference to the component `T` of the given entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics in case of a nonexisting entity, mismatched component or missing write access.
+    ///
+    /// # See also
+    ///
+    /// - [`get_component_mut`](Self::get_component_mut) a non-panicking version of this function.
+    /// - [`component`](Self::component) to get a shared reference of a component.
+    #[inline]
+    #[track_caller]
+    pub fn component_mut<T: Component>(&mut self, entity: Entity) -> Mut<'_, T> {
+        match self.get_component_mut(entity) {
+            Ok(component) => component,
+            Err(error) => {
+                panic!(
+                    "Cannot get component `{:?}` from {entity:?}: {error}",
+                    TypeId::of::<T>()
+                )
+            }
+        }
     }
 
     /// Returns a mutable reference to the component `T` of the given entity.
