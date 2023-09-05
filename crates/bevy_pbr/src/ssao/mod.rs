@@ -116,9 +116,14 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
             .init_resource::<SsaoPipelines>()
             .init_resource::<SpecializedComputePipelines<SsaoPipelines>>()
             .add_systems(ExtractSchedule, extract_ssao_settings)
-            .add_systems(Render, prepare_ssao_textures.in_set(RenderSet::Prepare))
-            .add_systems(Render, prepare_ssao_pipelines.in_set(RenderSet::Prepare))
-            .add_systems(Render, queue_ssao_bind_groups.in_set(RenderSet::Queue))
+            .add_systems(
+                Render,
+                (
+                    prepare_ssao_pipelines.in_set(RenderSet::Prepare),
+                    prepare_ssao_textures.in_set(RenderSet::PrepareResources),
+                    prepare_ssao_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                ),
+            )
             .add_render_graph_node::<ViewNodeRunner<SsaoNode>>(
                 CORE_3D,
                 draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
@@ -756,7 +761,7 @@ struct SsaoBindGroups {
     spatial_denoise_bind_group: BindGroup,
 }
 
-fn queue_ssao_bind_groups(
+fn prepare_ssao_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     pipelines: Res<SsaoPipelines>,

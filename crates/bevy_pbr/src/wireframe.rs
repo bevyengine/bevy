@@ -1,4 +1,4 @@
-use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
+use crate::{DrawMesh, MeshPipelineKey, SetMeshBindGroup, SetMeshViewBindGroup};
 use crate::{MeshPipeline, MeshTransforms};
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
@@ -7,7 +7,6 @@ use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
-use bevy_render::render_resource::GpuArrayBufferIndex;
 use bevy_render::Render;
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
@@ -50,7 +49,7 @@ impl Plugin for WireframePlugin {
             render_app
                 .add_render_command::<Opaque3d, DrawWireframes>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
-                .add_systems(Render, queue_wireframes.in_set(RenderSet::Queue));
+                .add_systems(Render, queue_wireframes.in_set(RenderSet::QueueMeshes));
         }
     }
 
@@ -118,21 +117,8 @@ fn queue_wireframes(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     mut material_meshes: ParamSet<(
-        Query<(
-            Entity,
-            &Handle<Mesh>,
-            &MeshTransforms,
-            &GpuArrayBufferIndex<MeshUniform>,
-        )>,
-        Query<
-            (
-                Entity,
-                &Handle<Mesh>,
-                &MeshTransforms,
-                &GpuArrayBufferIndex<MeshUniform>,
-            ),
-            With<Wireframe>,
-        >,
+        Query<(Entity, &Handle<Mesh>, &MeshTransforms)>,
+        Query<(Entity, &Handle<Mesh>, &MeshTransforms), With<Wireframe>>,
     )>,
     mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<Opaque3d>)>,
     depth_format: Res<Core3DDepthFormat>,
@@ -144,36 +130,34 @@ fn queue_wireframes(
         let rangefinder = view.rangefinder3d();
 
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
-        let add_render_phase = |(entity, mesh_handle, mesh_transforms, batch_indices): (
-            Entity,
-            &Handle<Mesh>,
-            &MeshTransforms,
-            &GpuArrayBufferIndex<MeshUniform>,
-        )| {
-            if let Some(mesh) = render_meshes.get(mesh_handle) {
-                let key =
-                    view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                let pipeline_id =
-                    pipelines.specialize(&pipeline_cache, &wireframe_pipeline, key, &mesh.layout);
-                let pipeline_id = match pipeline_id {
-                    Ok(id) => id,
-                    Err(err) => {
-                        error!("{}", err);
-                        return;
-                    }
-                };
-                opaque_phase.add(Opaque3d {
-                    entity,
-                    pipeline: pipeline_id,
-                    draw_function: draw_custom,
-                    distance: rangefinder
-                        .distance_translation(&mesh_transforms.transform.translation),
-                    per_object_binding_dynamic_offset: batch_indices
-                        .dynamic_offset
-                        .unwrap_or_default(),
-                });
-            }
-        };
+        let add_render_phase =
+            |(entity, mesh_handle, mesh_transforms): (Entity, &Handle<Mesh>, &MeshTransforms)| {
+                if let Some(mesh) = render_meshes.get(mesh_handle) {
+                    let key = view_key
+                        | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    let pipeline_id = pipelines.specialize(
+                        &pipeline_cache,
+                        &wireframe_pipeline,
+                        key,
+                        &mesh.layout,
+                    );
+                    let pipeline_id = match pipeline_id {
+                        Ok(id) => id,
+                        Err(err) => {
+                            error!("{}", err);
+                            return;
+                        }
+                    };
+                    opaque_phase.add(Opaque3d {
+                        entity,
+                        pipeline: pipeline_id,
+                        draw_function: draw_custom,
+                        distance: rangefinder
+                            .distance_translation(&mesh_transforms.transform.translation),
+                        batch_size: 1,
+                    });
+                }
+            };
 
         if wireframe_config.global {
             let query = material_meshes.p0();

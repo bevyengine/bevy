@@ -1,8 +1,8 @@
 use crate::{
     deferred::DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE, render, AlphaMode, DrawMesh,
-    DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey, MeshTransforms, MeshUniform,
-    PrepassPipelinePlugin, PrepassPlugin, RenderLightSystems, ScreenSpaceAmbientOcclusionSettings,
-    SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
+    DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey, MeshTransforms,
+    PrepassPipelinePlugin, PrepassPlugin, ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup,
+    SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -26,15 +26,15 @@ use bevy_render::{
     extract_resource::ExtractResource,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
-    render_asset::{PrepareAssetSet, RenderAssets},
+    render_asset::{prepare_assets, RenderAssets},
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, GpuArrayBufferIndex,
-        OwnedBindingResource, PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef,
-        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, OwnedBindingResource,
+        PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
+        SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
     texture::FallbackImage,
@@ -236,10 +236,14 @@ where
                     Render,
                     (
                         prepare_materials::<M>
-                            .in_set(RenderSet::Prepare)
-                            .after(PrepareAssetSet::PreAssetPrepare),
-                        render::queue_shadows::<M>.in_set(RenderLightSystems::QueueShadows),
-                        queue_material_meshes::<M>.in_set(RenderSet::Queue),
+                            .in_set(RenderSet::PrepareAssets)
+                            .after(prepare_assets::<Image>),
+                        render::queue_shadows::<M>
+                            .in_set(RenderSet::QueueMeshes)
+                            .after(prepare_materials::<M>),
+                        queue_material_meshes::<M>
+                            .in_set(RenderSet::QueueMeshes)
+                            .after(prepare_materials::<M>),
                     ),
                 );
         }
@@ -431,12 +435,7 @@ pub fn queue_material_meshes<M: Material>(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
-    material_meshes: Query<(
-        &Handle<M>,
-        &Handle<Mesh>,
-        &MeshTransforms,
-        &GpuArrayBufferIndex<MeshUniform>,
-    )>,
+    material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshTransforms)>,
     images: Res<RenderAssets<Image>>,
     depth_format: Res<Core3DDepthFormat>,
     mut views: Query<(
@@ -528,7 +527,7 @@ pub fn queue_material_meshes<M: Material>(
 
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
-            if let Ok((material_handle, mesh_handle, mesh_transforms, batch_indices)) =
+            if let Ok((material_handle, mesh_handle, mesh_transforms)) =
                 material_meshes.get(*visible_entity)
             {
                 if let (Some(mesh), Some(material)) = (
@@ -596,9 +595,7 @@ pub fn queue_material_meshes<M: Material>(
                                     draw_function: draw_opaque_pbr,
                                     pipeline: pipeline_id,
                                     distance,
-                                    per_object_binding_dynamic_offset: batch_indices
-                                        .dynamic_offset
-                                        .unwrap_or_default(),
+                                    batch_size: 1,
                                 });
                             }
                         }
@@ -609,9 +606,7 @@ pub fn queue_material_meshes<M: Material>(
                                     draw_function: draw_alpha_mask_pbr,
                                     pipeline: pipeline_id,
                                     distance,
-                                    per_object_binding_dynamic_offset: batch_indices
-                                        .dynamic_offset
-                                        .unwrap_or_default(),
+                                    batch_size: 1,
                                 });
                             }
                         }
@@ -624,6 +619,7 @@ pub fn queue_material_meshes<M: Material>(
                                 draw_function: draw_transparent_pbr,
                                 pipeline: pipeline_id,
                                 distance,
+                                batch_size: 1,
                             });
                         }
                     }

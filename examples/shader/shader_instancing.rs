@@ -87,8 +87,8 @@ impl Plugin for CustomMaterialPlugin {
             .add_systems(
                 Render,
                 (
-                    queue_custom.in_set(RenderSet::Queue),
-                    prepare_instance_buffers.in_set(RenderSet::Prepare),
+                    queue_custom.in_set(RenderSet::QueueMeshes),
+                    prepare_instance_buffers.in_set(RenderSet::PrepareResources),
                 ),
             );
     }
@@ -139,6 +139,7 @@ fn queue_custom(
                     draw_function: draw_custom,
                     distance: rangefinder
                         .distance_translation(&mesh_transforms.transform.translation),
+                    batch_size: 1,
                 });
             }
         }

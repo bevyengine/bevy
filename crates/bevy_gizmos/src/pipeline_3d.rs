@@ -14,7 +14,7 @@ use bevy_ecs::{
 };
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
 use bevy_render::{
-    render_asset::RenderAssets,
+    render_asset::{prepare_assets, RenderAssets},
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
     texture::BevyDefault,
@@ -32,7 +32,12 @@ impl Plugin for LineGizmo3dPlugin {
         render_app
             .add_render_command::<Transparent3d, DrawLineGizmo3d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
-            .add_systems(Render, queue_line_gizmos_3d.in_set(RenderSet::Queue));
+            .add_systems(
+                Render,
+                queue_line_gizmos_3d
+                    .in_set(RenderSet::Queue)
+                    .after(prepare_assets::<LineGizmo>),
+            );
     }
 
     fn finish(&self, app: &mut App) {
@@ -189,6 +194,7 @@ fn queue_line_gizmos_3d(
                 draw_function,
                 pipeline,
                 distance: 0.,
+                batch_size: 1,
             });
         }
     }
