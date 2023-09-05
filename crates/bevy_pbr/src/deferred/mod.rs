@@ -151,7 +151,10 @@ impl ViewNode for DeferredLightingNode {
             }))],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &deferred_lighting_id_depth_texture.texture.default_view,
-                depth_ops: None,
+                depth_ops: Some(Operations {
+                    load: LoadOp::Load,
+                    store: false,
+                }),
                 stencil_ops: None,
             }),
         });

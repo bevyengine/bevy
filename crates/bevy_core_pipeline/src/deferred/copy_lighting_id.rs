@@ -204,8 +204,8 @@ fn prepare_deferred_lighting_id_textures(
             let texture_descriptor = TextureDescriptor {
                 label: Some("deferred_lighting_id_depth_texture_a"),
                 size: Extent3d {
-                    width: (width as u32),
-                    height: (height as u32),
+                    width,
+                    height,
                     depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,
