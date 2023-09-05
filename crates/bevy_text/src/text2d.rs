@@ -17,7 +17,10 @@ use bevy_render::{
     view::{InheritedVisibility, ViewVisibility, Visibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
+use bevy_sprite::{
+    Anchor, ExtractedGlyph, ExtractedGlyphSection, ExtractedGlyphText, ExtractedGlyphs,
+    TextureAtlas,
+};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
@@ -80,11 +83,12 @@ pub struct Text2dBundle {
 
 pub fn extract_text2d_sprite(
     mut commands: Commands,
-    mut extracted_sprites: ResMut<ExtractedSprites>,
+    mut extracted_glyphs: ResMut<ExtractedGlyphs>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     text2d_query: Extract<
         Query<(
+            Entity,
             &ViewVisibility,
             &Text,
             &TextLayoutInfo,
@@ -93,6 +97,9 @@ pub fn extract_text2d_sprite(
         )>,
     >,
 ) {
+    extracted_glyphs.glyphs.clear();
+    extracted_glyphs.sections.clear();
+    extracted_glyphs.texts.clear();
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
@@ -100,7 +107,10 @@ pub fn extract_text2d_sprite(
         .unwrap_or(1.0);
     let scaling = GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()));
 
-    for (view_visibility, text, text_layout_info, anchor, global_transform) in text2d_query.iter() {
+    for (entity, view_visibility, text, text_layout_info, anchor, global_transform) in
+        text2d_query.iter()
+    {
+        println!("Extract Text entity: {entity:?}");
         if !view_visibility.get() {
             continue;
         }
@@ -110,8 +120,9 @@ pub fn extract_text2d_sprite(
         let transform = *global_transform
             * scaling
             * GlobalTransform::from_translation(alignment_translation.extend(0.));
-        let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
+        let mut section_ids = Vec::with_capacity(text.sections.len());
+        let mut count = 0;
         for PositionedGlyph {
             position,
             atlas_info,
@@ -120,25 +131,46 @@ pub fn extract_text2d_sprite(
         } in &text_layout_info.glyphs
         {
             if *section_index != current_section {
-                color = text.sections[*section_index].style.color.as_rgba_linear();
+                println!("section: {section_index}, start: {count}");
+                let section_id = commands.spawn_empty().id();
+                section_ids.push(section_id);
+                let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+                let extracted_section = ExtractedGlyphSection {
+                    transform,
+                    color: text.sections[*section_index].style.color,
+                    atlas_id: atlas.texture.id(),
+                    range: extracted_glyphs.glyphs.len()..extracted_glyphs.glyphs.len(),
+                };
+
+                extracted_glyphs
+                    .sections
+                    .insert(section_id, extracted_section);
+
                 current_section = *section_index;
             }
+
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
-            extracted_sprites.sprites.insert(
-                commands.spawn_empty().id(),
-                ExtractedSprite {
-                    transform: transform * GlobalTransform::from_translation(position.extend(0.)),
-                    color,
-                    rect: Some(atlas.textures[atlas_info.glyph_index]),
-                    custom_size: None,
-                    image_handle_id: atlas.texture.id(),
-                    flip_x: false,
-                    flip_y: false,
-                    anchor: Anchor::Center.as_vec(),
-                },
-            );
+            extracted_glyphs.glyphs.push(ExtractedGlyph {
+                rect: atlas.textures[atlas_info.glyph_index],
+                position: *position,
+            });
+            count +=1;
+            extracted_glyphs
+                .sections
+                .get_mut(*section_ids.last().unwrap())
+                .unwrap()
+                .range
+                .end += 1;
         }
+        println!("total glyph count: {count}");
+        println!("extracted glyphs len {}:", extracted_glyphs.glyphs.len());
+        extracted_glyphs.texts.insert(
+            entity,
+            ExtractedGlyphText {
+                sections: section_ids,
+            },
+        );
     }
 }
 
