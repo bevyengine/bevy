@@ -10,7 +10,7 @@ use super::{Sampler, TextureView};
 /// render_device.create_bind_group(
 ///     "my_bind_group",
 ///     &my_layout,
-///     &BindGroupEntries::with_indexes((
+///     &BindGroupEntries::with_indices((
 ///         (2, &my_sampler),
 ///         (3, my_uniform),
 ///     )),
@@ -86,7 +86,7 @@ impl<'b, const N: usize> BindGroupEntries<'b, N> {
     }
 
     #[inline]
-    pub fn with_indexes(indexed_resources: impl IntoIndexedBindingArray<'b, N>) -> Self {
+    pub fn with_indices(indexed_resources: impl IntoIndexedBindingArray<'b, N>) -> Self {
         Self {
             entries: indexed_resources
                 .into_array()
@@ -208,7 +208,7 @@ impl<'b> DynamicBindGroupEntries<'b> {
         self
     }
 
-    pub fn new_with_indexes<const N: usize>(entries: impl IntoIndexedBindingArray<'b, N>) -> Self {
+    pub fn new_with_indices<const N: usize>(entries: impl IntoIndexedBindingArray<'b, N>) -> Self {
         Self {
             entries: entries
                 .into_array()
@@ -218,7 +218,7 @@ impl<'b> DynamicBindGroupEntries<'b> {
         }
     }
 
-    pub fn extend_with_indexes<const N: usize>(
+    pub fn extend_with_indices<const N: usize>(
         mut self,
         entries: impl IntoIndexedBindingArray<'b, N>,
     ) -> Self {
