@@ -64,7 +64,7 @@ impl_downcast!(Plugin);
 /// It is used for dynamically loading plugins.
 ///
 /// See `bevy_dynamic_plugin/src/loader.rs#dynamically_load_plugin`.
-pub type CreatePlugin = unsafe fn() -> *mut dyn Plugin;
+pub type CreatePlugin = unsafe extern "Rust" fn() -> *mut dyn Plugin;
 
 /// Types that represent a set of [`Plugin`]s.
 ///
