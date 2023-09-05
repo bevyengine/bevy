@@ -38,7 +38,7 @@ pub mod prelude {
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
-        view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
+        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
         ExtractSchedule,
     };
 }
@@ -132,7 +132,7 @@ impl Render {
     pub fn base_schedule() -> Schedule {
         use RenderSet::*;
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::new(Self);
 
         // Create "stage-like" structure using buffer flushes + ordering
         schedule.add_systems((
@@ -234,6 +234,8 @@ pub struct RenderApp;
 
 pub const INSTANCE_INDEX_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 10313207077636615845);
+pub const MATHS_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 10665356303104593376);
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`](RenderSet) and creates the rendering sub-app.
@@ -295,12 +297,12 @@ impl Plugin for RenderPlugin {
             let mut render_app = App::empty();
             render_app.main_schedule_label = Box::new(Render);
 
-            let mut extract_schedule = Schedule::new();
+            let mut extract_schedule = Schedule::new(ExtractSchedule);
             extract_schedule.set_apply_final_deferred(false);
 
             render_app
-                .add_schedule(ExtractSchedule, extract_schedule)
-                .add_schedule(Render, Render::base_schedule())
+                .add_schedule(extract_schedule)
+                .add_schedule(Render::base_schedule())
                 .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(app.world.resource::<AssetServer>().clone())
                 .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
@@ -357,7 +359,7 @@ impl Plugin for RenderPlugin {
         }
 
         app.add_plugins((
-            ValidParentCheckPlugin::<view::ComputedVisibility>::default(),
+            ValidParentCheckPlugin::<view::InheritedVisibility>::default(),
             WindowRenderPlugin,
             CameraPlugin,
             ViewPlugin,
@@ -391,6 +393,7 @@ impl Plugin for RenderPlugin {
                 "BASE_INSTANCE_WORKAROUND".into()
             ]
         );
+        load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
         if let Some(future_renderer_resources) =
             app.world.remove_resource::<FutureRendererResources>()
         {

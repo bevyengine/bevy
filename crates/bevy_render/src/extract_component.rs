@@ -1,7 +1,7 @@
 use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
-    view::ComputedVisibility,
+    view::ViewVisibility,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
@@ -222,11 +222,11 @@ fn extract_components<C: ExtractComponent>(
 fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, &ComputedVisibility, C::Query), C::Filter>>,
+    query: Extract<Query<(Entity, &ViewVisibility, C::Query), C::Filter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, computed_visibility, query_item) in &query {
-        if computed_visibility.is_visible() {
+    for (entity, view_visibility, query_item) in &query {
+        if view_visibility.get() {
             if let Some(component) = C::extract_component(query_item) {
                 values.push((entity, component));
             }

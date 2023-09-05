@@ -136,7 +136,7 @@ pub(crate) fn play_gilrs_rumble(
         .retain(|_gamepad, rumbles| !rumbles.is_empty());
 
     // Add new effects.
-    for rumble in requests.iter().cloned() {
+    for rumble in requests.read().cloned() {
         let gamepad = rumble.gamepad();
         match handle_rumble_request(&mut running_rumbles, &mut gilrs, rumble, current_time) {
             Ok(()) => {}

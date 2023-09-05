@@ -10,8 +10,8 @@ use crate::{
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
-    prelude::{Color, ComputedVisibility},
-    view::Visibility,
+    prelude::Color,
+    view::{InheritedVisibility, ViewVisibility, Visibility},
 };
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
@@ -36,18 +36,20 @@ pub struct NodeBundle {
     pub focus_policy: FocusPolicy,
     /// The transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
 }
@@ -64,7 +66,8 @@ impl Default for NodeBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
-            computed_visibility: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
             z_index: Default::default(),
         }
     }
@@ -88,24 +91,25 @@ pub struct ImageBundle {
     pub image: UiImage,
     /// The size of the image in pixels
     ///
-    /// This field is set automatically
+    /// This component is set automatically
     pub image_size: UiImageSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `ImageBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `ImageBundle`, use the properties of the [`Style`] component.
+    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
 }
@@ -132,22 +136,23 @@ pub struct AtlasImageBundle {
     pub focus_policy: FocusPolicy,
     /// The size of the image in pixels
     ///
-    /// This field is set automatically
+    /// This component is set automatically
     pub image_size: UiImageSize,
     /// The transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `AtlasImageBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `AtlasImageBundle`, use the properties of the [`Style`] component.
+    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
 }
@@ -173,18 +178,19 @@ pub struct TextBundle {
     pub focus_policy: FocusPolicy,
     /// The transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `TextBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `TextBundle`, use the properties of the [`Style`] component.
+    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
     /// The background color that will fill the containing node
@@ -199,16 +205,17 @@ impl Default for TextBundle {
             text_layout_info: Default::default(),
             text_flags: Default::default(),
             calculated_size: Default::default(),
-            // Transparent background
-            background_color: BackgroundColor(Color::NONE),
             node: Default::default(),
             style: Default::default(),
             focus_policy: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
-            computed_visibility: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
             z_index: Default::default(),
+            // Transparent background
+            background_color: BackgroundColor(Color::NONE),
         }
     }
 }
@@ -285,18 +292,19 @@ pub struct ButtonBundle {
     pub image: UiImage,
     /// The transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
+    /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `ButtonBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `ButtonBundle`, use the properties of the [`Style`] component.
+    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
 }
@@ -315,7 +323,8 @@ impl Default for ButtonBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
-            computed_visibility: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
             z_index: Default::default(),
         }
     }
