@@ -1,7 +1,3 @@
-#![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
-#![allow(clippy::single_component_path_imports)]
-
 //! Forces dynamic linking of Bevy.
 //!
 //! Dynamic linking causes Bevy to be built and linked as a dynamic library. This will make
@@ -50,6 +46,10 @@
 //! #[cfg(debug_assertions)] // new
 //! use bevy_dylib;
 //! ```
+
+#![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::single_component_path_imports)]
 
 // Force linking of the main bevy crate
 #[allow(unused_imports)]

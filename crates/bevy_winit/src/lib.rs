@@ -1,11 +1,12 @@
-#![allow(clippy::type_complexity)]
-#![warn(missing_docs)]
 //! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
 //!
 //! Most commonly, the [`WinitPlugin`] is used as part of
 //! [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
 //! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`](winit::event_loop::EventLoop).
 //! See `winit_runner` for details.
+
+#![allow(clippy::type_complexity)]
+#![warn(missing_docs)]
 
 pub mod accessibility;
 mod converters;

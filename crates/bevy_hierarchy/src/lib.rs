@@ -1,9 +1,10 @@
-#![allow(clippy::type_complexity)]
-#![warn(missing_docs)]
 //! `bevy_hierarchy` can be used to define hierarchies of entities.
 //!
 //! Most commonly, these hierarchies are used for inheriting `Transform` values
 //! from the [`Parent`] to its [`Children`].
+
+#![allow(clippy::type_complexity)]
+#![warn(missing_docs)]
 
 mod components;
 pub use components::*;
