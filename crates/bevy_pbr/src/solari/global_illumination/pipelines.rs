@@ -23,6 +23,7 @@ pub enum SolariGlobalIlluminationPass {
     DecayWorldCache,
     CompactWorldCacheSingleBlock,
     CompactWorldCacheBlocks,
+    CompactWorldWriteActiveCells,
     SampleForWorldCache,
     BlendNewWorldCacheSamples,
     UpdateScreenProbes,
@@ -35,8 +36,8 @@ pub enum SolariGlobalIlluminationPass {
 #[derive(Resource)]
 pub struct SolariGlobalIlluminationPipelines {
     scene_bind_group_layout: BindGroupLayout,
-    view_bind_group_layout: BindGroupLayout,
-    view_with_world_cache_dispatch_bind_group_layout: BindGroupLayout,
+    pub view_bind_group_layout: BindGroupLayout,
+    pub view_with_world_cache_dispatch_bind_group_layout: BindGroupLayout,
 }
 
 impl FromWorld for SolariGlobalIlluminationPipelines {
@@ -90,6 +91,10 @@ impl SpecializedComputePipeline for SolariGlobalIlluminationPipelines {
                     SOLARI_WORLD_CACHE_COMPACT_SHADER,
                 )
             }
+            SolariGlobalIlluminationPass::CompactWorldWriteActiveCells => (
+                "compact_world_cache_write_active_cells",
+                SOLARI_WORLD_CACHE_COMPACT_SHADER,
+            ),
             SolariGlobalIlluminationPass::SampleForWorldCache => {
                 ("sample_irradiance", SOLARI_WORLD_CACHE_UPDATE_SHADER)
             }
@@ -130,12 +135,14 @@ pub struct SolariGlobalIlluminationPipelineIds {
     pub decay_world_cache: CachedComputePipelineId,
     pub compact_world_cache_single_block: CachedComputePipelineId,
     pub compact_world_cache_blocks: CachedComputePipelineId,
+    pub compact_world_cache_write_active_cells: CachedComputePipelineId,
     pub sample_for_world_cache: CachedComputePipelineId,
     pub blend_new_world_cache_samples: CachedComputePipelineId,
     pub update_screen_probes: CachedComputePipelineId,
     pub filter_screen_probes: CachedComputePipelineId,
+    pub interpolate_screen_probes: CachedComputePipelineId,
     pub denoise_diffuse_temporal: CachedComputePipelineId,
-    pub denoiser_diffuse_spatial: CachedComputePipelineId,
+    pub denoise_diffuse_spatial: CachedComputePipelineId,
 }
 
 pub fn prepare_pipelines(
@@ -166,6 +173,9 @@ pub fn prepare_pipelines(
                 compact_world_cache_blocks: create_pipeline(
                     SolariGlobalIlluminationPass::CompactWorldCacheBlocks,
                 ),
+                compact_world_cache_write_active_cells: create_pipeline(
+                    SolariGlobalIlluminationPass::CompactWorldWriteActiveCells,
+                ),
                 sample_for_world_cache: create_pipeline(
                     SolariGlobalIlluminationPass::SampleForWorldCache,
                 ),
@@ -178,10 +188,13 @@ pub fn prepare_pipelines(
                 filter_screen_probes: create_pipeline(
                     SolariGlobalIlluminationPass::FilterScreenProbes,
                 ),
+                interpolate_screen_probes: create_pipeline(
+                    SolariGlobalIlluminationPass::InterpolateScreenProbes,
+                ),
                 denoise_diffuse_temporal: create_pipeline(
                     SolariGlobalIlluminationPass::DenoiseDiffuseTemporal,
                 ),
-                denoiser_diffuse_spatial: create_pipeline(
+                denoise_diffuse_spatial: create_pipeline(
                     SolariGlobalIlluminationPass::DenoiseDiffuseSpatial,
                 ),
             });

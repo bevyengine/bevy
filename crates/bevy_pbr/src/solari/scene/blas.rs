@@ -24,6 +24,7 @@ impl BlasStorage {
 }
 
 // TODO: Detect changed meshes and rebuild BLAS
+// TODO: Remove no-longer accessed meshes
 // TODO: BLAS compaction
 // TODO: Async compute queue for BLAS creation
 // TODO: Ensure this system runs in parallel with other rendering stuff / in the background

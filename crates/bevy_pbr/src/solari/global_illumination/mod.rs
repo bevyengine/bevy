@@ -26,6 +26,8 @@ pub mod draw_3d_graph {
     }
 }
 
+const WORLD_CACHE_SIZE: u64 = 1048576;
+
 const SOLARI_VIEW_BINDINGS_SHADER: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1717171717171755);
 const SOLARI_WORLD_CACHE_QUERY_SHADER: HandleUntyped =
