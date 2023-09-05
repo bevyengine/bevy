@@ -1,8 +1,8 @@
 use self::{
-    bind_group::{queue_scene_bind_group, SolariSceneBindGroup},
-    bind_group_layout::SolariSceneBindGroupLayout,
+    bind_group::queue_scene_bind_group,
     blas::{prepare_blas, BlasStorage},
 };
+pub use self::{bind_group::SolariSceneBindGroup, bind_group_layout::SolariSceneBindGroupLayout};
 use super::SolariEnabled;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
@@ -16,10 +16,10 @@ mod blas;
 mod helpers;
 mod scene_types;
 
-pub struct SolariScenePlugin;
-
 const SOLARI_SCENE_BINDINGS_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1717171717171755);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 0717171717171755);
+
+pub struct SolariScenePlugin;
 
 impl Plugin for SolariScenePlugin {
     fn build(&self, app: &mut App) {

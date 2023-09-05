@@ -1,0 +1,24 @@
+* Radiance cascades for screen probes (https://drive.google.com/file/d/1L6v1_7HY2X-LV3Ofb6oyTIxgEaP4LOI6/view)
+* Reprojecting screen probes
+    * Temporal accumulation
+    * Ray guiding using last-frame's probes
+* World cache improvements
+    * Short trace distance
+    * Tie world cache to camera, use a log scale for cell size
+    * Reservoir sampling for the world cache update method
+        * Light sources and other cache entries via choosing a random slice of world_cache_active_cell_indices
+    * World cache position jitter within each cell(?)
+    * Variance driven world cache update rate, skipping very stable cells, and adapting to lighting changes faster
+* Improve spatiotemporal denoiser
+    * Spatial weights
+    * Early return for denoise passes for sky pixels or 0 spatial denoising
+
+* Specular lighting
+* Add screenspace GI
+* Cleanup, remaining TODOs, performance profiling, documentation, etc
+    * "A Fast and Robust Method for Avoiding Self-Intersection"
+    * Cull or simplify BLAS/TLAS entries for far away meshes
+
+* SolariDirectIlluminationPlugin - ReSTIR for per-pixel direct light sampling
+    * https://benedikt-bitterli.me/restir/bitterli20restir.pdf
+    * https://d1qx31qr3h6wln.cloudfront.net/publications/hpg21_rearchitectingReSTIR.pdf

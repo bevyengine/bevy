@@ -1,9 +1,9 @@
-use self::{gi::SolariGiPlugin, scene::SolariScenePlugin};
+use self::{global_illumination::SolariGlobalIlluminationPlugin, scene::SolariScenePlugin};
 use bevy_app::{App, Plugin};
 use bevy_ecs::system::Resource;
 use bevy_render::{renderer::RenderDevice, settings::WgpuFeatures};
 
-mod gi;
+pub mod global_illumination;
 mod scene;
 
 #[derive(Default)]
@@ -26,7 +26,7 @@ impl Plugin for SolariPlugin {
 
         app.insert_resource(SolariSupported)
             .add_plugins(SolariScenePlugin)
-            .add_plugins(SolariGiPlugin);
+            .add_plugins(SolariGlobalIlluminationPlugin);
     }
 
     fn build(&self, _: &mut App) {}
