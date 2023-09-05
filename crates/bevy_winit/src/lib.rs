@@ -422,20 +422,20 @@ pub fn winit_runner(mut app: App) {
                     event_writer_system_state.get_mut(&mut app.world);
 
                 let Some(window_entity) = winit_windows.get_window_entity(window_id) else {
-                        warn!(
-                            "Skipped event {:?} for unknown winit Window Id {:?}",
-                            event, window_id
-                        );
-                        return;
-                    };
+                    warn!(
+                        "Skipped event {:?} for unknown winit Window Id {:?}",
+                        event, window_id
+                    );
+                    return;
+                };
 
                 let Ok((mut window, mut cache)) = windows.get_mut(window_entity) else {
-                        warn!(
-                            "Window {:?} is missing `Window` component, skipping event {:?}",
-                            window_entity, event
-                        );
-                        return;
-                    };
+                    warn!(
+                        "Window {:?} is missing `Window` component, skipping event {:?}",
+                        window_entity, event
+                    );
+                    return;
+                };
 
                 runner_state.window_event_received = true;
 

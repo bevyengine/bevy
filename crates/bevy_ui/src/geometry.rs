@@ -60,10 +60,17 @@ pub struct UiRect {
 
 impl UiRect {
     pub const DEFAULT: Self = Self {
-        left: Val::Px(0.),
-        right: Val::Px(0.),
-        top: Val::Px(0.),
-        bottom: Val::Px(0.),
+        left: Val::ZERO,
+        right: Val::ZERO,
+        top: Val::ZERO,
+        bottom: Val::ZERO,
+    };
+
+    pub const ZERO: Self = Self {
+        left: Val::ZERO,
+        right: Val::ZERO,
+        top: Val::ZERO,
+        bottom: Val::ZERO,
     };
 
     /// Creates a new [`UiRect`] from the values specified.
@@ -166,7 +173,7 @@ impl UiRect {
     }
 
     /// Creates a new [`UiRect`] where `left` and `right` take the given value,
-    /// and `top` and `bottom` set to zero `Val::Px(0.)`.
+    /// and `top` and `bottom` set to zero `Val::ZERO`.
     ///
     /// # Example
     ///
@@ -177,8 +184,8 @@ impl UiRect {
     ///
     /// assert_eq!(ui_rect.left, Val::Px(10.0));
     /// assert_eq!(ui_rect.right, Val::Px(10.0));
-    /// assert_eq!(ui_rect.top, Val::Px(0.));
-    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
     pub fn horizontal(value: Val) -> Self {
         UiRect {
@@ -189,7 +196,7 @@ impl UiRect {
     }
 
     /// Creates a new [`UiRect`] where `top` and `bottom` take the given value,
-    /// and `left` and `right` are set to `Val::Px(0.)`.
+    /// and `left` and `right` are set to `Val::ZERO`.
     ///
     /// # Example
     ///
@@ -198,8 +205,8 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::vertical(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Px(0.));
-    /// assert_eq!(ui_rect.right, Val::Px(0.));
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
@@ -235,7 +242,7 @@ impl UiRect {
     }
 
     /// Creates a new [`UiRect`] where `left` takes the given value, and
-    /// the other fields are set to `Val::Px(0.)`.
+    /// the other fields are set to `Val::ZERO`.
     ///
     /// # Example
     ///
@@ -245,9 +252,9 @@ impl UiRect {
     /// let ui_rect = UiRect::left(Val::Px(10.0));
     ///
     /// assert_eq!(ui_rect.left, Val::Px(10.0));
-    /// assert_eq!(ui_rect.right, Val::Px(0.));
-    /// assert_eq!(ui_rect.top, Val::Px(0.));
-    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
     pub fn left(value: Val) -> Self {
         UiRect {
@@ -257,7 +264,7 @@ impl UiRect {
     }
 
     /// Creates a new [`UiRect`] where `right` takes the given value,
-    /// and the other fields are set to `Val::Px(0.)`.
+    /// and the other fields are set to `Val::ZERO`.
     ///
     /// # Example
     ///
@@ -266,10 +273,10 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::right(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Px(0.));
+    /// assert_eq!(ui_rect.left, Val::ZERO);
     /// assert_eq!(ui_rect.right, Val::Px(10.0));
-    /// assert_eq!(ui_rect.top, Val::Px(0.));
-    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
     pub fn right(value: Val) -> Self {
         UiRect {
@@ -279,7 +286,7 @@ impl UiRect {
     }
 
     /// Creates a new [`UiRect`] where `top` takes the given value,
-    /// and the other fields are set to `Val::Px(0.)`.
+    /// and the other fields are set to `Val::ZERO`.
     ///
     /// # Example
     ///
@@ -288,10 +295,10 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::top(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Px(0.));
-    /// assert_eq!(ui_rect.right, Val::Px(0.));
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
-    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
     pub fn top(value: Val) -> Self {
         UiRect {
@@ -301,7 +308,7 @@ impl UiRect {
     }
 
     /// Creates a new [`UiRect`] where `bottom` takes the given value,
-    /// and the other fields are set to `Val::Px(0.)`.
+    /// and the other fields are set to `Val::ZERO`.
     ///
     /// # Example
     ///
@@ -310,9 +317,9 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::bottom(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Px(0.));
-    /// assert_eq!(ui_rect.right, Val::Px(0.));
-    /// assert_eq!(ui_rect.top, Val::Px(0.));
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
     pub fn bottom(value: Val) -> Self {
@@ -338,10 +345,10 @@ mod tests {
         assert_eq!(
             UiRect::default(),
             UiRect {
-                left: Val::Px(0.),
-                right: Val::Px(0.),
-                top: Val::Px(0.),
-                bottom: Val::Px(0.)
+                left: Val::ZERO,
+                right: Val::ZERO,
+                top: Val::ZERO,
+                bottom: Val::ZERO
             }
         );
         assert_eq!(UiRect::default(), UiRect::DEFAULT);

@@ -3,7 +3,7 @@
 #import bevy_pbr::morph
 #import bevy_pbr::mesh_bindings       mesh
 #import bevy_pbr::mesh_vertex_output  MeshVertexOutput
-#import bevy_render::instance_index
+#import bevy_render::instance_index   get_instance_index
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
@@ -66,8 +66,8 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
     var model = bevy_pbr::skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
 #else
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
-    // See https://github.com/gfx-rs/naga/issues/2416
-    var model = mesh[bevy_render::instance_index::get_instance_index(vertex_no_morph.instance_index)].model;
+    // See https://github.com/gfx-rs/naga/issues/2416 .
+    var model = mesh_functions::get_model_matrix(vertex_no_morph.instance_index);
 #endif
 
 #ifdef VERTEX_NORMALS
@@ -78,7 +78,7 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
         vertex.normal,
         // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
         // See https://github.com/gfx-rs/naga/issues/2416
-        bevy_render::instance_index::get_instance_index(vertex_no_morph.instance_index)
+        get_instance_index(vertex_no_morph.instance_index)
     );
 #endif
 #endif
@@ -98,7 +98,7 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
         vertex.tangent,
         // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
         // See https://github.com/gfx-rs/naga/issues/2416
-        bevy_render::instance_index::get_instance_index(vertex_no_morph.instance_index)
+        get_instance_index(vertex_no_morph.instance_index)
     );
 #endif
 
@@ -109,7 +109,7 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
-    out.instance_index = bevy_render::instance_index::get_instance_index(vertex_no_morph.instance_index);
+    out.instance_index = get_instance_index(vertex_no_morph.instance_index);
 #endif
 
     return out;

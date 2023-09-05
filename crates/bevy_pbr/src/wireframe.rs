@@ -1,5 +1,5 @@
-use crate::MeshPipeline;
 use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
+use crate::{MeshPipeline, MeshTransforms};
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::core_3d::{Core3DDepthFormat, Opaque3d};
@@ -121,14 +121,14 @@ fn queue_wireframes(
         Query<(
             Entity,
             &Handle<Mesh>,
-            &MeshUniform,
+            &MeshTransforms,
             &GpuArrayBufferIndex<MeshUniform>,
         )>,
         Query<
             (
                 Entity,
                 &Handle<Mesh>,
-                &MeshUniform,
+                &MeshTransforms,
                 &GpuArrayBufferIndex<MeshUniform>,
             ),
             With<Wireframe>,
@@ -144,11 +144,10 @@ fn queue_wireframes(
         let rangefinder = view.rangefinder3d();
 
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
-
-        let add_render_phase = |(entity, mesh_handle, mesh_uniform, batch_indices): (
+        let add_render_phase = |(entity, mesh_handle, mesh_transforms, batch_indices): (
             Entity,
             &Handle<Mesh>,
-            &MeshUniform,
+            &MeshTransforms,
             &GpuArrayBufferIndex<MeshUniform>,
         )| {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
@@ -167,7 +166,8 @@ fn queue_wireframes(
                     entity,
                     pipeline: pipeline_id,
                     draw_function: draw_custom,
-                    distance: rangefinder.distance(&mesh_uniform.transform),
+                    distance: rangefinder
+                        .distance_translation(&mesh_transforms.transform.translation),
                     per_object_binding_dynamic_offset: batch_indices
                         .dynamic_offset
                         .unwrap_or_default(),

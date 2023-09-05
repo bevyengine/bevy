@@ -96,7 +96,9 @@ impl Plugin for GizmoPlugin {
                     .after(TransformSystem::TransformPropagate),
             );
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app
             .add_systems(ExtractSchedule, extract_gizmo_data)
@@ -109,7 +111,9 @@ impl Plugin for GizmoPlugin {
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         let render_device = render_app.world.resource::<RenderDevice>();
         let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -469,6 +473,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
         let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
             return RenderCommandResult::Failure;
         };
+
+        if line_gizmo.vertex_count < 2 {
+            return RenderCommandResult::Success;
+        }
 
         let instances = if line_gizmo.strip {
             let item_size = VertexFormat::Float32x3.size();

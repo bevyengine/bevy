@@ -59,7 +59,9 @@ impl Plugin for TemporalAntiAliasPlugin {
         app.insert_resource(Msaa::Off)
             .register_type::<TemporalAntiAliasSettings>();
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app
             .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
@@ -88,7 +90,9 @@ impl Plugin for TemporalAntiAliasPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app.init_resource::<TAAPipeline>();
     }
@@ -190,11 +194,7 @@ impl ViewNode for TAANode {
         ) else {
             return Ok(());
         };
-        let (
-            Some(taa_pipeline),
-            Some(prepass_motion_vectors_texture),
-            Some(prepass_depth_texture),
-        ) = (
+        let (Some(taa_pipeline), Some(prepass_motion_vectors_texture), Some(prepass_depth_texture)) = (
             pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
             &prepass_textures.motion_vectors,
             &prepass_textures.depth,

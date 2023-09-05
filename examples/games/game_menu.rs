@@ -151,7 +151,6 @@ mod game {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
                         // center children
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
