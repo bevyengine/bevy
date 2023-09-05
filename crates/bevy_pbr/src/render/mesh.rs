@@ -395,10 +395,10 @@ pub fn prepare_mesh_uniforms(
     mut gpu_array_buffer: ResMut<GpuArrayBuffer<MeshUniform>>,
     views: Query<(
         &RenderPhase<Opaque3d>,
-        &RenderPhase<Opaque3dDeferred>,
         &RenderPhase<Transparent3d>,
         &RenderPhase<AlphaMask3d>,
-        &RenderPhase<AlphaMask3dDeferred>,
+        Option<&RenderPhase<Opaque3dDeferred>>,
+        Option<&RenderPhase<AlphaMask3dDeferred>>,
     )>,
     shadow_views: Query<&RenderPhase<Shadow>>,
     meshes: Query<(Entity, &MeshTransforms)>,
@@ -420,18 +420,14 @@ pub fn prepare_mesh_uniforms(
 
     for (
         opaque_phase,
-        opaque_deferred_phase,
         transparent_phase,
         alpha_phase,
+        opaque_deferred_phase,
         alpha_deferred_phase,
     ) in &views
     {
         meshes
             .iter_many(opaque_phase.iter_entities())
-            .for_each(&mut push_indices);
-
-        meshes
-            .iter_many(opaque_deferred_phase.iter_entities())
             .for_each(&mut push_indices);
 
         meshes
@@ -442,9 +438,17 @@ pub fn prepare_mesh_uniforms(
             .iter_many(alpha_phase.iter_entities())
             .for_each(&mut push_indices);
 
-        meshes
-            .iter_many(alpha_deferred_phase.iter_entities())
-            .for_each(&mut push_indices);
+        if let Some(opaque_deferred_phase) = opaque_deferred_phase {
+            meshes
+                .iter_many(opaque_deferred_phase.iter_entities())
+                .for_each(&mut push_indices);
+        }
+
+        if let Some(alpha_deferred_phase) = alpha_deferred_phase {
+            meshes
+                .iter_many(alpha_deferred_phase.iter_entities())
+                .for_each(&mut push_indices);
+        }
     }
 
     for shadow_phase in &shadow_views {
