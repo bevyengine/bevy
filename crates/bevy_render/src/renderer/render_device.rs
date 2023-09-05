@@ -86,12 +86,12 @@ impl RenderDevice {
     #[inline]
     pub fn create_bind_group<'a>(
         &self,
-        label: impl IntoLabel<'a>,
+        label: impl Into<wgpu::Label<'a>>,
         layout: &'a BindGroupLayout,
         entries: &'a [BindGroupEntry<'a>],
     ) -> BindGroup {
         let wgpu_bind_group = self.device.create_bind_group(&BindGroupDescriptor {
-            label: label.label(),
+            label: label.into(),
             layout,
             entries,
         });
@@ -216,22 +216,5 @@ impl RenderDevice {
         } else {
             BufferBindingType::Uniform
         }
-    }
-}
-
-// helper trait to create Option<Label<'a>> from &'a str
-pub trait IntoLabel<'a> {
-    fn label(self) -> wgpu::Label<'a>;
-}
-
-impl<'a> IntoLabel<'a> for &'a str {
-    fn label(self) -> wgpu::Label<'a> {
-        Some(self.into())
-    }
-}
-
-impl<'a> IntoLabel<'a> for wgpu::Label<'a> {
-    fn label(self) -> wgpu::Label<'a> {
-        self
     }
 }
