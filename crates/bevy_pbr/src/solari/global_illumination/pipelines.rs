@@ -1,7 +1,7 @@
 use super::{
     view_resources::create_bind_group_layouts, SolariGlobalIlluminationSettings,
-    SOLARI_DENOISE_DIFFUSE_SHADER, SOLARI_FILTER_SCREEN_PROBES_SHADER,
-    SOLARI_INTEPOLATE_SCREEN_PROBES_SHADER, SOLARI_UPDATE_SCREEN_PROBES_SHADER,
+    SOLARI_DENOISE_DIFFUSE_SHADER, SOLARI_SCREEN_PROBES_FILTER_SHADER,
+    SOLARI_SCREEN_PROBES_INTEPOLATE_SHADER, SOLARI_SCREEN_PROBES_UPDATE_SHADER,
     SOLARI_WORLD_CACHE_COMPACT_SHADER, SOLARI_WORLD_CACHE_UPDATE_SHADER,
 };
 use crate::solari::scene::SolariSceneBindGroupLayout;
@@ -26,9 +26,9 @@ pub enum SolariGlobalIlluminationPass {
     CompactWorldWriteActiveCells,
     SampleForWorldCache,
     BlendNewWorldCacheSamples,
-    UpdateScreenProbes,
-    FilterScreenProbes,
-    InterpolateScreenProbes,
+    ScreenProbesUpdate,
+    ScreenProbesFilter,
+    ScreenProbesInterpolate,
     DenoiseDiffuseTemporal,
     DenoiseDiffuseSpatial,
 }
@@ -101,15 +101,15 @@ impl SpecializedComputePipeline for SolariGlobalIlluminationPipelines {
             SolariGlobalIlluminationPass::BlendNewWorldCacheSamples => {
                 ("blend_new_samples", SOLARI_WORLD_CACHE_UPDATE_SHADER)
             }
-            SolariGlobalIlluminationPass::UpdateScreenProbes => {
-                ("update_screen_probes", SOLARI_UPDATE_SCREEN_PROBES_SHADER)
+            SolariGlobalIlluminationPass::ScreenProbesUpdate => {
+                ("update_screen_probes", SOLARI_SCREEN_PROBES_UPDATE_SHADER)
             }
-            SolariGlobalIlluminationPass::FilterScreenProbes => {
-                ("filter_screen_probes", SOLARI_FILTER_SCREEN_PROBES_SHADER)
+            SolariGlobalIlluminationPass::ScreenProbesFilter => {
+                ("filter_screen_probes", SOLARI_SCREEN_PROBES_FILTER_SHADER)
             }
-            SolariGlobalIlluminationPass::InterpolateScreenProbes => (
+            SolariGlobalIlluminationPass::ScreenProbesInterpolate => (
                 "interpolate_screen_probes",
-                SOLARI_INTEPOLATE_SCREEN_PROBES_SHADER,
+                SOLARI_SCREEN_PROBES_INTEPOLATE_SHADER,
             ),
             SolariGlobalIlluminationPass::DenoiseDiffuseTemporal => {
                 ("denoise_diffuse_temporal", SOLARI_DENOISE_DIFFUSE_SHADER)
@@ -138,9 +138,9 @@ pub struct SolariGlobalIlluminationPipelineIds {
     pub compact_world_cache_write_active_cells: CachedComputePipelineId,
     pub sample_for_world_cache: CachedComputePipelineId,
     pub blend_new_world_cache_samples: CachedComputePipelineId,
-    pub update_screen_probes: CachedComputePipelineId,
-    pub filter_screen_probes: CachedComputePipelineId,
-    pub interpolate_screen_probes: CachedComputePipelineId,
+    pub screen_probes_update: CachedComputePipelineId,
+    pub screen_probes_filter: CachedComputePipelineId,
+    pub screen_probes_interpolate: CachedComputePipelineId,
     pub denoise_diffuse_temporal: CachedComputePipelineId,
     pub denoise_diffuse_spatial: CachedComputePipelineId,
 }
@@ -182,14 +182,14 @@ pub fn prepare_pipelines(
                 blend_new_world_cache_samples: create_pipeline(
                     SolariGlobalIlluminationPass::BlendNewWorldCacheSamples,
                 ),
-                update_screen_probes: create_pipeline(
-                    SolariGlobalIlluminationPass::UpdateScreenProbes,
+                screen_probes_update: create_pipeline(
+                    SolariGlobalIlluminationPass::ScreenProbesUpdate,
                 ),
-                filter_screen_probes: create_pipeline(
-                    SolariGlobalIlluminationPass::FilterScreenProbes,
+                screen_probes_filter: create_pipeline(
+                    SolariGlobalIlluminationPass::ScreenProbesFilter,
                 ),
-                interpolate_screen_probes: create_pipeline(
-                    SolariGlobalIlluminationPass::InterpolateScreenProbes,
+                screen_probes_interpolate: create_pipeline(
+                    SolariGlobalIlluminationPass::ScreenProbesInterpolate,
                 ),
                 denoise_diffuse_temporal: create_pipeline(
                     SolariGlobalIlluminationPass::DenoiseDiffuseTemporal,

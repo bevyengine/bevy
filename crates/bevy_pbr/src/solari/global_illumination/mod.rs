@@ -36,11 +36,11 @@ const SOLARI_WORLD_CACHE_COMPACT_SHADER: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3717171717171755);
 const SOLARI_WORLD_CACHE_UPDATE_SHADER: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4717171717171755);
-const SOLARI_UPDATE_SCREEN_PROBES_SHADER: HandleUntyped =
+const SOLARI_SCREEN_PROBES_UPDATE_SHADER: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5717171717171755);
-const SOLARI_FILTER_SCREEN_PROBES_SHADER: HandleUntyped =
+const SOLARI_SCREEN_PROBES_FILTER_SHADER: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6717171717171755);
-const SOLARI_INTEPOLATE_SCREEN_PROBES_SHADER: HandleUntyped =
+const SOLARI_SCREEN_PROBES_INTEPOLATE_SHADER: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7717171717171755);
 const SOLARI_DENOISE_DIFFUSE_SHADER: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8717171717171755);
@@ -70,25 +70,25 @@ impl Plugin for SolariGlobalIlluminationPlugin {
         load_internal_asset!(
             app,
             SOLARI_WORLD_CACHE_UPDATE_SHADER,
-            "update_world_cache.wgsl",
+            "world_cache_update.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
-            SOLARI_UPDATE_SCREEN_PROBES_SHADER,
-            "update_screen_probes.wgsl",
+            SOLARI_SCREEN_PROBES_UPDATE_SHADER,
+            "screen_probes_update.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
-            SOLARI_FILTER_SCREEN_PROBES_SHADER,
-            "filter_screen_probes.wgsl",
+            SOLARI_SCREEN_PROBES_FILTER_SHADER,
+            "screen_probes_filter.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
-            SOLARI_INTEPOLATE_SCREEN_PROBES_SHADER,
-            "interpolate_screen_probes.wgsl",
+            SOLARI_SCREEN_PROBES_INTEPOLATE_SHADER,
+            "screen_probes_interpolate.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(

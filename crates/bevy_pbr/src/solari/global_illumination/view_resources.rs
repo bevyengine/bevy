@@ -397,12 +397,12 @@ pub fn prepare_bind_groups(
         };
 
         let entries = &[
-            entry(view_uniforms),
-            entry(t(&prepass_textures.depth.unwrap())),
-            entry(t(&prepass_textures.normal.unwrap())),
-            entry(t(&prepass_textures.motion_vectors.unwrap())),
+            entry(view_uniforms.clone()),
+            entry(t(prepass_textures.depth.as_ref().unwrap())),
+            entry(t(prepass_textures.normal.as_ref().unwrap())),
+            entry(t(prepass_textures.motion_vectors.as_ref().unwrap())),
             entry(t(&solari_resources.screen_probes_unfiltered)),
-            entry(t(&solari_resources.screen_probes_unfiltered)),
+            entry(t(&solari_resources.screen_probes_filtered)),
             entry(b(&solari_resources.screen_probes_spherical_harmonics)),
             entry(t(&solari_resources.diffuse_raw)),
             entry(t(&solari_resources.diffuse_denoiser_temporal_history)),

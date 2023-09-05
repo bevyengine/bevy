@@ -27,7 +27,7 @@ impl ViewNode for SolariGlobalIlluminationNode {
 
     fn run(
         &self,
-        graph: &mut RenderGraphContext,
+        _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (pipeline_ids, bind_groups, view_resources, camera, view_uniform_offset): QueryItem<
             Self::ViewQuery,
@@ -55,9 +55,9 @@ impl ViewNode for SolariGlobalIlluminationNode {
             Some(compact_world_cache_write_active_cells_pipeline),
             Some(sample_for_world_cache_pipeline),
             Some(blend_new_world_cache_samples_pipeline),
-            Some(update_screen_probes_pipeline),
-            Some(filter_screen_probes_pipeline),
-            Some(intepolate_screen_probes_pipeline),
+            Some(screen_probes_update_pipeline),
+            Some(screen_probes_filter_pipeline),
+            Some(screen_probes_interpolate_pipeline),
             Some(denoise_diffuse_temporal_pipeline),
             Some(denoise_diffuse_spatial_pipeline),
         ) = (
@@ -68,9 +68,9 @@ impl ViewNode for SolariGlobalIlluminationNode {
                 .get_compute_pipeline(pipeline_ids.compact_world_cache_write_active_cells),
             pipeline_cache.get_compute_pipeline(pipeline_ids.sample_for_world_cache),
             pipeline_cache.get_compute_pipeline(pipeline_ids.blend_new_world_cache_samples),
-            pipeline_cache.get_compute_pipeline(pipeline_ids.update_screen_probes),
-            pipeline_cache.get_compute_pipeline(pipeline_ids.filter_screen_probes),
-            pipeline_cache.get_compute_pipeline(pipeline_ids.interpolate_screen_probes),
+            pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_update),
+            pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_filter),
+            pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_interpolate),
             pipeline_cache.get_compute_pipeline(pipeline_ids.denoise_diffuse_temporal),
             pipeline_cache.get_compute_pipeline(pipeline_ids.denoise_diffuse_spatial),
         )
@@ -133,13 +133,13 @@ impl ViewNode for SolariGlobalIlluminationNode {
 
         solari_pass.push_debug_group("diffuse_global_illumination");
 
-        solari_pass.set_pipeline(update_screen_probes_pipeline);
+        solari_pass.set_pipeline(screen_probes_update_pipeline);
         solari_pass.dispatch_workgroups(width, height, 1);
 
-        solari_pass.set_pipeline(filter_screen_probes_pipeline);
+        solari_pass.set_pipeline(screen_probes_filter_pipeline);
         solari_pass.dispatch_workgroups(width, height, 1);
 
-        solari_pass.set_pipeline(intepolate_screen_probes_pipeline);
+        solari_pass.set_pipeline(screen_probes_interpolate_pipeline);
         solari_pass.dispatch_workgroups(width, height, 1);
 
         solari_pass.set_pipeline(denoise_diffuse_temporal_pipeline);
@@ -150,6 +150,7 @@ impl ViewNode for SolariGlobalIlluminationNode {
 
         solari_pass.pop_debug_group();
 
+        drop(solari_pass);
         render_queue.submit([command_encoder.finish()]);
 
         Ok(())
