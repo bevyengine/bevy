@@ -346,9 +346,9 @@ impl Mesh {
     /// Computes and returns the vertex data of the mesh as bytes.
     /// Therefore the attributes are located in the order of their [`MeshVertexAttribute::id`].
     /// This is used to transform the vertex data into a GPU friendly format.
-    ///
-    /// # Panics
-    /// Panics if the attributes have different vertex counts.
+    /// 
+    /// If the vertex attributes have different lengths, they are all truncated to
+    /// the length of the smallest.
     pub fn get_vertex_buffer_data(&self) -> Vec<u8> {
         let mut vertex_size = 0;
         for attribute_data in self.attributes.values() {
