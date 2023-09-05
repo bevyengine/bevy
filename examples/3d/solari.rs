@@ -1,13 +1,17 @@
 //! Demonstrates realtime dynamic global illumination rendering using Bevy Solari.
 
 use bevy::{
+    core_pipeline::{
+        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+        prepass::NormalPrepass,
+    },
     pbr::solari::{SolariEnabled, SolariGlobalIlluminationSettings, SolariSupported},
     prelude::*,
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
         .add_systems(
             Startup,
             (
@@ -61,6 +65,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         SolariGlobalIlluminationSettings::default(),
+        TemporalAntiAliasBundle::default(),
+        NormalPrepass,
         CameraController::default(),
     ));
 }
