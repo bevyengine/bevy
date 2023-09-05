@@ -5,11 +5,8 @@ use bevy::{
     prelude::*,
     reflect::{TypePath, TypeUuid},
     render::{
-        render_asset::RenderAssets,
-        render_resource::*,
-        renderer::RenderDevice,
-        texture::FallbackImage,
-        RenderApp,
+        render_asset::RenderAssets, render_resource::*, renderer::RenderDevice,
+        texture::FallbackImage, RenderApp,
     },
 };
 use std::{num::NonZeroU32, process::exit};
