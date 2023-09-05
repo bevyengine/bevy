@@ -112,6 +112,7 @@ fn filter_compatible_meshes(
 ) -> bool {
     !blas_storage.storage.contains_key(&mesh.id())
         && gpu_mesh.primitive_topology == PrimitiveTopology::TriangleList
+        // TODO: Check contains position+normal+uv+tangent, not exact match
         && gpu_mesh.layout.attribute_ids()
             == &[
                 Mesh::ATTRIBUTE_POSITION.id,

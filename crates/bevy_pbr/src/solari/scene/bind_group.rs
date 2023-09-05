@@ -53,6 +53,7 @@ pub fn queue_scene_bind_group(
     let mut get_mesh_index = |mesh_handle: &Handle<Mesh>| {
         index_buffers.get_index(mesh_handle.clone_weak(), |mesh_handle| {
             let gpu_mesh = mesh_assets.get(&mesh_handle).unwrap();
+            // TODO: Bind only position+normal+uv+tangent part of the buffer
             vertex_buffers.push(gpu_mesh.vertex_buffer.as_entire_buffer_binding());
             match &gpu_mesh.buffer_info {
                 GpuBufferInfo::Indexed { buffer, .. } => buffer.as_entire_buffer_binding(),
