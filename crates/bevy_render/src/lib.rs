@@ -161,7 +161,7 @@ impl Render {
         );
 
         schedule.configure_sets((ExtractCommands, PrepareAssets, Prepare).chain());
-        schedule.configure_set(
+        schedule.configure_sets(
             QueueMeshes
                 .in_set(RenderSet::Queue)
                 .after(prepare_assets::<Mesh>),
