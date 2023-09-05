@@ -52,7 +52,7 @@ use super::{Sampler, TextureView};
 /// instead of
 ///
 /// ```ignore
-/// render_device.create_bind_group(&BindGroupDescriptor {
+/// render_device.create_bind_group(
 ///     Some("my_bind_group"),
 ///     &my_layout,
 ///     &[
