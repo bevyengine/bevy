@@ -68,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn solari_not_supported(mut commands: Commands) {
     commands.spawn(
         TextBundle::from_section(
-            "Current GPU does not support bevy_solari",
+            "Current GPU does not support Solari",
             TextStyle {
                 font_size: 48.0,
                 color: Color::WHITE,
