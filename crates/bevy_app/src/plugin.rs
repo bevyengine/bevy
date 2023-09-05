@@ -2,6 +2,7 @@ use downcast_rs::{impl_downcast, Downcast};
 
 use crate::App;
 use std::any::Any;
+use std::ops::Deref;
 
 /// A collection of Bevy app logic and configuration.
 ///
@@ -59,6 +60,32 @@ pub trait Plugin: Downcast + Any + Send + Sync {
 }
 
 impl_downcast!(Plugin);
+
+impl<T: Deref<Target = dyn Plugin> + Send + Sync + 'static> Plugin for T {
+    fn build(&self, app: &mut App) {
+        self.deref().build(app);
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        self.deref().ready(app)
+    }
+
+    fn finish(&self, app: &mut App) {
+        self.deref().finish(app);
+    }
+
+    fn cleanup(&self, app: &mut App) {
+        self.deref().cleanup(app);
+    }
+
+    fn name(&self) -> &str {
+        self.deref().name()
+    }
+
+    fn is_unique(&self) -> bool {
+        self.deref().is_unique()
+    }
+}
 
 /// A type representing an unsafe function that returns a mutable pointer to a [`Plugin`].
 /// It is used for dynamically loading plugins.
