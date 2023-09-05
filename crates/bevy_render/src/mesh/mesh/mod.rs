@@ -324,15 +324,15 @@ impl Mesh {
 
     /// Counts all vertices of the mesh.
     ///
-    /// # Panics
-    /// Panics if the attributes have different vertex counts.
+    /// If the attributes have different vertex counts, the smallest is returned.
     pub fn count_vertices(&self) -> usize {
         let mut vertex_count: Option<usize> = None;
         for (attribute_id, attribute_data) in &self.attributes {
             let attribute_len = attribute_data.values.len();
             if let Some(previous_vertex_count) = vertex_count {
                 if previous_vertex_count != attribute_len {
-                    warn!("{attribute_id:?} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh.");
+                    warn!("{attribute_id:?} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh, \
+                        all attributes will be truncated to match the smallest.");
                     vertex_count = Some(std::cmp::min(previous_vertex_count, attribute_len));
                 }
             } else {
