@@ -3,7 +3,7 @@ use std::{borrow::Cow, str::Lines};
 use regex::Regex;
 
 static RE_COMMENT: once_cell::sync::Lazy<Regex> =
-    once_cell::sync::Lazy::new(|| Regex::new(r"(\/\/|\/\*|\*\/)").unwrap());
+    once_cell::sync::Lazy::new(|| Regex::new(r"(//|/\*|\*/)").unwrap());
 
 pub struct CommentReplaceIter<'a> {
     lines: &'a mut Lines<'a>,
