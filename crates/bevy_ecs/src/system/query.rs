@@ -431,7 +431,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The query is read-only, so it can be aliased even if it was originally mutable.
-        unsafe { state.iter_unchecked_manual(self.world, self.last_run, self.this_run) }
+        unsafe {
+            self.state
+                .as_readonly()
+                .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+        }
     }
 
     /// Returns an [`Iterator`] over the query items.
@@ -490,13 +494,15 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub fn iter_combinations<const K: usize>(
         &self,
     ) -> QueryCombinationIter<'_, 's, Q::ReadOnly, F::ReadOnly, K> {
-        let state = self.state.as_readonly();
-
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The query is read-only, so it can be aliased even if it was originally mutable.
         unsafe {
-            state.iter_combinations_unchecked_manual(self.world, self.last_run, self.this_run)
+            self.state.as_readonly().iter_combinations_unchecked_manual(
+                self.world,
+                self.last_run,
+                self.this_run,
+            )
         }
     }
 
@@ -574,13 +580,16 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     where
         EntityList::Item: Borrow<Entity>,
     {
-        let state = self.state.as_readonly();
-
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The query is read-only, so it can be aliased even if it was originally mutable.
         unsafe {
-            state.iter_many_unchecked_manual(entities, self.world, self.last_run, self.this_run)
+            self.state.as_readonly().iter_many_unchecked_manual(
+                entities,
+                self.world,
+                self.last_run,
+                self.this_run,
+            )
         }
     }
 
@@ -837,11 +846,16 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`get_mut`](Self::get_mut) to get a mutable query item.
     #[inline]
     pub fn get(&self, entity: Entity) -> Result<ROQueryItem<'_, Q>, QueryEntityError> {
-        let state = self.state.as_readonly();
-
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
-        unsafe { state.get_unchecked_manual(self.world, entity, self.last_run, self.this_run) }
+        unsafe {
+            self.state.as_readonly().get_unchecked_manual(
+                self.world,
+                entity,
+                self.last_run,
+                self.this_run,
+            )
+        }
     }
 
     /// Returns the read-only query items for the given array of [`Entity`].
@@ -1290,12 +1304,16 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`single`](Self::single) for the panicking version.
     #[inline]
     pub fn get_single(&self) -> Result<ROQueryItem<'_, Q>, QuerySingleError> {
-        let state = self.state.as_readonly();
-
         // SAFETY:
         // the query ensures that the components it accesses are not mutably accessible somewhere else
         // and the query is read only.
-        unsafe { state.get_single_unchecked_manual(self.world, self.last_run, self.this_run) }
+        unsafe {
+            self.state.as_readonly().get_single_unchecked_manual(
+                self.world,
+                self.last_run,
+                self.this_run,
+            )
+        }
     }
 
     /// Returns a single query item when there is exactly one entity matching the query.
@@ -1422,20 +1440,13 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// ```
     #[inline]
     pub fn contains(&self, entity: Entity) -> bool {
-        let Self {
-            world,
-            last_run,
-            this_run,
-            state,
-            ..
-        } = self;
-
-        let state = state.as_nop();
-
         // SAFETY: NopFetch does not access any members while &self ensures no one has exclusive access
-        let result = unsafe { state.get_unchecked_manual(*world, entity, *last_run, *this_run) };
-
-        result.is_ok()
+        unsafe {
+            self.state
+                .as_nop()
+                .get_unchecked_manual(self.world, entity, self.last_run, self.this_run)
+                .is_ok()
+        }
     }
 }
 
