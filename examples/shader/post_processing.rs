@@ -190,8 +190,11 @@ impl ViewNode for PostProcessNode {
             &post_process_pipeline.layout,
             // It's important for this to match the BindGroupLayout defined in the PostProcessPipeline
             &BindGroupEntries::sequential((
+                // Make sure to use the source view
                 post_process.source,
+                // Use the sampler created for the pipeline
                 &post_process_pipeline.sampler,
+                // Set the settings binding
                 settings_binding.clone(),
             )),
         );
