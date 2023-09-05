@@ -102,7 +102,7 @@ impl Plugin for TransformPlugin {
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
             .add_plugins(ValidParentCheckPlugin::<GlobalTransform>::default())
-            .configure_set(
+            .configure_sets(
                 PostStartup,
                 PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
             )
@@ -119,7 +119,7 @@ impl Plugin for TransformPlugin {
                     propagate_transforms.in_set(PropagateTransformsSet),
                 ),
             )
-            .configure_set(
+            .configure_sets(
                 PostUpdate,
                 PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
             )
