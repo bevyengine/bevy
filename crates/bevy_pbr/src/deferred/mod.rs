@@ -130,9 +130,11 @@ impl ViewNode for DeferredLightingNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let stencil_reference = world.resource::<PBRDeferredLightingStencilReference>();
 
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(deferred_lighting_pipeline.pipeline_id) else {
-                    return Ok(());
-                };
+        let Some(pipeline) =
+            pipeline_cache.get_render_pipeline(deferred_lighting_pipeline.pipeline_id)
+        else {
+            return Ok(());
+        };
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("deferred_lighting_pass"),
