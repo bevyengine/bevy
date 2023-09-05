@@ -1,6 +1,5 @@
 //! A shader that renders a mesh multiple times in one draw call.
 
-use bevy::core_pipeline::core_3d::Core3DDepthFormat;
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
     ecs::{
@@ -116,12 +115,10 @@ fn queue_custom(
     meshes: Res<RenderAssets<Mesh>>,
     material_meshes: Query<(Entity, &MeshTransforms, &Handle<Mesh>), With<InstanceMaterialData>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
-    depth_format: Res<Core3DDepthFormat>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
-    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-        | MeshPipelineKey::from_depth_format(depth_format.0);
+    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
 
     for (view, mut transparent_phase) in &mut views {
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);

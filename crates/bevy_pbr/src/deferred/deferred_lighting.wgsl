@@ -1,6 +1,3 @@
-
-#import bevy_core_pipeline::fullscreen_vertex_shader
-
 #import bevy_pbr::prepass_utils
 #import bevy_pbr::pbr_types STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT, STANDARD_MATERIAL_FLAGS_UNLIT_BIT
 #import bevy_pbr::pbr_functions as pbr_functions
@@ -9,13 +6,29 @@
 #import bevy_pbr::mesh_view_types FOG_MODE_OFF
 
 #import bevy_pbr::mesh_view_bindings deferred_prepass_texture, fog, view, screen_space_ambient_occlusion_texture
-#import bevy_core_pipeline::fullscreen_vertex_shader FullscreenVertexOutput
 #import bevy_core_pipeline::tonemapping screen_space_dither, powsafe, tone_mapping
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
 #import bevy_pbr::gtao_utils gtao_multibounce
 #endif
 
+struct FullscreenVertexOutput {
+    @builtin(position)
+    position: vec4<f32>,
+    @location(0)
+    uv: vec2<f32>,
+};
+
+const PBR_DEFERRED_LIGHTING_DEPTH_REFERENCE: u32 = 1u; // TODO move to uniform
+
+@vertex
+fn vertex(@builtin(vertex_index) vertex_index: u32) -> FullscreenVertexOutput {
+    // See the full screen vertex shader for explanation above for how this works.
+    let uv = vec2<f32>(f32(vertex_index >> 1u), f32(vertex_index & 1u)) * 2.0;
+    let clip_position = vec4<f32>(uv * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0), f32(PBR_DEFERRED_LIGHTING_DEPTH_REFERENCE), 1.0);
+
+    return FullscreenVertexOutput(clip_position, uv);
+}
 
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {

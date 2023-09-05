@@ -166,6 +166,7 @@ fn fragment(
 #ifdef DEFERRED_PREPASS
         pbr_functions::alpha_discard(pbr_bindings::material, output_color);
         out.deferred = pbr_deferred_functions::deferred_gbuffer_from_pbr_input(pbr_input);
+        out.deferred_lighting_pass_id = 1u;
 #ifdef NORMAL_PREPASS
         out.normal = vec4(pbr_input.N * 0.5 + vec3(0.5), 1.0);
 #endif
@@ -179,6 +180,7 @@ fn fragment(
             pbr_input.material.base_color = output_color;
             pbr_input.material.flags |= pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT;
             out.deferred = pbr_deferred_functions::deferred_gbuffer_from_pbr_input(pbr_input);
+            out.deferred_lighting_pass_id = 1u;
 #endif // DEFERRED_PREPASS
 #ifdef NORMAL_PREPASS
             out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);

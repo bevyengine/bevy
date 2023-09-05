@@ -1,8 +1,11 @@
 use bevy_app::{Plugin, PreUpdate};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
-    core_3d::Core3DDepthFormat,
-    deferred::{AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_PREPASS_FORMAT},
+    core_3d::CORE_3D_DEPTH_FORMAT,
+    deferred::{
+        AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
+        DEFERRED_PREPASS_FORMAT,
+    },
     prelude::Camera3d,
     prepass::{
         AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
@@ -34,8 +37,8 @@ use bevy_render::{
         FragmentState, FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
         PushConstantRange, RenderPipelineDescriptor, Shader, ShaderRef, ShaderStages, ShaderType,
         SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-        StencilFaceState, StencilOperation, StencilState, TextureAspect, TextureFormat,
-        TextureSampleType, TextureView, TextureViewDescriptor, TextureViewDimension, VertexState,
+        StencilFaceState, StencilState, TextureAspect, TextureFormat, TextureSampleType,
+        TextureView, TextureViewDescriptor, TextureViewDimension, VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, FallbackImageMsaa},
@@ -50,7 +53,7 @@ use crate::{
     prepare_materials, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material,
     MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey,
     MeshTransforms, OpaqueRendererMethod, RenderMaterials, SetDeferredStencilReference,
-    SetMaterialBindGroup, SetMeshBindGroup, SHADOW_FORMAT,
+    SetMaterialBindGroup, SetMeshBindGroup,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -499,6 +502,15 @@ where
                         write_mask: ColorWrites::ALL,
                     }),
             );
+            targets.push(
+                key.mesh_key
+                    .contains(MeshPipelineKey::DEFERRED_PREPASS)
+                    .then_some(ColorTargetState {
+                        format: DEFERRED_LIGHTING_PASS_ID_FORMAT,
+                        blend: None,
+                        write_mask: ColorWrites::ALL,
+                    }),
+            );
         }
 
         if targets.iter().all(Option::is_none) {
@@ -576,10 +588,22 @@ where
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
             },
-            depth_stencil: Some(get_depth_stencil_state(
-                key.mesh_key.contains(MeshPipelineKey::SHADOW_PASS),
-                key.mesh_key.depth_format(),
-            )),
+            depth_stencil: Some(DepthStencilState {
+                format: TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: CompareFunction::GreaterEqual,
+                stencil: StencilState {
+                    front: StencilFaceState::IGNORE,
+                    back: StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: DepthBiasState {
+                    constant: 0,
+                    slope_scale: 0.0,
+                    clamp: 0.0,
+                },
+            }),
             multisample: MultisampleState {
                 count: key.mesh_key.msaa_samples(),
                 mask: !0,
@@ -676,59 +700,10 @@ impl PrepassBindingsSet {
     }
 }
 
-pub fn get_depth_stencil_state(shadow: bool, depth_format: TextureFormat) -> DepthStencilState {
-    if !shadow && depth_format.has_stencil_aspect() {
-        DepthStencilState {
-            format: depth_format,
-            depth_write_enabled: true,
-            depth_compare: CompareFunction::GreaterEqual,
-            stencil: StencilState {
-                front: StencilFaceState {
-                    compare: CompareFunction::Always,
-                    fail_op: StencilOperation::Keep,
-                    depth_fail_op: StencilOperation::Keep,
-                    pass_op: StencilOperation::Replace,
-                },
-                back: StencilFaceState {
-                    compare: CompareFunction::Always,
-                    fail_op: StencilOperation::Keep,
-                    depth_fail_op: StencilOperation::Keep,
-                    pass_op: StencilOperation::Replace,
-                },
-                read_mask: 0,
-                write_mask: u32::MAX,
-            },
-            bias: DepthBiasState {
-                constant: 0,
-                slope_scale: 0.0,
-                clamp: 0.0,
-            },
-        }
-    } else {
-        DepthStencilState {
-            format: SHADOW_FORMAT,
-            depth_write_enabled: true,
-            depth_compare: CompareFunction::GreaterEqual,
-            stencil: StencilState {
-                front: StencilFaceState::IGNORE,
-                back: StencilFaceState::IGNORE,
-                read_mask: 0,
-                write_mask: 0,
-            },
-            bias: DepthBiasState {
-                constant: 0,
-                slope_scale: 0.0,
-                clamp: 0.0,
-            },
-        }
-    }
-}
-
 pub fn get_bindings(
     prepass_textures: Option<&ViewPrepassTextures>,
     fallback_images: &mut FallbackImageMsaa,
     msaa: &Msaa,
-    depth_format: TextureFormat,
 ) -> PrepassBindingsSet {
     let depth_desc = TextureViewDescriptor {
         label: Some("prepass_depth"),
@@ -738,7 +713,7 @@ pub fn get_bindings(
     let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
         Some(texture) => texture.texture.create_view(&depth_desc),
         None => fallback_images
-            .image_for_samplecount(msaa.samples(), depth_format)
+            .image_for_samplecount(msaa.samples(), CORE_3D_DEPTH_FORMAT)
             .texture
             .create_view(&depth_desc),
     };
@@ -900,7 +875,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
     material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshTransforms)>,
-    depth_format: Res<Core3DDepthFormat>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -945,8 +919,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         deferred_prepass,
     ) in &mut views
     {
-        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_depth_format(depth_format.0);
+        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
         if depth_prepass.is_some() {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
         }

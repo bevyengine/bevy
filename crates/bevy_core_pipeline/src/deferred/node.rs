@@ -110,6 +110,19 @@ impl ViewNode for DeferredNode {
                     },
                 }),
         );
+        color_attachments.push(
+            view_prepass_textures
+                .deferred_lighting_pass_id
+                .as_ref()
+                .map(|deferred_lighting_pass_id| RenderPassColorAttachment {
+                    view: &deferred_lighting_pass_id.default_view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(Default::default()),
+                        store: true,
+                    },
+                }),
+        );
         if color_attachments.iter().all(Option::is_none) {
             // All attachments are none: clear the attachment list so that no fragment shader is required.
             color_attachments.clear();
@@ -136,14 +149,7 @@ impl ViewNode for DeferredNode {
                         .into(),
                         store: true,
                     }),
-                    stencil_ops: Some(Operations {
-                        load: if depth_prepass.is_some() {
-                            LoadOp::Load // Load if the depth_prepass has run.
-                        } else {
-                            LoadOp::Clear(0)
-                        },
-                        store: true,
-                    }),
+                    stencil_ops: None,
                 }),
             });
 

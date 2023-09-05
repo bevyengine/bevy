@@ -1,3 +1,4 @@
+pub mod copy_lighting_id;
 pub mod node;
 
 use std::cmp::Reverse;
@@ -10,6 +11,8 @@ use bevy_render::{
 use bevy_utils::FloatOrd;
 
 pub const DEFERRED_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgba32Uint;
+pub const DEFERRED_LIGHTING_PASS_ID_FORMAT: TextureFormat = TextureFormat::R8Uint;
+pub const DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 /// Opaque phase of the 3D Deferred pass.
 ///

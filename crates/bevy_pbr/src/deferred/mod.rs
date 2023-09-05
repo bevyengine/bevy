@@ -3,8 +3,10 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core_pipeline::{
     clear_color::ClearColorConfig,
-    core_3d::{self, Core3DDepthFormat},
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+    core_3d,
+    deferred::{
+        copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
+    },
     prelude::{Camera3d, ClearColor},
     prepass::DeferredPrepass,
     tonemapping::{DebandDither, Tonemapping},
@@ -17,7 +19,7 @@ use bevy_render::{
     render_resource::{Operations, PipelineCache, RenderPassDescriptor},
     renderer::RenderContext,
     texture::Image,
-    view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{ViewTarget, ViewUniformOffset},
     Render, RenderSet,
 };
 
@@ -106,7 +108,7 @@ impl ViewNode for DeferredLightingNode {
         &'static ViewFogUniformOffset,
         &'static MeshViewBindGroup,
         &'static ViewTarget,
-        &'static ViewDepthTexture,
+        &'static DeferredLightingIdDepthTexture,
         &'static Camera3d,
         &'static DeferredLightingPipeline,
     );
@@ -121,14 +123,13 @@ impl ViewNode for DeferredLightingNode {
             view_fog_offset,
             mesh_view_bind_group,
             target,
-            view_depth_texture,
+            deferred_lighting_id_depth_texture,
             camera_3d,
             deferred_lighting_pipeline,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
-        let stencil_reference = world.resource::<PBRDeferredLightingStencilReference>();
 
         let Some(pipeline) =
             pipeline_cache.get_render_pipeline(deferred_lighting_pipeline.pipeline_id)
@@ -149,12 +150,9 @@ impl ViewNode for DeferredLightingNode {
                 store: true,
             }))],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: &view_depth_texture.view,
+                view: &deferred_lighting_id_depth_texture.texture.default_view,
                 depth_ops: None,
-                stencil_ops: Some(Operations {
-                    load: LoadOp::Load,
-                    store: false,
-                }),
+                stencil_ops: None,
             }),
         });
 
@@ -168,7 +166,6 @@ impl ViewNode for DeferredLightingNode {
                 view_fog_offset.offset,
             ],
         );
-        render_pass.set_stencil_reference(stencil_reference.0);
         render_pass.draw(0..3, 0..1);
 
         Ok(())
@@ -243,7 +240,12 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         RenderPipelineDescriptor {
             label: Some("deferred_lighting_pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
-            vertex: fullscreen_shader_vertex_state(),
+            vertex: VertexState {
+                shader: DEFERRED_LIGHTING_SHADER_HANDLE.typed(),
+                shader_defs: shader_defs.clone(),
+                entry_point: "vertex".into(),
+                buffers: Vec::new(),
+            },
             fragment: Some(FragmentState {
                 shader: DEFERRED_LIGHTING_SHADER_HANDLE.typed(),
                 shader_defs,
@@ -260,23 +262,13 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             }),
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
-                format: key.depth_format(),
+                format: DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
                 depth_write_enabled: false,
-                depth_compare: CompareFunction::Always,
+                depth_compare: CompareFunction::Equal,
                 stencil: StencilState {
-                    front: StencilFaceState {
-                        compare: CompareFunction::Equal,
-                        fail_op: StencilOperation::Keep,
-                        depth_fail_op: StencilOperation::Keep,
-                        pass_op: StencilOperation::Keep,
-                    },
-                    back: StencilFaceState {
-                        compare: CompareFunction::Equal,
-                        fail_op: StencilOperation::Keep,
-                        depth_fail_op: StencilOperation::Keep,
-                        pass_op: StencilOperation::Keep,
-                    },
-                    read_mask: u32::MAX,
+                    front: StencilFaceState::IGNORE,
+                    back: StencilFaceState::IGNORE,
+                    read_mask: 0,
                     write_mask: 0,
                 },
                 bias: DepthBiasState {
@@ -304,7 +296,6 @@ pub fn prepare_deferred_lighting_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DeferredLightingLayout>>,
     differed_lighting_layout: Res<DeferredLightingLayout>,
-    depth_format: Res<Core3DDepthFormat>,
     views: Query<
         (
             Entity,
@@ -319,8 +310,7 @@ pub fn prepare_deferred_lighting_pipelines(
     images: Res<RenderAssets<Image>>,
 ) {
     for (entity, view, tonemapping, dither, environment_map, ssao) in &views {
-        let mut view_key = MeshPipelineKey::from_hdr(view.hdr)
-            | MeshPipelineKey::from_depth_format(depth_format.0);
+        let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
 
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {

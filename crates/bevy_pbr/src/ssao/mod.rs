@@ -27,8 +27,8 @@ use bevy_render::{
         ComputePipelineDescriptor, Extent3d, FilterMode, PipelineCache, Sampler,
         SamplerBindingType, SamplerDescriptor, Shader, ShaderDefVal, ShaderStages, ShaderType,
         SpecializedComputePipeline, SpecializedComputePipelines, StorageTextureAccess,
-        TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
-        TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        TextureView, TextureViewDescriptor, TextureViewDimension,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
@@ -803,24 +803,15 @@ fn prepare_ssao_bind_groups(
             ..default()
         };
 
-        let depth_view = prepass_textures
-            .depth
-            .as_ref()
-            .unwrap()
-            .texture
-            .create_view(&TextureViewDescriptor {
-                label: Some("prepass_depth"),
-                aspect: TextureAspect::DepthOnly,
-                ..default()
-            });
-
         let preprocess_depth_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             label: Some("ssao_preprocess_depth_bind_group"),
             layout: &pipelines.preprocess_depth_bind_group_layout,
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&depth_view),
+                    resource: BindingResource::TextureView(
+                        &prepass_textures.depth.as_ref().unwrap().default_view,
+                    ),
                 },
                 BindGroupEntry {
                     binding: 1,

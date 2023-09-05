@@ -25,7 +25,7 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 
-use crate::core_3d::Core3DDepthFormat;
+use crate::core_3d::CORE_3D_DEPTH_FORMAT;
 
 const SKYBOX_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 55594763423201);
@@ -187,7 +187,6 @@ pub struct SkyboxPipelineId(pub CachedRenderPipelineId);
 
 fn prepare_skybox_pipelines(
     mut commands: Commands,
-    depth_format: Res<Core3DDepthFormat>,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
     pipeline: Res<SkyboxPipeline>,
@@ -201,7 +200,7 @@ fn prepare_skybox_pipelines(
             SkyboxPipelineKey {
                 hdr: view.hdr,
                 samples: msaa.samples(),
-                depth_format: depth_format.0,
+                depth_format: CORE_3D_DEPTH_FORMAT,
             },
         );
 

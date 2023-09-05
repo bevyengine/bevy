@@ -93,10 +93,7 @@ impl ViewNode for PrepassNode {
                         load: LoadOp::Clear(0.0),
                         store: true,
                     }),
-                    stencil_ops: Some(Operations {
-                        load: LoadOp::Clear(0),
-                        store: true,
-                    }),
+                    stencil_ops: None,
                 }),
             });
             if let Some(viewport) = camera.viewport.as_ref() {

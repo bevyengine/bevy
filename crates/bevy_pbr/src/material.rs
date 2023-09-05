@@ -7,7 +7,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
-    core_3d::{AlphaMask3d, Core3DDepthFormat, Opaque3d, Transparent3d},
+    core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
     experimental::taa::TemporalAntiAliasSettings,
     prepass::{DeferredPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
@@ -437,7 +437,6 @@ pub fn queue_material_meshes<M: Material>(
     render_materials: Res<RenderMaterials<M>>,
     material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshTransforms)>,
     images: Res<RenderAssets<Image>>,
-    depth_format: Res<Core3DDepthFormat>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -475,8 +474,7 @@ pub fn queue_material_meshes<M: Material>(
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
 
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr)
-            | MeshPipelineKey::from_depth_format(depth_format.0);
+            | MeshPipelineKey::from_hdr(view.hdr);
 
         if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;

@@ -11,6 +11,7 @@ pub mod graph {
         pub const MSAA_WRITEBACK: &str = "msaa_writeback";
         pub const PREPASS: &str = "prepass";
         pub const DEFERRED: &str = "deferred";
+        pub const COPY_DEFERRED_LIGHTING_ID: &str = "copy_deferred_lighting_id";
         pub const START_MAIN_PASS: &str = "start_main_pass";
         pub const MAIN_OPAQUE_PASS: &str = "main_opaque_pass";
         pub const MAIN_TRANSPARENT_PASS: &str = "main_transparent_pass";
@@ -26,14 +27,7 @@ pub mod graph {
 pub const CORE_3D: &str = graph::NAME;
 
 // PERF: vulkan docs recommend using 24 bit depth for better performance
-#[derive(Resource, ExtractResource, Clone)]
-pub struct Core3DDepthFormat(pub TextureFormat);
-
-impl Default for Core3DDepthFormat {
-    fn default() -> Self {
-        Core3DDepthFormat(TextureFormat::Depth32Float)
-    }
-}
+pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 use std::cmp::Reverse;
 
@@ -46,7 +40,6 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
-    extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
@@ -58,7 +51,6 @@ use bevy_render::{
         TextureUsages,
     },
     renderer::RenderDevice,
-    settings::WgpuFeatures,
     texture::TextureCache,
     view::ViewDepthTexture,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -67,7 +59,8 @@ use bevy_utils::{tracing::warn, FloatOrd, HashMap};
 
 use crate::{
     deferred::{
-        node::DeferredNode, AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_PREPASS_FORMAT,
+        copy_lighting_id::CopyDeferredLightingIdNode, node::DeferredNode, AlphaMask3dDeferred,
+        Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT, DEFERRED_PREPASS_FORMAT,
     },
     prepass::{
         node::PrepassNode, AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass,
@@ -83,15 +76,10 @@ pub struct Core3dPlugin;
 
 impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Core3DDepthFormat>()
-            .register_type::<Camera3d>()
+        app.register_type::<Camera3d>()
             .register_type::<Camera3dDepthLoadOp>()
-            .add_plugins((
-                SkyboxPlugin,
-                ExtractComponentPlugin::<Camera3d>::default(),
-                ExtractResourcePlugin::<Core3DDepthFormat>::default(),
-            ))
-            .add_systems(PostUpdate, (check_msaa, select_depth_stencil_format));
+            .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
+            .add_systems(PostUpdate, check_msaa);
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -128,6 +116,10 @@ impl Plugin for Core3dPlugin {
             .add_render_sub_graph(CORE_3D)
             .add_render_graph_node::<ViewNodeRunner<PrepassNode>>(CORE_3D, PREPASS)
             .add_render_graph_node::<ViewNodeRunner<DeferredNode>>(CORE_3D, DEFERRED)
+            .add_render_graph_node::<ViewNodeRunner<CopyDeferredLightingIdNode>>(
+                CORE_3D,
+                COPY_DEFERRED_LIGHTING_ID,
+            )
             .add_render_graph_node::<EmptyNode>(CORE_3D, START_MAIN_PASS)
             .add_render_graph_node::<ViewNodeRunner<MainOpaquePass3dNode>>(
                 CORE_3D,
@@ -146,6 +138,7 @@ impl Plugin for Core3dPlugin {
                 &[
                     PREPASS,
                     DEFERRED,
+                    COPY_DEFERRED_LIGHTING_ID,
                     START_MAIN_PASS,
                     MAIN_OPAQUE_PASS,
                     MAIN_TRANSPARENT_PASS,
@@ -368,7 +361,6 @@ pub fn extract_camera_prepass_phase(
 
 pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
-    depth_format: Res<Core3DDepthFormat>,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
@@ -421,7 +413,7 @@ pub fn prepare_core_3d_depth_textures(
                     mip_level_count: 1,
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,
-                    format: depth_format.0,
+                    format: CORE_3D_DEPTH_FORMAT,
                     usage,
                     view_formats: &[],
                 };
@@ -453,37 +445,9 @@ pub fn check_msaa(
     }
 }
 
-// Automatically selects a supported depth stencil format if required.
-pub fn select_depth_stencil_format(
-    render_device: Option<Res<RenderDevice>>,
-    mut depth_format: ResMut<Core3DDepthFormat>,
-    deferred_views: Query<Entity, (With<Camera>, With<DeferredPrepass>)>,
-) {
-    if let Some(render_device) = render_device {
-        if !deferred_views.is_empty() {
-            match depth_format.0 {
-                TextureFormat::Depth24PlusStencil8 | TextureFormat::Depth32FloatStencil8 => (),
-                _ => {
-                    let prev_depth_format = depth_format.0;
-                    if render_device
-                        .features()
-                        .contains(WgpuFeatures::DEPTH32FLOAT_STENCIL8)
-                    {
-                        depth_format.0 = TextureFormat::Depth32FloatStencil8;
-                    } else {
-                        depth_format.0 = TextureFormat::Depth24PlusStencil8;
-                    }
-                    warn!("Deferred rendering requires a depth stencil format. Changing depth format from {:?} to {:?}.", prev_depth_format, depth_format.0);
-                }
-            }
-        }
-    }
-}
-
 // Prepares the textures used by the prepass
 pub fn prepare_prepass_textures(
     mut commands: Commands,
-    depth_format: Res<Core3DDepthFormat>,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
@@ -505,6 +469,7 @@ pub fn prepare_prepass_textures(
     let mut depth_textures = HashMap::default();
     let mut normal_textures = HashMap::default();
     let mut deferred_textures = HashMap::default();
+    let mut deferred_lighting_id_textures = HashMap::default();
     let mut motion_vectors_textures = HashMap::default();
     for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass) in
         &views_3d
@@ -529,7 +494,7 @@ pub fn prepare_prepass_textures(
                         mip_level_count: 1,
                         sample_count: msaa.samples(),
                         dimension: TextureDimension::D2,
-                        format: depth_format.0,
+                        format: CORE_3D_DEPTH_FORMAT,
                         usage: TextureUsages::COPY_DST
                             | TextureUsages::RENDER_ATTACHMENT
                             | TextureUsages::TEXTURE_BINDING,
@@ -606,11 +571,34 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
+        let deferred_lighting_pass_id_texture = deferred_prepass.is_some().then(|| {
+            deferred_lighting_id_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("deferred_lighting_pass_id_texture"),
+                            size,
+                            mip_level_count: 1,
+                            sample_count: 1,
+                            dimension: TextureDimension::D2,
+                            format: DEFERRED_LIGHTING_PASS_ID_FORMAT,
+                            usage: TextureUsages::RENDER_ATTACHMENT
+                                | TextureUsages::TEXTURE_BINDING,
+                            view_formats: &[],
+                        },
+                    )
+                })
+                .clone()
+        });
+
         commands.entity(entity).insert(ViewPrepassTextures {
             depth: cached_depth_texture,
             normal: cached_normals_texture,
             motion_vectors: cached_motion_vectors_texture,
             deferred: cached_deferred_texture,
+            deferred_lighting_pass_id: deferred_lighting_pass_id_texture,
             size,
         });
     }
