@@ -4,12 +4,17 @@ use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
 use thiserror::Error;
 
+pub mod palette {
+    //! Re-export of the `palette` crate.
+    pub use ::palette::*;
+}
+
 use palette::{convert::FromColorUnclamped, encoding, rgb::Rgb, Clamp, IntoColor, Srgb, WithAlpha};
 
 /// Concrete [`Color`] which is used to unify the various color-interacting systems
 /// across this crate. The core of this type is its interop with [`palette`], [`encase`],
 /// [`wgpu`], [`serde`], and [`bevy_reflect`].
-/// 
+///
 /// To perform color manipulation, it is recommended to treat [`Color`] as an at-rest type, and
 /// then use [`palette`] methods to enter and exit from a colorspace that best matches your
 /// desired operations.
@@ -126,7 +131,7 @@ impl Color {
 
     /// Converts this `Color` into `sRGBA`
     pub fn as_rgba(self) -> palette::Srgba {
-        self.into_color()
+        self.in_space()
     }
 
     /// New `Color` from sRGB colorspace.
@@ -145,7 +150,7 @@ impl Color {
 
     /// Converts this `Color` into sRGB
     pub fn as_rgb(self) -> palette::Srgb {
-        self.into_color()
+        self.in_space()
     }
 
     /// New `Color` from linear RGB colorspace.
@@ -165,7 +170,7 @@ impl Color {
 
     /// Converts this `Color` into Linear `sRGBA`
     pub fn as_rgba_linear(self) -> palette::LinSrgba {
-        self.into_color()
+        self.in_space()
     }
 
     /// New `Color` from linear RGB colorspace.
@@ -184,7 +189,7 @@ impl Color {
 
     /// Converts this `Color` into Linear sRGB
     pub fn as_rgb_linear(self) -> palette::LinSrgb {
-        self.into_color()
+        self.in_space()
     }
 
     /// New `Color` with HSL representation in sRGB colorspace.
@@ -204,7 +209,7 @@ impl Color {
 
     /// Converts this `Color` into HSLA
     pub fn as_hsla(self) -> palette::Hsla {
-        self.into_color()
+        self.in_space()
     }
 
     /// New `Color` with HSL representation in sRGB colorspace.
@@ -223,7 +228,7 @@ impl Color {
 
     /// Converts this `Color` into HSL
     pub fn as_hsl(self) -> palette::Hsl {
-        self.into_color()
+        self.in_space()
     }
 
     /// New `Color` with LCH representation in sRGB colorspace.
@@ -242,7 +247,7 @@ impl Color {
 
     /// Converts this `Color` into LCHA
     pub fn as_lcha(self) -> palette::Lcha {
-        self.into_color()
+        self.in_space()
     }
 
     /// New `Color` with LCH representation in sRGB colorspace.
@@ -260,7 +265,7 @@ impl Color {
 
     /// Converts this `Color` into LCH
     pub fn as_lch(self) -> palette::Lch {
-        self.into_color()
+        self.in_space()
     }
 
     /// New `Color` from sRGB colorspace.
@@ -455,8 +460,41 @@ impl Color {
         self
     }
 
-    pub fn mix_in<C: FromColorUnclamped<Self> + palette::Mix + palette::Clamp>(self, rhs: Self, amount: f32) -> Self {
-        C::from_color_unclamped(self).mix(rhs.into_color(), amount).into_color()
+    /// Convert this `Color` into a specific colorspace.
+    pub fn in_space<C>(self) -> C
+    where
+        C: FromColorUnclamped<Self> + palette::Clamp,
+    {
+        self.into_color()
+    }
+
+    /// Mix this `Color` with another at a certain ratio, within a specific colorspace.
+    pub fn mix_in<C>(self, rhs: Self, amount: <C as palette::Mix>::Scalar) -> Self
+    where
+        C: FromColorUnclamped<Self> + palette::Clamp + palette::Mix,
+        Self: FromColorUnclamped<C>,
+    {
+        self.in_space::<C>()
+            .mix(rhs.in_space(), amount)
+            .into_color()
+    }
+
+    /// Lighten this `Color` by a provided amount, within a specific colorspace.
+    pub fn lighten_in<C>(self, amount: <C as palette::Lighten>::Scalar) -> Self
+    where
+        C: FromColorUnclamped<Self> + palette::Clamp + palette::Lighten,
+        Self: FromColorUnclamped<C>,
+    {
+        self.in_space::<C>().lighten(amount).into_color()
+    }
+
+    /// Darken this `Color` by a provided amount, within a specific colorspace.
+    pub fn darken_in<C>(self, amount: <C as palette::Darken>::Scalar) -> Self
+    where
+        C: FromColorUnclamped<Self> + palette::Clamp + palette::Darken,
+        Self: FromColorUnclamped<C>,
+    {
+        self.in_space::<C>().darken(amount).into_color()
     }
 }
 
@@ -793,8 +831,6 @@ const fn hex_value(b: u8) -> Result<u8, u8> {
 
 #[cfg(test)]
 mod tests {
-    use palette::Mix;
-
     use super::*;
 
     #[test]
@@ -916,6 +952,16 @@ mod tests {
         let color_start = Color::BLUE;
         let color_end = Color::RED;
 
-        let color_mix: Color = palette::Oklcha::from_color_unclamped(color_start).mix(color_end.into_color(), 0.5).into_color();
+        let color_mix = color_start.mix_in::<palette::Srgba>(color_end, 0.5);
+
+        assert_eq!(color_mix, Color::rgba(0.5, 0., 0.5, 1.));
+
+        let color_mix = color_start.mix_in::<palette::LinSrgba>(color_end, 0.5);
+
+        assert_eq!(color_mix, Color::rgba(0.7353569, 0., 0.7353569, 1.));
+
+        let color_mix = color_start.mix_in::<palette::Oklcha>(color_end, 0.5);
+
+        assert_eq!(color_mix, Color::rgba(0.7299066, 0., 0.7600829, 1.));
     }
 }
