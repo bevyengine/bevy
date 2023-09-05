@@ -196,7 +196,7 @@ impl Color {
     ///
     /// # Arguments
     ///
-    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `hue` - Hue channel. [-180.0, 180.0]
     /// * `saturation` - Saturation channel. [0.0, 1.0]
     /// * `lightness` - Lightness channel. [0.0, 1.0]
     /// * `alpha` - Alpha channel. [0.0, 1.0]
@@ -216,7 +216,7 @@ impl Color {
     ///
     /// # Arguments
     ///
-    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `hue` - Hue channel. [-180.0, 180.0]
     /// * `saturation` - Saturation channel. [0.0, 1.0]
     /// * `lightness` - Lightness channel. [0.0, 1.0]
     ///
@@ -237,7 +237,7 @@ impl Color {
     ///
     /// * `lightness` - Lightness channel. [0.0, 1.5]
     /// * `chroma` - Chroma channel. [0.0, 1.5]
-    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `hue` - Hue channel. [-180.0, 180.0]
     /// * `alpha` - Alpha channel. [0.0, 1.0]
     ///
     /// See also [`Color::lch`].
@@ -256,7 +256,7 @@ impl Color {
     ///
     /// * `lightness` - Lightness channel. [0.0, 1.5]
     /// * `chroma` - Chroma channel. [0.0, 1.5]
-    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `hue` - Hue channel. [-180.0, 180.0]
     ///
     /// See also [`Color::lcha`].
     pub fn lch(lightness: f32, chroma: f32, hue: f32) -> Color {
@@ -963,5 +963,9 @@ mod tests {
         let color_mix = color_start.mix_in::<palette::Oklcha>(color_end, 0.5);
 
         assert_eq!(color_mix, Color::rgba(0.7299066, 0., 0.7600829, 1.));
+
+        let hue = color_start.in_space::<palette::Oklcha>().hue.into_degrees();
+
+        assert_eq!(hue, -95.94797);
     }
 }
