@@ -542,6 +542,31 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
     }
 
+    /// Returns a shared reference to the component `T` of the given [`Entity`].
+    ///
+    /// # Panics
+    ///
+    /// If given a nonexisting entity or mismatched component, this will panic.
+    #[inline]
+    pub(crate) fn component<'w, 's, 'r, T: Component>(
+        &'s self,
+        world: UnsafeWorldCell<'w>,
+        entity: Entity,
+    ) -> &'r T
+    where
+        'w: 'r,
+    {
+        match self.get_component(world, entity) {
+            Ok(component) => component,
+            Err(error) => {
+                panic!(
+                    "Cannot get component `{:?}` from {entity:?}: {error}",
+                    TypeId::of::<T>()
+                )
+            }
+        }
+    }
+
     /// Returns a mutable reference to the component `T` of the given entity.
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryComponentError`] is returned instead.
@@ -586,6 +611,38 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
     }
 
+    /// Returns a mutable reference to the component `T` of the given entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics in case of a nonexisting entity or mismatched component.
+    ///
+    /// # Safety
+    ///
+    /// This function makes it possible to violate Rust's aliasing guarantees.
+    /// You must make sure this call does not result in multiple mutable references to the same component.
+    #[inline]
+    pub(crate) unsafe fn component_unchecked_mut<'w, 's, 'r, T: Component>(
+        &'s self,
+        world: UnsafeWorldCell<'w>,
+        entity: Entity,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Mut<'r, T>
+    where
+        'w: 'r,
+    {
+        match self.get_component_unchecked_mut(world, entity, last_run, this_run) {
+            Ok(component) => component,
+            Err(error) => {
+                panic!(
+                    "Cannot get component `{:?}` from {entity:?}: {error}",
+                    TypeId::of::<T>()
+                )
+            }
+        }
+    }
+
     /// Gets the read-only query results for the given [`World`] and array of [`Entity`], where the last change and
     /// the current change tick are given.
     ///
@@ -616,6 +673,28 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
 
         // SAFETY: Each value has been fully initialized.
         Ok(values.map(|x| x.assume_init()))
+    }
+
+    /// Gets the read-only query results for the given [`World`] and array of [`Entity`], where the last change and
+    /// the current change tick are given.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any item cannot be retrieved.
+    ///
+    /// # Safety
+    ///
+    /// This must be called on the same `World` that the `Query` was generated from:
+    /// use `QueryState::validate_world` to verify this.
+    pub(crate) unsafe fn many_read_only_manual<'w, const N: usize>(
+        &self,
+        world: &'w World,
+        entities: [Entity; N],
+        last_run: Tick,
+        this_run: Tick,
+    ) -> [ROQueryItem<'w, Q>; N] {
+        self.get_many_read_only_manual(world, entities, last_run, this_run)
+            .unwrap()
     }
 
     /// Gets the query results for the given [`World`] and array of [`Entity`], where the last change and
@@ -653,6 +732,31 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
 
         // SAFETY: Each value has been fully initialized.
         Ok(values.map(|x| x.assume_init()))
+    }
+
+    /// Gets the query results for the given [`World`] and array of [`Entity`], where the last change and
+    /// the current change tick are given.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any item cannot be retrieved.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for unique access to subsets of the entity-component data.
+    /// To be safe, make sure mutable queries have unique access to the components they query.
+    ///
+    /// This must be called on the same `World` that the `Query` was generated from:
+    /// use `QueryState::validate_world` to verify this.
+    pub(crate) unsafe fn many_unchecked_manual<'w, const N: usize>(
+        &self,
+        world: UnsafeWorldCell<'w>,
+        entities: [Entity; N],
+        last_run: Tick,
+        this_run: Tick,
+    ) -> [Q::Item<'w>; N] {
+        self.get_many_unchecked_manual(world, entities, last_run, this_run)
+            .unwrap()
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
