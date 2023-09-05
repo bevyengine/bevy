@@ -257,7 +257,7 @@ impl Plugin for LogPlugin {
 
             let file_appender_layer = if let Some(settings) = &self.file_appender_settings {
                 if settings.use_panic_hook {
-                    let old_handler = panic::take_hook();
+                    let old_handler = std::panic::take_hook();
                     std::panic::set_hook(Box::new(|panic_info| {
                         if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
                             error!("panic occurred: {s:?}");
