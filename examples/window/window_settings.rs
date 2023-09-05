@@ -2,9 +2,10 @@
 //! the mouse pointer in various ways.
 
 use bevy::{
+    core::FrameCount,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{CursorGrabMode, PresentMode, PrimaryWindow, WindowLevel, WindowTheme},
+    window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
 };
 
 fn main() {
@@ -51,14 +52,13 @@ fn main() {
         .run();
 }
 
-fn toggle_visible(mut primary_window: Query<&mut Window, With<PrimaryWindow>>, time: Res<Time>) {
-    let mut window = primary_window.single_mut();
+fn toggle_visible(mut window: Query<&mut Window>, frames: Res<FrameCount>) {
     // The delay may be different for your app or system.
-    if !window.visible && time.elapsed_seconds() >= 1.0 {
+    if frames.0 == 3 {
         // At this point the gpu is ready to show the app so we can make the window visible.
         // Alternatively, you could toggle the visibility in Startup.
         // It will work, but it will have one white frame before it starts rendering
-        window.visible = true;
+        window.single_mut().visible = true;
     }
 }
 
