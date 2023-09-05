@@ -14,8 +14,8 @@ impl Image {
         let format: TextureFormat;
 
         match dyn_img {
-            DynamicImage::ImageLuma8(i) => {
-                let i = DynamicImage::ImageLuma8(i).into_rgba8();
+            DynamicImage::ImageLuma8(image) => {
+                let i = DynamicImage::ImageLuma8(image).into_rgba8();
                 width = i.width();
                 height = i.height();
                 format = if is_srgb {
@@ -26,8 +26,8 @@ impl Image {
 
                 data = i.into_raw();
             }
-            DynamicImage::ImageLumaA8(i) => {
-                let i = DynamicImage::ImageLumaA8(i).into_rgba8();
+            DynamicImage::ImageLumaA8(image) => {
+                let i = DynamicImage::ImageLumaA8(image).into_rgba8();
                 width = i.width();
                 height = i.height();
                 format = if is_srgb {
@@ -38,8 +38,8 @@ impl Image {
 
                 data = i.into_raw();
             }
-            DynamicImage::ImageRgb8(i) => {
-                let i = DynamicImage::ImageRgb8(i).into_rgba8();
+            DynamicImage::ImageRgb8(image) => {
+                let i = DynamicImage::ImageRgb8(image).into_rgba8();
                 width = i.width();
                 height = i.height();
                 format = if is_srgb {
@@ -50,37 +50,37 @@ impl Image {
 
                 data = i.into_raw();
             }
-            DynamicImage::ImageRgba8(i) => {
-                width = i.width();
-                height = i.height();
+            DynamicImage::ImageRgba8(image) => {
+                width = image.width();
+                height = image.height();
                 format = if is_srgb {
                     TextureFormat::Rgba8UnormSrgb
                 } else {
                     TextureFormat::Rgba8Unorm
                 };
 
-                data = i.into_raw();
+                data = image.into_raw();
             }
-            DynamicImage::ImageLuma16(i) => {
-                width = i.width();
-                height = i.height();
+            DynamicImage::ImageLuma16(image) => {
+                width = image.width();
+                height = image.height();
                 format = TextureFormat::R16Uint;
 
-                let raw_data = i.into_raw();
+                let raw_data = image.into_raw();
 
                 data = cast_slice(&raw_data).to_owned();
             }
-            DynamicImage::ImageLumaA16(i) => {
-                width = i.width();
-                height = i.height();
+            DynamicImage::ImageLumaA16(image) => {
+                width = image.width();
+                height = image.height();
                 format = TextureFormat::Rg16Uint;
 
-                let raw_data = i.into_raw();
+                let raw_data = image.into_raw();
 
                 data = cast_slice(&raw_data).to_owned();
             }
-            DynamicImage::ImageRgb16(i) => {
-                let i = DynamicImage::ImageRgb16(i).into_rgba16();
+            DynamicImage::ImageRgb16(image) => {
+                let i = DynamicImage::ImageRgb16(image).into_rgba16();
                 width = i.width();
                 height = i.height();
                 format = TextureFormat::Rgba16Unorm;
@@ -89,12 +89,12 @@ impl Image {
 
                 data = cast_slice(&raw_data).to_owned();
             }
-            DynamicImage::ImageRgba16(i) => {
-                width = i.width();
-                height = i.height();
+            DynamicImage::ImageRgba16(image) => {
+                width = image.width();
+                height = image.height();
                 format = TextureFormat::Rgba16Unorm;
 
-                let raw_data = i.into_raw();
+                let raw_data = image.into_raw();
 
                 data = cast_slice(&raw_data).to_owned();
             }
