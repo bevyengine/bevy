@@ -360,7 +360,7 @@ impl Mesh {
         let mut attributes_interleaved_buffer = vec![0; vertex_count * vertex_size];
         // bundle into interleaved buffers
         let mut attribute_offset = 0;
-        for attribute_data in self.attributes.values() {
+        for attribute_data in self.attributes.values().take(vertex_count) {
             let attribute_size = attribute_data.attribute.format.get_size() as usize;
             let attributes_bytes = attribute_data.values.get_bytes();
             for (vertex_index, attribute_bytes) in
