@@ -80,7 +80,7 @@ impl Plugin for SpritePlugin {
                 .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
                 .init_resource::<SpriteMeta>()
                 .init_resource::<ExtractedSprites>()
-                .init_resource::<ExtractedGlyphs>()
+                .init_resource::<ExtractedSpriteBatches>()
                 .init_resource::<SpriteAssetEvents>()
                 .add_render_command::<Transparent2d, DrawSprite>()
                 .add_systems(
