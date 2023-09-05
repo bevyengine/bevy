@@ -689,7 +689,11 @@ pub fn prepare_sprites(
             for item_index in 0..transparent_phase.items.len() {
                 let item = transparent_phase.items[item_index].entity;
                 let mut batch_image_changed = false;
-                if let Some(extracted_sprite) = extracted_sprites.sprites.get(item).or_else(|| extracted_batches.sprites.get(item)) {
+                if let Some(extracted_sprite) = extracted_sprites
+                    .sprites
+                    .get(item)
+                    .or_else(|| extracted_batches.sprites.get(item))
+                {
                     if batch_image_handle != extracted_sprite.image_handle_id {
                         batch_image_changed = true;
                     }
@@ -795,7 +799,7 @@ pub fn prepare_sprites(
                     // done by invalidating the batch_image_handle
                     batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
                     continue;
-                };   
+                };
             }
         }
         sprite_meta
@@ -915,5 +919,4 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
         pass.draw_indexed(0..6, 0, batch.range.clone());
         RenderCommandResult::Success
     }
-
 }

@@ -17,9 +17,7 @@ use bevy_render::{
     view::{InheritedVisibility, ViewVisibility, Visibility},
     Extract,
 };
-use bevy_sprite::{
-    Anchor, TextureAtlas, ExtractedSpriteBatches, ExtractedSprite,
-};
+use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSpriteBatches, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
@@ -148,10 +146,7 @@ pub fn extract_text2d_sprite(
             glyph_ids.push(sprite_id);
             extracted_batches.sprites.insert(sprite_id, sprite);
         }
-        extracted_batches.batches.insert(
-            entity,
-            glyph_ids,
-        );
+        extracted_batches.batches.insert(entity, glyph_ids);
     }
 }
 
