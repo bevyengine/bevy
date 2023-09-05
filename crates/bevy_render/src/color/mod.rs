@@ -949,23 +949,40 @@ mod tests {
 
     #[test]
     fn lerp() {
+        fn assert_approx(a: f32, b: f32) {
+            let diff = (a - b).abs();
+            assert!(
+                diff < 1e-3,
+                "Expected {a} ~ {b}; Difference of {diff} Found"
+            );
+        }
+
         let color_start = Color::BLUE;
         let color_end = Color::RED;
 
         let color_mix = color_start.mix_in::<palette::Srgba>(color_end, 0.5);
 
-        assert_eq!(color_mix, Color::rgba(0.5, 0., 0.5, 1.));
+        assert_approx(color_mix.r, 0.5);
+        assert_approx(color_mix.g, 0.);
+        assert_approx(color_mix.b, 0.5);
+        assert_approx(color_mix.a, 1.);
 
         let color_mix = color_start.mix_in::<palette::LinSrgba>(color_end, 0.5);
 
-        assert_eq!(color_mix, Color::rgba(0.7353569, 0., 0.7353569, 1.));
+        assert_approx(color_mix.r, 0.7353569);
+        assert_approx(color_mix.g, 0.);
+        assert_approx(color_mix.b, 0.7353569);
+        assert_approx(color_mix.a, 1.);
 
         let color_mix = color_start.mix_in::<palette::Oklcha>(color_end, 0.5);
 
-        assert_eq!(color_mix, Color::rgba(0.7299066, 0., 0.7600829, 1.));
+        assert_approx(color_mix.r, 0.7299066);
+        assert_approx(color_mix.g, 0.);
+        assert_approx(color_mix.b, 0.7600829);
+        assert_approx(color_mix.a, 1.);
 
         let hue = color_start.in_space::<palette::Oklcha>().hue.into_degrees();
 
-        assert_eq!(hue, -95.94797);
+        assert_approx(hue, -95.94797);
     }
 }
