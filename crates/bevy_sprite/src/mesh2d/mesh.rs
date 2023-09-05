@@ -489,7 +489,7 @@ pub fn prepare_mesh2d_bind_group(
     if let Some(binding) = mesh2d_uniforms.uniforms().binding() {
         commands.insert_resource(Mesh2dBindGroup {
             value: render_device.create_bind_group(
-                Some("mesh2d_bind_group"),
+                "mesh2d_bind_group",
                 &mesh2d_pipeline.mesh_layout,
                 &[BindGroupEntry {
                     binding: 0,
@@ -519,7 +519,7 @@ pub fn prepare_mesh2d_view_bind_groups(
     ) {
         for entity in &views {
             let view_bind_group = render_device.create_bind_group(
-                Some("mesh2d_view_bind_group"),
+                "mesh2d_view_bind_group",
                 &mesh2d_pipeline.view_layout,
                 &BindGroupEntries::sequential((view_binding.clone(), globals.clone())),
             );

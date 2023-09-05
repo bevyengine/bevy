@@ -199,7 +199,7 @@ impl ViewNode for TAANode {
         let view_target = view_target.post_process_write();
 
         let taa_bind_group = render_context.render_device().create_bind_group(
-            Some("taa_bind_group"),
+            "taa_bind_group",
             &pipelines.taa_bind_group_layout,
             &BindGroupEntries::sequential((
                 view_target.source,

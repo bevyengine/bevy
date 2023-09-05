@@ -625,7 +625,7 @@ pub fn prepare_sprites(
         sprite_meta.sprite_instance_buffer.clear();
 
         sprite_meta.view_bind_group = Some(render_device.create_bind_group(
-            Some("sprite_view_bind_group"),
+            "sprite_view_bind_group",
             &sprite_pipeline.view_layout,
             &[BindGroupEntry {
                 binding: 0,
@@ -671,7 +671,7 @@ pub fn prepare_sprites(
                         .entry(Handle::weak(batch_image_handle))
                         .or_insert_with(|| {
                             render_device.create_bind_group(
-                                Some("sprite_material_bind_group"),
+                                "sprite_material_bind_group",
                                 &sprite_pipeline.material_layout,
                                 &BindGroupEntries::sequential((
                                     &gpu_image.texture_view,

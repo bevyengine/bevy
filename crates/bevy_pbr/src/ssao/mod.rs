@@ -780,7 +780,7 @@ fn prepare_ssao_bind_groups(
 
     for (entity, ssao_textures, prepass_textures) in &views {
         let common_bind_group = render_device.create_bind_group(
-            Some("ssao_common_bind_group"),
+            "ssao_common_bind_group",
             &pipelines.common_bind_group_layout,
             &BindGroupEntries::sequential((&pipelines.point_clamp_sampler, view_uniforms.clone())),
         );
@@ -800,7 +800,7 @@ fn prepare_ssao_bind_groups(
         };
 
         let preprocess_depth_bind_group = render_device.create_bind_group(
-            Some("ssao_preprocess_depth_bind_group"),
+            "ssao_preprocess_depth_bind_group",
             &pipelines.preprocess_depth_bind_group_layout,
             &BindGroupEntries::sequential((
                 &prepass_textures.depth.as_ref().unwrap().default_view,
@@ -813,7 +813,7 @@ fn prepare_ssao_bind_groups(
         );
 
         let gtao_bind_group = render_device.create_bind_group(
-            Some("ssao_gtao_bind_group"),
+            "ssao_gtao_bind_group",
             &pipelines.gtao_bind_group_layout,
             &BindGroupEntries::sequential((
                 &ssao_textures.preprocessed_depth_texture.default_view,
@@ -826,7 +826,7 @@ fn prepare_ssao_bind_groups(
         );
 
         let spatial_denoise_bind_group = render_device.create_bind_group(
-            Some("ssao_spatial_denoise_bind_group"),
+            "ssao_spatial_denoise_bind_group",
             &pipelines.spatial_denoise_bind_group_layout,
             &BindGroupEntries::sequential((
                 &ssao_textures.ssao_noisy_texture.default_view,

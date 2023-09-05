@@ -717,7 +717,7 @@ pub fn prepare_uinodes(
 
         ui_meta.vertices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
-            Some("ui_view_bind_group"),
+            "ui_view_bind_group",
             &ui_pipeline.view_layout,
             &[BindGroupEntry {
                 binding: 0,
@@ -756,7 +756,7 @@ pub fn prepare_uinodes(
                                 .entry(Handle::weak(batch_image_handle))
                                 .or_insert_with(|| {
                                     render_device.create_bind_group(
-                                        Some("ui_material_bind_group"),
+                                        "ui_material_bind_group",
                                         &ui_pipeline.image_layout,
                                         &BindGroupEntries::sequential((
                                             &gpu_image.texture_view,

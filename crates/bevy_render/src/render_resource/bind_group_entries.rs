@@ -8,7 +8,7 @@ use super::{Sampler, TextureView};
 /// Allows constructing the descriptor's entries as:
 /// ```ignore
 /// render_device.create_bind_group(
-///     Some("my_bind_group"),
+///     "my_bind_group",
 ///     &my_layout,
 ///     &BindGroupEntries::with_indexes((
 ///         (2, &my_sampler),
@@ -21,7 +21,7 @@ use super::{Sampler, TextureView};
 ///
 /// ```ignore
 /// render_device.create_bind_group(
-///     Some("my_bind_group"),
+///     "my_bind_group",
 ///     &my_layout,
 ///     &[
 ///         BindGroupEntry {
@@ -40,7 +40,7 @@ use super::{Sampler, TextureView};
 ///
 /// ```ignore
 /// render_device.create_bind_group(
-///     Some("my_bind_group"),
+///     "my_bind_group",
 ///     &my_layout,
 ///     &BindGroupEntries::sequential((
 ///         &my_sampler,
@@ -53,7 +53,7 @@ use super::{Sampler, TextureView};
 ///
 /// ```ignore
 /// render_device.create_bind_group(
-///     Some("my_bind_group"),
+///     "my_bind_group",
 ///     &my_layout,
 ///     &[
 ///         BindGroupEntry {

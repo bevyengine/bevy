@@ -175,7 +175,7 @@ impl MeshLayouts {
 
     pub fn model_only(&self, render_device: &RenderDevice, model: &BindingResource) -> BindGroup {
         render_device.create_bind_group(
-            Some("model_only_mesh_bind_group"),
+            "model_only_mesh_bind_group",
             &self.model_only,
             &[entry::model(0, model.clone())],
         )
@@ -187,7 +187,7 @@ impl MeshLayouts {
         skin: &Buffer,
     ) -> BindGroup {
         render_device.create_bind_group(
-            Some("skinned_mesh_bind_group"),
+            "skinned_mesh_bind_group",
             &self.skinned,
             &[entry::model(0, model.clone()), entry::skinning(1, skin)],
         )
@@ -200,7 +200,7 @@ impl MeshLayouts {
         targets: &TextureView,
     ) -> BindGroup {
         render_device.create_bind_group(
-            Some("morphed_mesh_bind_group"),
+            "morphed_mesh_bind_group",
             &self.morphed,
             &[
                 entry::model(0, model.clone()),
@@ -218,7 +218,7 @@ impl MeshLayouts {
         targets: &TextureView,
     ) -> BindGroup {
         render_device.create_bind_group(
-            Some("morphed_skinned_mesh_bind_group"),
+            "morphed_skinned_mesh_bind_group",
             &self.morphed_skinned,
             &[
                 entry::model(0, model.clone()),

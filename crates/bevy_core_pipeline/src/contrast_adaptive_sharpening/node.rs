@@ -78,7 +78,7 @@ impl Node for CASNode {
             }
             cached_bind_group => {
                 let bind_group = render_context.render_device().create_bind_group(
-                    Some("cas_bind_group"),
+                    "cas_bind_group",
                     &sharpening_pipeline.texture_bind_group,
                     &BindGroupEntries::sequential((
                         view_target.source,

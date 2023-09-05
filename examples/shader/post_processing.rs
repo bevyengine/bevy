@@ -186,7 +186,7 @@ impl ViewNode for PostProcessNode {
         // The only way to have the correct source/destination for the bind_group
         // is to make sure you get it during the node execution.
         let bind_group = render_context.render_device().create_bind_group(
-            Some("post_process_bind_group"),
+            "post_process_bind_group",
             &post_process_pipeline.layout,
             // It's important for this to match the BindGroupLayout defined in the PostProcessPipeline
             &BindGroupEntries::sequential((

@@ -222,7 +222,7 @@ fn prepare_skybox_bind_groups(
             (images.get(&skybox.0), view_uniforms.uniforms.binding())
         {
             let bind_group = render_device.create_bind_group(
-                Some("skybox_bind_group"),
+                "skybox_bind_group",
                 &pipeline.bind_group_layout,
                 &BindGroupEntries::sequential((
                     &skybox.texture_view,

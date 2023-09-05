@@ -425,7 +425,7 @@ fn prepare_line_gizmo_bind_group(
     if let Some(binding) = line_gizmo_uniforms.uniforms().binding() {
         commands.insert_resource(LineGizmoUniformBindgroup {
             bindgroup: render_device.create_bind_group(
-                Some("LineGizmoUniform bindgroup"),
+                "LineGizmoUniform bindgroup",
                 &line_gizmo_uniform_layout.layout,
                 &[BindGroupEntry {
                     binding: 0,

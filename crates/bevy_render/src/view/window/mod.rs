@@ -390,7 +390,7 @@ pub fn prepare_windows(
                 mapped_at_creation: false,
             });
             let bind_group = render_device.create_bind_group(
-                Some("screenshot-to-screen-bind-group"),
+                "screenshot-to-screen-bind-group",
                 &screenshot_pipeline.bind_group_layout,
                 &[wgpu::BindGroupEntry {
                     binding: 0,

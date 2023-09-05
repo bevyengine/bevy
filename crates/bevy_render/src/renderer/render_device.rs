@@ -5,7 +5,6 @@ use crate::render_resource::{
 use bevy_ecs::system::Resource;
 use wgpu::{
     util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BufferAsyncError, BufferBindingType,
-    Label,
 };
 
 use super::RenderQueue;
@@ -87,12 +86,12 @@ impl RenderDevice {
     #[inline]
     pub fn create_bind_group<'a>(
         &self,
-        label: Label<'a>,
+        label: impl IntoLabel<'a>,
         layout: &'a BindGroupLayout,
         entries: &'a [BindGroupEntry<'a>],
     ) -> BindGroup {
         let wgpu_bind_group = self.device.create_bind_group(&BindGroupDescriptor {
-            label,
+            label: label.label(),
             layout,
             entries,
         });
@@ -217,5 +216,22 @@ impl RenderDevice {
         } else {
             BufferBindingType::Uniform
         }
+    }
+}
+
+// helper trait to create Option<Label<'a>> from &'a str
+pub trait IntoLabel<'a> {
+    fn label(self) -> wgpu::Label<'a>;
+}
+
+impl<'a> IntoLabel<'a> for &'a str {
+    fn label(self) -> wgpu::Label<'a> {
+        Some(self.into())
+    }
+}
+
+impl<'a> IntoLabel<'a> for wgpu::Label<'a> {
+    fn label(self) -> wgpu::Label<'a> {
+        self
     }
 }
