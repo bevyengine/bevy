@@ -6,7 +6,7 @@ use bevy::{
     reflect::{TypePath, TypeUuid},
     render::{
         render_asset::RenderAssets,
-        render_resource::{AsBindGroupError, BindGroupEntries, PreparedBindGroup, *},
+        render_resource::*,
         renderer::RenderDevice,
         texture::FallbackImage,
         RenderApp,

@@ -20,7 +20,7 @@ use bevy_render::{
     },
     prelude::Color,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::{BindGroupEntries, *},
+    render_resource::*,
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
