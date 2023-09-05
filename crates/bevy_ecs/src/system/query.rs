@@ -734,13 +734,16 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`iter`](Self::iter) for the iterator based alternative.
     #[inline]
     pub fn for_each<'this>(&'this self, f: impl FnMut(ROQueryItem<'this, Q>)) {
-        let state = self.state.as_readonly();
-
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The query is read-only, so it can be aliased even if it was originally mutable.
         unsafe {
-            state.for_each_unchecked_manual(self.world, f, self.last_run, self.this_run);
+            self.state.as_readonly().for_each_unchecked_manual(
+                self.world,
+                f,
+                self.last_run,
+                self.this_run,
+            );
         };
     }
 
