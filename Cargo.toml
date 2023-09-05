@@ -582,6 +582,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "solari"
+path = "examples/3d/solari.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.solari]
+name = "Solari"
+description = "Solari realtime dynamic global illumination"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "bloom_3d"
 path = "examples/3d/bloom_3d.rs"
 doc-scrape-examples = true

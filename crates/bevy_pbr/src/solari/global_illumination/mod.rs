@@ -1,5 +1,5 @@
-pub use self::{
-    node::SolariGlobalIlluminationNode,
+pub use self::node::SolariGlobalIlluminationNode;
+use self::{
     pipelines::{prepare_pipelines, SolariGlobalIlluminationPipelines},
     view_resources::{prepare_bind_groups, prepare_resources},
 };
@@ -19,12 +19,6 @@ use bevy_render::{
 mod node;
 mod pipelines;
 mod view_resources;
-
-pub mod draw_3d_graph {
-    pub mod node {
-        pub const SOLARI_GLOBAL_ILLUMINATION: &str = "solari_global_illumination";
-    }
-}
 
 const WORLD_CACHE_SIZE: u64 = 1048576;
 
@@ -102,14 +96,14 @@ impl Plugin for SolariGlobalIlluminationPlugin {
             .add_plugins(ExtractComponentPlugin::<SolariGlobalIlluminationSettings>::default())
             .add_render_graph_node::<ViewNodeRunner<SolariGlobalIlluminationNode>>(
                 CORE_3D,
-                draw_3d_graph::node::SOLARI_GLOBAL_ILLUMINATION,
+                "solari_global_illumination",
             )
             .add_render_graph_edges(
                 CORE_3D,
                 &[
                     // PREPASS -> SOLARI_GLOBAL_ILLUMINATION -> MAIN_PASS
                     bevy_core_pipeline::core_3d::graph::node::PREPASS,
-                    draw_3d_graph::node::SOLARI_GLOBAL_ILLUMINATION,
+                    "solari_global_illumination",
                     bevy_core_pipeline::core_3d::graph::node::START_MAIN_PASS,
                 ],
             )
@@ -137,5 +131,5 @@ pub enum SolariGlobalIlluminationDebugView {
     WorldCacheIrradiance,
     ScreenProbesUnfiltered,
     ScreenProbesFiltered,
-    IndirectLight,
+    DiffuseDenoised,
 }

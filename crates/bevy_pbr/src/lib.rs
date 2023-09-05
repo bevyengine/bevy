@@ -52,6 +52,7 @@ pub mod draw_3d_graph {
     }
 }
 
+use crate::solari::SolariPlugin;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -194,6 +195,7 @@ impl Plugin for PbrPlugin {
                 EnvironmentMapPlugin,
                 ExtractResourcePlugin::<AmbientLight>::default(),
                 FogPlugin,
+                SolariPlugin,
             ))
             .configure_sets(
                 PostUpdate,

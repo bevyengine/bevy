@@ -1,9 +1,13 @@
-use self::{global_illumination::SolariGlobalIlluminationPlugin, scene::SolariScenePlugin};
+pub use self::global_illumination::{
+    SolariGlobalIlluminationDebugView, SolariGlobalIlluminationNode,
+    SolariGlobalIlluminationPlugin, SolariGlobalIlluminationSettings,
+};
+use self::scene::SolariScenePlugin;
 use bevy_app::{App, Plugin};
 use bevy_ecs::system::Resource;
 use bevy_render::{renderer::RenderDevice, settings::WgpuFeatures};
 
-pub mod global_illumination;
+mod global_illumination;
 mod scene;
 
 #[derive(Default)]
