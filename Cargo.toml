@@ -263,6 +263,13 @@ futures-lite = "1.11.3"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 
+# Needed for the dynamic linking examples
+libloading = { version = "0.8" }
+parking_lot = "0.12.1"
+bevy_dynamic_plugin = { path = "crates/bevy_dynamic_plugin" }
+# bevy must be dynamically linked into the examples, or else dynamic plugin libraries get their own private copy of bevy and chaos ensues
+bevy = { path = ".", features = ["dynamic_linking"] }
+
 [[example]]
 name = "hello_world"
 path = "examples/hello_world.rs"
@@ -2289,6 +2296,25 @@ name = "Window Resizing"
 description = "Demonstrates resizing and responding to resizing a window"
 category = "Window"
 wasm = true
+
+[[example]]
+name = "dynamic_plugin"
+path = "examples/ecs/dynamic_plugin.rs"
+# remember to use `-Zshare-generics=n` on Windows, see the template .cargo/config_fast_builds
+crate-type = ["dylib"]
+doc-scrape-examples = false
+
+[package.metadata.example.dynamic_plugin]
+name = "Dynamic Plugin"
+description = "A dynamic plugin in a shared library loaded by the load_dynamic_plugin example at run time"
+
+[[example]]
+name = "load_dynamic_plugin"
+path = "examples/ecs/load_dynamic_plugin.rs"
+
+[package.metadata.example.load_dynamic_plugin]
+name = "Dynamic Plugin Loading"
+description = "Demonstrates loading a dynamic plugin from a shared library"
 
 [profile.wasm-release]
 inherits = "release"
