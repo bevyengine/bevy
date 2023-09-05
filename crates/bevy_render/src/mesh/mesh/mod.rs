@@ -1,5 +1,6 @@
 mod conversions;
 pub mod skinning;
+use bevy_log::warn;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -330,10 +331,13 @@ impl Mesh {
         for (attribute_id, attribute_data) in &self.attributes {
             let attribute_len = attribute_data.values.len();
             if let Some(previous_vertex_count) = vertex_count {
-                assert_eq!(previous_vertex_count, attribute_len,
-                        "{attribute_id:?} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh.");
+                if previous_vertex_count != attribute_len {
+                    warn!("{attribute_id:?} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh.");
+                    vertex_count = Some(std::cmp::min(previous_vertex_count, attribute_len));
+                }
+            } else {
+                vertex_count = Some(attribute_len);
             }
-            vertex_count = Some(attribute_len);
         }
 
         vertex_count.unwrap_or(0)
