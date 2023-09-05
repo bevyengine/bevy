@@ -139,7 +139,7 @@ impl SceneSpawner {
         let spawned = self
             .spawned_dynamic_scenes
             .entry(scene_handle.clone())
-            .or_insert_with(Vec::new);
+            .or_default();
         spawned.push(instance_id);
         Ok(())
     }
@@ -186,10 +186,7 @@ impl SceneSpawner {
                 scene.write_to_world_with(world, &world.resource::<AppTypeRegistry>().clone())?;
 
             self.spawned_instances.insert(instance_id, instance_info);
-            let spawned = self
-                .spawned_scenes
-                .entry(scene_handle)
-                .or_insert_with(Vec::new);
+            let spawned = self.spawned_scenes.entry(scene_handle).or_default();
             spawned.push(instance_id);
             Ok(instance_id)
         })
