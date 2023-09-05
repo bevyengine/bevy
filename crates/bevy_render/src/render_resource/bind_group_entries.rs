@@ -13,7 +13,7 @@ use super::{Sampler, TextureView};
 ///     &BindGroupEntries::with_indexes((
 ///         (2, &my_sampler),
 ///         (3, my_uniform),
-///     )).as_slice(),
+///     )),
 /// );
 /// ```
 ///
@@ -45,7 +45,7 @@ use super::{Sampler, TextureView};
 ///     &BindGroupEntries::sequential((
 ///         &my_sampler,
 ///         my_uniform,
-///     )).as_slice(),
+///     )),
 /// );
 /// ```
 ///
