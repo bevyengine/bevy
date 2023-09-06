@@ -413,7 +413,7 @@ struct BatchMeta<'mat, 'mesh> {
     draw_function_id: Option<DrawFunctionId>,
     /// The material binding meta includes the material bind group id and
     /// dynamic offsets.
-    material_binding_meta: Option<&'mat MaterialBindGroupId>,
+    material_bind_group_id: Option<&'mat MaterialBindGroupId>,
     mesh_handle: Option<&'mesh Handle<Mesh>>,
     mesh_flags: u32,
     dynamic_offset: Option<NonMaxU32>,
@@ -421,13 +421,13 @@ struct BatchMeta<'mat, 'mesh> {
 
 impl<'mat, 'mesh> BatchMeta<'mat, 'mesh> {
     #[inline]
-    fn matches(&self, other: &BatchMeta<'mat, 'mesh>, consider_material: bool) -> bool {
+    fn matches(&self, other: &BatchMeta<'mat, 'mesh>) -> bool {
         self.pipeline_id == other.pipeline_id
             && self.draw_function_id == other.draw_function_id
             && self.mesh_handle == other.mesh_handle
             && (self.mesh_flags & (MeshFlags::SKINNED | MeshFlags::MORPH_TARGETS).bits()) == 0
             && self.dynamic_offset == other.dynamic_offset
-            && (!consider_material || self.material_binding_meta == other.material_binding_meta)
+            && self.material_bind_group_id == other.material_bind_group_id
     }
 }
 
@@ -455,12 +455,11 @@ fn process_phase<I: CachedRenderPipelinePhaseItem>(
     object_data_buffer: &mut GpuArrayBuffer<MeshUniform>,
     object_query: &ObjectQuery,
     phase: &mut RenderPhase<I>,
-    consider_material: bool,
 ) {
     let mut batch = BatchState::default();
     for i in 0..phase.items.len() {
         let item = &mut phase.items[i];
-        let Ok((material_binding_meta, mesh_handle, mesh_transforms)) =
+        let Ok((material_bind_group_id, mesh_handle, mesh_transforms)) =
             object_query.get(item.entity())
         else {
             // It is necessary to start a new batch if an entity not matching the query is
@@ -472,12 +471,12 @@ fn process_phase<I: CachedRenderPipelinePhaseItem>(
         let batch_meta = BatchMeta {
             pipeline_id: Some(item.cached_pipeline()),
             draw_function_id: Some(item.draw_function()),
-            material_binding_meta,
+            material_bind_group_id,
             mesh_handle: Some(mesh_handle),
             mesh_flags: mesh_transforms.flags,
             dynamic_offset: gpu_array_buffer_index.dynamic_offset,
         };
-        if !batch_meta.matches(&batch.meta, consider_material) {
+        if !batch_meta.matches(&batch.meta) {
             if batch.count > 0 {
                 update_batch_data(&mut phase.items[batch.item_index], &batch);
             }
@@ -532,38 +531,22 @@ pub fn prepare_mesh_uniforms(
     ) in &mut views
     {
         if let Some(opaque_prepass_phase) = opaque_prepass_phase {
-            process_phase(
-                gpu_array_buffer,
-                &meshes,
-                opaque_prepass_phase.into_inner(),
-                false,
-            );
+            process_phase(gpu_array_buffer, &meshes, opaque_prepass_phase.into_inner());
         }
         if let Some(alpha_mask_prepass_phase) = alpha_mask_prepass_phase {
             process_phase(
                 gpu_array_buffer,
                 &meshes,
                 alpha_mask_prepass_phase.into_inner(),
-                true,
             );
         }
-        process_phase(gpu_array_buffer, &meshes, opaque_phase.into_inner(), true);
-        process_phase(
-            gpu_array_buffer,
-            &meshes,
-            alpha_mask_phase.into_inner(),
-            true,
-        );
-        process_phase(
-            gpu_array_buffer,
-            &meshes,
-            transparent_phase.into_inner(),
-            true,
-        );
+        process_phase(gpu_array_buffer, &meshes, opaque_phase.into_inner());
+        process_phase(gpu_array_buffer, &meshes, alpha_mask_phase.into_inner());
+        process_phase(gpu_array_buffer, &meshes, transparent_phase.into_inner());
     }
 
     for shadow_phase in &mut shadow_views {
-        process_phase(gpu_array_buffer, &meshes, shadow_phase.into_inner(), false);
+        process_phase(gpu_array_buffer, &meshes, shadow_phase.into_inner());
     }
 
     gpu_array_buffer.write_buffer(&render_device, &render_queue);

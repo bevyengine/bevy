@@ -264,12 +264,12 @@ struct BatchMeta<'mat, 'mesh> {
 }
 
 impl<'mat, 'mesh> BatchMeta<'mat, 'mesh> {
-    fn matches(&self, other: &BatchMeta<'mat, 'mesh>, consider_material: bool) -> bool {
+    fn matches(&self, other: &BatchMeta<'mat, 'mesh>) -> bool {
         self.pipeline_id == other.pipeline_id
             && self.draw_function_id == other.draw_function_id
             && self.mesh_handle == other.mesh_handle
             && self.dynamic_offset == other.dynamic_offset
-            && (!consider_material || self.material2d_bind_group == other.material2d_bind_group)
+            && self.material2d_bind_group == other.material2d_bind_group
     }
 }
 
@@ -297,7 +297,6 @@ fn process_phase<I: CachedRenderPipelinePhaseItem>(
     object_data_buffer: &mut GpuArrayBuffer<Mesh2dUniform>,
     object_query: &ObjectQuery,
     phase: &mut RenderPhase<I>,
-    consider_material: bool,
 ) {
     let mut batch = BatchState::default();
     for i in 0..phase.items.len() {
@@ -318,7 +317,7 @@ fn process_phase<I: CachedRenderPipelinePhaseItem>(
             mesh_handle: Some(mesh_handle),
             dynamic_offset: gpu_array_buffer_index.dynamic_offset,
         };
-        if !batch_meta.matches(&batch.meta, consider_material) {
+        if !batch_meta.matches(&batch.meta) {
             if batch.count > 0 {
                 update_batch_data(&mut phase.items[batch.item_index], &batch);
             }
@@ -362,12 +361,7 @@ pub fn prepare_mesh2d_uniforms(
     gpu_array_buffer.clear();
 
     for transparent_phase in &mut views {
-        process_phase(
-            gpu_array_buffer,
-            &meshes,
-            transparent_phase.into_inner(),
-            true,
-        );
+        process_phase(gpu_array_buffer, &meshes, transparent_phase.into_inner());
     }
 
     gpu_array_buffer.write_buffer(&render_device, &render_queue);
