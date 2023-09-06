@@ -9,7 +9,7 @@ pub mod palette {
     pub use ::palette::*;
 }
 
-use palette::{convert::FromColorUnclamped, encoding, rgb::Rgb, Clamp, IntoColor, Srgb, WithAlpha};
+use self::palette::{convert::FromColorUnclamped, encoding, rgb::Rgb, Clamp, IntoColor, Srgb, WithAlpha};
 
 /// Concrete [`Color`] which is used to unify the various color-interacting systems
 /// across this crate. The core of this type is its interop with [`palette`], [`encase`],
@@ -389,7 +389,6 @@ impl Color {
     /// // A standard hex color notation is also available
     /// assert_eq!(Color::hex("#FFFFFF").unwrap(), Color::rgb(1.0, 1.0, 1.0));
     /// ```
-    #[must_use]
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<Self, HexColorError> {
         let hex = hex.as_ref();
         let hex = hex.strip_prefix('#').unwrap_or(hex);
@@ -500,7 +499,20 @@ impl Color {
         self.into_color()
     }
 
+    /// Convert a provided arbitrary color into a `Color`.
+    #[must_use]
+    pub fn from_space<C>(color: C) -> Self
+    where
+        Self: FromColorUnclamped<C> + palette::Clamp,
+    {
+        color.into_color()
+    }
+
     /// Mix this `Color` with another at a certain ratio, within a specific colorspace.
+    ///
+    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
+    /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
     #[must_use]
     pub fn mix_in<C>(self, rhs: Self, amount: <C as palette::Mix>::Scalar) -> Self
     where
@@ -1060,6 +1072,20 @@ mod tests {
         let color_start = Color::hsl(45., 0.5, 0.5);
         let color_complement = color_start.shift_hue_in::<palette::Hsla>(180.);
         let color_complement_ref = Color::hsl(45. + 180., 0.5, 0.5);
+
+        assert_approx(color_complement.r, color_complement_ref.r);
+        assert_approx(color_complement.g, color_complement_ref.g);
+        assert_approx(color_complement.b, color_complement_ref.b);
+        assert_approx(color_complement.a, color_complement_ref.a);
+
+        use super::palette::ShiftHue;
+
+        let color_complement = color_start.in_space::<palette::Hsla>();
+        let color_complement = color_complement
+            .shift_hue(60.)
+            .shift_hue(60.)
+            .shift_hue(60.);
+        let color_complement = Color::from_space(color_complement);
 
         assert_approx(color_complement.r, color_complement_ref.r);
         assert_approx(color_complement.g, color_complement_ref.g);
