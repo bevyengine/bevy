@@ -12,6 +12,7 @@ struct FragmentOutput {
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> FragmentOutput {
     var out: FragmentOutput;
+    // Depth is stored as unorm, so we are dividing the u8 by 255.0 here.
     out.frag_depth = f32(textureLoad(material_id_texture, vec2<i32>(in.position.xy), 0).x) / 255.0;
     return out;
 }
