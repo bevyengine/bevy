@@ -1,6 +1,6 @@
 use super::ShaderDefVal;
 use crate::define_atomic_id;
-use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
+use bevy_asset::{anyhow, io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
 use bevy_utils::{tracing::error, BoxedFuture};
 use futures_lite::AsyncReadExt;

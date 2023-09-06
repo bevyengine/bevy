@@ -1,7 +1,7 @@
 use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
-use anyhow::Result;
 use bevy_asset::{
-    io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext, ReadAssetBytesError,
+    anyhow, io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext,
+    ReadAssetBytesError,
 };
 use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3dBundle;

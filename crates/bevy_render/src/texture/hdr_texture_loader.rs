@@ -1,6 +1,5 @@
 use crate::texture::{Image, TextureFormatPixelInfo};
-use anyhow::Result;
-use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use bevy_asset::{anyhow::Error, io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads HDR textures as Texture assets
@@ -15,7 +14,7 @@ impl AssetLoader for HdrTextureLoader {
         reader: &'a mut Reader,
         _settings: &'a (),
         _load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Image, anyhow::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Image, Error>> {
         Box::pin(async move {
             let format = TextureFormat::Rgba32Float;
             debug_assert_eq!(

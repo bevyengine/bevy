@@ -33,6 +33,8 @@ pub use path::*;
 pub use reflect::*;
 pub use server::*;
 
+pub use anyhow;
+
 use crate::{
     io::{processor_gated::ProcessorGatedReader, AssetProvider, AssetProviders},
     processor::AssetProcessor,
@@ -391,9 +393,9 @@ macro_rules! load_internal_binary_asset {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_asset;
-    use crate::folder::LoadedFolder;
     use crate::{
+        self as bevy_asset,
+        folder::LoadedFolder,
         handle::Handle,
         io::{
             gated::{GateOpener, GatedReader},

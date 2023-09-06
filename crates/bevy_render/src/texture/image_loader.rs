@@ -1,5 +1,5 @@
 use anyhow::Result;
-use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use bevy_asset::{anyhow, io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use bevy_ecs::prelude::{FromWorld, World};
 use thiserror::Error;
 

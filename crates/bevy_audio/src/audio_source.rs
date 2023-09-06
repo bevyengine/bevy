@@ -1,5 +1,5 @@
-use anyhow::Result;
 use bevy_asset::{
+    anyhow::Error,
     io::{AsyncReadExt, Reader},
     Asset, AssetLoader, LoadContext,
 };
@@ -48,7 +48,7 @@ impl AssetLoader for AudioLoader {
         reader: &'a mut Reader,
         _settings: &'a Self::Settings,
         _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<AudioSource, anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<AudioSource, Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;

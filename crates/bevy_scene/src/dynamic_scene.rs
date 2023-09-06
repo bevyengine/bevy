@@ -1,5 +1,4 @@
 use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
-use anyhow::Result;
 use bevy_ecs::{
     entity::Entity,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
