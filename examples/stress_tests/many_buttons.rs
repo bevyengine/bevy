@@ -193,10 +193,6 @@ fn spawn_button(
                         ..default()
                     },
                 )
-                .with_style(Style {
-                    position_type: PositionType::Absolute,
-                    ..default()
-                }),
             );
         });
     }
