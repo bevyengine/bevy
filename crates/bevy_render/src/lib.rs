@@ -159,7 +159,7 @@ impl Render {
         );
 
         schedule.configure_sets((ExtractCommands, PrepareAssets, Prepare).chain());
-        schedule.configure_set(
+        schedule.configure_sets(
             QueueMeshes
                 .in_set(RenderSet::Queue)
                 .after(prepare_assets::<Mesh>),
@@ -232,6 +232,7 @@ pub struct RenderApp;
 
 pub const INSTANCE_INDEX_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(10313207077636615845);
+pub const MATHS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10665356303104593376);
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`](RenderSet) and creates the rendering sub-app.
@@ -387,6 +388,7 @@ impl Plugin for RenderPlugin {
                 "BASE_INSTANCE_WORKAROUND".into()
             ]
         );
+        load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
         if let Some(future_renderer_resources) =
             app.world.remove_resource::<FutureRendererResources>()
         {

@@ -74,7 +74,7 @@ jobs:
       - name: install xvfb, llvmpipe and lavapipe
         run: |
           sudo apt-get update -y -qq
-          sudo add-apt-repository ppa:oibaf/graphics-drivers -y
+          sudo add-apt-repository ppa:kisak/kisak-mesa -y
           sudo apt-get update
           sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
       - uses: actions/checkout@v3
@@ -148,7 +148,7 @@ jobs:
       - name: install xvfb, llvmpipe and lavapipe
         run: |
           sudo apt-get update -y -qq
-          sudo add-apt-repository ppa:oibaf/graphics-drivers -y
+          sudo add-apt-repository ppa:kisak/kisak-mesa -y
           sudo apt-get update
           sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
 

@@ -40,7 +40,7 @@ use crate::{
 use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate, Startup};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfig, ScheduleLabel, SystemSet},
+    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
     world::FromWorld,
 };
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
@@ -181,7 +181,7 @@ impl Plugin for AssetPlugin {
             }
         }
         app.init_asset::<LoadedFolder>()
-            .configure_set(
+            .configure_sets(
                 UpdateAssets,
                 TrackAssets.after(server::handle_internal_asset_events),
             )

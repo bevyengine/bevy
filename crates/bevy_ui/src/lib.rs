@@ -12,6 +12,7 @@ pub mod update;
 pub mod widget;
 
 use bevy_derive::{Deref, DerefMut};
+use bevy_reflect::Reflect;
 #[cfg(feature = "bevy_text")]
 mod accessibility;
 mod focus;
@@ -68,7 +69,7 @@ pub enum UiSystem {
 ///
 /// A multiplier to fixed-sized ui values.
 /// **Note:** This will only affect fixed ui values like [`Val::Px`]
-#[derive(Debug, Resource, Deref, DerefMut)]
+#[derive(Debug, Reflect, Resource, Deref, DerefMut)]
 pub struct UiScale(pub f64);
 
 impl Default for UiScale {
@@ -110,9 +111,12 @@ impl Plugin for UiPlugin {
             .register_type::<RelativeCursorPosition>()
             .register_type::<RepeatedGridTrack>()
             .register_type::<Style>()
+            .register_type::<UiCameraConfig>()
             .register_type::<UiImage>()
             .register_type::<UiImageSize>()
             .register_type::<UiRect>()
+            .register_type::<UiScale>()
+            .register_type::<UiTextureAtlasImage>()
             .register_type::<Val>()
             .register_type::<BorderColor>()
             .register_type::<widget::Button>()

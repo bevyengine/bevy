@@ -1,6 +1,5 @@
 mod conversions;
 pub mod skinning;
-
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -14,6 +13,7 @@ use bevy_asset::{Asset, Handle};
 use bevy_core::cast_slice;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_log::warn;
 use bevy_math::*;
 use bevy_reflect::TypePath;
 use bevy_utils::{tracing::error, Hashed};
@@ -323,17 +323,20 @@ impl Mesh {
 
     /// Counts all vertices of the mesh.
     ///
-    /// # Panics
-    /// Panics if the attributes have different vertex counts.
+    /// If the attributes have different vertex counts, the smallest is returned.
     pub fn count_vertices(&self) -> usize {
         let mut vertex_count: Option<usize> = None;
         for (attribute_id, attribute_data) in &self.attributes {
             let attribute_len = attribute_data.values.len();
             if let Some(previous_vertex_count) = vertex_count {
-                assert_eq!(previous_vertex_count, attribute_len,
-                        "{attribute_id:?} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh.");
+                if previous_vertex_count != attribute_len {
+                    warn!("{attribute_id:?} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh, \
+                        all attributes will be truncated to match the smallest.");
+                    vertex_count = Some(std::cmp::min(previous_vertex_count, attribute_len));
+                }
+            } else {
+                vertex_count = Some(attribute_len);
             }
-            vertex_count = Some(attribute_len);
         }
 
         vertex_count.unwrap_or(0)
@@ -343,8 +346,8 @@ impl Mesh {
     /// Therefore the attributes are located in the order of their [`MeshVertexAttribute::id`].
     /// This is used to transform the vertex data into a GPU friendly format.
     ///
-    /// # Panics
-    /// Panics if the attributes have different vertex counts.
+    /// If the vertex attributes have different lengths, they are all truncated to
+    /// the length of the smallest.
     pub fn get_vertex_buffer_data(&self) -> Vec<u8> {
         let mut vertex_size = 0;
         for attribute_data in self.attributes.values() {
@@ -356,7 +359,7 @@ impl Mesh {
         let mut attributes_interleaved_buffer = vec![0; vertex_count * vertex_size];
         // bundle into interleaved buffers
         let mut attribute_offset = 0;
-        for attribute_data in self.attributes.values() {
+        for attribute_data in self.attributes.values().take(vertex_count) {
             let attribute_size = attribute_data.attribute.format.get_size() as usize;
             let attributes_bytes = attribute_data.values.get_bytes();
             for (vertex_index, attribute_bytes) in
