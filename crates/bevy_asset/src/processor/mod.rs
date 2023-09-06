@@ -886,7 +886,7 @@ impl AssetProcessorData {
         // TODO: watching for changes could probably be entirely optional / we could just warn here
         let source_watcher = source_reader.watch_for_changes(source_event_sender);
         if source_watcher.is_none() {
-            error!(CANNOT_WATCH_ERROR_MESSAGE);
+            error!("{}", CANNOT_WATCH_ERROR_MESSAGE);
         }
         AssetProcessorData {
             source_reader,

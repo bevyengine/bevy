@@ -72,7 +72,7 @@ impl AssetServer {
             infos.watching_for_changes = true;
             let watcher = reader.watch_for_changes(source_event_sender);
             if watcher.is_none() {
-                error!(CANNOT_WATCH_ERROR_MESSAGE);
+                error!("{}", CANNOT_WATCH_ERROR_MESSAGE);
             }
             watcher
         } else {
