@@ -1364,7 +1364,7 @@ mod tests {
 
         assert_color_approx(Color::RED, Color::hsl(0., 1.0, 0.5));
         assert_color_approx(Color::RED, Color::hsv(0., 1.0, 1.0));
-        assert_color_approx(Color::RED, Color::lch(53.23711, 104.55000, 39.99987));
+        assert_color_approx(Color::RED, Color::lch(53.23711, 104.55, 39.99987));
         assert_color_approx(Color::RED, Color::oklch(0.62796, 0.25768, 29.23388));
 
         assert_color_approx(Color::GREEN, Color::hsl(120., 1.0, 0.5));
