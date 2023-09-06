@@ -2,6 +2,7 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
 
+use bevy_render::render_resource::ImageSubresourceRange;
 use bevy_render::{
     camera::ExtractedCamera,
     prelude::Color,
@@ -92,6 +93,19 @@ impl ViewNode for DeferredNode {
                 },
             },
         ));
+
+        // If we clear the deferred texture with LoadOp::Clear(Default::default()) we get these errors:
+        // Chrome: GL_INVALID_OPERATION: No defined conversion between clear value and attachment format.
+        // Firefox: WebGL warning: clearBufferu?[fi]v: This attachment is of type FLOAT, but this function is of type UINT.
+        // Appears to be unsupported: https://registry.khronos.org/webgl/specs/latest/2.0/#3.7.9
+        // For webgl2 we fallback to manually clearing
+        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        if let Some(deferred_texture) = &view_prepass_textures.deferred {
+            render_context
+                .command_encoder()
+                .clear_texture(&deferred_texture.texture, &ImageSubresourceRange::default());
+        }
+
         color_attachments.push(
             view_prepass_textures
                 .deferred
@@ -100,16 +114,15 @@ impl ViewNode for DeferredNode {
                     view: &deferred_texture.default_view,
                     resolve_target: None,
                     ops: Operations {
-                        // If we clear with LoadOp::Clear(Default::default()) we get these errors:
-                        // Chrome: GL_INVALID_OPERATION: No defined conversion between clear value and attachment format.
-                        // Firefox: WebGL warning: clearBufferu?[fi]v: This attachment is of type FLOAT, but this function is of type UINT.
-                        // It should by ok to not clear since we are using the stencil buffer to identify which
-                        // pixels the deferred lighting passes should run on. And the depth buffer is cleared.
+                        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
                         load: LoadOp::Load,
+                        #[cfg(not(all(feature = "webgl", target_arch = "wasm32")))]
+                        load: LoadOp::Clear(Default::default()),
                         store: true,
                     },
                 }),
         );
+
         color_attachments.push(
             view_prepass_textures
                 .deferred_lighting_pass_id
@@ -123,6 +136,7 @@ impl ViewNode for DeferredNode {
                     },
                 }),
         );
+
         if color_attachments.iter().all(Option::is_none) {
             // All attachments are none: clear the attachment list so that no fragment shader is required.
             color_attachments.clear();
@@ -174,10 +188,6 @@ impl ViewNode for DeferredNode {
         }
 
         if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
-            // Warnings in WebGL:
-            // Chrome: [.WebGL-0000002C0AD19500] GL_INVALID_FRAMEBUFFER_OPERATION: Framebuffer is incomplete: Depth stencil texture in color attachment.
-            // Firefox: WebGL warning: copyTexSubImage: Framebuffer not complete. (status: 0x8cd6) COLOR_ATTACHMENT0: Attachment's format is missing required color/depth/stencil bits.
-
             // Copy depth buffer to texture.
             render_context.command_encoder().copy_texture_to_texture(
                 view_depth_texture.texture.as_image_copy(),
