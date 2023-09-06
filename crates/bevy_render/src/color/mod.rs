@@ -4,12 +4,9 @@ use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
 use thiserror::Error;
 
-pub mod palette {
-    //! Re-export of the `palette` crate.
-    pub use ::palette::*;
-}
+pub use palette;
 
-use self::palette::{convert::FromColorUnclamped, encoding, rgb::Rgb, Clamp, IntoColor, Srgb, WithAlpha};
+use palette::{convert::FromColorUnclamped, encoding, rgb::Rgb, Clamp, IntoColor, Srgb, WithAlpha};
 
 /// Concrete [`Color`] which is used to unify the various color-interacting systems
 /// across this crate. The core of this type is its interop with [`palette`], [`encase`],
@@ -597,15 +594,15 @@ impl Color {
     /// If you intend on performing multiple operations in an alternate colorspace, you
     /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
     /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// # use bevy_render::color::{Color, palette::Srgba};
     /// #
     /// let start = Color::RED;
     /// let end = Color::BLUE;
-    /// 
+    ///
     /// // Purple
     /// let middle = start.mix_in::<Srgba>(end, 0.5);
     /// #
@@ -637,15 +634,15 @@ impl Color {
     /// If you intend on performing multiple operations in an alternate colorspace, you
     /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
     /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// # use bevy_render::color::{Color, palette::Hsla};
     /// #
     /// // Dark Yellow
     /// let primary = Color::hsl(45., 1.0, 0.5);
-    /// 
+    ///
     /// // Light Blue
     /// let compliment = primary.shift_hue_in::<Hsla>(180.);
     /// #
@@ -676,15 +673,15 @@ impl Color {
     /// If you intend on performing multiple operations in an alternate colorspace, you
     /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
     /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// # use bevy_render::color::{Color, palette::Hsla};
     /// #
     /// // 50% Saturation
     /// let primary = Color::hsl(45., 0.5, 0.5);
-    /// 
+    ///
     /// // 75% Saturation
     /// let primary_saturated = primary.saturate_in::<Hsla>(0.5);
     /// #
@@ -715,15 +712,15 @@ impl Color {
     /// If you intend on performing multiple operations in an alternate colorspace, you
     /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
     /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// # use bevy_render::color::{Color, palette::Hsla};
     /// #
     /// // 50% Saturation
     /// let primary = Color::hsl(45., 0.5, 0.5);
-    /// 
+    ///
     /// // 25% Saturation
     /// let primary_desaturated = primary.desaturate_in::<Hsla>(0.5);
     /// #
@@ -754,15 +751,15 @@ impl Color {
     /// If you intend on performing multiple operations in an alternate colorspace, you
     /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
     /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// # use bevy_render::color::{Color, palette::Hsla};
     /// #
     /// // 50% Lightness
     /// let primary = Color::hsl(45., 0.5, 0.5);
-    /// 
+    ///
     /// // 75% Saturation
     /// let primary_light = primary.lighten_in::<Hsla>(0.5);
     /// #
@@ -793,15 +790,15 @@ impl Color {
     /// If you intend on performing multiple operations in an alternate colorspace, you
     /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
     /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// # use bevy_render::color::{Color, palette::Hsla};
     /// #
     /// // 50% Lightness
     /// let primary = Color::hsl(45., 0.5, 0.5);
-    /// 
+    ///
     /// // 25% Lightness
     /// let primary_dark = primary.darken_in::<Hsla>(0.5);
     /// #
