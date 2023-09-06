@@ -33,4 +33,4 @@ bytemuck = { version = "1", features = ["derive"] }
 naga_oil = "0.8"
 radsort = "0.1"
 smallvec = "1.6"
-nonmax = "0.5.3"
+nonmax = "0.5"
