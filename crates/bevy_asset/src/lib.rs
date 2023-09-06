@@ -181,6 +181,7 @@ impl Plugin for AssetPlugin {
             }
         }
         app.init_asset::<LoadedFolder>()
+            .init_asset::<()>()
             .configure_sets(
                 UpdateAssets,
                 TrackAssets.after(server::handle_internal_asset_events),
