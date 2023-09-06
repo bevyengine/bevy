@@ -49,7 +49,6 @@ fn main() {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,
-                resolution: (800., 800.).into(),
                 ..default()
             }),
             ..default()
@@ -98,7 +97,6 @@ fn button_system(
 }
 
 fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
-    println!("flex setup");
     warn!(include_str!("warning_string.txt"));
     let image = if 0 < args.image_freq {
         Some(asset_server.load("branding/icon.png"))
@@ -155,7 +153,6 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
 }
 
 fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
-    println!("grid setup");
     warn!(include_str!("warning_string.txt"));
     let image = if 0 < args.image_freq {
         Some(asset_server.load("branding/icon.png"))
