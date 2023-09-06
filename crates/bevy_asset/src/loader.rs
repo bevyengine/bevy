@@ -208,6 +208,11 @@ impl ErasedLoadedAsset {
         (*self.value).type_id()
     }
 
+    /// Retrieves the type_name of the stored [`Asset`] type.
+    pub fn asset_type_name(&self) -> &'static str {
+        self.value.asset_type_name()
+    }
+
     /// Returns the [`ErasedLoadedAsset`] for the given label, if it exists.
     pub fn get_labeled(&self, label: &str) -> Option<&ErasedLoadedAsset> {
         self.labeled_assets.get(label).map(|a| &a.asset)
@@ -222,6 +227,7 @@ impl ErasedLoadedAsset {
 /// A type erased container for an [`Asset`] value that is capable of inserting the [`Asset`] into a [`World`]'s [`Assets`] collection.
 pub trait AssetContainer: Downcast + Any + Send + Sync + 'static {
     fn insert(self: Box<Self>, id: UntypedAssetId, world: &mut World);
+    fn asset_type_name(&self) -> &'static str;
 }
 
 impl_downcast!(AssetContainer);
@@ -229,6 +235,10 @@ impl_downcast!(AssetContainer);
 impl<A: Asset> AssetContainer for A {
     fn insert(self: Box<Self>, id: UntypedAssetId, world: &mut World) {
         world.resource_mut::<Assets<A>>().insert(id.typed(), *self);
+    }
+
+    fn asset_type_name(&self) -> &'static str {
+        std::any::type_name::<A>()
     }
 }
 
@@ -357,18 +367,17 @@ impl<'a> LoadContext<'a> {
     ) -> Handle<A> {
         let loaded_asset: ErasedLoadedAsset = loaded_asset.into();
         let labeled_path = self.asset_path.with_label(label.clone());
-        let handle =
-            self.asset_server
-                .get_or_create_path_handle(labeled_path, TypeId::of::<A>(), None);
-        let returned_handle = handle.clone().typed_debug_checked();
+        let handle = self
+            .asset_server
+            .get_or_create_path_handle(labeled_path, None);
         self.labeled_assets.insert(
             label,
             LabeledAsset {
                 asset: loaded_asset,
-                handle,
+                handle: handle.clone().untyped(),
             },
         );
-        returned_handle
+        handle
     }
 
     /// Returns `true` if an asset with the label `label` exists in this context.
@@ -436,11 +445,9 @@ impl<'a> LoadContext<'a> {
     pub fn load<'b, A: Asset>(&mut self, path: impl Into<AssetPath<'b>>) -> Handle<A> {
         let path = path.into().to_owned();
         let handle = if self.should_load_dependencies {
-            self.asset_server.load(path.clone())
+            self.asset_server.load(path)
         } else {
-            self.asset_server
-                .get_or_create_path_handle(path.clone(), TypeId::of::<A>(), None)
-                .typed_debug_checked()
+            self.asset_server.get_or_create_path_handle(path, None)
         };
         self.dependencies.insert(handle.id().untyped());
         handle
@@ -458,13 +465,10 @@ impl<'a> LoadContext<'a> {
         let handle = if self.should_load_dependencies {
             self.asset_server.load_with_settings(path.clone(), settings)
         } else {
-            self.asset_server
-                .get_or_create_path_handle(
-                    path.clone(),
-                    TypeId::of::<A>(),
-                    Some(loader_settings_meta_transform(settings)),
-                )
-                .typed_debug_checked()
+            self.asset_server.get_or_create_path_handle(
+                path.clone(),
+                Some(loader_settings_meta_transform(settings)),
+            )
         };
         self.dependencies.insert(handle.id().untyped());
         handle
@@ -474,11 +478,8 @@ impl<'a> LoadContext<'a> {
     /// given type and the given label or the dependencies of this asset will never be considered "fully loaded". However you
     /// can call this method before _or_ after adding the labeled asset.
     pub fn get_label_handle<A: Asset>(&mut self, label: &str) -> Handle<A> {
-        let path = self.asset_path.with_label(label);
-        let handle = self
-            .asset_server
-            .get_or_create_path_handle(path.to_owned(), TypeId::of::<A>(), None)
-            .typed_debug_checked();
+        let path = self.asset_path.with_label(label).to_owned();
+        let handle = self.asset_server.get_or_create_path_handle::<A>(path, None);
         self.dependencies.insert(handle.id().untyped());
         handle
     }

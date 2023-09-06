@@ -1,7 +1,8 @@
 use crate::{
     meta::{AssetHash, MetaTransform},
-    AssetHandleProvider, AssetPath, DependencyLoadState, ErasedLoadedAsset, InternalAssetEvent,
-    LoadState, RecursiveDependencyLoadState, StrongHandle, UntypedAssetId, UntypedHandle,
+    Asset, AssetHandleProvider, AssetPath, DependencyLoadState, ErasedLoadedAsset, Handle,
+    InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle, UntypedAssetId,
+    UntypedHandle,
 };
 use bevy_ecs::world::World;
 use bevy_log::warn;
@@ -11,6 +12,7 @@ use std::{
     any::TypeId,
     sync::{Arc, Weak},
 };
+use thiserror::Error;
 
 #[derive(Debug)]
 pub(crate) struct AssetInfo {
@@ -81,14 +83,36 @@ impl std::fmt::Debug for AssetInfos {
 }
 
 impl AssetInfos {
-    pub(crate) fn create_loading_handle(&mut self, type_id: TypeId) -> UntypedHandle {
-        Self::create_handle_internal(
-            &mut self.infos,
-            &self.handle_providers,
-            type_id,
-            None,
-            None,
-            true,
+    pub(crate) fn create_loading_handle<A: Asset>(&mut self) -> Handle<A> {
+        unwrap_with_context(
+            Self::create_handle_internal(
+                &mut self.infos,
+                &self.handle_providers,
+                TypeId::of::<A>(),
+                None,
+                None,
+                true,
+            ),
+            std::any::type_name::<A>(),
+        )
+        .typed_debug_checked()
+    }
+
+    pub(crate) fn create_loading_handle_untyped(
+        &mut self,
+        type_id: TypeId,
+        type_name: &'static str,
+    ) -> UntypedHandle {
+        unwrap_with_context(
+            Self::create_handle_internal(
+                &mut self.infos,
+                &self.handle_providers,
+                type_id,
+                None,
+                None,
+                true,
+            ),
+            type_name,
         )
     }
 
@@ -99,13 +123,10 @@ impl AssetInfos {
         path: Option<AssetPath<'static>>,
         meta_transform: Option<MetaTransform>,
         loading: bool,
-    ) -> UntypedHandle {
-        let provider = handle_providers.get(&type_id).unwrap_or_else(|| {
-            panic!(
-                "Cannot allocate a handle for asset of type {:?} because it does not exist",
-                type_id
-            )
-        });
+    ) -> Result<UntypedHandle, MissingHandleProviderError> {
+        let provider = handle_providers
+            .get(&type_id)
+            .ok_or(MissingHandleProviderError(type_id))?;
 
         let handle = provider.reserve_handle_internal(true, path.clone(), meta_transform);
         let mut info = AssetInfo::new(Arc::downgrade(&handle), path);
@@ -115,18 +136,47 @@ impl AssetInfos {
             info.rec_dep_load_state = RecursiveDependencyLoadState::Loading;
         }
         infos.insert(handle.id, info);
-        UntypedHandle::Strong(handle)
+        Ok(UntypedHandle::Strong(handle))
+    }
+
+    pub(crate) fn get_or_create_path_handle<A: Asset>(
+        &mut self,
+        path: AssetPath<'static>,
+        loading_mode: HandleLoadingMode,
+        meta_transform: Option<MetaTransform>,
+    ) -> (Handle<A>, bool) {
+        let result = self.get_or_create_path_handle_internal(
+            path,
+            TypeId::of::<A>(),
+            loading_mode,
+            meta_transform,
+        );
+        let (handle, should_load) = unwrap_with_context(result, std::any::type_name::<A>());
+        (handle.typed_unchecked(), should_load)
+    }
+
+    pub(crate) fn get_or_create_path_handle_untyped(
+        &mut self,
+        path: AssetPath<'static>,
+        type_id: TypeId,
+        type_name: &'static str,
+        loading_mode: HandleLoadingMode,
+        meta_transform: Option<MetaTransform>,
+    ) -> (UntypedHandle, bool) {
+        let result =
+            self.get_or_create_path_handle_internal(path, type_id, loading_mode, meta_transform);
+        unwrap_with_context(result, type_name)
     }
 
     /// Retrieves asset tracking data, or creates it if it doesn't exist.
     /// Returns true if an asset load should be kicked off
-    pub(crate) fn get_or_create_path_handle(
+    pub fn get_or_create_path_handle_internal(
         &mut self,
         path: AssetPath<'static>,
         type_id: TypeId,
         loading_mode: HandleLoadingMode,
         meta_transform: Option<MetaTransform>,
-    ) -> (UntypedHandle, bool) {
+    ) -> Result<(UntypedHandle, bool), MissingHandleProviderError> {
         match self.path_to_id.entry(path.clone()) {
             Entry::Occupied(entry) => {
                 let id = *entry.get();
@@ -147,7 +197,7 @@ impl AssetInfos {
                     // If we can upgrade the handle, there is at least one live handle right now,
                     // The asset load has already kicked off (and maybe completed), so we can just
                     // return a strong handle
-                    (UntypedHandle::Strong(strong_handle), should_load)
+                    Ok((UntypedHandle::Strong(strong_handle), should_load))
                 } else {
                     // Asset meta exists, but all live handles were dropped. This means the `track_assets` system
                     // hasn't been run yet to remove the current asset
@@ -157,16 +207,14 @@ impl AssetInfos {
                     // We must create a new strong handle for the existing id and ensure that the drop of the old
                     // strong handle doesn't remove the asset from the Assets collection
                     info.handle_drops_to_skip += 1;
-                    let provider = self.handle_providers.get(&type_id).unwrap_or_else(|| {
-                        panic!(
-                            "Cannot allocate a handle for asset of type {:?} because it does not exist",
-                            type_id
-                        )
-                    });
+                    let provider = self
+                        .handle_providers
+                        .get(&type_id)
+                        .ok_or(MissingHandleProviderError(type_id))?;
                     let handle =
                         provider.get_handle(id.internal(), true, Some(path), meta_transform);
                     info.weak_handle = Arc::downgrade(&handle);
-                    (UntypedHandle::Strong(handle), should_load)
+                    Ok((UntypedHandle::Strong(handle), should_load))
                 }
             }
             // The entry does not exist, so this is a "fresh" asset load. We must create a new handle
@@ -182,9 +230,9 @@ impl AssetInfos {
                     Some(path),
                     meta_transform,
                     should_load,
-                );
+                )?;
                 entry.insert(handle.id());
-                (handle, should_load)
+                Ok((handle, should_load))
             }
         }
     }
@@ -535,4 +583,21 @@ pub(crate) enum HandleLoadingMode {
     Request,
     /// The handle is for an asset that is being forced to load (even if it has already loaded)
     Force,
+}
+
+#[derive(Error, Debug)]
+#[error("Cannot allocate a handle because no handle provider exists for asset type {0:?}")]
+pub struct MissingHandleProviderError(TypeId);
+
+fn unwrap_with_context<T>(
+    result: Result<T, MissingHandleProviderError>,
+    type_name: &'static str,
+) -> T {
+    match result {
+        Ok(value) => value,
+        Err(_) => {
+            panic!("Cannot allocate an Asset Handle of type '{type_name}' because the asset type has not been initialized. \
+                    Make sure you have called app.init_asset::<{type_name}>()")
+        }
+    }
 }

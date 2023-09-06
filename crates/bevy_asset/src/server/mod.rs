@@ -253,18 +253,14 @@ impl AssetServer {
         meta_transform: Option<MetaTransform>,
     ) -> Handle<A> {
         let path: AssetPath = path.into();
-        let (handle, should_load) = {
-            let mut infos = self.data.infos.write();
-            infos.get_or_create_path_handle(
-                path.to_owned(),
-                TypeId::of::<A>(),
-                HandleLoadingMode::Request,
-                meta_transform,
-            )
-        };
+        let (handle, should_load) = self.data.infos.write().get_or_create_path_handle::<A>(
+            path.to_owned(),
+            HandleLoadingMode::Request,
+            meta_transform,
+        );
 
         if should_load {
-            let mut owned_handle = Some(handle.clone());
+            let mut owned_handle = Some(handle.clone().untyped());
             let mut owned_path = path.to_owned();
             let server = self.clone();
             IoTaskPool::get()
@@ -283,7 +279,7 @@ impl AssetServer {
                 .detach();
         }
 
-        handle.typed_debug_checked()
+        handle
     }
 
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
@@ -331,9 +327,10 @@ impl AssetServer {
             }
             None => {
                 let mut infos = self.data.infos.write();
-                infos.get_or_create_path_handle(
+                infos.get_or_create_path_handle_untyped(
                     path.to_owned(),
                     loader.asset_type_id(),
+                    loader.asset_type_name(),
                     HandleLoadingMode::Request,
                     meta_transform,
                 )
@@ -348,9 +345,10 @@ impl AssetServer {
             // If the path has a label, the current id does not match the asset root type.
             // We need to get the actual asset id
             let mut infos = self.data.infos.write();
-            let (actual_handle, _) = infos.get_or_create_path_handle(
+            let (actual_handle, _) = infos.get_or_create_path_handle_untyped(
                 path.to_owned(),
                 loader.asset_type_id(),
+                loader.asset_type_name(),
                 // ignore current load state ... we kicked off this sub asset load because it needed to be loaded but
                 // does not currently exist
                 HandleLoadingMode::Force,
@@ -430,12 +428,19 @@ impl AssetServer {
     ) -> UntypedHandle {
         let loaded_asset = asset.into();
         let handle = if let Some(path) = path {
-            self.get_or_create_path_handle(path.clone(), loaded_asset.asset_type_id(), None)
+            let (handle, _) = self.data.infos.write().get_or_create_path_handle_untyped(
+                path.clone(),
+                loaded_asset.asset_type_id(),
+                loaded_asset.asset_type_name(),
+                HandleLoadingMode::NotLoading,
+                None,
+            );
+            handle
         } else {
-            self.data
-                .infos
-                .write()
-                .create_loading_handle(loaded_asset.asset_type_id())
+            self.data.infos.write().create_loading_handle_untyped(
+                loaded_asset.asset_type_id(),
+                loaded_asset.asset_type_name(),
+            )
         };
         self.send_asset_event(InternalAssetEvent::Loaded {
             id: handle.id(),
@@ -451,9 +456,9 @@ impl AssetServer {
     pub fn load_folder(&self, path: impl AsRef<Path>) -> Handle<LoadedFolder> {
         let handle = {
             let mut infos = self.data.infos.write();
-            infos.create_loading_handle(TypeId::of::<LoadedFolder>())
+            infos.create_loading_handle::<LoadedFolder>()
         };
-        let id = handle.id();
+        let id = handle.id().untyped();
 
         fn load_folder<'a>(
             path: &'a Path,
@@ -504,7 +509,7 @@ impl AssetServer {
             })
             .detach();
 
-        handle.typed_debug_checked()
+        handle
     }
 
     fn send_asset_event(&self, event: InternalAssetEvent) {
@@ -613,15 +618,14 @@ impl AssetServer {
     }
 
     /// Retrieve a handle for the given path. This will create a handle (and [`AssetInfo`]) if it does not exist
-    pub(crate) fn get_or_create_path_handle(
+    pub(crate) fn get_or_create_path_handle<A: Asset>(
         &self,
         path: AssetPath<'static>,
-        type_id: TypeId,
         meta_transform: Option<MetaTransform>,
-    ) -> UntypedHandle {
+    ) -> Handle<A> {
         let mut infos = self.data.infos.write();
         infos
-            .get_or_create_path_handle(path, type_id, HandleLoadingMode::NotLoading, meta_transform)
+            .get_or_create_path_handle::<A>(path, HandleLoadingMode::NotLoading, meta_transform)
             .0
     }
 
