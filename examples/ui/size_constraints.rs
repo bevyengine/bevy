@@ -356,33 +356,33 @@ fn update_radio_buttons_colors(
     mut text_query: Query<&mut Text>,
     children_query: Query<&Children>,
 ) {
-    for event in click_events.read() {
-        let button_id = event.0;
-        let target_constraint = button_query.get_component::<Constraint>(button_id).unwrap();
-        for (id, constraint, interaction) in button_query.iter() {
-            if target_constraint == constraint {
-                let (border_color, inner_color, text_color) = if id == button_id {
-                    (ACTIVE_BORDER_COLOR, ACTIVE_INNER_COLOR, ACTIVE_TEXT_COLOR)
-                } else {
-                    (
-                        INACTIVE_BORDER_COLOR,
-                        INACTIVE_INNER_COLOR,
-                        if matches!(interaction, Interaction::Hovered) {
-                            HOVERED_TEXT_COLOR
-                        } else {
-                            UNHOVERED_TEXT_COLOR
-                        },
-                    )
-                };
+    for &Clicked(button_id) in click_events.read() {
+        if let Ok(target_constraint) = button_query.get_component::<Constraint>(button_id) {
+            for (id, constraint, interaction) in button_query.iter() {
+                if target_constraint == constraint {
+                    let (border_color, inner_color, text_color) = if id == button_id {
+                        (ACTIVE_BORDER_COLOR, ACTIVE_INNER_COLOR, ACTIVE_TEXT_COLOR)
+                    } else {
+                        (
+                            INACTIVE_BORDER_COLOR,
+                            INACTIVE_INNER_COLOR,
+                            if matches!(interaction, Interaction::Hovered) {
+                                HOVERED_TEXT_COLOR
+                            } else {
+                                UNHOVERED_TEXT_COLOR
+                            },
+                        )
+                    };
 
-                color_query.get_mut(id).unwrap().0 = border_color;
-                if let Ok(children) = children_query.get(id) {
-                    for &child in children {
-                        color_query.get_mut(child).unwrap().0 = inner_color;
-                        if let Ok(grand_children) = children_query.get(child) {
-                            for &grandchild in grand_children {
-                                if let Ok(mut text) = text_query.get_mut(grandchild) {
-                                    text.sections[0].style.color = text_color;
+                    color_query.get_mut(id).unwrap().0 = border_color;
+                    if let Ok(children) = children_query.get(id) {
+                        for &child in children {
+                            color_query.get_mut(child).unwrap().0 = inner_color;
+                            if let Ok(grand_children) = children_query.get(child) {
+                                for &grandchild in grand_children {
+                                    if let Ok(mut text) = text_query.get_mut(grandchild) {
+                                        text.sections[0].style.color = text_color;
+                                    }
                                 }
                             }
                         }
