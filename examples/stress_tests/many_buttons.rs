@@ -34,6 +34,10 @@ struct Args {
     /// give every nth button an image
     #[argh(option, default = "4")]
     image_freq: usize,
+
+    /// use the grid layout model
+    #[argh(switch)]
+    grid: bool,
 }
 
 /// This example shows what happens when there is a lot of buttons on screen.
@@ -53,8 +57,14 @@ fn main() {
         FrameTimeDiagnosticsPlugin,
         LogDiagnosticsPlugin::default(),
     ))
-    .add_systems(Startup, setup)
     .add_systems(Update, button_system);
+
+    if args.grid {
+        app.add_systems(Startup, setup_grid);
+    } else {
+        app.add_systems(Startup, setup_flex);
+    }
+
 
     if args.relayout {
         app.add_systems(Update, |mut style_query: Query<&mut Style>| {
@@ -88,7 +98,8 @@ fn button_system(
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
+fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
+    println!("flex setup");
     warn!(include_str!("warning_string.txt"));
     let image = if 0 < args.image_freq {
         Some(asset_server.load("branding/icon.png"))
@@ -143,6 +154,62 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
             }
         });
 }
+
+fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
+    println!("grid setup");
+    warn!(include_str!("warning_string.txt"));
+    let image = if 0 < args.image_freq {
+        Some(asset_server.load("branding/icon.png"))
+    } else {
+        None
+    };
+
+    let buttons_f = args.buttons as f32;
+    let border = if args.no_borders {
+        UiRect::ZERO
+    } else {
+        UiRect::all(Val::VMin(0.05 * 90. / buttons_f))
+    };
+
+    let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
+    commands.spawn(Camera2dBundle::default());
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                display: Display::Grid,
+                width: Val::Percent(100.),
+                height: Val::Percent(100.0),
+                grid_template_columns: vec![RepeatedGridTrack::flex(args.buttons as u16, 1.0)],
+                grid_template_rows: vec![RepeatedGridTrack::flex(args.buttons as u16, 1.0)],
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|commands| {
+            for column in 0..args.buttons {
+                for row in 0..args.buttons {
+                    let color = as_rainbow(row % column.max(1)).into();
+                    let border_color = Color::WHITE.with_a(0.5).into();
+                    spawn_button(
+                        commands,
+                        color,
+                        buttons_f,
+                        column,
+                        row,
+                        !args.no_text,
+                        border,
+                        border_color,
+                        image
+                            .as_ref()
+                            .filter(|_| (column + row) % args.image_freq == 0)
+                            .cloned(),
+                    );
+                }
+            }
+        });
+}
+
+
 
 #[allow(clippy::too_many_arguments)]
 fn spawn_button(
