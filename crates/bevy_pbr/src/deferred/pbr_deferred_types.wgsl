@@ -30,23 +30,23 @@ fn mesh_material_flags_from_deferred_flags(deferred_flags: u32) -> vec2<u32> {
 // https://jcgt.org/published/0003/02/01/paper.pdf
 // Could possibly go down to oct20 if the space is needed.
 
-fn octa_wrap(v: vec2<f32>) -> vec2<f32> {
+fn octahedral_wrap(v: vec2<f32>) -> vec2<f32> {
     return (1.0 - abs(v.yx)) * select(vec2(-1.0), vec2(1.0), v.xy >= vec2(0.0));
 }
 
-fn octa_encode(n: vec3<f32>) -> vec2<f32> {
+fn octahedral_encode(n: vec3<f32>) -> vec2<f32> {
     var n = n / (abs(n.x) + abs(n.y) + abs(n.z));
     if (n.z < 0.0) {
-        n = vec3(octa_wrap(n.xy), n.z);
+        n = vec3(octahedral_wrap(n.xy), n.z);
     }
     return n.xy * 0.5 + 0.5;
 }
 
-fn octa_decode(f: vec2<f32>) -> vec3<f32> {
+fn octahedral_decode(f: vec2<f32>) -> vec3<f32> {
     var f = f * 2.0 - 1.0;
     var n = vec3( f.x, f.y, 1.0 - abs(f.x) - abs(f.y));
     if (n.z < 0.0) {
-        n = vec3(octa_wrap(n.xy), n.z);
+        n = vec3(octahedral_wrap(n.xy), n.z);
     }
     return normalize(n);
 }
@@ -55,13 +55,13 @@ const U12MAXF = 4095.0;
 const U16MAXF = 65535.0;
 const U20MAXF = 1048575.0;
 
-fn pack_24bit_nor_and_flags(oct_nor: vec2<f32>, flags: u32) -> u32 {
-    let unorm1 = u32(saturate(oct_nor.x) * U12MAXF + 0.5);
-    let unorm2 = u32(saturate(oct_nor.y) * U12MAXF + 0.5);
+fn pack_24bit_normal_and_flags(octahedral_normal: vec2<f32>, flags: u32) -> u32 {
+    let unorm1 = u32(saturate(octahedral_normal.x) * U12MAXF + 0.5);
+    let unorm2 = u32(saturate(octahedral_normal.y) * U12MAXF + 0.5);
     return (unorm1 & 0xFFFu) | ((unorm2 & 0xFFFu) << 12u) | ((flags & 0xFFu) << 24u);
 }
 
-fn unpack_24bit_nor(packed: u32) -> vec2<f32> {
+fn unpack_24bit_normal(packed: u32) -> vec2<f32> {
     let unorm1 = packed & 0xFFFu;
     let unorm2 = (packed >> 12u) & 0xFFFu;
     return vec2(f32(unorm1) / U12MAXF, f32(unorm2) / U12MAXF);
@@ -76,10 +76,10 @@ fn unpack_flags(packed: u32) -> u32 {
 // https://github.com/gfx-rs/naga/issues/2006
 fn unpack_unorm4x8_(v: u32) -> vec4<f32> {
     return vec4(
-        f32(v & 0xffu),
-        f32((v >> 8u) & 0xffu),
-        f32((v >> 16u) & 0xffu),
-        f32((v >> 24u) & 0xffu)
+        f32(v & 0xFFu),
+        f32((v >> 8u) & 0xFFu),
+        f32((v >> 16u) & 0xFFu),
+        f32((v >> 24u) & 0xFFu)
     ) / 255.0;
 }
 

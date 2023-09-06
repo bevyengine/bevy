@@ -970,6 +970,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             depth_write_enabled = false;
         } else {
             label = "opaque_mesh_pipeline".into();
+            // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases
             blend = None;
             // For the opaque and alpha mask passes, fragments that are closer will replace
             // the current fragment value in the output and the depth is written to the

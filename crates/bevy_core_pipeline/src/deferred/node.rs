@@ -70,7 +70,9 @@ impl ViewNode for DeferredNode {
                     resolve_target: None,
                     ops: Operations {
                         load: if normal_prepass.is_some() {
-                            LoadOp::Load // load if the normal_prepass has run
+                            // Load if the normal_prepass has already run.
+                            // The prepass will have already cleared this for the current frame.
+                            LoadOp::Load
                         } else {
                             LoadOp::Clear(Color::BLACK.into())
                         },
@@ -84,7 +86,9 @@ impl ViewNode for DeferredNode {
                 resolve_target: None,
                 ops: Operations {
                     load: if motion_vector_prepass.is_some() {
-                        LoadOp::Load // load if the motion_vector_prepass has run
+                        // Load if the motion_vector_prepass has already run.
+                        // The prepass will have already cleared this for the current frame.
+                        LoadOp::Load
                     } else {
                         LoadOp::Clear(Color::BLACK.into())
                     },
