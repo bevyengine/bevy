@@ -184,16 +184,14 @@ fn spawn_button(
 
     if spawn_text {
         builder.with_children(|parent| {
-            parent.spawn(
-                TextBundle::from_section(
-                    format!("{column}, {row}"),
-                    TextStyle {
-                        font_size: FONT_SIZE,
-                        color: Color::rgb(0.2, 0.2, 0.2),
-                        ..default()
-                    },
-                )
-            );
+            parent.spawn(TextBundle::from_section(
+                format!("{column}, {row}"),
+                TextStyle {
+                    font_size: FONT_SIZE,
+                    color: Color::rgb(0.2, 0.2, 0.2),
+                    ..default()
+                },
+            ));
         });
     }
 }
