@@ -65,7 +65,6 @@ fn main() {
         app.add_systems(Startup, setup_flex);
     }
 
-
     if args.relayout {
         app.add_systems(Update, |mut style_query: Query<&mut Style>| {
             style_query.for_each_mut(|mut style| style.set_changed());
@@ -208,8 +207,6 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
             }
         });
 }
-
-
 
 #[allow(clippy::too_many_arguments)]
 fn spawn_button(
