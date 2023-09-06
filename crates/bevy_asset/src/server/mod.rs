@@ -72,7 +72,7 @@ impl AssetServer {
             infos.watching_for_changes = true;
             let watcher = reader.watch_for_changes(source_event_sender);
             if watcher.is_none() {
-                error!("Cannot watch for changes because the current `AssetReader` does not support it");
+                error!(CANNOT_WATCH_ERROR_MESSAGE);
             }
             watcher
         } else {
@@ -897,3 +897,8 @@ impl std::fmt::Debug for AssetServer {
             .finish()
     }
 }
+
+pub(crate) static CANNOT_WATCH_ERROR_MESSAGE: &str =
+    "Cannot watch for changes because the current `AssetReader` does not support it. If you are using \
+    the FileAssetReader (the default on desktop platforms), enabling the filesystem_watcher feature will \
+    add this functionality.";

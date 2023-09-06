@@ -14,7 +14,7 @@ use crate::{
         AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
     AssetLoadError, AssetLoaderError, AssetPath, AssetServer, DeserializeMetaError,
-    LoadDirectError, MissingAssetLoaderForExtensionError,
+    LoadDirectError, MissingAssetLoaderForExtensionError, CANNOT_WATCH_ERROR_MESSAGE,
 };
 use bevy_ecs::prelude::*;
 use bevy_log::{debug, error, trace, warn};
@@ -886,9 +886,7 @@ impl AssetProcessorData {
         // TODO: watching for changes could probably be entirely optional / we could just warn here
         let source_watcher = source_reader.watch_for_changes(source_event_sender);
         if source_watcher.is_none() {
-            error!(
-                "Cannot watch for changes because the current `AssetReader` does not support it"
-            );
+            error!(CANNOT_WATCH_ERROR_MESSAGE);
         }
         AssetProcessorData {
             source_reader,
