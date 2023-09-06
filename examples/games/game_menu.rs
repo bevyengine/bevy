@@ -783,7 +783,7 @@ mod menu {
     }
 
     fn menu_action(
-        mut click_events: EventReader<Click>,
+        mut click_events: EventReader<Clicked>,
         menu_buttons: Query<&MenuButtonAction>,
         mut app_exit_events: EventWriter<AppExit>,
         mut menu_state: ResMut<NextState<MenuState>>,

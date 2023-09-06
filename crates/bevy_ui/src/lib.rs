@@ -36,7 +36,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, widget::Label,
-        Click, Interaction, UiScale,
+        Clicked, Interaction, UiScale,
     };
 }
 
@@ -118,7 +118,7 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
-            .add_event::<Click>()
+            .add_event::<Clicked>()
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),

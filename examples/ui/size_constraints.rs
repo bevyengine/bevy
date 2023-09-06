@@ -350,7 +350,7 @@ fn update_buttons(
 }
 
 fn update_radio_buttons_colors(
-    mut click_events: EventReader<Click>,
+    mut click_events: EventReader<Clicked>,
     button_query: Query<(Entity, &Constraint, &Interaction)>,
     mut color_query: Query<&mut BackgroundColor>,
     mut text_query: Query<&mut Text>,

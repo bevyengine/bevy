@@ -63,7 +63,7 @@ impl Default for Interaction {
 ///
 /// Note click captures the full click/press-release action.
 #[derive(Event)]
-pub struct Click(pub Entity);
+pub struct Clicked(pub Entity);
 
 /// A component storing the position of the mouse relative to the node, (0., 0.) being the top-left corner and (1., 1.) being the bottom-right
 /// If the mouse is not over the node, the value will go beyond the range of (0., 0.) to (1., 1.)
@@ -152,7 +152,7 @@ pub fn ui_focus_system(
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
-    mut click_events: event::EventWriter<Click>,
+    mut click_events: event::EventWriter<Clicked>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -258,7 +258,7 @@ pub fn ui_focus_system(
                 if contains_cursor {
                     // Emit a click event only if mouse was released under the button
                     if mouse_released {
-                        click_events.send(Click(*entity));
+                        click_events.send(Clicked(*entity));
                     }
                     Some(*entity)
                 } else {

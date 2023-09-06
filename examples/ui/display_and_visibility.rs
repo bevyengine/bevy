@@ -433,7 +433,7 @@ where
 }
 
 fn buttons_handler<T>(
-    mut click_events: EventReader<Click>,
+    mut click_events: EventReader<Clicked>,
     visibility_button_query: Query<(&Target<T>, &Children)>,
     mut left_panel_query: Query<&mut <Target<T> as TargetUpdate>::TargetComponent>,
     mut text_query: Query<&mut Text>,

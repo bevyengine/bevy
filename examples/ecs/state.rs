@@ -24,7 +24,7 @@ fn main() {
             Update,
             (
                 menu_interaction.run_if(in_state(AppState::Menu)),
-                menu_action.run_if(on_event::<Click>()),
+                menu_action.run_if(on_event::<Clicked>()),
                 (movement, change_color).run_if(in_state(AppState::InGame)),
             ),
         )
