@@ -125,11 +125,13 @@ impl Color {
     ///
     /// See also [`Color::rgb`], [`Color::rgba_u8`], [`Color::hex`].
     ///
+    #[must_use]
     pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self { r, g, b, a }
     }
 
     /// Converts this `Color` into `sRGBA`
+    #[must_use]
     pub fn as_rgba(self) -> palette::Srgba {
         self.in_space()
     }
@@ -144,11 +146,13 @@ impl Color {
     ///
     /// See also [`Color::rgba`], [`Color::rgb_u8`], [`Color::hex`].
     ///
+    #[must_use]
     pub const fn rgb(r: f32, g: f32, b: f32) -> Self {
         Self::rgba(r, g, b, 1.)
     }
 
     /// Converts this `Color` into sRGB
+    #[must_use]
     pub fn as_rgb(self) -> palette::Srgb {
         self.in_space()
     }
@@ -164,11 +168,13 @@ impl Color {
     ///
     /// See also [`Color::rgba`], [`Color::rgb_linear`].
     ///
+    #[must_use]
     pub fn rgba_linear(r: f32, g: f32, b: f32, a: f32) -> Self {
         palette::LinSrgba::new(r, g, b, a).into_color()
     }
 
     /// Converts this `Color` into Linear `sRGBA`
+    #[must_use]
     pub fn as_rgba_linear(self) -> palette::LinSrgba {
         self.in_space()
     }
@@ -183,11 +189,13 @@ impl Color {
     ///
     /// See also [`Color::rgb`], [`Color::rgba_linear`].
     ///
+    #[must_use]
     pub fn rgb_linear(r: f32, g: f32, b: f32) -> Self {
         Self::rgba_linear(r, g, b, 1.)
     }
 
     /// Converts this `Color` into Linear sRGB
+    #[must_use]
     pub fn as_rgb_linear(self) -> palette::LinSrgb {
         self.in_space()
     }
@@ -203,11 +211,13 @@ impl Color {
     ///
     /// See also [`Color::hsl`].
     ///
+    #[must_use]
     pub fn hsla(hue: f32, saturation: f32, lightness: f32, alpha: f32) -> Self {
         palette::Hsla::new(hue, saturation, lightness, alpha).into_color()
     }
 
     /// Converts this `Color` into HSLA
+    #[must_use]
     pub fn as_hsla(self) -> palette::Hsla {
         self.in_space()
     }
@@ -222,11 +232,13 @@ impl Color {
     ///
     /// See also [`Color::hsla`].
     ///
+    #[must_use]
     pub fn hsl(hue: f32, saturation: f32, lightness: f32) -> Color {
         Self::hsla(hue, saturation, lightness, 1.)
     }
 
     /// Converts this `Color` into HSL
+    #[must_use]
     pub fn as_hsl(self) -> palette::Hsl {
         self.in_space()
     }
@@ -241,11 +253,13 @@ impl Color {
     /// * `alpha` - Alpha channel. [0.0, 1.0]
     ///
     /// See also [`Color::lch`].
+    #[must_use]
     pub fn lcha(lightness: f32, chroma: f32, hue: f32, alpha: f32) -> Color {
         palette::Lcha::new(lightness, chroma, hue, alpha).into_color()
     }
 
     /// Converts this `Color` into LCHA
+    #[must_use]
     pub fn as_lcha(self) -> palette::Lcha {
         self.in_space()
     }
@@ -259,11 +273,13 @@ impl Color {
     /// * `hue` - Hue channel. [-180.0, 180.0]
     ///
     /// See also [`Color::lcha`].
+    #[must_use]
     pub fn lch(lightness: f32, chroma: f32, hue: f32) -> Color {
         Self::lcha(lightness, chroma, hue, 1.)
     }
 
     /// Converts this `Color` into LCH
+    #[must_use]
     pub fn as_lch(self) -> palette::Lch {
         self.in_space()
     }
@@ -279,6 +295,7 @@ impl Color {
     ///
     /// See also [`Color::rgba`], [`Color::rgb_u8`], [`Color::hex`].
     ///
+    #[must_use]
     pub fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Color {
         palette::Srgba::<u8>::new(r, g, b, a)
             .into_format()
@@ -286,6 +303,7 @@ impl Color {
     }
 
     /// Converts this `Color` into `sRGBA` u8
+    #[must_use]
     pub fn as_rgba_u8(self) -> palette::rgb::PackedRgba {
         palette::rgb::PackedRgba::pack(palette::Srgba::from_color_unclamped(self).into_format())
     }
@@ -300,11 +318,13 @@ impl Color {
     ///
     /// See also [`Color::rgb`], [`Color::rgba_u8`], [`Color::hex`].
     ///
+    #[must_use]
     pub fn rgb_u8(r: u8, g: u8, b: u8) -> Color {
         palette::Srgb::<u8>::new(r, g, b).into_format().into_color()
     }
 
     /// Converts this `Color` into RGB u8
+    #[must_use]
     pub fn as_rgb_u8(self) -> palette::rgb::PackedArgb {
         palette::rgb::PackedArgb::pack(palette::Srgba::from_color_unclamped(self).into_format())
     }
@@ -313,11 +333,13 @@ impl Color {
     ///
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
     /// `A` will be the most significant byte and `R` the least significant.
+    #[must_use]
     pub fn as_rgba_u32(self) -> u32 {
         self.as_rgba_u8().into()
     }
 
     /// Converts this `Color` into Linear RGB u8
+    #[must_use]
     pub fn as_linear_rgba_u8(self) -> palette::rgb::PackedRgba {
         palette::rgb::PackedRgba::pack(palette::LinSrgba::from_color_unclamped(self).into_format())
     }
@@ -326,26 +348,31 @@ impl Color {
     ///
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
     /// `A` will be the most significant byte and `R` the least significant.
+    #[must_use]
     pub fn as_linear_rgba_u32(self) -> u32 {
         self.as_linear_rgba_u8().into()
     }
 
     /// Converts this `Color` into 4 `sRGBA` channels in an array.
+    #[must_use]
     pub fn as_rgba_f32(self) -> [f32; 4] {
         [self.r, self.g, self.b, self.a]
     }
 
     /// Converts this `Color` into 3 `sRGB` channels in an array.
+    #[must_use]
     pub fn as_rgb_f32(self) -> [f32; 3] {
         [self.r, self.g, self.b]
     }
 
     /// Converts this `Color` into 4 Linear `sRGBA` channels in an array.
+    #[must_use]
     pub fn as_linear_rgba_f32(self) -> [f32; 4] {
         self.as_rgba_linear().into()
     }
 
     /// Converts this `Color` into 3 Linear `sRGB` channels in an array.
+    #[must_use]
     pub fn as_linear_rgb_f32(self) -> [f32; 3] {
         self.as_rgb_linear().into()
     }
@@ -362,7 +389,7 @@ impl Color {
     /// // A standard hex color notation is also available
     /// assert_eq!(Color::hex("#FFFFFF").unwrap(), Color::rgb(1.0, 1.0, 1.0));
     /// ```
-    ///
+    #[must_use]
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<Self, HexColorError> {
         let hex = hex.as_ref();
         let hex = hex.strip_prefix('#').unwrap_or(hex);
@@ -393,21 +420,25 @@ impl Color {
     }
 
     /// Returns red in sRGB colorspace
+    #[must_use]
     pub const fn r(&self) -> f32 {
         self.r
     }
 
     /// Returns green in sRGB colorspace
+    #[must_use]
     pub const fn g(&self) -> f32 {
         self.g
     }
 
     /// Returns blue in sRGB colorspace
+    #[must_use]
     pub const fn b(&self) -> f32 {
         self.b
     }
 
     /// Returns alpha
+    #[must_use]
     pub const fn a(&self) -> f32 {
         self.a
     }
@@ -461,6 +492,7 @@ impl Color {
     }
 
     /// Convert this `Color` into a specific colorspace.
+    #[must_use]
     pub fn in_space<C>(self) -> C
     where
         C: FromColorUnclamped<Self> + palette::Clamp,
@@ -469,6 +501,7 @@ impl Color {
     }
 
     /// Mix this `Color` with another at a certain ratio, within a specific colorspace.
+    #[must_use]
     pub fn mix_in<C>(self, rhs: Self, amount: <C as palette::Mix>::Scalar) -> Self
     where
         C: FromColorUnclamped<Self> + palette::Clamp + palette::Mix,
@@ -480,6 +513,7 @@ impl Color {
     }
 
     /// Lighten this `Color` by a provided amount, within a specific colorspace.
+    #[must_use]
     pub fn lighten_in<C>(self, amount: <C as palette::Lighten>::Scalar) -> Self
     where
         C: FromColorUnclamped<Self> + palette::Clamp + palette::Lighten,
@@ -489,12 +523,43 @@ impl Color {
     }
 
     /// Darken this `Color` by a provided amount, within a specific colorspace.
+    #[must_use]
     pub fn darken_in<C>(self, amount: <C as palette::Darken>::Scalar) -> Self
     where
         C: FromColorUnclamped<Self> + palette::Clamp + palette::Darken,
         Self: FromColorUnclamped<C>,
     {
         self.in_space::<C>().darken(amount).into_color()
+    }
+
+    /// Shift the hue of this `Color` by a provided amount, within a specific colorspace.
+    #[must_use]
+    pub fn shift_hue_in<C>(self, amount: <C as palette::ShiftHue>::Scalar) -> Self
+    where
+        C: FromColorUnclamped<Self> + palette::Clamp + palette::ShiftHue,
+        Self: FromColorUnclamped<C>,
+    {
+        self.in_space::<C>().shift_hue(amount).into_color()
+    }
+
+    /// Saturate this `Color` by a provided amount, within a specific colorspace.
+    #[must_use]
+    pub fn saturate_in<C>(self, amount: <C as palette::Saturate>::Scalar) -> Self
+    where
+        C: FromColorUnclamped<Self> + palette::Clamp + palette::Saturate,
+        Self: FromColorUnclamped<C>,
+    {
+        self.in_space::<C>().saturate(amount).into_color()
+    }
+
+    /// Desaturate this `Color` by a provided amount, within a specific colorspace.
+    #[must_use]
+    pub fn desaturate_in<C>(self, amount: <C as palette::Desaturate>::Scalar) -> Self
+    where
+        C: FromColorUnclamped<Self> + palette::Clamp + palette::Desaturate,
+        Self: FromColorUnclamped<C>,
+    {
+        self.in_space::<C>().desaturate(amount).into_color()
     }
 }
 
@@ -980,9 +1045,25 @@ mod tests {
         assert_approx(color_mix.g, 0.);
         assert_approx(color_mix.b, 0.7600829);
         assert_approx(color_mix.a, 1.);
+    }
 
-        let hue = color_start.in_space::<palette::Oklcha>().hue.into_degrees();
+    #[test]
+    fn hue_shift() {
+        fn assert_approx(a: f32, b: f32) {
+            let diff = (a - b).abs();
+            assert!(
+                diff < 1e-3,
+                "Expected {a} ~ {b}; Difference of {diff} Found"
+            );
+        }
 
-        assert_approx(hue, -95.94797);
+        let color_start = Color::hsl(45., 0.5, 0.5);
+        let color_complement = color_start.shift_hue_in::<palette::Hsla>(180.);
+        let color_complement_ref = Color::hsl(45. + 180., 0.5, 0.5);
+
+        assert_approx(color_complement.r, color_complement_ref.r);
+        assert_approx(color_complement.g, color_complement_ref.g);
+        assert_approx(color_complement.b, color_complement_ref.b);
+        assert_approx(color_complement.a, color_complement_ref.a);
     }
 }
