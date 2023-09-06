@@ -1,7 +1,7 @@
 use crate::{
-    deferred::DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE, AlphaMode, Material,
-    MaterialPipeline, MaterialPipelineKey, OpaqueRendererMethod, ParallaxMappingMethod,
-    PBR_PREPASS_SHADER_HANDLE, PBR_SHADER_HANDLE,
+    deferred::DEFAULT_PBR_DEFERRED_LIGHTING_DEPTH_ID, AlphaMode, Material, MaterialPipeline,
+    MaterialPipelineKey, OpaqueRendererMethod, ParallaxMappingMethod, PBR_PREPASS_SHADER_HANDLE,
+    PBR_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_math::Vec4;
@@ -315,9 +315,9 @@ pub struct StandardMaterial {
     pub opaque_render_method: Option<OpaqueRendererMethod>,
 
     /// Used for selecting the deferred lighting pass for deferred materials.
-    /// Default is [`DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE`] for default
+    /// Default is [`DEFAULT_PBR_DEFERRED_LIGHTING_DEPTH_ID`] for default
     /// PBR deferred lighting pass. Ignored in the case of forward materials.
-    pub deferred_material_stencil_reference: u32,
+    pub deferred_lighting_depth_id: u8,
 }
 
 impl Default for StandardMaterial {
@@ -352,7 +352,7 @@ impl Default for StandardMaterial {
             max_parallax_layer_count: 16.0,
             parallax_mapping_method: ParallaxMappingMethod::Occlusion,
             opaque_render_method: None,
-            deferred_material_stencil_reference: DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE,
+            deferred_lighting_depth_id: DEFAULT_PBR_DEFERRED_LIGHTING_DEPTH_ID,
         }
     }
 }
@@ -445,6 +445,8 @@ pub struct StandardMaterialUniform {
     /// Using [`ParallaxMappingMethod::Relief`], how many additional
     /// steps to use at most to find the depth value.
     pub max_relief_mapping_search_steps: u32,
+    /// ID for specifying which deferred lighting pass should be used for rendering this material, if any.
+    pub deferred_lighting_depth_id: u32,
 }
 
 impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
@@ -517,6 +519,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             parallax_depth_scale: self.parallax_depth_scale,
             max_parallax_layer_count: self.max_parallax_layer_count,
             max_relief_mapping_search_steps: self.parallax_mapping_method.max_steps(),
+            deferred_lighting_depth_id: self.deferred_lighting_depth_id as u32,
         }
     }
 }
@@ -596,10 +599,5 @@ impl Material for StandardMaterial {
     #[inline]
     fn opaque_render_method(&self) -> Option<OpaqueRendererMethod> {
         self.opaque_render_method
-    }
-
-    #[inline]
-    fn deferred_material_stencil_reference(&self) -> u32 {
-        self.deferred_material_stencil_reference
     }
 }

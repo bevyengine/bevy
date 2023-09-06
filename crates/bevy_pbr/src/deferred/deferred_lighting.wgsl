@@ -19,13 +19,21 @@ struct FullscreenVertexOutput {
     uv: vec2<f32>,
 };
 
-const PBR_DEFERRED_LIGHTING_DEPTH_REFERENCE: u32 = 1u; // TODO move to uniform
+struct PbrDeferredLightingDepthId {
+    depth_id: u32,
+#ifdef SIXTEEN_BYTE_ALIGNMENT
+    // WebGL2 structs must be 16 byte aligned.
+    _webgl2_padding: vec3<f32>
+#endif
+}
+@group(1) @binding(0)
+var<uniform> depth_id: PbrDeferredLightingDepthId;
 
 @vertex
 fn vertex(@builtin(vertex_index) vertex_index: u32) -> FullscreenVertexOutput {
     // See the full screen vertex shader for explanation above for how this works.
     let uv = vec2<f32>(f32(vertex_index >> 1u), f32(vertex_index & 1u)) * 2.0;
-    let clip_position = vec4<f32>(uv * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0), f32(PBR_DEFERRED_LIGHTING_DEPTH_REFERENCE), 1.0);
+    let clip_position = vec4<f32>(uv * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0), f32(depth_id.depth_id) / 255.0, 1.0);
 
     return FullscreenVertexOutput(clip_position, uv);
 }

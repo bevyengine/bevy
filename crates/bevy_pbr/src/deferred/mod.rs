@@ -13,17 +13,19 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
-    extract_resource::{ExtractResource, ExtractResourcePlugin},
+    extract_component::{
+        ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
+    },
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::{Operations, PipelineCache, RenderPassDescriptor},
-    renderer::RenderContext,
+    render_resource::{self, Operations, PipelineCache, RenderPassDescriptor},
+    renderer::{RenderContext, RenderDevice},
     texture::Image,
     view::{ViewTarget, ViewUniformOffset},
     Render, RenderSet,
 };
 
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::TypeUuid;
 use bevy_render::{
     render_graph::RenderGraphApp, render_resource::*, texture::BevyDefault, view::ExtractedView,
     RenderApp,
@@ -39,22 +41,53 @@ pub struct PbrDeferredLightingPlugin;
 pub const DEFERRED_LIGHTING_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2708011359337029741);
 
-pub const DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE: u32 = 1;
+pub const DEFAULT_PBR_DEFERRED_LIGHTING_DEPTH_ID: u8 = 1;
 
-#[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
-pub struct PBRDeferredLightingStencilReference(pub u32);
+#[derive(Component, Clone, Copy, ExtractComponent, ShaderType)]
+pub struct PbrDeferredLightingDepthId {
+    depth_id: u32,
 
-impl Default for PBRDeferredLightingStencilReference {
+    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    _webgl2_padding: bevy_math::Vec3,
+}
+
+impl PbrDeferredLightingDepthId {
+    pub fn new(value: u8) -> PbrDeferredLightingDepthId {
+        PbrDeferredLightingDepthId {
+            depth_id: value as u32,
+
+            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            _webgl2_padding: bevy_math::Vec3::ZERO,
+        }
+    }
+
+    pub fn set(&mut self, value: u8) {
+        self.depth_id = value as u32;
+    }
+
+    pub fn get(&self) -> u8 {
+        self.depth_id as u8
+    }
+}
+
+impl Default for PbrDeferredLightingDepthId {
     fn default() -> Self {
-        Self(DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE)
+        PbrDeferredLightingDepthId {
+            depth_id: 1,
+
+            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            _webgl2_padding: bevy_math::Vec3::ZERO,
+        }
     }
 }
 
 impl Plugin for PbrDeferredLightingPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<PBRDeferredLightingStencilReference>()
-            .register_type::<PBRDeferredLightingStencilReference>()
-            .add_plugins(ExtractResourcePlugin::<PBRDeferredLightingStencilReference>::default());
+        app.add_plugins((
+            ExtractComponentPlugin::<PbrDeferredLightingDepthId>::default(),
+            UniformComponentPlugin::<PbrDeferredLightingDepthId>::default(),
+        ))
+        .add_systems(PostUpdate, insert_deferred_lighting_depth_id_component);
 
         load_internal_asset!(
             app,
@@ -130,12 +163,32 @@ impl ViewNode for DeferredLightingNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
+        let deferred_lighting_layout = world.resource::<DeferredLightingLayout>();
 
         let Some(pipeline) =
             pipeline_cache.get_render_pipeline(deferred_lighting_pipeline.pipeline_id)
         else {
             return Ok(());
         };
+
+        let deferred_lighting_depth_id =
+            world.resource::<ComponentUniforms<PbrDeferredLightingDepthId>>();
+        let Some(deferred_lighting_depth_id_binding) =
+            deferred_lighting_depth_id.uniforms().binding()
+        else {
+            return Ok(());
+        };
+
+        let bind_group_1 = render_context
+            .render_device()
+            .create_bind_group(&BindGroupDescriptor {
+                label: Some("deferred_lighting_layout_group_1"),
+                layout: &deferred_lighting_layout.bind_group_layout_1,
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: deferred_lighting_depth_id_binding.clone(),
+                }],
+            });
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("deferred_lighting_pass"),
@@ -169,6 +222,7 @@ impl ViewNode for DeferredLightingNode {
                 view_fog_offset.offset,
             ],
         );
+        render_pass.set_bind_group(1, &bind_group_1, &[]);
         render_pass.draw(0..3, 0..1);
 
         Ok(())
@@ -177,7 +231,8 @@ impl ViewNode for DeferredLightingNode {
 
 #[derive(Resource)]
 pub struct DeferredLightingLayout {
-    bind_group_layout: BindGroupLayout,
+    bind_group_layout_0: BindGroupLayout,
+    bind_group_layout_1: BindGroupLayout,
 }
 
 #[derive(Component)]
@@ -235,14 +290,23 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             "MAX_DIRECTIONAL_LIGHTS".to_string(),
             MAX_DIRECTIONAL_LIGHTS as u32,
         ));
+
         shader_defs.push(ShaderDefVal::UInt(
             "MAX_CASCADES_PER_LIGHT".to_string(),
             MAX_CASCADES_PER_LIGHT as u32,
         ));
 
+        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        {
+            shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
+        }
+
         RenderPipelineDescriptor {
             label: Some("deferred_lighting_pipeline".into()),
-            layout: vec![self.bind_group_layout.clone()],
+            layout: vec![
+                self.bind_group_layout_0.clone(),
+                self.bind_group_layout_1.clone(),
+            ],
             vertex: VertexState {
                 shader: DEFERRED_LIGHTING_SHADER_HANDLE.typed(),
                 shader_defs: shader_defs.clone(),
@@ -288,9 +352,35 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
 
 impl FromWorld for DeferredLightingLayout {
     fn from_world(world: &mut World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
+        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: Some("deferred_lighting_layout"),
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX_FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: render_resource::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: Some(PbrDeferredLightingDepthId::min_size()),
+                },
+                count: None,
+            }],
+        });
         Self {
-            bind_group_layout: world.resource::<MeshPipeline>().view_layout.clone(),
+            bind_group_layout_0: world.resource::<MeshPipeline>().view_layout.clone(),
+            bind_group_layout_1: layout,
         }
+    }
+}
+
+pub fn insert_deferred_lighting_depth_id_component(
+    mut commands: Commands,
+    views: Query<Entity, (With<DeferredPrepass>, Without<PbrDeferredLightingDepthId>)>,
+) {
+    for entity in views.iter() {
+        commands
+            .entity(entity)
+            .insert(PbrDeferredLightingDepthId::default());
     }
 }
 

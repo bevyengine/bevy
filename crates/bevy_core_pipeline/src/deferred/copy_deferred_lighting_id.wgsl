@@ -12,7 +12,7 @@ struct FragmentOutput {
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> FragmentOutput {
     var out: FragmentOutput;
-    out.frag_depth = f32(textureLoad(material_id_texture, vec2<i32>(in.position.xy), 0).x);
+    out.frag_depth = f32(textureLoad(material_id_texture, vec2<i32>(in.position.xy), 0).x) / 255.0;
     return out;
 }
 

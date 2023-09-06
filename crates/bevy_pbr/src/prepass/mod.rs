@@ -52,8 +52,7 @@ use bevy_utils::tracing::error;
 use crate::{
     prepare_materials, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material,
     MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey,
-    MeshTransforms, OpaqueRendererMethod, RenderMaterials, SetDeferredStencilReference,
-    SetMaterialBindGroup, SetMeshBindGroup,
+    MeshTransforms, OpaqueRendererMethod, RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -1102,7 +1101,6 @@ pub type DrawDeferred<M> = (
     SetPrepassViewBindGroup<0>,
     SetMaterialBindGroup<M, 1>,
     SetMeshBindGroup<2>,
-    SetDeferredStencilReference<M>,
     DrawMesh,
 );
 

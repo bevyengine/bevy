@@ -1,8 +1,7 @@
 use crate::{
-    deferred::DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE, render, AlphaMode, DrawMesh,
-    DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey, MeshTransforms,
-    PrepassPipelinePlugin, PrepassPlugin, ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup,
-    SetMeshViewBindGroup, Shadow,
+    render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
+    MeshTransforms, PrepassPipelinePlugin, PrepassPlugin, ScreenSpaceAmbientOcclusionSettings,
+    SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -134,14 +133,6 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Si
     #[inline]
     fn opaque_render_method(&self) -> Option<OpaqueRendererMethod> {
         None
-    }
-
-    /// Returns the stencil reference.
-    /// Used for specifying which deferred lighting pass should be used if any.
-    /// Use 0 for forward only materials.
-    #[inline]
-    fn deferred_material_stencil_reference(&self) -> u32 {
-        DEFAULT_PBR_DEFERRED_LIGHTING_STENCIL_REFERENCE
     }
 
     #[inline]
@@ -403,27 +394,6 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
     }
 }
 
-/// Sets the deferred stencil reference for a given [`Material`]
-pub struct SetDeferredStencilReference<M: Material>(PhantomData<M>);
-impl<P: PhaseItem, M: Material> RenderCommand<P> for SetDeferredStencilReference<M> {
-    type Param = SRes<RenderMaterials<M>>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<Handle<M>>;
-
-    #[inline]
-    fn render<'w>(
-        _item: &P,
-        _view: (),
-        material_handle: &'_ Handle<M>,
-        materials: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        let material = materials.into_inner().get(material_handle).unwrap();
-        pass.set_stencil_reference(material.stencil_reference);
-        RenderCommandResult::Success
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material_meshes<M: Material>(
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
@@ -658,7 +628,6 @@ pub struct PreparedMaterial<T: Material> {
     pub bind_group: BindGroup,
     pub key: T::Data,
     pub properties: MaterialProperties,
-    pub stencil_reference: u32,
 }
 
 #[derive(Resource)]
@@ -814,10 +783,6 @@ fn prepare_material<M: Material>(
             alpha_mode: material.alpha_mode(),
             depth_bias: material.depth_bias(),
             render_method: method,
-        },
-        stencil_reference: match method {
-            OpaqueRendererMethod::Forward => 0,
-            OpaqueRendererMethod::Deferred => material.deferred_material_stencil_reference(),
         },
     })
 }
