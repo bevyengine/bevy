@@ -4,21 +4,6 @@
 #import bevy_pbr::pbr_functions as pbr_functions
 #import bevy_pbr::rgb9e5 as rgb9e5
 #import bevy_pbr::mesh_view_bindings as view_bindings
-
-//TODO Griffin This doesn't seem to work
-//#ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS 
-//#import bevy_pbr::prepass_bindings view
-//#else
-//#import bevy_pbr::mesh_view_bindings view
-//#endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
-
-// TODO Griffin using mesh_view_bindings here because of:
-//  ┌─ bevy_pbr\src\prepass\prepass_bindings.wgsl:7:1
-//  │
-//7 │ var<uniform> view: bevy_render::view::View;
-//  │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^ naga::GlobalVariable [36]
-//  │
-//  = Bindings for [36] conflict with other resource
 #import bevy_pbr::mesh_view_bindings view
 
 // ---------------------------

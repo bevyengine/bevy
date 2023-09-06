@@ -2,7 +2,6 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
 
-use bevy_render::render_resource::ImageSubresourceRange;
 use bevy_render::{
     camera::ExtractedCamera,
     prelude::Color,
@@ -101,9 +100,10 @@ impl ViewNode for DeferredNode {
         // For webgl2 we fallback to manually clearing
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         if let Some(deferred_texture) = &view_prepass_textures.deferred {
-            render_context
-                .command_encoder()
-                .clear_texture(&deferred_texture.texture, &ImageSubresourceRange::default());
+            render_context.command_encoder().clear_texture(
+                &deferred_texture.texture,
+                &bevy_render::render_resource::ImageSubresourceRange::default(),
+            );
         }
 
         color_attachments.push(

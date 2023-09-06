@@ -5,6 +5,7 @@
 #import bevy_pbr::morph
 #import bevy_pbr::mesh_bindings mesh
 #import bevy_render::instance_index get_instance_index
+#import bevy_pbr::mesh_view_bindings view, previous_view_proj
 
 #ifdef DEFERRED_PREPASS
 #import bevy_pbr::rgb9e5
@@ -115,7 +116,7 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 #endif // DEPTH_CLAMP_ORTHO
 
 #ifdef MOTION_VECTOR_PREPASS
-    let clip_position_t = bevy_pbr::prepass_bindings::view.unjittered_view_proj * in.world_position;
+    let clip_position_t = view.unjittered_view_proj * in.world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
     let previous_clip_position_t = bevy_pbr::prepass_bindings::previous_view_proj * in.previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;

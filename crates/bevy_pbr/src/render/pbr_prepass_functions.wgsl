@@ -1,14 +1,6 @@
 #define_import_path bevy_pbr::pbr_prepass_functions
 #import bevy_pbr::prepass_io as prepass_io
 #import bevy_pbr::prepass_bindings previous_view_proj
-
-// TODO Griffin using mesh_view_bindings here because of:
-//  ┌─ bevy_pbr\src\prepass\prepass_bindings.wgsl:7:1
-//  │
-//7 │ var<uniform> view: bevy_render::view::View;
-//  │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^ naga::GlobalVariable [36]
-//  │
-//  = Bindings for [36] conflict with other resource
 #import bevy_pbr::mesh_view_bindings view
 
 #import bevy_pbr::pbr_bindings as pbr_bindings
