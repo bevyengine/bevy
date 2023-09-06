@@ -92,8 +92,9 @@ impl Plugin for SolariGlobalIlluminationPlugin {
             Shader::from_wgsl
         );
 
+        app.add_plugins(ExtractComponentPlugin::<SolariGlobalIlluminationSettings>::default());
+
         app.sub_app_mut(RenderApp)
-            .add_plugins(ExtractComponentPlugin::<SolariGlobalIlluminationSettings>::default())
             .add_render_graph_node::<ViewNodeRunner<SolariGlobalIlluminationNode>>(
                 CORE_3D,
                 "solari_global_illumination",

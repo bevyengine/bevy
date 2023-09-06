@@ -114,16 +114,16 @@ pub fn prepare_resources(
             viewport_size,
         );
         let (diffuse_denoiser_temporal_history, diffuse_denoised_temporal) = {
-            let t1 = texture(
+            let mut t1 = texture(
                 "solari_global_illumination_diffuse_temporal_denoise_1",
                 TextureFormat::Rgba16Float,
                 viewport_size,
             );
-            let t2 = texture(
-                "solari_global_illumination_diffuse_temporal_denoise_2",
-                TextureFormat::Rgba16Float,
-                viewport_size,
-            );
+            t1.usage |= TextureUsages::TEXTURE_BINDING;
+            let t2 = TextureDescriptor {
+                label: Some("solari_global_illumination_diffuse_temporal_denoise_2"),
+                ..t1
+            };
             if frame_count.0 % 2 == 0 {
                 (t1, t2)
             } else {
