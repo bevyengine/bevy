@@ -5,7 +5,11 @@ pub use self::global_illumination::{
 use self::scene::SolariScenePlugin;
 use bevy_app::{App, Plugin};
 use bevy_ecs::system::Resource;
-use bevy_render::{renderer::RenderDevice, settings::WgpuFeatures};
+use bevy_render::{
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
+    renderer::RenderDevice,
+    settings::WgpuFeatures,
+};
 
 mod global_illumination;
 mod scene;
@@ -28,9 +32,11 @@ impl Plugin for SolariPlugin {
             _ => return,
         }
 
-        app.insert_resource(SolariSupported)
-            .add_plugins(SolariScenePlugin)
-            .add_plugins(SolariGlobalIlluminationPlugin);
+        app.insert_resource(SolariSupported).add_plugins((
+            SolariScenePlugin,
+            SolariGlobalIlluminationPlugin,
+            ExtractResourcePlugin::<SolariEnabled>::default(),
+        ));
     }
 
     fn build(&self, _: &mut App) {}
@@ -39,5 +45,5 @@ impl Plugin for SolariPlugin {
 #[derive(Resource)]
 pub struct SolariSupported;
 
-#[derive(Resource)]
+#[derive(Resource, ExtractResource, Clone)]
 pub struct SolariEnabled;
