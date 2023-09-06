@@ -124,11 +124,14 @@ pub fn extract_text2d_sprite(
                 current_section = *section_index;
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+            let resolved_transform =
+                transform * GlobalTransform::from_translation(position.extend(0.));
+            let z_index = resolved_transform.translation().z;
 
             extracted_sprites.sprites.insert(
                 commands.spawn_empty().id(),
                 ExtractedSprite {
-                    transform: transform * GlobalTransform::from_translation(position.extend(0.)),
+                    transform: resolved_transform,
                     color,
                     rect: Some(atlas.textures[atlas_info.glyph_index]),
                     custom_size: None,
@@ -136,6 +139,7 @@ pub fn extract_text2d_sprite(
                     flip_x: false,
                     flip_y: false,
                     anchor: Anchor::Center.as_vec(),
+                    z_index,
                 },
             );
         }

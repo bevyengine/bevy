@@ -21,6 +21,8 @@ pub struct Sprite {
     pub rect: Option<Rect>,
     /// [`Anchor`] point of the sprite in the world
     pub anchor: Anchor,
+    /// An optional z_index to decide which sprite is rendered first (defaults to the z coordinate).
+    pub z_index: Option<f32>,
 }
 
 /// How a sprite is positioned relative to its [`Transform`](bevy_transform::components::Transform).

@@ -39,6 +39,8 @@ pub struct TextureAtlasSprite {
     pub custom_size: Option<Vec2>,
     /// [`Anchor`] point of the sprite in the world
     pub anchor: Anchor,
+    /// An optional z_index to decide which sprite is rendered first (defaults to the z coordinate).
+    pub z_index: Option<f32>,
 }
 
 impl Default for TextureAtlasSprite {
@@ -50,6 +52,7 @@ impl Default for TextureAtlasSprite {
             flip_y: false,
             custom_size: None,
             anchor: Anchor::default(),
+            z_index: None,
         }
     }
 }

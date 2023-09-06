@@ -326,6 +326,7 @@ pub struct ExtractedSprite {
     pub flip_x: bool,
     pub flip_y: bool,
     pub anchor: Vec2,
+    pub z_index: f32,
 }
 
 #[derive(Resource, Default)]
@@ -389,6 +390,9 @@ pub fn extract_sprites(
         if !view_visibility.get() {
             continue;
         }
+
+        let z_index = sprite.z_index.unwrap_or(transform.translation().z);
+
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
         extracted_sprites.sprites.insert(
             entity,
@@ -402,6 +406,7 @@ pub fn extract_sprites(
                 flip_y: sprite.flip_y,
                 image_handle_id: handle.id(),
                 anchor: sprite.anchor.as_vec(),
+                z_index,
             },
         );
     }
@@ -424,6 +429,8 @@ pub fn extract_sprites(
                         )
                     }),
             );
+
+            let z_index = atlas_sprite.z_index.unwrap_or(transform.translation().z);
             extracted_sprites.sprites.insert(
                 entity,
                 ExtractedSprite {
@@ -437,6 +444,7 @@ pub fn extract_sprites(
                     flip_y: atlas_sprite.flip_y,
                     image_handle_id: texture_atlas.texture.id(),
                     anchor: atlas_sprite.anchor.as_vec(),
+                    z_index,
                 },
             );
         }
@@ -567,7 +575,7 @@ pub fn queue_sprites(
             }
 
             // These items will be sorted by depth with other phase items
-            let sort_key = FloatOrd(extracted_sprite.transform.translation().z);
+            let sort_key = FloatOrd(extracted_sprite.z_index);
 
             // Add the item to the render phase
             if extracted_sprite.color != Color::WHITE {
