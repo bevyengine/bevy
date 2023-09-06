@@ -446,11 +446,7 @@ impl<A: Asset> Assets<A> {
     /// [`Handle`] drop events and adds queued [`AssetEvent`] values to their [`Events`] resource.
     ///
     /// [`Events`]: bevy_ecs::event::Events
-    pub fn track_assets(
-        mut assets: ResMut<Self>,
-        asset_server: Res<AssetServer>,
-        mut events: EventWriter<AssetEvent<A>>,
-    ) {
+    pub fn track_assets(mut assets: ResMut<Self>, asset_server: Res<AssetServer>) {
         let assets = &mut *assets;
         // note that we must hold this lock for the entire duration of this function to ensure
         // that `asset_server.load` calls that occur during it block, which ensures that
@@ -477,6 +473,12 @@ impl<A: Asset> Assets<A> {
         for event in not_ready {
             assets.handle_provider.drop_sender.send(event).unwrap();
         }
+    }
+
+    /// A system that applies accumulated asset change events to the [`Events`] resource.
+    ///
+    /// [`Events`]: bevy_ecs::event::Events
+    pub fn asset_events(mut assets: ResMut<Self>, mut events: EventWriter<AssetEvent<A>>) {
         events.send_batch(assets.queued_events.drain(..));
     }
 }

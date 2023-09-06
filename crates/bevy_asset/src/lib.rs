@@ -37,10 +37,10 @@ use crate::{
     io::{processor_gated::ProcessorGatedReader, AssetProvider, AssetProviders},
     processor::AssetProcessor,
 };
-use bevy_app::{App, Plugin, PostUpdate, Startup};
+use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate, Startup};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfig, SystemSet},
+    schedule::{IntoSystemConfigs, IntoSystemSetConfig, ScheduleLabel, SystemSet},
     world::FromWorld,
 };
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
@@ -133,7 +133,9 @@ impl AssetPlugin {
 
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<AssetProviders>();
+        app.init_schedule(UpdateAssets)
+            .init_schedule(AssetEvents)
+            .init_resource::<AssetProviders>();
         {
             match self {
                 AssetPlugin::Unprocessed {
@@ -179,7 +181,15 @@ impl Plugin for AssetPlugin {
             }
         }
         app.init_asset::<LoadedFolder>()
-            .add_systems(PostUpdate, server::handle_internal_asset_events);
+            .configure_set(
+                UpdateAssets,
+                TrackAssets.after(server::handle_internal_asset_events),
+            )
+            .add_systems(UpdateAssets, server::handle_internal_asset_events);
+
+        let mut order = app.world.resource_mut::<MainScheduleOrder>();
+        order.insert_after(First, UpdateAssets);
+        order.insert_after(PostUpdate, AssetEvents);
     }
 }
 
@@ -286,11 +296,8 @@ impl AssetApp for App {
             .add_event::<AssetEvent<A>>()
             .register_type::<Handle<A>>()
             .register_type::<AssetId<A>>()
-            .configure_set(
-                PostUpdate,
-                TrackAssets.after(server::handle_internal_asset_events),
-            )
-            .add_systems(PostUpdate, Assets::<A>::track_assets.in_set(TrackAssets))
+            .add_systems(AssetEvents, Assets::<A>::asset_events)
+            .add_systems(UpdateAssets, Assets::<A>::track_assets.in_set(TrackAssets))
     }
 
     fn register_asset_reflect<A>(&mut self) -> &mut Self
@@ -321,6 +328,16 @@ impl AssetApp for App {
 /// A system set that holds all "track asset" operations.
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub struct TrackAssets;
+
+/// Schedule where [`Assets`] resources are updated.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
+pub struct UpdateAssets;
+
+/// Schedule where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Events`] resource.
+///
+/// [`Events`]: bevy_ecs::event::Events
+#[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
+pub struct AssetEvents;
 
 /// Loads an "internal" asset by embedding the string stored in the given `path_str` and associates it with the given handle.
 #[macro_export]
