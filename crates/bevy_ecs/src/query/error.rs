@@ -126,3 +126,26 @@ impl std::fmt::Display for QueryComponentError {
         }
     }
 }
+
+/// An error that occurs when evaluating a [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState) as a single expected result via
+/// [`get_single`](crate::system::Query::get_single) or [`get_single_mut`](crate::system::Query::get_single_mut).
+#[derive(Debug)]
+pub enum QuerySingleError {
+    /// No entity fits the query.
+    NoEntities(&'static str),
+    /// Multiple entities fit the query.
+    MultipleEntities(&'static str),
+}
+
+impl std::error::Error for QuerySingleError {}
+
+impl std::fmt::Display for QuerySingleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            QuerySingleError::NoEntities(query) => write!(f, "No entities fit the query {query}"),
+            QuerySingleError::MultipleEntities(query) => {
+                write!(f, "Multiple entities fit the query {query}!")
+            }
+        }
+    }
+}

@@ -17,8 +17,8 @@ use fixedbitset::FixedBitSet;
 use std::{any::TypeId, borrow::Borrow, fmt, mem::MaybeUninit};
 
 use super::{
-    NopWorldQuery, QueryComponentError, QueryEntityError, QueryManyIter, ROQueryItem,
-    ReadOnlyWorldQuery,
+    NopWorldQuery, QueryComponentError, QueryEntityError, QueryManyIter, QuerySingleError,
+    ROQueryItem, ReadOnlyWorldQuery,
 };
 
 /// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
@@ -696,8 +696,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         last_run: Tick,
         this_run: Tick,
     ) -> [ROQueryItem<'w, Q>; N] {
-        self.get_many_read_only_manual(world, entities, last_run, this_run)
-            .unwrap()
+        match self.get_many_read_only_manual(world, entities, last_run, this_run) {
+            Ok(items) => items,
+            Err(error) => panic!("Cannot get query results: {error}"),
+        }
     }
 
     /// Gets the query results for the given [`World`] and array of [`Entity`], where the last change and
@@ -758,8 +760,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         last_run: Tick,
         this_run: Tick,
     ) -> [Q::Item<'w>; N] {
-        self.get_many_unchecked_manual(world, entities, last_run, this_run)
-            .unwrap()
+        match self.get_many_unchecked_manual(world, entities, last_run, this_run) {
+            Ok(items) => items,
+            Err(error) => panic!("Cannot get query result: {error}"),
+        }
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
@@ -1383,7 +1387,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     #[track_caller]
     #[inline]
     pub fn single<'w>(&mut self, world: &'w World) -> ROQueryItem<'w, Q> {
-        self.get_single(world).unwrap()
+        match self.get_single(world) {
+            Ok(items) => items,
+            Err(error) => panic!("Cannot get single mutable query result: {error}"),
+        }
     }
 
     /// Returns a single immutable query result when there is exactly one entity matching
@@ -1422,7 +1429,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     #[inline]
     pub fn single_mut<'w>(&mut self, world: &'w mut World) -> Q::Item<'w> {
         // SAFETY: query has unique world access
-        self.get_single_mut(world).unwrap()
+        match self.get_single_mut(world) {
+            Ok(items) => items,
+            Err(error) => panic!("Cannot get single query result: {error}"),
+        }
     }
 
     /// Returns a single mutable query result when there is exactly one entity matching
@@ -1604,28 +1614,5 @@ mod tests {
 
         let mut query_state = world_1.query::<Entity>();
         let _panics = query_state.get_many_mut(&mut world_2, []);
-    }
-}
-
-/// An error that occurs when evaluating a [`Query`](crate::system::Query) or [`QueryState`] as a single expected result via
-/// [`get_single`](crate::system::Query::get_single) or [`get_single_mut`](crate::system::Query::get_single_mut).
-#[derive(Debug)]
-pub enum QuerySingleError {
-    /// No entity fits the query.
-    NoEntities(&'static str),
-    /// Multiple entities fit the query.
-    MultipleEntities(&'static str),
-}
-
-impl std::error::Error for QuerySingleError {}
-
-impl std::fmt::Display for QuerySingleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            QuerySingleError::NoEntities(query) => write!(f, "No entities fit the query {query}"),
-            QuerySingleError::MultipleEntities(query) => {
-                write!(f, "Multiple entities fit the query {query}!")
-            }
-        }
     }
 }
