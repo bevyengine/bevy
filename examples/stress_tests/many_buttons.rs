@@ -175,8 +175,8 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                 display: Display::Grid,
                 width: Val::Percent(100.),
                 height: Val::Percent(100.0),
-                grid_template_columns: vec![RepeatedGridTrack::flex(args.buttons as u16, 1.0)],
-                grid_template_rows: vec![RepeatedGridTrack::flex(args.buttons as u16, 1.0)],
+                grid_template_columns: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
+                grid_template_rows: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
                 ..default()
             },
             ..default()
