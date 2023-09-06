@@ -247,19 +247,19 @@ pub fn extract_mesh2d(
 ///   result of the `prepare_mesh_uniforms` system, e.g. due to having to split
 ///   data across separate uniform bindings within the same buffer due to the
 ///   maximum uniform buffer binding size.
-#[derive(Default, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 struct BatchMeta<'mat, 'mesh> {
     /// The pipeline id encompasses all pipeline configuration including vertex
     /// buffers and layouts, shaders and their specializations, bind group
     /// layouts, etc.
-    pipeline_id: Option<CachedRenderPipelineId>,
+    pipeline_id: CachedRenderPipelineId,
     /// The draw function id defines the RenderCommands that are called to
     /// set the pipeline and bindings, and make the draw command
-    draw_function_id: Option<DrawFunctionId>,
+    draw_function_id: DrawFunctionId,
     /// The material binding meta includes the material bind group id and
     /// dynamic offsets.
     material2d_bind_group: Option<&'mat Material2dBindGroupId>,
-    mesh_handle: Option<&'mesh Mesh2dHandle>,
+    mesh_handle: &'mesh Mesh2dHandle,
     dynamic_offset: Option<NonMaxU32>,
 }
 
@@ -275,7 +275,7 @@ impl<'mat, 'mesh> BatchMeta<'mat, 'mesh> {
 
 #[derive(Default)]
 struct BatchState<'mat, 'mesh> {
-    meta: BatchMeta<'mat, 'mesh>,
+    meta: Option<BatchMeta<'mat, 'mesh>>,
     /// The base index in the object data binding's array
     gpu_array_buffer_index: GpuArrayBufferIndex<Mesh2dUniform>,
     /// The number of entities in the batch
@@ -305,24 +305,28 @@ fn process_phase<I: CachedRenderPipelinePhaseItem>(
             object_query.get(item.entity())
         else {
             // It is necessary to start a new batch if an entity not matching the query is
-            // encountered. This can be achieved by resetting the pipelined id.
-            batch.meta.pipeline_id = None;
+            // encountered. This can be achieved by resetting the batch meta.
+            batch.meta = None;
             continue;
         };
         let gpu_array_buffer_index = object_data_buffer.push(Mesh2dUniform::from(mesh_transforms));
         let batch_meta = BatchMeta {
-            pipeline_id: Some(item.cached_pipeline()),
-            draw_function_id: Some(item.draw_function()),
+            pipeline_id: item.cached_pipeline(),
+            draw_function_id: item.draw_function(),
             material2d_bind_group,
-            mesh_handle: Some(mesh_handle),
+            mesh_handle,
             dynamic_offset: gpu_array_buffer_index.dynamic_offset,
         };
-        if !batch_meta.matches(&batch.meta) {
+        if !batch
+            .meta
+            .as_ref()
+            .map_or(false, |meta| meta.matches(&batch_meta))
+        {
             if batch.count > 0 {
                 update_batch_data(&mut phase.items[batch.item_index], &batch);
             }
 
-            batch.meta = batch_meta;
+            batch.meta = Some(batch_meta);
             batch.gpu_array_buffer_index = gpu_array_buffer_index;
             batch.count = 0;
             batch.item_index = i;
