@@ -21,14 +21,13 @@ struct Args {
 
     /// whether to perform a full relayout each frame
     #[argh(switch)]
-    recompute_layout: bool,
+    relayout: bool,
 
     /// whether to recompute all text each frame
     #[argh(switch)]
     recompute_text: bool,
 
     /// how many buttons per row and column of the grid.
-    /// The total number of buttons displayed will be this number squared.
     #[argh(option, default = "110")]
     buttons: usize,
 
@@ -57,7 +56,7 @@ fn main() {
     .add_systems(Startup, setup)
     .add_systems(Update, button_system);
 
-    if args.recompute_layout {
+    if args.relayout {
         app.add_systems(Update, |mut style_query: Query<&mut Style>| {
             style_query.for_each_mut(|mut style| style.set_changed());
         });
