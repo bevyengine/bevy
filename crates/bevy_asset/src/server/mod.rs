@@ -124,7 +124,11 @@ impl AssetServer {
             match maybe_loader {
                 MaybeAssetLoader::Ready(_) => unreachable!(),
                 MaybeAssetLoader::Pending { sender, .. } => {
-                    let _ = sender.send_blocking(loader);
+                    IoTaskPool::get()
+                        .spawn(async move {
+                            let _ = sender.broadcast(loader).await;
+                        })
+                        .detach();
                 }
             }
         }
@@ -169,7 +173,7 @@ impl AssetServer {
 
         match loader {
             MaybeAssetLoader::Ready(loader) => Ok(loader),
-            MaybeAssetLoader::Pending { receiver, .. } => Ok(receiver.recv().await.unwrap()),
+            MaybeAssetLoader::Pending { mut receiver, .. } => Ok(receiver.recv().await.unwrap()),
         }
     }
 
@@ -190,7 +194,7 @@ impl AssetServer {
         };
         match loader {
             MaybeAssetLoader::Ready(loader) => Ok(loader),
-            MaybeAssetLoader::Pending { receiver, .. } => Ok(receiver.recv().await.unwrap()),
+            MaybeAssetLoader::Pending { mut receiver, .. } => Ok(receiver.recv().await.unwrap()),
         }
     }
 
@@ -601,7 +605,8 @@ impl AssetServer {
                 warn!("duplicate preregistration for `{extension}`, any assets loaded with the previous loader will never complete.");
             }
         }
-        let (sender, receiver) = async_channel::bounded(1);
+        let (mut sender, receiver) = async_broadcast::broadcast(1);
+        sender.set_overflow(true);
         loaders
             .values
             .push(MaybeAssetLoader::Pending { sender, receiver });
@@ -773,8 +778,8 @@ pub(crate) struct AssetLoaders {
 enum MaybeAssetLoader {
     Ready(Arc<dyn ErasedAssetLoader>),
     Pending {
-        sender: async_channel::Sender<Arc<dyn ErasedAssetLoader>>,
-        receiver: async_channel::Receiver<Arc<dyn ErasedAssetLoader>>,
+        sender: async_broadcast::Sender<Arc<dyn ErasedAssetLoader>>,
+        receiver: async_broadcast::Receiver<Arc<dyn ErasedAssetLoader>>,
     },
 }
 

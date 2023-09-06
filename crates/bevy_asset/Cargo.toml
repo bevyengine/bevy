@@ -25,7 +25,6 @@ bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 
 anyhow = "1.0"
 async-broadcast = "0.5"
-async-channel = "1.4.2"
 async-fs = "1.5"
 async-lock = "2.8"
 crossbeam-channel = "0.5"
