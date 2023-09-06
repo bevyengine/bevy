@@ -43,6 +43,8 @@ pub const DEFERRED_LIGHTING_SHADER_HANDLE: HandleUntyped =
 
 pub const DEFAULT_PBR_DEFERRED_LIGHTING_DEPTH_ID: u8 = 1;
 
+/// Component with a depth_id for specifying which corresponding materials should be rendered by this specific PBR deferred lighting pass.
+/// Will be automatically added to entities with the [`DeferredPrepass`] component that don't already have a [`PbrDeferredLightingDepthId`].
 #[derive(Component, Clone, Copy, ExtractComponent, ShaderType)]
 pub struct PbrDeferredLightingDepthId {
     depth_id: u32,
