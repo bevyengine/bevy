@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::entity::Entity;
 
-/// An error that occurs when retrieving a specific [`Entity`]'s query result from [`Query`](crate::system::Query) or [`QueryState`].
+/// An error that occurs when retrieving a specific [`Entity`]'s query result from [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState).
 // TODO: return the type_name as part of this error
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum QueryEntityError {
@@ -14,7 +14,7 @@ pub enum QueryEntityError {
     NoSuchEntity(Entity),
     /// The [`Entity`] was requested mutably more than once.
     ///
-    /// See [`QueryState::get_many_mut`] for an example.
+    /// See [`QueryState::get_many_mut`](crate::query::QueryState::get_many_mut) for an example.
     AliasedMutability(Entity),
 }
 
