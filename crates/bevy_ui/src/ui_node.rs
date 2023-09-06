@@ -81,6 +81,21 @@ impl Default for Node {
     }
 }
 
+/// The position of the Ui Node in the [`UiStack`](`crate::UiStack`).
+/// UI nodes with a higher `UiStackIndex` are drawn in front of those with a lower `UiStackIndex`.
+///
+/// This component  is automatically managed by `ui_stack_system`.
+#[derive(Component, Copy, Clone, Debug, Default, Reflect)]
+#[reflect(Component, Default)]
+pub struct UiStackIndex(pub(crate) u32);
+
+impl UiStackIndex {
+    // returns the stack index value
+    pub fn get(self) -> u32 {
+        self.0
+    }
+}
+
 /// Represents the possible value types for layout properties.
 ///
 /// This enum allows specifying values for various [`Style`] properties in different units,

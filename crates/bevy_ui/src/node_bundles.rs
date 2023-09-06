@@ -5,7 +5,7 @@ use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
     BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
-    UiTextureAtlasImage, ZIndex,
+    UiStackIndex, UiTextureAtlasImage, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -52,6 +52,11 @@ pub struct NodeBundle {
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
+    /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
+    ///
+    /// This component is automatically managed by `ui_stack_system`.
+    pub stack_index: UiStackIndex,
 }
 
 impl Default for NodeBundle {
@@ -69,6 +74,7 @@ impl Default for NodeBundle {
             inherited_visibility: Default::default(),
             view_visibility: Default::default(),
             z_index: Default::default(),
+            stack_index: Default::default(),
         }
     }
 }
@@ -112,6 +118,11 @@ pub struct ImageBundle {
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
+    /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
+    ///
+    /// This component is automatically managed by `ui_stack_system`.
+    pub stack_index: UiStackIndex,
 }
 
 /// A UI node that is a texture atlas sprite
@@ -155,6 +166,11 @@ pub struct AtlasImageBundle {
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
+    /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
+    ///
+    /// This component is automatically managed by `ui_stack_system`.
+    pub stack_index: UiStackIndex,
 }
 
 #[cfg(feature = "bevy_text")]
@@ -193,7 +209,12 @@ pub struct TextBundle {
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-    /// The background color that will fill the containing node
+    /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
+    /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
+    ///
+    /// This component is automatically managed by `ui_stack_system`.
+    pub stack_index: UiStackIndex,
+    /// The background color that will fill the containing node    
     pub background_color: BackgroundColor,
 }
 
@@ -214,6 +235,7 @@ impl Default for TextBundle {
             inherited_visibility: Default::default(),
             view_visibility: Default::default(),
             z_index: Default::default(),
+            stack_index: Default::default(),
             // Transparent background
             background_color: BackgroundColor(Color::NONE),
         }
@@ -307,6 +329,11 @@ pub struct ButtonBundle {
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// The node's position in the UiStack. Nodes with lower stack indices are drawn first.
+    /// Nodes with a higher stack index are drawn over nodes with a lower stack index.
+    ///
+    /// This component is automatically managed by `ui_stack_system`.
+    pub stack_index: UiStackIndex,
 }
 
 impl Default for ButtonBundle {
@@ -326,6 +353,7 @@ impl Default for ButtonBundle {
             inherited_visibility: Default::default(),
             view_visibility: Default::default(),
             z_index: Default::default(),
+            stack_index: Default::default(),
         }
     }
 }

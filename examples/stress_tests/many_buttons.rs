@@ -6,6 +6,9 @@
 //! //! To start the demo without borders run
 //! `cargo run --example many_buttons --release no-borders`
 //!
+//! To start the demo without images run
+//! `cargo run --example many_buttons --release no-images`
+//!
 //| To do a full layout update each frame run
 //! `cargo run --example many_buttons --release recompute-layout`
 //!
@@ -73,8 +76,13 @@ fn button_system(
     }
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     warn!(include_str!("warning_string.txt"));
+    let image = if !std::env::args().any(|arg| arg == "no-images") {
+        Some(assets.load("branding/icon.png"))
+    } else {
+        None
+    };
 
     let count = ROW_COLUMN_COUNT;
     let count_f = count as f32;
@@ -108,6 +116,7 @@ fn setup(mut commands: Commands) {
                         spawn_text,
                         border,
                         border_color,
+                        image.as_ref(),
                     );
                 }
             }
@@ -124,6 +133,7 @@ fn spawn_button(
     spawn_text: bool,
     border: UiRect,
     border_color: BorderColor,
+    image: Option<&Handle<Image>>,
 ) {
     let width = 90.0 / total;
     let mut builder = commands.spawn((
@@ -144,6 +154,12 @@ fn spawn_button(
         },
         IdleColor(background_color),
     ));
+
+    if let Some(image) = image {
+        if (i + j) % 4 == 0 {
+            builder.insert(UiImage::new(image.clone()));
+        }
+    }
 
     if spawn_text {
         builder.with_children(|commands| {
