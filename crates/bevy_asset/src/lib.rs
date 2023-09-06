@@ -1035,19 +1035,26 @@ mod tests {
         assert_eq!(events, expected_events);
 
         gate_opener.open(dep_path);
+        loop {
+            app.update();
+            let events = std::mem::take(&mut app.world.resource_mut::<StoredEvents>().0);
+            if events.is_empty() {
+                continue;
+            }
+            let expected_events = vec![
+                AssetEvent::LoadedWithDependencies {
+                    id: dep_handle.id(),
+                },
+                AssetEvent::LoadedWithDependencies { id: a_handle.id() },
+            ];
+            assert_eq!(events, expected_events);
+            break;
+        }
         app.update();
-        app.update();
-
         let events = std::mem::take(&mut app.world.resource_mut::<StoredEvents>().0);
-        let expected_events = vec![
-            AssetEvent::LoadedWithDependencies {
-                id: dep_handle.id(),
-            },
-            AssetEvent::LoadedWithDependencies { id: a_handle.id() },
-            AssetEvent::Added {
-                id: dep_handle.id(),
-            },
-        ];
+        let expected_events = vec![AssetEvent::Added {
+            id: dep_handle.id(),
+        }];
         assert_eq!(events, expected_events);
     }
 
