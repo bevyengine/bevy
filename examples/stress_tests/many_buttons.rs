@@ -82,11 +82,10 @@ fn button_system(
     >,
 ) {
     for (interaction, mut button_color, IdleColor(idle_color)) in interaction_query.iter_mut() {
-        if matches!(interaction, Interaction::Hovered) {
-            *button_color = Color::ORANGE_RED.into();
-        } else {
-            *button_color = *idle_color;
-        }
+        *button_color = match interaction {
+            Interaction::Hovered => Color::ORANGE_RED.into(),
+            _ => *idle_color,
+        };
     }
 }
 
@@ -98,9 +97,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
         None
     };
 
-    let count = args.buttons;
-    let count_f = count as f32;
-    let as_rainbow = |i: usize| Color::hsl((i as f32 / count_f) * 360.0, 0.9, 0.8);
+    let buttons_f = args.buttons as f32;
+    let border = if args.no_borders {
+        UiRect::ZERO
+    } else {
+        UiRect::all(Val::VMin(0.05 * 90. / buttons_f))
+    };
+
+    let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
     commands.spawn(Camera2dBundle::default());
     commands
         .spawn(NodeBundle {
@@ -114,31 +118,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
             ..default()
         })
         .with_children(|commands| {
-            let border = if args.no_borders {
-                UiRect::ZERO
-            } else {
-                let thickness = 0.05 * 90. / count_f;
-                UiRect::all(Val::VMin(thickness))
-            };
-            for i in 0..count {
+            for column in 0..args.buttons {
                 commands
                     .spawn(NodeBundle::default())
                     .with_children(|commands| {
-                        for j in 0..count {
-                            let color = as_rainbow(j % i.max(1)).into();
+                        for row in 0..args.buttons {
+                            let color = as_rainbow(row % column.max(1)).into();
                             let border_color = Color::WHITE.with_a(0.5).into();
                             spawn_button(
                                 commands,
                                 color,
-                                count_f,
-                                i,
-                                j,
+                                buttons_f,
+                                column,
+                                row,
                                 !args.no_text,
                                 border,
                                 border_color,
                                 image
                                     .as_ref()
-                                    .filter(|_| (i + j) % args.image_freq == 0)
+                                    .filter(|_| (column + row) % args.image_freq == 0)
                                     .cloned(),
                             );
                         }
@@ -151,16 +149,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
 fn spawn_button(
     commands: &mut ChildBuilder,
     background_color: BackgroundColor,
-    total: f32,
-    i: usize,
-    j: usize,
+    buttons: f32,
+    column: usize,
+    row: usize,
     spawn_text: bool,
     border: UiRect,
     border_color: BorderColor,
     image: Option<Handle<Image>>,
 ) {
-    let width = Val::Vw(90.0 / total);
-    let height = Val::Vh(90.0 / total);
+    let width = Val::Vw(90.0 / buttons);
+    let height = Val::Vh(90.0 / buttons);
     let margin = UiRect::axes(width * 0.05, height * 0.05);
     let mut builder = commands.spawn((
         ButtonBundle {
@@ -188,7 +186,7 @@ fn spawn_button(
         builder.with_children(|parent| {
             parent.spawn(
                 TextBundle::from_section(
-                    format!("{i}, {j}"),
+                    format!("{column}, {row}"),
                     TextStyle {
                         font_size: FONT_SIZE,
                         color: Color::rgb(0.2, 0.2, 0.2),
