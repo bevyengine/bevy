@@ -204,7 +204,7 @@ impl Color {
     ///
     /// # Arguments
     ///
-    /// * `hue` - Hue channel. [-180.0, 180.0]
+    /// * `hue` - Hue channel. [0.0, 360.0]
     /// * `saturation` - Saturation channel. [0.0, 1.0]
     /// * `lightness` - Lightness channel. [0.0, 1.0]
     /// * `alpha` - Alpha channel. [0.0, 1.0]
@@ -226,7 +226,7 @@ impl Color {
     ///
     /// # Arguments
     ///
-    /// * `hue` - Hue channel. [-180.0, 180.0]
+    /// * `hue` - Hue channel. [0.0, 360.0]
     /// * `saturation` - Saturation channel. [0.0, 1.0]
     /// * `lightness` - Lightness channel. [0.0, 1.0]
     ///
@@ -243,13 +243,56 @@ impl Color {
         self.in_space()
     }
 
+    /// New `Color` with HSV representation in sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `value` - Value channel. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
+    ///
+    /// See also [`Color::hsv`].
+    ///
+    #[must_use]
+    pub fn hsva(hue: f32, saturation: f32, value: f32, alpha: f32) -> Self {
+        palette::Hsva::new(hue, saturation, value, alpha).into_color()
+    }
+
+    /// Converts this `Color` into HSVA
+    #[must_use]
+    pub fn as_hsva(self) -> palette::Hsva {
+        self.in_space()
+    }
+
+    /// New `Color` with HSV representation in sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `lightness` - Value channel. [0.0, 1.0]
+    ///
+    /// See also [`Color::hsva`].
+    ///
+    #[must_use]
+    pub fn hsv(hue: f32, saturation: f32, value: f32) -> Color {
+        Self::hsva(hue, saturation, value, 1.)
+    }
+
+    /// Converts this `Color` into HSV
+    #[must_use]
+    pub fn as_hsv(self) -> palette::Hsv {
+        self.in_space()
+    }
+
     /// New `Color` with LCH representation in sRGB colorspace.
     ///
     /// # Arguments
     ///
-    /// * `lightness` - Lightness channel. [0.0, 1.5]
-    /// * `chroma` - Chroma channel. [0.0, 1.5]
-    /// * `hue` - Hue channel. [-180.0, 180.0]
+    /// * `lightness` - Lightness channel. [0.0, 150.0]
+    /// * `chroma` - Chroma channel. [0.0, 150.0]
+    /// * `hue` - Hue channel. [0.0, 360.0]
     /// * `alpha` - Alpha channel. [0.0, 1.0]
     ///
     /// See also [`Color::lch`].
@@ -268,9 +311,9 @@ impl Color {
     ///
     /// # Arguments
     ///
-    /// * `lightness` - Lightness channel. [0.0, 1.5]
-    /// * `chroma` - Chroma channel. [0.0, 1.5]
-    /// * `hue` - Hue channel. [-180.0, 180.0]
+    /// * `lightness` - Lightness channel. [0.0, 150.0]
+    /// * `chroma` - Chroma channel. [0.0, 150.0]
+    /// * `hue` - Hue channel. [0.0, 360.0]
     ///
     /// See also [`Color::lcha`].
     #[must_use]
@@ -281,6 +324,47 @@ impl Color {
     /// Converts this `Color` into LCH
     #[must_use]
     pub fn as_lch(self) -> palette::Lch {
+        self.in_space()
+    }
+
+    /// New `Color` with Oklcha representation in sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `chroma` - Chroma channel. [0.0, 1.5]
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
+    ///
+    /// See also [`Color::oklch`].
+    #[must_use]
+    pub fn oklcha(lightness: f32, chroma: f32, hue: f32, alpha: f32) -> Color {
+        palette::Oklcha::new(lightness, chroma, hue, alpha).into_color()
+    }
+
+    /// Converts this `Color` into LCHA
+    #[must_use]
+    pub fn as_oklcha(self) -> palette::Oklcha {
+        self.in_space()
+    }
+
+    /// New `Color` with Oklch representation in sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `chroma` - Chroma channel. [0.0, 1.5]
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    ///
+    /// See also [`Color::lcha`].
+    #[must_use]
+    pub fn oklch(lightness: f32, chroma: f32, hue: f32) -> Color {
+        Self::oklcha(lightness, chroma, hue, 1.)
+    }
+
+    /// Converts this `Color` into Oklch
+    #[must_use]
+    pub fn as_oklch(self) -> palette::Oklch {
         self.in_space()
     }
 
@@ -513,6 +597,30 @@ impl Color {
     /// If you intend on performing multiple operations in an alternate colorspace, you
     /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
     /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// # use bevy_render::color::{Color, palette::Srgba};
+    /// #
+    /// let start = Color::RED;
+    /// let end = Color::BLUE;
+    /// 
+    /// // Purple
+    /// let middle = start.mix_in::<Srgba>(end, 0.5);
+    /// #
+    /// # fn assert_approx(a: f32, b: f32) {
+    /// #     let diff = (a - b).abs();
+    /// #     assert!(
+    /// #         diff < 1e-3,
+    /// #         "Expected {a} ~ {b}; Difference of {diff} Found"
+    /// #     );
+    /// # }
+    /// # assert_approx(middle.r(), Color::PURPLE.r());
+    /// # assert_approx(middle.g(), Color::PURPLE.g());
+    /// # assert_approx(middle.b(), Color::PURPLE.b());
+    /// # assert_approx(middle.a(), Color::PURPLE.a());
+    /// ```
     #[must_use]
     pub fn mix_in<C>(self, rhs: Self, amount: <C as palette::Mix>::Scalar) -> Self
     where
@@ -524,27 +632,36 @@ impl Color {
             .into_color()
     }
 
-    /// Lighten this `Color` by a provided amount, within a specific colorspace.
-    #[must_use]
-    pub fn lighten_in<C>(self, amount: <C as palette::Lighten>::Scalar) -> Self
-    where
-        C: FromColorUnclamped<Self> + palette::Clamp + palette::Lighten,
-        Self: FromColorUnclamped<C>,
-    {
-        self.in_space::<C>().lighten(amount).into_color()
-    }
-
-    /// Darken this `Color` by a provided amount, within a specific colorspace.
-    #[must_use]
-    pub fn darken_in<C>(self, amount: <C as palette::Darken>::Scalar) -> Self
-    where
-        C: FromColorUnclamped<Self> + palette::Clamp + palette::Darken,
-        Self: FromColorUnclamped<C>,
-    {
-        self.in_space::<C>().darken(amount).into_color()
-    }
-
     /// Shift the hue of this `Color` by a provided amount, within a specific colorspace.
+    ///
+    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
+    /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// # use bevy_render::color::{Color, palette::Hsla};
+    /// #
+    /// // Dark Yellow
+    /// let primary = Color::hsl(45., 1.0, 0.5);
+    /// 
+    /// // Light Blue
+    /// let compliment = primary.shift_hue_in::<Hsla>(180.);
+    /// #
+    /// # fn assert_approx(a: f32, b: f32) {
+    /// #     let diff = (a - b).abs();
+    /// #     assert!(
+    /// #         diff < 1e-3,
+    /// #         "Expected {a} ~ {b}; Difference of {diff} Found"
+    /// #     );
+    /// # }
+    /// # let compliment_ref = Color::hsl(45. + 180., 1.0, 0.5);
+    /// # assert_approx(compliment.r(), compliment_ref.r());
+    /// # assert_approx(compliment.g(), compliment_ref.g());
+    /// # assert_approx(compliment.b(), compliment_ref.b());
+    /// # assert_approx(compliment.a(), compliment_ref.a());
+    /// ```
     #[must_use]
     pub fn shift_hue_in<C>(self, amount: <C as palette::ShiftHue>::Scalar) -> Self
     where
@@ -555,6 +672,35 @@ impl Color {
     }
 
     /// Saturate this `Color` by a provided amount, within a specific colorspace.
+    ///
+    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
+    /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// # use bevy_render::color::{Color, palette::Hsla};
+    /// #
+    /// // 50% Saturation
+    /// let primary = Color::hsl(45., 0.5, 0.5);
+    /// 
+    /// // 75% Saturation
+    /// let primary_saturated = primary.saturate_in::<Hsla>(0.5);
+    /// #
+    /// # fn assert_approx(a: f32, b: f32) {
+    /// #     let diff = (a - b).abs();
+    /// #     assert!(
+    /// #         diff < 1e-3,
+    /// #         "Expected {a} ~ {b}; Difference of {diff} Found"
+    /// #     );
+    /// # }
+    /// # let primary_saturated_ref = Color::hsl(45., 0.75, 0.5);
+    /// # assert_approx(primary_saturated.r(), primary_saturated_ref.r());
+    /// # assert_approx(primary_saturated.g(), primary_saturated_ref.g());
+    /// # assert_approx(primary_saturated.b(), primary_saturated_ref.b());
+    /// # assert_approx(primary_saturated.a(), primary_saturated_ref.a());
+    /// ```
     #[must_use]
     pub fn saturate_in<C>(self, amount: <C as palette::Saturate>::Scalar) -> Self
     where
@@ -565,6 +711,35 @@ impl Color {
     }
 
     /// Desaturate this `Color` by a provided amount, within a specific colorspace.
+    ///
+    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
+    /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// # use bevy_render::color::{Color, palette::Hsla};
+    /// #
+    /// // 50% Saturation
+    /// let primary = Color::hsl(45., 0.5, 0.5);
+    /// 
+    /// // 25% Saturation
+    /// let primary_desaturated = primary.desaturate_in::<Hsla>(0.5);
+    /// #
+    /// # fn assert_approx(a: f32, b: f32) {
+    /// #     let diff = (a - b).abs();
+    /// #     assert!(
+    /// #         diff < 1e-3,
+    /// #         "Expected {a} ~ {b}; Difference of {diff} Found"
+    /// #     );
+    /// # }
+    /// # let primary_desaturated_ref = Color::hsl(45., 0.25, 0.5);
+    /// # assert_approx(primary_desaturated.r(), primary_desaturated_ref.r());
+    /// # assert_approx(primary_desaturated.g(), primary_desaturated_ref.g());
+    /// # assert_approx(primary_desaturated.b(), primary_desaturated_ref.b());
+    /// # assert_approx(primary_desaturated.a(), primary_desaturated_ref.a());
+    /// ```
     #[must_use]
     pub fn desaturate_in<C>(self, amount: <C as palette::Desaturate>::Scalar) -> Self
     where
@@ -572,6 +747,84 @@ impl Color {
         Self: FromColorUnclamped<C>,
     {
         self.in_space::<C>().desaturate(amount).into_color()
+    }
+
+    /// Lighten this `Color` by a provided amount, within a specific colorspace.
+    ///
+    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
+    /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// # use bevy_render::color::{Color, palette::Hsla};
+    /// #
+    /// // 50% Lightness
+    /// let primary = Color::hsl(45., 0.5, 0.5);
+    /// 
+    /// // 75% Saturation
+    /// let primary_light = primary.lighten_in::<Hsla>(0.5);
+    /// #
+    /// # fn assert_approx(a: f32, b: f32) {
+    /// #     let diff = (a - b).abs();
+    /// #     assert!(
+    /// #         diff < 1e-3,
+    /// #         "Expected {a} ~ {b}; Difference of {diff} Found"
+    /// #     );
+    /// # }
+    /// # let primary_light_ref = Color::hsl(45., 0.5, 0.75);
+    /// # assert_approx(primary_light.r(), primary_light_ref.r());
+    /// # assert_approx(primary_light.g(), primary_light_ref.g());
+    /// # assert_approx(primary_light.b(), primary_light_ref.b());
+    /// # assert_approx(primary_light.a(), primary_light_ref.a());
+    /// ```
+    #[must_use]
+    pub fn lighten_in<C>(self, amount: <C as palette::Lighten>::Scalar) -> Self
+    where
+        C: FromColorUnclamped<Self> + palette::Clamp + palette::Lighten,
+        Self: FromColorUnclamped<C>,
+    {
+        self.in_space::<C>().lighten(amount).into_color()
+    }
+
+    /// Darken this `Color` by a provided amount, within a specific colorspace.
+    ///
+    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
+    /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// # use bevy_render::color::{Color, palette::Hsla};
+    /// #
+    /// // 50% Lightness
+    /// let primary = Color::hsl(45., 0.5, 0.5);
+    /// 
+    /// // 25% Lightness
+    /// let primary_dark = primary.darken_in::<Hsla>(0.5);
+    /// #
+    /// # fn assert_approx(a: f32, b: f32) {
+    /// #     let diff = (a - b).abs();
+    /// #     assert!(
+    /// #         diff < 1e-3,
+    /// #         "Expected {a} ~ {b}; Difference of {diff} Found"
+    /// #     );
+    /// # }
+    /// # let primary_dark_ref = Color::hsl(45., 0.5, 0.25);
+    /// # assert_approx(primary_dark.r(), primary_dark_ref.r());
+    /// # assert_approx(primary_dark.g(), primary_dark_ref.g());
+    /// # assert_approx(primary_dark.b(), primary_dark_ref.b());
+    /// # assert_approx(primary_dark.a(), primary_dark_ref.a());
+    /// ```
+    #[must_use]
+    pub fn darken_in<C>(self, amount: <C as palette::Darken>::Scalar) -> Self
+    where
+        C: FromColorUnclamped<Self> + palette::Clamp + palette::Darken,
+        Self: FromColorUnclamped<C>,
+    {
+        self.in_space::<C>().darken(amount).into_color()
     }
 }
 
@@ -1091,5 +1344,40 @@ mod tests {
         assert_approx(color_complement.g, color_complement_ref.g);
         assert_approx(color_complement.b, color_complement_ref.b);
         assert_approx(color_complement.a, color_complement_ref.a);
+    }
+
+    #[test]
+    fn key_colors() {
+        fn assert_approx(a: f32, b: f32) {
+            let diff = (a - b).abs();
+            let relative_diff = diff / a.abs();
+            let percentage = relative_diff * 100.;
+            assert!(
+                (relative_diff.is_finite() && relative_diff < 1e-3) || diff < 1e-2,
+                "Expected {a} ~ {b}; Difference of {diff} ({percentage:.1}%) Found"
+            );
+        }
+
+        fn assert_color_approx(a: Color, b: Color) {
+            assert_approx(a.r, b.r);
+            assert_approx(a.g, b.g);
+            assert_approx(a.b, b.b);
+            assert_approx(a.a, b.a);
+        }
+
+        assert_color_approx(Color::RED, Color::hsl(0., 1.0, 0.5));
+        assert_color_approx(Color::RED, Color::hsv(0., 1.0, 1.0));
+        assert_color_approx(Color::RED, Color::lch(53.23711, 104.55000, 39.99987));
+        assert_color_approx(Color::RED, Color::oklch(0.62796, 0.25768, 29.23388));
+
+        assert_color_approx(Color::GREEN, Color::hsl(120., 1.0, 0.5));
+        assert_color_approx(Color::GREEN, Color::hsv(120., 1.0, 1.0));
+        assert_color_approx(Color::GREEN, Color::lch(87.73552, 119.78014, 136.01306));
+        assert_color_approx(Color::GREEN, Color::oklch(0.86644, 0.29483, 142.49535));
+
+        assert_color_approx(Color::BLUE, Color::hsl(240., 1.0, 0.5));
+        assert_color_approx(Color::BLUE, Color::hsv(240., 1.0, 1.0));
+        assert_color_approx(Color::BLUE, Color::lch(32.30087, 133.80843, 306.28882));
+        assert_color_approx(Color::BLUE, Color::oklch(0.45201, 0.31321, 264.05203));
     }
 }
