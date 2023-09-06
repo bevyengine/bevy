@@ -208,7 +208,7 @@ impl ErasedLoadedAsset {
         (*self.value).type_id()
     }
 
-    /// Retrieves the type_name of the stored [`Asset`] type.
+    /// Retrieves the `type_name` of the stored [`Asset`] type.
     pub fn asset_type_name(&self) -> &'static str {
         self.value.asset_type_name()
     }
