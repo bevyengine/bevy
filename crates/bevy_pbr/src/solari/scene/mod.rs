@@ -1,6 +1,7 @@
 use self::{
     bind_group::queue_scene_bind_group,
     blas::{prepare_blas, BlasStorage},
+    scene_types::extract_solari_materials,
 };
 pub use self::{bind_group::SolariSceneBindGroup, bind_group_layout::SolariSceneBindGroupLayout};
 use super::SolariEnabled;
@@ -8,7 +9,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::{prelude::resource_exists, schedule::IntoSystemConfigs};
 use bevy_reflect::TypeUuid;
-use bevy_render::{render_resource::Shader, Render, RenderApp, RenderSet};
+use bevy_render::{render_resource::Shader, ExtractSchedule, Render, RenderApp, RenderSet};
 
 mod bind_group;
 mod bind_group_layout;
@@ -34,6 +35,10 @@ impl Plugin for SolariScenePlugin {
             .init_resource::<BlasStorage>()
             .init_resource::<SolariSceneBindGroupLayout>()
             .init_resource::<SolariSceneBindGroup>()
+            .add_systems(
+                ExtractSchedule,
+                extract_solari_materials.run_if(resource_exists::<SolariEnabled>()),
+            )
             .add_systems(
                 Render,
                 (

@@ -2,10 +2,10 @@ use super::{
     bind_group_layout::SolariSceneBindGroupLayout,
     blas::BlasStorage,
     helpers::{new_storage_buffer, pack_object_indices, tlas_transform, IndexedVec},
-    scene_types::{GpuSolariMaterial, SolariUniforms},
+    scene_types::{GpuSolariMaterial, SolariMaterial, SolariUniforms},
 };
 use crate::{DirectionalLight, StandardMaterial};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::Handle;
 use bevy_core::FrameCount;
 use bevy_ecs::system::{Query, Res, ResMut, Resource};
 use bevy_render::{
@@ -24,12 +24,16 @@ use std::iter;
 pub struct SolariSceneBindGroup(pub Option<BindGroup>);
 
 pub fn queue_scene_bind_group(
-    objects: Query<(&Handle<Mesh>, &Handle<StandardMaterial>, &GlobalTransform)>,
+    objects: Query<(
+        &Handle<Mesh>,
+        &Handle<StandardMaterial>,
+        &SolariMaterial,
+        &GlobalTransform,
+    )>,
     sun: Query<(&DirectionalLight, &GlobalTransform)>,
     mut scene_bind_group: ResMut<SolariSceneBindGroup>,
     scene_bind_group_layout: Res<SolariSceneBindGroupLayout>,
     mesh_assets: Res<RenderAssets<Mesh>>,
-    material_assets: Res<Assets<StandardMaterial>>,
     image_assets: Res<RenderAssets<Image>>,
     blas_storage: Res<BlasStorage>,
     fallback_image: Res<FallbackImage>,
@@ -75,14 +79,14 @@ pub fn queue_scene_bind_group(
     };
 
     let mut get_material_index = |material_handle: &Handle<StandardMaterial>,
-                                  material: &StandardMaterial| {
+                                  material: &SolariMaterial| {
         let emissive = material.emissive.as_linear_rgba_f32();
         materials.get_index(material_handle.clone_weak(), |_| GpuSolariMaterial {
             base_color: material.base_color.as_linear_rgba_f32().into(),
-            base_color_map_index: get_texture_map_index(&material.base_color_texture),
-            normal_map_index: get_texture_map_index(&material.normal_map_texture),
+            base_color_texture_index: get_texture_map_index(&material.base_color_texture),
+            normal_map_texture_index: get_texture_map_index(&material.normal_map_texture),
             emissive: [emissive[0], emissive[1], emissive[2]].into(),
-            emissive_map_index: get_texture_map_index(&material.emissive_texture),
+            emissive_texture_index: get_texture_map_index(&material.emissive_texture),
         })
     };
 
@@ -102,11 +106,8 @@ pub fn queue_scene_bind_group(
     // Fill TLAS and scene buffers
     // TODO: Parallelize loop
     let mut object_i = 0;
-    for (mesh_handle, material_handle, transform) in objects {
-        if let (Some(material), Some(blas)) = (
-            material_assets.get(material_handle),
-            blas_storage.get(mesh_handle),
-        ) {
+    for (mesh_handle, material_handle, material, transform) in objects {
+        if let Some(blas) = blas_storage.get(mesh_handle) {
             let mesh_index = get_mesh_index(mesh_handle);
             let material_index = get_material_index(material_handle, material);
             mesh_material_indices.push(pack_object_indices(mesh_index, material_index));

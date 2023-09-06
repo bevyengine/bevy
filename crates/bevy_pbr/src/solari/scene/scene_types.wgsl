@@ -44,10 +44,10 @@ const TEXTURE_MAP_NONE = 0xffffffffu;
 
 struct SolariMaterial {
     base_color: vec4<f32>,
-    base_color_map_index: u32,
-    normal_map_index: u32,
+    base_color_texture_index: u32,
+    normal_map_texture_index: u32,
     emissive: vec3<f32>,
-    emissive_map_index: u32,
+    emissive_texture_index: u32,
 }
 
 struct SolariSampledMaterial {
@@ -63,13 +63,13 @@ fn sample_material(material: SolariMaterial, uv: vec2<f32>) -> SolariSampledMate
     var m: SolariSampledMaterial;
 
     m.base_color = material.base_color.rgb;
-    if material.base_color_map_index != TEXTURE_MAP_NONE {
-        m.base_color *= sample_texture_map(material.base_color_map_index, uv).rgb;
+    if material.base_color_texture_index != TEXTURE_MAP_NONE {
+        m.base_color *= sample_texture_map(material.base_color_texture_index, uv).rgb;
     }
 
     m.emissive = material.emissive;
-    if material.emissive_map_index != TEXTURE_MAP_NONE {
-        m.emissive *= sample_texture_map(material.emissive_map_index, uv).rgb;
+    if material.emissive_texture_index != TEXTURE_MAP_NONE {
+        m.emissive *= sample_texture_map(material.emissive_texture_index, uv).rgb;
     }
 
     return m;
@@ -106,13 +106,13 @@ fn map_ray_hit(ray_hit: RayIntersection) -> SolariRayHit {
     let local_normal = mat3x3(vertices[0].local_normal, vertices[1].local_normal, vertices[2].local_normal) * barycentrics;
     var world_normal = normalize(mat3x3(transform[0].xyz, transform[1].xyz, transform[2].xyz) * local_normal);
     let geometric_world_normal = world_normal;
-    if material.normal_map_index != TEXTURE_MAP_NONE {
+    if material.normal_map_texture_index != TEXTURE_MAP_NONE {
         let local_tangent = mat3x3(vertices[0].local_tangent.xyz, vertices[1].local_tangent.xyz, vertices[2].local_tangent.xyz) * barycentrics;
         let world_tangent = normalize(mat3x3(transform[0].xyz, transform[1].xyz, transform[2].xyz) * local_tangent);
         let N = world_normal;
         let T = world_tangent;
         let B = vertices[0].local_tangent.w * cross(N, T);
-        let Nt = sample_texture_map(material.normal_map_index, uv).rgb;
+        let Nt = sample_texture_map(material.normal_map_texture_index, uv).rgb;
         world_normal = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
     }
 
