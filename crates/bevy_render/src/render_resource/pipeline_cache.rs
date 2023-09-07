@@ -183,6 +183,7 @@ impl ShaderCache {
                 Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
                 Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
             ),
+            (Features::RAY_QUERY, Capabilities::RAY_QUERY),
         ];
         let features = render_device.features();
         let mut capabilities = Capabilities::empty();

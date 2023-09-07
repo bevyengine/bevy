@@ -91,10 +91,17 @@ impl SpecializedComputePipeline for SolariGlobalIlluminationPipelines {
                     SOLARI_WORLD_CACHE_COMPACT_SHADER,
                 )
             }
-            SolariGlobalIlluminationPass::CompactWorldWriteActiveCells => (
-                "compact_world_cache_write_active_cells",
-                SOLARI_WORLD_CACHE_COMPACT_SHADER,
-            ),
+            SolariGlobalIlluminationPass::CompactWorldWriteActiveCells => {
+                view_layout = &self.view_with_world_cache_dispatch_bind_group_layout;
+                shader_defs.extend_from_slice(&[
+                    "INCLUDE_WORLD_CACHE_ACTIVE_CELLS_DISPATCH".into(),
+                    "WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into(),
+                ]);
+                (
+                    "compact_world_cache_write_active_cells",
+                    SOLARI_WORLD_CACHE_COMPACT_SHADER,
+                )
+            }
             SolariGlobalIlluminationPass::SampleForWorldCache => {
                 ("sample_irradiance", SOLARI_WORLD_CACHE_UPDATE_SHADER)
             }

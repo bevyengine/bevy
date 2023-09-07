@@ -3,13 +3,13 @@
 #import bevy_render::view View
 
 struct SphericalHarmonicsPacked {
-    b0: vec4<f32>,
-    b1: vec4<f32>,
-    b2: vec4<f32>,
-    b3: vec4<f32>,
-    b4: vec4<f32>,
-    b5: vec4<f32>,
-    b6: vec3<f32>,
+    a: vec4<f32>,
+    b: vec4<f32>,
+    c: vec4<f32>,
+    d: vec4<f32>,
+    e: vec4<f32>,
+    f: vec4<f32>,
+    g: vec3<f32>,
 }
 
 struct WorldCacheCellData {
@@ -49,8 +49,8 @@ var<storage, read_write> world_cache_life: array<atomic<u32>, WORLD_CACHE_SIZE>;
 @group(1) @binding(13) var<storage, read_write> world_cache_irradiance: array<vec4<f32>, WORLD_CACHE_SIZE>;
 @group(1) @binding(14) var<storage, read_write> world_cache_cell_data: array<WorldCacheCellData, WORLD_CACHE_SIZE>;
 @group(1) @binding(15) var<storage, read_write> world_cache_active_cells_new_irradiance: array<vec3<f32>, WORLD_CACHE_SIZE>;
-@group(1) @binding(16) var<storage, read_write> world_cache_b1: array<u32, WORLD_CACHE_SIZE>;
-@group(1) @binding(17) var<storage, read_write> world_cache_b2: array<u32, 1024u>;
+@group(1) @binding(16) var<storage, read_write> world_cache_a: array<u32, WORLD_CACHE_SIZE>;
+@group(1) @binding(17) var<storage, read_write> world_cache_b: array<u32, 1024u>;
 @group(1) @binding(18) var<storage, read_write> world_cache_active_cell_indices: array<u32, WORLD_CACHE_SIZE>;
 @group(1) @binding(19) var<storage, read_write> world_cache_active_cells_count: u32;
 #ifdef INCLUDE_WORLD_CACHE_ACTIVE_CELLS_DISPATCH

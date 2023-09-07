@@ -41,8 +41,8 @@ pub struct SolariGlobalIlluminationViewResources {
     world_cache_irradiance: CachedBuffer,
     world_cache_cell_data: CachedBuffer,
     world_cache_active_cells_new_irradiance: CachedBuffer,
-    world_cache_b1: CachedBuffer,
-    world_cache_b2: CachedBuffer,
+    world_cache_a: CachedBuffer,
+    world_cache_b: CachedBuffer,
     world_cache_active_cell_indices: CachedBuffer,
     world_cache_active_cells_count: CachedBuffer,
     pub world_cache_active_cells_dispatch: CachedBuffer,
@@ -155,11 +155,11 @@ pub fn prepare_resources(
             "solari_global_illumination_world_cache_active_cells_new_irradiance",
             16 * WORLD_CACHE_SIZE,
         );
-        let world_cache_b1 = buffer(
-            "solari_global_illumination_world_cache_b1",
+        let world_cache_a = buffer(
+            "solari_global_illumination_world_cache_a",
             4 * WORLD_CACHE_SIZE,
         );
-        let world_cache_b2 = buffer("solari_global_illumination_world_cache_b2", 4 * 1024);
+        let world_cache_b = buffer("solari_global_illumination_world_cache_b", 4 * 1024);
         let world_cache_active_cell_indices = buffer(
             "solari_global_illumination_world_cache_active_cell_indices",
             4 * WORLD_CACHE_SIZE,
@@ -196,8 +196,8 @@ pub fn prepare_resources(
                 world_cache_cell_data: buffer_cache.get(&render_device, world_cache_cell_data),
                 world_cache_active_cells_new_irradiance: buffer_cache
                     .get(&render_device, world_cache_active_cells_new_irradiance),
-                world_cache_b1: buffer_cache.get(&render_device, world_cache_b1),
-                world_cache_b2: buffer_cache.get(&render_device, world_cache_b2),
+                world_cache_a: buffer_cache.get(&render_device, world_cache_a),
+                world_cache_b: buffer_cache.get(&render_device, world_cache_b),
                 world_cache_active_cell_indices: buffer_cache
                     .get(&render_device, world_cache_active_cell_indices),
                 world_cache_active_cells_count: buffer_cache
@@ -413,8 +413,8 @@ pub fn prepare_bind_groups(
             entry(b(&solari_resources.world_cache_irradiance)),
             entry(b(&solari_resources.world_cache_cell_data)),
             entry(b(&solari_resources.world_cache_active_cells_new_irradiance)),
-            entry(b(&solari_resources.world_cache_b1)),
-            entry(b(&solari_resources.world_cache_b2)),
+            entry(b(&solari_resources.world_cache_a)),
+            entry(b(&solari_resources.world_cache_b)),
             entry(b(&solari_resources.world_cache_active_cell_indices)),
             entry(b(&solari_resources.world_cache_active_cells_count)),
             entry(b(&solari_resources.world_cache_active_cells_dispatch)),

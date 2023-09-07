@@ -1,4 +1,4 @@
-#import bevy_solari::global_illumination::view_bindings
+#import bevy_solari::global_illumination::view_bindings world_cache_life, world_cache_checksums, world_cache_irradiance, world_cache_a, world_cache_b, world_cache_active_cell_indices, world_cache_active_cells_count,  world_cache_active_cells_dispatch, WORLD_CACHE_EMPTY_CELL
 #import bevy_solari::world_cache::query
 
 var<workgroup> w1: array<u32, 1024u>;
@@ -6,7 +6,7 @@ var<workgroup> w2: array<u32, 1024u>;
 var<workgroup> w_b2: u32;
 
 @compute @workgroup_size(1024, 1, 1)
-fn decay_world_cache_cells(@builtin(global_invocation_id) global_id: vec3<u32>) {
+fn decay_world_cache(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var life = world_cache_life[global_id.x];
     if life > 0u {
         life -= 1u;
@@ -34,12 +34,12 @@ fn compact_world_cache_single_block(
     if t < 64u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 64u]; } workgroupBarrier();
     if t < 128u { w1[t] = w2[t]; } else { w1[t] = w2[t] + w2[t - 128u]; } workgroupBarrier();
     if t < 256u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 256u]; } workgroupBarrier();
-    if t < 512u { world_cache_b1[cell_id.x] = w2[t]; } else { world_cache_b1[cell_id.x] = w2[t] + w2[t - 512u]; }
+    if t < 512u { world_cache_a[cell_id.x] = w2[t]; } else { world_cache_a[cell_id.x] = w2[t] + w2[t - 512u]; }
 }
 
 @compute @workgroup_size(1024, 1, 1)
 fn compact_world_cache_blocks(@builtin(local_invocation_index) t: u32) {
-    if t == 0u { w1[0u] = 0u; } else { w1[t] = world_cache_b1[t * 1024u - 1u]; }; workgroupBarrier();
+    if t == 0u { w1[0u] = 0u; } else { w1[t] = world_cache_a[t * 1024u - 1u]; }; workgroupBarrier();
     if t < 1u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 1u]; } workgroupBarrier();
     if t < 2u { w1[t] = w2[t]; } else { w1[t] = w2[t] + w2[t - 2u]; } workgroupBarrier();
     if t < 4u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 4u]; } workgroupBarrier();
@@ -49,7 +49,7 @@ fn compact_world_cache_blocks(@builtin(local_invocation_index) t: u32) {
     if t < 64u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 64u]; } workgroupBarrier();
     if t < 128u { w1[t] = w2[t]; } else { w1[t] = w2[t] + w2[t - 128u]; } workgroupBarrier();
     if t < 256u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 256u]; } workgroupBarrier();
-    if t < 512u { world_cache_b2[t] = w2[t]; } else { world_cache_b2[t] = w2[t] + w2[t - 512u]; }
+    if t < 512u { world_cache_b[t] = w2[t]; } else { world_cache_b[t] = w2[t] + w2[t - 512u]; }
 }
 
 @compute @workgroup_size(1024, 1, 1)
@@ -59,11 +59,11 @@ fn compact_world_cache_write_active_cells(
     @builtin(local_invocation_index) thread_index: u32,
 ) {
     if thread_index == 1023u {
-        w_b2 = world_cache_b2[workgroup_id.x];
+        w_b2 = world_cache_b[workgroup_id.x];
     }
     workgroupBarrier();
 
-    let compacted_index = world_cache_b1[cell_id.x] + w_b2;
+    let compacted_index = world_cache_a[cell_id.x] + w_b2;
     if world_cache_life[cell_id.x] != 0u {
         world_cache_active_cell_indices[compacted_index] = cell_id.x;
     }
