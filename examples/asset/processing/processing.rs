@@ -2,7 +2,7 @@
 
 use bevy::{
     asset::{
-        io::{Reader, Writer},
+        io::{AssetProviders, Reader, Writer},
         processor::LoadAndSave,
         saver::{AssetSaver, SavedAsset},
         AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
@@ -11,7 +11,6 @@ use bevy::{
     reflect::TypePath,
     utils::BoxedFuture,
 };
-use bevy_internal::asset::io::AssetProviders;
 use serde::{Deserialize, Serialize};
 
 fn main() {
