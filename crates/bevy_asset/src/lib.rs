@@ -37,7 +37,7 @@ pub use anyhow;
 
 use crate::{
     io::{processor_gated::ProcessorGatedReader, AssetProvider, AssetProviders},
-    processor::AssetProcessor,
+    processor::{AssetProcessor, Process},
 };
 use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate, Startup};
 use bevy_ecs::{
@@ -250,6 +250,10 @@ impl VisitAssetDependencies for Vec<UntypedHandle> {
 pub trait AssetApp {
     /// Registers the given `loader` in the [`App`]'s [`AssetServer`].
     fn register_asset_loader<L: AssetLoader>(&mut self, loader: L) -> &mut Self;
+    /// Registers the given `processor` in the [`App`]'s [`AssetProcessor`].
+    fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self;
+    /// Sets the default asset processor for the given `extension`.
+    fn set_default_asset_processor<P: Process>(&mut self, extension: &str) -> &mut Self;
     /// Initializes the given loader in the [`App`]'s [`AssetServer`].
     fn init_asset_loader<L: AssetLoader + FromWorld>(&mut self) -> &mut Self;
     /// Initializes the given [`Asset`] in the [`App`] by:
@@ -324,6 +328,20 @@ impl AssetApp for App {
         self.world
             .resource_mut::<AssetServer>()
             .preregister_loader::<L>(extensions);
+        self
+    }
+
+    fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self {
+        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
+            asset_processor.register_processor(processor);
+        }
+        self
+    }
+
+    fn set_default_asset_processor<P: Process>(&mut self, extension: &str) -> &mut Self {
+        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
+            asset_processor.set_default_processor::<P>(extension);
+        }
         self
     }
 }

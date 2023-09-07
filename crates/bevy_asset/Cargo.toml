@@ -49,8 +49,3 @@ js-sys = "0.3"
 
 [dev-dependencies]
 bevy_core = { path = "../bevy_core", version = "0.12.0-dev" }
-
-[[example]]
-name = "loader"
-path = "examples/loader.rs"
-required-features = ["multi-threaded"]

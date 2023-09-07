@@ -1039,6 +1039,18 @@ description = "Demonstrates automatic reloading of assets when modified on disk"
 category = "Assets"
 wasm = true
 
+[[example]]
+name = "asset_processing"
+path = "examples/asset/processing/main.rs"
+doc-scrape-examples = true
+required-features = ["filesystem_watcher"]
+
+[package.metadata.example.asset_processing]
+name = "Asset Processing"
+description = "Demonstrates how to process and load custom assets"
+category = "Assets"
+wasm = false
+
 # Async Tasks
 [[example]]
 name = "async_compute"

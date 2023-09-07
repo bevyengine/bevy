@@ -1,30 +1,29 @@
-use bevy_app::{App, Plugin, ScheduleRunnerPlugin, Startup, Update};
-use bevy_asset::{
-    io::{Reader, Writer},
-    processor::{AssetProcessor, LoadAndSave},
-    saver::{AssetSaver, SavedAsset},
-    Asset, AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadContext,
+use bevy::{
+    asset::{
+        io::{Reader, Writer},
+        processor::LoadAndSave,
+        saver::{AssetSaver, SavedAsset},
+        AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
+    },
+    prelude::*,
+    reflect::TypePath,
+    utils::BoxedFuture,
 };
-use bevy_core::TaskPoolPlugin;
-use bevy_ecs::prelude::*;
-use bevy_log::{Level, LogPlugin};
-use bevy_reflect::TypePath;
-use bevy_utils::Duration;
-use futures_lite::{AsyncReadExt, AsyncWriteExt};
+use bevy_internal::asset::io::AssetProviders;
 use serde::{Deserialize, Serialize};
 
 fn main() {
     App::new()
-        .add_plugins((
-            TaskPoolPlugin::default(),
-            LogPlugin {
-                level: Level::TRACE,
-                ..Default::default()
-            },
-            ScheduleRunnerPlugin::run_loop(Duration::from_secs_f32(2.0)),
-            AssetPlugin::processed_dev(),
-            TextPlugin,
-        ))
+        .insert_resource(
+            // This is just overriding the default paths to scope this to the correct example folder
+            // You can generally skip this in your own projects
+            AssetProviders::default()
+                .with_default_file_source("examples/asset/processing/assets".to_string())
+                .with_default_file_destination(
+                    "examples/asset/processing/imported_assets".to_string(),
+                ),
+        )
+        .add_plugins((DefaultPlugins.set(AssetPlugin::processed_dev()), TextPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, print_text)
         .run();
@@ -37,15 +36,11 @@ impl Plugin for TextPlugin {
         app.init_asset::<Text>()
             .init_asset::<CoolText>()
             .register_asset_loader(TextLoader)
-            .register_asset_loader(CoolTextLoader);
-
-        if let Some(processor) = app.world.get_resource::<AssetProcessor>() {
-            processor.register_processor::<LoadAndSave<CoolTextLoader, CoolTextSaver>>(
+            .register_asset_loader(CoolTextLoader)
+            .register_asset_processor::<LoadAndSave<CoolTextLoader, CoolTextSaver>>(
                 CoolTextSaver.into(),
-            );
-            processor
-                .set_default_processor::<LoadAndSave<CoolTextLoader, CoolTextSaver>>("cool.ron");
-        }
+            )
+            .set_default_asset_processor::<LoadAndSave<CoolTextLoader, CoolTextSaver>>("cool.ron");
     }
 }
 
@@ -68,7 +63,7 @@ impl AssetLoader for TextLoader {
         reader: &'a mut Reader,
         settings: &'a TextSettings,
         _load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Text, anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<Text, anyhow::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
@@ -113,7 +108,7 @@ impl AssetLoader for CoolTextLoader {
         reader: &'a mut Reader,
         _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<CoolText, anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<CoolText, anyhow::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
@@ -157,7 +152,7 @@ impl AssetSaver for CoolTextSaver {
         writer: &'a mut Writer,
         asset: SavedAsset<'a, Self::Asset>,
         settings: &'a Self::Settings,
-    ) -> bevy_utils::BoxedFuture<'a, Result<TextSettings, anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<TextSettings, anyhow::Error>> {
         Box::pin(async move {
             let text = format!("{}{}", asset.text.clone(), settings.appended);
             writer.write_all(text.as_bytes()).await?;
