@@ -189,7 +189,7 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// ```
 ///
 /// If you do need systems to hold onto state between runs, use the [`SystemRegistry`](crate::system::SystemRegistry)
-/// andrun the system by their [`SystemId`](crate::system::SystemId).
+/// and run the system by their [`SystemId`](crate::system::SystemId).
 ///
 /// # Usage
 /// Typically, to test a system, or to extract specific diagnostics information from a world,
