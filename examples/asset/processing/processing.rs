@@ -1,4 +1,4 @@
-//! This example illustrates how to define custom AssetLoaders and AssetSavers, how to configure them, and how to register asset processors.
+//! This example illustrates how to define custom `AssetLoader`s and `AssetSaver`s, how to configure them, and how to register asset processors.
 
 use bevy::{
     asset::{
@@ -40,11 +40,11 @@ fn main() {
         .run();
 }
 
-/// The TextPlugin will define two assets types:
-/// * CoolText: a custom RON text format that supports dependencies and embedded dependencies
-/// * Text: a "normal" plain text file
+/// This [`TextPlugin`] defines two assets types:
+/// * [`CoolText`]: a custom RON text format that supports dependencies and embedded dependencies
+/// * [`Text`]: a "normal" plain text file
 ///
-/// It also defines an asset processor that will load CoolText, resolve embedded dependencies, and write the resulting
+/// It also defines an asset processor that will load [`CoolText`], resolve embedded dependencies, and write the resulting
 /// output to a "normal" plain text file. When the processed asset is loaded, it is loaded as a Text (plaintext) asset.
 /// This illustrates that when you process an asset, you can change its type! However you don't _need_ to change the type.
 pub struct TextPlugin;
@@ -56,7 +56,7 @@ impl Plugin for TextPlugin {
             .register_asset_loader(CoolTextLoader)
             .register_asset_loader(TextLoader)
             .register_asset_processor::<LoadAndSave<CoolTextLoader, CoolTextSaver>>(
-                CoolTextSaver.into(),
+                LoadAndSave::from(CoolTextSaver),
             )
             .set_default_asset_processor::<LoadAndSave<CoolTextLoader, CoolTextSaver>>("cool.ron");
     }
