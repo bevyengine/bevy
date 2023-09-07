@@ -1041,7 +1041,7 @@ wasm = true
 
 [[example]]
 name = "asset_processing"
-path = "examples/asset/processing/main.rs"
+path = "examples/asset/processing/processing.rs"
 doc-scrape-examples = true
 required-features = ["filesystem_watcher"]
 
