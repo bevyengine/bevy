@@ -90,10 +90,7 @@ impl ProcessorTransactionLog {
         }
 
         if let Some(parent_folder) = path.parent() {
-            DirBuilder::new()
-                .recursive(true)
-                .create(parent_folder)
-                .await?;
+            async_fs::create_dir_all(parent_folder).await?;
         }
 
         Ok(Self {
