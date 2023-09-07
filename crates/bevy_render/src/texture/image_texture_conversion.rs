@@ -1,5 +1,5 @@
 use crate::texture::{Image, TextureFormatPixelInfo};
-use anyhow::anyhow;
+use bevy_asset::anyhow;
 use image::{DynamicImage, ImageBuffer};
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
@@ -163,7 +163,7 @@ impl Image {
     /// - `TextureFormat::Bgra8UnormSrgb`
     ///
     /// To convert [`Image`] to a different format see: [`Image::convert`].
-    pub fn try_into_dynamic(self) -> anyhow::Result<DynamicImage> {
+    pub fn try_into_dynamic(self) -> Result<DynamicImage, anyhow::Error> {
         match self.texture_descriptor.format {
             TextureFormat::R8Unorm => ImageBuffer::from_raw(
                 self.texture_descriptor.size.width,
@@ -199,14 +199,14 @@ impl Image {
             .map(DynamicImage::ImageRgba8),
             // Throw and error if conversion isn't supported
             texture_format => {
-                return Err(anyhow!(
+                return Err(anyhow::anyhow!(
                     "Conversion into dynamic image not supported for {:?}.",
                     texture_format
                 ))
             }
         }
         .ok_or_else(|| {
-            anyhow!(
+            anyhow::anyhow!(
                 "Failed to convert into {:?}.",
                 self.texture_descriptor.format
             )

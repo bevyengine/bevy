@@ -1,4 +1,4 @@
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{AssetId, Assets};
 use bevy_log::{debug, error, warn};
 use bevy_math::{Rect, Vec2};
 use bevy_render::{
@@ -29,7 +29,7 @@ pub enum TextureAtlasBuilderError {
 pub struct TextureAtlasBuilder {
     /// The grouped rects which must be placed with a key value pair of a
     /// texture handle to an index.
-    rects_to_place: GroupedRectsToPlace<Handle<Image>>,
+    rects_to_place: GroupedRectsToPlace<AssetId<Image>>,
     /// The initial atlas size in pixels.
     initial_size: Vec2,
     /// The absolute maximum size of the texture atlas in pixels.
@@ -80,9 +80,9 @@ impl TextureAtlasBuilder {
     }
 
     /// Adds a texture to be copied to the texture atlas.
-    pub fn add_texture(&mut self, texture_handle: Handle<Image>, texture: &Image) {
+    pub fn add_texture(&mut self, image_id: AssetId<Image>, texture: &Image) {
         self.rects_to_place.push_rect(
-            texture_handle,
+            image_id,
             None,
             RectToInsert::new(
                 texture.texture_descriptor.size.width,
@@ -207,16 +207,16 @@ impl TextureAtlasBuilder {
         let rect_placements = rect_placements.ok_or(TextureAtlasBuilderError::NotEnoughSpace)?;
 
         let mut texture_rects = Vec::with_capacity(rect_placements.packed_locations().len());
-        let mut texture_handles = HashMap::default();
-        for (texture_handle, (_, packed_location)) in rect_placements.packed_locations().iter() {
-            let texture = textures.get(texture_handle).unwrap();
+        let mut texture_ids = HashMap::default();
+        for (image_id, (_, packed_location)) in rect_placements.packed_locations().iter() {
+            let texture = textures.get(*image_id).unwrap();
             let min = Vec2::new(packed_location.x() as f32, packed_location.y() as f32);
             let max = min
                 + Vec2::new(
                     packed_location.width() as f32,
                     packed_location.height() as f32,
                 );
-            texture_handles.insert(texture_handle.clone_weak(), texture_rects.len());
+            texture_ids.insert(*image_id, texture_rects.len());
             texture_rects.push(Rect { min, max });
             if texture.texture_descriptor.format != self.format && !self.auto_format_conversion {
                 warn!(
@@ -234,7 +234,7 @@ impl TextureAtlasBuilder {
             ),
             texture: textures.add(atlas_texture),
             textures: texture_rects,
-            texture_handles: Some(texture_handles),
+            texture_handles: Some(texture_ids),
         })
     }
 }

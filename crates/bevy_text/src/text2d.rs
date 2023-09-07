@@ -1,3 +1,7 @@
+use crate::{
+    BreakLineOn, Font, FontAtlasSets, FontAtlasWarning, PositionedGlyph, Text, TextError,
+    TextLayoutInfo, TextPipeline, TextSettings, YAxisOrientation,
+};
 use bevy_asset::Assets;
 use bevy_ecs::{
     bundle::Bundle,
@@ -21,11 +25,6 @@ use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
-
-use crate::{
-    BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, PositionedGlyph, Text, TextError,
-    TextLayoutInfo, TextPipeline, TextSettings, YAxisOrientation,
-};
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
 /// Characters out of the bounds after wrapping will be truncated. Text is aligned according to the
@@ -160,7 +159,7 @@ pub fn update_text2d_layout(
     windows: Query<&Window, With<PrimaryWindow>>,
     mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-    mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
+    mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(Entity, Ref<Text>, Ref<Text2dBounds>, &mut TextLayoutInfo)>,
 ) {
@@ -191,7 +190,7 @@ pub fn update_text2d_layout(
                 text.alignment,
                 text.linebreak_behavior,
                 text_bounds,
-                &mut font_atlas_set_storage,
+                &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
                 text_settings.as_ref(),

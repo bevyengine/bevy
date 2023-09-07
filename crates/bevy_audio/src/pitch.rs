@@ -1,10 +1,10 @@
 use crate::{AudioSourceBundle, Decodable, SpatialAudioSourceBundle};
-use bevy_reflect::{TypePath, TypeUuid};
+use bevy_asset::Asset;
+use bevy_reflect::TypePath;
 use rodio::{source::SineWave, source::TakeDuration, Source};
 
 /// A source of sine wave sound
-#[derive(Debug, Clone, TypeUuid, TypePath)]
-#[uuid = "cbc63be3-b0b9-4d2c-a03c-88b58f1a19ef"]
+#[derive(Asset, Debug, Clone, TypePath)]
 pub struct Pitch {
     /// Frequency at which sound will be played
     pub frequency: f32,

@@ -1,5 +1,5 @@
 use bevy_app::{Plugin, PreUpdate};
-use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_3d::CORE_3D_DEPTH_FORMAT,
     deferred::{
@@ -20,7 +20,6 @@ use bevy_ecs::{
     },
 };
 use bevy_math::{Affine3A, Mat4};
-use bevy_reflect::TypeUuid;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::MeshVertexBufferLayout,
@@ -57,17 +56,14 @@ use crate::{
 
 use std::{hash::Hash, marker::PhantomData};
 
-pub const PREPASS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 921124473254008983);
+pub const PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(921124473254008983);
 
-pub const PREPASS_BINDINGS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5533152893177403494);
+pub const PREPASS_BINDINGS_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(5533152893177403494);
 
-pub const PREPASS_UTILS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4603948296044544);
+pub const PREPASS_UTILS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4603948296044544);
 
-pub const PREPASS_IO_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 81212356509530944);
+pub const PREPASS_IO_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(81212356509530944);
 
 /// Sets up everything required to use the prepass pipeline.
 ///
@@ -532,12 +528,12 @@ where
             let frag_shader_handle = if key.mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
                 match self.deferred_material_fragment_shader.clone() {
                     Some(frag_shader_handle) => frag_shader_handle,
-                    _ => PREPASS_SHADER_HANDLE.typed::<Shader>(),
+                    _ => PREPASS_SHADER_HANDLE,
                 }
             } else {
                 match self.prepass_material_fragment_shader.clone() {
                     Some(frag_shader_handle) => frag_shader_handle,
-                    _ => PREPASS_SHADER_HANDLE.typed::<Shader>(),
+                    _ => PREPASS_SHADER_HANDLE,
                 }
             };
 
@@ -554,12 +550,12 @@ where
             if let Some(handle) = &self.deferred_material_vertex_shader {
                 handle.clone()
             } else {
-                PREPASS_SHADER_HANDLE.typed::<Shader>()
+                PREPASS_SHADER_HANDLE
             }
         } else if let Some(handle) = &self.prepass_material_vertex_shader {
             handle.clone()
         } else {
-            PREPASS_SHADER_HANDLE.typed::<Shader>()
+            PREPASS_SHADER_HANDLE
         };
 
         let mut push_constant_ranges = Vec::with_capacity(1);
@@ -943,7 +939,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             };
 
             let (Some(material), Some(mesh)) = (
-                render_materials.get(material_handle),
+                render_materials.get(&material_handle.id()),
                 render_meshes.get(mesh_handle),
             ) else {
                 continue;

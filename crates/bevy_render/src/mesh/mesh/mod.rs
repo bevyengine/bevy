@@ -1,6 +1,5 @@
 mod conversions;
 pub mod skinning;
-use bevy_log::warn;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -10,12 +9,13 @@ use crate::{
     render_resource::{Buffer, TextureView, VertexBufferLayout},
     renderer::RenderDevice,
 };
-use bevy_asset::Handle;
+use bevy_asset::{Asset, Handle};
 use bevy_core::cast_slice;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_log::warn;
 use bevy_math::*;
-use bevy_reflect::{TypePath, TypeUuid};
+use bevy_reflect::TypePath;
 use bevy_utils::{tracing::error, Hashed};
 use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
@@ -110,8 +110,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
 ///
 // TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
-#[derive(Debug, TypeUuid, TypePath, Clone)]
-#[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
+#[derive(Asset, Debug, TypePath, Clone)]
 pub struct Mesh {
     primitive_topology: PrimitiveTopology,
     /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)

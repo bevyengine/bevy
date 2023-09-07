@@ -24,11 +24,6 @@ pub mod settings;
 mod spatial_bundle;
 pub mod texture;
 pub mod view;
-
-use bevy_hierarchy::ValidParentCheckPlugin;
-use bevy_reflect::TypeUuid;
-pub use extract_param::Extract;
-
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -43,6 +38,9 @@ pub mod prelude {
     };
 }
 
+pub use extract_param::Extract;
+
+use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
@@ -58,7 +56,7 @@ use crate::{
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin, SubApp};
-use bevy_asset::{load_internal_asset, AddAsset, AssetServer, HandleUntyped};
+use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
 use std::{
@@ -232,18 +230,15 @@ struct FutureRendererResources(
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
 
-pub const INSTANCE_INDEX_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 10313207077636615845);
-pub const MATHS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 10665356303104593376);
+pub const INSTANCE_INDEX_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(10313207077636615845);
+pub const MATHS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10665356303104593376);
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`](RenderSet) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        app.add_asset::<Shader>()
-            .add_debug_asset::<Shader>()
-            .init_asset_loader::<ShaderLoader>()
-            .init_debug_asset_loader::<ShaderLoader>();
+        app.init_asset::<Shader>()
+            .init_asset_loader::<ShaderLoader>();
 
         if let Some(backends) = self.wgpu_settings.backends {
             let future_renderer_resources_wrapper = Arc::new(Mutex::new(None));
