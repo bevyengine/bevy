@@ -1,8 +1,7 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
 use bevy_math::{Vec3, Vec4};
-use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     render_resource::{DynamicUniformBuffer, Shader, ShaderType},
@@ -121,8 +120,7 @@ pub struct ViewFogUniformOffset {
 }
 
 /// Handle for the fog WGSL Shader internal asset
-pub const FOG_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4913569193382610166);
+pub const FOG_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4913569193382610166);
 
 /// A plugin that consolidates fog extraction, preparation and related resources/assets
 pub struct FogPlugin;

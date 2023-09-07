@@ -1,5 +1,5 @@
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 
 use bevy_ecs::{
     prelude::*,
@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Mat4, Vec2};
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -42,20 +42,13 @@ impl From<Handle<Mesh>> for Mesh2dHandle {
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;
 
-pub const MESH2D_VERTEX_OUTPUT: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7646632476603252194);
-pub const MESH2D_VIEW_TYPES_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 12677582416765805110);
-pub const MESH2D_VIEW_BINDINGS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6901431444735842434);
-pub const MESH2D_TYPES_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8994673400261890424);
-pub const MESH2D_BINDINGS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8983617858458862856);
-pub const MESH2D_FUNCTIONS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4976379308250389413);
-pub const MESH2D_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2971387252468633715);
+pub const MESH2D_VERTEX_OUTPUT: Handle<Shader> = Handle::weak_from_u128(7646632476603252194);
+pub const MESH2D_VIEW_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(12677582416765805110);
+pub const MESH2D_VIEW_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(6901431444735842434);
+pub const MESH2D_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(8994673400261890424);
+pub const MESH2D_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(8983617858458862856);
+pub const MESH2D_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(4976379308250389413);
+pub const MESH2D_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2971387252468633715);
 
 impl Plugin for Mesh2dRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
@@ -438,13 +431,13 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: MESH2D_SHADER_HANDLE.typed::<Shader>(),
+                shader: MESH2D_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_buffer_layout],
             },
             fragment: Some(FragmentState {
-                shader: MESH2D_SHADER_HANDLE.typed::<Shader>(),
+                shader: MESH2D_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

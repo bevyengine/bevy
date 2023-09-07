@@ -1,11 +1,11 @@
 use crate::{DrawMesh, MeshPipelineKey, SetMeshBindGroup, SetMeshViewBindGroup};
 use crate::{MeshPipeline, MeshTransforms};
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::Render;
 use bevy_render::{
@@ -22,8 +22,7 @@ use bevy_render::{
 };
 use bevy_utils::tracing::error;
 
-pub const WIREFRAME_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 192598014480025766);
+pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
 
 #[derive(Debug, Default)]
 pub struct WireframePlugin;
@@ -81,7 +80,7 @@ impl FromWorld for WireframePipeline {
     fn from_world(render_world: &mut World) -> Self {
         WireframePipeline {
             mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            shader: WIREFRAME_SHADER_HANDLE.typed(),
+            shader: WIREFRAME_SHADER_HANDLE,
         }
     }
 }
