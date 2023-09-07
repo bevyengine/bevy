@@ -604,7 +604,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
             .archetype_component_access
             .has_write(archetype_component)
         {
-            // SEMI-SAFETY: It is the responsibility of the caller to ensure it is sound to get a
+            // SAFETY: It is the responsibility of the caller to ensure it is sound to get a
             // mutable reference to this entity's component `T`.
             let result = unsafe { entity_ref.get_mut_using_ticks::<T>(last_run, this_run) };
 
