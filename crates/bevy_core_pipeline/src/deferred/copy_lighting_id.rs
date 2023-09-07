@@ -3,10 +3,9 @@ use crate::{
     prepass::{DeferredPrepass, ViewPrepassTextures},
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
 use bevy_math::UVec2;
-use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
     render_resource::*,
@@ -28,8 +27,8 @@ use bevy_render::{
 
 use super::DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT;
 
-const COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5230948520734987);
+pub const COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(5230948520734987);
 pub struct CopyDeferredLightingIdPlugin;
 
 impl Plugin for CopyDeferredLightingIdPlugin {
@@ -160,7 +159,7 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
                     layout: vec![layout.clone()],
                     vertex: fullscreen_shader_vertex_state(),
                     fragment: Some(FragmentState {
-                        shader: COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE.typed(),
+                        shader: COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE,
                         shader_defs: vec![],
                         entry_point: "fragment".into(),
                         targets: vec![],

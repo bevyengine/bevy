@@ -1,6 +1,6 @@
 use crate::{MeshPipeline, MeshViewBindGroup, ScreenSpaceAmbientOcclusionSettings};
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
     clear_color::ClearColorConfig,
     core_3d,
@@ -25,7 +25,6 @@ use bevy_render::{
     Render, RenderSet,
 };
 
-use bevy_reflect::TypeUuid;
 use bevy_render::{
     render_graph::RenderGraphApp, render_resource::*, texture::BevyDefault, view::ExtractedView,
     RenderApp,
@@ -38,8 +37,8 @@ use crate::{
 
 pub struct PbrDeferredLightingPlugin;
 
-pub const DEFERRED_LIGHTING_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2708011359337029741);
+pub const DEFERRED_LIGHTING_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(2708011359337029741);
 
 pub const DEFAULT_PBR_DEFERRED_LIGHTING_DEPTH_ID: u8 = 1;
 
@@ -310,13 +309,13 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                 self.bind_group_layout_1.clone(),
             ],
             vertex: VertexState {
-                shader: DEFERRED_LIGHTING_SHADER_HANDLE.typed(),
+                shader: DEFERRED_LIGHTING_SHADER_HANDLE,
                 shader_defs: shader_defs.clone(),
                 entry_point: "vertex".into(),
                 buffers: Vec::new(),
             },
             fragment: Some(FragmentState {
-                shader: DEFERRED_LIGHTING_SHADER_HANDLE.typed(),
+                shader: DEFERRED_LIGHTING_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
