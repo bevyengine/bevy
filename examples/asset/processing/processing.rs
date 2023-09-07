@@ -206,5 +206,6 @@ fn print_text(handles: Res<TextAssets>, texts: Res<Assets<Text>>) {
     println!("  b: {:?}", texts.get(&handles.b));
     println!("  c: {:?}", texts.get(&handles.c));
     println!("  d: {:?}", texts.get(&handles.d));
+    println!("(You can modify source assets and their .meta files to hot-reload changes!)");
     println!();
 }
