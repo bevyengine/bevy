@@ -5,7 +5,7 @@
         settings: (
             loader_settings: (),
             saver_settings: (
-                appended: "",
+                appended: "X",
             ),
         ),
     ),
