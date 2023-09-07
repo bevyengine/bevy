@@ -458,7 +458,7 @@ impl Color {
         self.as_rgb_linear().into()
     }
 
-    /// New `Color` from sRGB colorspace.
+    /// New `Color` from sRGB(A) colorspace.
     ///
     /// # Examples
     ///
@@ -499,79 +499,218 @@ impl Color {
         }
     }
 
-    /// Returns red in sRGB colorspace
+    /// Returns red in `sRGBA`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::Color;
+    /// #
+    /// assert_eq!(Color::RED.r(), 1.0);
+    /// ```
     #[must_use]
     pub const fn r(&self) -> f32 {
         self.r
     }
 
-    /// Returns green in sRGB colorspace
+    /// Returns green in `sRGBA`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::Color;
+    /// #
+    /// assert_eq!(Color::GREEN.g(), 1.0);
+    /// ```
     #[must_use]
     pub const fn g(&self) -> f32 {
         self.g
     }
 
-    /// Returns blue in sRGB colorspace
+    /// Returns blue in `sRGBA`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::Color;
+    /// #
+    /// assert_eq!(Color::BLUE.b(), 1.0);
+    /// ```
     #[must_use]
     pub const fn b(&self) -> f32 {
         self.b
     }
 
-    /// Returns alpha
+    /// Returns alpha in `sRGBA`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::Color;
+    /// #
+    /// assert_eq!(Color::RED.a(), 1.0);
+    /// ```
     #[must_use]
     pub const fn a(&self) -> f32 {
         self.a
     }
 
-    /// Replaces the red channel with the provided value
+    /// Replaces the red channel with the provided value in `sRGBA`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::Color;
+    /// #
+    /// let blue = Color::BLUE;
+    /// # assert_eq!(blue.r(), 0.0);
+    /// # assert_eq!(blue.b(), 1.0);
+    /// let purple = blue.with_r(1.0);
+    /// # assert_eq!(purple.r(), 1.0);
+    /// # assert_eq!(purple.b(), 1.0);
+    /// ```
     #[must_use]
     pub const fn with_r(self, r: f32) -> Self {
         Self { r, ..self }
     }
 
-    /// Replaces the green channel with the provided value
+    /// Replaces the green channel with the provided value in `sRGBA`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::Color;
+    /// #
+    /// let blue = Color::BLUE;
+    /// # assert_eq!(blue.b(), 1.0);
+    /// # assert_eq!(blue.g(), 0.0);
+    /// let cyan = blue.with_g(1.0);
+    /// # assert_eq!(cyan.b(), 1.0);
+    /// # assert_eq!(cyan.g(), 1.0);
+    /// ```
     #[must_use]
     pub const fn with_g(self, g: f32) -> Self {
         Self { g, ..self }
     }
 
-    /// Replaces the blue channel with the provided value
+    /// Replaces the blue channel with the provided value in `sRGBA`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::Color;
+    /// #
+    /// let red = Color::RED;
+    /// # assert_eq!(red.r(), 1.0);
+    /// # assert_eq!(red.b(), 0.0);
+    /// let purple = red.with_b(1.0);
+    /// # assert_eq!(purple.r(), 1.0);
+    /// # assert_eq!(purple.b(), 1.0);
+    /// ```
     #[must_use]
     pub const fn with_b(self, b: f32) -> Self {
         Self { b, ..self }
     }
 
-    /// Replaces the alpha channel with the provided value
+    /// Replaces the alpha channel with the provided value in `sRGBA`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::Color;
+    /// #
+    /// let red = Color::RED;
+    /// # assert_eq!(red.r(), 1.0);
+    /// let transparent_red = red.with_r(0.5);
+    /// # assert_eq!(transparent_red.r(), 0.5);
+    /// ```
     #[must_use]
     pub const fn with_a(self, a: f32) -> Self {
         Self { a, ..self }
     }
 
-    /// Sets the red channel to the provided value
+    /// Sets the red channel to the provided value in `sRGBA`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::Color;
+    /// #
+    /// let mut red = Color::RED;
+    /// # assert_eq!(red.r(), 1.0);
+    /// red.set_r(0.5);
+    /// # assert_eq!(red.r(), 0.5);
+    /// ```
     pub fn set_r(&mut self, r: f32) -> &mut Self {
         *self = self.with_r(r);
         self
     }
 
-    /// Sets the green channel to the provided value
+    /// Sets the green channel to the provided value in `sRGBA`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::Color;
+    /// #
+    /// let mut green = Color::GREEN;
+    /// # assert_eq!(green.g(), 1.0);
+    /// green.set_g(0.5);
+    /// # assert_eq!(green.g(), 0.5);
+    /// ```
     pub fn set_g(&mut self, g: f32) -> &mut Self {
         *self = self.with_g(g);
         self
     }
 
-    /// Sets the blue channel to the provided value
+    /// Sets the blue channel to the provided value in `sRGBA`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::Color;
+    /// #
+    /// let mut blue = Color::BLUE;
+    /// # assert_eq!(blue.b(), 1.0);
+    /// blue.set_b(0.5);
+    /// # assert_eq!(blue.b(), 0.5);
+    /// ```
     pub fn set_b(&mut self, b: f32) -> &mut Self {
         *self = self.with_b(b);
         self
     }
 
-    /// Sets the alpha channel to the provided value
+    /// Sets the alpha channel to the provided value in `sRGBA`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::Color;
+    /// #
+    /// let mut red = Color::RED;
+    /// # assert_eq!(red.a(), 1.0);
+    /// red.set_a(0.5);
+    /// # assert_eq!(red.a(), 0.5);
+    /// ```
     pub fn set_a(&mut self, a: f32) -> &mut Self {
         *self = self.with_a(a);
         self
     }
 
     /// Convert this `Color` into a specific colorspace.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::{Color, palette::Oklab};
+    /// #
+    /// let color = Color::RED.in_space::<Oklab>();
+    /// // ...
+    /// let color = Color::from_space(color);
+    /// ```
+    ///
+    /// See also [`from_space`](`Color::from_space`)
+    ///
     #[must_use]
     pub fn in_space<C>(self) -> C
     where
@@ -581,6 +720,19 @@ impl Color {
     }
 
     /// Convert a provided arbitrary color into a `Color`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::{Color, palette::Oklab};
+    /// #
+    /// let color = Color::RED.in_space::<Oklab>();
+    /// // ...
+    /// let color = Color::from_space(color);
+    /// ```
+    ///
+    /// See also [`in_space`](`Color::in_space`)
+    ///
     #[must_use]
     pub fn from_space<C>(color: C) -> Self
     where
@@ -618,6 +770,9 @@ impl Color {
     /// # assert_approx(middle.b(), Color::PURPLE.b());
     /// # assert_approx(middle.a(), Color::PURPLE.a());
     /// ```
+    ///
+    /// See also [`in_space`](`Color::in_space`), [`from_space`](`Color::from_space`)
+    ///
     #[must_use]
     pub fn mix_in<C>(self, rhs: Self, amount: <C as palette::Mix>::Scalar) -> Self
     where
@@ -627,6 +782,72 @@ impl Color {
         self.in_space::<C>()
             .mix(rhs.in_space(), amount)
             .into_color()
+    }
+
+    /// Calculates the hue of this `Color` in the specified colorspace.
+    ///
+    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
+    /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::{Color, palette::Hsla};
+    /// #
+    /// let red = Color::RED;
+    /// let hue = red.hue_in::<Hsla>().into_positive_degrees();
+    /// assert_eq!(hue, 0.);
+    /// ```
+    ///
+    /// See also [`in_space`](`Color::in_space`), [`from_space`](`Color::from_space`), [`shift_hue_in`](`Color::shift_hue_in`), [`with_hue_in`](`Color::with_hue_in`)
+    ///
+    #[must_use]
+    pub fn hue_in<C>(self) -> <C as palette::GetHue>::Hue
+    where
+        C: FromColorUnclamped<Self> + palette::Clamp + palette::GetHue,
+        Self: FromColorUnclamped<C>,
+    {
+        self.in_space::<C>().get_hue()
+    }
+
+    /// Sets the hue of this `Color` to a provided value within the specified colorspace.
+    ///
+    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
+    /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::{Color, palette::Hsla};
+    /// #
+    /// let red = Color::RED;
+    /// let green = red.with_hue_in::<Hsla>(120.);
+    /// let blue = red.with_hue_in::<Hsla>(240.);
+    /// # fn assert_approx(a: f32, b: f32) {
+    /// #     let diff = (a - b).abs();
+    /// #     assert!(
+    /// #         diff < 1e-3,
+    /// #         "Expected {a} ~ {b}; Difference of {diff} Found"
+    /// #     );
+    /// # }
+    /// # let green_ref = Color::GREEN;
+    /// # assert_approx(green.r(), green_ref.r());
+    /// # assert_approx(green.g(), green_ref.g());
+    /// # assert_approx(green.b(), green_ref.b());
+    /// # assert_approx(green.a(), green_ref.a());
+    /// ```
+    ///
+    /// See also [`in_space`](`Color::in_space`), [`from_space`](`Color::from_space`), [`shift_hue_in`](`Color::shift_hue_in`), [`hue_in`](`Color::hue_in`)
+    ///
+    #[must_use]
+    pub fn with_hue_in<C>(self, hue: f32) -> Self
+    where
+        C: FromColorUnclamped<Self> + palette::Clamp + palette::WithHue<f32>,
+        Self: FromColorUnclamped<C>,
+    {
+        self.in_space::<C>().with_hue(hue).into_color()
     }
 
     /// Shift the hue of this `Color` by a provided amount, within a specific colorspace.
@@ -659,6 +880,9 @@ impl Color {
     /// # assert_approx(compliment.b(), compliment_ref.b());
     /// # assert_approx(compliment.a(), compliment_ref.a());
     /// ```
+    ///
+    /// See also [`in_space`](`Color::in_space`), [`from_space`](`Color::from_space`), [`with_hue_in`](`Color::with_hue_in`), [`hue_in`](`Color::hue_in`)
+    ///
     #[must_use]
     pub fn shift_hue_in<C>(self, amount: <C as palette::ShiftHue>::Scalar) -> Self
     where
@@ -698,6 +922,9 @@ impl Color {
     /// # assert_approx(primary_saturated.b(), primary_saturated_ref.b());
     /// # assert_approx(primary_saturated.a(), primary_saturated_ref.a());
     /// ```
+    ///
+    /// See also [`in_space`](`Color::in_space`), [`from_space`](`Color::from_space`), [`desaturate_in`](`Color::desaturate_in`)
+    ///
     #[must_use]
     pub fn saturate_in<C>(self, amount: <C as palette::Saturate>::Scalar) -> Self
     where
@@ -737,6 +964,9 @@ impl Color {
     /// # assert_approx(primary_desaturated.b(), primary_desaturated_ref.b());
     /// # assert_approx(primary_desaturated.a(), primary_desaturated_ref.a());
     /// ```
+    ///
+    /// See also [`in_space`](`Color::in_space`), [`from_space`](`Color::from_space`), [`saturate_in`](`Color::saturate_in`)
+    ///
     #[must_use]
     pub fn desaturate_in<C>(self, amount: <C as palette::Desaturate>::Scalar) -> Self
     where
@@ -776,6 +1006,9 @@ impl Color {
     /// # assert_approx(primary_light.b(), primary_light_ref.b());
     /// # assert_approx(primary_light.a(), primary_light_ref.a());
     /// ```
+    ///
+    /// See also [`in_space`](`Color::in_space`), [`from_space`](`Color::from_space`), [`darken_in`](`Color::darken_in`)
+    ///
     #[must_use]
     pub fn lighten_in<C>(self, amount: <C as palette::Lighten>::Scalar) -> Self
     where
@@ -815,6 +1048,9 @@ impl Color {
     /// # assert_approx(primary_dark.b(), primary_dark_ref.b());
     /// # assert_approx(primary_dark.a(), primary_dark_ref.a());
     /// ```
+    ///
+    /// See also [`in_space`](`Color::in_space`), [`from_space`](`Color::from_space`), [`lighten_in`](`Color::lighten_in`)
+    ///
     #[must_use]
     pub fn darken_in<C>(self, amount: <C as palette::Darken>::Scalar) -> Self
     where
