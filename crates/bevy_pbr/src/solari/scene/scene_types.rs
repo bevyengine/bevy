@@ -67,7 +67,12 @@ pub fn extract(
     mut previous_len: Local<usize>,
     query: Extract<Query<(Entity, &Handle<StandardMaterial>)>>,
     materials: Extract<Res<Assets<StandardMaterial>>>,
+    solari_enabled: Extract<Option<Res<SolariEnabled>>>,
 ) {
+    if solari_enabled.is_none() {
+        return;
+    }
+
     let mut entities = Vec::with_capacity(*previous_len);
 
     for (entity, material_handle) in &query {

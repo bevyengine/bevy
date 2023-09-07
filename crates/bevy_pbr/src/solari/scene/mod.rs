@@ -43,10 +43,7 @@ impl Plugin for SolariScenePlugin {
             .init_resource::<BlasStorage>()
             .init_resource::<SolariSceneBindGroupLayout>()
             .init_resource::<SolariSceneBindGroup>()
-            .add_systems(
-                ExtractSchedule,
-                extract.run_if(resource_exists::<SolariEnabled>()),
-            )
+            .add_systems(ExtractSchedule, extract)
             .add_systems(
                 Render,
                 (
