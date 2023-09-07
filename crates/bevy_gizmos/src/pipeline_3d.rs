@@ -103,13 +103,13 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: LINE_SHADER_HANDLE.typed(),
+                shader: LINE_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: line_gizmo_vertex_buffer_layouts(key.strip),
             },
             fragment: Some(FragmentState {
-                shader: LINE_SHADER_HANDLE.typed(),
+                shader: LINE_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

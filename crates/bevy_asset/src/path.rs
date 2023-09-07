@@ -1,18 +1,59 @@
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_utils::{AHasher, RandomState};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
-    hash::{BuildHasher, Hash, Hasher},
+    fmt::{Debug, Display},
+    hash::Hash,
     path::{Path, PathBuf},
 };
 
-/// Represents a path to an asset in the file system.
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize, Reflect)]
+/// Represents a path to an asset in a "virtual filesystem".
+///
+/// Asset paths consist of two main parts:
+/// * [`AssetPath::path`]: The "virtual filesystem path" pointing to an asset source file.
+/// * [`AssetPath::label`]: An optional "named sub asset". When assets are loaded, they are
+/// allowed to load "sub assets" of any type, which are identified by a named "label".
+///
+/// Asset paths are generally constructed (and visualized) as strings:
+///
+/// ```no_run
+/// # use bevy_asset::{Asset, AssetServer, Handle};
+/// # use bevy_reflect::TypePath;
+/// #
+/// # #[derive(Asset, TypePath, Default)]
+/// # struct Mesh;
+/// #
+/// # #[derive(Asset, TypePath, Default)]
+/// # struct Scene;
+/// #
+/// # let asset_server: AssetServer = panic!();
+/// // This loads the `my_scene.scn` base asset.
+/// let scene: Handle<Scene> = asset_server.load("my_scene.scn");
+///
+/// // This loads the `PlayerMesh` labeled asset from the `my_scene.scn` base asset.
+/// let mesh: Handle<Mesh> = asset_server.load("my_scene.scn#PlayerMesh");
+/// ```
+#[derive(Eq, PartialEq, Hash, Clone, Serialize, Deserialize, Reflect)]
 #[reflect(Debug, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
-    path: Cow<'a, Path>,
-    label: Option<Cow<'a, str>>,
+    pub path: Cow<'a, Path>,
+    pub label: Option<Cow<'a, str>>,
+}
+
+impl<'a> Debug for AssetPath<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
+impl<'a> Display for AssetPath<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.path.display())?;
+        if let Some(label) = &self.label {
+            write!(f, "#{label}")?;
+        }
+        Ok(())
+    }
 }
 
 impl<'a> AssetPath<'a> {
@@ -34,22 +75,38 @@ impl<'a> AssetPath<'a> {
         }
     }
 
-    /// Constructs an identifier from this asset path.
-    #[inline]
-    pub fn get_id(&self) -> AssetPathId {
-        AssetPathId::from(self)
-    }
-
-    /// Gets the sub-asset label.
+    /// Gets the "sub-asset label".
     #[inline]
     pub fn label(&self) -> Option<&str> {
         self.label.as_ref().map(|label| label.as_ref())
     }
 
-    /// Gets the path to the asset in the filesystem.
+    /// Gets the path to the asset in the "virtual filesystem".
     #[inline]
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// Gets the path to the asset in the "virtual filesystem" without a label (if a label is currently set).
+    #[inline]
+    pub fn without_label(&self) -> AssetPath<'_> {
+        AssetPath::new_ref(&self.path, None)
+    }
+
+    /// Removes a "sub-asset label" from this [`AssetPath`] and returns it, if one was set.
+    #[inline]
+    pub fn remove_label(&mut self) -> Option<Cow<'a, str>> {
+        self.label.take()
+    }
+
+    /// Returns this asset path with the given label. This will replace the previous
+    /// label if it exists.
+    #[inline]
+    pub fn with_label(&self, label: impl Into<Cow<'a, str>>) -> AssetPath<'a> {
+        AssetPath {
+            path: self.path.clone(),
+            label: Some(label.into()),
+        }
     }
 
     /// Converts the borrowed path data to owned.
@@ -63,93 +120,24 @@ impl<'a> AssetPath<'a> {
                 .map(|value| Cow::Owned(value.to_string())),
         }
     }
-}
 
-/// An unique identifier to an asset path.
-#[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
-)]
-#[reflect_value(PartialEq, Hash, Serialize, Deserialize)]
-pub struct AssetPathId(SourcePathId, LabelId);
-
-/// An unique identifier to the source path of an asset.
-#[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
-)]
-#[reflect_value(PartialEq, Hash, Serialize, Deserialize)]
-pub struct SourcePathId(u64);
-
-/// An unique identifier to a sub-asset label.
-#[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
-)]
-#[reflect_value(PartialEq, Hash, Serialize, Deserialize)]
-pub struct LabelId(u64);
-
-impl<'a> From<&'a Path> for SourcePathId {
-    fn from(value: &'a Path) -> Self {
-        let mut hasher = get_hasher();
-        value.hash(&mut hasher);
-        SourcePathId(hasher.finish())
-    }
-}
-
-impl From<AssetPathId> for SourcePathId {
-    fn from(id: AssetPathId) -> Self {
-        id.source_path_id()
-    }
-}
-
-impl<'a> From<AssetPath<'a>> for SourcePathId {
-    fn from(path: AssetPath) -> Self {
-        AssetPathId::from(path).source_path_id()
-    }
-}
-
-impl<'a> From<Option<&'a str>> for LabelId {
-    fn from(value: Option<&'a str>) -> Self {
-        let mut hasher = get_hasher();
-        value.hash(&mut hasher);
-        LabelId(hasher.finish())
-    }
-}
-
-impl AssetPathId {
-    /// Gets the id of the source path.
-    pub fn source_path_id(&self) -> SourcePathId {
-        self.0
+    /// Returns the full extension (including multiple '.' values).
+    /// Ex: Returns `"config.ron"` for `"my_asset.config.ron"`
+    pub fn get_full_extension(&self) -> Option<String> {
+        let file_name = self.path.file_name()?.to_str()?;
+        let index = file_name.find('.')?;
+        let extension = file_name[index + 1..].to_lowercase();
+        Some(extension)
     }
 
-    /// Gets the id of the sub-asset label.
-    pub fn label_id(&self) -> LabelId {
-        self.1
-    }
-}
-
-/// this hasher provides consistent results across runs
-pub(crate) fn get_hasher() -> AHasher {
-    RandomState::with_seeds(42, 23, 13, 8).build_hasher()
-}
-
-impl<'a, T> From<T> for AssetPathId
-where
-    T: Into<AssetPath<'a>>,
-{
-    fn from(value: T) -> Self {
-        let asset_path: AssetPath = value.into();
-        AssetPathId(
-            SourcePathId::from(asset_path.path()),
-            LabelId::from(asset_path.label()),
-        )
-    }
-}
-
-impl<'a, 'b> From<&'a AssetPath<'b>> for AssetPathId {
-    fn from(asset_path: &'a AssetPath<'b>) -> Self {
-        AssetPathId(
-            SourcePathId::from(asset_path.path()),
-            LabelId::from(asset_path.label()),
-        )
+    pub(crate) fn iter_secondary_extensions(full_extension: &str) -> impl Iterator<Item = &str> {
+        full_extension.chars().enumerate().filter_map(|(i, c)| {
+            if c == '.' {
+                Some(&full_extension[i + 1..])
+            } else {
+                None
+            }
+        })
     }
 }
 
@@ -189,14 +177,11 @@ impl<'a> From<PathBuf> for AssetPath<'a> {
     }
 }
 
-impl<'a> From<String> for AssetPath<'a> {
-    fn from(asset_path: String) -> Self {
-        let mut parts = asset_path.splitn(2, '#');
-        let path = PathBuf::from(parts.next().expect("Path must be set."));
-        let label = parts.next().map(String::from);
-        AssetPath {
-            path: Cow::Owned(path),
-            label: label.map(Cow::Owned),
+impl<'a> From<AssetPath<'a>> for PathBuf {
+    fn from(path: AssetPath<'a>) -> Self {
+        match path.path {
+            Cow::Borrowed(borrowed) => borrowed.to_owned(),
+            Cow::Owned(owned) => owned,
         }
     }
 }

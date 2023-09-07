@@ -4,7 +4,7 @@ use crate::{
     SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
+use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
     experimental::taa::TemporalAntiAliasSettings,
@@ -19,7 +19,6 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_reflect::{TypePath, TypeUuid};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -50,8 +49,6 @@ use std::marker::PhantomData;
 /// Materials must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
 /// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
 ///
-/// Materials must also implement [`TypeUuid`] so they can be treated as an [`Asset`](bevy_asset::Asset).
-///
 /// # Example
 ///
 /// Here is a simple Material implementation. The [`AsBindGroup`] derive has many features. To see what else is available,
@@ -61,10 +58,9 @@ use std::marker::PhantomData;
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_reflect::{TypeUuid, TypePath};
 /// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
-/// # use bevy_asset::{Handle, AssetServer, Assets};
+/// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 ///
-/// #[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
-/// #[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
+/// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
 /// pub struct CustomMaterial {
 ///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
 ///     // its shader-compatible equivalent. Most core math types already implement `ShaderType`.
@@ -106,7 +102,7 @@ use std::marker::PhantomData;
 /// @group(1) @binding(2)
 /// var color_sampler: sampler;
 /// ```
-pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Sized {
+pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {
@@ -187,7 +183,7 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.add_asset::<M>()
+        app.init_asset::<M>()
             .add_plugins(ExtractComponentPlugin::<Handle<M>>::extract_visible());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -366,7 +362,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material = materials.into_inner().get(material_handle).unwrap();
+        let material = materials.into_inner().get(&material_handle.id()).unwrap();
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
     }
@@ -472,7 +468,7 @@ pub fn queue_material_meshes<M: Material>(
             {
                 if let (Some(mesh), Some(material)) = (
                     render_meshes.get(mesh_handle),
-                    render_materials.get(material_handle),
+                    render_materials.get(&material_handle.id()),
                 ) {
                     let mut mesh_key =
                         MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
@@ -576,8 +572,8 @@ pub struct PreparedMaterial<T: Material> {
 
 #[derive(Resource)]
 pub struct ExtractedMaterials<M: Material> {
-    extracted: Vec<(Handle<M>, M)>,
-    removed: Vec<Handle<M>>,
+    extracted: Vec<(AssetId<M>, M)>,
+    removed: Vec<AssetId<M>>,
 }
 
 impl<M: Material> Default for ExtractedMaterials<M> {
@@ -591,7 +587,7 @@ impl<M: Material> Default for ExtractedMaterials<M> {
 
 /// Stores all prepared representations of [`Material`] assets for as long as they exist.
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterials<T: Material>(pub HashMap<Handle<T>, PreparedMaterial<T>>);
+pub struct RenderMaterials<T: Material>(pub HashMap<AssetId<T>, PreparedMaterial<T>>);
 
 impl<T: Material> Default for RenderMaterials<T> {
     fn default() -> Self {
@@ -610,20 +606,23 @@ pub fn extract_materials<M: Material>(
     let mut removed = Vec::new();
     for event in events.read() {
         match event {
-            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                changed_assets.insert(handle.clone_weak());
+            AssetEvent::Added { id } | AssetEvent::Modified { id } => {
+                changed_assets.insert(*id);
             }
-            AssetEvent::Removed { handle } => {
-                changed_assets.remove(handle);
-                removed.push(handle.clone_weak());
+            AssetEvent::Removed { id } => {
+                changed_assets.remove(id);
+                removed.push(*id);
+            }
+            AssetEvent::LoadedWithDependencies { .. } => {
+                // TODO: handle this
             }
         }
     }
 
     let mut extracted_assets = Vec::new();
-    for handle in changed_assets.drain() {
-        if let Some(asset) = assets.get(&handle) {
-            extracted_assets.push((handle, asset.clone()));
+    for id in changed_assets.drain() {
+        if let Some(asset) = assets.get(id) {
+            extracted_assets.push((id, asset.clone()));
         }
     }
 
@@ -635,7 +634,7 @@ pub fn extract_materials<M: Material>(
 
 /// All [`Material`] values of a given type that should be prepared next frame.
 pub struct PrepareNextFrameMaterials<M: Material> {
-    assets: Vec<(Handle<M>, M)>,
+    assets: Vec<(AssetId<M>, M)>,
 }
 
 impl<M: Material> Default for PrepareNextFrameMaterials<M> {
@@ -658,7 +657,7 @@ pub fn prepare_materials<M: Material>(
     pipeline: Res<MaterialPipeline<M>>,
 ) {
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
-    for (handle, material) in queued_assets.into_iter() {
+    for (id, material) in queued_assets.into_iter() {
         match prepare_material(
             &material,
             &render_device,
@@ -667,10 +666,10 @@ pub fn prepare_materials<M: Material>(
             &pipeline,
         ) {
             Ok(prepared_asset) => {
-                render_materials.insert(handle, prepared_asset);
+                render_materials.insert(id, prepared_asset);
             }
             Err(AsBindGroupError::RetryNextUpdate) => {
-                prepare_next_frame.assets.push((handle, material));
+                prepare_next_frame.assets.push((id, material));
             }
         }
     }
@@ -679,7 +678,7 @@ pub fn prepare_materials<M: Material>(
         render_materials.remove(&removed);
     }
 
-    for (handle, material) in std::mem::take(&mut extracted_assets.extracted) {
+    for (id, material) in std::mem::take(&mut extracted_assets.extracted) {
         match prepare_material(
             &material,
             &render_device,
@@ -688,10 +687,10 @@ pub fn prepare_materials<M: Material>(
             &pipeline,
         ) {
             Ok(prepared_asset) => {
-                render_materials.insert(handle, prepared_asset);
+                render_materials.insert(id, prepared_asset);
             }
             Err(AsBindGroupError::RetryNextUpdate) => {
-                prepare_next_frame.assets.push((handle, material));
+                prepare_next_frame.assets.push((id, material));
             }
         }
     }

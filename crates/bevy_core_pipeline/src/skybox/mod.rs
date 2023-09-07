@@ -1,12 +1,11 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::With,
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
 };
-use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
@@ -25,8 +24,7 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 
-const SKYBOX_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 55594763423201);
+const SKYBOX_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(55594763423201);
 
 pub struct SkyboxPlugin;
 
@@ -134,7 +132,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             layout: vec![self.bind_group_layout.clone()],
             push_constant_ranges: Vec::new(),
             vertex: VertexState {
-                shader: SKYBOX_SHADER_HANDLE.typed(),
+                shader: SKYBOX_SHADER_HANDLE,
                 shader_defs: Vec::new(),
                 entry_point: "skybox_vertex".into(),
                 buffers: Vec::new(),
@@ -162,7 +160,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                 alpha_to_coverage_enabled: false,
             },
             fragment: Some(FragmentState {
-                shader: SKYBOX_SHADER_HANDLE.typed(),
+                shader: SKYBOX_SHADER_HANDLE,
                 shader_defs: Vec::new(),
                 entry_point: "skybox_fragment".into(),
                 targets: vec![Some(ColorTargetState {

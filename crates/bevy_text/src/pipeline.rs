@@ -1,24 +1,22 @@
-use ab_glyph::{Font as AbglyphFont, PxScale};
-use bevy_asset::{Assets, Handle, HandleId};
+use crate::{
+    compute_text_bounds, error::TextError, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font,
+    FontAtlasSets, FontAtlasWarning, PositionedGlyph, Text, TextAlignment, TextSection,
+    TextSettings, YAxisOrientation,
+};
+use ab_glyph::PxScale;
+use bevy_asset::{AssetId, Assets, Handle};
 use bevy_ecs::component::Component;
 use bevy_ecs::system::Resource;
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::HashMap;
-
 use glyph_brush_layout::{FontId, GlyphPositioner, SectionGeometry, SectionText, ToSectionText};
-
-use crate::{
-    compute_text_bounds, error::TextError, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font,
-    FontAtlasSet, FontAtlasWarning, PositionedGlyph, Text, TextAlignment, TextSection,
-    TextSettings, YAxisOrientation,
-};
 
 #[derive(Default, Resource)]
 pub struct TextPipeline {
     brush: GlyphBrush,
-    map_font_id: HashMap<HandleId, FontId>,
+    map_font_id: HashMap<AssetId<Font>, FontId>,
 }
 
 /// Render information for a corresponding [`Text`](crate::Text) component.
@@ -36,7 +34,7 @@ impl TextPipeline {
         *self
             .map_font_id
             .entry(handle.id())
-            .or_insert_with(|| brush.add_font(handle.clone(), font.font.clone()))
+            .or_insert_with(|| brush.add_font(handle.id(), font.font.clone()))
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -48,7 +46,7 @@ impl TextPipeline {
         text_alignment: TextAlignment,
         linebreak_behavior: BreakLineOn,
         bounds: Vec2,
-        font_atlas_set_storage: &mut Assets<FontAtlasSet>,
+        font_atlas_sets: &mut FontAtlasSets,
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Image>,
         text_settings: &TextSettings,
@@ -90,7 +88,7 @@ impl TextPipeline {
         let glyphs = self.brush.process_glyphs(
             section_glyphs,
             &sections,
-            font_atlas_set_storage,
+            font_atlas_sets,
             fonts,
             texture_atlases,
             textures,
@@ -193,7 +191,7 @@ impl TextMeasureInfo {
         compute_text_bounds(&section_glyphs, |index| {
             let font = &self.fonts[index];
             let font_size = self.sections[index].scale;
-            font.into_scaled(font_size)
+            ab_glyph::Font::into_scaled(font, font_size)
         })
         .size()
     }

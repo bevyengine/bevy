@@ -8,7 +8,7 @@ pub use mesh::*;
 
 use crate::{prelude::Image, render_asset::RenderAssetPlugin};
 use bevy_app::{App, Plugin};
-use bevy_asset::AddAsset;
+use bevy_asset::AssetApp;
 use bevy_ecs::entity::Entity;
 
 /// Adds the [`Mesh`] as an asset and makes sure that they are extracted and prepared for the GPU.
@@ -16,8 +16,8 @@ pub struct MeshPlugin;
 
 impl Plugin for MeshPlugin {
     fn build(&self, app: &mut App) {
-        app.add_asset::<Mesh>()
-            .add_asset::<skinning::SkinnedMeshInverseBindposes>()
+        app.init_asset::<Mesh>()
+            .init_asset::<skinning::SkinnedMeshInverseBindposes>()
             .register_type::<skinning::SkinnedMesh>()
             .register_type::<Vec<Entity>>()
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
