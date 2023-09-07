@@ -1,4 +1,4 @@
-use async_fs::{DirBuilder, File};
+use async_fs::File;
 use bevy_log::error;
 use bevy_utils::HashSet;
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
