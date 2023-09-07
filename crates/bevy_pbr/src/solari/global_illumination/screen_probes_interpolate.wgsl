@@ -1,6 +1,6 @@
-#import bevy_solari::scene_bindings
-#import bevy_solari::global_illumination::view_bindings view, depth_buffer, normals_buffer, screen_probes_spherical_harmonics
-#import bevy_solari::utils depth_to_world_position
+#import bevy_solari::scene_bindings uniforms
+#import bevy_solari::global_illumination::view_bindings view, depth_buffer, normals_buffer, screen_probes_spherical_harmonics, diffuse_raw
+#import bevy_solari::utils rand_f, rand_vec2f, depth_to_world_position
 
 // TODO: Validate neighbor probe exists
 // TODO: Change screen space distance to depend on camera zoom
@@ -81,9 +81,9 @@ fn interpolate_screen_probes(
     let probe_thread_y = (probe_thread_index - probe_thread_x) / 8u;
     let probe_thread_id = vec2<i32>(vec2(probe_thread_x, probe_thread_y));
 
-    let pixel_depth = texture_load(depth_buffer, global_id.xy, 0i);
+    let pixel_depth = textureLoad(depth_buffer, global_id.xy, 0i);
     if pixel_depth < 0.0 {
-        textureStore(indirect_diffuse, global_id.xy, vec4(0.0, 0.0, 0.0, 1.0));
+        textureStore(diffuse_raw, global_id.xy, vec4(0.0, 0.0, 0.0, 1.0));
         return;
     }
     let pixel_id = vec2<f32>(global_id.xy) + 0.5;
@@ -116,5 +116,5 @@ fn interpolate_screen_probes(
     }
     irradiance /= weight;
 
-    textureStore(indirect_diffuse, global_id.xy, vec4(irradiance, 1.0));
+    textureStore(diffuse_raw, global_id.xy, vec4(irradiance, 1.0));
 }
