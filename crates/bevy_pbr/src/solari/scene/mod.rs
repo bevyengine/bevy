@@ -1,7 +1,7 @@
 use self::{
     bind_group::queue_scene_bind_group,
     blas::{prepare_blas, BlasStorage},
-    scene_types::extract_solari_materials,
+    scene_types::extract,
 };
 pub use self::{bind_group::SolariSceneBindGroup, bind_group_layout::SolariSceneBindGroupLayout};
 use super::SolariEnabled;
@@ -45,7 +45,7 @@ impl Plugin for SolariScenePlugin {
             .init_resource::<SolariSceneBindGroup>()
             .add_systems(
                 ExtractSchedule,
-                extract_solari_materials.run_if(resource_exists::<SolariEnabled>()),
+                extract.run_if(resource_exists::<SolariEnabled>()),
             )
             .add_systems(
                 Render,

@@ -1,4 +1,4 @@
-use crate::{DirectionalLight, StandardMaterial};
+use crate::{solari::SolariEnabled, DirectionalLight, StandardMaterial};
 use bevy_asset::{Assets, Handle};
 use bevy_core::FrameCount;
 use bevy_ecs::{
@@ -62,7 +62,7 @@ impl SolariUniforms {
     }
 }
 
-pub fn extract_solari_materials(
+pub fn extract(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(Entity, &Handle<StandardMaterial>)>>,
@@ -86,4 +86,6 @@ pub fn extract_solari_materials(
 
     *previous_len = entities.len();
     commands.insert_or_spawn_batch(entities);
+
+    commands.insert_resource(SolariEnabled);
 }
