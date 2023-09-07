@@ -1178,7 +1178,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     #[track_caller]
     pub fn component_mut<T: Component>(&mut self, entity: Entity) -> Mut<'_, T> {
         // SAFETY: unique access to query (preventing aliased access)
-        unsafe { self.component_unchecked_mut(entity) }
+        unsafe {
+            self.state
+                .component_unchecked_mut(self.world, entity, self.last_run, self.this_run)
+        }
     }
 
     /// Returns a mutable reference to the component `T` of the given entity.
