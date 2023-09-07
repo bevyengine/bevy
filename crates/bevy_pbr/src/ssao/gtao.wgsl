@@ -9,6 +9,7 @@
 #import bevy_pbr::utils PI, HALF_PI
 #import bevy_render::view View
 #import bevy_render::globals Globals
+#import bevy_pbr::depth_functions depth_to_view_space_position
 
 @group(0) @binding(0) var preprocessed_depth: texture_2d<f32>;
 @group(0) @binding(1) var normals: texture_2d<f32>;
@@ -78,16 +79,9 @@ fn load_normal_view_space(uv: vec2<f32>) -> vec3<f32> {
     return inverse_view * world_normal;
 }
 
-fn reconstruct_view_space_position(depth: f32, uv: vec2<f32>) -> vec3<f32> {
-    let clip_xy = vec2<f32>(uv.x * 2.0 - 1.0, 1.0 - 2.0 * uv.y);
-    let t = view.inverse_projection * vec4<f32>(clip_xy, depth, 1.0);
-    let view_xyz = t.xyz / t.w;
-    return view_xyz;
-}
-
 fn load_and_reconstruct_view_space_position(uv: vec2<f32>, sample_mip_level: f32) -> vec3<f32> {
     let depth = textureSampleLevel(preprocessed_depth, point_clamp_sampler, uv, sample_mip_level).r;
-    return reconstruct_view_space_position(depth, uv);
+    return depth_to_view_space_position(uv, depth, view.inverse_projection);
 }
 
 @compute
@@ -107,7 +101,7 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var pixel_depth = calculate_neighboring_depth_differences(pixel_coordinates);
     pixel_depth += 0.00001; // Avoid depth precision issues
 
-    let pixel_position = reconstruct_view_space_position(pixel_depth, uv);
+    let pixel_position = depth_to_view_space_position(uv, pixel_depth, view.inverse_projection);
     let pixel_normal = load_normal_view_space(uv);
     let view_vec = normalize(-pixel_position);
 

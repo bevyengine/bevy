@@ -1664,6 +1664,17 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "shader_depth_position"
+path = "examples/shader/shader_depth_position.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.shader_depth_position]
+name = "shader_depth_position"
+description = ""
+category = "Shaders"
+wasm = false
+
+[[example]]
 name = "shader_prepass"
 path = "examples/shader/shader_prepass.rs"
 doc-scrape-examples = true

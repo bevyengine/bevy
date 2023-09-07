@@ -75,6 +75,8 @@ pub const PBR_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16550102
 pub const PBR_AMBIENT_HANDLE: Handle<Shader> = Handle::weak_from_u128(2441520459096337034);
 pub const PARALLAX_MAPPING_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(17035894873630133905);
+pub const DEPTH_FUNCTIONS_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(1246561570914304165);
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -147,6 +149,12 @@ impl Plugin for PbrPlugin {
             app,
             PARALLAX_MAPPING_SHADER_HANDLE,
             "render/parallax_mapping.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            DEPTH_FUNCTIONS_SHADER_HANDLE,
+            "render/depth_functions.wgsl",
             Shader::from_wgsl
         );
 
