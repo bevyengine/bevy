@@ -1212,36 +1212,6 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns a mutable reference to the component `T` of the given entity.
-    ///
-    /// # Panics
-    ///
-    /// Panics in case of a nonexisting entity or mismatched component.
-    ///
-    /// # Safety
-    ///
-    /// This function makes it possible to violate Rust's aliasing guarantees.
-    /// You must make sure this call does not result in multiple mutable references to the same component.
-    ///
-    /// # See also
-    ///
-    /// - [`get_component_mut`](Self::get_component_mut) for the safe version.
-    #[inline]
-    pub unsafe fn component_unchecked_mut<T: Component>(&self, entity: Entity) -> Mut<'_, T> {
-        // This check is required to ensure soundness in the case of `to_readonly().get_component_mut()`
-        // See the comments on the `force_read_only_component_access` field for more info.
-        if self.force_read_only_component_access {
-            panic!("Missing write access");
-        }
-
-        // SAFETY: The above check ensures we are not a readonly query.
-        // It is the callers responsibility to ensure multiple mutable access is not provided.
-        unsafe {
-            self.state
-                .component_unchecked_mut(self.world, entity, self.last_run, self.this_run)
-        }
-    }
-
     /// Returns a single read-only query item when there is exactly one entity matching the query.
     ///
     /// # Panics
