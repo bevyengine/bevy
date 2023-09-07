@@ -1,12 +1,14 @@
-use anyhow::Result;
-use bevy_asset::{Asset, AssetLoader, LoadContext, LoadedAsset};
-use bevy_reflect::{TypePath, TypeUuid};
+use bevy_asset::{
+    anyhow::Error,
+    io::{AsyncReadExt, Reader},
+    Asset, AssetLoader, LoadContext,
+};
+use bevy_reflect::TypePath;
 use bevy_utils::BoxedFuture;
 use std::{io::Cursor, sync::Arc};
 
 /// A source of audio data
-#[derive(Debug, Clone, TypeUuid, TypePath)]
-#[uuid = "7a14806a-672b-443b-8d16-4f18afefa463"]
+#[derive(Asset, Debug, Clone, TypePath)]
 pub struct AudioSource {
     /// Raw data of the audio source.
     ///
@@ -38,11 +40,22 @@ impl AsRef<[u8]> for AudioSource {
 pub struct AudioLoader;
 
 impl AssetLoader for AudioLoader {
-    fn load(&self, bytes: &[u8], load_context: &mut LoadContext) -> BoxedFuture<Result<()>> {
-        load_context.set_default_asset(LoadedAsset::new(AudioSource {
-            bytes: bytes.into(),
-        }));
-        Box::pin(async move { Ok(()) })
+    type Asset = AudioSource;
+    type Settings = ();
+
+    fn load<'a>(
+        &'a self,
+        reader: &'a mut Reader,
+        _settings: &'a Self::Settings,
+        _load_context: &'a mut LoadContext,
+    ) -> BoxedFuture<'a, Result<AudioSource, Error>> {
+        Box::pin(async move {
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            Ok(AudioSource {
+                bytes: bytes.into(),
+            })
+        })
     }
 
     fn extensions(&self) -> &[&str] {
@@ -64,8 +77,7 @@ impl AssetLoader for AudioLoader {
 }
 
 /// A type implementing this trait can be converted to a [`rodio::Source`] type.
-/// It must be [`Send`] and [`Sync`], and usually implements [`Asset`] so needs to be [`TypeUuid`],
-/// in order to be registered.
+/// It must be [`Send`] and [`Sync`] in order to be registered.
 /// Types that implement this trait usually contain raw sound data that can be converted into an iterator of samples.
 /// This trait is implemented for [`AudioSource`].
 /// Check the example [`decodable`](https://github.com/bevyengine/bevy/blob/latest/examples/audio/decodable.rs) for how to implement this trait on a custom type.

@@ -3,12 +3,9 @@
 //! It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color.
 //! Check out the "mesh2d" example for simpler / higher level 2d meshes.
 
-use std::f32::consts::PI;
-
 use bevy::{
     core_pipeline::core_2d::Transparent2d,
     prelude::*,
-    reflect::TypeUuid,
     render::{
         mesh::{Indices, MeshVertexAttribute},
         render_asset::RenderAssets,
@@ -29,6 +26,7 @@ use bevy::{
     },
     utils::FloatOrd,
 };
+use std::f32::consts::PI;
 
 fn main() {
     App::new()
@@ -155,7 +153,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
         RenderPipelineDescriptor {
             vertex: VertexState {
                 // Use our custom shader
-                shader: COLORED_MESH2D_SHADER_HANDLE.typed::<Shader>(),
+                shader: COLORED_MESH2D_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 // Use our custom vertex buffer
@@ -163,7 +161,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
             },
             fragment: Some(FragmentState {
                 // Use our custom shader
-                shader: COLORED_MESH2D_SHADER_HANDLE.typed::<Shader>(),
+                shader: COLORED_MESH2D_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -262,14 +260,14 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 pub struct ColoredMesh2dPlugin;
 
 /// Handle to the custom shader with a unique random ID
-pub const COLORED_MESH2D_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 13828845428412094821);
+pub const COLORED_MESH2D_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(13828845428412094821);
 
 impl Plugin for ColoredMesh2dPlugin {
     fn build(&self, app: &mut App) {
         // Load our custom shader
         let mut shaders = app.world.resource_mut::<Assets<Shader>>();
-        shaders.set_untracked(
+        shaders.insert(
             COLORED_MESH2D_SHADER_HANDLE,
             Shader::from_wgsl(COLORED_MESH2D_SHADER, file!()),
         );

@@ -4,7 +4,7 @@ use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasSprite},
     Sprite, SPRITE_SHADER_HANDLE,
 };
-use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
+use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
     tonemapping::{DebandDither, Tonemapping},
@@ -34,7 +34,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{FloatOrd, HashMap, Uuid};
+use bevy_utils::{FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
@@ -276,13 +276,13 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: SPRITE_SHADER_HANDLE.typed::<Shader>(),
+                shader: SPRITE_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![instance_rate_vertex_buffer_layout],
             },
             fragment: Some(FragmentState {
-                shader: SPRITE_SHADER_HANDLE.typed::<Shader>(),
+                shader: SPRITE_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -320,9 +320,9 @@ pub struct ExtractedSprite {
     pub rect: Option<Rect>,
     /// Change the on-screen size of the sprite
     pub custom_size: Option<Vec2>,
-    /// Handle to the [`Image`] of this sprite
-    /// PERF: storing a `HandleId` instead of `Handle<Image>` enables some optimizations (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
-    pub image_handle_id: HandleId,
+    /// Asset ID of the [`Image`] of this sprite
+    /// PERF: storing an `AssetId` instead of `Handle<Image>` enables some optimizations (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
+    pub image_handle_id: AssetId<Image>,
     pub flip_x: bool,
     pub flip_y: bool,
     pub anchor: Vec2,
@@ -345,19 +345,8 @@ pub fn extract_sprite_events(
     let SpriteAssetEvents { ref mut images } = *events;
     images.clear();
 
-    for image in image_events.read() {
-        // AssetEvent: !Clone
-        images.push(match image {
-            AssetEvent::Created { handle } => AssetEvent::Created {
-                handle: handle.clone_weak(),
-            },
-            AssetEvent::Modified { handle } => AssetEvent::Modified {
-                handle: handle.clone_weak(),
-            },
-            AssetEvent::Removed { handle } => AssetEvent::Removed {
-                handle: handle.clone_weak(),
-            },
-        });
+    for event in image_events.read() {
+        images.push(*event);
     }
 }
 
@@ -487,13 +476,13 @@ impl Default for SpriteMeta {
 
 #[derive(Component, PartialEq, Eq, Clone)]
 pub struct SpriteBatch {
-    image_handle_id: HandleId,
+    image_handle_id: AssetId<Image>,
     range: Range<u32>,
 }
 
 #[derive(Resource, Default)]
 pub struct ImageBindGroups {
-    values: HashMap<Handle<Image>, BindGroup>,
+    values: HashMap<AssetId<Image>, BindGroup>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -613,9 +602,11 @@ pub fn prepare_sprites(
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
         match event {
-            AssetEvent::Created { .. } => None,
-            AssetEvent::Modified { handle } | AssetEvent::Removed { handle } => {
-                image_bind_groups.values.remove(handle)
+            AssetEvent::Added {..} |
+            // images don't have dependencies
+            AssetEvent::LoadedWithDependencies { .. } => {}
+            AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
+                image_bind_groups.values.remove(id);
             }
         };
     }
@@ -643,7 +634,7 @@ pub fn prepare_sprites(
         for mut transparent_phase in &mut phases {
             let mut batch_item_index = 0;
             let mut batch_image_size = Vec2::ZERO;
-            let mut batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
+            let mut batch_image_handle = AssetId::invalid();
 
             // Iterate through the phase items and detect when successive sprites that can be batched.
             // Spawn an entity with a `SpriteBatch` component for each possible batch.
@@ -654,15 +645,13 @@ pub fn prepare_sprites(
                     // If there is a phase item that is not a sprite, then we must start a new
                     // batch to draw the other phase item(s) and to respect draw order. This can be
                     // done by invalidating the batch_image_handle
-                    batch_image_handle = HandleId::Id(Uuid::nil(), u64::MAX);
+                    batch_image_handle = AssetId::invalid();
                     continue;
                 };
 
                 let batch_image_changed = batch_image_handle != extracted_sprite.image_handle_id;
                 if batch_image_changed {
-                    let Some(gpu_image) =
-                        gpu_images.get(&Handle::weak(extracted_sprite.image_handle_id))
-                    else {
+                    let Some(gpu_image) = gpu_images.get(extracted_sprite.image_handle_id) else {
                         continue;
                     };
 
@@ -670,7 +659,7 @@ pub fn prepare_sprites(
                     batch_image_handle = extracted_sprite.image_handle_id;
                     image_bind_groups
                         .values
-                        .entry(Handle::weak(batch_image_handle))
+                        .entry(batch_image_handle)
                         .or_insert_with(|| {
                             render_device.create_bind_group(&BindGroupDescriptor {
                                 entries: &[
@@ -839,7 +828,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
             I,
             image_bind_groups
                 .values
-                .get(&Handle::weak(batch.image_handle_id))
+                .get(&batch.image_handle_id)
                 .unwrap(),
             &[],
         );

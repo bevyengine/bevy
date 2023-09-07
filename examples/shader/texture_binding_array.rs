@@ -3,7 +3,7 @@
 
 use bevy::{
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::{
         render_asset::RenderAssets,
         render_resource::{AsBindGroupError, PreparedBindGroup, *},
@@ -74,7 +74,7 @@ fn setup(
         .iter()
         .map(|id| {
             let path = format!("textures/rpg/tiles/generic-rpg-tile{id:0>2}.png");
-            asset_server.load(path)
+            asset_server.load(&path)
         })
         .collect();
 
@@ -86,8 +86,7 @@ fn setup(
     });
 }
 
-#[derive(Debug, Clone, TypePath, TypeUuid)]
-#[uuid = "8dd2b424-45a2-4a53-ac29-7ce356b2d5fe"]
+#[derive(Asset, TypePath, Debug, Clone)]
 struct BindlessMaterial {
     textures: Vec<Handle<Image>>,
 }

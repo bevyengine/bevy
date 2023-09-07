@@ -5,7 +5,7 @@ use crate::{
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
@@ -15,7 +15,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::vec2;
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
     prelude::{Camera, Projection},
@@ -42,8 +42,7 @@ mod draw_3d_graph {
     }
 }
 
-const TAA_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 656865235226276);
+const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276);
 
 /// Plugin for temporal anti-aliasing. Disables multisample anti-aliasing (MSAA).
 ///
@@ -392,7 +391,7 @@ impl SpecializedRenderPipeline for TAAPipeline {
             layout: vec![self.taa_bind_group_layout.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: TAA_SHADER_HANDLE.typed::<Shader>(),
+                shader: TAA_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "taa".into(),
                 targets: vec![

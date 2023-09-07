@@ -1598,7 +1598,7 @@ pub fn queue_shadows<M: Material>(
                 if let Ok((mesh_handle, material_handle)) = casting_meshes.get(entity) {
                     if let (Some(mesh), Some(material)) = (
                         render_meshes.get(mesh_handle),
-                        render_materials.get(material_handle),
+                        render_materials.get(&material_handle.id()),
                     ) {
                         let mut mesh_key =
                             MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
