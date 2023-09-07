@@ -1,5 +1,5 @@
-#import bevy_solari::scene_bindings
-#import bevy_solari::global_illumination::view_bindings
+#import bevy_solari::scene_bindings uniforms
+#import bevy_solari::global_illumination::view_bindings world_cache_active_cells_count, world_cache_active_cell_indices, world_cache_cell_data, world_cache_active_cells_new_irradiance, world_cache_irradiance
 #import bevy_solari::world_cache::query
 
 @compute @workgroup_size(1024, 1, 1)

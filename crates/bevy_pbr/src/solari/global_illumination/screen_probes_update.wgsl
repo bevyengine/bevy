@@ -1,6 +1,7 @@
-#import bevy_solari::scene_bindings
-#import bevy_solari::global_illumination::view_bindings
-#import bevy_solari::world_cache::query
+#import bevy_solari::scene_bindings uniforms
+#import bevy_solari::global_illumination::view_bindings view
+#import bevy_solari::world_cache::query query_world_cache
+#import bevy_pbr::utils octahedral_decode
 
 var<workgroup> probe_g_pixel: vec4<u32>;
 var<workgroup> probe_pixel_uv: vec2<f32>;
