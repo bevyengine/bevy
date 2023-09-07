@@ -1,6 +1,6 @@
 #define_import_path bevy_solari::scene_bindings
 
-#import "./scene_types.wgsl"
+#import bevy_solari::scene_types
 
 @group(0) @binding(0) var tlas: acceleration_structure;
 @group(0) @binding(1) var<storage> mesh_material_indices: array<u32>;

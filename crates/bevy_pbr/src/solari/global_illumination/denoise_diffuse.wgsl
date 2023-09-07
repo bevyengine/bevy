@@ -1,6 +1,5 @@
 #import bevy_solari::scene_bindings
-#import bevy_solari::view_bindings
-#import bevy_solari::utils
+#import bevy_solari::global_illumination::view_bindings
 
 @compute @workgroup_size(8, 8, 1)
 fn denoise_indirect_diffuse_temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {

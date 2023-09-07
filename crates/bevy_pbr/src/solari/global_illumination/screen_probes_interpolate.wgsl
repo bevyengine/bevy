@@ -1,6 +1,5 @@
 #import bevy_solari::scene_bindings
-#import bevy_solari::view_bindings
-#import bevy_solari::utils
+#import bevy_solari::global_illumination::view_bindings
 
 // TODO: Validate neighbor probe exists
 // TODO: Change screen space distance to depend on camera zoom

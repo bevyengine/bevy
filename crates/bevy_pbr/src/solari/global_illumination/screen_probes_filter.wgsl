@@ -1,6 +1,5 @@
 #import bevy_solari::scene_bindings
-#import bevy_solari::view_bindings
-#import bevy_solari::utils
+#import bevy_solari::global_illumination::view_bindings
 
 var<workgroup> spherical_harmonics_coefficents: array<array<vec3<f32>, 9>, 64>;
 

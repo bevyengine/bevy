@@ -1,4 +1,4 @@
-#import bevy_solari::world_cache::bindings
+#import bevy_solari::global_illumination::view_bindings
 #import bevy_solari::world_cache::query
 
 var<workgroup> w1: array<u32, 1024u>;

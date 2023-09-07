@@ -17,13 +17,21 @@ mod blas;
 mod helpers;
 mod scene_types;
 
-const SOLARI_SCENE_BINDINGS_SHADER: HandleUntyped =
+const SOLARI_SCENE_TYPES_SHADER: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 0717171717171755);
+const SOLARI_SCENE_BINDINGS_SHADER: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 0717171717171756);
 
 pub struct SolariScenePlugin;
 
 impl Plugin for SolariScenePlugin {
     fn build(&self, app: &mut App) {
+        load_internal_asset!(
+            app,
+            SOLARI_SCENE_TYPES_SHADER,
+            "scene_types.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(
             app,
             SOLARI_SCENE_BINDINGS_SHADER,
