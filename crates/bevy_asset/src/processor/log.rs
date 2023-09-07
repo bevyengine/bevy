@@ -1,4 +1,4 @@
-use async_fs::File;
+use async_fs::{DirBuilder, File};
 use bevy_log::error;
 use bevy_utils::HashSet;
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
@@ -87,6 +87,13 @@ impl ProcessorTransactionLog {
                     error!("Failed to remove previous log file {}", err);
                 }
             }
+        }
+
+        if let Some(parent_folder) = path.parent() {
+            DirBuilder::new()
+                .recursive(true)
+                .create(parent_folder)
+                .await?;
         }
 
         Ok(Self {
