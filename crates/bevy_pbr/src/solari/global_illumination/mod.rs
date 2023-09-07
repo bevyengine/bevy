@@ -38,6 +38,8 @@ const SOLARI_SCREEN_PROBES_INTEPOLATE_SHADER: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7717171717171755);
 const SOLARI_DENOISE_DIFFUSE_SHADER: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8717171717171755);
+const SOLARI_UTILS_SHADER: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9717171717171755);
 
 pub struct SolariGlobalIlluminationPlugin;
 
@@ -91,6 +93,7 @@ impl Plugin for SolariGlobalIlluminationPlugin {
             "denoise_diffuse.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(app, SOLARI_UTILS_SHADER, "utils.wgsl", Shader::from_wgsl);
 
         app.add_plugins(ExtractComponentPlugin::<SolariGlobalIlluminationSettings>::default());
 

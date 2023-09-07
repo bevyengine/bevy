@@ -466,7 +466,10 @@ pub fn prepare_prepass_textures(
                             dimension: TextureDimension::D2,
                             format: NORMAL_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING,
+                                | TextureUsages::TEXTURE_BINDING
+                                 // TODO: Hardcoded for solari to work for now
+                                 // should double buffer instead
+                                | TextureUsages::COPY_SRC,
                             view_formats: &[],
                         },
                     )

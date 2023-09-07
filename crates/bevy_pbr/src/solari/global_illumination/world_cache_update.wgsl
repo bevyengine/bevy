@@ -1,6 +1,7 @@
-#import bevy_solari::scene_bindings uniforms
+#import bevy_solari::scene_bindings uniforms, map_ray_hit
 #import bevy_solari::global_illumination::view_bindings world_cache_active_cells_count, world_cache_active_cell_indices, world_cache_cell_data, world_cache_active_cells_new_irradiance, world_cache_irradiance
-#import bevy_solari::world_cache::query
+#import bevy_solari::world_cache::query query_world_cache
+#import bevy_solari::utils sample_direct_lighting, sample_cosine_hemisphere, trace_ray
 
 @compute @workgroup_size(1024, 1, 1)
 fn world_cache_sample_irradiance(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {

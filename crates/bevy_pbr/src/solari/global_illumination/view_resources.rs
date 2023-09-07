@@ -3,7 +3,8 @@ use super::{
 };
 use bevy_core::FrameCount;
 use bevy_core_pipeline::prepass::{
-    DepthPrepass, MotionVectorPrepass, NormalPrepass, ViewPrepassTextures,
+    DepthPrepass, MotionVectorPrepass, NormalPrepass, ViewPrepassTextures, DEPTH_PREPASS_FORMAT,
+    NORMAL_PREPASS_FORMAT,
 };
 use bevy_ecs::{
     component::Component,
@@ -29,6 +30,8 @@ use std::num::NonZeroU64;
 
 #[derive(Component)]
 pub struct SolariGlobalIlluminationViewResources {
+    pub previous_depth_buffer: CachedTexture,
+    pub previous_normals_buffer: CachedTexture,
     screen_probes_unfiltered: CachedTexture,
     screen_probes_filtered: CachedTexture,
     screen_probes_spherical_harmonics: CachedBuffer,
@@ -78,6 +81,20 @@ pub fn prepare_resources(
         usage: TextureUsages::STORAGE_BINDING,
         view_formats: &[],
     };
+    let texture2 = |label, format, size: UVec2| TextureDescriptor {
+        label: Some(label),
+        size: Extent3d {
+            width: size.x,
+            height: size.y,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: TextureDimension::D2,
+        format,
+        usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+        view_formats: &[],
+    };
     let buffer = |label, size| BufferDescriptor {
         label: Some(label),
         size,
@@ -93,6 +110,17 @@ pub fn prepare_resources(
         let height_8 = round_up_to_multiple_of_8(viewport_size.y);
         let size_8 = UVec2::new(width_8, height_8);
         let probe_count = (width_8 as u64 * height_8 as u64) / 64;
+
+        let previous_depth_buffer = texture2(
+            "solari_previous_depth_buffer",
+            DEPTH_PREPASS_FORMAT,
+            viewport_size,
+        );
+        let previous_normals_buffer = texture2(
+            "solari_previous_normals_buffer",
+            NORMAL_PREPASS_FORMAT,
+            viewport_size,
+        );
 
         let screen_probes_unfiltered = texture(
             "solari_global_illumination_screen_probes_unfiltered",
@@ -178,6 +206,8 @@ pub fn prepare_resources(
         commands
             .entity(entity)
             .insert(SolariGlobalIlluminationViewResources {
+                previous_depth_buffer: texture_cache.get(&render_device, previous_depth_buffer),
+                previous_normals_buffer: texture_cache.get(&render_device, previous_normals_buffer),
                 screen_probes_unfiltered: texture_cache
                     .get(&render_device, screen_probes_unfiltered),
                 screen_probes_filtered: texture_cache.get(&render_device, screen_probes_filtered),
@@ -242,6 +272,18 @@ pub fn create_bind_group_layouts(
             multisampled: false,
         }),
         // Motion vectors
+        entry(BindingType::Texture {
+            sample_type: TextureSampleType::Float { filterable: false },
+            view_dimension: TextureViewDimension::D2,
+            multisampled: false,
+        }),
+        // Depth buffer (previous)
+        entry(BindingType::Texture {
+            sample_type: TextureSampleType::Depth,
+            view_dimension: TextureViewDimension::D2,
+            multisampled: false,
+        }),
+        // Normals buffer (previous)
         entry(BindingType::Texture {
             sample_type: TextureSampleType::Float { filterable: false },
             view_dimension: TextureViewDimension::D2,
@@ -401,6 +443,8 @@ pub fn prepare_bind_groups(
             entry(t(prepass_textures.depth.as_ref().unwrap())),
             entry(t(prepass_textures.normal.as_ref().unwrap())),
             entry(t(prepass_textures.motion_vectors.as_ref().unwrap())),
+            entry(t(&solari_resources.previous_depth_buffer)),
+            entry(t(&solari_resources.previous_normals_buffer)),
             entry(t(&solari_resources.screen_probes_unfiltered)),
             entry(t(&solari_resources.screen_probes_filtered)),
             entry(b(&solari_resources.screen_probes_spherical_harmonics)),

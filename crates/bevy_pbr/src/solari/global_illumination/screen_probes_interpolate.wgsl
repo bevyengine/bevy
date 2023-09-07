@@ -1,5 +1,6 @@
 #import bevy_solari::scene_bindings
-#import bevy_solari::global_illumination::view_bindings
+#import bevy_solari::global_illumination::view_bindings view, depth_buffer, normals_buffer, screen_probes_spherical_harmonics
+#import bevy_solari::utils depth_to_world_position
 
 // TODO: Validate neighbor probe exists
 // TODO: Change screen space distance to depend on camera zoom
@@ -16,7 +17,7 @@ fn interpolate_probe(
 ) {
     let probe_pixel_id = probe_thread_id + (8i * probe_id);
     let probe_pixel_id_center = vec2<f32>(probe_pixel_id) + 0.5;
-    let probe_depth = decode_g_buffer_depth(textureLoad(g_buffer, probe_pixel_id));
+    let probe_depth = textureLoad(depth_buffer, probe_pixel_id, 0i);
     let probe_world_position = depth_to_world_position(probe_depth, probe_pixel_id_center / view.viewport.zw);
     let plane_distance = abs(dot(probe_world_position - pixel_world_position, pixel_world_normal));
 
@@ -36,15 +37,15 @@ fn interpolate_probe(
 
     let sh_index = probe_id.x + probe_id.y * probe_count_x;
     let sh = screen_probes_spherical_harmonics[sh_index];
-    let L00 = sh.b0.xyz;
-    let L11 = vec3(sh.b0.w, sh.b1.xy);
-    let L10 = vec3(sh.b1.zw, sh.b2.x);
-    let L1_1 = sh.b2.yzw;
-    let L21 = sh.b3.xyz;
-    let L2_1 = vec3(sh.b3.w, sh.b4.xy);
-    let L2_2 = vec3(sh.b4.zw, sh.b5.x);
-    let L20 = sh.b5.yzw;
-    let L22 = sh.b6;
+    let L00 = sh.a.xyz;
+    let L11 = vec3(sh.a.w, sh.b.xy);
+    let L10 = vec3(sh.b.zw, sh.c.x);
+    let L1_1 = sh.c.yzw;
+    let L21 = sh.d.xyz;
+    let L2_1 = vec3(sh.d.w, sh.e.xy);
+    let L2_2 = vec3(sh.e.zw, sh.f.x);
+    let L20 = sh.f.yzw;
+    let L22 = sh.g;
     var irradiance = (c1 * L22 * xx_yy) + (c3 * L20 * zz) + (c4 * L00) - (c5 * L20) + (2.0 * c1 * ((L2_2 * xy) + (L21 * xz) + (L2_1 * yz))) + (2.0 * c2 * ((L11 * x) + (L1_1 * y) + (L10 * z)));
 
     *irradiance_no_rejections_total += irradiance;
@@ -80,18 +81,17 @@ fn interpolate_screen_probes(
     let probe_thread_y = (probe_thread_index - probe_thread_x) / 8u;
     let probe_thread_id = vec2<i32>(vec2(probe_thread_x, probe_thread_y));
 
-    let g_buffer_pixel = textureLoad(g_buffer, global_id.xy);
-    let pixel_depth = decode_g_buffer_depth(g_buffer_pixel);
+    let pixel_depth = texture_load(depth_buffer, global_id.xy, 0i);
     if pixel_depth < 0.0 {
         textureStore(indirect_diffuse, global_id.xy, vec4(0.0, 0.0, 0.0, 1.0));
         return;
     }
     let pixel_id = vec2<f32>(global_id.xy) + 0.5;
     let pixel_world_position = depth_to_world_position(pixel_depth, pixel_id / view.viewport.zw);
-    let pixel_world_normal = decode_g_buffer_world_normal(g_buffer_pixel);
+    let pixel_world_normal = textureLoad(normals_buffer, global_id.xy, 0i).rgb;
 
-    // TODO: Spatiotemporal blue noise for jitter instead of rand_vec2()
-    var pixel_id_jittered = pixel_id + (rand_vec2(&rng) * 16.0 - 8.0);
+    // TODO: Spatiotemporal blue noise for jitter instead of rand_vec2f()
+    var pixel_id_jittered = pixel_id + (rand_vec2f(&rng) * 16.0 - 8.0);
     let pixel_world_position_jittered = depth_to_world_position(pixel_depth, pixel_id_jittered / view.viewport.zw);
     let plane_distance = abs(dot(pixel_world_position - pixel_world_position_jittered, pixel_world_normal));
     if plane_distance >= 0.5 {

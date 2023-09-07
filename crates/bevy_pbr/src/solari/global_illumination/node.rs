@@ -4,13 +4,14 @@ use super::{
     WORLD_CACHE_SIZE,
 };
 use crate::solari::scene::SolariSceneBindGroup;
+use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_ecs::{query::QueryItem, world::World};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{CommandEncoderDescriptor, ComputePassDescriptor, PipelineCache},
     renderer::{RenderContext, RenderQueue},
-    view::ViewUniformOffset,
+    view::{ViewDepthTexture, ViewUniformOffset},
 };
 
 #[derive(Default)]
@@ -21,6 +22,8 @@ impl ViewNode for SolariGlobalIlluminationNode {
         &'static SolariGlobalIlluminationPipelineIds,
         &'static SolariGlobalIlluminationBindGroups,
         &'static SolariGlobalIlluminationViewResources,
+        &'static ViewPrepassTextures,
+        &'static ViewDepthTexture,
         &'static ExtractedCamera,
         &'static ViewUniformOffset,
     );
@@ -29,9 +32,15 @@ impl ViewNode for SolariGlobalIlluminationNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (pipeline_ids, bind_groups, view_resources, camera, view_uniform_offset): QueryItem<
-            Self::ViewQuery,
-        >,
+        (
+            pipeline_ids,
+            bind_groups,
+            view_resources,
+            prepass_textures,
+            depth_texture,
+            camera,
+            view_uniform_offset,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let (
@@ -151,6 +160,27 @@ impl ViewNode for SolariGlobalIlluminationNode {
         solari_pass.pop_debug_group();
 
         drop(solari_pass);
+
+        // TODO: Should double buffer instead of copying
+        command_encoder.copy_texture_to_texture(
+            depth_texture.texture.as_image_copy(),
+            view_resources.previous_depth_buffer.texture.as_image_copy(),
+            prepass_textures.size,
+        );
+        command_encoder.copy_texture_to_texture(
+            prepass_textures
+                .normal
+                .as_ref()
+                .unwrap()
+                .texture
+                .as_image_copy(),
+            view_resources
+                .previous_normals_buffer
+                .texture
+                .as_image_copy(),
+            prepass_textures.size,
+        );
+
         render_queue.submit([command_encoder.finish()]);
 
         Ok(())

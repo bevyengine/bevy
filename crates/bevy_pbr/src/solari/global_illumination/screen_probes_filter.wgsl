@@ -1,5 +1,7 @@
-#import bevy_solari::scene_bindings
-#import bevy_solari::global_illumination::view_bindings
+#import bevy_solari::scene_bindings uniforms
+#import bevy_solari::global_illumination::view_bindings depth_buffer, screen_probes_unfiltered, screen_probes_spherical_harmonics, view, SphericalHarmonicsPacked
+#import bevy_solari::utils rand_f, rand_vec2f
+#import bevy_pbr::utils octahedral_decode
 
 var<workgroup> spherical_harmonics_coefficents: array<array<vec3<f32>, 9>, 64>;
 
@@ -14,7 +16,7 @@ fn add_probe_contribution(
     probe_thread_id: vec2<i32>,
 ) {
     let probe_pixel_id = probe_thread_id + (8i * probe_id);
-    let probe_depth = decode_g_buffer_depth(textureLoad(g_buffer, probe_pixel_id));
+    let probe_depth = textureLoad(depth_buffer, probe_pixel_id, 0i);
 
     let probe_irradiance = textureLoad(screen_probes_unfiltered, cell_id).rgb;
 
@@ -45,7 +47,7 @@ fn filter_screen_probes(
 
     let center_probe_id = vec2<i32>(workgroup_id.xy);
     let center_probe_pixel_id = probe_thread_id + (center_probe_id * 8i);
-    let center_probe_depth = decode_g_buffer_depth(textureLoad(g_buffer, center_probe_pixel_id));
+    let center_probe_depth = textureLoad(depth_buffer, center_probe_pixel_id, 0i);
 
     var irradiance = vec3(0.0);
     var weight = 0.0;
@@ -61,9 +63,9 @@ fn filter_screen_probes(
     irradiance /= weight;
 
     // TODO: Remove unnecessary texture write + texture allocation #ifndef DEBUG_VIEW_SCREEN_PROBES_FILTERED
-    textureStore(screen_probes_filtered, global_id.xy, vec4(irradiance, 1.0));
+    // textureStore(screen_probes_filtered, global_id.xy, vec4(irradiance, 1.0));
 
-    let octahedral_pixel_center = vec2<f32>(local_id.xy) + rand_vec2(&rng);
+    let octahedral_pixel_center = vec2<f32>(local_id.xy) + rand_vec2f(&rng);
     let octahedral_normal = octahedral_decode(octahedral_pixel_center / 8.0);
     let x = octahedral_normal.x;
     let y = octahedral_normal.y;
