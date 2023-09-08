@@ -80,7 +80,7 @@ fn generate_tbn(normal: vec3<f32>) -> mat3x3<f32> {
 }
 
 fn sample_sunlight(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, state: ptr<function, u32>) -> vec3<f32> {
-    if all(uniforms.sun_color == 0.0) {
+    if all(uniforms.sun_color == vec3(0.0)) {
         return vec3(0.0);
     }
 

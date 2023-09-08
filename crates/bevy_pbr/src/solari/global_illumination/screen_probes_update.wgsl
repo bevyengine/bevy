@@ -4,7 +4,7 @@
 #import bevy_solari::utils rand_f, rand_vec2f, trace_ray, depth_to_world_position
 #import bevy_pbr::utils octahedral_decode
 
-var<workgroup> probe_pixel_depth: vec4<u32>;
+var<workgroup> probe_pixel_depth: f32;
 var<workgroup> probe_pixel_uv: vec2<f32>;
 
 @compute @workgroup_size(8, 8, 1)

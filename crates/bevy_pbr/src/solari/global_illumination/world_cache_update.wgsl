@@ -4,7 +4,7 @@
 #import bevy_solari::utils sample_direct_lighting, sample_cosine_hemisphere, trace_ray
 
 @compute @workgroup_size(1024, 1, 1)
-fn world_cache_sample_irradiance(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
+fn sample_irradiance(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     if active_cell_id.x < world_cache_active_cells_count {
         let cell_index = world_cache_active_cell_indices[active_cell_id.x];
         let cell_data = world_cache_cell_data[cell_index];
@@ -28,7 +28,7 @@ fn world_cache_sample_irradiance(@builtin(global_invocation_id) active_cell_id: 
 }
 
 @compute @workgroup_size(1024, 1, 1)
-fn world_cache_blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
+fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     if active_cell_id.x < world_cache_active_cells_count {
         let cell_index = world_cache_active_cell_indices[active_cell_id.x];
 
