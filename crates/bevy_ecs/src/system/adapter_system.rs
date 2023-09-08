@@ -48,6 +48,19 @@ pub trait Adapt<S: System>: Send + Sync + 'static {
     /// When used in an [`AdapterSystem`], this function customizes how the system
     /// is run and how its inputs/outputs are adapted.
     fn adapt(&mut self, input: Self::In, run_system: impl FnOnce(S::In) -> S::Out) -> Self::Out;
+
+    /// When used in an [`AdapterSystem`], this function customizes how the system
+    /// is run and how its inputs/outputs are adapted.
+    /// Unlike [`Self::adapt`], this method has access to the system's name.
+    #[allow(unused)]
+    fn adapt_with_name(
+        &mut self,
+        name: &str,
+        input: Self::In,
+        run_system: impl FnOnce(S::In) -> S::Out,
+    ) -> Self::Out {
+        self.adapt(input, run_system)
+    }
 }
 
 /// A [`System`] that takes the output of `S` and transforms it by applying `Func` to it.
@@ -107,14 +120,15 @@ where
     #[inline]
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         // SAFETY: `system.run_unsafe` has the same invariants as `self.run_unsafe`.
-        self.func
-            .adapt(input, |input| self.system.run_unsafe(input, world))
+        self.func.adapt_with_name(&self.name, input, |input| {
+            self.system.run_unsafe(input, world)
+        })
     }
 
     #[inline]
     fn run(&mut self, input: Self::In, world: &mut crate::prelude::World) -> Self::Out {
         self.func
-            .adapt(input, |input| self.system.run(input, world))
+            .adapt_with_name(&self.name, input, |input| self.system.run(input, world))
     }
 
     #[inline]
