@@ -94,8 +94,7 @@ pub fn extract_text2d_sprite(
         )>,
     >,
 ) {
-    extracted_batches.batches.clear();
-    extracted_batches.sprites.clear();
+    extracted_batches.clear();
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
@@ -109,14 +108,13 @@ pub fn extract_text2d_sprite(
         if !view_visibility.get() {
             continue;
         }
-
+        let start = extracted_batches.sprite_ids.len();
         let text_anchor = -(anchor.as_vec() + 0.5);
         let alignment_translation = text_layout_info.size * text_anchor;
         let transform = *global_transform
             * scaling
             * GlobalTransform::from_translation(alignment_translation.extend(0.));
         let mut current_section = usize::MAX;
-        let mut glyph_ids = vec![];
         let mut color = Color::WHITE;
         for PositionedGlyph {
             position,
@@ -143,10 +141,11 @@ pub fn extract_text2d_sprite(
                 flip_y: false,
                 anchor: Anchor::Center.as_vec(),
             };
-            glyph_ids.push(sprite_id);
+            extracted_batches.sprite_ids.push(sprite_id);
             extracted_batches.sprites.insert(sprite_id, sprite);
         }
-        extracted_batches.batches.insert(entity, glyph_ids);
+        let indices = start..extracted_batches.sprite_ids.len();
+        extracted_batches.batches.insert(entity, indices);
     }
 }
 

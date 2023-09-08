@@ -328,15 +328,31 @@ pub struct ExtractedSprite {
     pub anchor: Vec2,
 }
 
+
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
     pub sprites: SparseSet<Entity, ExtractedSprite>,
 }
 
+/// Allows extraction of multiply sprites for a single entity that all share that entity's id for visibility resolution.
+/// Not designed for efficiency, extracting sprite entities individually should be more performant. 
 #[derive(Resource, Default)]
 pub struct ExtractedSpriteBatches {
-    pub batches: SparseSet<Entity, Vec<Entity>>,
+    /// maps the entity id for each batch to a range of indices into `sprite_ids`
+    pub batches: SparseSet<Entity, Range<usize>>,
+    /// set of all the extracted sprites from every batch
     pub sprites: SparseSet<Entity, ExtractedSprite>,
+    /// ids of empty entities used to identify the individual sprites in each batch
+    pub sprite_ids: Vec<Entity>,
+}
+
+impl ExtractedSpriteBatches {
+    /// Clear all batches
+    pub fn clear(&mut self) {
+        self.batches.clear();
+        self.sprites.clear();
+        self.sprite_ids.clear();
+    }
 }
 
 #[derive(Resource, Default)]
@@ -602,7 +618,7 @@ pub fn queue_sprites(
             if !view_entities.contains(batch_entity.index() as usize) {
                 continue;
             }
-            for sprite_entity in sprite_entities.iter() {
+            for sprite_entity in &extracted_batches.sprite_ids[sprite_entities.clone()] {
                 let extracted_sprite = extracted_batches.sprites.get(*sprite_entity).unwrap();
                 // These items will be sorted by depth with other phase items
                 let sort_key = FloatOrd(extracted_sprite.transform.translation().z);
