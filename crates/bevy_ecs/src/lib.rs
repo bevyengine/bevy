@@ -1529,19 +1529,19 @@ mod tests {
         world.spawn((B(1), C));
         world.spawn(A(1));
         world.spawn(C);
-        assert_eq!(2, query_min_size![(), (With<A>, Without<B>)],);
-        assert_eq!(3, query_min_size![&B, Or<(With<A>, With<C>)>],);
-        assert_eq!(1, query_min_size![&B, (With<A>, With<C>)],);
-        assert_eq!(1, query_min_size![(&A, &B), With<C>],);
+        assert_eq!(2, query_min_size![(), (With<A>, Without<B>)]);
+        assert_eq!(3, query_min_size![&B, Or<(With<A>, With<C>)>]);
+        assert_eq!(1, query_min_size![&B, (With<A>, With<C>)]);
+        assert_eq!(1, query_min_size![(&A, &B), With<C>]);
         assert_eq!(4, query_min_size![&A, ()], "Simple Archetypal");
-        assert_eq!(4, query_min_size![Ref<A>, ()],);
+        assert_eq!(4, query_min_size![Ref<A>, ()]);
         // All the following should set minimum size to 0, as it's impossible to predict
         // how many entities the filters will trim.
         assert_eq!(0, query_min_size![(), Added<A>], "Simple Added");
         assert_eq!(0, query_min_size![(), Changed<A>], "Simple Changed");
-        assert_eq!(0, query_min_size![(&A, &B), Changed<A>],);
-        assert_eq!(0, query_min_size![&A, (Changed<A>, With<B>)],);
-        assert_eq!(0, query_min_size![(&A, &B), Or<(Changed<A>, Changed<B>)>],);
+        assert_eq!(0, query_min_size![(&A, &B), Changed<A>]);
+        assert_eq!(0, query_min_size![&A, (Changed<A>, With<B>)]);
+        assert_eq!(0, query_min_size![(&A, &B), Or<(Changed<A>, Changed<B>)>]);
     }
 
     #[test]

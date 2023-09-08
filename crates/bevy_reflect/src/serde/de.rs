@@ -1078,7 +1078,7 @@ fn get_registration<'a, E: Error>(
     registry: &'a TypeRegistry,
 ) -> Result<&'a TypeRegistration, E> {
     let registration = registry.get(type_id).ok_or_else(|| {
-        Error::custom(format_args!("no registration found for type `{type_name}`",))
+        Error::custom(format_args!("no registration found for type `{type_name}`"))
     })?;
     Ok(registration)
 }
