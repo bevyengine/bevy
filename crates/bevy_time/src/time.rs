@@ -484,7 +484,7 @@ mod tests {
         assert_eq!(time.raw_delta(), Duration::ZERO);
         assert_eq!(time.raw_delta_seconds(), 0.0);
         assert_eq!(time.raw_delta_seconds_f64(), 0.0);
-        assert_eq!(time.elapsed(), first_update_instant - start_instant,);
+        assert_eq!(time.elapsed(), first_update_instant - start_instant);
         assert_eq!(
             time.elapsed_seconds(),
             (first_update_instant - start_instant).as_secs_f32(),
@@ -493,7 +493,7 @@ mod tests {
             time.elapsed_seconds_f64(),
             (first_update_instant - start_instant).as_secs_f64(),
         );
-        assert_eq!(time.raw_elapsed(), first_update_instant - start_instant,);
+        assert_eq!(time.raw_elapsed(), first_update_instant - start_instant);
         assert_eq!(
             time.raw_elapsed_seconds(),
             (first_update_instant - start_instant).as_secs_f32(),
@@ -532,7 +532,7 @@ mod tests {
             time.raw_delta_seconds_f64(),
             (second_update_instant - first_update_instant).as_secs_f64(),
         );
-        assert_eq!(time.elapsed(), second_update_instant - start_instant,);
+        assert_eq!(time.elapsed(), second_update_instant - start_instant);
         assert_eq!(
             time.elapsed_seconds(),
             (second_update_instant - start_instant).as_secs_f32(),
@@ -541,7 +541,7 @@ mod tests {
             time.elapsed_seconds_f64(),
             (second_update_instant - start_instant).as_secs_f64(),
         );
-        assert_eq!(time.raw_elapsed(), second_update_instant - start_instant,);
+        assert_eq!(time.raw_elapsed(), second_update_instant - start_instant);
         assert_eq!(
             time.raw_elapsed_seconds(),
             (second_update_instant - start_instant).as_secs_f32(),
@@ -614,7 +614,7 @@ mod tests {
             time.raw_delta_seconds_f64(),
             (second_update_instant - first_update_instant).as_secs_f64(),
         );
-        assert_eq!(time.elapsed(), second_update_instant - start_instant,);
+        assert_eq!(time.elapsed(), second_update_instant - start_instant);
         assert_eq!(
             time.elapsed_seconds(),
             (second_update_instant - start_instant).as_secs_f32(),
@@ -623,7 +623,7 @@ mod tests {
             time.elapsed_seconds_f64(),
             (second_update_instant - start_instant).as_secs_f64(),
         );
-        assert_eq!(time.raw_elapsed(), second_update_instant - start_instant,);
+        assert_eq!(time.raw_elapsed(), second_update_instant - start_instant);
         assert_eq!(
             time.raw_elapsed_seconds(),
             (second_update_instant - start_instant).as_secs_f32(),
