@@ -8,7 +8,7 @@ use crate::{
     },
     world::{unsafe_world_cell::UnsafeWorldCell, Mut},
 };
-use std::borrow::Borrow;
+use std::{any::TypeId, borrow::Borrow};
 
 /// [System parameter] that provides selective access to the [`Component`] data stored in a [`World`].
 ///
@@ -928,14 +928,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`get_many`](Self::get_many) for the non-panicking version.
     #[inline]
     pub fn many<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'_, Q>; N] {
-        // SAFETY: it is the scheduler's responsibility to ensure that `Query` is never handed out on the wrong `World`.
-        unsafe {
-            self.state.many_read_only_manual(
-                self.world.unsafe_world(),
-                entities,
-                self.last_run,
-                self.this_run,
-            )
+        match self.get_many(entities) {
+            Ok(items) => items,
+            Err(error) => panic!("Cannot get query results: {error}"),
         }
     }
 
@@ -1047,10 +1042,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`many`](Self::many) to get read-only query items.
     #[inline]
     pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [Q::Item<'_>; N] {
-        // SAFETY: scheduler ensures safe Query world access
-        unsafe {
-            self.state
-                .many_unchecked_manual(self.world, entities, self.last_run, self.this_run)
+        match self.get_many_mut(entities) {
+            Ok(items) => items,
+            Err(error) => panic!("Cannot get query result: {error}"),
         }
     }
 
@@ -1178,9 +1172,16 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     #[track_caller]
     pub fn component_mut<T: Component>(&mut self, entity: Entity) -> Mut<'_, T> {
         // SAFETY: unique access to query (preventing aliased access)
-        unsafe {
-            self.state
-                .component_unchecked_mut(self.world, entity, self.last_run, self.this_run)
+        let result = unsafe { self.get_component_unchecked_mut(entity) };
+
+        match result {
+            Ok(component) => component,
+            Err(error) => {
+                panic!(
+                    "Cannot get component `{:?}` from {entity:?}: {error}",
+                    TypeId::of::<T>()
+                )
+            }
         }
     }
 
