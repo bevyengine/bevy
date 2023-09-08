@@ -1,3 +1,5 @@
+//! Contains APIs for retrieving component data from the world.
+
 mod access;
 mod fetch;
 mod filter;
@@ -62,7 +64,7 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 mod tests {
     use super::{ReadOnlyWorldQuery, WorldQuery};
     use crate::prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without};
-    use crate::query::{ArchetypeFilter, QueryCombinationIter};
+    use crate::query::{ArchetypeFilter, Has, QueryCombinationIter};
     use crate::schedule::{IntoSystemConfigs, Schedule};
     use crate::system::{IntoSystem, Query, System, SystemState};
     use crate::{self as bevy_ecs, component::Component, world::World};
@@ -475,6 +477,24 @@ mod tests {
     }
 
     #[test]
+    fn has_query() {
+        let mut world = World::new();
+
+        world.spawn((A(1), B(1)));
+        world.spawn(A(2));
+        world.spawn((A(3), B(1)));
+        world.spawn(A(4));
+
+        let values: Vec<(&A, bool)> = world.query::<(&A, Has<B>)>().iter(&world).collect();
+
+        // The query seems to put the components with B first
+        assert_eq!(
+            values,
+            vec![(&A(1), true), (&A(3), true), (&A(2), false), (&A(4), false),]
+        );
+    }
+
+    #[test]
     #[should_panic = "&mut bevy_ecs::query::tests::A conflicts with a previous access in this query."]
     fn self_conflicting_worldquery() {
         #[derive(WorldQuery)]
@@ -758,7 +778,7 @@ mod tests {
         world.spawn((A(1), B(1)));
 
         fn propagate_system(mut query: Query<(&A, &mut B), Changed<A>>) {
-            query.par_iter_mut().for_each_mut(|(a, mut b)| {
+            query.par_iter_mut().for_each(|(a, mut b)| {
                 b.0 = a.0;
             });
         }
@@ -769,7 +789,7 @@ mod tests {
             }
         }
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         schedule.add_systems((propagate_system, modify_system).chain());
         schedule.run(&mut world);
         world.clear_trackers();

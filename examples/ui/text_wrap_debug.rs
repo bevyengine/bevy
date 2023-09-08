@@ -33,7 +33,11 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .id();
 
-    for linebreak_behavior in [BreakLineOn::AnyCharacter, BreakLineOn::WordBoundary] {
+    for linebreak_behavior in [
+        BreakLineOn::AnyCharacter,
+        BreakLineOn::WordBoundary,
+        BreakLineOn::NoWrap,
+    ] {
         let row_id = commands
             .spawn(NodeBundle {
                 style: Style {
@@ -66,7 +70,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                         flex_direction: FlexDirection::Column,
                         width: Val::Percent(16.),
                         height: Val::Percent(95.),
-                        overflow: Overflow::clip(),
+                        overflow: Overflow::clip_x(),
                         ..Default::default()
                     },
                     background_color: Color::rgb(0.5, c, 1.0 - c).into(),

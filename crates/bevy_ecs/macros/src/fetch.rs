@@ -88,17 +88,18 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
     let user_generics = ast.generics.clone();
     let (user_impl_generics, user_ty_generics, user_where_clauses) = user_generics.split_for_impl();
     let user_generics_with_world = {
-        let mut generics = ast.generics.clone();
+        let mut generics = ast.generics;
         generics.params.insert(0, parse_quote!('__w));
         generics
     };
     let (user_impl_generics_with_world, user_ty_generics_with_world, user_where_clauses_with_world) =
         user_generics_with_world.split_for_impl();
 
-    let struct_name = ast.ident.clone();
+    let struct_name = ast.ident;
     let read_only_struct_name = if fetch_struct_attributes.is_mutable {
         Ident::new(&format!("{struct_name}ReadOnly"), Span::call_site())
     } else {
+        #[allow(clippy::redundant_clone)]
         struct_name.clone()
     };
 
@@ -106,6 +107,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
     let read_only_item_struct_name = if fetch_struct_attributes.is_mutable {
         Ident::new(&format!("{struct_name}ReadOnlyItem"), Span::call_site())
     } else {
+        #[allow(clippy::redundant_clone)]
         item_struct_name.clone()
     };
 
@@ -115,6 +117,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
         let new_ident = Ident::new(&format!("{struct_name}ReadOnlyFetch"), Span::call_site());
         ensure_no_collision(new_ident, tokens.clone())
     } else {
+        #[allow(clippy::redundant_clone)]
         fetch_struct_name.clone()
     };
 
@@ -132,7 +135,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
             "#[derive(WorldQuery)]` only supports structs",
         )
         .into_compile_error()
-        .into()
+        .into();
     };
 
     let mut field_attrs = Vec::new();
@@ -234,6 +237,16 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                 #marker_name: &'__w (),
             }
 
+            impl #user_impl_generics_with_world Clone for #fetch_struct_name #user_ty_generics_with_world
+            #user_where_clauses_with_world {
+                fn clone(&self) -> Self {
+                    Self {
+                        #(#named_field_idents: self.#named_field_idents.clone(),)*
+                        #marker_name: &(),
+                    }
+                }
+            }
+
             // SAFETY: `update_component_access` and `update_archetype_component_access` are called on every field
             unsafe impl #user_impl_generics #path::query::WorldQuery
                 for #struct_name #user_ty_generics #user_where_clauses {
@@ -254,7 +267,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                 }
 
                 unsafe fn init_fetch<'__w>(
-                    _world: &'__w #path::world::World,
+                    _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'__w>,
                     state: &Self::State,
                     _last_run: #path::component::Tick,
                     _this_run: #path::component::Tick,
@@ -267,17 +280,6 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                                 _last_run,
                                 _this_run,
                             ),
-                        )*
-                        #marker_name: &(),
-                    }
-                }
-
-                unsafe fn clone_fetch<'__w>(
-                    _fetch: &<Self as #path::query::WorldQuery>::Fetch<'__w>
-                ) -> <Self as #path::query::WorldQuery>::Fetch<'__w> {
-                    #fetch_struct_name {
-                        #(
-                            #named_field_idents: <#field_types>::clone_fetch(& _fetch. #named_field_idents),
                         )*
                         #marker_name: &(),
                     }

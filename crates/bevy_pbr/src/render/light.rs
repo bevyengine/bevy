@@ -22,7 +22,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ComputedVisibility, ExtractedView, VisibleEntities},
+    view::{ExtractedView, ViewVisibility, VisibleEntities},
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
@@ -31,15 +31,6 @@ use bevy_utils::{
     HashMap,
 };
 use std::{hash::Hash, num::NonZeroU64};
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum RenderLightSystems {
-    ExtractClusters,
-    ExtractLights,
-    PrepareClusters,
-    PrepareLights,
-    QueueShadows,
-}
 
 #[derive(Component)]
 pub struct ExtractedPointLight {
@@ -216,6 +207,12 @@ pub struct GpuLights {
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
 pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
+
+//NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
+// when loading the wgsl "pbr_functions.wgsl" in the function apply_fog.
+#[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
+#[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
 #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
 pub const MAX_CASCADES_PER_LIGHT: usize = 4;
@@ -302,7 +299,7 @@ pub fn extract_lights(
             &PointLight,
             &CubemapVisibleEntities,
             &GlobalTransform,
-            &ComputedVisibility,
+            &ViewVisibility,
         )>,
     >,
     spot_lights: Extract<
@@ -310,7 +307,7 @@ pub fn extract_lights(
             &SpotLight,
             &VisibleEntities,
             &GlobalTransform,
-            &ComputedVisibility,
+            &ViewVisibility,
         )>,
     >,
     directional_lights: Extract<
@@ -322,7 +319,7 @@ pub fn extract_lights(
                 &Cascades,
                 &CascadeShadowConfig,
                 &GlobalTransform,
-                &ComputedVisibility,
+                &ViewVisibility,
             ),
             Without<SpotLight>,
         >,
@@ -349,10 +346,10 @@ pub fn extract_lights(
 
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((point_light, cubemap_visible_entities, transform, visibility)) =
+        if let Ok((point_light, cubemap_visible_entities, transform, view_visibility)) =
             point_lights.get(entity)
         {
-            if !visibility.is_visible() {
+            if !view_visibility.get() {
                 continue;
             }
             // TODO: This is very much not ideal. We should be able to re-use the vector memory.
@@ -388,8 +385,10 @@ pub fn extract_lights(
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((spot_light, visible_entities, transform, visibility)) = spot_lights.get(entity) {
-            if !visibility.is_visible() {
+        if let Ok((spot_light, visible_entities, transform, view_visibility)) =
+            spot_lights.get(entity)
+        {
+            if !view_visibility.get() {
                 continue;
             }
             // TODO: This is very much not ideal. We should be able to re-use the vector memory.
@@ -436,10 +435,10 @@ pub fn extract_lights(
         cascades,
         cascade_config,
         transform,
-        visibility,
-    ) in directional_lights.iter()
+        view_visibility,
+    ) in &directional_lights
     {
-        if !visibility.is_visible() {
+        if !view_visibility.get() {
             continue;
         }
 
@@ -829,7 +828,7 @@ pub fn prepare_lights(
                 .xyz()
                 .extend(1.0 / (light.range * light.range)),
             position_radius: light.transform.translation().extend(light.radius),
-            flags: flags.bits,
+            flags: flags.bits(),
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
             spot_light_tan_angle,
@@ -876,7 +875,7 @@ pub fn prepare_lights(
             color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * intensity,
             // direction is negated to be ready for N.L
             dir_to_light: light.transform.back(),
-            flags: flags.bits,
+            flags: flags.bits(),
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
             num_cascades: num_cascades as u32,
@@ -1598,11 +1597,14 @@ pub fn queue_shadows<M: Material>(
                 if let Ok((mesh_handle, material_handle)) = casting_meshes.get(entity) {
                     if let (Some(mesh), Some(material)) = (
                         render_meshes.get(mesh_handle),
-                        render_materials.get(material_handle),
+                        render_materials.get(&material_handle.id()),
                     ) {
                         let mut mesh_key =
                             MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                                 | MeshPipelineKey::DEPTH_PREPASS;
+                        if mesh.morph_targets.is_some() {
+                            mesh_key |= MeshPipelineKey::MORPH_TARGETS;
+                        }
                         if is_directional_light {
                             mesh_key |= MeshPipelineKey::DEPTH_CLAMP_ORTHO;
                         }
@@ -1638,7 +1640,7 @@ pub fn queue_shadows<M: Material>(
                             draw_function: draw_shadow_mesh,
                             pipeline: pipeline_id,
                             entity,
-                            distance: 0.0, // TODO: sort back-to-front
+                            distance: 0.0, // TODO: sort front-to-back
                         });
                     }
                 }
@@ -1677,7 +1679,7 @@ impl PhaseItem for Shadow {
         // The shadow phase is sorted by pipeline id for performance reasons.
         // Grouping all draw commands using the same pipeline together performs
         // better than rebinding everything at a high rate.
-        radsort::sort_by_key(items, |item| item.pipeline.id());
+        radsort::sort_by_key(items, |item| item.sort_key());
     }
 }
 

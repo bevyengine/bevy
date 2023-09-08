@@ -3,7 +3,7 @@
 
 use bevy::{
     prelude::*,
-    reflect::TypeUuid,
+    reflect::TypePath,
     render::{
         render_asset::RenderAssets,
         render_resource::{AsBindGroupError, PreparedBindGroup, *},
@@ -16,12 +16,13 @@ use std::{num::NonZeroU32, process::exit};
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()));
-
-    app.add_plugin(GpuFeatureSupportChecker)
-        .add_plugin(MaterialPlugin::<BindlessMaterial>::default())
-        .add_systems(Startup, setup)
-        .run();
+    app.add_plugins((
+        DefaultPlugins.set(ImagePlugin::default_nearest()),
+        GpuFeatureSupportChecker,
+        MaterialPlugin::<BindlessMaterial>::default(),
+    ))
+    .add_systems(Startup, setup)
+    .run();
 }
 
 const MAX_TEXTURE_COUNT: usize = 16;
@@ -36,7 +37,7 @@ impl Plugin for GpuFeatureSupportChecker {
 
     fn finish(&self, app: &mut App) {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return
+            return;
         };
 
         let render_device = render_app.world.resource::<RenderDevice>();
@@ -73,7 +74,7 @@ fn setup(
         .iter()
         .map(|id| {
             let path = format!("textures/rpg/tiles/generic-rpg-tile{id:0>2}.png");
-            asset_server.load(path)
+            asset_server.load(&path)
         })
         .collect();
 
@@ -85,8 +86,7 @@ fn setup(
     });
 }
 
-#[derive(Debug, Clone, TypeUuid)]
-#[uuid = "8dd2b424-45a2-4a53-ac29-7ce356b2d5fe"]
+#[derive(Asset, TypePath, Debug, Clone)]
 struct BindlessMaterial {
     textures: Vec<Handle<Image>>,
 }
@@ -109,6 +109,8 @@ impl AsBindGroup for BindlessMaterial {
                 None => return Err(AsBindGroupError::RetryNextUpdate),
             }
         }
+
+        let fallback_image = &fallback_image.d2;
 
         let textures = vec![&fallback_image.texture_view; MAX_TEXTURE_COUNT];
 

@@ -131,7 +131,7 @@ pub struct AlphaMask3dPrepass {
 }
 
 impl PhaseItem for AlphaMask3dPrepass {
-    // NOTE: Values increase towards the camera. Front-to-back ordering for alpha mask means we need a descending sort.
+    // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
     type SortKey = Reverse<FloatOrd>;
 
     #[inline]

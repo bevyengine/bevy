@@ -3,6 +3,7 @@ use xshell::{cmd, Shell};
 use bitflags::bitflags;
 
 bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     struct Check: u32 {
         const FORMAT = 0b00000001;
         const CLIPPY = 0b00000010;
@@ -18,11 +19,11 @@ bitflags! {
 
 const CLIPPY_FLAGS: [&str; 8] = [
     "-Aclippy::type_complexity",
+    "-Aclippy::explicit_iter_loop",
     "-Wclippy::doc_markdown",
     "-Wclippy::redundant_else",
     "-Wclippy::match_same_arms",
     "-Wclippy::semicolon_if_nothing_returned",
-    "-Wclippy::explicit_iter_loop",
     "-Wclippy::map_flatten",
     "-Dwarnings",
 ];

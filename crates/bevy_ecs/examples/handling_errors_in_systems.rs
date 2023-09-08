@@ -7,7 +7,7 @@ use bevy_ecs::prelude::*;
 fn main() {
     let mut world = World::new();
 
-    let mut schedule = Schedule::new();
+    let mut schedule = Schedule::default();
     schedule.add_systems((
         // This system is fallible, which means it returns a Result.
         // If it returns an error, the schedule will panic.
@@ -17,14 +17,13 @@ fn main() {
         // To prevent a fallible system from panicking, we can handle
         // the error by piping it into another system.
         fallible_system_2.pipe(error_handling_system),
-        // Bevy includes a number of built-in systems for handling errors.
-        // These are defined in the `bevy_ecs::prelude::system_adapter` module.
-        // This adapter uses the `tracing` crate to log an info event.
-        // See also `warn` and `error`.
-        fallible_system_2.pipe(system_adapter::info),
+        // You can also use `.map()` to handle errors.
+        // Bevy includes a number of built-in functions for handling errors,
+        // such as `warn` which logs the error using its `Debug` implementation.
+        fallible_system_2.map(bevy_utils::warn),
         // If we don't care about a system failing, we can just ignore the error
         // and try again next frame.
-        fallible_system_2.pipe(system_adapter::ignore),
+        fallible_system_2.map(std::mem::drop),
     ));
 
     schedule.run(&mut world);

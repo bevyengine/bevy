@@ -29,6 +29,8 @@ where
     marker: PhantomData<fn() -> Marker>,
 }
 
+/// A marker type used to distinguish exclusive function systems from regular function systems.
+#[doc(hidden)]
 pub struct IsExclusiveFunctionSystem;
 
 impl<Marker, F> IntoSystem<F::In, F::Out, (IsExclusiveFunctionSystem, Marker)> for F
@@ -122,7 +124,7 @@ where
     }
 
     #[inline]
-    fn apply_buffers(&mut self, _world: &mut World) {
+    fn apply_deferred(&mut self, _world: &mut World) {
         // "pure" exclusive systems do not have any buffers to apply.
         // Systems made by piping a normal system with an exclusive system
         // might have buffers to apply, but this is handled by `PipeSystem`.

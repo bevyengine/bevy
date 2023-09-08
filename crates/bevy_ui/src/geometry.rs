@@ -1,5 +1,5 @@
 use crate::Val;
-use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
+use bevy_reflect::Reflect;
 
 /// A type which is commonly used to define margins, paddings and borders.
 ///
@@ -45,8 +45,8 @@ use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-#[derive(Copy, Clone, PartialEq, Debug, Reflect, FromReflect)]
-#[reflect(FromReflect, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
 pub struct UiRect {
     /// The value corresponding to the left side of the UI rect.
     pub left: Val,
@@ -60,10 +60,17 @@ pub struct UiRect {
 
 impl UiRect {
     pub const DEFAULT: Self = Self {
-        left: Val::Px(0.),
-        right: Val::Px(0.),
-        top: Val::Px(0.),
-        bottom: Val::Px(0.),
+        left: Val::ZERO,
+        right: Val::ZERO,
+        top: Val::ZERO,
+        bottom: Val::ZERO,
+    };
+
+    pub const ZERO: Self = Self {
+        left: Val::ZERO,
+        right: Val::ZERO,
+        top: Val::ZERO,
+        bottom: Val::ZERO,
     };
 
     /// Creates a new [`UiRect`] from the values specified.
@@ -117,8 +124,56 @@ impl UiRect {
         }
     }
 
+    /// Creates a new [`UiRect`] from the values specified in logical pixels.
+    ///
+    /// This is a shortcut for [`UiRect::new()`], applying [`Val::Px`] to all arguments.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::px(10., 20., 30., 40.);
+    /// assert_eq!(ui_rect.left, Val::Px(10.));
+    /// assert_eq!(ui_rect.right, Val::Px(20.));
+    /// assert_eq!(ui_rect.top, Val::Px(30.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(40.));
+    /// ```
+    pub const fn px(left: f32, right: f32, top: f32, bottom: f32) -> Self {
+        UiRect {
+            left: Val::Px(left),
+            right: Val::Px(right),
+            top: Val::Px(top),
+            bottom: Val::Px(bottom),
+        }
+    }
+
+    /// Creates a new [`UiRect`] from the values specified in percentages.
+    ///
+    /// This is a shortcut for [`UiRect::new()`], applying [`Val::Percent`] to all arguments.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::percent(5., 10., 2., 1.);
+    /// assert_eq!(ui_rect.left, Val::Percent(5.));
+    /// assert_eq!(ui_rect.right, Val::Percent(10.));
+    /// assert_eq!(ui_rect.top, Val::Percent(2.));
+    /// assert_eq!(ui_rect.bottom, Val::Percent(1.));
+    /// ```
+    pub const fn percent(left: f32, right: f32, top: f32, bottom: f32) -> Self {
+        UiRect {
+            left: Val::Percent(left),
+            right: Val::Percent(right),
+            top: Val::Percent(top),
+            bottom: Val::Percent(bottom),
+        }
+    }
+
     /// Creates a new [`UiRect`] where `left` and `right` take the given value,
-    /// and `top` and `bottom` set to zero `Val::Px(0.)`.
+    /// and `top` and `bottom` set to zero `Val::ZERO`.
     ///
     /// # Example
     ///
@@ -129,8 +184,8 @@ impl UiRect {
     ///
     /// assert_eq!(ui_rect.left, Val::Px(10.0));
     /// assert_eq!(ui_rect.right, Val::Px(10.0));
-    /// assert_eq!(ui_rect.top, Val::Px(0.));
-    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
     pub fn horizontal(value: Val) -> Self {
         UiRect {
@@ -141,7 +196,7 @@ impl UiRect {
     }
 
     /// Creates a new [`UiRect`] where `top` and `bottom` take the given value,
-    /// and `left` and `right` are set to `Val::Px(0.)`.
+    /// and `left` and `right` are set to `Val::ZERO`.
     ///
     /// # Example
     ///
@@ -150,8 +205,8 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::vertical(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Px(0.));
-    /// assert_eq!(ui_rect.right, Val::Px(0.));
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
@@ -187,7 +242,7 @@ impl UiRect {
     }
 
     /// Creates a new [`UiRect`] where `left` takes the given value, and
-    /// the other fields are set to `Val::Px(0.)`.
+    /// the other fields are set to `Val::ZERO`.
     ///
     /// # Example
     ///
@@ -197,9 +252,9 @@ impl UiRect {
     /// let ui_rect = UiRect::left(Val::Px(10.0));
     ///
     /// assert_eq!(ui_rect.left, Val::Px(10.0));
-    /// assert_eq!(ui_rect.right, Val::Px(0.));
-    /// assert_eq!(ui_rect.top, Val::Px(0.));
-    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
     pub fn left(value: Val) -> Self {
         UiRect {
@@ -209,7 +264,7 @@ impl UiRect {
     }
 
     /// Creates a new [`UiRect`] where `right` takes the given value,
-    /// and the other fields are set to `Val::Px(0.)`.
+    /// and the other fields are set to `Val::ZERO`.
     ///
     /// # Example
     ///
@@ -218,10 +273,10 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::right(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Px(0.));
+    /// assert_eq!(ui_rect.left, Val::ZERO);
     /// assert_eq!(ui_rect.right, Val::Px(10.0));
-    /// assert_eq!(ui_rect.top, Val::Px(0.));
-    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
     pub fn right(value: Val) -> Self {
         UiRect {
@@ -231,7 +286,7 @@ impl UiRect {
     }
 
     /// Creates a new [`UiRect`] where `top` takes the given value,
-    /// and the other fields are set to `Val::Px(0.)`.
+    /// and the other fields are set to `Val::ZERO`.
     ///
     /// # Example
     ///
@@ -240,10 +295,10 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::top(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Px(0.));
-    /// assert_eq!(ui_rect.right, Val::Px(0.));
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
-    /// assert_eq!(ui_rect.bottom, Val::Px(0.));
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
     pub fn top(value: Val) -> Self {
         UiRect {
@@ -253,7 +308,7 @@ impl UiRect {
     }
 
     /// Creates a new [`UiRect`] where `bottom` takes the given value,
-    /// and the other fields are set to `Val::Px(0.)`.
+    /// and the other fields are set to `Val::ZERO`.
     ///
     /// # Example
     ///
@@ -262,9 +317,9 @@ impl UiRect {
     /// #
     /// let ui_rect = UiRect::bottom(Val::Px(10.0));
     ///
-    /// assert_eq!(ui_rect.left, Val::Px(0.));
-    /// assert_eq!(ui_rect.right, Val::Px(0.));
-    /// assert_eq!(ui_rect.top, Val::Px(0.));
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
     pub fn bottom(value: Val) -> Self {
@@ -290,10 +345,10 @@ mod tests {
         assert_eq!(
             UiRect::default(),
             UiRect {
-                left: Val::Px(0.),
-                right: Val::Px(0.),
-                top: Val::Px(0.),
-                bottom: Val::Px(0.)
+                left: Val::ZERO,
+                right: Val::ZERO,
+                top: Val::ZERO,
+                bottom: Val::ZERO
             }
         );
         assert_eq!(UiRect::default(), UiRect::DEFAULT);
@@ -311,5 +366,23 @@ mod tests {
         assert_eq!(r.bottom, v.bottom);
         assert_eq!(r.left, h.left);
         assert_eq!(r.right, h.right);
+    }
+
+    #[test]
+    fn uirect_px() {
+        let r = UiRect::px(3., 5., 20., 999.);
+        assert_eq!(r.left, Val::Px(3.));
+        assert_eq!(r.right, Val::Px(5.));
+        assert_eq!(r.top, Val::Px(20.));
+        assert_eq!(r.bottom, Val::Px(999.));
+    }
+
+    #[test]
+    fn uirect_percent() {
+        let r = UiRect::percent(3., 5., 20., 99.);
+        assert_eq!(r.left, Val::Percent(3.));
+        assert_eq!(r.right, Val::Percent(5.));
+        assert_eq!(r.top, Val::Percent(20.));
+        assert_eq!(r.bottom, Val::Percent(99.));
     }
 }

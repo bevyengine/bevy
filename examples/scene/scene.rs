@@ -1,15 +1,10 @@
 //! This example illustrates loading scenes from files.
-use bevy::{asset::ChangeWatcher, prelude::*, tasks::IoTaskPool, utils::Duration};
+use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
 use std::{fs::File, io::Write};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            // This tells the AssetServer to watch for changes to assets.
-            // It enables our scenes to automatically reload in game when we modify their files.
-            watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins.set(AssetPlugin::default().watch_for_changes()))
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
         .register_type::<ResourceA>()
@@ -100,9 +95,18 @@ fn log_system(
 }
 
 fn save_scene_system(world: &mut World) {
-    // Scenes can be created from any ECS World. You can either create a new one for the scene or
-    // use the current World.
+    // Scenes can be created from any ECS World.
+    // You can either create a new one for the scene or use the current World.
+    // For demonstration purposes, we'll create a new one.
     let mut scene_world = World::new();
+
+    // The `TypeRegistry` resource contains information about all registered types (including components).
+    // This is used to construct scenes, so we'll want to ensure that our previous type registrations
+    // exist in this new scene world as well.
+    // To do this, we can simply clone the `AppTypeRegistry` resource.
+    let type_registry = world.resource::<AppTypeRegistry>().clone();
+    scene_world.insert_resource(type_registry);
+
     let mut component_b = ComponentB::from_world(world);
     component_b.value = "hello".to_string();
     scene_world.spawn((
@@ -113,12 +117,11 @@ fn save_scene_system(world: &mut World) {
     scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });
     scene_world.insert_resource(ResourceA { score: 1 });
 
-    // The TypeRegistry resource contains information about all registered types (including
-    // components). This is used to construct scenes.
-    let type_registry = world.resource::<AppTypeRegistry>();
-    let scene = DynamicScene::from_world(&scene_world, type_registry);
+    // With our sample world ready to go, we can now create our scene:
+    let scene = DynamicScene::from_world(&scene_world);
 
     // Scenes can be serialized like this:
+    let type_registry = world.resource::<AppTypeRegistry>();
     let serialized_scene = scene.serialize_ron(type_registry).unwrap();
 
     // Showing the scene in the console
