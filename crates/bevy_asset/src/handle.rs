@@ -274,7 +274,7 @@ impl UntypedHandle {
 
     /// Returns the path if this is (1) a strong handle and (2) the asset has a path
     #[inline]
-    pub fn path(&self) -> Option<&AssetPath<'static>> {
+    pub fn path(&self) -> Option<&AssetPath> {
         match self {
             UntypedHandle::Strong(handle) => handle.path.as_ref(),
             UntypedHandle::Weak(_) => None,

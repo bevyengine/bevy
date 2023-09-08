@@ -1,6 +1,6 @@
 use crate::{io::Writer, meta::Settings, Asset, ErasedLoadedAsset};
 use crate::{AssetLoader, LabeledAsset};
-use bevy_utils::{BoxedFuture, HashMap};
+use bevy_utils::{BoxedFuture, CowArc, HashMap};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 
@@ -60,7 +60,7 @@ impl<S: AssetSaver> ErasedAssetSaver for S {
 /// An [`Asset`] (and any labeled "sub assets") intended to be saved.
 pub struct SavedAsset<'a, A: Asset> {
     value: &'a A,
-    labeled_assets: &'a HashMap<String, LabeledAsset>,
+    labeled_assets: &'a HashMap<CowArc<'static, str>, LabeledAsset>,
 }
 
 impl<'a, A: Asset> Deref for SavedAsset<'a, A> {
@@ -88,8 +88,11 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
     }
 
     /// Returns the labeled asset, if it exists and matches this type.
-    pub fn get_labeled<B: Asset>(&self, label: &str) -> Option<SavedAsset<B>> {
-        let labeled = self.labeled_assets.get(label)?;
+    pub fn get_labeled<B: Asset>(
+        &self,
+        label: impl Into<CowArc<'static, str>>,
+    ) -> Option<SavedAsset<B>> {
+        let labeled = self.labeled_assets.get(&label.into())?;
         let value = labeled.asset.value.downcast_ref::<B>()?;
         Some(SavedAsset {
             value,
@@ -98,13 +101,16 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
     }
 
     /// Returns the type-erased labeled asset, if it exists and matches this type.
-    pub fn get_erased_labeled(&self, label: &str) -> Option<&ErasedLoadedAsset> {
-        let labeled = self.labeled_assets.get(label)?;
+    pub fn get_erased_labeled(
+        &self,
+        label: impl Into<CowArc<'static, str>>,
+    ) -> Option<&ErasedLoadedAsset> {
+        let labeled = self.labeled_assets.get(&label.into())?;
         Some(&labeled.asset)
     }
 
     /// Iterate over all labels for "labeled assets" in the loaded asset
     pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
-        self.labeled_assets.keys().map(|s| s.as_str())
+        self.labeled_assets.keys().map(|s| &**s)
     }
 }

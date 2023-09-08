@@ -72,10 +72,7 @@ fn setup(
     // load 16 textures
     let textures: Vec<_> = TILE_ID
         .iter()
-        .map(|id| {
-            let path = format!("textures/rpg/tiles/generic-rpg-tile{id:0>2}.png");
-            asset_server.load(&path)
-        })
+        .map(|id| asset_server.load(format!("textures/rpg/tiles/generic-rpg-tile{id:0>2}.png")))
         .collect();
 
     // a cube with multiple textures
