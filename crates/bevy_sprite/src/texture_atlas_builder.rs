@@ -1,6 +1,6 @@
 use bevy_asset::{AssetId, Assets};
 use bevy_log::{debug, error, warn};
-use bevy_math::{Rect, Vec2};
+use bevy_math::{Rect, UVec2, Vec2};
 use bevy_render::{
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::{Image, TextureFormatPixelInfo},
@@ -38,6 +38,8 @@ pub struct TextureAtlasBuilder {
     format: TextureFormat,
     /// Enable automatic format conversion for textures if they are not in the atlas format.
     auto_format_conversion: bool,
+    /// The amount of padding in pixels to add along the right and bottom edges of the texture rects.
+    padding: UVec2,
 }
 
 impl Default for TextureAtlasBuilder {
@@ -48,6 +50,7 @@ impl Default for TextureAtlasBuilder {
             max_size: Vec2::new(2048., 2048.),
             format: TextureFormat::Rgba8UnormSrgb,
             auto_format_conversion: true,
+            padding: UVec2::ZERO,
         }
     }
 }
@@ -85,20 +88,29 @@ impl TextureAtlasBuilder {
             image_id,
             None,
             RectToInsert::new(
-                texture.texture_descriptor.size.width,
-                texture.texture_descriptor.size.height,
+                texture.texture_descriptor.size.width + self.padding.x,
+                texture.texture_descriptor.size.height + self.padding.y,
                 1,
             ),
         );
+    }
+
+    /// Sets the amount of padding in pixels to add between the textures in the texture atlas.
+    ///
+    /// The `x` value provide will be added to the right edge, while the `y` value will be added to the bottom edge.
+    pub fn padding(mut self, padding: UVec2) -> Self {
+        self.padding = padding;
+        self
     }
 
     fn copy_texture_to_atlas(
         atlas_texture: &mut Image,
         texture: &Image,
         packed_location: &PackedLocation,
+        padding: UVec2,
     ) {
-        let rect_width = packed_location.width() as usize;
-        let rect_height = packed_location.height() as usize;
+        let rect_width = (packed_location.width() - padding.x) as usize;
+        let rect_height = (packed_location.height() - padding.y) as usize;
         let rect_x = packed_location.x() as usize;
         let rect_y = packed_location.y() as usize;
         let atlas_width = atlas_texture.texture_descriptor.size.width as usize;
@@ -121,13 +133,18 @@ impl TextureAtlasBuilder {
         packed_location: &PackedLocation,
     ) {
         if self.format == texture.texture_descriptor.format {
-            Self::copy_texture_to_atlas(atlas_texture, texture, packed_location);
+            Self::copy_texture_to_atlas(atlas_texture, texture, packed_location, self.padding);
         } else if let Some(converted_texture) = texture.convert(self.format) {
             debug!(
                 "Converting texture from '{:?}' to '{:?}'",
                 texture.texture_descriptor.format, self.format
             );
-            Self::copy_texture_to_atlas(atlas_texture, &converted_texture, packed_location);
+            Self::copy_texture_to_atlas(
+                atlas_texture,
+                &converted_texture,
+                packed_location,
+                self.padding,
+            );
         } else {
             error!(
                 "Error converting texture from '{:?}' to '{:?}', ignoring",
@@ -213,8 +230,8 @@ impl TextureAtlasBuilder {
             let min = Vec2::new(packed_location.x() as f32, packed_location.y() as f32);
             let max = min
                 + Vec2::new(
-                    packed_location.width() as f32,
-                    packed_location.height() as f32,
+                    (packed_location.width() - self.padding.x) as f32,
+                    (packed_location.height() - self.padding.y) as f32,
                 );
             texture_ids.insert(*image_id, texture_rects.len());
             texture_rects.push(Rect { min, max });
