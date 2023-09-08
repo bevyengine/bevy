@@ -328,14 +328,13 @@ pub struct ExtractedSprite {
     pub anchor: Vec2,
 }
 
-
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
     pub sprites: SparseSet<Entity, ExtractedSprite>,
 }
 
 /// Allows extraction of multiply sprites for a single entity that all share that entity's id for visibility resolution.
-/// Not designed for efficiency, extracting sprite entities individually should be more performant. 
+/// Not designed for efficiency, extracting sprite entities individually should be more performant.
 #[derive(Resource, Default)]
 pub struct ExtractedSpriteBatches {
     /// maps the entity id for each batch to a range of indices into `sprite_ids`
