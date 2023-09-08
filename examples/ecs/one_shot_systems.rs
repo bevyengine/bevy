@@ -7,7 +7,7 @@
 //! See the [`SystemRegistry`](bevy::ecs::SystemRegistry) docs for more details.
 
 use bevy::{
-    ecs::system::{SystemId, SystemRegistry},
+    ecs::system::{RunSystem, SystemId},
     prelude::*,
 };
 
@@ -30,14 +30,13 @@ struct Callback(SystemId);
 #[derive(Component)]
 struct Triggered;
 
-fn setup(mut system_registry: ResMut<SystemRegistry>, mut commands: Commands) {
-    commands.spawn((
-        Callback(system_registry.register(button_pressed)),
-        Triggered,
-    ));
+fn setup(world: &mut World) {
+    let button_pressed_id = world.register_system(button_pressed);
+    world.spawn((Callback(button_pressed_id), Triggered));
     // This entity does not have a Triggered component, so its callback won't run.
-    commands.spawn(Callback(system_registry.register(slider_toggled)));
-    commands.run_system(count_entities);
+    let slider_toggled_id = world.register_system(slider_toggled);
+    world.spawn(Callback(slider_toggled_id));
+    world.run_system(count_entities);
 }
 
 fn button_pressed() {

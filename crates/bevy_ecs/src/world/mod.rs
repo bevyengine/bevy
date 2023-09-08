@@ -22,7 +22,7 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::{Resource, SystemRegistry},
+    system::Resource,
     world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -75,7 +75,7 @@ pub struct World {
 
 impl Default for World {
     fn default() -> Self {
-        let mut world = Self {
+        Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Entities::new(),
             components: Default::default(),
@@ -89,10 +89,7 @@ impl Default for World {
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
-        };
-        // This resource is required by bevy_ecs itself, so cannot be included in a plugin
-        world.init_resource::<SystemRegistry>();
-        world
+        }
     }
 }
 

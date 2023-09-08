@@ -1,10 +1,9 @@
-use bevy_utils::HashMap;
-
 use crate::system::{BoxedSystem, Command, IntoSystem};
-use crate::world::{Mut, World};
+use crate::world::World;
 // Needed for derive(Component) macro
+use crate::entity::Entity;
 use crate::{self as bevy_ecs};
-use bevy_ecs_macros::Resource;
+use bevy_ecs_macros::Component;
 
 /// Stores systems, so they can be reused and run in an ad-hoc fashion.
 ///
@@ -69,16 +68,12 @@ use bevy_ecs_macros::Resource;
 /// world.resource_mut::<ChangeDetector>().set_changed();
 /// let _ = world.run_system_by_id(detector); // -> Something happened!
 /// ```
-#[derive(Resource, Default)]
-pub struct SystemRegistry {
-    last_id: u32,
-    systems: HashMap<u32, RegisteredSystem>,
-}
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 ///
 /// The [`SystemRegistry`] stores systems in this format.
-pub struct RegisteredSystem {
+#[derive(Component)]
+struct RegisteredSystem {
     initialized: bool,
     system: BoxedSystem,
 }
@@ -109,111 +104,78 @@ impl RemovedSystem {
 /// These are opaque identifiers, keyed to a specific [`SystemRegistry`],
 /// and are created via [`SystemRegistry::register`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SystemId(u32);
-
-impl SystemRegistry {
-    /// Registers a system in the [`SystemRegistry`], so it can be run later.
-    ///
-    /// It's possible to register the same system twice, creating two or more distinct instances in the registry.
-    #[inline]
-    pub fn register<M, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) -> SystemId {
-        let id = self
-            .last_id
-            .checked_add(1)
-            .expect("Maximum number of registered systems exceeded.");
-        self.last_id = id;
-        let registered_system = RegisteredSystem {
-            initialized: false,
-            system: Box::new(IntoSystem::into_system(system)),
-        };
-        self.systems.insert(id, registered_system);
-        SystemId(id)
-    }
-
-    /// Removes a registered system from the [`SystemRegistry`], if the [`SystemId`] is not
-    /// registered, it returns a [`SystemRegistryError::SystemIdNotRegistered`], otherwise it returns the system.
-    #[inline]
-    pub fn remove(&mut self, id: SystemId) -> Result<RemovedSystem, SystemRegistryError> {
-        self.systems
-            .remove(&id.0)
-            .map(|RegisteredSystem { initialized, system }| RemovedSystem { initialized, system })
-            .ok_or(SystemRegistryError::SystemIdNotRegistered(id))
-    }
-
-    /// Run the system by its [`SystemId`].
-    ///
-    /// A [`SystemId`] can be obtained by registering it first via [`SystemRegistry::register`].
-    #[inline]
-    pub fn run_by_id(
-        &mut self,
-        world: &mut World,
-        id: SystemId,
-    ) -> Result<(), SystemRegistryError> {
-        match self.systems.get_mut(&id.0) {
-            Some(RegisteredSystem {
-                initialized,
-                system,
-            }) => {
-                if !*initialized {
-                    system.initialize(world);
-                    *initialized = true;
-                }
-                system.run((), world);
-                system.apply_deferred(world);
-                Ok(())
-            }
-            None => Err(SystemRegistryError::SystemIdNotRegistered(id)),
-        }
-    }
-}
+pub struct SystemId(Entity);
 
 impl World {
     /// Registers a system in the [`SystemRegistry`].
     ///
     /// Calls [`SystemRegistry::register`].
-    #[inline]
     pub fn register_system<M, S: IntoSystem<(), (), M> + 'static>(
         &mut self,
         system: S,
     ) -> SystemId {
-        if !self.contains_resource::<SystemRegistry>() {
-            panic!(
-                "SystemRegistry not found: Nested and recursive one-shot systems are not supported"
-            );
-        }
-
-        self.resource_mut::<SystemRegistry>().register(system)
+        SystemId(
+            self.spawn(RegisteredSystem {
+                initialized: false,
+                system: Box::new(IntoSystem::into_system(system)),
+            })
+            .id(),
+        )
     }
 
     /// Removes a registered system in the [`SystemRegistry`] and returns the system if it exists.
     ///
     /// Calls [`SystemRegistry::remove`].
-    #[inline]
     pub fn remove_system(&mut self, id: SystemId) -> Result<RemovedSystem, SystemRegistryError> {
-        if !self.contains_resource::<SystemRegistry>() {
-            panic!(
-                "SystemRegistry not found: Nested and recursive one-shot systems are not supported"
-            );
+        match self.get_entity_mut(id.0) {
+            Some(mut entity) => {
+                let registered_system = entity
+                    .take::<RegisteredSystem>()
+                    .expect("SystemId is not associated to a registered system.");
+                entity.despawn();
+                Ok(RemovedSystem {
+                    initialized: registered_system.initialized,
+                    system: registered_system.system,
+                })
+            }
+            None => Err(SystemRegistryError::SystemIdNotRegistered(id)),
         }
-
-        self.resource_mut::<SystemRegistry>().remove(id)
     }
 
     /// Run the systems with the provided [`SystemId`].
     /// A [`SystemId`] can obtained by registering a system via `[world::register_system]`.
     ///
     /// Calls [`SystemRegistry::run_by_id`].
-    #[inline]
     pub fn run_system_by_id(&mut self, id: SystemId) -> Result<(), SystemRegistryError> {
-        if !self.contains_resource::<SystemRegistry>() {
-            panic!(
-                "SystemRegistry not found: Nested and recursive one-shot systems are not supported"
-            );
-        }
+        // lookup
+        let mut entity = self
+            .get_entity_mut(id.0)
+            .ok_or(SystemRegistryError::SystemIdNotRegistered(id))?;
 
-        self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.run_by_id(world, id)
-        })
+        // take ownership of system trait object
+        let RegisteredSystem {
+            mut initialized,
+            mut system,
+        } = entity
+            .take::<RegisteredSystem>()
+            .expect("Recursive system lookups are not supported.");
+
+        // run the system
+        if !initialized {
+            system.initialize(self);
+            initialized = true;
+        }
+        system.run((), self);
+        system.apply_deferred(self);
+
+        // return ownership of system trait object (if entity still exists)
+        if let Some(mut entity) = self.get_entity_mut(id.0) {
+            entity.insert::<RegisteredSystem>(RegisteredSystem {
+                initialized,
+                system,
+            });
+        }
+        Ok(())
     }
 }
 
@@ -233,19 +195,7 @@ impl RunSystemById {
 impl Command for RunSystemById {
     #[inline]
     fn apply(self, world: &mut World) {
-        if !world.contains_resource::<SystemRegistry>() {
-            panic!(
-                "SystemRegistry not found: Nested and recursive one-shot systems are not supported"
-            );
-        }
-
-        world.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry
-                .run_by_id(world, self.system_id)
-                // Ideally this error should be handled more gracefully,
-                // but that's blocked on a full error handling solution for commands
-                .unwrap();
-        });
+        let _ = world.run_system_by_id(self.system_id);
     }
 }
 
@@ -316,5 +266,35 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(4));
         let _ = world.run_system_by_id(id);
         assert_eq!(*world.resource::<Counter>(), Counter(8));
+    }
+
+    #[test]
+    fn nested_systems() {
+        use crate::system::SystemId;
+
+        #[derive(Component)]
+        struct Callback(SystemId);
+
+        fn nested(query: Query<&Callback>, mut commands: Commands) {
+            for callback in query.iter() {
+                commands.run_system_by_id(callback.0);
+            }
+        }
+
+        let mut world = World::new();
+        world.insert_resource(Counter(0));
+
+        let increment_two = world.register_system(|mut counter: ResMut<Counter>| {
+            counter.0 += 2;
+        });
+        let increment_three = world.register_system(|mut counter: ResMut<Counter>| {
+            counter.0 += 3;
+        });
+        let nested_id = world.register_system(nested);
+
+        world.spawn(Callback(increment_two));
+        world.spawn(Callback(increment_three));
+        let _ = world.run_system_by_id(nested_id);
+        assert_eq!(*world.resource::<Counter>(), Counter(5));
     }
 }
