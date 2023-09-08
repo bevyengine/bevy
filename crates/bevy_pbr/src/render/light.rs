@@ -22,7 +22,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ComputedVisibility, ExtractedView, VisibleEntities},
+    view::{ExtractedView, ViewVisibility, VisibleEntities},
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
@@ -299,7 +299,7 @@ pub fn extract_lights(
             &PointLight,
             &CubemapVisibleEntities,
             &GlobalTransform,
-            &ComputedVisibility,
+            &ViewVisibility,
         )>,
     >,
     spot_lights: Extract<
@@ -307,7 +307,7 @@ pub fn extract_lights(
             &SpotLight,
             &VisibleEntities,
             &GlobalTransform,
-            &ComputedVisibility,
+            &ViewVisibility,
         )>,
     >,
     directional_lights: Extract<
@@ -319,7 +319,7 @@ pub fn extract_lights(
                 &Cascades,
                 &CascadeShadowConfig,
                 &GlobalTransform,
-                &ComputedVisibility,
+                &ViewVisibility,
             ),
             Without<SpotLight>,
         >,
@@ -346,10 +346,10 @@ pub fn extract_lights(
 
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((point_light, cubemap_visible_entities, transform, visibility)) =
+        if let Ok((point_light, cubemap_visible_entities, transform, view_visibility)) =
             point_lights.get(entity)
         {
-            if !visibility.is_visible() {
+            if !view_visibility.get() {
                 continue;
             }
             // TODO: This is very much not ideal. We should be able to re-use the vector memory.
@@ -385,8 +385,10 @@ pub fn extract_lights(
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((spot_light, visible_entities, transform, visibility)) = spot_lights.get(entity) {
-            if !visibility.is_visible() {
+        if let Ok((spot_light, visible_entities, transform, view_visibility)) =
+            spot_lights.get(entity)
+        {
+            if !view_visibility.get() {
                 continue;
             }
             // TODO: This is very much not ideal. We should be able to re-use the vector memory.
@@ -433,10 +435,10 @@ pub fn extract_lights(
         cascades,
         cascade_config,
         transform,
-        visibility,
-    ) in directional_lights.iter()
+        view_visibility,
+    ) in &directional_lights
     {
-        if !visibility.is_visible() {
+        if !view_visibility.get() {
             continue;
         }
 
@@ -1595,7 +1597,7 @@ pub fn queue_shadows<M: Material>(
                 if let Ok((mesh_handle, material_handle)) = casting_meshes.get(entity) {
                     if let (Some(mesh), Some(material)) = (
                         render_meshes.get(mesh_handle),
-                        render_materials.get(material_handle),
+                        render_materials.get(&material_handle.id()),
                     ) {
                         let mut mesh_key =
                             MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)

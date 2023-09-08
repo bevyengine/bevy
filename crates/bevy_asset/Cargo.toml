@@ -8,33 +8,35 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [features]
-default = []
-filesystem_watcher = ["notify"]
-debug_asset_server = ["filesystem_watcher"]
+filesystem_watcher = ["notify-debouncer-full"]
+multi-threaded = ["bevy_tasks/multi-threaded"]
 
 [dependencies]
-# bevy
 bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
-bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.12.0-dev" }
+bevy_asset_macros = { path = "macros", version = "0.12.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.12.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.12.0-dev", features = [
-    "bevy",
-] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.12.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 
-# other
+anyhow = "1.0"
+async-broadcast = "0.5"
+async-fs = "1.5"
+async-lock = "2.8"
+crossbeam-channel = "0.5"
+downcast-rs = "1.2"
+futures-io = "0.3"
+futures-lite = "1.12"
+md5 = "0.7"
+parking_lot = { version = "0.12", features = ["arc_lock", "send_guard"] }
+ron = "0.8"
 serde = { version = "1", features = ["derive"] }
-crossbeam-channel = "0.5.0"
-anyhow = "1.0.4"
 thiserror = "1.0"
-downcast-rs = "1.2.0"
-fastrand = "2.0.0"
-notify = { version = "6.0.0", optional = true }
-parking_lot = "0.12.1"
-async-channel = "1.4.2"
+notify-debouncer-full = { version = "0.2.0", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 bevy_winit = { path = "../bevy_winit", version = "0.12.0-dev" }
@@ -46,6 +48,4 @@ wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 
 [dev-dependencies]
-futures-lite = "1.4.0"
-tempfile = "3.2.0"
 bevy_core = { path = "../bevy_core", version = "0.12.0-dev" }

@@ -2,7 +2,7 @@ use bevy_ecs::{
     entity::{Entity, EntityMapper, MapEntities},
     prelude::{Component, ReflectComponent},
 };
-use bevy_math::{DVec2, IVec2, Rect, Vec2};
+use bevy_math::{DVec2, IVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 #[cfg(feature = "serialize")]
@@ -149,9 +149,9 @@ pub struct Window {
     ///
     /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
-    /// - macOS X: Not working as expected.
+    /// - macOS: Not working as expected.
     ///
-    /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>.
+    /// macOS transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>.
     /// You should also set the window `composite_alpha_mode` to `CompositeAlphaMode::PostMultiplied`.
     pub transparent: bool,
     /// Get/set whether the window is focused.
@@ -329,16 +329,12 @@ impl Window {
     pub fn physical_cursor_position(&self) -> Option<Vec2> {
         match self.internal.physical_cursor_position {
             Some(position) => {
-                let position = position.as_vec2();
-                if Rect::new(
-                    0.,
-                    0.,
-                    self.physical_width() as f32,
-                    self.physical_height() as f32,
-                )
-                .contains(position)
+                if position.x >= 0.
+                    && position.y >= 0.
+                    && position.x < self.physical_width() as f64
+                    && position.y < self.physical_height() as f64
                 {
-                    Some(position)
+                    Some(position.as_vec2())
                 } else {
                     None
                 }
@@ -1073,5 +1069,60 @@ impl Default for EnabledButtons {
             maximize: true,
             close: true,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Checks that `Window::physical_cursor_position` returns the cursor position if it is within
+    // the bounds of the window.
+    #[test]
+    fn cursor_position_within_window_bounds() {
+        let mut window = Window {
+            resolution: WindowResolution::new(800., 600.),
+            ..Default::default()
+        };
+
+        window.set_physical_cursor_position(Some(DVec2::new(0., 300.)));
+        assert_eq!(window.physical_cursor_position(), Some(Vec2::new(0., 300.)));
+
+        window.set_physical_cursor_position(Some(DVec2::new(400., 0.)));
+        assert_eq!(window.physical_cursor_position(), Some(Vec2::new(400., 0.)));
+
+        window.set_physical_cursor_position(Some(DVec2::new(799.999, 300.)));
+        assert_eq!(
+            window.physical_cursor_position(),
+            Some(Vec2::new(799.999, 300.)),
+        );
+
+        window.set_physical_cursor_position(Some(DVec2::new(400., 599.999)));
+        assert_eq!(
+            window.physical_cursor_position(),
+            Some(Vec2::new(400., 599.999))
+        );
+    }
+
+    // Checks that `Window::physical_cursor_position` returns `None` if the cursor position is not
+    // within the bounds of the window.
+    #[test]
+    fn cursor_position_not_within_window_bounds() {
+        let mut window = Window {
+            resolution: WindowResolution::new(800., 600.),
+            ..Default::default()
+        };
+
+        window.set_physical_cursor_position(Some(DVec2::new(-0.001, 300.)));
+        assert!(window.physical_cursor_position().is_none());
+
+        window.set_physical_cursor_position(Some(DVec2::new(400., -0.001)));
+        assert!(window.physical_cursor_position().is_none());
+
+        window.set_physical_cursor_position(Some(DVec2::new(800., 300.)));
+        assert!(window.physical_cursor_position().is_none());
+
+        window.set_physical_cursor_position(Some(DVec2::new(400., 600.)));
+        assert!(window.physical_cursor_position().is_none());
     }
 }

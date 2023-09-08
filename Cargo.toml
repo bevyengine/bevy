@@ -51,7 +51,6 @@ default = [
   "zstd",
   "vorbis",
   "x11",
-  "filesystem_watcher",
   "bevy_gizmos",
   "android_shared_stdcxx",
   "tonemapping_luts",
@@ -212,9 +211,6 @@ symphonia-vorbis = ["bevy_internal/symphonia-vorbis"]
 # WAV audio format support (through symphonia)
 symphonia-wav = ["bevy_internal/symphonia-wav"]
 
-# Enable watching file system for asset hot reload
-filesystem_watcher = ["bevy_internal/filesystem_watcher"]
-
 # Enable serialization support through serde
 serialize = ["bevy_internal/serialize"]
 
@@ -232,9 +228,6 @@ subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
-
-# Enable the "debug asset server" for hot reloading internal assets
-debug_asset_server = ["bevy_internal/debug_asset_server"]
 
 # Enable animation support, and glTF animation loading
 animation = ["bevy_internal/animation", "bevy_animation"]
@@ -266,6 +259,9 @@ shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 # Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm
 webgl2 = ["bevy_internal/webgl"]
 
+# Enables watching the filesystem for Bevy Asset hot-reloading
+filesystem_watcher = ["bevy_internal/filesystem_watcher"]
+
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0-dev", default-features = false, optional = true }
 bevy_internal = { path = "crates/bevy_internal", version = "0.12.0-dev", default-features = false }
@@ -279,6 +275,7 @@ bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "1.11.3"
 crossbeam-channel = "0.5.0"
+argh = "0.1.12"
 
 [[example]]
 name = "hello_world"
@@ -1039,13 +1036,13 @@ category = "Assets"
 wasm = true
 
 [[example]]
-name = "custom_asset_io"
-path = "examples/asset/custom_asset_io.rs"
+name = "custom_asset_reader"
+path = "examples/asset/custom_asset_reader.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.custom_asset_io]
+[package.metadata.example.custom_asset_reader]
 name = "Custom Asset IO"
-description = "Implements a custom asset io loader"
+description = "Implements a custom AssetReader"
 category = "Assets"
 wasm = true
 
@@ -1059,6 +1056,18 @@ name = "Hot Reloading of Assets"
 description = "Demonstrates automatic reloading of assets when modified on disk"
 category = "Assets"
 wasm = true
+
+[[example]]
+name = "asset_processing"
+path = "examples/asset/processing/processing.rs"
+doc-scrape-examples = true
+required-features = ["filesystem_watcher"]
+
+[package.metadata.example.asset_processing]
+name = "Asset Processing"
+description = "Demonstrates how to process and load custom assets"
+category = "Assets"
+wasm = false
 
 # Async Tasks
 [[example]]

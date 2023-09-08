@@ -1,5 +1,4 @@
 use crate::{DynamicEntity, DynamicScene};
-use anyhow::Result;
 use bevy_ecs::entity::Entity;
 use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
 use bevy_reflect::{

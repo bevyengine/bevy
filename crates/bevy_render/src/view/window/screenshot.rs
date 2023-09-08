@@ -1,10 +1,9 @@
 use std::{borrow::Cow, path::Path};
 
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info, info_span};
-use bevy_reflect::TypeUuid;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::HashMap;
 use parking_lot::Mutex;
@@ -122,8 +121,7 @@ impl ScreenshotManager {
 
 pub struct ScreenshotPlugin;
 
-const SCREENSHOT_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 11918575842344596158);
+const SCREENSHOT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11918575842344596158);
 
 impl Plugin for ScreenshotPlugin {
     fn build(&self, app: &mut bevy_app::App) {
@@ -231,7 +229,7 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
                 buffers: vec![],
                 shader_defs: vec![],
                 entry_point: Cow::Borrowed("vs_main"),
-                shader: SCREENSHOT_SHADER_HANDLE.typed(),
+                shader: SCREENSHOT_SHADER_HANDLE,
             },
             primitive: wgpu::PrimitiveState {
                 cull_mode: Some(wgpu::Face::Back),
@@ -240,7 +238,7 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
             depth_stencil: None,
             multisample: Default::default(),
             fragment: Some(FragmentState {
-                shader: SCREENSHOT_SHADER_HANDLE.typed(),
+                shader: SCREENSHOT_SHADER_HANDLE,
                 entry_point: Cow::Borrowed("fs_main"),
                 shader_defs: vec![],
                 targets: vec![Some(wgpu::ColorTargetState {

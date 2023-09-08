@@ -41,7 +41,7 @@ where
         let mut spawner = bundle_info.get_bundle_spawner(
             &mut world.entities,
             &mut world.archetypes,
-            &mut world.components,
+            &world.components,
             &mut world.storages,
             change_tick,
         );

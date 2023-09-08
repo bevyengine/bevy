@@ -46,7 +46,7 @@ impl WinitWindows {
         window: &Window,
         adapters: &mut AccessKitAdapters,
         handlers: &mut WinitActionHandlers,
-        accessibility_requested: &mut AccessibilityRequested,
+        accessibility_requested: &AccessibilityRequested,
     ) -> &winit::window::Window {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 

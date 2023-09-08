@@ -1,7 +1,7 @@
-use crate::{vertex_attributes::*, Gltf, GltfExtras, GltfNode};
-use anyhow::Result;
+use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
 use bevy_asset::{
-    AssetIoError, AssetLoader, AssetPath, BoxedFuture, Handle, HandleId, LoadContext, LoadedAsset,
+    anyhow, io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext,
+    ReadAssetBytesError,
 };
 use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3dBundle;
@@ -24,7 +24,9 @@ use bevy_render::{
     prelude::SpatialBundle,
     primitives::Aabb,
     render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
-    texture::{CompressedImageFormats, Image, ImageSampler, ImageType, TextureError},
+    texture::{
+        CompressedImageFormats, Image, ImageLoaderSettings, ImageSampler, ImageType, TextureError,
+    },
 };
 use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
@@ -38,7 +40,10 @@ use gltf::{
     Material, Node, Primitive,
 };
 use serde::Deserialize;
-use std::{collections::VecDeque, path::Path};
+use std::{
+    collections::VecDeque,
+    path::{Path, PathBuf},
+};
 use thiserror::Error;
 
 /// An error that occurs when loading a glTF file.
@@ -58,8 +63,10 @@ pub enum GltfError {
     InvalidImageMimeType(String),
     #[error("You may need to add the feature for the file format: {0}")]
     ImageError(#[from] TextureError),
-    #[error("failed to load an asset path: {0}")]
-    AssetIoError(#[from] AssetIoError),
+    #[error("failed to read bytes from an asset path: {0}")]
+    ReadAssetBytesError(#[from] ReadAssetBytesError),
+    #[error("failed to load asset from an asset path: {0}")]
+    AssetLoadError(#[from] AssetLoadError),
     #[error("Missing sampler for animation {0}")]
     MissingAnimationSampler(usize),
     #[error("failed to generate tangents: {0}")]
@@ -75,12 +82,19 @@ pub struct GltfLoader {
 }
 
 impl AssetLoader for GltfLoader {
+    type Asset = Gltf;
+    type Settings = ();
     fn load<'a>(
         &'a self,
-        bytes: &'a [u8],
+        reader: &'a mut Reader,
+        _settings: &'a (),
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<()>> {
-        Box::pin(async move { Ok(load_gltf(bytes, load_context, self).await?) })
+    ) -> bevy_utils::BoxedFuture<'a, Result<Gltf, anyhow::Error>> {
+        Box::pin(async move {
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            Ok(load_gltf(self, &bytes, load_context).await?)
+        })
     }
 
     fn extensions(&self) -> &[&str] {
@@ -89,23 +103,17 @@ impl AssetLoader for GltfLoader {
 }
 
 /// Loads an entire glTF file.
-async fn load_gltf<'a, 'b>(
-    bytes: &'a [u8],
-    load_context: &'a mut LoadContext<'b>,
+async fn load_gltf<'a, 'b, 'c>(
     loader: &GltfLoader,
-) -> Result<(), GltfError> {
+    bytes: &'a [u8],
+    load_context: &'b mut LoadContext<'c>,
+) -> Result<Gltf, GltfError> {
     let gltf = gltf::Gltf::from_slice(bytes)?;
-    let buffer_data = load_buffers(&gltf, load_context, load_context.path()).await?;
+    let buffer_data = load_buffers(&gltf, load_context).await?;
 
-    let mut materials = vec![];
-    let mut named_materials = HashMap::default();
     let mut linear_textures = HashSet::default();
+
     for material in gltf.materials() {
-        let handle = load_material(&material, load_context);
-        if let Some(name) = material.name() {
-            named_materials.insert(name.to_string(), handle.clone());
-        }
-        materials.push(handle);
         if let Some(texture) = material.normal_texture() {
             linear_textures.insert(texture.texture().index());
         }
@@ -202,10 +210,8 @@ async fn load_gltf<'a, 'b>(
                     );
                 }
             }
-            let handle = load_context.set_labeled_asset(
-                &format!("Animation{}", animation.index()),
-                LoadedAsset::new(animation_clip),
-            );
+            let handle = load_context
+                .add_labeled_asset(format!("Animation{}", animation.index()), animation_clip);
             if let Some(name) = animation.name() {
                 named_animations.insert(name.to_string(), handle.clone());
             }
@@ -213,6 +219,89 @@ async fn load_gltf<'a, 'b>(
         }
         (animations, named_animations, animation_roots)
     };
+
+    // TODO: use the threaded impl on wasm once wasm thread pool doesn't deadlock on it
+    // See https://github.com/bevyengine/bevy/issues/1924 for more details
+    // The taskpool use is also avoided when there is only one texture for performance reasons and
+    // to avoid https://github.com/bevyengine/bevy/pull/2725
+    // PERF: could this be a Vec instead? Are gltf texture indices dense?
+    fn process_loaded_texture(
+        load_context: &mut LoadContext,
+        handles: &mut Vec<Handle<Image>>,
+        texture: ImageOrPath,
+    ) {
+        let handle = match texture {
+            ImageOrPath::Image { label, image } => load_context.add_labeled_asset(label, image),
+            ImageOrPath::Path { path, is_srgb } => {
+                load_context.load_with_settings(path, move |settings: &mut ImageLoaderSettings| {
+                    settings.is_srgb = is_srgb;
+                })
+            }
+        };
+        handles.push(handle);
+    }
+
+    // We collect handles to ensure loaded images from paths are not unloaded before they are used elsewhere
+    // in the loader. This prevents "reloads", but it also prevents dropping the is_srgb context on reload.
+    //
+    // In theory we could store a mapping between texture.index() and handle to use
+    // later in the loader when looking up handles for materials. However this would mean
+    // that the material's load context would no longer track those images as dependencies.
+    let mut _texture_handles = Vec::new();
+    if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
+        for texture in gltf.textures() {
+            let parent_path = load_context.path().parent().unwrap();
+            let image = load_image(
+                texture,
+                &buffer_data,
+                &linear_textures,
+                parent_path,
+                loader.supported_compressed_formats,
+            )
+            .await?;
+            process_loaded_texture(load_context, &mut _texture_handles, image);
+        }
+    } else {
+        #[cfg(not(target_arch = "wasm32"))]
+        IoTaskPool::get()
+            .scope(|scope| {
+                gltf.textures().for_each(|gltf_texture| {
+                    let parent_path = load_context.path().parent().unwrap();
+                    let linear_textures = &linear_textures;
+                    let buffer_data = &buffer_data;
+                    scope.spawn(async move {
+                        load_image(
+                            gltf_texture,
+                            buffer_data,
+                            linear_textures,
+                            parent_path,
+                            loader.supported_compressed_formats,
+                        )
+                        .await
+                    });
+                });
+            })
+            .into_iter()
+            .for_each(|result| match result {
+                Ok(image) => {
+                    process_loaded_texture(load_context, &mut _texture_handles, image);
+                }
+                Err(err) => {
+                    warn!("Error loading glTF texture: {}", err);
+                }
+            });
+    }
+
+    let mut materials = vec![];
+    let mut named_materials = HashMap::default();
+    // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
+    for material in gltf.materials() {
+        let handle = load_material(&material, load_context);
+        if let Some(name) = material.name() {
+            named_materials.insert(name.to_string(), handle.clone());
+        }
+        materials.push(handle);
+    }
 
     let mut meshes = vec![];
     let mut named_meshes = HashMap::default();
@@ -255,10 +344,8 @@ async fn load_gltf<'a, 'b>(
                         morph_target_reader.map(PrimitiveMorphAttributesIter),
                         mesh.count_vertices(),
                     )?;
-                    let handle = load_context.set_labeled_asset(
-                        &morph_targets_label,
-                        LoadedAsset::new(morph_target_image.0),
-                    );
+                    let handle =
+                        load_context.add_labeled_asset(morph_targets_label, morph_target_image.0);
 
                     mesh.set_morph_targets(handle);
                     let extras = gltf_mesh.extras().as_ref();
@@ -306,7 +393,7 @@ async fn load_gltf<'a, 'b>(
                 }
             }
 
-            let mesh = load_context.set_labeled_asset(&primitive_label, LoadedAsset::new(mesh));
+            let mesh = load_context.add_labeled_asset(primitive_label, mesh);
             primitives.push(super::GltfPrimitive {
                 mesh,
                 material: primitive
@@ -318,12 +405,12 @@ async fn load_gltf<'a, 'b>(
             });
         }
 
-        let handle = load_context.set_labeled_asset(
-            &mesh_label(&gltf_mesh),
-            LoadedAsset::new(super::GltfMesh {
+        let handle = load_context.add_labeled_asset(
+            mesh_label(&gltf_mesh),
+            super::GltfMesh {
                 primitives,
                 extras: get_gltf_extras(gltf_mesh.extras()),
-            }),
+            },
         );
         if let Some(name) = gltf_mesh.name() {
             named_meshes.insert(name.to_string(), handle.clone());
@@ -369,7 +456,7 @@ async fn load_gltf<'a, 'b>(
     }
     let nodes = resolve_node_hierarchy(nodes_intermediate, load_context.path())
         .into_iter()
-        .map(|(label, node)| load_context.set_labeled_asset(&label, LoadedAsset::new(node)))
+        .map(|(label, node)| load_context.add_labeled_asset(label, node))
         .collect::<Vec<bevy_asset::Handle<GltfNode>>>();
     let named_nodes = named_nodes_intermediate
         .into_iter()
@@ -379,54 +466,6 @@ async fn load_gltf<'a, 'b>(
                 .map(|handle| (name.to_string(), handle.clone()))
         })
         .collect();
-
-    // TODO: use the threaded impl on wasm once wasm thread pool doesn't deadlock on it
-    // See https://github.com/bevyengine/bevy/issues/1924 for more details
-    // The taskpool use is also avoided when there is only one texture for performance reasons and
-    // to avoid https://github.com/bevyengine/bevy/pull/2725
-    if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
-        for gltf_texture in gltf.textures() {
-            let (texture, label) = load_texture(
-                gltf_texture,
-                &buffer_data,
-                &linear_textures,
-                load_context,
-                loader.supported_compressed_formats,
-            )
-            .await?;
-            load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
-        }
-    } else {
-        #[cfg(not(target_arch = "wasm32"))]
-        IoTaskPool::get()
-            .scope(|scope| {
-                gltf.textures().for_each(|gltf_texture| {
-                    let linear_textures = &linear_textures;
-                    let load_context: &LoadContext = load_context;
-                    let buffer_data = &buffer_data;
-                    scope.spawn(async move {
-                        load_texture(
-                            gltf_texture,
-                            buffer_data,
-                            linear_textures,
-                            load_context,
-                            loader.supported_compressed_formats,
-                        )
-                        .await
-                    });
-                });
-            })
-            .into_iter()
-            .filter_map(|res| {
-                if let Err(err) = res.as_ref() {
-                    warn!("Error loading glTF texture: {}", err);
-                }
-                res.ok()
-            })
-            .for_each(|(texture, label)| {
-                load_context.set_labeled_asset(&label, LoadedAsset::new(texture));
-            });
-    }
 
     let skinned_mesh_inverse_bindposes: Vec<_> = gltf
         .skins()
@@ -438,9 +477,9 @@ async fn load_gltf<'a, 'b>(
                 .map(|mat| Mat4::from_cols_array_2d(&mat))
                 .collect();
 
-            load_context.set_labeled_asset(
-                &skin_label(&gltf_skin),
-                LoadedAsset::new(SkinnedMeshInverseBindposes::from(inverse_bindposes)),
+            load_context.add_labeled_asset(
+                skin_label(&gltf_skin),
+                SkinnedMeshInverseBindposes::from(inverse_bindposes),
             )
         })
         .collect();
@@ -514,8 +553,7 @@ async fn load_gltf<'a, 'b>(
             });
         }
 
-        let scene_handle = load_context
-            .set_labeled_asset(&scene_label(&scene), LoadedAsset::new(Scene::new(world)));
+        let scene_handle = load_context.add_labeled_asset(scene_label(&scene), Scene::new(world));
 
         if let Some(name) = scene.name() {
             named_scenes.insert(name.to_string(), scene_handle.clone());
@@ -523,7 +561,7 @@ async fn load_gltf<'a, 'b>(
         scenes.push(scene_handle);
     }
 
-    load_context.set_default_asset(LoadedAsset::new(Gltf {
+    Ok(Gltf {
         default_scene: gltf
             .default_scene()
             .and_then(|scene| scenes.get(scene.index()))
@@ -540,9 +578,7 @@ async fn load_gltf<'a, 'b>(
         animations,
         #[cfg(feature = "bevy_animation")]
         named_animations,
-    }));
-
-    Ok(())
+    })
 }
 
 fn get_gltf_extras(extras: &gltf::json::Extras) -> Option<GltfExtras> {
@@ -575,107 +611,98 @@ fn paths_recur(
 }
 
 /// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
-async fn load_texture<'a>(
+async fn load_image<'a, 'b>(
     gltf_texture: gltf::Texture<'a>,
     buffer_data: &[Vec<u8>],
     linear_textures: &HashSet<usize>,
-    load_context: &LoadContext<'a>,
+    parent_path: &'b Path,
     supported_compressed_formats: CompressedImageFormats,
-) -> Result<(Image, String), GltfError> {
+) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
-    let mut texture = match gltf_texture.source().source() {
+    match gltf_texture.source().source() {
         gltf::image::Source::View { view, mime_type } => {
             let start = view.offset();
             let end = view.offset() + view.length();
             let buffer = &buffer_data[view.buffer().index()][start..end];
-            Image::from_buffer(
+            let mut image = Image::from_buffer(
                 buffer,
                 ImageType::MimeType(mime_type),
                 supported_compressed_formats,
                 is_srgb,
-            )?
+            )?;
+            image.sampler_descriptor = ImageSampler::Descriptor(texture_sampler(&gltf_texture));
+            Ok(ImageOrPath::Image {
+                image,
+                label: texture_label(&gltf_texture),
+            })
         }
         gltf::image::Source::Uri { uri, mime_type } => {
             let uri = percent_encoding::percent_decode_str(uri)
                 .decode_utf8()
                 .unwrap();
             let uri = uri.as_ref();
-            let (bytes, image_type) = if let Ok(data_uri) = DataUri::parse(uri) {
-                (data_uri.decode()?, ImageType::MimeType(data_uri.mime_type))
+            if let Ok(data_uri) = DataUri::parse(uri) {
+                let bytes = data_uri.decode()?;
+                let image_type = ImageType::MimeType(data_uri.mime_type);
+                Ok(ImageOrPath::Image {
+                    image: Image::from_buffer(
+                        &bytes,
+                        mime_type.map(ImageType::MimeType).unwrap_or(image_type),
+                        supported_compressed_formats,
+                        is_srgb,
+                    )?,
+                    label: texture_label(&gltf_texture),
+                })
             } else {
-                let parent = load_context.path().parent().unwrap();
-                let image_path = parent.join(uri);
-                let bytes = load_context.read_asset_bytes(image_path.clone()).await?;
-
-                let extension = Path::new(uri).extension().unwrap().to_str().unwrap();
-                let image_type = ImageType::Extension(extension);
-
-                (bytes, image_type)
-            };
-
-            Image::from_buffer(
-                &bytes,
-                mime_type.map(ImageType::MimeType).unwrap_or(image_type),
-                supported_compressed_formats,
-                is_srgb,
-            )?
+                let image_path = parent_path.join(uri);
+                Ok(ImageOrPath::Path {
+                    path: image_path,
+                    is_srgb,
+                })
+            }
         }
-    };
-    texture.sampler_descriptor = ImageSampler::Descriptor(texture_sampler(&gltf_texture));
-
-    Ok((texture, texture_label(&gltf_texture)))
+    }
 }
 
 /// Loads a glTF material as a bevy [`StandardMaterial`] and returns it.
 fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<StandardMaterial> {
     let material_label = material_label(material);
+    load_context.labeled_asset_scope(material_label, |load_context| {
+        let pbr = material.pbr_metallic_roughness();
 
-    let pbr = material.pbr_metallic_roughness();
-
-    let color = pbr.base_color_factor();
-    let base_color_texture = pbr.base_color_texture().map(|info| {
-        // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
-        let label = texture_label(&info.texture());
-        let path = AssetPath::new_ref(load_context.path(), Some(&label));
-        load_context.get_handle(path)
-    });
-
-    let normal_map_texture: Option<Handle<Image>> =
-        material.normal_texture().map(|normal_texture| {
-            // TODO: handle normal_texture.scale
-            // TODO: handle normal_texture.tex_coord() (the *set* index for the right texcoords)
-            let label = texture_label(&normal_texture.texture());
-            let path = AssetPath::new_ref(load_context.path(), Some(&label));
-            load_context.get_handle(path)
+        // TODO: handle missing label handle errors here?
+        let color = pbr.base_color_factor();
+        let base_color_texture = pbr.base_color_texture().map(|info| {
+            // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
+            texture_handle(load_context, &info.texture())
         });
 
-    let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
-        // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
-        let label = texture_label(&info.texture());
-        let path = AssetPath::new_ref(load_context.path(), Some(&label));
-        load_context.get_handle(path)
-    });
+        let normal_map_texture: Option<Handle<Image>> =
+            material.normal_texture().map(|normal_texture| {
+                // TODO: handle normal_texture.scale
+                // TODO: handle normal_texture.tex_coord() (the *set* index for the right texcoords)
+                texture_handle(load_context, &normal_texture.texture())
+            });
 
-    let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
-        // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
-        // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-        let label = texture_label(&occlusion_texture.texture());
-        let path = AssetPath::new_ref(load_context.path(), Some(&label));
-        load_context.get_handle(path)
-    });
+        let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
+            // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
+            texture_handle(load_context, &info.texture())
+        });
 
-    let emissive = material.emissive_factor();
-    let emissive_texture = material.emissive_texture().map(|info| {
-        // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
-        // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-        let label = texture_label(&info.texture());
-        let path = AssetPath::new_ref(load_context.path(), Some(&label));
-        load_context.get_handle(path)
-    });
+        let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
+            // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
+            // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+            texture_handle(load_context, &occlusion_texture.texture())
+        });
 
-    load_context.set_labeled_asset(
-        &material_label,
-        LoadedAsset::new(StandardMaterial {
+        let emissive = material.emissive_factor();
+        let emissive_texture = material.emissive_texture().map(|info| {
+            // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
+            // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+            texture_handle(load_context, &info.texture())
+        });
+
+        StandardMaterial {
             base_color: Color::rgba_linear(color[0], color[1], color[2], color[3]),
             base_color_texture,
             perceptual_roughness: pbr.roughness_factor(),
@@ -695,8 +722,8 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             unlit: material.unlit(),
             alpha_mode: alpha_mode(material),
             ..Default::default()
-        }),
-    )
+        }
+    })
 }
 
 /// Loads a glTF node.
@@ -771,8 +798,8 @@ fn load_node(
         if let Some(weights) = mesh.weights() {
             let first_mesh = if let Some(primitive) = mesh.primitives().next() {
                 let primitive_label = primitive_label(&mesh, &primitive);
-                let path = AssetPath::new_ref(load_context.path(), Some(&primitive_label));
-                Some(Handle::weak(HandleId::from(path)))
+                let handle: Handle<Mesh> = load_context.get_label_handle(&primitive_label);
+                Some(handle)
             } else {
                 None
             };
@@ -796,14 +823,11 @@ fn load_node(
 
                 let primitive_label = primitive_label(&mesh, &primitive);
                 let bounds = primitive.bounding_box();
-                let mesh_asset_path =
-                    AssetPath::new_ref(load_context.path(), Some(&primitive_label));
-                let material_asset_path =
-                    AssetPath::new_ref(load_context.path(), Some(&material_label));
 
-                let mut primitive_entity = parent.spawn(PbrBundle {
-                    mesh: load_context.get_handle(mesh_asset_path),
-                    material: load_context.get_handle(material_asset_path),
+                let mut mesh_entity = parent.spawn(PbrBundle {
+                    // TODO: handle missing label handle errors here?
+                    mesh: load_context.get_label_handle(&primitive_label),
+                    material: load_context.get_label_handle(&material_label),
                     ..Default::default()
                 });
                 let target_count = primitive.morph_targets().len();
@@ -818,23 +842,23 @@ fn load_node(
                     // they should all have the same length.
                     // > All morph target accessors MUST have the same count as
                     // > the accessors of the original primitive.
-                    primitive_entity.insert(MeshMorphWeights::new(weights).unwrap());
+                    mesh_entity.insert(MeshMorphWeights::new(weights).unwrap());
                 }
-                primitive_entity.insert(Aabb::from_min_max(
+                mesh_entity.insert(Aabb::from_min_max(
                     Vec3::from_slice(&bounds.min),
                     Vec3::from_slice(&bounds.max),
                 ));
 
                 if let Some(extras) = primitive.extras() {
-                    primitive_entity.insert(super::GltfExtras {
+                    mesh_entity.insert(super::GltfExtras {
                         value: extras.get().to_string(),
                     });
                 }
 
-                primitive_entity.insert(Name::new(primitive_name(&mesh, &primitive)));
+                mesh_entity.insert(Name::new(primitive_name(&mesh, &primitive)));
                 // Mark for adding skinned mesh
                 if let Some(skin) = gltf_node.skin() {
-                    entity_to_skin_index_map.insert(primitive_entity.id(), skin.index());
+                    entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
                 }
             }
         }
@@ -979,6 +1003,29 @@ fn texture_label(texture: &gltf::Texture) -> String {
     format!("Texture{}", texture.index())
 }
 
+fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Handle<Image> {
+    match texture.source().source() {
+        gltf::image::Source::View { .. } => {
+            let label = texture_label(texture);
+            load_context.get_label_handle(&label)
+        }
+        gltf::image::Source::Uri { uri, .. } => {
+            let uri = percent_encoding::percent_decode_str(uri)
+                .decode_utf8()
+                .unwrap();
+            let uri = uri.as_ref();
+            if let Ok(_data_uri) = DataUri::parse(uri) {
+                let label = texture_label(texture);
+                load_context.get_label_handle(&label)
+            } else {
+                let parent = load_context.path().parent().unwrap();
+                let image_path = parent.join(uri);
+                load_context.load(image_path)
+            }
+        }
+    }
+}
+
 /// Returns the label for the `node`.
 fn node_label(node: &gltf::Node) -> String {
     format!("Node{}", node.index())
@@ -1070,8 +1117,7 @@ fn alpha_mode(material: &Material) -> AlphaMode {
 /// Loads the raw glTF buffer data for a specific glTF file.
 async fn load_buffers(
     gltf: &gltf::Gltf,
-    load_context: &LoadContext<'_>,
-    asset_path: &Path,
+    load_context: &mut LoadContext<'_>,
 ) -> Result<Vec<Vec<u8>>, GltfError> {
     const VALID_MIME_TYPES: &[&str] = &["application/octet-stream", "application/gltf-buffer"];
 
@@ -1090,8 +1136,8 @@ async fn load_buffers(
                     Ok(_) => return Err(GltfError::BufferFormatUnsupported),
                     Err(()) => {
                         // TODO: Remove this and add dep
-                        let buffer_path = asset_path.parent().unwrap().join(uri);
-                        load_context.read_asset_bytes(buffer_path).await?
+                        let buffer_path = load_context.path().parent().unwrap().join(uri);
+                        load_context.read_asset_bytes(&buffer_path).await?
                     }
                 };
                 buffer_data.push(buffer_bytes);
@@ -1162,6 +1208,11 @@ fn resolve_node_hierarchy(
         .into_iter()
         .map(|(_, resolved)| resolved)
         .collect()
+}
+
+enum ImageOrPath {
+    Image { image: Image, label: String },
+    Path { path: PathBuf, is_srgb: bool },
 }
 
 struct DataUri<'a> {

@@ -390,21 +390,14 @@ impl App {
     }
 
     /// Configures a system set in the default schedule, adding the set if it does not exist.
+    #[deprecated(since = "0.12.0", note = "Please use `configure_sets` instead.")]
     #[track_caller]
     pub fn configure_set(
         &mut self,
         schedule: impl ScheduleLabel,
-        set: impl IntoSystemSetConfig,
+        set: impl IntoSystemSetConfigs,
     ) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-        if let Some(schedule) = schedules.get_mut(&schedule) {
-            schedule.configure_set(set);
-        } else {
-            let mut new_schedule = Schedule::new(schedule);
-            new_schedule.configure_set(set);
-            schedules.insert(new_schedule);
-        }
-        self
+        self.configure_sets(schedule, set)
     }
 
     /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.

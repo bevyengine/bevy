@@ -1,3 +1,7 @@
+use crate::{
+    BreakLineOn, Font, FontAtlasSets, FontAtlasWarning, PositionedGlyph, Text, TextError,
+    TextLayoutInfo, TextPipeline, TextSettings, YAxisOrientation,
+};
 use bevy_asset::Assets;
 use bevy_ecs::{
     bundle::Bundle,
@@ -14,18 +18,13 @@ use bevy_reflect::Reflect;
 use bevy_render::{
     prelude::Color,
     texture::Image,
-    view::{ComputedVisibility, Visibility},
+    view::{InheritedVisibility, ViewVisibility, Visibility},
     Extract,
 };
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
-
-use crate::{
-    BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, PositionedGlyph, Text, TextError,
-    TextLayoutInfo, TextPipeline, TextSettings, YAxisOrientation,
-};
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
 /// Characters out of the bounds after wrapping will be truncated. Text is aligned according to the
@@ -70,8 +69,10 @@ pub struct Text2dBundle {
     pub global_transform: GlobalTransform,
     /// The visibility properties of the text.
     pub visibility: Visibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
-    pub computed_visibility: ComputedVisibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub view_visibility: ViewVisibility,
     /// Contains the size of the text and its glyph's position and scale data. Generated via [`TextPipeline::queue_text`]
     pub text_layout_info: TextLayoutInfo,
 }
@@ -83,7 +84,7 @@ pub fn extract_text2d_sprite(
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     text2d_query: Extract<
         Query<(
-            &ComputedVisibility,
+            &ViewVisibility,
             &Text,
             &TextLayoutInfo,
             &Anchor,
@@ -98,10 +99,8 @@ pub fn extract_text2d_sprite(
         .unwrap_or(1.0);
     let scaling = GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()));
 
-    for (computed_visibility, text, text_layout_info, anchor, global_transform) in
-        text2d_query.iter()
-    {
-        if !computed_visibility.is_visible() {
+    for (view_visibility, text, text_layout_info, anchor, global_transform) in text2d_query.iter() {
+        if !view_visibility.get() {
             continue;
         }
 
@@ -160,7 +159,7 @@ pub fn update_text2d_layout(
     windows: Query<&Window, With<PrimaryWindow>>,
     mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-    mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
+    mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(Entity, Ref<Text>, Ref<Text2dBounds>, &mut TextLayoutInfo)>,
 ) {
@@ -191,7 +190,7 @@ pub fn update_text2d_layout(
                 text.alignment,
                 text.linebreak_behavior,
                 text_bounds,
-                &mut font_atlas_set_storage,
+                &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
                 text_settings.as_ref(),

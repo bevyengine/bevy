@@ -44,7 +44,7 @@ pub(crate) fn create_windows<'a>(
     mut winit_windows: NonSendMut<WinitWindows>,
     mut adapters: NonSendMut<AccessKitAdapters>,
     mut handlers: ResMut<WinitActionHandlers>,
-    mut accessibility_requested: ResMut<AccessibilityRequested>,
+    accessibility_requested: ResMut<AccessibilityRequested>,
     #[cfg(target_arch = "wasm32")] event_channel: ResMut<CanvasParentResizeEventChannel>,
 ) {
     for (entity, mut window) in created_windows {
@@ -64,7 +64,7 @@ pub(crate) fn create_windows<'a>(
             &window,
             &mut adapters,
             &mut handlers,
-            &mut accessibility_requested,
+            &accessibility_requested,
         );
 
         if let Some(theme) = winit_window.theme() {
