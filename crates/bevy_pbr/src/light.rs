@@ -44,6 +44,7 @@ use crate::{
 #[reflect(Component, Default)]
 pub struct PointLight {
     pub color: Color,
+    /// Luminous power in lumens
     pub intensity: f32,
     pub range: f32,
     pub radius: f32,
@@ -59,7 +60,6 @@ impl Default for PointLight {
     fn default() -> Self {
         PointLight {
             color: Color::rgb(1.0, 1.0, 1.0),
-            /// Luminous power in lumens
             intensity: 800.0, // Roughly a 60W non-halogen incandescent bulb
             range: 20.0,
             radius: 0.0,
@@ -95,6 +95,7 @@ impl Default for PointLightShadowMap {
 #[reflect(Component, Default)]
 pub struct SpotLight {
     pub color: Color,
+    /// Luminous power in lumens
     pub intensity: f32,
     pub range: f32,
     pub radius: f32,
@@ -127,7 +128,6 @@ impl Default for SpotLight {
         // a quarter arc attenuating from the center
         Self {
             color: Color::rgb(1.0, 1.0, 1.0),
-            /// Luminous power in lumens
             intensity: 800.0, // Roughly a 60W non-halogen incandescent bulb
             range: 20.0,
             radius: 0.0,
