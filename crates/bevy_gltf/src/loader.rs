@@ -241,8 +241,9 @@ async fn load_gltf<'a, 'b>(
             let reader = primitive.reader(|buffer| Some(buffer_data[buffer.index()].as_slice()));
             if let Some(indices) = reader.read_indices() {
                 mesh.set_indices(Some(match indices {
-                    ReadIndices::U8(is) => Indices::U16(is.map(|x| x as u16).collect()),
-                    ReadIndices::U16(is) => Indices::U16(is.collect()),
+                    // TODO: Don't hardcode this to be U32
+                    ReadIndices::U8(is) => Indices::U32(is.map(|x| x as u32).collect()),
+                    ReadIndices::U16(is) => Indices::U32(is.map(|x| x as u32).collect()),
                     ReadIndices::U32(is) => Indices::U32(is.collect()),
                 }));
             };

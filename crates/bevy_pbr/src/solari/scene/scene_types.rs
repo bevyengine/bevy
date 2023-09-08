@@ -9,6 +9,7 @@ use bevy_ecs::{
 use bevy_math::{Vec3, Vec4};
 use bevy_render::{
     color::Color,
+    mesh::Mesh,
     render_resource::{ShaderType, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
@@ -65,7 +66,14 @@ impl SolariUniforms {
 pub fn extract(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, &Handle<StandardMaterial>)>>,
+    query: Extract<
+        Query<(
+            Entity,
+            &Handle<Mesh>,
+            &Handle<StandardMaterial>,
+            &GlobalTransform,
+        )>,
+    >,
     materials: Extract<Res<Assets<StandardMaterial>>>,
     solari_enabled: Extract<Option<Res<SolariEnabled>>>,
 ) {
@@ -75,7 +83,7 @@ pub fn extract(
 
     let mut entities = Vec::with_capacity(*previous_len);
 
-    for (entity, material_handle) in &query {
+    for (entity, mesh_handle, material_handle, transform) in &query {
         if let Some(material) = materials.get(material_handle) {
             let solari_material = SolariMaterial {
                 base_color: material.base_color,
@@ -85,7 +93,15 @@ pub fn extract(
                 emissive_texture: material.emissive_texture.clone(),
             };
 
-            entities.push((entity, solari_material));
+            entities.push((
+                entity,
+                (
+                    mesh_handle.clone_weak(),
+                    material_handle.clone_weak(),
+                    solari_material,
+                    transform.clone(),
+                ),
+            ));
         }
     }
 

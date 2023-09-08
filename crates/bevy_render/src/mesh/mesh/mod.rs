@@ -939,9 +939,11 @@ impl RenderAsset for Mesh {
         mesh: Self::ExtractedAsset,
         (render_device, images): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+        // TODO: Don't hardcode additional STORAGE and BLAS_INPUT usages for vertex and index buffers
+
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            usage: BufferUsages::VERTEX,
+            usage: BufferUsages::VERTEX | BufferUsages::STORAGE | BufferUsages::BLAS_INPUT,
             label: Some("Mesh Vertex Buffer"),
             contents: &vertex_buffer_data,
         });
@@ -949,7 +951,7 @@ impl RenderAsset for Mesh {
         let buffer_info = if let Some(data) = mesh.get_index_buffer_bytes() {
             GpuBufferInfo::Indexed {
                 buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
-                    usage: BufferUsages::INDEX,
+                    usage: BufferUsages::INDEX | BufferUsages::STORAGE | BufferUsages::BLAS_INPUT,
                     contents: data,
                     label: Some("Mesh Index Buffer"),
                 }),
