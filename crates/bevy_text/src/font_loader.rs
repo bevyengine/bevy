@@ -1,21 +1,23 @@
 use crate::Font;
-use anyhow::Result;
-use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
-use bevy_utils::BoxedFuture;
+use bevy_asset::{anyhow::Error, io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 
 #[derive(Default)]
 pub struct FontLoader;
 
 impl AssetLoader for FontLoader {
+    type Asset = Font;
+    type Settings = ();
     fn load<'a>(
         &'a self,
-        bytes: &'a [u8],
-        load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<()>> {
+        reader: &'a mut Reader,
+        _settings: &'a (),
+        _load_context: &'a mut LoadContext,
+    ) -> bevy_utils::BoxedFuture<'a, Result<Font, Error>> {
         Box::pin(async move {
-            let font = Font::try_from_bytes(bytes.into())?;
-            load_context.set_default_asset(LoadedAsset::new(font));
-            Ok(())
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            let font = Font::try_from_bytes(bytes)?;
+            Ok(font)
         })
     }
 

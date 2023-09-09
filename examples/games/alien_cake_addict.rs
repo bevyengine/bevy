@@ -168,9 +168,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         TextBundle::from_section(
             "Score:",
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 40.0,
                 color: Color::rgb(0.5, 0.5, 1.0),
+                ..default()
             },
         )
         .with_style(Style {
@@ -182,8 +182,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     );
 }
 
-// remove all entities that are not a camera
-fn teardown(mut commands: Commands, entities: Query<Entity, Without<Camera>>) {
+// remove all entities that are not a camera or window
+fn teardown(mut commands: Commands, entities: Query<Entity, (Without<Camera>, Without<Window>)>) {
     for entity in &entities {
         commands.entity(entity).despawn();
     }
@@ -384,11 +384,11 @@ fn gameover_keyboard(
 }
 
 // display the number of cake eaten before losing
-fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: Res<Game>) {
+fn display_score(mut commands: Commands, game: Res<Game>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                width: Val::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -399,9 +399,9 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
             parent.spawn(TextBundle::from_section(
                 format!("Cake eaten: {}", game.cake_eaten),
                 TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 80.0,
                     color: Color::rgb(0.5, 0.5, 1.0),
+                    ..default()
                 },
             ));
         });

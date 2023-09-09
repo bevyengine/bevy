@@ -13,14 +13,14 @@ error[E0277]: the trait bound `&'static mut Foo: ReadOnlyWorldQuery` is not sati
    |                       ^^^^^^^ the trait `ReadOnlyWorldQuery` is not implemented for `&'static mut Foo`
    |
    = help: the following other types implement trait `ReadOnlyWorldQuery`:
-             &T
-             ()
-             (F0, F1)
-             (F0, F1, F2)
-             (F0, F1, F2, F3)
-             (F0, F1, F2, F3, F4)
-             (F0, F1, F2, F3, F4, F5)
-             (F0, F1, F2, F3, F4, F5, F6)
+             bevy_ecs::change_detection::Ref<'__w, T>
+             Has<T>
+             AnyOf<()>
+             AnyOf<(F0,)>
+             AnyOf<(F0, F1)>
+             AnyOf<(F0, F1, F2)>
+             AnyOf<(F0, F1, F2, F3)>
+             AnyOf<(F0, F1, F2, F3, F4)>
            and $N others
    = note: `ReadOnlyWorldQuery` is implemented for `&'static Foo`, but not for `&'static mut Foo`
    = note: required for `bevy_ecs::system::Query<'_, '_, &'static mut Foo>` to implement `ReadOnlySystemParam`
@@ -30,7 +30,7 @@ note: required by a bound in `assert_readonly`
   --> tests/ui/system_param_derive_readonly.rs:23:8
    |
 21 | fn assert_readonly<P>()
-   |    --------------- required by a bound in this
+   |    --------------- required by a bound in this function
 22 | where
 23 |     P: ReadOnlySystemParam,
    |        ^^^^^^^^^^^^^^^^^^^ required by this bound in `assert_readonly`

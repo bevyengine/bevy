@@ -4,9 +4,9 @@ use crate::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     prelude::Camera,
@@ -92,8 +92,8 @@ impl ExtractComponent for ContrastAdaptiveSharpeningSettings {
     }
 }
 
-const CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6925381244141981602);
+const CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(6925381244141981602);
 
 /// Adds Support for Contrast Adaptive Sharpening (CAS).
 pub struct CASPlugin;
@@ -108,15 +108,16 @@ impl Plugin for CASPlugin {
         );
 
         app.register_type::<ContrastAdaptiveSharpeningSettings>();
-        app.add_plugin(ExtractComponentPlugin::<ContrastAdaptiveSharpeningSettings>::default());
-        app.add_plugin(UniformComponentPlugin::<CASUniform>::default());
+        app.add_plugins((
+            ExtractComponentPlugin::<ContrastAdaptiveSharpeningSettings>::default(),
+            UniformComponentPlugin::<CASUniform>::default(),
+        ));
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
             Err(_) => return,
         };
         render_app
-            .init_resource::<CASPipeline>()
             .init_resource::<SpecializedRenderPipelines<CASPipeline>>()
             .add_systems(Render, prepare_cas_pipelines.in_set(RenderSet::Prepare));
 
@@ -148,6 +149,14 @@ impl Plugin for CASPlugin {
                     ],
                 );
         }
+    }
+
+    fn finish(&self, app: &mut App) {
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+        render_app.init_resource::<CASPipeline>();
     }
 }
 
@@ -222,7 +231,7 @@ impl SpecializedRenderPipeline for CASPipeline {
             layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE.typed(),
+                shader: CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

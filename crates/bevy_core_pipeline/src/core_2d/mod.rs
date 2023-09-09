@@ -27,16 +27,15 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::Camera,
     extract_component::ExtractComponentPlugin,
-    render_graph::{EmptyNode, RenderGraphApp},
+    render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
-        batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
-        DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
+        sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
+        RenderPhase,
     },
     render_resource::CachedRenderPipelineId,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::FloatOrd;
-use std::ops::Range;
 
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 
@@ -45,7 +44,7 @@ pub struct Core2dPlugin;
 impl Plugin for Core2dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera2d>()
-            .add_plugin(ExtractComponentPlugin::<Camera2d>::default());
+            .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -57,32 +56,25 @@ impl Plugin for Core2dPlugin {
             .add_systems(ExtractSchedule, extract_core_2d_camera_phases)
             .add_systems(
                 Render,
-                (
-                    sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort),
-                    batch_phase_system::<Transparent2d>
-                        .after(sort_phase_system::<Transparent2d>)
-                        .in_set(RenderSet::PhaseSort),
-                ),
+                sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort),
             );
 
-        {
-            use graph::node::*;
-            render_app
-                .add_render_sub_graph(CORE_2D)
-                .add_render_graph_node::<MainPass2dNode>(CORE_2D, MAIN_PASS)
-                .add_render_graph_node::<TonemappingNode>(CORE_2D, TONEMAPPING)
-                .add_render_graph_node::<EmptyNode>(CORE_2D, END_MAIN_PASS_POST_PROCESSING)
-                .add_render_graph_node::<UpscalingNode>(CORE_2D, UPSCALING)
-                .add_render_graph_edges(
-                    CORE_2D,
-                    &[
-                        MAIN_PASS,
-                        TONEMAPPING,
-                        END_MAIN_PASS_POST_PROCESSING,
-                        UPSCALING,
-                    ],
-                );
-        }
+        use graph::node::*;
+        render_app
+            .add_render_sub_graph(CORE_2D)
+            .add_render_graph_node::<MainPass2dNode>(CORE_2D, MAIN_PASS)
+            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(CORE_2D, TONEMAPPING)
+            .add_render_graph_node::<EmptyNode>(CORE_2D, END_MAIN_PASS_POST_PROCESSING)
+            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(CORE_2D, UPSCALING)
+            .add_render_graph_edges(
+                CORE_2D,
+                &[
+                    MAIN_PASS,
+                    TONEMAPPING,
+                    END_MAIN_PASS_POST_PROCESSING,
+                    UPSCALING,
+                ],
+            );
     }
 }
 
@@ -91,8 +83,7 @@ pub struct Transparent2d {
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
-    /// Range in the vertex buffer of this item
-    pub batch_range: Option<Range<u32>>,
+    pub batch_size: usize,
 }
 
 impl PhaseItem for Transparent2d {
@@ -117,22 +108,17 @@ impl PhaseItem for Transparent2d {
     fn sort(items: &mut [Self]) {
         items.sort_by_key(|item| item.sort_key());
     }
+
+    #[inline]
+    fn batch_size(&self) -> usize {
+        self.batch_size
+    }
 }
 
 impl CachedRenderPipelinePhaseItem for Transparent2d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
-    }
-}
-
-impl BatchedPhaseItem for Transparent2d {
-    fn batch_range(&self) -> &Option<Range<u32>> {
-        &self.batch_range
-    }
-
-    fn batch_range_mut(&mut self) -> &mut Option<Range<u32>> {
-        &mut self.batch_range
     }
 }
 

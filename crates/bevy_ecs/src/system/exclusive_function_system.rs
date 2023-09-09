@@ -6,7 +6,7 @@ use crate::{
         check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, In, IntoSystem,
         System, SystemMeta,
     },
-    world::{World, WorldId},
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
 use bevy_utils::all_tuples;
@@ -25,11 +25,12 @@ where
     func: F,
     param_state: Option<<F::Param as ExclusiveSystemParam>::State>,
     system_meta: SystemMeta,
-    world_id: Option<WorldId>,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     marker: PhantomData<fn() -> Marker>,
 }
 
+/// A marker type used to distinguish exclusive function systems from regular function systems.
+#[doc(hidden)]
 pub struct IsExclusiveFunctionSystem;
 
 impl<Marker, F> IntoSystem<F::In, F::Out, (IsExclusiveFunctionSystem, Marker)> for F
@@ -43,7 +44,6 @@ where
             func,
             param_state: None,
             system_meta: SystemMeta::new::<F>(),
-            world_id: None,
             marker: PhantomData,
         }
     }
@@ -88,7 +88,7 @@ where
     }
 
     #[inline]
-    unsafe fn run_unsafe(&mut self, _input: Self::In, _world: &World) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, _input: Self::In, _world: UnsafeWorldCell) -> Self::Out {
         panic!("Cannot run exclusive systems with a shared World reference");
     }
 
@@ -124,7 +124,7 @@ where
     }
 
     #[inline]
-    fn apply_buffers(&mut self, _world: &mut World) {
+    fn apply_deferred(&mut self, _world: &mut World) {
         // "pure" exclusive systems do not have any buffers to apply.
         // Systems made by piping a normal system with an exclusive system
         // might have buffers to apply, but this is handled by `PipeSystem`.
@@ -132,12 +132,11 @@ where
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
-        self.world_id = Some(world.id());
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
     }
 
-    fn update_archetype_component_access(&mut self, _world: &World) {}
+    fn update_archetype_component_access(&mut self, _world: UnsafeWorldCell) {}
 
     #[inline]
     fn check_change_tick(&mut self, change_tick: Tick) {
@@ -193,7 +192,7 @@ macro_rules! impl_exclusive_system_function {
             #[inline]
             fn run(&mut self, world: &mut World, _in: (), param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
-                // without using this function. It fails to recognise that `func`
+                // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<Out, $($param,)*>(
@@ -221,7 +220,7 @@ macro_rules! impl_exclusive_system_function {
             #[inline]
             fn run(&mut self, world: &mut World, input: Input, param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
-                // without using this function. It fails to recognise that `func`
+                // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<Input, Out, $($param,)*>(

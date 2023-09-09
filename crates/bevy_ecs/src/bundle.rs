@@ -39,14 +39,14 @@ use std::any::TypeId;
 /// will be overwritten.
 ///
 /// Importantly, bundles are only their constituent set of components.
-/// You **should not** use bundles as a unit of behaviour.
-/// The behaviour of your app can only be considered in terms of components, as systems,
-/// which drive the behaviour of a `bevy` application, operate on combinations of
+/// You **should not** use bundles as a unit of behavior.
+/// The behavior of your app can only be considered in terms of components, as systems,
+/// which drive the behavior of a `bevy` application, operate on combinations of
 /// components.
 ///
 /// This rule is also important because multiple bundles may contain the same component type,
 /// calculated in different ways &mdash; adding both of these bundles to one entity
-/// would create incoherent behaviour.
+/// would create incoherent behavior.
 /// This would be unexpected if bundles were treated as an abstraction boundary, as
 /// the abstraction would be unmaintainable for these cases.
 /// For example, both `Camera3dBundle` and `Camera2dBundle` contain the `CameraRenderGraph`
@@ -247,10 +247,16 @@ macro_rules! tuple_impl {
 
 all_tuples!(tuple_impl, 0, 15, B);
 
+/// For a specific [`World`], this stores a unique value identifying a type of a registered [`Bundle`].
+///
+/// [`World`]: crate::world::World
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct BundleId(usize);
 
 impl BundleId {
+    /// Returns the index of the associated [`Bundle`] type.
+    ///
+    /// Note that this is unique per-world, and should not be reused across them.
     #[inline]
     pub fn index(self) -> usize {
         self.0
@@ -263,11 +269,15 @@ impl SparseSetIndex for BundleId {
         self.index()
     }
 
+    #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Self(value)
     }
 }
 
+/// Stores metadata associated with a specific type of [`Bundle`] for a given [`World`].
+///
+/// [`World`]: crate::world::World
 pub struct BundleInfo {
     id: BundleId,
     // SAFETY: Every ID in this list must be valid within the World that owns the BundleInfo,
@@ -323,11 +333,13 @@ impl BundleInfo {
         BundleInfo { id, component_ids }
     }
 
+    /// Returns a value identifying the associated [`Bundle`] type.
     #[inline]
     pub const fn id(&self) -> BundleId {
         self.id
     }
 
+    /// Returns the [ID](ComponentId) of each component stored in this bundle.
     #[inline]
     pub fn components(&self) -> &[ComponentId] {
         &self.component_ids
@@ -337,7 +349,7 @@ impl BundleInfo {
         &'b self,
         entities: &'a mut Entities,
         archetypes: &'a mut Archetypes,
-        components: &mut Components,
+        components: &Components,
         storages: &'a mut Storages,
         archetype_id: ArchetypeId,
         change_tick: Tick,
@@ -397,7 +409,7 @@ impl BundleInfo {
         &'b self,
         entities: &'a mut Entities,
         archetypes: &'a mut Archetypes,
-        components: &mut Components,
+        components: &Components,
         storages: &'a mut Storages,
         change_tick: Tick,
     ) -> BundleSpawner<'a, 'b> {
@@ -483,7 +495,7 @@ impl BundleInfo {
         &self,
         archetypes: &mut Archetypes,
         storages: &mut Storages,
-        components: &mut Components,
+        components: &Components,
         archetype_id: ArchetypeId,
     ) -> ArchetypeId {
         if let Some(add_bundle_id) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
@@ -781,6 +793,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
     }
 }
 
+/// Metadata for bundles. Stores a [`BundleInfo`] for each type of [`Bundle`] in a given world.
 #[derive(Default)]
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
@@ -793,11 +806,16 @@ pub struct Bundles {
 }
 
 impl Bundles {
+    /// Gets the metadata associated with a specific type of bundle.
+    /// Returns `None` if the bundle is not registered with the world.
     #[inline]
     pub fn get(&self, bundle_id: BundleId) -> Option<&BundleInfo> {
         self.bundle_infos.get(bundle_id.index())
     }
 
+    /// Gets the value identifying a specific type of bundle.
+    /// Returns `None` if the bundle does not exist in the world,
+    /// or if `type_id` does not correspond to a type of bundle.
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<BundleId> {
         self.bundle_ids.get(&type_id).cloned()
@@ -835,7 +853,7 @@ impl Bundles {
     /// provided [`Components`].
     pub(crate) fn init_dynamic_info(
         &mut self,
-        components: &mut Components,
+        components: &Components,
         component_ids: &[ComponentId],
     ) -> (&BundleInfo, &Vec<StorageType>) {
         let bundle_infos = &mut self.bundle_infos;
@@ -865,7 +883,7 @@ impl Bundles {
     /// Panics if the provided [`ComponentId`] does not exist in the provided [`Components`].
     pub(crate) fn init_component_info(
         &mut self,
-        components: &mut Components,
+        components: &Components,
         component_id: ComponentId,
     ) -> (&BundleInfo, StorageType) {
         let bundle_infos = &mut self.bundle_infos;

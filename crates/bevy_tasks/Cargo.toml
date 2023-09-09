@@ -1,6 +1,6 @@
 [package]
 name = "bevy_tasks"
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 edition = "2021"
 description = "A task executor for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -8,12 +8,14 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+[features]
+multi-threaded = []
+
 [dependencies]
 futures-lite = "1.4.0"
 async-executor = "1.3.0"
 async-channel = "1.4.2"
 async-task = "4.2.0"
-once_cell = "1.7"
 concurrent-queue = "2.0.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

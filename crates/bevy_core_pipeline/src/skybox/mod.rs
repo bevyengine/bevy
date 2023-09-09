@@ -1,12 +1,11 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::With,
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
 };
-use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
@@ -25,8 +24,7 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 
-const SKYBOX_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 55594763423201);
+const SKYBOX_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(55594763423201);
 
 pub struct SkyboxPlugin;
 
@@ -34,8 +32,25 @@ impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, SKYBOX_SHADER_HANDLE, "skybox.wgsl", Shader::from_wgsl);
 
-        app.add_plugin(ExtractComponentPlugin::<Skybox>::default());
+        app.add_plugins(ExtractComponentPlugin::<Skybox>::default());
 
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+
+        render_app
+            .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
+            .add_systems(
+                Render,
+                (
+                    prepare_skybox_pipelines.in_set(RenderSet::Prepare),
+                    prepare_skybox_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                ),
+            );
+    }
+
+    fn finish(&self, app: &mut App) {
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
             Err(_) => return,
@@ -43,16 +58,7 @@ impl Plugin for SkyboxPlugin {
 
         let render_device = render_app.world.resource::<RenderDevice>().clone();
 
-        render_app
-            .insert_resource(SkyboxPipeline::new(&render_device))
-            .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
-            .add_systems(
-                Render,
-                (
-                    prepare_skybox_pipelines.in_set(RenderSet::Prepare),
-                    queue_skybox_bind_groups.in_set(RenderSet::Queue),
-                ),
-            );
+        render_app.insert_resource(SkyboxPipeline::new(&render_device));
     }
 }
 
@@ -126,7 +132,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             layout: vec![self.bind_group_layout.clone()],
             push_constant_ranges: Vec::new(),
             vertex: VertexState {
-                shader: SKYBOX_SHADER_HANDLE.typed(),
+                shader: SKYBOX_SHADER_HANDLE,
                 shader_defs: Vec::new(),
                 entry_point: "skybox_vertex".into(),
                 buffers: Vec::new(),
@@ -154,7 +160,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                 alpha_to_coverage_enabled: false,
             },
             fragment: Some(FragmentState {
-                shader: SKYBOX_SHADER_HANDLE.typed(),
+                shader: SKYBOX_SHADER_HANDLE,
                 shader_defs: Vec::new(),
                 entry_point: "skybox_fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -201,7 +207,7 @@ fn prepare_skybox_pipelines(
 #[derive(Component)]
 pub struct SkyboxBindGroup(pub BindGroup);
 
-fn queue_skybox_bind_groups(
+fn prepare_skybox_bind_groups(
     mut commands: Commands,
     pipeline: Res<SkyboxPipeline>,
     view_uniforms: Res<ViewUniforms>,

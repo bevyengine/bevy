@@ -1,7 +1,5 @@
 //! Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats
 
-use std::f32::consts::PI;
-
 use bevy::{
     asset::LoadState,
     core_pipeline::Skybox,
@@ -13,6 +11,7 @@ use bevy::{
         texture::CompressedImageFormats,
     },
 };
+use std::f32::consts::PI;
 
 const CUBEMAPS: &[(&str, CompressedImageFormats)] = &[
     (
@@ -81,7 +80,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // ambient light
     // NOTE: The ambient light is used to scale how bright the environment map is so with a bright
-    // environment map, use an appropriate colour and brightness to match
+    // environment map, use an appropriate color and brightness to match
     commands.insert_resource(AmbientLight {
         color: Color::rgb_u8(210, 220, 240),
         brightness: 1.0,
@@ -141,11 +140,9 @@ fn asset_loaded(
     mut cubemap: ResMut<Cubemap>,
     mut skyboxes: Query<&mut Skybox>,
 ) {
-    if !cubemap.is_loaded
-        && asset_server.get_load_state(cubemap.image_handle.clone_weak()) == LoadState::Loaded
-    {
+    if !cubemap.is_loaded && asset_server.load_state(&cubemap.image_handle) == LoadState::Loaded {
         info!("Swapping to {}...", CUBEMAPS[cubemap.index].0);
-        let mut image = images.get_mut(&cubemap.image_handle).unwrap();
+        let image = images.get_mut(&cubemap.image_handle).unwrap();
         // NOTE: PNGs do not have any metadata that could indicate they contain a cubemap texture,
         // so they appear as one texture. The following code reconfigures the texture as necessary.
         if image.texture_descriptor.array_layer_count() == 1 {
@@ -209,7 +206,7 @@ impl Default for CameraController {
             key_right: KeyCode::D,
             key_up: KeyCode::E,
             key_down: KeyCode::Q,
-            key_run: KeyCode::LShift,
+            key_run: KeyCode::ShiftLeft,
             mouse_key_enable_mouse: MouseButton::Left,
             keyboard_key_enable_mouse: KeyCode::M,
             walk_speed: 2.0,
@@ -291,7 +288,7 @@ pub fn camera_controller(
         // Handle mouse input
         let mut mouse_delta = Vec2::ZERO;
         if mouse_button_input.pressed(options.mouse_key_enable_mouse) || *move_toggled {
-            for mouse_event in mouse_events.iter() {
+            for mouse_event in mouse_events.read() {
                 mouse_delta += mouse_event.delta;
             }
         }

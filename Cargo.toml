@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.11.0-dev"
+version = "0.12.0-dev"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -10,12 +10,13 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
-rust-version = "1.67.0"
+rust-version = "1.70.0"
 
 [workspace]
 exclude = [
   "benches",
   "crates/bevy_ecs_compile_fail_tests",
+  "crates/bevy_macros_compile_fail_tests",
   "crates/bevy_reflect_compile_fail_tests",
 ]
 members = [
@@ -24,6 +25,7 @@ members = [
   "tools/ci",
   "tools/build-templated-pages",
   "tools/build-wasm-example",
+  "tools/example-showcase",
   "errors",
 ]
 
@@ -42,20 +44,22 @@ default = [
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
+  "multi-threaded",
   "png",
   "hdr",
   "ktx2",
   "zstd",
   "vorbis",
   "x11",
-  "filesystem_watcher",
   "bevy_gizmos",
   "android_shared_stdcxx",
   "tonemapping_luts",
+  "default_font",
+  "webgl2",
 ]
 
 # Force dynamic linking, which improves iterative compile times
-dynamic_linking = ["bevy_dylib", "bevy_internal/dynamic_linking"]
+dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
 
 # Provides animation functionality
 bevy_animation = ["bevy_internal/bevy_animation"]
@@ -91,7 +95,7 @@ bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_render", "bevy_core_pipeline"]
 
 # Provides text functionality
-bevy_text = ["bevy_internal/bevy_text"]
+bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
 
 # A custom ECS-driven UI framework
 bevy_ui = ["bevy_internal/bevy_ui", "bevy_core_pipeline", "bevy_text", "bevy_sprite"]
@@ -107,6 +111,9 @@ trace_chrome = ["trace", "bevy_internal/trace_chrome"]
 
 # Tracing support, exposing a port for Tracy
 trace_tracy = ["trace", "bevy_internal/trace_tracy"]
+
+# Tracing support, with memory profiling, exposing a port for Tracy
+trace_tracy_memory = ["trace", "bevy_internal/trace_tracy", "bevy_internal/trace_tracy_memory"]
 
 # Tracing support
 trace = ["bevy_internal/trace"]
@@ -143,6 +150,9 @@ dds = ["bevy_internal/dds"]
 
 # KTX2 compressed texture support
 ktx2 = ["bevy_internal/ktx2"]
+
+# PNM image format support, includes pam, pbm, pgm and ppm
+pnm = ["bevy_internal/pnm"]
 
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
@@ -183,11 +193,11 @@ symphonia-vorbis = ["bevy_internal/symphonia-vorbis"]
 # WAV audio format support (through symphonia)
 symphonia-wav = ["bevy_internal/symphonia-wav"]
 
-# Enable watching file system for asset hot reload
-filesystem_watcher = ["bevy_internal/filesystem_watcher"]
-
 # Enable serialization support through serde
 serialize = ["bevy_internal/serialize"]
+
+# Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.
+multi-threaded = ["bevy_internal/multi-threaded"]
 
 # Wayland display server support
 wayland = ["bevy_internal/wayland"]
@@ -200,9 +210,6 @@ subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
 
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
-
-# Enable the "debug asset server" for hot reloading internal assets
-debug_asset_server = ["bevy_internal/debug_asset_server"]
 
 # Enable animation support, and glTF animation loading
 animation = ["bevy_internal/animation", "bevy_animation"]
@@ -222,14 +229,24 @@ accesskit_unix = ["bevy_internal/accesskit_unix"]
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_internal/glam_assert"]
 
-[dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.11.0-dev", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.11.0-dev", default-features = false }
+# Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase
+default_font = ["bevy_internal/default_font"]
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.11.0-dev", default-features = false, features = [
-  "webgl",
-] }
+# Enable support for shaders in GLSL
+shader_format_glsl = ["bevy_internal/shader_format_glsl"]
+
+# Enable support for shaders in SPIR-V
+shader_format_spirv = ["bevy_internal/shader_format_spirv"]
+
+# Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm
+webgl2 = ["bevy_internal/webgl"]
+
+# Enables watching the filesystem for Bevy Asset hot-reloading
+filesystem_watcher = ["bevy_internal/filesystem_watcher"]
+
+[dependencies]
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0-dev", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.12.0-dev", default-features = false }
 
 [dev-dependencies]
 anyhow = "1.0.4"
@@ -240,10 +257,12 @@ bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "1.11.3"
 crossbeam-channel = "0.5.0"
+argh = "0.1.12"
 
 [[example]]
 name = "hello_world"
 path = "examples/hello_world.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.hello_world]
 hidden = true
@@ -252,16 +271,18 @@ hidden = true
 [[example]]
 name = "bloom_2d"
 path = "examples/2d/bloom_2d.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.bloom_2d]
 name = "2D Bloom"
 description = "Illustrates bloom post-processing in 2d"
 category = "2D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "move_sprite"
 path = "examples/2d/move_sprite.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.move_sprite]
 name = "Move Sprite"
@@ -282,6 +303,7 @@ wasm = true
 [[example]]
 name = "rotation"
 path = "examples/2d/rotation.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.rotation]
 name = "2D Rotation"
@@ -292,6 +314,7 @@ wasm = true
 [[example]]
 name = "mesh2d"
 path = "examples/2d/mesh2d.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.mesh2d]
 name = "Mesh 2D"
@@ -302,6 +325,7 @@ wasm = true
 [[example]]
 name = "mesh2d_manual"
 path = "examples/2d/mesh2d_manual.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.mesh2d_manual]
 name = "Manual Mesh 2D"
@@ -312,6 +336,7 @@ wasm = true
 [[example]]
 name = "mesh2d_vertex_color_texture"
 path = "examples/2d/mesh2d_vertex_color_texture.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.mesh2d_vertex_color_texture]
 name = "Mesh 2D With Vertex Colors"
@@ -322,6 +347,7 @@ wasm = true
 [[example]]
 name = "2d_shapes"
 path = "examples/2d/2d_shapes.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.2d_shapes]
 name = "2D Shapes"
@@ -330,8 +356,20 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "custom_gltf_vertex_attribute"
+path = "examples/2d/custom_gltf_vertex_attribute.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_gltf_vertex_attribute]
+name = "Custom glTF vertex attribute 2D"
+description = "Renders a glTF mesh in 2D with a custom vertex attribute"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "2d_gizmos"
 path = "examples/2d/2d_gizmos.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.2d_gizmos]
 name = "2D Gizmos"
@@ -342,6 +380,7 @@ wasm = true
 [[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.sprite]
 name = "Sprite"
@@ -352,6 +391,7 @@ wasm = true
 [[example]]
 name = "sprite_flipping"
 path = "examples/2d/sprite_flipping.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.sprite_flipping]
 name = "Sprite Flipping"
@@ -362,6 +402,7 @@ wasm = true
 [[example]]
 name = "sprite_sheet"
 path = "examples/2d/sprite_sheet.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.sprite_sheet]
 name = "Sprite Sheet"
@@ -372,6 +413,7 @@ wasm = true
 [[example]]
 name = "text2d"
 path = "examples/2d/text2d.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.text2d]
 name = "Text 2D"
@@ -382,16 +424,18 @@ wasm = true
 [[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.texture_atlas]
 name = "Texture Atlas"
 description = "Generates a texture atlas (sprite sheet) from individual sprites"
 category = "2D Rendering"
-wasm = true
+wasm = false
 
 [[example]]
 name = "transparency_2d"
 path = "examples/2d/transparency_2d.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.transparency_2d]
 name = "Transparency in 2D"
@@ -402,6 +446,7 @@ wasm = true
 [[example]]
 name = "pixel_perfect"
 path = "examples/2d/pixel_perfect.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.pixel_perfect]
 name = "Pixel Perfect"
@@ -413,6 +458,7 @@ wasm = true
 [[example]]
 name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.3d_scene]
 name = "3D Scene"
@@ -421,8 +467,19 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "3d_shapes"
+path = "examples/3d/3d_shapes.rs"
+
+[package.metadata.example.3d_shapes]
+name = "3D Shapes"
+description = "A scene showcasing the built-in 3D shapes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "3d_viewport_to_world"
 path = "examples/3d/3d_viewport_to_world.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.3d_viewport_to_world]
 name = "3D Viewport To World"
@@ -431,8 +488,20 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "generate_custom_mesh"
+path = "examples/3d/generate_custom_mesh.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.generate_custom_mesh]
+name = "Generate Custom Mesh"
+description = "Simple showcase of how to generate a custom mesh with a custom texture"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "anti_aliasing"
 path = "examples/3d/anti_aliasing.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.anti_aliasing]
 name = "Anti-aliasing"
@@ -443,6 +512,7 @@ wasm = false
 [[example]]
 name = "3d_gizmos"
 path = "examples/3d/3d_gizmos.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.3d_gizmos]
 name = "3D Gizmos"
@@ -453,6 +523,7 @@ wasm = true
 [[example]]
 name = "atmospheric_fog"
 path = "examples/3d/atmospheric_fog.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.atmospheric_fog]
 name = "Atmospheric Fog"
@@ -463,6 +534,7 @@ wasm = true
 [[example]]
 name = "fog"
 path = "examples/3d/fog.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.fog]
 name = "Fog"
@@ -473,6 +545,7 @@ wasm = true
 [[example]]
 name = "blend_modes"
 path = "examples/3d/blend_modes.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.blend_modes]
 name = "Blend Modes"
@@ -483,6 +556,7 @@ wasm = true
 [[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.lighting]
 name = "Lighting"
@@ -493,6 +567,7 @@ wasm = true
 [[example]]
 name = "lines"
 path = "examples/3d/lines.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.lines]
 name = "Lines"
@@ -501,8 +576,20 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "ssao"
+path = "examples/3d/ssao.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ssao]
+name = "Screen Space Ambient Occlusion"
+description = "A scene showcasing screen space ambient occlusion"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "spotlight"
 path = "examples/3d/spotlight.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.spotlight]
 name = "Spotlight"
@@ -513,16 +600,18 @@ wasm = true
 [[example]]
 name = "bloom_3d"
 path = "examples/3d/bloom_3d.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.bloom_3d]
 name = "3D Bloom"
 description = "Illustrates bloom configuration using HDR and emissive materials"
 category = "3D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.load_gltf]
 name = "Load glTF"
@@ -533,7 +622,7 @@ wasm = true
 [[example]]
 name = "tonemapping"
 path = "examples/3d/tonemapping.rs"
-required-features = ["ktx2", "zstd"]
+doc-scrape-examples = true
 
 [package.metadata.example.tonemapping]
 name = "Tonemapping"
@@ -544,6 +633,7 @@ wasm = true
 [[example]]
 name = "orthographic"
 path = "examples/3d/orthographic.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.orthographic]
 name = "Orthographic View"
@@ -554,6 +644,7 @@ wasm = true
 [[example]]
 name = "parenting"
 path = "examples/3d/parenting.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.parenting]
 name = "Parenting"
@@ -564,6 +655,7 @@ wasm = true
 [[example]]
 name = "pbr"
 path = "examples/3d/pbr.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.pbr]
 name = "Physically Based Rendering"
@@ -572,8 +664,20 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "parallax_mapping"
+path = "examples/3d/parallax_mapping.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.parallax_mapping]
+name = "Parallax Mapping"
+description = "Demonstrates use of a normal map and depth map for parallax mapping"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "render_to_texture"
 path = "examples/3d/render_to_texture.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.render_to_texture]
 name = "Render to Texture"
@@ -584,6 +688,7 @@ wasm = true
 [[example]]
 name = "shadow_biases"
 path = "examples/3d/shadow_biases.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.shadow_biases]
 name = "Shadow Biases"
@@ -594,6 +699,7 @@ wasm = true
 [[example]]
 name = "shadow_caster_receiver"
 path = "examples/3d/shadow_caster_receiver.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.shadow_caster_receiver]
 name = "Shadow Caster and Receiver"
@@ -604,6 +710,7 @@ wasm = true
 [[example]]
 name = "skybox"
 path = "examples/3d/skybox.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.skybox]
 name = "Skybox"
@@ -614,6 +721,7 @@ wasm = false
 [[example]]
 name = "spherical_area_lights"
 path = "examples/3d/spherical_area_lights.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.spherical_area_lights]
 name = "Spherical Area Lights"
@@ -624,6 +732,7 @@ wasm = true
 [[example]]
 name = "split_screen"
 path = "examples/3d/split_screen.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.split_screen]
 name = "Split Screen"
@@ -634,6 +743,7 @@ wasm = true
 [[example]]
 name = "texture"
 path = "examples/3d/texture.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.texture]
 name = "Texture"
@@ -644,6 +754,7 @@ wasm = true
 [[example]]
 name = "transparency_3d"
 path = "examples/3d/transparency_3d.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.transparency_3d]
 name = "Transparency in 3D"
@@ -654,6 +765,7 @@ wasm = true
 [[example]]
 name = "two_passes"
 path = "examples/3d/two_passes.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.two_passes]
 name = "Two Passes"
@@ -664,6 +776,7 @@ wasm = true
 [[example]]
 name = "update_gltf_scene"
 path = "examples/3d/update_gltf_scene.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.update_gltf_scene]
 name = "Update glTF Scene"
@@ -674,6 +787,7 @@ wasm = true
 [[example]]
 name = "vertex_colors"
 path = "examples/3d/vertex_colors.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.vertex_colors]
 name = "Vertex Colors"
@@ -684,16 +798,18 @@ wasm = true
 [[example]]
 name = "wireframe"
 path = "examples/3d/wireframe.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.wireframe]
 name = "Wireframe"
 description = "Showcases wireframe rendering"
 category = "3D Rendering"
-wasm = true
+wasm = false
 
 [[example]]
 name = "no_prepass"
 path = "tests/3d/no_prepass.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.no_prepass]
 hidden = true
@@ -702,6 +818,7 @@ hidden = true
 [[example]]
 name = "animated_fox"
 path = "examples/animation/animated_fox.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.animated_fox]
 name = "Animated Fox"
@@ -710,8 +827,20 @@ category = "Animation"
 wasm = true
 
 [[example]]
+name = "morph_targets"
+path = "examples/animation/morph_targets.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.morph_targets]
+name = "Morph Targets"
+description = "Plays an animation from a glTF file with meshes with morph targets"
+category = "Animation"
+wasm = true
+
+[[example]]
 name = "animated_transform"
 path = "examples/animation/animated_transform.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.animated_transform]
 name = "Animated Transform"
@@ -720,8 +849,20 @@ category = "Animation"
 wasm = true
 
 [[example]]
+name = "cubic_curve"
+path = "examples/animation/cubic_curve.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.cubic_curve]
+name = "Cubic Curve"
+description = "Bezier curve example showing a cube following a cubic curve"
+category = "Animation"
+wasm = true
+
+[[example]]
 name = "custom_skinned_mesh"
 path = "examples/animation/custom_skinned_mesh.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.custom_skinned_mesh]
 name = "Custom Skinned Mesh"
@@ -732,6 +873,7 @@ wasm = true
 [[example]]
 name = "gltf_skinned_mesh"
 path = "examples/animation/gltf_skinned_mesh.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.gltf_skinned_mesh]
 name = "glTF Skinned Mesh"
@@ -743,6 +885,7 @@ wasm = true
 [[example]]
 name = "custom_loop"
 path = "examples/app/custom_loop.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.custom_loop]
 name = "Custom Loop"
@@ -753,6 +896,7 @@ wasm = false
 [[example]]
 name = "drag_and_drop"
 path = "examples/app/drag_and_drop.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.drag_and_drop]
 name = "Drag and Drop"
@@ -763,6 +907,7 @@ wasm = false
 [[example]]
 name = "empty"
 path = "examples/app/empty.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.empty]
 name = "Empty"
@@ -773,6 +918,7 @@ wasm = false
 [[example]]
 name = "empty_defaults"
 path = "examples/app/empty_defaults.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.empty_defaults]
 name = "Empty with Defaults"
@@ -783,6 +929,7 @@ wasm = true
 [[example]]
 name = "headless"
 path = "examples/app/headless.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.headless]
 name = "Headless"
@@ -793,6 +940,7 @@ wasm = false
 [[example]]
 name = "logs"
 path = "examples/app/logs.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.logs]
 name = "Logs"
@@ -803,6 +951,7 @@ wasm = true
 [[example]]
 name = "plugin"
 path = "examples/app/plugin.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.plugin]
 name = "Plugin"
@@ -813,6 +962,7 @@ wasm = true
 [[example]]
 name = "plugin_group"
 path = "examples/app/plugin_group.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.plugin_group]
 name = "Plugin Group"
@@ -823,6 +973,7 @@ wasm = true
 [[example]]
 name = "return_after_run"
 path = "examples/app/return_after_run.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.return_after_run]
 name = "Return after Run"
@@ -833,6 +984,7 @@ wasm = false
 [[example]]
 name = "thread_pool_resources"
 path = "examples/app/thread_pool_resources.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.thread_pool_resources]
 name = "Thread Pool Resources"
@@ -843,6 +995,7 @@ wasm = false
 [[example]]
 name = "no_renderer"
 path = "examples/app/no_renderer.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.no_renderer]
 name = "No Renderer"
@@ -853,6 +1006,7 @@ wasm = false
 [[example]]
 name = "without_winit"
 path = "examples/app/without_winit.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.without_winit]
 name = "Without Winit"
@@ -864,16 +1018,18 @@ wasm = false
 [[example]]
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.asset_loading]
 name = "Asset Loading"
 description = "Demonstrates various methods to load assets"
 category = "Assets"
-wasm = true
+wasm = false
 
 [[example]]
 name = "custom_asset"
 path = "examples/asset/custom_asset.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.custom_asset]
 name = "Custom Asset"
@@ -882,18 +1038,20 @@ category = "Assets"
 wasm = true
 
 [[example]]
-name = "custom_asset_io"
-path = "examples/asset/custom_asset_io.rs"
+name = "custom_asset_reader"
+path = "examples/asset/custom_asset_reader.rs"
+doc-scrape-examples = true
 
-[package.metadata.example.custom_asset_io]
+[package.metadata.example.custom_asset_reader]
 name = "Custom Asset IO"
-description = "Implements a custom asset io loader"
+description = "Implements a custom AssetReader"
 category = "Assets"
 wasm = true
 
 [[example]]
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.hot_asset_reloading]
 name = "Hot Reloading of Assets"
@@ -901,10 +1059,23 @@ description = "Demonstrates automatic reloading of assets when modified on disk"
 category = "Assets"
 wasm = true
 
+[[example]]
+name = "asset_processing"
+path = "examples/asset/processing/processing.rs"
+doc-scrape-examples = true
+required-features = ["filesystem_watcher"]
+
+[package.metadata.example.asset_processing]
+name = "Asset Processing"
+description = "Demonstrates how to process and load custom assets"
+category = "Assets"
+wasm = false
+
 # Async Tasks
 [[example]]
 name = "async_compute"
 path = "examples/async_tasks/async_compute.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.async_compute]
 name = "Async Compute"
@@ -915,6 +1086,7 @@ wasm = false
 [[example]]
 name = "external_source_external_thread"
 path = "examples/async_tasks/external_source_external_thread.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.external_source_external_thread]
 name = "External Source of Data on an External Thread"
@@ -926,6 +1098,7 @@ wasm = false
 [[example]]
 name = "audio"
 path = "examples/audio/audio.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.audio]
 name = "Audio"
@@ -936,6 +1109,7 @@ wasm = true
 [[example]]
 name = "audio_control"
 path = "examples/audio/audio_control.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.audio_control]
 name = "Audio Control"
@@ -946,6 +1120,7 @@ wasm = true
 [[example]]
 name = "decodable"
 path = "examples/audio/decodable.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.decodable]
 name = "Decodable"
@@ -956,6 +1131,7 @@ wasm = true
 [[example]]
 name = "spatial_audio_2d"
 path = "examples/audio/spatial_audio_2d.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.spatial_audio_2d]
 name = "Spatial Audio 2D"
@@ -966,6 +1142,7 @@ wasm = true
 [[example]]
 name = "spatial_audio_3d"
 path = "examples/audio/spatial_audio_3d.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.spatial_audio_3d]
 name = "Spatial Audio 3D"
@@ -973,10 +1150,21 @@ description = "Shows how to play spatial audio, and moving the emitter in 3D"
 category = "Audio"
 wasm = true
 
+[[example]]
+name = "pitch"
+path = "examples/audio/pitch.rs"
+
+[package.metadata.example.pitch]
+name = "Pitch"
+description = "Shows how to directly play a simple pitch"
+category = "Audio"
+wasm = true
+
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
 path = "examples/diagnostics/log_diagnostics.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.log_diagnostics]
 name = "Log Diagnostics"
@@ -987,6 +1175,7 @@ wasm = true
 [[example]]
 name = "custom_diagnostic"
 path = "examples/diagnostics/custom_diagnostic.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.custom_diagnostic]
 name = "Custom Diagnostic"
@@ -998,6 +1187,7 @@ wasm = true
 [[example]]
 name = "ecs_guide"
 path = "examples/ecs/ecs_guide.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.ecs_guide]
 name = "ECS Guide"
@@ -1006,18 +1196,20 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "apply_system_buffers"
-path = "examples/ecs/apply_system_buffers.rs"
+name = "apply_deferred"
+path = "examples/ecs/apply_deferred.rs"
+doc-scrape-examples = true
 
-[package.metadata.example.apply_system_buffers]
+[package.metadata.example.apply_deferred]
 name = "Apply System Buffers"
-description = "Show how to use `apply_system_buffers` system"
+description = "Show how to use `apply_deferred` system"
 category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
 name = "component_change_detection"
 path = "examples/ecs/component_change_detection.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.component_change_detection]
 name = "Component Change Detection"
@@ -1028,6 +1220,7 @@ wasm = false
 [[example]]
 name = "custom_query_param"
 path = "examples/ecs/custom_query_param.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.custom_query_param]
 name = "Custom Query Parameters"
@@ -1038,6 +1231,7 @@ wasm = false
 [[example]]
 name = "event"
 path = "examples/ecs/event.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.event]
 name = "Event"
@@ -1048,6 +1242,7 @@ wasm = false
 [[example]]
 name = "fixed_timestep"
 path = "examples/ecs/fixed_timestep.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.fixed_timestep]
 name = "Fixed Timestep"
@@ -1058,6 +1253,7 @@ wasm = false
 [[example]]
 name = "generic_system"
 path = "examples/ecs/generic_system.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.generic_system]
 name = "Generic System"
@@ -1068,6 +1264,7 @@ wasm = false
 [[example]]
 name = "hierarchy"
 path = "examples/ecs/hierarchy.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.hierarchy]
 name = "Hierarchy"
@@ -1078,6 +1275,7 @@ wasm = false
 [[example]]
 name = "iter_combinations"
 path = "examples/ecs/iter_combinations.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.iter_combinations]
 name = "Iter Combinations"
@@ -1088,6 +1286,7 @@ wasm = true
 [[example]]
 name = "parallel_query"
 path = "examples/ecs/parallel_query.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.parallel_query]
 name = "Parallel Query"
@@ -1098,6 +1297,7 @@ wasm = false
 [[example]]
 name = "removal_detection"
 path = "examples/ecs/removal_detection.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.removal_detection]
 name = "Removal Detection"
@@ -1108,6 +1308,7 @@ wasm = false
 [[example]]
 name = "run_conditions"
 path = "examples/ecs/run_conditions.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.run_conditions]
 name = "Run Conditions"
@@ -1118,6 +1319,7 @@ wasm = false
 [[example]]
 name = "startup_system"
 path = "examples/ecs/startup_system.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.startup_system]
 name = "Startup System"
@@ -1128,6 +1330,7 @@ wasm = false
 [[example]]
 name = "state"
 path = "examples/ecs/state.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.state]
 name = "State"
@@ -1138,6 +1341,7 @@ wasm = false
 [[example]]
 name = "system_piping"
 path = "examples/ecs/system_piping.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.system_piping]
 name = "System Piping"
@@ -1148,6 +1352,7 @@ wasm = false
 [[example]]
 name = "system_closure"
 path = "examples/ecs/system_closure.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.system_closure]
 name = "System Closure"
@@ -1158,6 +1363,7 @@ wasm = false
 [[example]]
 name = "system_param"
 path = "examples/ecs/system_param.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.system_param]
 name = "System Parameter"
@@ -1168,6 +1374,7 @@ wasm = false
 [[example]]
 name = "timers"
 path = "examples/ecs/timers.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.timers]
 name = "Timers"
@@ -1179,6 +1386,7 @@ wasm = false
 [[example]]
 name = "alien_cake_addict"
 path = "examples/games/alien_cake_addict.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.alien_cake_addict]
 name = "Alien Cake Addict"
@@ -1189,6 +1397,7 @@ wasm = true
 [[example]]
 name = "breakout"
 path = "examples/games/breakout.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.breakout]
 name = "Breakout"
@@ -1199,6 +1408,7 @@ wasm = true
 [[example]]
 name = "contributors"
 path = "examples/games/contributors.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.contributors]
 name = "Contributors"
@@ -1209,6 +1419,7 @@ wasm = true
 [[example]]
 name = "game_menu"
 path = "examples/games/game_menu.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.game_menu]
 name = "Game Menu"
@@ -1220,6 +1431,7 @@ wasm = true
 [[example]]
 name = "char_input_events"
 path = "examples/input/char_input_events.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.char_input_events]
 name = "Char Input Events"
@@ -1230,6 +1442,7 @@ wasm = false
 [[example]]
 name = "gamepad_input"
 path = "examples/input/gamepad_input.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.gamepad_input]
 name = "Gamepad Input"
@@ -1240,6 +1453,7 @@ wasm = false
 [[example]]
 name = "gamepad_input_events"
 path = "examples/input/gamepad_input_events.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.gamepad_input_events]
 name = "Gamepad Input Events"
@@ -1248,8 +1462,20 @@ category = "Input"
 wasm = false
 
 [[example]]
+name = "gamepad_rumble"
+path = "examples/input/gamepad_rumble.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gamepad_rumble]
+name = "Gamepad Rumble"
+description = "Shows how to rumble a gamepad using force feedback"
+category = "Input"
+wasm = false
+
+[[example]]
 name = "keyboard_input"
 path = "examples/input/keyboard_input.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.keyboard_input]
 name = "Keyboard Input"
@@ -1260,6 +1486,7 @@ wasm = false
 [[example]]
 name = "keyboard_modifiers"
 path = "examples/input/keyboard_modifiers.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.keyboard_modifiers]
 name = "Keyboard Modifiers"
@@ -1270,6 +1497,7 @@ wasm = false
 [[example]]
 name = "keyboard_input_events"
 path = "examples/input/keyboard_input_events.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.keyboard_input_events]
 name = "Keyboard Input Events"
@@ -1280,6 +1508,7 @@ wasm = false
 [[example]]
 name = "mouse_input"
 path = "examples/input/mouse_input.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.mouse_input]
 name = "Mouse Input"
@@ -1290,6 +1519,7 @@ wasm = false
 [[example]]
 name = "mouse_input_events"
 path = "examples/input/mouse_input_events.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.mouse_input_events]
 name = "Mouse Input Events"
@@ -1300,6 +1530,7 @@ wasm = false
 [[example]]
 name = "mouse_grab"
 path = "examples/input/mouse_grab.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.mouse_grab]
 name = "Mouse Grab"
@@ -1310,6 +1541,7 @@ wasm = false
 [[example]]
 name = "touch_input"
 path = "examples/input/touch_input.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.touch_input]
 name = "Touch Input"
@@ -1320,6 +1552,7 @@ wasm = false
 [[example]]
 name = "touch_input_events"
 path = "examples/input/touch_input_events.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.touch_input_events]
 name = "Touch Input Events"
@@ -1330,6 +1563,7 @@ wasm = false
 [[example]]
 name = "text_input"
 path = "examples/input/text_input.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.text_input]
 name = "Text Input"
@@ -1341,6 +1575,7 @@ wasm = false
 [[example]]
 name = "reflection"
 path = "examples/reflection/reflection.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.reflection]
 name = "Reflection"
@@ -1351,6 +1586,7 @@ wasm = false
 [[example]]
 name = "generic_reflection"
 path = "examples/reflection/generic_reflection.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.generic_reflection]
 name = "Generic Reflection"
@@ -1361,6 +1597,7 @@ wasm = false
 [[example]]
 name = "reflection_types"
 path = "examples/reflection/reflection_types.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.reflection_types]
 name = "Reflection Types"
@@ -1371,6 +1608,7 @@ wasm = false
 [[example]]
 name = "trait_reflection"
 path = "examples/reflection/trait_reflection.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.trait_reflection]
 name = "Trait Reflection"
@@ -1382,6 +1620,7 @@ wasm = false
 [[example]]
 name = "scene"
 path = "examples/scene/scene.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.scene]
 name = "Scene"
@@ -1403,6 +1642,7 @@ There are also compute shaders which are used for more general processing levera
 [[example]]
 name = "custom_vertex_attribute"
 path = "examples/shader/custom_vertex_attribute.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.custom_vertex_attribute]
 name = "Custom Vertex Attribute"
@@ -1413,18 +1653,9 @@ wasm = true
 [[example]]
 name = "post_processing"
 path = "examples/shader/post_processing.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.post_processing]
-name = "Post Processing - Render To Texture"
-description = "A custom post processing effect, using two cameras, with one reusing the render texture of the first one"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "post_process_pass"
-path = "examples/shader/post_process_pass.rs"
-
-[package.metadata.example.post_process_pass]
 name = "Post Processing - Custom Render Pass"
 description = "A custom post processing effect, using a custom render pass that runs after the main pass"
 category = "Shaders"
@@ -1433,6 +1664,7 @@ wasm = true
 [[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.shader_defs]
 name = "Shader Defs"
@@ -1443,6 +1675,7 @@ wasm = true
 [[example]]
 name = "shader_material"
 path = "examples/shader/shader_material.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.shader_material]
 name = "Material"
@@ -1453,6 +1686,7 @@ wasm = true
 [[example]]
 name = "shader_prepass"
 path = "examples/shader/shader_prepass.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.shader_prepass]
 name = "Material Prepass"
@@ -1463,6 +1697,7 @@ wasm = false
 [[example]]
 name = "shader_material_screenspace_texture"
 path = "examples/shader/shader_material_screenspace_texture.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.shader_material_screenspace_texture]
 name = "Material - Screenspace Texture"
@@ -1473,6 +1708,7 @@ wasm = true
 [[example]]
 name = "shader_material_glsl"
 path = "examples/shader/shader_material_glsl.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.shader_material_glsl]
 name = "Material - GLSL"
@@ -1483,6 +1719,7 @@ wasm = true
 [[example]]
 name = "shader_instancing"
 path = "examples/shader/shader_instancing.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.shader_instancing]
 name = "Instancing"
@@ -1493,6 +1730,7 @@ wasm = true
 [[example]]
 name = "animate_shader"
 path = "examples/shader/animate_shader.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.animate_shader]
 name = "Animated"
@@ -1503,6 +1741,7 @@ wasm = true
 [[example]]
 name = "compute_shader_game_of_life"
 path = "examples/shader/compute_shader_game_of_life.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.compute_shader_game_of_life]
 name = "Compute - Game of Life"
@@ -1513,6 +1752,7 @@ wasm = false
 [[example]]
 name = "array_texture"
 path = "examples/shader/array_texture.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.array_texture]
 name = "Array Texture"
@@ -1523,6 +1763,7 @@ wasm = true
 [[example]]
 name = "texture_binding_array"
 path = "examples/shader/texture_binding_array.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.texture_binding_array]
 name = "Texture Binding Array (Bindless Textures)"
@@ -1546,6 +1787,7 @@ cargo run --release --example <example name>
 [[example]]
 name = "bevymark"
 path = "examples/stress_tests/bevymark.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.bevymark]
 name = "Bevymark"
@@ -1556,6 +1798,7 @@ wasm = true
 [[example]]
 name = "many_animated_sprites"
 path = "examples/stress_tests/many_animated_sprites.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.many_animated_sprites]
 name = "Many Animated Sprites"
@@ -1566,6 +1809,7 @@ wasm = true
 [[example]]
 name = "many_buttons"
 path = "examples/stress_tests/many_buttons.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.many_buttons]
 name = "Many Buttons"
@@ -1576,6 +1820,7 @@ wasm = true
 [[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.many_cubes]
 name = "Many Cubes"
@@ -1586,6 +1831,7 @@ wasm = true
 [[example]]
 name = "many_gizmos"
 path = "examples/stress_tests/many_gizmos.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.many_gizmos]
 name = "Many Gizmos"
@@ -1596,6 +1842,7 @@ wasm = true
 [[example]]
 name = "many_foxes"
 path = "examples/stress_tests/many_foxes.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.many_foxes]
 name = "Many Foxes"
@@ -1606,6 +1853,7 @@ wasm = true
 [[example]]
 name = "many_glyphs"
 path = "examples/stress_tests/many_glyphs.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.many_glyphs]
 name = "Many Glyphs"
@@ -1616,6 +1864,7 @@ wasm = true
 [[example]]
 name = "many_lights"
 path = "examples/stress_tests/many_lights.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.many_lights]
 name = "Many Lights"
@@ -1626,6 +1875,7 @@ wasm = true
 [[example]]
 name = "many_sprites"
 path = "examples/stress_tests/many_sprites.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.many_sprites]
 name = "Many Sprites"
@@ -1636,16 +1886,18 @@ wasm = true
 [[example]]
 name = "transform_hierarchy"
 path = "examples/stress_tests/transform_hierarchy.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.transform_hierarchy]
 name = "Transform Hierarchy"
 description = "Various test cases for hierarchy and transform propagation performance"
 category = "Stress Tests"
-wasm = true
+wasm = false
 
 [[example]]
 name = "text_pipeline"
 path = "examples/stress_tests/text_pipeline.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.text_pipeline]
 name = "Text Pipeline"
@@ -1657,6 +1909,7 @@ wasm = false
 [[example]]
 name = "scene_viewer"
 path = "examples/tools/scene_viewer/main.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
@@ -1667,26 +1920,29 @@ wasm = true
 [[example]]
 name = "gamepad_viewer"
 path = "examples/tools/gamepad_viewer.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.gamepad_viewer]
 name = "Gamepad Viewer"
 description = "Shows a visualization of gamepad buttons, sticks, and triggers"
 category = "Tools"
-wasm = false
+wasm = true
 
 [[example]]
 name = "nondeterministic_system_order"
 path = "examples/ecs/nondeterministic_system_order.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.nondeterministic_system_order]
 name = "Nondeterministic System Order"
-description = "Systems run in paralell, but their order isn't always deteriministic. Here's how to detect and fix this."
+description = "Systems run in parallel, but their order isn't always deterministic. Here's how to detect and fix this."
 category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
 name = "3d_rotation"
 path = "examples/transforms/3d_rotation.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.3d_rotation]
 name = "3D Rotation"
@@ -1697,6 +1953,7 @@ wasm = true
 [[example]]
 name = "scale"
 path = "examples/transforms/scale.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.scale]
 name = "Scale"
@@ -1707,6 +1964,7 @@ wasm = true
 [[example]]
 name = "transform"
 path = "examples/transforms/transform.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.transform]
 name = "Transform"
@@ -1717,6 +1975,7 @@ wasm = true
 [[example]]
 name = "translation"
 path = "examples/transforms/translation.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.translation]
 name = "Translation"
@@ -1726,8 +1985,20 @@ wasm = true
 
 # UI (User Interface)
 [[example]]
+name = "borders"
+path = "examples/ui/borders.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.borders]
+name = "Borders"
+description = "Demonstrates how to create a node with a border"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "button"
 path = "examples/ui/button.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.button]
 name = "Button"
@@ -1736,8 +2007,20 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "display_and_visibility"
+path = "examples/ui/display_and_visibility.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.display_and_visibility]
+name = "Display and Visibility"
+description = "Demonstrates how Display and Visibility work in the UI."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "window_fallthrough"
 path = "examples/ui/window_fallthrough.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.window_fallthrough]
 name = "Window Fallthrough"
@@ -1748,6 +2031,7 @@ wasm = false
 [[example]]
 name = "font_atlas_debug"
 path = "examples/ui/font_atlas_debug.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.font_atlas_debug]
 name = "Font Atlas Debug"
@@ -1756,8 +2040,20 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "overflow"
+path = "examples/ui/overflow.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.overflow]
+name = "Overflow"
+description = "Simple example demonstrating overflow behavior"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "overflow_debug"
 path = "examples/ui/overflow_debug.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.overflow_debug]
 name = "Overflow and Clipping Debug"
@@ -1768,6 +2064,7 @@ wasm = true
 [[example]]
 name = "relative_cursor_position"
 path = "examples/ui/relative_cursor_position.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.relative_cursor_position]
 name = "Relative Cursor Position"
@@ -1776,8 +2073,20 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "size_constraints"
+path = "examples/ui/size_constraints.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.size_constraints]
+name = "Size Constraints"
+description = "Demonstrates how the to use the size constraints to control the size of a UI node."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text"
 path = "examples/ui/text.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.text]
 name = "Text"
@@ -1788,6 +2097,7 @@ wasm = true
 [[example]]
 name = "text_debug"
 path = "examples/ui/text_debug.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.text_debug]
 name = "Text Debug"
@@ -1798,16 +2108,41 @@ wasm = true
 [[example]]
 name = "flex_layout"
 path = "examples/ui/flex_layout.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.flex_layout]
 name = "Flex Layout"
 description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text"
 category = "UI (User Interface)"
-wasm = false
+wasm = true
+
+[[example]]
+name = "text_wrap_debug"
+path = "examples/ui/text_wrap_debug.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.text_wrap_debug]
+name = "Text Wrap Debug"
+description = "Demonstrates text wrapping"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "grid"
+path = "examples/ui/grid.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.grid]
+name = "CSS Grid"
+description = "An example for CSS Grid layout"
+
+category = "UI (User Interface)"
+wasm = true
 
 [[example]]
 name = "transparency_ui"
 path = "examples/ui/transparency_ui.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.transparency_ui]
 name = "Transparency UI"
@@ -1818,6 +2153,7 @@ wasm = true
 [[example]]
 name = "z_index"
 path = "examples/ui/z_index.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.z_index]
 name = "UI Z-Index"
@@ -1828,6 +2164,7 @@ wasm = true
 [[example]]
 name = "ui"
 path = "examples/ui/ui.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.ui]
 name = "UI"
@@ -1838,6 +2175,7 @@ wasm = true
 [[example]]
 name = "ui_scaling"
 path = "examples/ui/ui_scaling.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.ui_scaling]
 name = "UI Scaling"
@@ -1845,10 +2183,33 @@ description = "Illustrates how to scale the UI"
 category = "UI (User Interface)"
 wasm = true
 
+[[example]]
+name = "ui_texture_atlas"
+path = "examples/ui/ui_texture_atlas.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_texture_atlas]
+name = "UI Texture Atlas"
+description = "Illustrates how to use TextureAtlases in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "viewport_debug"
+path = "examples/ui/viewport_debug.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.viewport_debug]
+name = "Viewport Debug"
+description = "An example for debugging viewport coordinates"
+category = "UI (User Interface)"
+wasm = true
+
 # Window
 [[example]]
 name = "clear_color"
 path = "examples/window/clear_color.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.clear_color]
 name = "Clear Color"
@@ -1859,6 +2220,7 @@ wasm = true
 [[example]]
 name = "low_power"
 path = "examples/window/low_power.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.low_power]
 name = "Low Power"
@@ -1869,6 +2231,7 @@ wasm = true
 [[example]]
 name = "multiple_windows"
 path = "examples/window/multiple_windows.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.multiple_windows]
 name = "Multiple Windows"
@@ -1879,6 +2242,7 @@ wasm = false
 [[example]]
 name = "scale_factor_override"
 path = "examples/window/scale_factor_override.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.scale_factor_override]
 name = "Scale Factor Override"
@@ -1887,8 +2251,20 @@ category = "Window"
 wasm = true
 
 [[example]]
+name = "screenshot"
+path = "examples/window/screenshot.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.screenshot]
+name = "Screenshot"
+description = "Shows how to save screenshots to disk"
+category = "Window"
+wasm = true
+
+[[example]]
 name = "transparent_window"
 path = "examples/window/transparent_window.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.transparent_window]
 name = "Transparent Window"
@@ -1899,6 +2275,7 @@ wasm = false
 [[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.window_settings]
 name = "Window Settings"
@@ -1909,6 +2286,7 @@ wasm = true
 [[example]]
 name = "resizing"
 path = "tests/window/resizing.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.resizing]
 hidden = true
@@ -1916,6 +2294,7 @@ hidden = true
 [[example]]
 name = "minimising"
 path = "tests/window/minimising.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.minimising]
 hidden = true
@@ -1923,6 +2302,15 @@ hidden = true
 [[example]]
 name = "window_resizing"
 path = "examples/window/window_resizing.rs"
+doc-scrape-examples = true
+
+[[example]]
+name = "fallback_image"
+path = "examples/shader/fallback_image.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fallback_image]
+hidden = true
 
 [package.metadata.example.window_resizing]
 name = "Window Resizing"
@@ -1940,3 +2328,6 @@ codegen-units = 1
 inherits = "release"
 lto = "fat"
 panic = "abort"
+
+[package.metadata.docs.rs]
+cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
