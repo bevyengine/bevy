@@ -522,7 +522,7 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Runs the system corresponding to the given [`SystemId`].
     ///
-    /// Calls [`SystemRegistry::run_system_by_id`](crate::system::SystemRegistry::run_by_id).
+    /// Calls [`World::run_system_by_id`](crate::system::World::run_system_by_id).
     pub fn run_system_by_id(&mut self, id: SystemId) {
         self.queue.push(RunSystemById::new(id));
     }

@@ -27,7 +27,7 @@ impl RemovedSystem {
     pub fn initialized(&self) -> bool {
         self.initialized
     }
-    /// The system removed from the [`SystemRegistry`]
+    /// The system removed from the storage.
     pub fn system(self) -> BoxedSystem {
         self.system
     }
@@ -79,13 +79,13 @@ impl World {
 
     /// Run stored systems by their [`SystemId`].
     /// Before running a system, it must first be registered.
-    /// The method [world::register_system]` stores a given system and returns a [`SystemId`].
+    /// The method [World::register_system]` stores a given system and returns a [`SystemId`].
     /// This is different from [`world::run_system`], because it keeps local state between calls and change detection works correctly.
     ///
     /// # Limitations
     ///
     ///  - Stored systems cannot be chained: they can neither have an [`In`](crate::system::In) nor return any values.
-    ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system_by_id`].
+    ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system_by_id`](crate::system::Commands).
     ///  - Exclusive systems cannot be used.
     ///
     /// # Examples
