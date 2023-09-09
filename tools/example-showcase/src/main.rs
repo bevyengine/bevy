@@ -255,6 +255,15 @@ fn main() {
                     .map(|s| s.to_string())
                     .chain(required_features.iter().cloned())
                     .collect::<Vec<_>>();
+                let _ = cmd!(
+                    sh,
+                    "cargo build --profile {profile} --example {example} {local_extra_parameters...}"
+                ).run();
+                let local_extra_parameters = extra_parameters
+                    .iter()
+                    .map(|s| s.to_string())
+                    .chain(required_features.iter().cloned())
+                    .collect::<Vec<_>>();
                 let mut cmd = cmd!(
                     sh,
                     "cargo run --profile {profile} --example {example} {local_extra_parameters...}"
