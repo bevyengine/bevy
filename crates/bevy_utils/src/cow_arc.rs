@@ -77,6 +77,18 @@ impl<'a, T: Display + ?Sized> Display for CowArc<'a, T> {
     }
 }
 
+impl<'a, T: PartialOrd + ?Sized> PartialOrd for CowArc<'a, T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.deref().partial_cmp(other.deref())
+    }
+}
+
+impl<'a, T: Ord + ?Sized> Ord for CowArc<'a, T> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.deref().cmp(other.deref())
+    }
+}
+
 impl From<PathBuf> for CowArc<'static, Path> {
     #[inline]
     fn from(value: PathBuf) -> Self {
