@@ -130,8 +130,11 @@ fn queue_wireframes(
         let add_render_phase =
             |(entity, mesh_handle, mesh_transforms): (Entity, &Handle<Mesh>, &MeshTransforms)| {
                 if let Some(mesh) = render_meshes.get(mesh_handle) {
-                    let key = view_key
+                    let mut key = view_key
                         | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    if mesh.morph_targets.is_some() {
+                        key |= MeshPipelineKey::MORPH_TARGETS;
+                    }
                     let pipeline_id = pipelines.specialize(
                         &pipeline_cache,
                         &wireframe_pipeline,
