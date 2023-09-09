@@ -93,26 +93,30 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..Default::default()
     }).id();
 
-    let left_frame = commands.spawn(NodeBundle {
-        style: Style {
-            width: Val::Percent(50.),
-            height: Val::Px(520.),
-            justify_content: JustifyContent::Center,
+    let left_frame = commands
+        .spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(50.),
+                height: Val::Px(520.),
+                justify_content: JustifyContent::Center,
+                ..Default::default()
+            },
             ..Default::default()
-        },
-        ..Default::default()
-    }).id();
+        })
+        .id();
     let (left_panel, target_ids) = spawn_left_panel(&mut commands, &palette);
     commands.entity(left_frame).add_child(left_panel);
 
-    let right_frame = commands.spawn(NodeBundle {
-        style: Style {
-            width: Val::Percent(50.),
-            justify_content: JustifyContent::Center,
+    let right_frame = commands
+        .spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(50.),
+                justify_content: JustifyContent::Center,
+                ..Default::default()
+            },
             ..Default::default()
-        },
-        ..Default::default()
-    }).id();
+        })
+        .id();
     let right_panel = spawn_right_panel(&mut commands, text_style, &palette, target_ids);
     commands.entity(right_frame).add_child(right_panel);
 
@@ -161,25 +165,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 text_style
             ));
         }).id();
-    commands.spawn(NodeBundle {
-        style: Style {
-            flex_direction: FlexDirection::Column,
-            flex_basis: Val::Percent(100.),
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::SpaceEvenly,
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                flex_direction: FlexDirection::Column,
+                flex_basis: Val::Percent(100.),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceEvenly,
+                ..Default::default()
+            },
+            background_color: BackgroundColor(Color::BLACK),
             ..Default::default()
-        },
-        background_color: BackgroundColor(Color::BLACK),
-        ..Default::default()
-    }).push_children(&[title, top_frame, bottom_frame]);
+        })
+        .push_children(&[title, top_frame, bottom_frame]);
 }
 
 // Spawn a simple square node with a background color
-fn spawn_square_node(commands: &mut Commands,
-                     color: Color,
-                     width: f32,
-                     height: f32,
-) -> Entity {
+fn spawn_square_node(commands: &mut Commands, color: Color, width: f32, height: f32) -> Entity {
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -197,11 +199,12 @@ fn spawn_square_node(commands: &mut Commands,
             },
             background_color: BackgroundColor(color),
             ..Default::default()
-        }).id()
+        })
+        .id()
 }
 
 // Spawn the left panel with squares that will be affected by the buttons on the right panel
-fn spawn_left_panel(commands: &mut Commands, palette: &[Color; 4]) -> (Entity, Vec<Entity>)  {
+fn spawn_left_panel(commands: &mut Commands, palette: &[Color; 4]) -> (Entity, Vec<Entity>) {
     let mut target_ids = vec![];
     let frame = commands
         .spawn(NodeBundle {
@@ -211,7 +214,8 @@ fn spawn_left_panel(commands: &mut Commands, palette: &[Color; 4]) -> (Entity, V
             },
             background_color: BackgroundColor(Color::WHITE),
             ..Default::default()
-        }).id();
+        })
+        .id();
 
     // build all
     let mut parent_node = frame;
@@ -246,7 +250,8 @@ fn spawn_right_panel(
             },
             background_color: BackgroundColor(Color::WHITE),
             ..Default::default()
-        }).id();
+        })
+        .id();
 
     // build all
     let mut parent_node = frame;
