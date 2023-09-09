@@ -1,5 +1,5 @@
 use std::{
-    fmt::Debug,
+    fmt::{Debug, Display},
     hash::Hash,
     ops::Deref,
     path::{Path, PathBuf},
@@ -65,10 +65,29 @@ impl<'a, T: Hash + ?Sized> Hash for CowArc<'a, T> {
     }
 }
 
+impl<'a, T: Debug + ?Sized> Debug for CowArc<'a, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(self.deref(), f)
+    }
+}
+
+impl<'a, T: Display + ?Sized> Display for CowArc<'a, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(self.deref(), f)
+    }
+}
+
 impl From<PathBuf> for CowArc<'static, Path> {
     #[inline]
     fn from(value: PathBuf) -> Self {
         CowArc::Owned(value.into())
+    }
+}
+
+impl<'a> From<&'a str> for CowArc<'a, Path> {
+    #[inline]
+    fn from(value: &'a str) -> Self {
+        CowArc::Borrowed(Path::new(value))
     }
 }
 
@@ -83,12 +102,6 @@ impl<'a> From<&'a String> for CowArc<'a, str> {
     #[inline]
     fn from(value: &'a String) -> Self {
         CowArc::Borrowed(value)
-    }
-}
-
-impl<'a, T: ?Sized + Debug> Debug for CowArc<'a, T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.deref().fmt(f)
     }
 }
 

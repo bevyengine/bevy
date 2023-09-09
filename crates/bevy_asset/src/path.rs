@@ -49,9 +49,9 @@ impl<'a> Debug for AssetPath<'a> {
 
 impl<'a> Display for AssetPath<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", &*self.path)?;
+        write!(f, "{}", self.path.display())?;
         if let Some(label) = &self.label {
-            write!(f, "#{}", &**label)?;
+            write!(f, "#{label}")?;
         }
         Ok(())
     }
