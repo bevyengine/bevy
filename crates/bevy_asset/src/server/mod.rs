@@ -471,7 +471,7 @@ impl AssetServer {
                             load_folder(&child_path, server, handles).await?;
                         } else {
                             let path = child_path.to_str().expect("Path should be a valid string.");
-                            match server.load_untyped_async(path).await {
+                            match server.load_untyped_async(AssetPath::new(path)).await {
                                 Ok(handle) => handles.push(handle),
                                 // skip assets that cannot be loaded
                                 Err(
@@ -752,7 +752,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
                 // TODO: if the asset was processed and the processed file was changed, the first modified event
                 // should be skipped?
                 AssetSourceEvent::ModifiedAsset(path) | AssetSourceEvent::ModifiedMeta(path) => {
-                    let path = AssetPath::new(path);
+                    let path = AssetPath::from_path(path);
                     queue_ancestors(&path, &infos, &mut paths_to_reload);
                     paths_to_reload.insert(path);
                 }

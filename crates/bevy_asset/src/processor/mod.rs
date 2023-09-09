@@ -364,7 +364,7 @@ impl AssetProcessor {
     /// asset have finished, thanks to the `file_transaction_lock`.
     async fn handle_removed_asset(&self, path: PathBuf) {
         debug!("Removing processed {:?} because source was removed", path);
-        let asset_path = AssetPath::new(path);
+        let asset_path = AssetPath::from_path(path);
         let mut infos = self.data.asset_infos.write().await;
         if let Some(info) = infos.get(&asset_path) {
             // we must wait for uncontested write access to the asset source to ensure existing readers / writers
@@ -380,7 +380,7 @@ impl AssetProcessor {
     /// This will cause direct path dependencies to break.
     async fn handle_renamed_asset(&self, old: PathBuf, new: PathBuf) {
         let mut infos = self.data.asset_infos.write().await;
-        let old_asset_path = AssetPath::new(old);
+        let old_asset_path = AssetPath::from_path(old);
         if let Some(info) = infos.get(&old_asset_path) {
             // we must wait for uncontested write access to the asset source to ensure existing readers / writers
             // can finish their operations
@@ -392,7 +392,7 @@ impl AssetProcessor {
                 .await
                 .unwrap();
         }
-        let new_asset_path = AssetPath::new(new);
+        let new_asset_path = AssetPath::from_path(new);
         infos.rename(&old_asset_path, &new_asset_path).await;
     }
 
@@ -531,11 +531,11 @@ impl AssetProcessor {
         .map_err(InitializeError::FailedToReadDestinationPaths)?;
 
         for path in &source_paths {
-            asset_infos.get_or_insert(AssetPath::new(path.clone()));
+            asset_infos.get_or_insert(AssetPath::from_path(path.clone()));
         }
 
         for path in &destination_paths {
-            let asset_path = AssetPath::new(path.clone());
+            let asset_path = AssetPath::from_path(path.clone());
             let mut dependencies = Vec::new();
             if let Some(info) = asset_infos.get_mut(&asset_path) {
                 match self.destination_reader().read_meta_bytes(path).await {
@@ -627,7 +627,7 @@ impl AssetProcessor {
     async fn process_asset(&self, path: &Path) {
         let result = self.process_asset_internal(path).await;
         let mut infos = self.data.asset_infos.write().await;
-        let asset_path = AssetPath::new(path.to_owned());
+        let asset_path = AssetPath::from_path(path.to_owned());
         infos.finish_processing(asset_path, result).await;
     }
 
@@ -635,7 +635,7 @@ impl AssetProcessor {
         if path.extension().is_none() {
             return Err(ProcessError::ExtensionRequired);
         }
-        let asset_path = AssetPath::new(path.to_path_buf());
+        let asset_path = AssetPath::from_path(path.to_path_buf());
         // TODO: check if already processing to protect against duplicate hot-reload events
         debug!("Processing {:?}", path);
         let server = &self.server;
@@ -912,7 +912,7 @@ impl AssetProcessorData {
         self.wait_until_initialized().await;
         let mut receiver = {
             let infos = self.asset_infos.write().await;
-            let info = infos.get(&AssetPath::new(path.to_path_buf()));
+            let info = infos.get(&AssetPath::from_path(path.to_path_buf()));
             match info {
                 Some(info) => match info.status {
                     Some(result) => return result,

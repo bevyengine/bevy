@@ -436,7 +436,7 @@ impl<'a> LoadContext<'a> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         self.loader_dependencies
-            .insert(AssetPath::new(path.to_owned()), hash);
+            .insert(AssetPath::from_path(path.to_owned()), hash);
         Ok(bytes)
     }
 

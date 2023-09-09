@@ -8,9 +8,11 @@ use std::{
 
 /// Much like a [`Cow`](std::borrow::Cow), but owned values are Arc-ed to make clones cheap. This should be used for values that
 /// are cloned for use across threads and change rarely (if ever).
-pub enum CowArc<'a, T: ?Sized> {
+pub enum CowArc<'a, T: ?Sized + 'static> {
     /// A borrowed value
     Borrowed(&'a T),
+    /// A static value reference
+    Static(&'static T),
     /// An owned [`Arc`]-ed value
     Owned(Arc<T>),
 }
@@ -22,6 +24,7 @@ impl<'a, T: ?Sized> Deref for CowArc<'a, T> {
     fn deref(&self) -> &Self::Target {
         match self {
             CowArc::Borrowed(v) => v,
+            CowArc::Static(v) => v,
             CowArc::Owned(v) => v,
         }
     }
@@ -37,6 +40,7 @@ where
     pub fn into_owned(self) -> CowArc<'static, T> {
         match self {
             CowArc::Borrowed(value) => CowArc::Owned(value.into()),
+            CowArc::Static(value) => CowArc::Static(value),
             CowArc::Owned(value) => CowArc::Owned(value),
         }
     }
@@ -46,6 +50,7 @@ impl<'a, T: ?Sized> Clone for CowArc<'a, T> {
     fn clone(&self) -> Self {
         match self {
             Self::Borrowed(value) => Self::Borrowed(value),
+            Self::Static(value) => Self::Static(value),
             Self::Owned(value) => Self::Owned(value.clone()),
         }
     }
@@ -96,12 +101,19 @@ impl From<PathBuf> for CowArc<'static, Path> {
     }
 }
 
-impl<'a> From<&'a str> for CowArc<'a, Path> {
+impl From<&'static str> for CowArc<'static, Path> {
     #[inline]
-    fn from(value: &'a str) -> Self {
-        CowArc::Borrowed(Path::new(value))
+    fn from(value: &'static str) -> Self {
+        CowArc::Static(Path::new(value))
     }
 }
+
+// impl<'a> From<&'a str> for CowArc<'a, Path> {
+//     #[inline]
+//     fn from(value: &'a str) -> Self {
+//         CowArc::Borrowed(Path::new(value))
+//     }
+// }
 
 impl From<String> for CowArc<'static, str> {
     #[inline]
@@ -117,9 +129,9 @@ impl<'a> From<&'a String> for CowArc<'a, str> {
     }
 }
 
-impl<'a, T: ?Sized> From<&'a T> for CowArc<'a, T> {
+impl<T: ?Sized> From<&'static T> for CowArc<'static, T> {
     #[inline]
-    fn from(value: &'a T) -> Self {
-        CowArc::Borrowed(value)
+    fn from(value: &'static T) -> Self {
+        CowArc::Static(value)
     }
 }

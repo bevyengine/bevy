@@ -58,9 +58,23 @@ impl<'a> Display for AssetPath<'a> {
 }
 
 impl<'a> AssetPath<'a> {
-    /// Creates a new asset path using borrowed information.
+    /// Creates a new [`AssetPath`] from a string in the asset path format:
+    /// * An asset at the root: `"scene.gltf"`
+    /// * An asset nested in some folders: `"some/path/scene.gltf"`
+    /// * An asset with a "label": `"some/path/scene.gltf#Mesh0"`
+    pub fn new(asset_path: &'a str) -> AssetPath<'a> {
+        let mut parts = asset_path.splitn(2, '#');
+        let path = Path::new(parts.next().expect("Path must be set."));
+        let label = parts.next();
+        Self {
+            path: CowArc::Borrowed(path),
+            label: label.map(|l| CowArc::Borrowed(l)),
+        }
+    }
+
+    /// Creates a new [`AssetPath`] from a [`Path`].
     #[inline]
-    pub fn new(path: impl Into<CowArc<'a, Path>>) -> AssetPath<'a> {
+    pub fn from_path(path: impl Into<CowArc<'a, Path>>) -> AssetPath<'a> {
         AssetPath {
             path: path.into(),
             label: None,
@@ -141,34 +155,30 @@ impl<'a> AssetPath<'a> {
     }
 }
 
-impl<'a> From<&'a str> for AssetPath<'a> {
-    fn from(asset_path: &'a str) -> Self {
-        let mut parts = asset_path.splitn(2, '#');
-        let path = Path::new(parts.next().expect("Path must be set."));
-        let label = parts.next();
-        Self {
-            path: path.into(),
-            label: label.map(|l| l.into()),
-        }
+impl From<&'static str> for AssetPath<'static> {
+    #[inline]
+    fn from(asset_path: &'static str) -> Self {
+        AssetPath::new(asset_path)
     }
 }
+
 impl<'a> From<&'a String> for AssetPath<'a> {
     #[inline]
     fn from(asset_path: &'a String) -> Self {
-        asset_path.as_str().into()
+        AssetPath::new(asset_path.as_str())
     }
 }
 
 impl From<String> for AssetPath<'static> {
     #[inline]
     fn from(asset_path: String) -> Self {
-        AssetPath::from(asset_path.as_str()).into_owned()
+        AssetPath::new(asset_path.as_str()).into_owned()
     }
 }
 
-impl<'a> From<&'a Path> for AssetPath<'a> {
+impl From<&'static Path> for AssetPath<'static> {
     #[inline]
-    fn from(path: &'a Path) -> Self {
+    fn from(path: &'static Path) -> Self {
         Self {
             path: path.into(),
             label: None,
@@ -232,7 +242,7 @@ impl<'de> Visitor<'de> for AssetPathVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(AssetPath::from(v).into_owned())
+        Ok(AssetPath::new(v).into_owned())
     }
 
     fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
