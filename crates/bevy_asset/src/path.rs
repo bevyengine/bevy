@@ -34,6 +34,12 @@ use std::{
 /// // This loads the `PlayerMesh` labeled asset from the `my_scene.scn` base asset.
 /// let mesh: Handle<Mesh> = asset_server.load("my_scene.scn#PlayerMesh");
 /// ```
+///
+/// [`AssetPath`] implements [`From`] for `&'static str`, `&'static Path`, and `&'a String`,
+/// which allows us to optimize the static cases.
+/// This means that the common case of `asset_server.load("my_scene.scn")` when it creates and
+/// clones internal owned [`AssetPaths`](AssetPath).
+/// This also means that you should use [`AssetPath::new`] in cases where `&str` is the explicit type.
 #[derive(Eq, PartialEq, Hash, Clone, Reflect)]
 #[reflect(Debug, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
@@ -62,14 +68,22 @@ impl<'a> AssetPath<'a> {
     /// * An asset at the root: `"scene.gltf"`
     /// * An asset nested in some folders: `"some/path/scene.gltf"`
     /// * An asset with a "label": `"some/path/scene.gltf#Mesh0"`
+    ///
+    /// Prefer [`From<'static str>`] for static strings, as this will prevent allocations
+    /// and reference counting for [`AssetPath::into_owned`].
     pub fn new(asset_path: &'a str) -> AssetPath<'a> {
+        let (path, label) = Self::get_parts(asset_path);
+        Self {
+            path: CowArc::Borrowed(path),
+            label: label.map(CowArc::Borrowed),
+        }
+    }
+
+    fn get_parts(asset_path: &str) -> (&Path, Option<&str>) {
         let mut parts = asset_path.splitn(2, '#');
         let path = Path::new(parts.next().expect("Path must be set."));
         let label = parts.next();
-        Self {
-            path: CowArc::Borrowed(path),
-            label: label.map(|l| CowArc::Borrowed(l)),
-        }
+        (path, label)
     }
 
     /// Creates a new [`AssetPath`] from a [`Path`].
@@ -158,7 +172,11 @@ impl<'a> AssetPath<'a> {
 impl From<&'static str> for AssetPath<'static> {
     #[inline]
     fn from(asset_path: &'static str) -> Self {
-        AssetPath::new(asset_path)
+        let (path, label) = Self::get_parts(asset_path);
+        AssetPath {
+            path: CowArc::Static(path),
+            label: label.map(CowArc::Static),
+        }
     }
 }
 
@@ -180,7 +198,7 @@ impl From<&'static Path> for AssetPath<'static> {
     #[inline]
     fn from(path: &'static Path) -> Self {
         Self {
-            path: path.into(),
+            path: CowArc::Static(path),
             label: None,
         }
     }
