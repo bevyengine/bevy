@@ -11,12 +11,8 @@ use async_task::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
 
-#[cfg(feature = "async-io")]
-use async_io::block_on;
-#[cfg(not(feature = "async-io"))]
-use futures_lite::future::block_on;
-
 use crate::{
+    block_on,
     thread_executor::{ThreadExecutor, ThreadExecutorTicker},
     Task,
 };
