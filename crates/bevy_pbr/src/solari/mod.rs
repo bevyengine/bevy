@@ -1,3 +1,4 @@
+pub(crate) use self::global_illumination::SolariGlobalIlluminationViewResources;
 pub use self::global_illumination::{
     SolariGlobalIlluminationDebugView, SolariGlobalIlluminationNode,
     SolariGlobalIlluminationPlugin, SolariGlobalIlluminationSettings,

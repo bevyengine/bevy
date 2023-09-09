@@ -158,11 +158,12 @@ pub fn prepare_resources(
                 (t2, t1)
             }
         };
-        let diffuse_denoised_spatiotemporal = texture(
+        let mut diffuse_denoised_spatiotemporal = texture(
             "solari_global_illumination_diffuse_denoised_spatiotemporal",
             TextureFormat::Rgba16Float,
             viewport_size,
         );
+        diffuse_denoised_spatiotemporal.usage |= TextureUsages::TEXTURE_BINDING;
         let world_cache_checksums = buffer(
             "solari_global_illumination_world_cache_checksums",
             4 * WORLD_CACHE_SIZE,

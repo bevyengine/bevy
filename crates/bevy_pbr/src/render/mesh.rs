@@ -1,9 +1,10 @@
 use crate::{
-    environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
-    GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
-    ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers, ViewClusterBindings,
-    ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    environment_map, prepass, solari::SolariGlobalIlluminationViewResources, EnvironmentMapLight,
+    FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta, NotShadowCaster,
+    NotShadowReceiver, PreviousGlobalTransform, ScreenSpaceAmbientOcclusionTextures, Shadow,
+    ShadowSamplers, ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset,
+    ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT,
+    MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleId, HandleUntyped};
@@ -622,22 +623,33 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
+                // Global illumination texture
+                BindGroupLayoutEntry {
+                    binding: 12,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled: false,
+                        sample_type: TextureSampleType::Float { filterable: false },
+                        view_dimension: TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
             ];
 
             // EnvironmentMapLight
             let environment_map_entries =
-                environment_map::get_bind_group_layout_entries([12, 13, 14]);
+                environment_map::get_bind_group_layout_entries([13, 14, 15]);
             entries.extend_from_slice(&environment_map_entries);
 
             // Tonemapping
-            let tonemapping_lut_entries = get_lut_bind_group_layout_entries([15, 16]);
+            let tonemapping_lut_entries = get_lut_bind_group_layout_entries([16, 17]);
             entries.extend_from_slice(&tonemapping_lut_entries);
 
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && !multisampled)
             {
                 entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
-                    [17, 18, 19],
+                    [18, 19, 20],
                     multisampled,
                 ));
             }
@@ -1190,6 +1202,7 @@ pub fn prepare_mesh_view_bind_groups(
         &ViewShadowBindings,
         &ViewClusterBindings,
         Option<&ScreenSpaceAmbientOcclusionTextures>,
+        Option<&SolariGlobalIlluminationViewResources>,
         Option<&ViewPrepassTextures>,
         Option<&EnvironmentMapLight>,
         &Tonemapping,
@@ -1220,12 +1233,13 @@ pub fn prepare_mesh_view_bind_groups(
             view_shadow_bindings,
             view_cluster_bindings,
             ssao_textures,
+            solari_gi_resources,
             prepass_textures,
             environment_map,
             tonemapping,
         ) in &views
         {
-            let fallback_ssao = fallback_images
+            let fallback_ssao_gi = fallback_images
                 .image_for_samplecount(1)
                 .texture_view
                 .clone();
@@ -1290,7 +1304,15 @@ pub fn prepare_mesh_view_bind_groups(
                     resource: BindingResource::TextureView(
                         ssao_textures
                             .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
-                            .unwrap_or(&fallback_ssao),
+                            .unwrap_or(&fallback_ssao_gi),
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 12,
+                    resource: BindingResource::TextureView(
+                        solari_gi_resources
+                            .map(|r| &r.diffuse_denoised_spatiotemporal.default_view)
+                            .unwrap_or(&fallback_ssao_gi),
                     ),
                 },
             ];
@@ -1299,12 +1321,12 @@ pub fn prepare_mesh_view_bind_groups(
                 environment_map,
                 &images,
                 &fallback_cubemap,
-                [12, 13, 14],
+                [13, 14, 15],
             );
             entries.extend_from_slice(&env_map);
 
             let tonemapping_luts =
-                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [15, 16]);
+                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [16, 17]);
             entries.extend_from_slice(&tonemapping_luts);
 
             // When using WebGL, we can't have a depth texture with multisampling
@@ -1316,7 +1338,7 @@ pub fn prepare_mesh_view_bind_groups(
                     &mut fallback_images,
                     &mut fallback_depths,
                     &msaa,
-                    [17, 18, 19],
+                    [18, 19, 20],
                 ));
             }
 

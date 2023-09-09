@@ -15,6 +15,7 @@ use bevy_render::{
     render_resource::{Shader, SpecializedComputePipelines},
     Render, RenderApp, RenderSet,
 };
+pub(crate) use view_resources::SolariGlobalIlluminationViewResources;
 
 mod node;
 mod pipelines;
