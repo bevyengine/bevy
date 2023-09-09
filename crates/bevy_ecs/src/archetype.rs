@@ -44,6 +44,8 @@ use std::{
 pub struct ArchetypeRow(u32);
 
 impl ArchetypeRow {
+    /// Index indicating an invalid archetype row.
+    /// This is meant to be used as a placeholder.
     pub const INVALID: ArchetypeRow = ArchetypeRow(u32::MAX);
 
     /// Creates a `ArchetypeRow`.
@@ -156,12 +158,12 @@ pub struct Edges {
 
 impl Edges {
     /// Checks the cache for the target archetype when adding a bundle to the
-    /// source archetype. For more information, see [`EntityMut::insert`].
+    /// source archetype. For more information, see [`EntityWorldMut::insert`].
     ///
     /// If this returns `None`, it means there has not been a transition from
     /// the source archetype via the provided bundle.
     ///
-    /// [`EntityMut::insert`]: crate::world::EntityMut::insert
+    /// [`EntityWorldMut::insert`]: crate::world::EntityWorldMut::insert
     #[inline]
     pub fn get_add_bundle(&self, bundle_id: BundleId) -> Option<ArchetypeId> {
         self.get_add_bundle_internal(bundle_id)
@@ -175,9 +177,9 @@ impl Edges {
     }
 
     /// Caches the target archetype when adding a bundle to the source archetype.
-    /// For more information, see [`EntityMut::insert`].
+    /// For more information, see [`EntityWorldMut::insert`].
     ///
-    /// [`EntityMut::insert`]: crate::world::EntityMut::insert
+    /// [`EntityWorldMut::insert`]: crate::world::EntityWorldMut::insert
     #[inline]
     pub(crate) fn insert_add_bundle(
         &mut self,
@@ -195,7 +197,7 @@ impl Edges {
     }
 
     /// Checks the cache for the target archetype when removing a bundle to the
-    /// source archetype. For more information, see [`EntityMut::remove`].
+    /// source archetype. For more information, see [`EntityWorldMut::remove`].
     ///
     /// If this returns `None`, it means there has not been a transition from
     /// the source archetype via the provided bundle.
@@ -203,16 +205,16 @@ impl Edges {
     /// If this returns `Some(None)`, it means that the bundle cannot be removed
     /// from the source archetype.
     ///
-    /// [`EntityMut::remove`]: crate::world::EntityMut::remove
+    /// [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
     #[inline]
     pub fn get_remove_bundle(&self, bundle_id: BundleId) -> Option<Option<ArchetypeId>> {
         self.remove_bundle.get(bundle_id).cloned()
     }
 
     /// Caches the target archetype when removing a bundle to the source archetype.
-    /// For more information, see [`EntityMut::remove`].
+    /// For more information, see [`EntityWorldMut::remove`].
     ///
-    /// [`EntityMut::remove`]: crate::world::EntityMut::remove
+    /// [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
     #[inline]
     pub(crate) fn insert_remove_bundle(
         &mut self,
@@ -223,21 +225,21 @@ impl Edges {
     }
 
     /// Checks the cache for the target archetype when removing a bundle to the
-    /// source archetype. For more information, see [`EntityMut::remove`].
+    /// source archetype. For more information, see [`EntityWorldMut::remove`].
     ///
     /// If this returns `None`, it means there has not been a transition from
     /// the source archetype via the provided bundle.
     ///
-    /// [`EntityMut::remove`]: crate::world::EntityMut::remove
+    /// [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
     #[inline]
     pub fn get_take_bundle(&self, bundle_id: BundleId) -> Option<Option<ArchetypeId>> {
         self.take_bundle.get(bundle_id).cloned()
     }
 
     /// Caches the target archetype when removing a bundle to the source archetype.
-    /// For more information, see [`EntityMut::take`].
+    /// For more information, see [`EntityWorldMut::take`].
     ///
-    /// [`EntityMut::take`]: crate::world::EntityMut::take
+    /// [`EntityWorldMut::take`]: crate::world::EntityWorldMut::take
     #[inline]
     pub(crate) fn insert_take_bundle(
         &mut self,
@@ -349,6 +351,7 @@ impl Archetype {
         self.table_id
     }
 
+    /// Fetches the entities contained in this archetype.
     #[inline]
     pub fn entities(&self) -> &[ArchetypeEntity] {
         &self.entities
@@ -596,7 +599,7 @@ impl SparseSetIndex for ArchetypeComponentId {
 /// For more information, see the *[module level documentation]*.
 ///
 /// [`World`]: crate::world::World
-/// [*module level documentation]: crate::archetype
+/// [module level documentation]: crate::archetype
 pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     pub(crate) archetype_component_count: usize,
@@ -614,6 +617,8 @@ impl Archetypes {
         archetypes
     }
 
+    /// Returns the current archetype generation. This is an ID indicating the current set of archetypes
+    /// that are registered with the world.
     #[inline]
     pub fn generation(&self) -> ArchetypeGeneration {
         ArchetypeGeneration(self.archetypes.len())
@@ -719,6 +724,8 @@ impl Archetypes {
             })
     }
 
+    /// Returns the number of components that are stored in archetypes.
+    /// Note that if some component `T` is stored in more than one archetype, it will be counted once for each archetype it's present in.
     #[inline]
     pub fn archetype_components_len(&self) -> usize {
         self.archetype_component_count

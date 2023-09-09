@@ -7,12 +7,13 @@ use std::ops::Deref;
 use std::time::Duration;
 
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{AddAsset, Assets, Handle};
+use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{Quat, Vec3};
-use bevy_reflect::{FromReflect, Reflect, TypeUuid};
+use bevy_reflect::Reflect;
+use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{tracing::warn, HashMap};
@@ -26,7 +27,7 @@ pub mod prelude {
 }
 
 /// List of keyframes for one of the attribute of a [`Transform`].
-#[derive(Reflect, FromReflect, Clone, Debug)]
+#[derive(Reflect, Clone, Debug)]
 pub enum Keyframes {
     /// Keyframes for rotation.
     Rotation(Vec<Quat>),
@@ -34,12 +35,21 @@ pub enum Keyframes {
     Translation(Vec<Vec3>),
     /// Keyframes for scale.
     Scale(Vec<Vec3>),
+    /// Keyframes for morph target weights.
+    ///
+    /// Note that in `.0`, each contiguous `target_count` values is a single
+    /// keyframe representing the weight values at given keyframe.
+    ///
+    /// This follows the [glTF design].
+    ///
+    /// [glTF design]: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#animations
+    Weights(Vec<f32>),
 }
 
-/// Describes how an attribute of a [`Transform`] should be animated.
+/// Describes how an attribute of a [`Transform`] or [`MorphWeights`] should be animated.
 ///
 /// `keyframe_timestamps` and `keyframes` should have the same length.
-#[derive(Reflect, FromReflect, Clone, Debug)]
+#[derive(Reflect, Clone, Debug)]
 pub struct VariableCurve {
     /// Timestamp for each of the keyframes.
     pub keyframe_timestamps: Vec<f32>,
@@ -48,15 +58,14 @@ pub struct VariableCurve {
 }
 
 /// Path to an entity, with [`Name`]s. Each entity in a path must have a name.
-#[derive(Reflect, FromReflect, Clone, Debug, Hash, PartialEq, Eq, Default)]
+#[derive(Reflect, Clone, Debug, Hash, PartialEq, Eq, Default)]
 pub struct EntityPath {
     /// Parts of the path
     pub parts: Vec<Name>,
 }
 
 /// A list of [`VariableCurve`], and the [`EntityPath`] to which they apply.
-#[derive(Reflect, FromReflect, Clone, TypeUuid, Debug, Default)]
-#[uuid = "d81b7179-0448-4eb0-89fe-c067222725bf"]
+#[derive(Asset, Reflect, Clone, Debug, Default)]
 pub struct AnimationClip {
     curves: Vec<Vec<VariableCurve>>,
     paths: HashMap<EntityPath, usize>,
@@ -106,26 +115,100 @@ impl AnimationClip {
             self.paths.insert(path, idx);
         }
     }
+
+    /// Whether this animation clip can run on entity with given [`Name`].
+    pub fn compatible_with(&self, name: &Name) -> bool {
+        self.paths.keys().any(|path| &path.parts[0] == name)
+    }
+}
+
+/// Repetition behavior of an animation.
+#[derive(Reflect, Copy, Clone, Default)]
+pub enum RepeatAnimation {
+    /// The animation will finish after running once.
+    #[default]
+    Never,
+    /// The animation will finish after running "n" times.
+    Count(u32),
+    /// The animation will never finish.
+    Forever,
 }
 
 #[derive(Reflect)]
 struct PlayingAnimation {
-    repeat: bool,
+    repeat: RepeatAnimation,
     speed: f32,
+    /// Total time the animation has been played.
+    ///
+    /// Note: Time does not increase when the animation is paused or after it has completed.
     elapsed: f32,
+    /// The timestamp inside of the animation clip.
+    ///
+    /// Note: This will always be in the range [0.0, animation clip duration]
+    seek_time: f32,
     animation_clip: Handle<AnimationClip>,
     path_cache: Vec<Vec<Option<Entity>>>,
+    /// Number of times the animation has completed.
+    /// If the animation is playing in reverse, this increments when the animation passes the start.
+    completions: u32,
 }
 
 impl Default for PlayingAnimation {
     fn default() -> Self {
         Self {
-            repeat: false,
+            repeat: RepeatAnimation::default(),
             speed: 1.0,
             elapsed: 0.0,
+            seek_time: 0.0,
             animation_clip: Default::default(),
             path_cache: Vec::new(),
+            completions: 0,
         }
+    }
+}
+
+impl PlayingAnimation {
+    /// Check if the animation has finished, based on its repetition behavior and the number of times it has repeated.
+    ///
+    /// Note: An animation with `RepeatAnimation::Forever` will never finish.
+    #[inline]
+    pub fn is_finished(&self) -> bool {
+        match self.repeat {
+            RepeatAnimation::Forever => false,
+            RepeatAnimation::Never => self.completions >= 1,
+            RepeatAnimation::Count(n) => self.completions >= n,
+        }
+    }
+
+    /// Update the animation given the delta time and the duration of the clip being played.
+    #[inline]
+    fn update(&mut self, delta: f32, clip_duration: f32) {
+        if self.is_finished() {
+            return;
+        }
+
+        self.elapsed += delta;
+        self.seek_time += delta * self.speed;
+
+        if (self.seek_time > clip_duration && self.speed > 0.0)
+            || (self.seek_time < 0.0 && self.speed < 0.0)
+        {
+            self.completions += 1;
+        }
+
+        if self.seek_time >= clip_duration {
+            self.seek_time %= clip_duration;
+        }
+        if self.seek_time < 0.0 {
+            self.seek_time += clip_duration;
+        }
+    }
+
+    /// Reset back to the initial state as if no time has elapsed.
+    fn replay(&mut self) {
+        self.completions = 0;
+        self.elapsed = 0.0;
+        self.seek_time = 0.0;
     }
 }
 
@@ -157,8 +240,8 @@ pub struct AnimationPlayer {
 }
 
 impl AnimationPlayer {
-    /// Start playing an animation, resetting state of the player
-    /// This will use a linear blending between the previous and the new animation to make a smooth transition
+    /// Start playing an animation, resetting state of the player.
+    /// This will use a linear blending between the previous and the new animation to make a smooth transition.
     pub fn start(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
         self.animation = PlayingAnimation {
             animation_clip: handle,
@@ -172,8 +255,8 @@ impl AnimationPlayer {
         self
     }
 
-    /// Start playing an animation, resetting state of the player
-    /// This will use a linear blending between the previous and the new animation to make a smooth transition
+    /// Start playing an animation, resetting state of the player.
+    /// This will use a linear blending between the previous and the new animation to make a smooth transition.
     pub fn start_with_transition(
         &mut self,
         handle: Handle<AnimationClip>,
@@ -201,7 +284,7 @@ impl AnimationPlayer {
     /// If `transition_duration` is set, this will use a linear blending
     /// between the previous and the new animation to make a smooth transition
     pub fn play(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
-        if self.animation.animation_clip != handle || self.is_paused() {
+        if !self.is_playing_clip(&handle) || self.is_paused() {
             self.start(handle);
         }
         self
@@ -214,22 +297,54 @@ impl AnimationPlayer {
         handle: Handle<AnimationClip>,
         transition_duration: Duration,
     ) -> &mut Self {
-        if self.animation.animation_clip != handle || self.is_paused() {
+        if !self.is_playing_clip(&handle) || self.is_paused() {
             self.start_with_transition(handle, transition_duration);
         }
         self
     }
 
-    /// Set the animation to repeat
+    /// Handle to the animation clip being played.
+    pub fn animation_clip(&self) -> &Handle<AnimationClip> {
+        &self.animation.animation_clip
+    }
+
+    /// Check if the given animation clip is being played.
+    pub fn is_playing_clip(&self, handle: &Handle<AnimationClip>) -> bool {
+        self.animation_clip() == handle
+    }
+
+    /// Check if the playing animation has finished, according to the repetition behavior.
+    pub fn is_finished(&self) -> bool {
+        self.animation.is_finished()
+    }
+
+    /// Sets repeat to [`RepeatAnimation::Forever`].
+    ///
+    /// See also [`Self::set_repeat`].
     pub fn repeat(&mut self) -> &mut Self {
-        self.animation.repeat = true;
+        self.animation.repeat = RepeatAnimation::Forever;
         self
     }
 
-    /// Stop the animation from repeating
-    pub fn stop_repeating(&mut self) -> &mut Self {
-        self.animation.repeat = false;
+    /// Set the repetition behaviour of the animation.
+    pub fn set_repeat(&mut self, repeat: RepeatAnimation) -> &mut Self {
+        self.animation.repeat = repeat;
         self
+    }
+
+    /// Repetition behavior of the animation.
+    pub fn repeat_mode(&self) -> RepeatAnimation {
+        self.animation.repeat
+    }
+
+    /// Number of times the animation has completed.
+    pub fn completions(&self) -> u32 {
+        self.animation.completions
+    }
+
+    /// Check if the animation is playing in reverse.
+    pub fn is_playback_reversed(&self) -> bool {
+        self.animation.speed < 0.0
     }
 
     /// Pause the animation
@@ -263,14 +378,24 @@ impl AnimationPlayer {
         self.animation.elapsed
     }
 
-    /// Seek to a specific time in the animation
-    pub fn set_elapsed(&mut self, elapsed: f32) -> &mut Self {
-        self.animation.elapsed = elapsed;
+    /// Seek time inside of the animation. Always within the range [0.0, clip duration].
+    pub fn seek_time(&self) -> f32 {
+        self.animation.seek_time
+    }
+
+    /// Seek to a specific time in the animation.
+    pub fn seek_to(&mut self, seek_time: f32) -> &mut Self {
+        self.animation.seek_time = seek_time;
         self
+    }
+
+    /// Reset the animation to its initial state, as if no time has elapsed.
+    pub fn replay(&mut self) {
+        self.animation.replay();
     }
 }
 
-fn find_bone(
+fn entity_from_path(
     root: Entity,
     path: &EntityPath,
     children: &Query<&Children>,
@@ -280,8 +405,18 @@ fn find_bone(
     // PERF: finding the target entity can be optimised
     let mut current_entity = root;
     path_cache.resize(path.parts.len(), None);
-    // Ignore the first name, it is the root node which we already have
-    for (idx, part) in path.parts.iter().enumerate().skip(1) {
+
+    let mut parts = path.parts.iter().enumerate();
+
+    // check the first name is the root node which we already have
+    let Some((_, root_name)) = parts.next() else {
+        return None;
+    };
+    if names.get(current_entity) != Ok(root_name) {
+        return None;
+    }
+
+    for (idx, part) in parts {
         let mut found = false;
         let children = children.get(current_entity).ok()?;
         if let Some(cached) = path_cache[idx] {
@@ -315,14 +450,18 @@ fn find_bone(
     Some(current_entity)
 }
 
-/// Verify that there are no ancestors of a given entity that have an `AnimationPlayer`.
+/// Verify that there are no ancestors of a given entity that have an [`AnimationPlayer`].
 fn verify_no_ancestor_player(
     player_parent: Option<&Parent>,
     parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
 ) -> bool {
-    let Some(mut current) = player_parent.map(Parent::get) else { return true };
+    let Some(mut current) = player_parent.map(Parent::get) else {
+        return true;
+    };
     loop {
-        let Ok((maybe_player, parent)) = parents.get(current) else { return true };
+        let Ok((maybe_player, parent)) = parents.get(current) else {
+            return true;
+        };
         if maybe_player.is_some() {
             return false;
         }
@@ -336,18 +475,20 @@ fn verify_no_ancestor_player(
 
 /// System that will play all animations, using any entity with a [`AnimationPlayer`]
 /// and a [`Handle<AnimationClip>`] as an animation root
+#[allow(clippy::too_many_arguments)]
 pub fn animation_player(
     time: Res<Time>,
     animations: Res<Assets<AnimationClip>>,
     children: Query<&Children>,
     names: Query<&Name>,
     transforms: Query<&mut Transform>,
+    morphs: Query<&mut MorphWeights>,
     parents: Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
     mut animation_players: Query<(Entity, Option<&Parent>, &mut AnimationPlayer)>,
 ) {
     animation_players
         .par_iter_mut()
-        .for_each_mut(|(root, maybe_parent, mut player)| {
+        .for_each(|(root, maybe_parent, mut player)| {
             update_transitions(&mut player, &time);
             run_animation_player(
                 root,
@@ -356,6 +497,7 @@ pub fn animation_player(
                 &animations,
                 &names,
                 &transforms,
+                &morphs,
                 maybe_parent,
                 &parents,
                 &children,
@@ -371,6 +513,7 @@ fn run_animation_player(
     animations: &Assets<AnimationClip>,
     names: &Query<&Name>,
     transforms: &Query<&mut Transform>,
+    morphs: &Query<&mut MorphWeights>,
     maybe_parent: Option<&Parent>,
     parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
     children: &Query<&Children>,
@@ -392,6 +535,7 @@ fn run_animation_player(
         animations,
         names,
         transforms,
+        morphs,
         maybe_parent,
         parents,
         children,
@@ -413,10 +557,33 @@ fn run_animation_player(
             animations,
             names,
             transforms,
+            morphs,
             maybe_parent,
             parents,
             children,
         );
+    }
+}
+
+/// Update `weights` based on weights in `keyframes` at index `key_index`
+/// with a linear interpolation on `key_lerp`.
+///
+/// # Panics
+///
+/// When `key_index * target_count` is larger than `keyframes`
+///
+/// This happens when `keyframes` is not formatted as described in
+/// [`Keyframes::Weights`]. A possible cause is [`AnimationClip`] not being
+/// meant to be used for the [`MorphWeights`] of the entity it's being applied to.
+fn lerp_morph_weights(weights: &mut [f32], key_lerp: f32, keyframes: &[f32], key_index: usize) {
+    let target_count = weights.len();
+    let start = target_count * key_index;
+    let end = target_count * (key_index + 1);
+
+    let zipped = weights.iter_mut().zip(&keyframes[start..end]);
+    for (morph_weight, keyframe) in zipped {
+        let minus_lerp = 1.0 - key_lerp;
+        *morph_weight = (*morph_weight * minus_lerp) + (keyframe * key_lerp);
     }
 }
 
@@ -430,21 +597,18 @@ fn apply_animation(
     animations: &Assets<AnimationClip>,
     names: &Query<&Name>,
     transforms: &Query<&mut Transform>,
+    morphs: &Query<&mut MorphWeights>,
     maybe_parent: Option<&Parent>,
     parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
     children: &Query<&Children>,
 ) {
     if let Some(animation_clip) = animations.get(&animation.animation_clip) {
-        if !paused {
-            animation.elapsed += time.delta_seconds() * animation.speed;
-        }
-        let mut elapsed = animation.elapsed;
-        if animation.repeat {
-            elapsed %= animation_clip.duration;
-        }
-        if elapsed < 0.0 {
-            elapsed += animation_clip.duration;
-        }
+        // We don't return early because seek_to() may have been called on the animation player.
+        animation.update(
+            if paused { 0.0 } else { time.delta_seconds() },
+            animation_clip.duration,
+        );
+
         if animation.path_cache.len() != animation_clip.paths.len() {
             animation.path_cache = vec![Vec::new(); animation_clip.paths.len()];
         }
@@ -453,10 +617,14 @@ fn apply_animation(
             return;
         }
 
+        let mut any_path_found = false;
         for (path, bone_id) in &animation_clip.paths {
             let cached_path = &mut animation.path_cache[*bone_id];
             let curves = animation_clip.get_curves(*bone_id).unwrap();
-            let Some(target) = find_bone(root, path, children, names, cached_path) else { continue };
+            let Some(target) = entity_from_path(root, path, children, names, cached_path) else {
+                continue;
+            };
+            any_path_found = true;
             // SAFETY: The verify_no_ancestor_player check above ensures that two animation players cannot alias
             // any of their descendant Transforms.
             //
@@ -469,7 +637,10 @@ fn apply_animation(
             // This means only the AnimationPlayers closest to the root of the hierarchy will be able
             // to run their animation. Any players in the children or descendants will log a warning
             // and do nothing.
-            let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else { continue };
+            let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else {
+                continue;
+            };
+            let mut morphs = unsafe { morphs.get_unchecked(target) };
             for curve in curves {
                 // Some curves have only one keyframe used to set a transform
                 if curve.keyframe_timestamps.len() == 1 {
@@ -484,6 +655,11 @@ fn apply_animation(
                         Keyframes::Scale(keyframes) => {
                             transform.scale = transform.scale.lerp(keyframes[0], weight);
                         }
+                        Keyframes::Weights(keyframes) => {
+                            if let Ok(morphs) = &mut morphs {
+                                lerp_morph_weights(morphs.weights_mut(), weight, keyframes, 0);
+                            }
+                        }
                     }
                     continue;
                 }
@@ -492,7 +668,7 @@ fn apply_animation(
                 // PERF: finding the current keyframe can be optimised
                 let step_start = match curve
                     .keyframe_timestamps
-                    .binary_search_by(|probe| probe.partial_cmp(&elapsed).unwrap())
+                    .binary_search_by(|probe| probe.partial_cmp(&animation.seek_time).unwrap())
                 {
                     Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
                     Ok(i) => i,
@@ -502,7 +678,7 @@ fn apply_animation(
                 };
                 let ts_start = curve.keyframe_timestamps[step_start];
                 let ts_end = curve.keyframe_timestamps[step_start + 1];
-                let lerp = (elapsed - ts_start) / (ts_end - ts_start);
+                let lerp = (animation.seek_time - ts_start) / (ts_end - ts_start);
 
                 // Apply the keyframe
                 match &curve.keyframes {
@@ -529,8 +705,17 @@ fn apply_animation(
                         let result = scale_start.lerp(scale_end, lerp);
                         transform.scale = transform.scale.lerp(result, weight);
                     }
+                    Keyframes::Weights(keyframes) => {
+                        if let Ok(morphs) = &mut morphs {
+                            lerp_morph_weights(morphs.weights_mut(), weight, keyframes, step_start);
+                        }
+                    }
                 }
             }
+        }
+
+        if !any_path_found {
+            warn!("Animation player on {root:?} did not match any entity paths.");
         }
     }
 }
@@ -548,7 +733,7 @@ pub struct AnimationPlugin;
 
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
-        app.add_asset::<AnimationClip>()
+        app.init_asset::<AnimationClip>()
             .register_asset_reflect::<AnimationClip>()
             .register_type::<AnimationPlayer>()
             .add_systems(

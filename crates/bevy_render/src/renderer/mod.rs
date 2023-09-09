@@ -107,7 +107,7 @@ pub struct RenderAdapter(pub Arc<Adapter>);
 #[derive(Resource, Deref, DerefMut)]
 pub struct RenderInstance(pub Instance);
 
-/// The `AdapterInfo` of the adapter in use by the renderer.
+/// The [`AdapterInfo`] of the adapter in use by the renderer.
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct RenderAdapterInfo(pub AdapterInfo);
 

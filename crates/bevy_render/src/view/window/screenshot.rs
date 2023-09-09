@@ -1,10 +1,9 @@
-use std::{borrow::Cow, num::NonZeroU32, path::Path};
+use std::{borrow::Cow, path::Path};
 
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
 use bevy_log::{error, info, info_span};
-use bevy_reflect::TypeUuid;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::HashMap;
 use parking_lot::Mutex;
@@ -71,9 +70,46 @@ impl ScreenshotManager {
                     // discard the alpha channel which stores brightness values when HDR is enabled to make sure
                     // the screenshot looks right
                     let img = dyn_img.to_rgb8();
+                    #[cfg(not(target_arch = "wasm32"))]
                     match img.save_with_format(&path, format) {
                         Ok(_) => info!("Screenshot saved to {}", path.display()),
                         Err(e) => error!("Cannot save screenshot, IO error: {e}"),
+                    }
+
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        match (|| {
+                            use image::EncodableLayout;
+                            use wasm_bindgen::{JsCast, JsValue};
+
+                            let mut image_buffer = std::io::Cursor::new(Vec::new());
+                            img.write_to(&mut image_buffer, format)
+                                .map_err(|e| JsValue::from_str(&format!("{e}")))?;
+                            // SAFETY: `image_buffer` only exist in this closure, and is not used after this line
+                            let parts = js_sys::Array::of1(&unsafe {
+                                js_sys::Uint8Array::view(image_buffer.into_inner().as_bytes())
+                                    .into()
+                            });
+                            let blob = web_sys::Blob::new_with_u8_array_sequence(&parts)?;
+                            let url = web_sys::Url::create_object_url_with_blob(&blob)?;
+                            let window = web_sys::window().unwrap();
+                            let document = window.document().unwrap();
+                            let link = document.create_element("a")?;
+                            link.set_attribute("href", &url)?;
+                            link.set_attribute(
+                                "download",
+                                path.file_name()
+                                    .and_then(|filename| filename.to_str())
+                                    .ok_or_else(|| JsValue::from_str("Invalid filename"))?,
+                            )?;
+                            let html_element = link.dyn_into::<web_sys::HtmlElement>()?;
+                            html_element.click();
+                            web_sys::Url::revoke_object_url(&url)?;
+                            Ok::<(), JsValue>(())
+                        })() {
+                            Ok(_) => info!("Screenshot saved to {}", path.display()),
+                            Err(e) => error!("Cannot save screenshot, error: {e:?}"),
+                        };
                     }
                 }
                 Err(e) => error!("Cannot save screenshot, requested format not recognized: {e}"),
@@ -85,8 +121,7 @@ impl ScreenshotManager {
 
 pub struct ScreenshotPlugin;
 
-const SCREENSHOT_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 11918575842344596158);
+const SCREENSHOT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11918575842344596158);
 
 impl Plugin for ScreenshotPlugin {
     fn build(&self, app: &mut bevy_app::App) {
@@ -98,11 +133,41 @@ impl Plugin for ScreenshotPlugin {
             "screenshot.wgsl",
             Shader::from_wgsl
         );
+    }
 
+    fn finish(&self, app: &mut bevy_app::App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>();
         }
+
+        #[cfg(feature = "bevy_ci_testing")]
+        if app
+            .world
+            .contains_resource::<bevy_app::ci_testing::CiTestingConfig>()
+        {
+            app.add_systems(bevy_app::Update, ci_testing_screenshot_at);
+        }
     }
+}
+
+#[cfg(feature = "bevy_ci_testing")]
+fn ci_testing_screenshot_at(
+    mut current_frame: bevy_ecs::prelude::Local<u32>,
+    ci_testing_config: bevy_ecs::prelude::Res<bevy_app::ci_testing::CiTestingConfig>,
+    mut screenshot_manager: ResMut<ScreenshotManager>,
+    main_window: Query<Entity, With<bevy_window::PrimaryWindow>>,
+) {
+    if ci_testing_config
+        .screenshot_frames
+        .contains(&*current_frame)
+    {
+        info!("Taking a screenshot at frame {}.", *current_frame);
+        let path = format!("./screenshot-{}.png", *current_frame);
+        screenshot_manager
+            .save_screenshot_to_disk(main_window.single(), path)
+            .unwrap();
+    }
+    *current_frame += 1;
 }
 
 pub(crate) fn align_byte_size(value: u32) -> u32 {
@@ -117,7 +182,7 @@ pub(crate) fn layout_data(width: u32, height: u32, format: TextureFormat) -> Ima
     ImageDataLayout {
         bytes_per_row: if height > 1 {
             // 1 = 1 row
-            NonZeroU32::new(get_aligned_size(width, 1, format.pixel_size() as u32))
+            Some(get_aligned_size(width, 1, format.pixel_size() as u32))
         } else {
             None
         },
@@ -164,21 +229,16 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
                 buffers: vec![],
                 shader_defs: vec![],
                 entry_point: Cow::Borrowed("vs_main"),
-                shader: SCREENSHOT_SHADER_HANDLE.typed(),
+                shader: SCREENSHOT_SHADER_HANDLE,
             },
             primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
                 cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                conservative: false,
-                unclipped_depth: false,
+                ..Default::default()
             },
             depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
+            multisample: Default::default(),
             fragment: Some(FragmentState {
-                shader: SCREENSHOT_SHADER_HANDLE.typed(),
+                shader: SCREENSHOT_SHADER_HANDLE,
                 entry_point: Cow::Borrowed("fs_main"),
                 shader_defs: vec![],
                 targets: vec![Some(wgpu::ColorTargetState {

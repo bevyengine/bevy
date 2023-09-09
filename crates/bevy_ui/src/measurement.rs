@@ -1,12 +1,14 @@
 use bevy_ecs::prelude::Component;
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::Vec2;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use std::fmt::Formatter;
 pub use taffy::style::AvailableSpace;
+use taffy::{node::MeasureFunc, prelude::Size as TaffySize};
 
-impl std::fmt::Debug for CalculatedSize {
+impl std::fmt::Debug for ContentSize {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CalculatedSize").finish()
+        f.debug_struct("ContentSize").finish()
     }
 }
 
@@ -21,16 +23,13 @@ pub trait Measure: Send + Sync + 'static {
         available_width: AvailableSpace,
         available_height: AvailableSpace,
     ) -> Vec2;
-
-    /// Clone and box self.
-    fn dyn_clone(&self) -> Box<dyn Measure>;
 }
 
 /// A `FixedMeasure` is a `Measure` that ignores all constraints and
 /// always returns the same size.
 #[derive(Default, Clone)]
 pub struct FixedMeasure {
-    size: Vec2,
+    pub size: Vec2,
 }
 
 impl Measure for FixedMeasure {
@@ -43,35 +42,35 @@ impl Measure for FixedMeasure {
     ) -> Vec2 {
         self.size
     }
-
-    fn dyn_clone(&self) -> Box<dyn Measure> {
-        Box::new(self.clone())
-    }
 }
 
-/// A node with a `CalculatedSize` component is a node where its size
+/// A node with a `ContentSize` component is a node where its size
 /// is based on its content.
-#[derive(Component, Reflect)]
-pub struct CalculatedSize {
+#[derive(Component, Reflect, Default)]
+#[reflect(Component, Default)]
+pub struct ContentSize {
     /// The `Measure` used to compute the intrinsic size
     #[reflect(ignore)]
-    pub measure: Box<dyn Measure>,
+    pub(crate) measure_func: Option<MeasureFunc>,
 }
 
-#[allow(clippy::derivable_impls)]
-impl Default for CalculatedSize {
-    fn default() -> Self {
-        Self {
-            // Default `FixedMeasure` always returns zero size.
-            measure: Box::<FixedMeasure>::default(),
-        }
+impl ContentSize {
+    /// Set a `Measure` for the UI node entity with this component
+    pub fn set(&mut self, measure: impl Measure) {
+        let measure_func = move |size: TaffySize<_>, available: TaffySize<_>| {
+            let size = measure.measure(size.width, size.height, available.width, available.height);
+            TaffySize {
+                width: size.x,
+                height: size.y,
+            }
+        };
+        self.measure_func = Some(MeasureFunc::Boxed(Box::new(measure_func)));
     }
-}
 
-impl Clone for CalculatedSize {
-    fn clone(&self) -> Self {
-        Self {
-            measure: self.measure.dyn_clone(),
-        }
+    /// Creates a `ContentSize` with a `Measure` that always returns given `size` argument, regardless of the UI layout's constraints.
+    pub fn fixed_size(size: Vec2) -> ContentSize {
+        let mut content_size = Self::default();
+        content_size.set(FixedMeasure { size });
+        content_size
     }
 }

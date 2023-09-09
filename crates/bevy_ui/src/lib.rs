@@ -4,6 +4,17 @@
 //! # Basic usage
 //! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`node_bundles::TextBundle`] and [`node_bundles::NodeBundle`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
+
+pub mod camera_config;
+pub mod measurement;
+pub mod node_bundles;
+pub mod update;
+pub mod widget;
+
+use bevy_derive::{Deref, DerefMut};
+use bevy_reflect::Reflect;
+#[cfg(feature = "bevy_text")]
+mod accessibility;
 mod focus;
 mod geometry;
 mod layout;
@@ -11,23 +22,13 @@ mod render;
 mod stack;
 mod ui_node;
 
-#[cfg(feature = "bevy_text")]
-mod accessibility;
-pub mod camera_config;
-pub mod measurement;
-pub mod node_bundles;
-pub mod update;
-pub mod widget;
-
-#[cfg(feature = "bevy_text")]
-use bevy_render::camera::CameraUpdateSystem;
-use bevy_render::extract_component::ExtractComponentPlugin;
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
 pub use ui_node::*;
+use widget::UiImageSize;
 
 #[doc(hidden)]
 pub mod prelude {
@@ -40,8 +41,10 @@ pub mod prelude {
 
 use crate::prelude::UiCameraConfig;
 use bevy_app::prelude::*;
+use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
+use bevy_render::{extract_component::ExtractComponentPlugin, texture::Image, RenderApp};
 use bevy_transform::TransformSystem;
 use stack::ui_stack_system;
 pub use stack::UiStack;
@@ -66,56 +69,59 @@ pub enum UiSystem {
 ///
 /// A multiplier to fixed-sized ui values.
 /// **Note:** This will only affect fixed ui values like [`Val::Px`]
-#[derive(Debug, Resource)]
-pub struct UiScale {
-    /// The scale to be applied.
-    pub scale: f64,
-}
+#[derive(Debug, Reflect, Resource, Deref, DerefMut)]
+pub struct UiScale(pub f64);
 
 impl Default for UiScale {
     fn default() -> Self {
-        Self { scale: 1.0 }
+        Self(1.0)
     }
 }
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
+        app.add_plugins(ExtractComponentPlugin::<UiCameraConfig>::default())
             .init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
-            .register_type::<CalculatedSize>()
+            .register_type::<BackgroundColor>()
+            .register_type::<CalculatedClip>()
+            .register_type::<ContentSize>()
             .register_type::<Direction>()
             .register_type::<Display>()
             .register_type::<FlexDirection>()
             .register_type::<FlexWrap>()
+            .register_type::<FocusPolicy>()
             .register_type::<GridAutoFlow>()
             .register_type::<GridPlacement>()
             .register_type::<GridTrack>()
-            .register_type::<RepeatedGridTrack>()
-            .register_type::<FocusPolicy>()
             .register_type::<Interaction>()
             .register_type::<JustifyContent>()
             .register_type::<JustifyItems>()
             .register_type::<JustifySelf>()
             .register_type::<Node>()
-            .register_type::<ZIndex>()
             // NOTE: used by Style::aspect_ratio
             .register_type::<Option<f32>>()
             .register_type::<Overflow>()
             .register_type::<OverflowAxis>()
             .register_type::<PositionType>()
-            .register_type::<Size>()
-            .register_type::<UiRect>()
+            .register_type::<RelativeCursorPosition>()
+            .register_type::<RepeatedGridTrack>()
             .register_type::<Style>()
-            .register_type::<BackgroundColor>()
+            .register_type::<UiCameraConfig>()
             .register_type::<UiImage>()
+            .register_type::<UiImageSize>()
+            .register_type::<UiRect>()
+            .register_type::<UiScale>()
+            .register_type::<UiTextureAtlasImage>()
             .register_type::<Val>()
+            .register_type::<BorderColor>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
+            .register_type::<ZIndex>()
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
@@ -131,18 +137,20 @@ impl Plugin for UiPlugin {
                     // In practice, they run independently since `bevy_render::camera_update_system`
                     // will only ever observe its own render target, and `widget::measure_text_system`
                     // will never modify a pre-existing `Image` asset.
-                    .ambiguous_with(CameraUpdateSystem)
+                    .ambiguous_with(bevy_render::camera::CameraUpdateSystem)
                     // Potential conflict: `Assets<Image>`
                     // Since both systems will only ever insert new [`Image`] assets,
                     // they will never observe each other's effects.
                     .ambiguous_with(bevy_text::update_text2d_layout),
-                widget::text_system.after(UiSystem::Layout),
+                widget::text_system
+                    .after(UiSystem::Layout)
+                    .before(Assets::<Image>::track_assets),
             ),
         );
         #[cfg(feature = "bevy_text")]
-        app.add_plugin(accessibility::AccessibilityPlugin);
+        app.add_plugins(accessibility::AccessibilityPlugin);
         app.add_systems(PostUpdate, {
-            let system = widget::update_image_calculated_size_system.before(UiSystem::Layout);
+            let system = widget::update_image_content_size_system.before(UiSystem::Layout);
             // Potential conflicts: `Assets<Image>`
             // They run independently since `widget::image_node_system` will only ever observe
             // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
@@ -153,8 +161,12 @@ impl Plugin for UiPlugin {
                 .ambiguous_with(widget::text_system);
 
             system
-        })
-        .add_systems(
+        });
+        app.add_systems(
+            PostUpdate,
+            widget::update_atlas_content_size_system.before(UiSystem::Layout),
+        );
+        app.add_systems(
             PostUpdate,
             (
                 ui_layout_system
@@ -166,5 +178,14 @@ impl Plugin for UiPlugin {
         );
 
         crate::render::build_ui_render(app);
+    }
+
+    fn finish(&self, app: &mut App) {
+        let render_app = match app.get_sub_app_mut(RenderApp) {
+            Ok(render_app) => render_app,
+            Err(_) => return,
+        };
+
+        render_app.init_resource::<UiPipeline>();
     }
 }

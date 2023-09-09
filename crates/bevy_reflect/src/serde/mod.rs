@@ -92,4 +92,16 @@ mod tests {
             "Expected {expected:?} found {deserialized:?}"
         );
     }
+
+    #[test]
+    #[should_panic(expected = "cannot get type info for bevy_reflect::struct_trait::DynamicStruct")]
+    fn unproxied_dynamic_should_not_serialize() {
+        let registry = TypeRegistry::default();
+
+        let mut value = DynamicStruct::default();
+        value.insert("foo", 123_u32);
+
+        let serializer = ReflectSerializer::new(&value, &registry);
+        ron::ser::to_string(&serializer).unwrap();
+    }
 }

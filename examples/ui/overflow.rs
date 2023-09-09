@@ -27,7 +27,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             style: Style {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                size: Size::width(Val::Percent(100.)),
+                width: Val::Percent(100.),
                 ..Default::default()
             },
             background_color: Color::ANTIQUE_WHITE.into(),
@@ -71,7 +71,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         parent
                             .spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::all(Val::Px(100.)),
+                                    width: Val::Px(100.),
+                                    height: Val::Px(100.),
                                     padding: UiRect {
                                         left: Val::Px(25.),
                                         top: Val::Px(25.),
@@ -87,7 +88,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent.spawn(ImageBundle {
                                     image: UiImage::new(image.clone()),
                                     style: Style {
-                                        min_size: Size::all(Val::Px(100.)),
+                                        min_width: Val::Px(100.),
+                                        min_height: Val::Px(100.),
                                         ..Default::default()
                                     },
                                     background_color: Color::WHITE.into(),

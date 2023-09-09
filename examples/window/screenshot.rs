@@ -8,17 +8,17 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, screenshot_on_f12)
+        .add_systems(Update, screenshot_on_spacebar)
         .run();
 }
 
-fn screenshot_on_f12(
+fn screenshot_on_spacebar(
     input: Res<Input<KeyCode>>,
     main_window: Query<Entity, With<PrimaryWindow>>,
     mut screenshot_manager: ResMut<ScreenshotManager>,
     mut counter: Local<u32>,
 ) {
-    if input.just_pressed(KeyCode::F12) {
+    if input.just_pressed(KeyCode::Space) {
         let path = format!("./screenshot-{}.png", *counter);
         *counter += 1;
         screenshot_manager
@@ -61,4 +61,21 @@ fn setup(
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
+
+    commands.spawn(
+        TextBundle::from_section(
+            "Press <spacebar> to save a screenshot to disk",
+            TextStyle {
+                font_size: 25.0,
+                color: Color::WHITE,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
+            ..default()
+        }),
+    );
 }
