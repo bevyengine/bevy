@@ -47,6 +47,7 @@ where
 }
 
 impl<'a, T: ?Sized> Clone for CowArc<'a, T> {
+    #[inline]
     fn clone(&self) -> Self {
         match self {
             Self::Borrowed(value) => Self::Borrowed(value),
@@ -57,6 +58,7 @@ impl<'a, T: ?Sized> Clone for CowArc<'a, T> {
 }
 
 impl<'a, T: PartialEq + ?Sized> PartialEq for CowArc<'a, T> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.deref().eq(other.deref())
     }
@@ -65,30 +67,35 @@ impl<'a, T: PartialEq + ?Sized> PartialEq for CowArc<'a, T> {
 impl<'a, T: PartialEq + ?Sized> Eq for CowArc<'a, T> {}
 
 impl<'a, T: Hash + ?Sized> Hash for CowArc<'a, T> {
+    #[inline]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.deref().hash(state);
     }
 }
 
 impl<'a, T: Debug + ?Sized> Debug for CowArc<'a, T> {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(self.deref(), f)
     }
 }
 
 impl<'a, T: Display + ?Sized> Display for CowArc<'a, T> {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Display::fmt(self.deref(), f)
     }
 }
 
 impl<'a, T: PartialOrd + ?Sized> PartialOrd for CowArc<'a, T> {
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.deref().partial_cmp(other.deref())
     }
 }
 
 impl<'a, T: Ord + ?Sized> Ord for CowArc<'a, T> {
+    #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.deref().cmp(other.deref())
     }
