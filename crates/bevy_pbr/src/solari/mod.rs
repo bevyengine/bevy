@@ -1,7 +1,6 @@
 pub(crate) use self::global_illumination::SolariGlobalIlluminationViewResources;
 pub use self::global_illumination::{
-    SolariGlobalIlluminationDebugView, SolariGlobalIlluminationNode,
-    SolariGlobalIlluminationPlugin, SolariGlobalIlluminationSettings,
+    SolariGlobalIlluminationNode, SolariGlobalIlluminationPlugin, SolariGlobalIlluminationSettings,
 };
 use self::scene::SolariScenePlugin;
 use bevy_app::{App, Plugin};

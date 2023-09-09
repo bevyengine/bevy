@@ -1,5 +1,5 @@
 #import bevy_solari::scene_bindings uniforms, map_ray_hit
-#import bevy_solari::global_illumination::view_bindings view, depth_buffer, screen_probes_unfiltered
+#import bevy_solari::global_illumination::view_bindings view, depth_buffer, screen_probes
 #import bevy_solari::world_cache::query query_world_cache
 #import bevy_solari::utils rand_f, rand_vec2f, trace_ray, depth_to_world_position
 #import bevy_pbr::utils octahedral_decode
@@ -8,7 +8,7 @@ var<workgroup> probe_pixel_world_position: vec3<f32>;
 var<workgroup> probe_pixel_is_sky: bool;
 
 @compute @workgroup_size(8, 8, 1)
-fn update_screen_probes(
+fn trace_screen_probes(
     @builtin(global_invocation_id) global_id: vec3<u32>,
     @builtin(local_invocation_id) local_id: vec3<u32>,
     @builtin(local_invocation_index) local_index: u32,
@@ -27,7 +27,7 @@ fn update_screen_probes(
     }
     workgroupBarrier();
     if probe_pixel_is_sky {
-        textureStore(screen_probes_unfiltered, global_id.xy, vec4(0.0, 0.0, 0.0, 1.0));
+        textureStore(screen_probes, global_id.xy, vec4(0.0, 0.0, 0.0, 1.0));
         return;
     }
 
@@ -42,5 +42,5 @@ fn update_screen_probes(
         color = ray_hit.material.base_color * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal);
     }
 
-    textureStore(screen_probes_unfiltered, global_id.xy, vec4(color, 1.0));
+    textureStore(screen_probes, global_id.xy, vec4(color, 1.0));
 }

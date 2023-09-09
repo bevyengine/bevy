@@ -1,7 +1,7 @@
 use super::{
     view_resources::create_bind_group_layouts, SolariGlobalIlluminationSettings,
     SOLARI_DENOISE_DIFFUSE_SHADER, SOLARI_SCREEN_PROBES_FILTER_SHADER,
-    SOLARI_SCREEN_PROBES_INTEPOLATE_SHADER, SOLARI_SCREEN_PROBES_UPDATE_SHADER,
+    SOLARI_SCREEN_PROBES_INTEPOLATE_SHADER, SOLARI_SCREEN_PROBES_TRACE_SHADER,
     SOLARI_WORLD_CACHE_COMPACT_SHADER, SOLARI_WORLD_CACHE_UPDATE_SHADER,
 };
 use crate::solari::scene::SolariSceneBindGroupLayout;
@@ -26,7 +26,7 @@ pub enum SolariGlobalIlluminationPass {
     CompactWorldWriteActiveCells,
     SampleForWorldCache,
     BlendNewWorldCacheSamples,
-    ScreenProbesUpdate,
+    ScreenProbesTrace,
     ScreenProbesFilter,
     ScreenProbesInterpolate,
     DenoiseDiffuseTemporal,
@@ -108,8 +108,8 @@ impl SpecializedComputePipeline for SolariGlobalIlluminationPipelines {
             SolariGlobalIlluminationPass::BlendNewWorldCacheSamples => {
                 ("blend_new_samples", SOLARI_WORLD_CACHE_UPDATE_SHADER)
             }
-            SolariGlobalIlluminationPass::ScreenProbesUpdate => {
-                ("update_screen_probes", SOLARI_SCREEN_PROBES_UPDATE_SHADER)
+            SolariGlobalIlluminationPass::ScreenProbesTrace => {
+                ("trace_screen_probes", SOLARI_SCREEN_PROBES_TRACE_SHADER)
             }
             SolariGlobalIlluminationPass::ScreenProbesFilter => {
                 ("filter_screen_probes", SOLARI_SCREEN_PROBES_FILTER_SHADER)
@@ -145,7 +145,7 @@ pub struct SolariGlobalIlluminationPipelineIds {
     pub compact_world_cache_write_active_cells: CachedComputePipelineId,
     pub sample_for_world_cache: CachedComputePipelineId,
     pub blend_new_world_cache_samples: CachedComputePipelineId,
-    pub screen_probes_update: CachedComputePipelineId,
+    pub screen_probes_trace: CachedComputePipelineId,
     pub screen_probes_filter: CachedComputePipelineId,
     pub screen_probes_interpolate: CachedComputePipelineId,
     pub denoise_diffuse_temporal: CachedComputePipelineId,
@@ -189,8 +189,8 @@ pub fn prepare_pipelines(
                 blend_new_world_cache_samples: create_pipeline(
                     SolariGlobalIlluminationPass::BlendNewWorldCacheSamples,
                 ),
-                screen_probes_update: create_pipeline(
-                    SolariGlobalIlluminationPass::ScreenProbesUpdate,
+                screen_probes_trace: create_pipeline(
+                    SolariGlobalIlluminationPass::ScreenProbesTrace,
                 ),
                 screen_probes_filter: create_pipeline(
                     SolariGlobalIlluminationPass::ScreenProbesFilter,

@@ -62,7 +62,7 @@ impl ViewNode for SolariGlobalIlluminationNode {
             Some(compact_world_cache_write_active_cells_pipeline),
             Some(sample_for_world_cache_pipeline),
             Some(blend_new_world_cache_samples_pipeline),
-            Some(screen_probes_update_pipeline),
+            Some(screen_probes_trace_pipeline),
             Some(screen_probes_filter_pipeline),
             Some(screen_probes_interpolate_pipeline),
             Some(denoise_diffuse_temporal_pipeline),
@@ -75,7 +75,7 @@ impl ViewNode for SolariGlobalIlluminationNode {
                 .get_compute_pipeline(pipeline_ids.compact_world_cache_write_active_cells),
             pipeline_cache.get_compute_pipeline(pipeline_ids.sample_for_world_cache),
             pipeline_cache.get_compute_pipeline(pipeline_ids.blend_new_world_cache_samples),
-            pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_update),
+            pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_trace),
             pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_filter),
             pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_interpolate),
             pipeline_cache.get_compute_pipeline(pipeline_ids.denoise_diffuse_temporal),
@@ -137,7 +137,7 @@ impl ViewNode for SolariGlobalIlluminationNode {
 
         solari_pass.push_debug_group("diffuse_global_illumination");
 
-        solari_pass.set_pipeline(screen_probes_update_pipeline);
+        solari_pass.set_pipeline(screen_probes_trace_pipeline);
         solari_pass.dispatch_workgroups(width, height, 1);
 
         solari_pass.set_pipeline(screen_probes_filter_pipeline);

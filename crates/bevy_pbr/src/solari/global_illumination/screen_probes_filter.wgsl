@@ -1,5 +1,5 @@
 #import bevy_solari::scene_bindings uniforms
-#import bevy_solari::global_illumination::view_bindings depth_buffer, screen_probes_unfiltered, screen_probes_spherical_harmonics, view, SphericalHarmonicsPacked
+#import bevy_solari::global_illumination::view_bindings depth_buffer, screen_probes, screen_probes_spherical_harmonics, view, SphericalHarmonicsPacked
 #import bevy_solari::utils rand_f, rand_vec2f
 #import bevy_pbr::utils octahedral_decode
 
@@ -18,7 +18,7 @@ fn add_probe_contribution(
     let probe_pixel_id = probe_thread_id + (8i * probe_id);
     let probe_depth = view.projection[3][2] / textureLoad(depth_buffer, probe_pixel_id, 0i);
 
-    let probe_irradiance = textureLoad(screen_probes_unfiltered, cell_id).rgb;
+    let probe_irradiance = textureLoad(screen_probes, cell_id).rgb;
 
     let depth_weight = pow(saturate(1.0 - abs(probe_depth - center_probe_depth) / center_probe_depth), 8.0);
 
@@ -61,9 +61,6 @@ fn filter_screen_probes(
     add_probe_contribution(&irradiance, &weight, center_probe_depth, vec2<i32>(global_id.xy) + vec2(0i, -8i), center_probe_id + vec2(0i, -1i), probe_thread_id);
     add_probe_contribution(&irradiance, &weight, center_probe_depth, vec2<i32>(global_id.xy) + vec2(8i, -8i), center_probe_id + vec2(1i, -1i), probe_thread_id);
     irradiance /= weight;
-
-    // TODO: Remove unnecessary texture write + texture allocation #ifndef DEBUG_VIEW_SCREEN_PROBES_FILTERED
-    // textureStore(screen_probes_filtered, global_id.xy, vec4(irradiance, 1.0));
 
     let octahedral_pixel_center = vec2<f32>(local_id.xy) + rand_vec2f(&rng);
     let octahedral_normal = octahedral_decode(octahedral_pixel_center / 8.0);
