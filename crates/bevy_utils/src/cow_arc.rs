@@ -36,8 +36,8 @@ where
     #[inline]
     pub fn into_owned(self) -> CowArc<'static, T> {
         match self {
-            CowArc::Borrowed(path) => CowArc::Owned(path.into()),
-            CowArc::Owned(path) => CowArc::Owned(path),
+            CowArc::Borrowed(value) => CowArc::Owned(value.into()),
+            CowArc::Owned(value) => CowArc::Owned(value),
         }
     }
 }
