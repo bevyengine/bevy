@@ -754,9 +754,10 @@ bitflags::bitflags! {
                                                             // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
         const ENVIRONMENT_MAP                   = (1 << 7);
         const SCREEN_SPACE_AMBIENT_OCCLUSION    = (1 << 8);
-        const DEPTH_CLAMP_ORTHO                 = (1 << 9);
-        const TAA                               = (1 << 10);
-        const MORPH_TARGETS                     = (1 << 11);
+        const GLOBAL_ILLUMINATION               = (1 << 9);
+        const DEPTH_CLAMP_ORTHO                 = (1 << 10);
+        const TAA                               = (1 << 11);
+        const MORPH_TARGETS                     = (1 << 12);
         const BLEND_RESERVED_BITS               = Self::BLEND_MASK_BITS << Self::BLEND_SHIFT_BITS; // ← Bitmask reserving bits for the blend state
         const BLEND_OPAQUE                      = (0 << Self::BLEND_SHIFT_BITS);                   // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA         = (1 << Self::BLEND_SHIFT_BITS);                   //
@@ -920,6 +921,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
             shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
+        }
+
+        if key.contains(MeshPipelineKey::GLOBAL_ILLUMINATION) {
+            shader_defs.push("GLOBAL_ILLUMINATION".into());
         }
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;

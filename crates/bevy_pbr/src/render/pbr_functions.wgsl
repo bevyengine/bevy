@@ -268,6 +268,12 @@ fn pbr(
     indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
 #endif
 
+#ifdef GLOBAL_ILLUMINATION
+    let gi = textureLoad(view_bindings::global_illumination_texture, vec2<i32>(in.frag_coord.xy), 0).rgb;
+    // TODO: Use occlusion?
+    indirect_light += gi * diffuse_color;
+#endif
+
     let emissive_light = emissive.rgb * output_color.a;
 
     // Total light

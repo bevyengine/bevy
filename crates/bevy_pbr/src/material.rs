@@ -1,7 +1,8 @@
 use crate::{
-    render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
-    MeshTransforms, PrepassPipelinePlugin, PrepassPlugin, ScreenSpaceAmbientOcclusionSettings,
-    SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
+    render, solari::SolariGlobalIlluminationSettings, AlphaMode, DrawMesh, DrawPrepass,
+    EnvironmentMapLight, MeshPipeline, MeshPipelineKey, MeshTransforms, PrepassPipelinePlugin,
+    PrepassPlugin, ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup, SetMeshViewBindGroup,
+    Shadow,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -392,6 +393,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&DebandDither>,
         Option<&EnvironmentMapLight>,
         Option<&ScreenSpaceAmbientOcclusionSettings>,
+        Option<&SolariGlobalIlluminationSettings>,
         Option<&NormalPrepass>,
         Option<&TemporalAntiAliasSettings>,
         &mut RenderPhase<Opaque3d>,
@@ -408,6 +410,7 @@ pub fn queue_material_meshes<M: Material>(
         dither,
         environment_map,
         ssao,
+        solari_gi_settings,
         normal_prepass,
         taa_settings,
         mut opaque_phase,
@@ -463,6 +466,10 @@ pub fn queue_material_meshes<M: Material>(
 
         if ssao.is_some() {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+        }
+
+        if solari_gi_settings.is_some() {
+            view_key |= MeshPipelineKey::GLOBAL_ILLUMINATION;
         }
 
         let rangefinder = view.rangefinder3d();
