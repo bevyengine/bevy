@@ -12,8 +12,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
-    BreakLineOn, Font, FontAtlasSets, FontAtlasWarning, Text, TextError, TextLayoutInfo,
-    TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation, scale_value,
+    scale_value, BreakLineOn, Font, FontAtlasSets, FontAtlasWarning, Text, TextError,
+    TextLayoutInfo, TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
 };
 use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
