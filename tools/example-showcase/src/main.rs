@@ -63,6 +63,10 @@ enum Action {
         #[arg(long)]
         /// File containing the list of examples to run, incompatible with pagination
         example_list: Option<String>,
+
+        #[arg(long)]
+        /// Only run examples that don't need extra features
+        only_default_features: bool,
     },
     /// Build the markdown files for the website
     BuildWebsiteList {
@@ -132,6 +136,7 @@ fn main() {
             ignore_stress_tests,
             report_details,
             example_list,
+            only_default_features,
         } => {
             if example_list.is_some() && cli.page.is_some() {
                 let mut cmd = Args::command();
@@ -228,6 +233,9 @@ fn main() {
                     .filter(|example| {
                         example_list.is_none() || example_filter.contains(&example.technical_name)
                     })
+                    .filter(|example| {
+                        !only_default_features || example.required_features.is_empty()
+                    })
                     .skip(cli.page.unwrap_or(0) * cli.per_page.unwrap_or(0))
                     .take(cli.per_page.unwrap_or(usize::MAX))
             };
@@ -237,10 +245,19 @@ fn main() {
             for to_run in work_to_do() {
                 let sh = Shell::new().unwrap();
                 let example = &to_run.technical_name;
-                let extra_parameters = extra_parameters.clone();
+                let required_features = if to_run.required_features.is_empty() {
+                    vec![]
+                } else {
+                    vec!["--features".to_string(), to_run.required_features.join(",")]
+                };
+                let local_extra_parameters = extra_parameters
+                    .iter()
+                    .map(|s| s.to_string())
+                    .chain(required_features.iter().cloned())
+                    .collect::<Vec<_>>();
                 let mut cmd = cmd!(
                     sh,
-                    "cargo run --profile {profile} --example {example} {extra_parameters...}"
+                    "cargo run --profile {profile} --example {example} {local_extra_parameters...}"
                 );
 
                 if let Some(backend) = wgpu_backend.as_ref() {
@@ -629,6 +646,16 @@ fn parse_examples() -> Vec<Example> {
                 description: metadata["description"].as_str().unwrap().to_string(),
                 category: metadata["category"].as_str().unwrap().to_string(),
                 wasm: metadata["wasm"].as_bool().unwrap(),
+                required_features: val
+                    .get("required-features")
+                    .map(|rf| {
+                        rf.as_array()
+                            .unwrap()
+                            .into_iter()
+                            .map(|v| v.as_str().unwrap().to_string())
+                            .collect()
+                    })
+                    .unwrap_or_default(),
             })
         })
         .collect()
@@ -642,4 +669,5 @@ struct Example {
     description: String,
     category: String,
     wasm: bool,
+    required_features: Vec<String>,
 }
