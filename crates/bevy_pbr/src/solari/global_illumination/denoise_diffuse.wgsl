@@ -9,7 +9,7 @@ fn denoise_diffuse_temporal(@builtin(global_invocation_id) global_id: vec3<u32>)
 
     let motion_vector = textureLoad(motion_vectors, global_id.xy, 0i).rg;
     let uv = (vec2<f32>(global_id.xy) + 0.5) / view.viewport.zw;
-    let history_uv = uv + motion_vector;
+    let history_uv = uv - motion_vector;
     let history_id = vec2<i32>(history_uv * view.viewport.zw);
 
     let history = textureLoad(diffuse_denoiser_temporal_history, history_id, 0i);

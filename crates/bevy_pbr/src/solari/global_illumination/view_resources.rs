@@ -124,12 +124,12 @@ pub fn prepare_resources(
 
         let screen_probes_unfiltered = texture(
             "solari_global_illumination_screen_probes_unfiltered",
-            TextureFormat::Rgba32Float,
+            TextureFormat::Rgba16Float,
             size_8,
         );
         let screen_probes_filtered = texture(
             "solari_global_illumination_screen_probes_filtered",
-            TextureFormat::Rgba32Float,
+            TextureFormat::Rgba16Float,
             size_8,
         );
         let screen_probes_spherical_harmonics = buffer(
@@ -293,13 +293,13 @@ pub fn create_bind_group_layouts(
         // Screen probes (unfiltered)
         entry(BindingType::StorageTexture {
             access: StorageTextureAccess::ReadWrite,
-            format: TextureFormat::Rgba32Float,
+            format: TextureFormat::Rgba16Float,
             view_dimension: TextureViewDimension::D2,
         }),
         // Screen probes (filtered)
         entry(BindingType::StorageTexture {
             access: StorageTextureAccess::ReadWrite,
-            format: TextureFormat::Rgba32Float,
+            format: TextureFormat::Rgba16Float,
             view_dimension: TextureViewDimension::D2,
         }),
         // Screen probe spherical harmonics

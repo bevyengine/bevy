@@ -16,11 +16,11 @@ fn add_probe_contribution(
     probe_thread_id: vec2<i32>,
 ) {
     let probe_pixel_id = probe_thread_id + (8i * probe_id);
-    let probe_depth = textureLoad(depth_buffer, probe_pixel_id, 0i);
+    let probe_depth = view.projection[3][2] / textureLoad(depth_buffer, probe_pixel_id, 0i);
 
     let probe_irradiance = textureLoad(screen_probes_unfiltered, cell_id).rgb;
 
-    let depth_weight = smoothstep(0.03, 0.0, abs(probe_depth - center_probe_depth));
+    let depth_weight = pow(saturate(1.0 - abs(probe_depth - center_probe_depth) / center_probe_depth), 8.0);
 
     *weight_total += depth_weight;
     *irradiance_total += probe_irradiance * depth_weight;
@@ -47,7 +47,7 @@ fn filter_screen_probes(
 
     let center_probe_id = vec2<i32>(workgroup_id.xy);
     let center_probe_pixel_id = probe_thread_id + (center_probe_id * 8i);
-    let center_probe_depth = textureLoad(depth_buffer, center_probe_pixel_id, 0i);
+    let center_probe_depth = view.projection[3][2] / textureLoad(depth_buffer, center_probe_pixel_id, 0i);
 
     var irradiance = vec3(0.0);
     var weight = 0.0;

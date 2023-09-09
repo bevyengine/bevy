@@ -82,7 +82,7 @@ fn interpolate_screen_probes(
     let probe_thread_id = vec2<i32>(vec2(probe_thread_x, probe_thread_y));
 
     let pixel_depth = textureLoad(depth_buffer, global_id.xy, 0i);
-    if pixel_depth < 0.0 {
+    if pixel_depth == 0.0 {
         textureStore(diffuse_raw, global_id.xy, vec4(0.0, 0.0, 0.0, 1.0));
         return;
     }

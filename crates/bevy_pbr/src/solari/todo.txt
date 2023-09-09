@@ -11,6 +11,7 @@
 
 * Specular lighting
 * Cleanup, remaining TODOs, performance profiling, documentation, etc
+    * rg11b10float or rgb9e5float textures
     * "A Fast and Robust Method for Avoiding Self-Intersection"
     * Cull or simplify BLAS/TLAS entries for far away meshes
 

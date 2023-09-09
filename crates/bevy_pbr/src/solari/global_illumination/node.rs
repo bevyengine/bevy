@@ -9,8 +9,8 @@ use bevy_ecs::{query::QueryItem, world::World};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_resource::{CommandEncoderDescriptor, ComputePassDescriptor, PipelineCache},
-    renderer::{RenderContext, RenderQueue},
+    render_resource::{ComputePassDescriptor, PipelineCache},
+    renderer::RenderContext,
     view::{ViewDepthTexture, ViewUniformOffset},
 };
 
@@ -45,12 +45,10 @@ impl ViewNode for SolariGlobalIlluminationNode {
     ) -> Result<(), NodeRunError> {
         let (
             Some(pipeline_cache),
-            Some(render_queue),
             Some(SolariSceneBindGroup(Some(scene_bind_group))),
             Some(viewport_size),
         ) = (
             world.get_resource::<PipelineCache>(),
-            world.get_resource::<RenderQueue>(),
             world.get_resource::<SolariSceneBindGroup>(),
             camera.physical_viewport_size,
         )
@@ -90,10 +88,7 @@ impl ViewNode for SolariGlobalIlluminationNode {
         let width = (viewport_size.x + 7) / 8;
         let height = (viewport_size.y + 7) / 8;
 
-        let render_device = render_context.render_device();
-        let mut command_encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some("solari_global_illumination_pass"),
-        });
+        let command_encoder = render_context.command_encoder();
         let mut solari_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some("solari_global_illumination_pass"),
             timestamp_writes: None,
@@ -180,8 +175,6 @@ impl ViewNode for SolariGlobalIlluminationNode {
                 .as_image_copy(),
             prepass_textures.size,
         );
-
-        render_queue.submit([command_encoder.finish()]);
 
         Ok(())
     }

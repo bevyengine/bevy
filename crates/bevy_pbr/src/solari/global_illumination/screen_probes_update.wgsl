@@ -4,8 +4,8 @@
 #import bevy_solari::utils rand_f, rand_vec2f, trace_ray, depth_to_world_position
 #import bevy_pbr::utils octahedral_decode
 
-var<workgroup> probe_pixel_depth: f32;
-var<workgroup> probe_pixel_uv: vec2<f32>;
+var<workgroup> probe_pixel_world_position: vec3<f32>;
+var<workgroup> probe_pixel_is_sky: bool;
 
 @compute @workgroup_size(8, 8, 1)
 fn update_screen_probes(
@@ -20,11 +20,14 @@ fn update_screen_probes(
 
     let probe_thread_index = u32(floor(rand_f(&rng2) * 63.0));
     if local_index == probe_thread_index {
-        probe_pixel_depth = textureLoad(depth_buffer, global_id.xy, 0i); // TODO: may not exist
-        probe_pixel_uv = (vec2<f32>(global_id.xy) + 0.5) / view.viewport.zw;
+        let probe_pixel_depth = textureLoad(depth_buffer, global_id.xy, 0i); // TODO: global_id.xy may be off-screen
+        let probe_pixel_uv = (vec2<f32>(global_id.xy) + 0.5) / view.viewport.zw;
+        probe_pixel_world_position = depth_to_world_position(probe_pixel_depth, probe_pixel_uv);
+        probe_pixel_is_sky = probe_pixel_depth == 0.0;
     }
     workgroupBarrier();
-    if probe_pixel_depth < 0.0 {
+    if probe_pixel_is_sky {
+        textureStore(screen_probes_unfiltered, global_id.xy, vec4(0.0, 0.0, 0.0, 1.0));
         return;
     }
 
@@ -33,8 +36,7 @@ fn update_screen_probes(
     let octahedral_normal = octahedral_decode(octahedral_pixel_uv);
 
     var color = vec3(0.0);
-    let ray_origin = depth_to_world_position(probe_pixel_depth, probe_pixel_uv);
-    let ray_hit = trace_ray(ray_origin, octahedral_normal, 0.001);
+    let ray_hit = trace_ray(probe_pixel_world_position, octahedral_normal, 0.001);
     if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
         let ray_hit = map_ray_hit(ray_hit);
         color = ray_hit.material.base_color * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal);

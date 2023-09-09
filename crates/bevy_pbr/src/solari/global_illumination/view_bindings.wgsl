@@ -33,8 +33,8 @@ const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
 @group(1) @binding(4) var previous_depth_buffer: texture_depth_2d;
 @group(1) @binding(5) var previous_normals_buffer: texture_2d<f32>;
 
-@group(1) @binding(6) var screen_probes_unfiltered: texture_storage_2d<rgba32float, read_write>;
-@group(1) @binding(7) var screen_probes_filtered: texture_storage_2d<rgba32float, read_write>;
+@group(1) @binding(6) var screen_probes_unfiltered: texture_storage_2d<rgba16float, read_write>;
+@group(1) @binding(7) var screen_probes_filtered: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(8) var<storage, read_write> screen_probes_spherical_harmonics: array<SphericalHarmonicsPacked>;
 @group(1) @binding(9) var diffuse_raw: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(10) var diffuse_denoiser_temporal_history: texture_2d<f32>;
