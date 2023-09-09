@@ -180,8 +180,7 @@ fn sample_direct_lighting(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>,
 }
 
 fn depth_to_world_position(depth: f32, uv: vec2<f32>) -> vec3<f32> {
-    let clip_xy = vec2<f32>(uv.x * 2.0 - 1.0, 1.0 - 2.0 * uv.y);
-    let t = view.inverse_projection * vec4<f32>(clip_xy, depth, 1.0);
-    let view_xyz = t.xyz / t.w;
-    return view_xyz - view.world_position;
+    let xy_ndc = (uv - vec2(0.5)) * vec2(2.0, -2.0);
+    let world_pos = view.inverse_view_proj * vec4(xy_ndc, depth, 1.0);
+    return world_pos.xyz / world_pos.w;
 }

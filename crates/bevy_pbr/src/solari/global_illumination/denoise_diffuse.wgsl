@@ -23,7 +23,7 @@ fn denoise_diffuse_temporal(@builtin(global_invocation_id) global_id: vec3<u32>)
 
     let previous_depth = textureLoad(depth_buffer, history_id, 0i);
     let current_depth = textureLoad(depth_buffer, global_id.xy, 0i);
-    // TODO: Is it ok to use depth_to_world_position() which uses the current view for previous_position?
+    // TODO: Is it ok to use depth_to_world_position(), which uses the current view, for previous_position?
     let previous_position = depth_to_world_position(previous_depth, history_uv);
     let current_position = depth_to_world_position(current_depth, uv);
     let previous_normal = textureLoad(normals_buffer, history_id, 0i).rgb;
