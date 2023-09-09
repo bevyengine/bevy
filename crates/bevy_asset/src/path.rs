@@ -112,6 +112,8 @@ impl<'a> AssetPath<'a> {
 
     /// Converts this into an "owned" value. If internally a value is borrowed, it will be cloned into an "owned [`Arc`]".
     /// If it is already an "owned [`Arc`]", it will remain unchanged.
+    ///
+    /// [`Arc`]: std::sync::Arc
     pub fn into_owned(self) -> AssetPath<'static> {
         AssetPath {
             path: self.path.into_owned(),
