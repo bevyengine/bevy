@@ -270,6 +270,16 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "2d_viewport_to_world"
+path = "examples/2d/2d_viewport_to_world.rs"
+
+[package.metadata.example.2d_viewport_to_world]
+name = "2D Viewport To World"
+description = "Demonstrates how to use the `Camera::viewport_to_world_2d` method"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "rotation"
 path = "examples/2d/rotation.rs"
 
@@ -417,16 +427,6 @@ path = "examples/3d/3d_viewport_to_world.rs"
 [package.metadata.example.3d_viewport_to_world]
 name = "3D Viewport To World"
 description = "Demonstrates how to use the `Camera::viewport_to_world` method"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "3d_shapes"
-path = "examples/3d/3d_shapes.rs"
-
-[package.metadata.example.3d_shapes]
-name = "3D Shapes"
-description = "A scene showcasing the built-in 3D shapes"
 category = "3D Rendering"
 wasm = true
 

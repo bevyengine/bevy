@@ -6,26 +6,32 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, move_cube)
+        .add_systems(Update, draw_cursor)
         .run();
 }
 
-fn move_cube(
+fn draw_cursor(
     camera_query: Query<(&Camera, &GlobalTransform)>,
-    ground_query: Query<&Transform, With<Ground>>,
+    ground_query: Query<&GlobalTransform, With<Ground>>,
     windows: Query<&Window>,
     mut gizmos: Gizmos,
 ) {
     let (camera, camera_transform) = camera_query.single();
     let ground = ground_query.single();
 
-    let Some(cursor_position) = windows.single().cursor_position() else { return; };
+    let Some(cursor_position) = windows.single().cursor_position() else {
+        return;
+    };
 
     // Calculate a ray pointing from the camera into the world based on the cursor's position.
-    let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else { return; };
+    let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
+        return;
+    };
 
     // Calculate if and where the ray is hitting the ground plane.
-    let Some(distance) = ray.intersect_plane(ground.translation, ground.up()) else { return; };
+    let Some(distance) = ray.intersect_plane(ground.translation(), ground.up()) else {
+        return;
+    };
     let point = ray.get_point(distance);
 
     // Draw a line poking out of the ground plane at that position.
