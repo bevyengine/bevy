@@ -8,10 +8,18 @@ use std::{
 
 /// Much like a [`Cow`](std::borrow::Cow), but owned values are Arc-ed to make clones cheap. This should be used for values that
 /// are cloned for use across threads and change rarely (if ever).
+///
+/// This also makes an opinionated tradeoff by adding a [`CowArc::Static`] and implementing [`From<&'static T>`] instead of
+/// [`From<'a T>`]. This preserves the static context and prevents conversion to [`CowArc::Owned`] in cases where a reference
+/// is known to be static. This is an optimization that prevents allocations and atomic ref-counting.
+///
+/// This means that static references should prefer [`From::from`] or [`CowArc::Static`] and non-static references must
+/// use [`CowArc::Borrowed`].
 pub enum CowArc<'a, T: ?Sized + 'static> {
     /// A borrowed value
     Borrowed(&'a T),
-    /// A static value reference
+    /// A static value reference. This exists to avoid conversion to [`CowArc::Owned`] in cases where a reference is
+    /// known to be static. This is an optimization that prevents allocations and atomic ref-counting.
     Static(&'static T),
     /// An owned [`Arc`]-ed value
     Owned(Arc<T>),
