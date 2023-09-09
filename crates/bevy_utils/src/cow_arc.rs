@@ -108,13 +108,6 @@ impl From<&'static str> for CowArc<'static, Path> {
     }
 }
 
-// impl<'a> From<&'a str> for CowArc<'a, Path> {
-//     #[inline]
-//     fn from(value: &'a str) -> Self {
-//         CowArc::Borrowed(Path::new(value))
-//     }
-// }
-
 impl From<String> for CowArc<'static, str> {
     #[inline]
     fn from(value: String) -> Self {
