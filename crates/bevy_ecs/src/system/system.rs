@@ -1,9 +1,7 @@
 use bevy_utils::tracing::warn;
 use core::fmt::Debug;
-use std::marker::PhantomData;
 
 use crate::component::Tick;
-use crate::system::Command;
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::{archetype::ArchetypeComponentId, component::ComponentId, query::Access, world::World};
 
@@ -284,39 +282,6 @@ impl RunSystem for &mut World {
     }
 }
 
-/// The [`Command`] type for [`RunSystem`]
-#[derive(Debug, Clone)]
-pub struct RunSystemCommand<
-    M: Send + Sync + 'static,
-    S: IntoSystem<(), (), M> + Send + Sync + 'static,
-> {
-    _phantom_marker: PhantomData<M>,
-    system: S,
-}
-
-impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static>
-    RunSystemCommand<M, S>
-{
-    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
-    #[inline]
-    #[must_use]
-    pub fn new(system: S) -> Self {
-        Self {
-            _phantom_marker: PhantomData,
-            system,
-        }
-    }
-}
-
-impl<M: Send + Sync + 'static, S: IntoSystem<(), (), M> + Send + Sync + 'static> Command
-    for RunSystemCommand<M, S>
-{
-    #[inline]
-    fn apply(self, world: &mut World) {
-        world.run_system(self.system);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -385,18 +350,6 @@ mod tests {
         assert_eq!(*world.non_send_resource::<Counter>(), Counter(10));
         world.run_system(non_send_count_down);
         assert_eq!(*world.non_send_resource::<Counter>(), Counter(9));
-    }
-
-    #[test]
-    fn run_system_through_command() {
-        use crate::system::commands::Command;
-        use crate::system::RunSystemCommand;
-
-        let mut world = World::new();
-        let command = RunSystemCommand::new(spawn_entity);
-        assert_eq!(world.entities.len(), 0);
-        command.apply(&mut world);
-        assert_eq!(world.entities.len(), 1);
     }
 
     #[test]

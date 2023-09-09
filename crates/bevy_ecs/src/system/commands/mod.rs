@@ -5,7 +5,7 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
-    system::{IntoSystem, RunSystemById, RunSystemCommand, SystemId},
+    system::{RunSystemById, SystemId},
     world::{EntityWorldMut, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
@@ -518,19 +518,6 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     pub fn remove_resource<R: Resource>(&mut self) {
         self.queue.push(RemoveResource::<R>::new());
-    }
-
-    /// Runs the supplied system on the [`World`] a single time.
-    ///
-    /// Calls [`SystemRegistry::run_system`](crate::system::RunSystem::run_system).
-    pub fn run_system<
-        M: Send + Sync + 'static,
-        S: IntoSystem<(), (), M> + Send + Sync + 'static,
-    >(
-        &mut self,
-        system: S,
-    ) {
-        self.queue.push(RunSystemCommand::new(system));
     }
 
     /// Runs the system corresponding to the given [`SystemId`].
