@@ -221,15 +221,14 @@ pub fn ui_layout_system(
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    style_query: Query<(Entity, Ref<Style>), With<Node>>,
-    mut measure_query: Query<(Entity, &mut ContentSize)>,
-    children_query: Query<(Entity, Ref<Children>), With<Node>>,
-    just_children_query: Query<&Children>,
+    root_node_query: Query<Entity, (With<Style>, Without<Parent>)>,
+    style_query: Query<(Entity, Ref<Style>)>,
+    mut measure_query: Query<(Entity, &mut ContentSize), With<Style>>,
+    children_query: Query<(Entity, Ref<Children>), With<Style>>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
-    mut node_transform_query: Query<(&mut Node, &mut Transform)>,
-    mut removed_nodes: RemovedComponents<Node>,
+    mut removed_nodes: RemovedComponents<Style>,
+    
 ) {
     // assume one window for time being...
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
@@ -303,9 +302,24 @@ pub fn ui_layout_system(
 
     // compute layouts
     ui_surface.compute_window_layouts();
+}
 
-    let inverse_target_scale_factor = 1. / scale_factor;
+pub fn ui_nodes_system(
+    primary_window: Query<&Window, With<PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
+    ui_surface: Res<UiSurface>,
+    mut node_transform_query: Query<(&mut Node, &mut Transform)>,
+    children_query: Query<&Children>,
+    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
+) {
+    let scale_factor = primary_window
+        .get_single()
+        .map(|window| window.resolution.scale_factor())
+        .unwrap_or(1.0)
+        * ui_scale.0;
 
+    let inverse_target_scale_factor = (scale_factor as f32).recip();
+    
     fn update_uinode_geometry_recursive(
         entity: Entity,
         ui_surface: &UiSurface,
@@ -357,7 +371,7 @@ pub fn ui_layout_system(
             entity,
             &ui_surface,
             &mut node_transform_query,
-            &just_children_query,
+            &children_query,
             inverse_target_scale_factor as f32,
             Vec2::ZERO,
             Vec2::ZERO,
