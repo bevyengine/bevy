@@ -469,6 +469,7 @@ wasm = true
 [[example]]
 name = "3d_shapes"
 path = "examples/3d/3d_shapes.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.3d_shapes]
 name = "3D Shapes"
