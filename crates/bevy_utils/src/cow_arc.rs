@@ -23,8 +23,7 @@ impl<'a, T: ?Sized> Deref for CowArc<'a, T> {
     #[inline]
     fn deref(&self) -> &Self::Target {
         match self {
-            CowArc::Borrowed(v) => v,
-            CowArc::Static(v) => v,
+            CowArc::Borrowed(v) | CowArc::Static(v) => v,
             CowArc::Owned(v) => v,
         }
     }
