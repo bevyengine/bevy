@@ -69,6 +69,9 @@ pub(crate) struct AssetInfos {
     /// Tracks assets that depend on the "key" asset path inside their asset loaders ("loader dependencies")
     /// This should only be set when watching for changes to avoid unnecessary work.
     pub(crate) loader_dependants: HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
+    /// Tracks living labeled assets for a given source asset.
+    /// This should only be set when watching for changes to avoid unnecessary work.
+    pub(crate) living_labeled_assets: HashMap<AssetPath<'static>, HashSet<String>>,
     pub(crate) handle_providers: HashMap<TypeId, AssetHandleProvider>,
     pub(crate) dependency_loaded_event_sender: HashMap<TypeId, fn(&mut World, UntypedAssetId)>,
 }
@@ -88,6 +91,8 @@ impl AssetInfos {
             Self::create_handle_internal(
                 &mut self.infos,
                 &self.handle_providers,
+                &mut self.living_labeled_assets,
+                self.watching_for_changes,
                 TypeId::of::<A>(),
                 None,
                 None,
@@ -107,6 +112,8 @@ impl AssetInfos {
             Self::create_handle_internal(
                 &mut self.infos,
                 &self.handle_providers,
+                &mut self.living_labeled_assets,
+                self.watching_for_changes,
                 type_id,
                 None,
                 None,
@@ -116,9 +123,12 @@ impl AssetInfos {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn create_handle_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         handle_providers: &HashMap<TypeId, AssetHandleProvider>,
+        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<String>>,
+        watching_for_changes: bool,
         type_id: TypeId,
         path: Option<AssetPath<'static>>,
         meta_transform: Option<MetaTransform>,
@@ -128,6 +138,16 @@ impl AssetInfos {
             .get(&type_id)
             .ok_or(MissingHandleProviderError(type_id))?;
 
+        if watching_for_changes {
+            if let Some(path) = &path {
+                let mut without_label = path.to_owned();
+                if let Some(label) = without_label.remove_label() {
+                    let labels = living_labeled_assets.entry(without_label).or_default();
+                    labels.insert(label.to_string());
+                }
+            }
+        }
+
         let handle = provider.reserve_handle_internal(true, path.clone(), meta_transform);
         let mut info = AssetInfo::new(Arc::downgrade(&handle), path);
         if loading {
@@ -136,6 +156,7 @@ impl AssetInfos {
             info.rec_dep_load_state = RecursiveDependencyLoadState::Loading;
         }
         infos.insert(handle.id, info);
+
         Ok(UntypedHandle::Strong(handle))
     }
 
@@ -226,6 +247,8 @@ impl AssetInfos {
                 let handle = Self::create_handle_internal(
                     &mut self.infos,
                     &self.handle_providers,
+                    &mut self.living_labeled_assets,
+                    self.watching_for_changes,
                     type_id,
                     Some(path),
                     meta_transform,
@@ -256,7 +279,7 @@ impl AssetInfos {
         Some(UntypedHandle::Strong(strong_handle))
     }
 
-    /// Returns `true` if this path has
+    /// Returns `true` if the asset this path points to is still alive
     pub(crate) fn is_path_alive<'a>(&self, path: impl Into<AssetPath<'a>>) -> bool {
         let path = path.into();
         if let Some(id) = self.path_to_id.get(&path) {
@@ -267,12 +290,26 @@ impl AssetInfos {
         false
     }
 
+    /// Returns `true` if the asset at this path should be reloaded
+    pub(crate) fn should_reload(&self, path: &AssetPath) -> bool {
+        if self.is_path_alive(path) {
+            return true;
+        }
+
+        if let Some(living) = self.living_labeled_assets.get(path) {
+            !living.is_empty()
+        } else {
+            false
+        }
+    }
+
     // Returns `true` if the asset should be removed from the collection
     pub(crate) fn process_handle_drop(&mut self, id: UntypedAssetId) -> bool {
         Self::process_handle_drop_internal(
             &mut self.infos,
             &mut self.path_to_id,
             &mut self.loader_dependants,
+            &mut self.living_labeled_assets,
             self.watching_for_changes,
             id,
         )
@@ -521,6 +558,7 @@ impl AssetInfos {
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         path_to_id: &mut HashMap<AssetPath<'static>, UntypedAssetId>,
         loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
+        living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<String>>,
         watching_for_changes: bool,
         id: UntypedAssetId,
     ) -> bool {
@@ -539,6 +577,18 @@ impl AssetInfos {
                                 {
                                     dependants.remove(&path);
                                 }
+                            }
+                            if let Some(label) = path.label() {
+                                let mut without_label = path.to_owned();
+                                without_label.remove_label();
+                                if let Entry::Occupied(mut entry) =
+                                    living_labeled_assets.entry(without_label)
+                                {
+                                    entry.get_mut().remove(label);
+                                    if entry.get().is_empty() {
+                                        entry.remove();
+                                    }
+                                };
                             }
                         }
                         path_to_id.remove(&path);
@@ -566,6 +616,7 @@ impl AssetInfos {
                         &mut self.infos,
                         &mut self.path_to_id,
                         &mut self.loader_dependants,
+                        &mut self.living_labeled_assets,
                         self.watching_for_changes,
                         id.untyped(provider.type_id),
                     );

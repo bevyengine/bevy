@@ -391,7 +391,7 @@ impl AssetServer {
         let path = path.into().into_owned();
         IoTaskPool::get()
             .spawn(async move {
-                if server.data.infos.read().is_path_alive(&path) {
+                if server.data.infos.read().should_reload(&path) {
                     info!("Reloading {path} because it has changed");
                     if let Err(err) = server.load_internal(None, path, true, None).await {
                         error!("{}", err);
