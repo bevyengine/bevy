@@ -1,4 +1,5 @@
 #define_import_path bevy_pbr::view_transformations
+
 #import bevy_pbr::mesh_view_bindings as view_bindings
 
 /// World space:
@@ -6,6 +7,7 @@
 
 /// View space:
 /// -z is forward, +x is right, +y is up
+/// Forward is from the camera position into the scene.
 /// (0.0, 0.0, -1.0) is linear distance of 1.0 in front of the camera's view relative to the camera's rotation
 /// (0.0, 1.0, 0.0) is linear distance of 1.0 above the camera's view relative to the camera's rotation
 
