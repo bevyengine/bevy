@@ -351,20 +351,4 @@ mod tests {
         world.run_system(non_send_count_down);
         assert_eq!(*world.non_send_resource::<Counter>(), Counter(9));
     }
-
-    #[test]
-    fn system_recursion() {
-        fn count_to_ten(mut counter: ResMut<Counter>, mut commands: Commands) {
-            counter.0 += 1;
-            if counter.0 < 10 {
-                commands.run_system(count_to_ten);
-            }
-        }
-
-        let mut world = World::new();
-        world.init_resource::<Counter>();
-        assert_eq!(*world.resource::<Counter>(), Counter(0));
-        world.run_system(count_to_ten);
-        assert_eq!(*world.resource::<Counter>(), Counter(10));
-    }
 }
