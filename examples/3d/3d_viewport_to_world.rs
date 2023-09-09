@@ -34,8 +34,8 @@ fn draw_cursor(
     };
     let point = ray.get_point(distance);
 
-    // Draw a line poking out of the ground plane at that position.
-    gizmos.ray(point, ground.up(), Color::WHITE);
+    // Draw a circle just above the ground plane at that position.
+    gizmos.circle(point + ground.up() * 0.01, ground.up(), 0.2, Color::WHITE);
 }
 
 #[derive(Component)]
