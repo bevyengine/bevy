@@ -1,9 +1,7 @@
 use std::{hash::Hash, marker::PhantomData, ops::Range};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{
-    load_internal_asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle,
-};
+use bevy_asset::{load_internal_asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{Component, Entity, EventReader},
@@ -22,17 +20,19 @@ use bevy_render::{
     prelude::Color,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-        RenderPhase, SetItemPipeline, TrackedRenderPass,
+        sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
+        DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
+        TrackedRenderPass,
     },
     render_resource::{
         AsBindGroupError, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
         BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState,
-        BufferBindingType, BufferUsages, BufferVec, ColorTargetState, ColorWrites, FragmentState,
-        FrontFace, MultisampleState, OwnedBindingResource, PipelineCache, PolygonMode,
-        PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor, Shader, ShaderRef,
-        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+        BufferBindingType, BufferUsages, BufferVec, CachedRenderPipelineId, ColorTargetState,
+        ColorWrites, FragmentState, FrontFace, MultisampleState, OwnedBindingResource,
+        PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor,
+        Shader, ShaderRef, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureFormat, VertexBufferLayout, VertexFormat, VertexState,
+        VertexStepMode,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, FallbackImage, Image},
@@ -42,7 +42,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{FloatOrd, HashMap, HashSet};
 use bytemuck::{Pod, Zeroable};
 
 use crate::{
@@ -86,6 +86,7 @@ where
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+ //               .init_resource::<DrawFunctions<TransparentMaterialUi>>()
                 .add_render_command::<TransparentUi, DrawUiMaterial<M>>()
                 .init_resource::<ExtractedUiMaterials<M>>()
                 .init_resource::<ExtractedUiMaterialNodes<M>>()
@@ -96,15 +97,16 @@ where
                     ExtractSchedule,
                     (
                         extract_ui_materials::<M>,
-                        extract_material_uinodes::<M>.in_set(RenderUiSystem::ExtractNode),
+                        extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractNode),
                     ),
                 )
                 .add_systems(
                     Render,
                     (
                         prepare_ui_materials::<M>.in_set(RenderSet::PrepareAssets),
-                        prepare_uimaterial_nodes::<M>.in_set(RenderSet::PrepareBindGroups),
                         queue_ui_material_nodes::<M>.in_set(RenderSet::Queue),
+                      //  sort_phase_system::<TransparentMaterialUi>.in_set(RenderSet::PhaseSort),
+                        prepare_uimaterial_nodes::<M>.in_set(RenderSet::PrepareBindGroups),
                     ),
                 );
         }
@@ -148,8 +150,7 @@ pub struct UiMaterialVertex {
 pub struct UiMaterialBatch<M: UiMaterial> {
     /// The range of vertices inside the [`UiMaterialMeta`]
     pub range: Range<u32>,
-    pub material: Handle<M>,
-    pub z: u32,
+    pub material: AssetId<M>,
 }
 
 /// Marker component that is supposed to make batching easier
@@ -260,7 +261,6 @@ impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
             }],
             label: Some("ui_view_layout"),
         });
-
         UiMaterialPipeline {
             ui_layout,
             view_layout,
@@ -325,7 +325,7 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
     ) -> RenderCommandResult {
         let material = materials
             .into_inner()
-            .get(&material_handle.material.id())
+            .get(&material_handle.material)
             .unwrap();
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
@@ -373,7 +373,7 @@ impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
     }
 }
 
-pub fn extract_material_uinodes<M: UiMaterial>(
+pub fn extract_ui_material_nodes<M: UiMaterial>(
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
     ui_stack: Extract<Res<UiStack>>,
@@ -393,14 +393,13 @@ pub fn extract_material_uinodes<M: UiMaterial>(
         if let Ok((entity, uinode, transform, handle, view_visibility, clip, _)) =
             uinode_query.get(*entity)
         {
-            if !view_visibility.get() {
-                continue;
-            }
+            if !view_visibility.get() {}
 
             // Skip loading materials
             if !materials.contains(handle) {
                 continue;
             }
+
             // Skip invisible and completely transparent nodes
             extracted_uinodes.uinodes.insert(
                 entity,
@@ -455,98 +454,115 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                         .last_mut()
                         .filter(|_| batch_shader_handle == extracted_uinode.material);
 
-                    if existing_batch.is_none() {}
+                    if existing_batch.is_none() {
+                        batch_item_index = item_index;
+                        batch_shader_handle = extracted_uinode.material;
+
+                        let new_batch = UiMaterialBatch {
+                            range: index..index,
+                            material: extracted_uinode.material,
+                        };
+
+                        batches.push((item.entity, new_batch));
+
+                        existing_batch = batches.last_mut();
+                    } else {
+                        continue;
+                    }
+
+                    let uinode_rect = extracted_uinode.rect;
+
+                    let rect_size = uinode_rect.size().extend(1.0);
+
+                    let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
+                        (extracted_uinode.transform * (pos * rect_size).extend(1.0)).xyz()
+                    });
+
+                    let positions_diff = if let Some(clip) = extracted_uinode.clip {
+                        [
+                            Vec2::new(
+                                f32::max(clip.min.x - positions[0].x, 0.),
+                                f32::max(clip.min.y - positions[0].y, 0.),
+                            ),
+                            Vec2::new(
+                                f32::min(clip.max.x - positions[1].x, 0.),
+                                f32::max(clip.min.y - positions[1].y, 0.),
+                            ),
+                            Vec2::new(
+                                f32::min(clip.max.x - positions[2].x, 0.),
+                                f32::min(clip.max.y - positions[2].y, 0.),
+                            ),
+                            Vec2::new(
+                                f32::max(clip.min.x - positions[3].x, 0.),
+                                f32::min(clip.max.y - positions[3].y, 0.),
+                            ),
+                        ]
+                    } else {
+                        [Vec2::ZERO; 4]
+                    };
+
+                    let positions_clipped = [
+                        positions[0] + positions_diff[0].extend(0.),
+                        positions[1] + positions_diff[1].extend(0.),
+                        positions[2] + positions_diff[2].extend(0.),
+                        positions[3] + positions_diff[3].extend(0.),
+                    ];
+
+                    let transformed_rect_size =
+                        extracted_uinode.transform.transform_vector3(rect_size);
+
+                    // Don't try to cull nodes that have a rotation
+                    // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
+                    // In those two cases, the culling check can proceed normally as corners will be on
+                    // horizontal / vertical lines
+                    // For all other angles, bypass the culling check
+                    // This does not properly handles all rotations on all axis
+                    if extracted_uinode.transform.x_axis[1] == 0.0 {
+                        // Cull nodes that are completely clipped
+                        if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
+                            || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
+                        {
+                            continue;
+                        }
+                    }
+                    let uvs = [
+                        Vec2::new(
+                            uinode_rect.min.x + positions_diff[0].x,
+                            uinode_rect.min.y + positions_diff[0].y,
+                        ),
+                        Vec2::new(
+                            uinode_rect.max.x + positions_diff[1].x,
+                            uinode_rect.min.y + positions_diff[1].y,
+                        ),
+                        Vec2::new(
+                            uinode_rect.max.x + positions_diff[2].x,
+                            uinode_rect.max.y + positions_diff[2].y,
+                        ),
+                        Vec2::new(
+                            uinode_rect.min.x + positions_diff[3].x,
+                            uinode_rect.max.y + positions_diff[3].y,
+                        ),
+                    ]
+                    .map(|pos| pos / uinode_rect.max);
+                    for i in QUAD_INDICES {
+                        ui_meta.vertices.push(UiMaterialVertex {
+                            position: positions_clipped[i].into(),
+                            uv: uvs[i].into(),
+                            color: Color::WHITE.as_linear_rgba_f32(),
+                        });
+                    }
+                    index += QUAD_INDICES.len() as u32;
+                    existing_batch.unwrap().1.range.end = index;
+                    ui_phase.items[batch_item_index].batch_size += 1;
+                } else {
+                    batch_shader_handle = AssetId::invalid();
                 }
             }
         }
+        ui_meta.vertices.write_buffer(&render_device, &render_queue);
+        *previous_len = batches.len();
+        commands.insert_or_spawn_batch(batches);
     }
-
-    //  let mut start = 0;
-    //  let mut end = 0;
-    //  for (_, extracted_uinode) in extracted_uinodes.uinodes.drain(..) {
-    //      let uinode_rect = extracted_uinode.rect;
-    //
-    //      let rect_size = uinode_rect.size().extend(1.0);
-    //
-    //      let positions = QUAD_VERTEX_POSITIONS
-    //          .map(|pos| (extracted_uinode.transform * (pos * rect_size).extend(1.)).xyz());
-    //
-    //      let positions_diff = if let Some(clip) = extracted_uinode.clip {
-    //          [
-    //              Vec2::new(
-    //                  f32::max(clip.min.x - positions[0].x, 0.),
-    //                  f32::max(clip.min.y - positions[0].y, 0.),
-    //              ),
-    //              Vec2::new(
-    //                  f32::min(clip.max.x - positions[1].x, 0.),
-    //                  f32::max(clip.min.y - positions[1].y, 0.),
-    //              ),
-    //              Vec2::new(
-    //                  f32::min(clip.max.x - positions[2].x, 0.),
-    //                  f32::min(clip.max.y - positions[2].y, 0.),
-    //              ),
-    //              Vec2::new(
-    //                  f32::max(clip.min.x - positions[3].x, 0.),
-    //                  f32::min(clip.max.y - positions[3].y, 0.),
-    //              ),
-    //          ]
-    //      } else {
-    //          [Vec2::ZERO; 4]
-    //      };
-    //
-    //      let positions_clipped = [
-    //          positions[0] + positions_diff[0].extend(0.),
-    //          positions[1] + positions_diff[1].extend(0.),
-    //          positions[2] + positions_diff[2].extend(0.),
-    //          positions[3] + positions_diff[3].extend(0.),
-    //      ];
-    //
-    //      let transformed_rect_size = extracted_uinode.transform.transform_vector3(rect_size);
-    //
-    //      if extracted_uinode.transform.x_axis[1] == 0.0
-    //          && positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-    //          || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
-    //      {
-    //          continue;
-    //      }
-    //      let extent = uinode_rect.max;
-    //      let uvs = [
-    //          Vec2::new(
-    //              uinode_rect.min.x + positions_diff[0].x,
-    //              uinode_rect.min.y + positions_diff[0].y,
-    //          ),
-    //          Vec2::new(
-    //              uinode_rect.max.x + positions_diff[1].x,
-    //              uinode_rect.min.y + positions_diff[1].y,
-    //          ),
-    //          Vec2::new(
-    //              uinode_rect.max.x + positions_diff[2].x,
-    //              uinode_rect.max.y + positions_diff[2].y,
-    //          ),
-    //          Vec2::new(
-    //              uinode_rect.min.x + positions_diff[3].x,
-    //              uinode_rect.max.y + positions_diff[3].y,
-    //          ),
-    //      ]
-    //      .map(|pos| pos / extent);
-    //
-    //      for i in QUAD_INDICES {
-    //          ui_meta.vertices.push(UiMaterialVertex {
-    //              position: positions_clipped[i].into(),
-    //              uv: uvs[i].into(),
-    //              color: Color::WHITE.into(),
-    //          });
-    //      }
-    //      end += QUAD_INDICES.len() as u32;
-    //      commands.spawn(UiMaterialBatch {
-    //          range: start..end,
-    //          material: extracted_uinode.material,
-    //          z: extracted_uinode.stack_index as u32,
-    //      });
-    //      start = end;
-    //  }
-    ui_meta.vertices.write_buffer(&render_device, &render_queue);
-
     extracted_uinodes.uinodes.clear();
 }
 
@@ -694,52 +710,83 @@ fn prepare_ui_material<M: UiMaterial>(
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_ui_material_nodes<M: UiMaterial>(
+    extracted_uinodes: Res<ExtractedUiMaterialNodes<M>>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
-    render_device: Res<RenderDevice>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
-    mut ui_meta: ResMut<UiMaterialMeta<M>>,
-    view_uniforms: Res<ViewUniforms>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiMaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     render_materials: Res<RenderUiMaterials<M>>,
-    ui_batches: Query<(Entity, &UiMaterialBatch<M>)>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    if ui_batches.is_empty() {
-        return;
+    let draw_function = draw_functions.read().id::<DrawUiMaterial<M>>();
+
+    for (entity, extraced_uinode) in extracted_uinodes.uinodes.iter() {
+        let material = render_materials.get(&extraced_uinode.material).unwrap();
+        for (view, mut transparent_phase) in &mut views {
+            let pipeline = pipelines.specialize(
+                &pipeline_cache,
+                &ui_material_pipeline,
+                UiMaterialKey {
+                    hdr: view.hdr,
+                    bind_group_data: material.key.clone(),
+                },
+            );
+            transparent_phase
+                .items
+                .reserve(extracted_uinodes.uinodes.len());
+            transparent_phase.add(TransparentUi {
+                draw_function,
+                pipeline,
+                entity: *entity,
+                sort_key: FloatOrd(extraced_uinode.stack_index as f32),
+                batch_size: 0,
+            })
+        }
+    }
+}
+
+pub struct TransparentMaterialUi {
+    pub sort_key: FloatOrd,
+    pub entity: Entity,
+    pub pipeline: CachedRenderPipelineId,
+    pub draw_function: DrawFunctionId,
+    pub batch_size: usize,
+}
+
+impl PhaseItem for TransparentMaterialUi {
+    type SortKey = FloatOrd;
+
+    #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
     }
 
-    //if let Some(view_binding) = view_uniforms.uniforms.binding() {
-    //    ui_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
-    //        entries: &[BindGroupEntry {
-    //            binding: 0,
-    //            resource: view_binding,
-    //        }],
-    //        label: Some("ui_view_bind_group"),
-    //        layout: &ui_material_pipeline.view_layout,
-    //    }));
-    //    let draw_ui_function = draw_functions.read().id::<DrawUiMaterial<M>>();
-    //    for (view, mut transparent_phase) in &mut views {
-    //        for (entity, batch) in &ui_batches {
-    //            if let Some(material) = render_materials.get(&batch.material) {
-    //                let pipeline = pipelines.specialize(
-    //                    &pipeline_cache,
-    //                    &ui_material_pipeline,
-    //                    UiMaterialKey {
-    //                        hdr: view.hdr,
-    //                        bind_group_data: material.key.clone(),
-    //                    },
-    //                );
-    //                transparent_phase.add(TransparentUi {
-    //                    sort_key: FloatOrd((batch.z as i16).into()),
-    //                    entity,
-    //                    pipeline,
-    //                    draw_function: draw_ui_function,
-    //                });
-    //            }
-    //        }
-    //    }
-    //}
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        self.sort_key
+    }
+
+    #[inline]
+    fn draw_function(&self) -> DrawFunctionId {
+        self.draw_function
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        items.sort_by_key(|item| item.sort_key());
+    }
+
+    #[inline]
+    fn batch_size(&self) -> usize {
+        self.batch_size
+    }
+}
+
+impl CachedRenderPipelinePhaseItem for TransparentMaterialUi {
+    #[inline]
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
+        self.pipeline
+    }
 }
