@@ -1171,10 +1171,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     #[inline]
     #[track_caller]
     pub fn component_mut<T: Component>(&mut self, entity: Entity) -> Mut<'_, T> {
-        // SAFETY: unique access to query (preventing aliased access)
-        let result = unsafe { self.get_component_unchecked_mut(entity) };
-
-        match result {
+        match self.get_component_mut(entity) {
             Ok(component) => component,
             Err(error) => {
                 panic!(
