@@ -1,40 +1,40 @@
-use crate::{
-    render_phase::{CachedRenderPipelinePhaseItem, PhaseItem, RenderPhase},
-    render_resource::{GpuArrayBufferIndex, GpuArrayBufferable},
-};
+use nonmax::NonMaxU32;
 
-struct BatchState<T: BatchMeta<T>, D: GpuArrayBufferable> {
+use crate::render_phase::{CachedRenderPipelinePhaseItem, PhaseItem, RenderPhase};
+
+struct BatchState<T: BatchMeta<T>> {
     meta: Option<T>,
     /// The base index in the object data binding's array
-    gpu_array_buffer_index: GpuArrayBufferIndex<D>,
+    index: Option<NonMaxU32>,
+    /// The dynamic offset of the data binding
+    dynamic_offset: Option<NonMaxU32>,
     /// The number of entities in the batch
     count: u32,
     item_index: usize,
 }
 
-impl<T: BatchMeta<T>, D: GpuArrayBufferable> Default for BatchState<T, D> {
+impl<T: BatchMeta<T>> Default for BatchState<T> {
     fn default() -> Self {
         Self {
             meta: Default::default(),
-            gpu_array_buffer_index: Default::default(),
+            index: Default::default(),
+            dynamic_offset: Default::default(),
             count: Default::default(),
             item_index: Default::default(),
         }
     }
 }
 
-fn update_batch_data<I: PhaseItem, T: BatchMeta<T>, D: GpuArrayBufferable>(
-    item: &mut I,
-    batch: &BatchState<T, D>,
-) {
+fn update_batch_data<I: PhaseItem, T: BatchMeta<T>>(item: &mut I, batch: &BatchState<T>) {
     let BatchState {
         count,
-        gpu_array_buffer_index,
+        index,
+        dynamic_offset,
         ..
     } = batch;
-    let index = gpu_array_buffer_index.index.map_or(0, |index| index.get());
+    let index = index.map_or(0, |index| index.get());
     *item.batch_range_mut() = index..(index + *count);
-    *item.dynamic_offset_mut() = gpu_array_buffer_index.dynamic_offset;
+    *item.dynamic_offset_mut() = *dynamic_offset;
 }
 
 pub trait BatchMeta<T: BatchMeta<T>> {
@@ -45,16 +45,15 @@ pub trait BatchMeta<T: BatchMeta<T>> {
 /// and trying to combine the draws into a batch.
 pub fn batch_render_phase<
     I: CachedRenderPipelinePhaseItem,
-    T: BatchMeta<T>,       // Batch metadata used for distinguishing batches
-    D: GpuArrayBufferable, // Per-instance data
+    T: BatchMeta<T>, // Batch metadata used for distinguishing batches
 >(
     phase: &mut RenderPhase<I>,
-    mut get_batch_meta: impl FnMut(&I) -> Option<(T, GpuArrayBufferIndex<D>)>,
+    mut get_batch_meta: impl FnMut(&I) -> Option<(T, Option<NonMaxU32>, Option<NonMaxU32>)>,
 ) {
-    let mut batch = BatchState::<T, D>::default();
+    let mut batch = BatchState::<T>::default();
     for i in 0..phase.items.len() {
         let item = &phase.items[i];
-        let Some((batch_meta, gpu_array_buffer_index)) = get_batch_meta(item) else {
+        let Some((batch_meta, index, dynamic_offset)) = get_batch_meta(item) else {
             // It is necessary to start a new batch if an entity not matching the query is
             // encountered. This can be achieved by resetting the batch meta.
             batch.meta = None;
@@ -70,7 +69,8 @@ pub fn batch_render_phase<
             }
 
             batch.meta = Some(batch_meta);
-            batch.gpu_array_buffer_index = gpu_array_buffer_index;
+            batch.index = index;
+            batch.dynamic_offset = dynamic_offset;
             batch.count = 0;
             batch.item_index = i;
         }

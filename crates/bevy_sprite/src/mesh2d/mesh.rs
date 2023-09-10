@@ -301,7 +301,8 @@ pub fn prepare_and_batch_meshes2d(
                     mesh_asset_id: mesh_handle.0.id(),
                     dynamic_offset: gpu_array_buffer_index.dynamic_offset,
                 },
-                gpu_array_buffer_index,
+                gpu_array_buffer_index.index,
+                gpu_array_buffer_index.dynamic_offset,
             ))
         });
     }

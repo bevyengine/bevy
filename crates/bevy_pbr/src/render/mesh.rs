@@ -453,7 +453,8 @@ pub fn prepare_and_batch_meshes(
                 mesh_flags: mesh_transforms.flags,
                 dynamic_offset: gpu_array_buffer_index.dynamic_offset,
             },
-            gpu_array_buffer_index,
+            gpu_array_buffer_index.index,
+            gpu_array_buffer_index.dynamic_offset,
         ))
     };
 
