@@ -6,7 +6,7 @@ use std::ops::Deref;
 use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
 #[cfg(feature = "bevy_reflect")]
-use crate::reflect::ReflectResource;
+use crate::reflect::{ReflectDefault, ReflectResource};
 use crate::schedule::ScheduleLabel;
 use crate::system::Resource;
 use crate::world::World;
@@ -80,7 +80,7 @@ pub struct OnTransition<S: States> {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
-    reflect(Resource)
+    reflect(Resource, Default)
 )]
 pub struct State<S: States>(S);
 
@@ -121,7 +121,7 @@ impl<S: States> Deref for State<S> {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
-    reflect(Resource)
+    reflect(Resource, Default)
 )]
 pub struct NextState<S: States>(pub Option<S>);
 
