@@ -143,7 +143,8 @@ fn perspective_camera_near() -> f32 {
     return view_bindings::view.projection[3][2];
 }
 
-/// Convert ndc depth to linear view z.
+/// Convert ndc depth to linear view z. 
+/// Note: Depth values in front of the camera will be negative as -z is forward
 fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
 #ifdef VIEW_PROJECTION_PERSPECTIVE
     return -perspective_camera_near() / ndc_depth;
@@ -158,6 +159,7 @@ fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
 }
 
 /// Convert linear view z to ndc depth. 
+/// Note: View z input should be negative for values in front of the camera as -z is forward
 fn view_z_to_depth_ndc(view_z: f32) -> f32 {
 #ifdef VIEW_PROJECTION_PERSPECTIVE
     return -perspective_camera_near() / view_z;
