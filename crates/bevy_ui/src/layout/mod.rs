@@ -18,7 +18,7 @@ use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
-use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy, tree::LayoutTree};
+use taffy::{prelude::Size, style_helpers::TaffyMaxContent, tree::LayoutTree, Taffy};
 
 pub struct LayoutContext {
     pub scale_factor: f64,
@@ -164,38 +164,42 @@ without UI components as a child of an entity with UI components, results may be
         &mut self,
         parent_window: Entity,
         children: impl Iterator<Item = Entity>,
-    ) {        
+    ) {
         let taffy_parent = *self.window_nodes.get(&parent_window).unwrap();
 
-       
         if let Ok(mut taffy_window_children) = self.taffy.children(taffy_parent) {
             let new_taffy_window_children = children
-            .map(|e| {
-                let t = *self.entity_to_taffy.get(&e).unwrap();
-                if let Ok(c) = self.taffy.children(taffy_parent) {
-                    if !c.contains(&t) {
-                        println!("new window child: {e:?}");
+                .map(|e| {
+                    let t = *self.entity_to_taffy.get(&e).unwrap();
+                    if let Ok(c) = self.taffy.children(taffy_parent) {
+                        if !c.contains(&t) {
+                            println!("new window child: {e:?}");
+                        }
                     }
-                }
-                t
-            }).collect::<Vec<taffy::node::Node>>();
+                    t
+                })
+                .collect::<Vec<taffy::node::Node>>();
             for child in new_taffy_window_children.into_iter() {
                 if !taffy_window_children.contains(&child) {
                     taffy_window_children.push(child);
                 }
             }
-            self.taffy.set_children(taffy_parent, &taffy_window_children).unwrap();
+            self.taffy
+                .set_children(taffy_parent, &taffy_window_children)
+                .unwrap();
         } else {
             // no previous window children
             let new_taffy_window_children = children
-            .map(|e| *self.entity_to_taffy.get(&e).unwrap()).collect::<Vec<_>>();
+                .map(|e| *self.entity_to_taffy.get(&e).unwrap())
+                .collect::<Vec<_>>();
             if !new_taffy_window_children.is_empty() {
                 println!("no previous window children!");
             }
-            self.taffy.set_children(taffy_parent, &new_taffy_window_children).unwrap();
+            self.taffy
+                .set_children(taffy_parent, &new_taffy_window_children)
+                .unwrap();
         }
     }
-
 
     /// Compute the layout for each window entity's corresponding root node in the layout.
     pub fn compute_window_layouts(&mut self) {
@@ -259,17 +263,19 @@ pub fn ui_layout_system(
 ) {
     // when a `Style` component is removed from an entity, remove the corresponding taffy node from the internal taffy layout tree
     // filter in case the `Style` component was immediately replaced
-    ui_surface.remove_entities(removed_styles.iter()
-    .filter(|entity| {
+    ui_surface.remove_entities(removed_styles.iter().filter(|entity| {
         let replaced = style_query.contains(*entity);
         if replaced {
             println!("replaced: {entity:?}");
         }
         !replaced
+    }));
+
+    // when a `ContentSize` component is removed from an entity, remove the measure from the corresponding taffy node
+    for entity in removed_content_sizes.iter() {
+        ui_surface.try_remove_measure(entity);
     }
-)
-);
-    
+
     for (entity, style) in style_query.iter() {
         if style.is_changed() {
             println!("style changed for entity: {entity:?}");
@@ -326,11 +332,6 @@ pub fn ui_layout_system(
         if let Some(measure_func) = content_size.measure_func.take() {
             ui_surface.update_measure(entity, measure_func);
         }
-    }
-
-    // when a `ContentSize` component is removed from an entity, remove the measure from the corresponding taffy node
-    for entity in removed_content_sizes.iter() {
-        ui_surface.try_remove_measure(entity);
     }
 
     // update window children (for now assuming all Nodes live in the primary window)
@@ -391,11 +392,17 @@ pub fn ui_nodes_system(
 
             // only trigger change detection when the new values are different
             if node.calculated_size != new_size {
-                println!("update geom entity: {entity:?}: {} -> size: {new_size}", node.calculated_size);
+                println!(
+                    "update geom entity: {entity:?}: {} -> size: {new_size}",
+                    node.calculated_size
+                );
                 node.calculated_size = new_size;
             }
             if transform.translation.truncate() != new_position {
-                println!("update geom entity: {entity:?}: {} -> position: {new_position}", transform.translation.truncate());
+                println!(
+                    "update geom entity: {entity:?}: {} -> position: {new_position}",
+                    transform.translation.truncate()
+                );
                 transform.translation = new_position.extend(0.);
             }
             if let Ok(children) = children_query.get(entity) {

@@ -128,7 +128,10 @@ pub fn measure_text_system(
     if *last_scale_factor == scale_factor {
         // scale factor unchanged, only create new measure funcs for modified text
         for (text, content_size, text_flags) in text_query.iter_mut() {
-            if text.is_changed() || text_flags.needs_new_measure_func {
+            if text.is_changed() || content_size.is_added() || text_flags.needs_new_measure_func {
+                if content_size.is_added() {
+                    println!("content size added!");
+                }
                 create_text_measure(&fonts, scale_factor, text, content_size, text_flags);
             }
         }
