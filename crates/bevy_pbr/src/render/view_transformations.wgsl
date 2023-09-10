@@ -134,21 +134,50 @@ fn position_view_to_ndc(view_pos: vec3<f32>) -> vec3<f32> {
     return ndc_pos.xyz / ndc_pos.w;
 }
 
+// -----------------
+// DEPTH -----------
+// -----------------
 
 /// Retrieve the camera near clipping plane
 fn camera_near() -> f32 {
     return view_bindings::view.projection[3][2];
 }
 
-/// Convert ndc space depth to linear world space
-fn depth_ndc_to_linear(ndc_depth: f32) -> f32 {
+/// Convert ndc space depth to linear view space. Only for use with perspective projections.
+fn depth_ndc_to_linear_perspective(ndc_depth: f32) -> f32 {
     return camera_near() / ndc_depth;
 }
 
-/// Convert linear space depth to ndc world space
-fn depth_linear_to_ndc(linear_depth: f32) -> f32 {
+/// Convert linear view space depth to ndc space. Only for use with perspective projections.
+fn depth_linear_to_ndc_perspective(linear_depth: f32) -> f32 {
     return camera_near() / linear_depth;
 }
+
+/// Convert ndc space depth to linear view space. Only for use with orthographic projections.
+fn depth_ndc_to_linear_orthographic(ndc_depth: f32) -> f32 {
+    return (view_bindings::view.projection[3][2] - ndc_depth) / view_bindings::view.projection[2][2];
+}
+
+/// Convert linear view space depth to ndc space. Only for use with orthographic projections.
+fn depth_linear_to_ndc_orthographic(linear_depth: f32) -> f32 {
+    return view_bindings::view.projection[3][2] - linear_depth * view_bindings::view.projection[2][2];
+}
+
+/// Convert ndc space depth to linear view space.
+fn depth_ndc_to_linear(ndc_depth: f32) -> f32 {
+    let view_pos = view_bindings::view.inverse_projection * vec4(0.0, 0.0, ndc_depth, 1.0);
+    return -view_pos.z / view_pos.w;
+}
+
+///  Convert linear view space depth to ndc space. 
+fn depth_linear_to_ndc(view_depth: f32) -> f32 {
+    let ndc_pos = view_bindings::view.projection * vec4(0.0, 0.0, view_depth, 1.0);
+    return -ndc_pos.z / ndc_pos.w;
+}
+
+// -----------------
+// UV --------------
+// -----------------
 
 /// Convert ndc space xy coordinate [-1.0 .. 1.0] to uv [0.0 .. 1.0]
 fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
