@@ -115,7 +115,7 @@ pub fn queue_scene_bind_group(
             let transform = transform.compute_matrix();
             transforms.push(transform);
 
-            if material.emissive != Color::BLACK || material.emissive_texture.is_some() {
+            if material.emissive.as_rgba() != Color::BLACK || material.emissive_texture.is_some() {
                 emissive_object_indices.push(object_i as u32);
                 emissive_object_triangle_counts.push(
                     match mesh_assets.get(mesh_handle).unwrap().buffer_info {
