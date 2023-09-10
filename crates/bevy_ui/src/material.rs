@@ -2,14 +2,14 @@ use std::hash::Hash;
 
 use bevy_asset::Asset;
 use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
-/// Materials are used alongside `UiMaterialPlugin` and `MaterialNodeBundle`
+/// Materials are used alongside [`UiMaterialPlugin`](bevy_ui::UiMaterialPipeline<M>) and [`MaterialNodeBundle`](bevy_ui::MaterialNodeBundle)
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
 /// way to render `Node` entities with custom shader logic.
 ///
 /// `UiMaterials` must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
 /// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
 ///
-/// Materials must also implement [`TypeUuid`] so they can be treated as an [`Asset`](bevy_asset::Asset).
+/// Materials must also implement [`Asset`] so they can be treated as such.
 ///
 /// # Example
 ///

@@ -153,6 +153,7 @@ pub struct UiMaterialBatch<M: UiMaterial> {
 #[derive(Component, Default, Clone, Debug)]
 pub struct UiMaterialNode;
 
+/// Render pipeline data for a given [`UiMaterial`]
 #[derive(Resource)]
 pub struct UiMaterialPipeline<M: UiMaterial> {
     pub ui_layout: BindGroupLayout,
@@ -386,11 +387,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     >,
 ) {
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((entity, uinode, transform, handle, view_visibility, clip, _)) =
-            uinode_query.get(*entity)
-        {
-            if !view_visibility.get() {}
-
+        if let Ok((entity, uinode, transform, handle, _, clip, _)) = uinode_query.get(*entity) {
             // Skip loading materials
             if !materials.contains(handle) {
                 continue;
@@ -414,6 +411,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -737,7 +735,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 entity: *entity,
                 sort_key: FloatOrd(extraced_uinode.stack_index as f32),
                 batch_size: 0,
-            })
+            });
         }
     }
 }
