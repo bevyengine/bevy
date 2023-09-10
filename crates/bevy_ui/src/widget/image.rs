@@ -97,7 +97,10 @@ pub fn update_image_content_size_system(
                 texture.texture_descriptor.size.height as f32,
             );
             // Update only if size or scale factor has changed to avoid needless layout calculations
-            if size != image_size.size || combined_scale_factor != *previous_combined_scale_factor  || content_size.is_added() {
+            if size != image_size.size
+                || combined_scale_factor != *previous_combined_scale_factor
+                || content_size.is_added()
+            {
                 image_size.size = size;
                 content_size.set(ImageMeasure {
                     // multiply the image size by the scale factor to get the physical size
@@ -136,7 +139,10 @@ pub fn update_atlas_content_size_system(
         if let Some(atlas) = atlases.get(atlas) {
             let size = atlas.textures[atlas_image.index].size();
             // Update only if size or scale factor has changed to avoid needless layout calculations
-            if size != image_size.size || combined_scale_factor != *previous_combined_scale_factor || content_size.is_added()  {
+            if size != image_size.size
+                || combined_scale_factor != *previous_combined_scale_factor
+                || content_size.is_added()
+            {
                 image_size.size = size;
                 content_size.set(ImageMeasure {
                     // multiply the image size by the scale factor to get the physical size
