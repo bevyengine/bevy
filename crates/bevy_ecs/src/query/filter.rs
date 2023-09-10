@@ -427,8 +427,7 @@ macro_rules! impl_tick_filter {
                     table_ticks: None,
                     sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
                         .then(|| {
-                            world.unsafe_world()
-                                 .storages()
+                            world.storages()
                                  .sparse_sets
                                  .get(id)
                                  .debug_checked_unwrap()

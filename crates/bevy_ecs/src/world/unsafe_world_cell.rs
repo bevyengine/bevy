@@ -185,7 +185,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - must not be used in a way that would conflict with any
     ///   live exclusive borrows on world data
     #[inline]
-    pub(crate) unsafe fn unsafe_world(self) -> &'w World {
+    unsafe fn unsafe_world(self) -> &'w World {
         // SAFETY:
         // - caller ensures that the returned `&World` is not used in a way that would conflict
         //   with any existing mutable borrows of world data
