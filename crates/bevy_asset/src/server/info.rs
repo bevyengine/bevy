@@ -141,7 +141,7 @@ impl AssetInfos {
         if watching_for_changes {
             if let Some(path) = &path {
                 let mut without_label = path.to_owned();
-                if let Some(label) = without_label.remove_label() {
+                if let Some(label) = without_label.take_label() {
                     let labels = living_labeled_assets.entry(without_label).or_default();
                     labels.insert(label.to_string());
                 }
