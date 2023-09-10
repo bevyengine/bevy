@@ -144,8 +144,8 @@ pub mod error;
 pub mod parse_imports;
 pub mod preprocess;
 mod test;
-pub mod util;
 pub mod tokenizer;
+pub mod util;
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug, Default)]
 pub enum ShaderLanguage {
