@@ -171,8 +171,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                ui_layout_system
-                    .in_set(UiSystem::Layout),
+                ui_layout_system.in_set(UiSystem::Layout),
                 ui_nodes_system
                     .in_set(UiSystem::Nodes)
                     .after(UiSystem::Layout)
