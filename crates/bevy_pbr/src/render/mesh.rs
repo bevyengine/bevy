@@ -21,6 +21,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Affine3A, Mat4, Vec2, Vec3Swizzles, Vec4};
 use bevy_render::{
+    batching::{process_phase, BatchMeta},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -122,7 +123,7 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        prepare_mesh_uniforms.in_set(RenderSet::PrepareResources),
+                        prepare_and_batch_meshes.in_set(RenderSet::PrepareResources),
                         prepare_skinned_meshes.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
                         prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
@@ -393,7 +394,7 @@ pub fn extract_skinned_meshes(
 ///   data across separate uniform bindings within the same buffer due to the
 ///   maximum uniform buffer binding size.
 #[derive(PartialEq, Eq)]
-struct BatchMeta<'mat, 'mesh> {
+struct BatchMeta3d {
     /// The pipeline id encompasses all pipeline configuration including vertex
     /// buffers and layouts, shaders and their specializations, bind group
     /// layouts, etc.
@@ -401,104 +402,26 @@ struct BatchMeta<'mat, 'mesh> {
     /// The draw function id defines the RenderCommands that are called to
     /// set the pipeline and bindings, and make the draw command
     draw_function_id: DrawFunctionId,
-    /// The material binding meta includes the material bind group id and
-    /// dynamic offsets.
-    material_bind_group_id: Option<&'mat MaterialBindGroupId>,
-    mesh_handle: &'mesh Handle<Mesh>,
+    material_bind_group_id: Option<MaterialBindGroupId>,
+    mesh_asset_id: AssetId<Mesh>,
     mesh_flags: u32,
     dynamic_offset: Option<NonMaxU32>,
 }
 
-impl<'mat, 'mesh> BatchMeta<'mat, 'mesh> {
+impl BatchMeta<BatchMeta3d> for BatchMeta3d {
     #[inline]
-    fn matches(&self, other: &BatchMeta<'mat, 'mesh>) -> bool {
+    fn matches(&self, other: &BatchMeta3d) -> bool {
         self.pipeline_id == other.pipeline_id
             && self.draw_function_id == other.draw_function_id
-            && self.mesh_handle == other.mesh_handle
+            && self.mesh_asset_id == other.mesh_asset_id
             && (self.mesh_flags & (MeshFlags::SKINNED | MeshFlags::MORPH_TARGETS).bits()) == 0
             && self.dynamic_offset == other.dynamic_offset
             && self.material_bind_group_id == other.material_bind_group_id
     }
 }
 
-#[derive(Default)]
-struct BatchState<'mat, 'mesh> {
-    meta: Option<BatchMeta<'mat, 'mesh>>,
-    /// The base index in the object data binding's array
-    gpu_array_buffer_index: GpuArrayBufferIndex<MeshUniform>,
-    /// The number of entities in the batch
-    count: u32,
-    item_index: usize,
-}
-
-fn update_batch_data<I: PhaseItem>(item: &mut I, batch: &BatchState) {
-    let BatchState {
-        count,
-        gpu_array_buffer_index,
-        ..
-    } = batch;
-    *item.batch_range_mut() = gpu_array_buffer_index.index..(gpu_array_buffer_index.index + *count);
-    *item.dynamic_offset_mut() = gpu_array_buffer_index.dynamic_offset;
-}
-
-fn process_phase<I: CachedRenderPipelinePhaseItem>(
-    object_data_buffer: &mut GpuArrayBuffer<MeshUniform>,
-    object_query: &ObjectQuery,
-    phase: &mut RenderPhase<I>,
-) {
-    let mut batch = BatchState::default();
-    for i in 0..phase.items.len() {
-        let item = &mut phase.items[i];
-        let Ok((material_bind_group_id, mesh_handle, mesh_transforms)) =
-            object_query.get(item.entity())
-        else {
-            // It is necessary to start a new batch if an entity not matching the query is
-            // encountered. This can be achieved by resetting the batch meta.
-            batch.meta = None;
-            continue;
-        };
-        let gpu_array_buffer_index = object_data_buffer.push(MeshUniform::from(mesh_transforms));
-        let batch_meta = BatchMeta {
-            pipeline_id: item.cached_pipeline(),
-            draw_function_id: item.draw_function(),
-            material_bind_group_id,
-            mesh_handle,
-            mesh_flags: mesh_transforms.flags,
-            dynamic_offset: gpu_array_buffer_index.dynamic_offset,
-        };
-        if !batch
-            .meta
-            .as_ref()
-            .map_or(false, |meta| meta.matches(&batch_meta))
-        {
-            if batch.count > 0 {
-                update_batch_data(&mut phase.items[batch.item_index], &batch);
-            }
-
-            batch.meta = Some(batch_meta);
-            batch.gpu_array_buffer_index = gpu_array_buffer_index;
-            batch.count = 0;
-            batch.item_index = i;
-        }
-        batch.count += 1;
-    }
-    if !phase.items.is_empty() && batch.count > 0 {
-        update_batch_data(&mut phase.items[batch.item_index], &batch);
-    }
-}
-
-type ObjectQuery<'w, 's, 'mat, 'mesh, 'data> = Query<
-    'w,
-    's,
-    (
-        Option<&'mat MaterialBindGroupId>,
-        &'mesh Handle<Mesh>,
-        &'data MeshTransforms,
-    ),
->;
-
 #[allow(clippy::too_many_arguments)]
-pub fn prepare_mesh_uniforms(
+pub fn prepare_and_batch_meshes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     gpu_array_buffer: ResMut<GpuArrayBuffer<MeshUniform>>,
@@ -510,7 +433,7 @@ pub fn prepare_mesh_uniforms(
         &mut RenderPhase<Transparent3d>,
     )>,
     mut shadow_views: Query<&mut RenderPhase<Shadow>>,
-    meshes: ObjectQuery,
+    meshes: Query<(Option<&MaterialBindGroupId>, &Handle<Mesh>, &MeshTransforms)>,
 ) {
     let gpu_array_buffer = gpu_array_buffer.into_inner();
 
@@ -525,22 +448,126 @@ pub fn prepare_mesh_uniforms(
     ) in &mut views
     {
         if let Some(opaque_prepass_phase) = opaque_prepass_phase {
-            process_phase(gpu_array_buffer, &meshes, opaque_prepass_phase.into_inner());
+            process_phase(opaque_prepass_phase.into_inner(), |item| {
+                let Ok((material_bind_group_id, mesh_handle, mesh_transforms)) =
+                    meshes.get(item.entity())
+                else {
+                    return None;
+                };
+                let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
+                Some((
+                    BatchMeta3d {
+                        pipeline_id: item.cached_pipeline(),
+                        draw_function_id: item.draw_function(),
+                        material_bind_group_id: material_bind_group_id.cloned(),
+                        mesh_asset_id: mesh_handle.id(),
+                        mesh_flags: mesh_transforms.flags,
+                        dynamic_offset: gpu_array_buffer_index.dynamic_offset,
+                    },
+                    gpu_array_buffer_index,
+                ))
+            });
         }
         if let Some(alpha_mask_prepass_phase) = alpha_mask_prepass_phase {
-            process_phase(
-                gpu_array_buffer,
-                &meshes,
-                alpha_mask_prepass_phase.into_inner(),
-            );
+            process_phase(alpha_mask_prepass_phase.into_inner(), |item| {
+                let Ok((material_bind_group_id, mesh_handle, mesh_transforms)) =
+                    meshes.get(item.entity())
+                else {
+                    return None;
+                };
+                let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
+                Some((
+                    BatchMeta3d {
+                        pipeline_id: item.cached_pipeline(),
+                        draw_function_id: item.draw_function(),
+                        material_bind_group_id: material_bind_group_id.cloned(),
+                        mesh_asset_id: mesh_handle.id(),
+                        mesh_flags: mesh_transforms.flags,
+                        dynamic_offset: gpu_array_buffer_index.dynamic_offset,
+                    },
+                    gpu_array_buffer_index,
+                ))
+            });
         }
-        process_phase(gpu_array_buffer, &meshes, opaque_phase.into_inner());
-        process_phase(gpu_array_buffer, &meshes, alpha_mask_phase.into_inner());
-        process_phase(gpu_array_buffer, &meshes, transparent_phase.into_inner());
+        process_phase(opaque_phase.into_inner(), |item| {
+            let Ok((material_bind_group_id, mesh_handle, mesh_transforms)) =
+                meshes.get(item.entity())
+            else {
+                return None;
+            };
+            let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
+            Some((
+                BatchMeta3d {
+                    pipeline_id: item.cached_pipeline(),
+                    draw_function_id: item.draw_function(),
+                    material_bind_group_id: material_bind_group_id.cloned(),
+                    mesh_asset_id: mesh_handle.id(),
+                    mesh_flags: mesh_transforms.flags,
+                    dynamic_offset: gpu_array_buffer_index.dynamic_offset,
+                },
+                gpu_array_buffer_index,
+            ))
+        });
+        process_phase(alpha_mask_phase.into_inner(), |item| {
+            let Ok((material_bind_group_id, mesh_handle, mesh_transforms)) =
+                meshes.get(item.entity())
+            else {
+                return None;
+            };
+            let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
+            Some((
+                BatchMeta3d {
+                    pipeline_id: item.cached_pipeline(),
+                    draw_function_id: item.draw_function(),
+                    material_bind_group_id: material_bind_group_id.cloned(),
+                    mesh_asset_id: mesh_handle.id(),
+                    mesh_flags: mesh_transforms.flags,
+                    dynamic_offset: gpu_array_buffer_index.dynamic_offset,
+                },
+                gpu_array_buffer_index,
+            ))
+        });
+        process_phase(transparent_phase.into_inner(), |item| {
+            let Ok((material_bind_group_id, mesh_handle, mesh_transforms)) =
+                meshes.get(item.entity())
+            else {
+                return None;
+            };
+            let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
+            Some((
+                BatchMeta3d {
+                    pipeline_id: item.cached_pipeline(),
+                    draw_function_id: item.draw_function(),
+                    material_bind_group_id: material_bind_group_id.cloned(),
+                    mesh_asset_id: mesh_handle.id(),
+                    mesh_flags: mesh_transforms.flags,
+                    dynamic_offset: gpu_array_buffer_index.dynamic_offset,
+                },
+                gpu_array_buffer_index,
+            ))
+        });
     }
 
     for shadow_phase in &mut shadow_views {
-        process_phase(gpu_array_buffer, &meshes, shadow_phase.into_inner());
+        process_phase(shadow_phase.into_inner(), |item| {
+            let Ok((material_bind_group_id, mesh_handle, mesh_transforms)) =
+                meshes.get(item.entity())
+            else {
+                return None;
+            };
+            let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
+            Some((
+                BatchMeta3d {
+                    pipeline_id: item.cached_pipeline(),
+                    draw_function_id: item.draw_function(),
+                    material_bind_group_id: material_bind_group_id.cloned(),
+                    mesh_asset_id: mesh_handle.id(),
+                    mesh_flags: mesh_transforms.flags,
+                    dynamic_offset: gpu_array_buffer_index.dynamic_offset,
+                },
+                gpu_array_buffer_index,
+            ))
+        });
     }
 
     gpu_array_buffer.write_buffer(&render_device, &render_queue);

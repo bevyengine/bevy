@@ -1,5 +1,5 @@
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, AssetId, Handle};
 
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{
@@ -10,6 +10,7 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Affine3A, Vec2, Vec3Swizzles, Vec4};
 use bevy_reflect::Reflect;
 use bevy_render::{
+    batching::{process_phase, BatchMeta},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
@@ -97,7 +98,7 @@ impl Plugin for Mesh2dRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        prepare_mesh2d_uniforms.in_set(RenderSet::PrepareResources),
+                        prepare_and_batch_meshes2d.in_set(RenderSet::PrepareResources),
                         prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
                         prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                     ),
@@ -241,7 +242,7 @@ pub fn extract_mesh2d(
 ///   data across separate uniform bindings within the same buffer due to the
 ///   maximum uniform buffer binding size.
 #[derive(PartialEq, Eq)]
-struct BatchMeta<'mat, 'mesh> {
+struct BatchMeta2d {
     /// The pipeline id encompasses all pipeline configuration including vertex
     /// buffers and layouts, shaders and their specializations, bind group
     /// layouts, etc.
@@ -249,105 +250,32 @@ struct BatchMeta<'mat, 'mesh> {
     /// The draw function id defines the RenderCommands that are called to
     /// set the pipeline and bindings, and make the draw command
     draw_function_id: DrawFunctionId,
-    /// The material binding meta includes the material bind group id and
-    /// dynamic offsets.
-    material2d_bind_group: Option<&'mat Material2dBindGroupId>,
-    mesh_handle: &'mesh Mesh2dHandle,
+    material2d_bind_group_id: Option<Material2dBindGroupId>,
+    mesh_asset_id: AssetId<Mesh>,
     dynamic_offset: Option<NonMaxU32>,
 }
 
-impl<'mat, 'mesh> BatchMeta<'mat, 'mesh> {
-    fn matches(&self, other: &BatchMeta<'mat, 'mesh>) -> bool {
+impl BatchMeta<BatchMeta2d> for BatchMeta2d {
+    fn matches(&self, other: &BatchMeta2d) -> bool {
         self.pipeline_id == other.pipeline_id
             && self.draw_function_id == other.draw_function_id
-            && self.mesh_handle == other.mesh_handle
+            && self.mesh_asset_id == other.mesh_asset_id
             && self.dynamic_offset == other.dynamic_offset
-            && self.material2d_bind_group == other.material2d_bind_group
+            && self.material2d_bind_group_id == other.material2d_bind_group_id
     }
 }
-
-#[derive(Default)]
-struct BatchState<'mat, 'mesh> {
-    meta: Option<BatchMeta<'mat, 'mesh>>,
-    /// The base index in the object data binding's array
-    gpu_array_buffer_index: GpuArrayBufferIndex<Mesh2dUniform>,
-    /// The number of entities in the batch
-    count: u32,
-    item_index: usize,
-}
-
-fn update_batch_data<I: PhaseItem>(item: &mut I, batch: &BatchState) {
-    let BatchState {
-        count,
-        gpu_array_buffer_index,
-        ..
-    } = batch;
-    *item.batch_range_mut() = gpu_array_buffer_index.index..(gpu_array_buffer_index.index + *count);
-    *item.dynamic_offset_mut() = gpu_array_buffer_index.dynamic_offset;
-}
-
-fn process_phase<I: CachedRenderPipelinePhaseItem>(
-    object_data_buffer: &mut GpuArrayBuffer<Mesh2dUniform>,
-    object_query: &ObjectQuery,
-    phase: &mut RenderPhase<I>,
-) {
-    let mut batch = BatchState::default();
-    for i in 0..phase.items.len() {
-        let item = &mut phase.items[i];
-        let Ok((material2d_bind_group, mesh_handle, mesh_transforms)) =
-            object_query.get(item.entity())
-        else {
-            // It is necessary to start a new batch if an entity not matching the query is
-            // encountered. This can be achieved by resetting the batch meta.
-            batch.meta = None;
-            continue;
-        };
-        let gpu_array_buffer_index = object_data_buffer.push(Mesh2dUniform::from(mesh_transforms));
-        let batch_meta = BatchMeta {
-            pipeline_id: item.cached_pipeline(),
-            draw_function_id: item.draw_function(),
-            material2d_bind_group,
-            mesh_handle,
-            dynamic_offset: gpu_array_buffer_index.dynamic_offset,
-        };
-        if !batch
-            .meta
-            .as_ref()
-            .map_or(false, |meta| meta.matches(&batch_meta))
-        {
-            if batch.count > 0 {
-                update_batch_data(&mut phase.items[batch.item_index], &batch);
-            }
-
-            batch.meta = Some(batch_meta);
-            batch.gpu_array_buffer_index = gpu_array_buffer_index;
-            batch.count = 0;
-            batch.item_index = i;
-        }
-        batch.count += 1;
-    }
-    if !phase.items.is_empty() && batch.count > 0 {
-        update_batch_data(&mut phase.items[batch.item_index], &batch);
-    }
-}
-
-type ObjectQuery<'w, 's, 'mat, 'mesh, 'data> = Query<
-    'w,
-    's,
-    (
-        Option<&'mat Material2dBindGroupId>,
-        &'mesh Mesh2dHandle,
-        &'data Mesh2dTransforms,
-    ),
->;
 
 #[allow(clippy::too_many_arguments)]
-pub fn prepare_mesh2d_uniforms(
+pub fn prepare_and_batch_meshes2d(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     gpu_array_buffer: ResMut<GpuArrayBuffer<Mesh2dUniform>>,
     mut views: Query<&mut RenderPhase<Transparent2d>>,
-    meshes: ObjectQuery,
+    meshes: Query<(
+        Option<&Material2dBindGroupId>,
+        &Mesh2dHandle,
+        &Mesh2dTransforms,
+    )>,
 ) {
     if meshes.is_empty() {
         return;
@@ -358,7 +286,24 @@ pub fn prepare_mesh2d_uniforms(
     gpu_array_buffer.clear();
 
     for transparent_phase in &mut views {
-        process_phase(gpu_array_buffer, &meshes, transparent_phase.into_inner());
+        process_phase(transparent_phase.into_inner(), |item| {
+            let Ok((material2d_bind_group_id, mesh_handle, mesh_transforms)) =
+                meshes.get(item.entity())
+            else {
+                return None;
+            };
+            let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
+            Some((
+                BatchMeta2d {
+                    pipeline_id: item.cached_pipeline(),
+                    draw_function_id: item.draw_function(),
+                    material2d_bind_group_id: material2d_bind_group_id.cloned(),
+                    mesh_asset_id: mesh_handle.0.id(),
+                    dynamic_offset: gpu_array_buffer_index.dynamic_offset,
+                },
+                gpu_array_buffer_index,
+            ))
+        });
     }
 
     gpu_array_buffer.write_buffer(&render_device, &render_queue);
