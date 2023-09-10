@@ -219,11 +219,11 @@ fn spawn_left_panel(commands: &mut Commands, palette: &[Color; 4]) -> (Entity, V
 
     // build all
     let mut parent_node = frame;
-    for i in 0..4 {
+    for (i, &color) in palette.iter().enumerate() {
         // create a square of the right size, that will affect the corresponding square on the left panel
         let width = 500. - i as f32 * 100.;
         let height = width;
-        let node = spawn_square_node(commands, palette[i], width, height);
+        let node = spawn_square_node(commands, color, width, height);
 
         // each square is a child of the previous one
         commands.entity(parent_node).add_child(node);
@@ -255,11 +255,11 @@ fn spawn_right_panel(
 
     // build all
     let mut parent_node = frame;
-    for i in 0..4 {
+    for (i, &color) in palette.iter().enumerate() {
         // create a square of the right size
         let width = 500. - i as f32 * 100.;
         let height = width;
-        let node = spawn_square_node(commands, palette[i], width, height);
+        let node = spawn_square_node(commands, color, width, height);
 
         // add buttons that will affect the corresponding square on the left panel
         let target_id = target_ids.get(i).unwrap();
