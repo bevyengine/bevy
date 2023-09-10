@@ -4,9 +4,6 @@
 #import bevy_solari::utils rand_f, rand_vec2f, trace_ray, depth_to_world_position
 #import bevy_pbr::utils octahedral_decode
 
-var<workgroup> probe_pixel_world_position: vec3<f32>;
-var<workgroup> probe_pixel_is_sky: bool;
-
 @compute @workgroup_size(8, 8, 1)
 fn trace_screen_probes(
     @builtin(global_invocation_id) global_id: vec3<u32>,
@@ -18,18 +15,15 @@ fn trace_screen_probes(
     var rng = pixel_index + frame_index;
     var rng2 = frame_index;
 
-    let probe_thread_index = u32(rand_f(&rng2) * 63.0);
-    if local_index == probe_thread_index {
-        let probe_pixel_depth = textureLoad(depth_buffer, global_id.xy, 0i); // TODO: global_id.xy may be off-screen
-        let probe_pixel_uv = (vec2<f32>(global_id.xy) + 0.5) / view.viewport.zw;
-        probe_pixel_world_position = depth_to_world_position(probe_pixel_depth, probe_pixel_uv);
-        probe_pixel_is_sky = probe_pixel_depth == 0.0;
-    }
-    workgroupBarrier();
-    if probe_pixel_is_sky {
+    let probe_thread_id_offset = vec2<u32>(rand_vec2f(&rng2) * 7.0);
+    let probe_thread_id = global_id.xy - local_id.xy + probe_thread_id_offset;
+    let probe_pixel_depth = textureLoad(depth_buffer, probe_thread_id, 0i); // TODO: probe_thread_id may be off-screen
+    if probe_pixel_depth == 0.0 {
         textureStore(screen_probes, global_id.xy, vec4(0.0, 0.0, 0.0, 1.0));
         return;
     }
+    let probe_pixel_uv = (vec2<f32>(probe_thread_id) + 0.5) / view.viewport.zw;
+    let probe_pixel_world_position = depth_to_world_position(probe_pixel_depth, probe_pixel_uv);
 
     let octahedral_pixel_center = vec2<f32>(local_id.xy) + rand_vec2f(&rng);
     let octahedral_pixel_uv = octahedral_pixel_center / 8.0;

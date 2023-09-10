@@ -3,7 +3,6 @@
 
 var<workgroup> w1: array<u32, 1024u>;
 var<workgroup> w2: array<u32, 1024u>;
-var<workgroup> w_b2: u32;
 
 @compute @workgroup_size(1024, 1, 1)
 fn decay_world_cache(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -58,12 +57,7 @@ fn compact_world_cache_write_active_cells(
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
     @builtin(local_invocation_index) thread_index: u32,
 ) {
-    if thread_index == 1023u {
-        w_b2 = world_cache_b[workgroup_id.x];
-    }
-    workgroupBarrier();
-
-    let compacted_index = world_cache_a[cell_id.x] + w_b2;
+    let compacted_index = world_cache_a[cell_id.x] + world_cache_b[workgroup_id.x];
     if world_cache_life[cell_id.x] != 0u {
         world_cache_active_cell_indices[compacted_index] = cell_id.x;
     }
