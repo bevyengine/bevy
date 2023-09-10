@@ -1562,7 +1562,7 @@ impl Composer {
                     offset: 0,
                 },
             })?;
-        shader_defs.extend(defines.into_iter());
+        shader_defs.extend(defines);
 
         let name = name.unwrap_or_default();
 
