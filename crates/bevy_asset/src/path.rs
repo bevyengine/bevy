@@ -101,6 +101,12 @@ impl<'a> AssetPath<'a> {
         self.label.as_deref()
     }
 
+    /// Gets the "sub-asset label".
+    #[inline]
+    pub fn label_cow(&self) -> Option<CowArc<'a, str>> {
+        self.label.clone()
+    }
+
     /// Gets the path to the asset in the "virtual filesystem".
     #[inline]
     pub fn path(&self) -> &Path {

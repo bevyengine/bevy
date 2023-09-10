@@ -253,7 +253,7 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         meta_transform: Option<MetaTransform>,
     ) -> Handle<A> {
-        let mut path = path.into().into_owned();
+        let path = path.into().into_owned();
         let (handle, should_load) = self.data.infos.write().get_or_create_path_handle::<A>(
             path.clone(),
             HandleLoadingMode::Request,
@@ -261,13 +261,10 @@ impl AssetServer {
         );
 
         if should_load {
-            let mut owned_handle = Some(handle.clone().untyped());
+            let owned_handle = Some(handle.clone().untyped());
             let server = self.clone();
             IoTaskPool::get()
                 .spawn(async move {
-                    if path.take_label().is_some() {
-                        owned_handle = None;
-                    }
                     if let Err(err) = server.load_internal(owned_handle, path, false, None).await {
                         error!("{}", err);
                     }
@@ -287,6 +284,9 @@ impl AssetServer {
         self.load_internal(None, path, false, None).await
     }
 
+    /// Performs an async asset load.
+    /// `input_handle` must only be [`Some`] if `should_load` was true when retrieving `input_handle`. This is an optimization to
+    /// avoid looking up `should_load` twice, but it means you _must_ be sure a load is necessary when calling this function with [`Some`].
     async fn load_internal<'a>(
         &self,
         input_handle: Option<UntypedHandle>,
@@ -294,7 +294,7 @@ impl AssetServer {
         force: bool,
         meta_transform: Option<MetaTransform>,
     ) -> Result<UntypedHandle, AssetLoadError> {
-        let mut path = path.into_owned();
+        let path = path.into_owned();
         let path_clone = path.clone();
         let (mut meta, loader, mut reader) = self
             .get_meta_loader_and_reader(&path_clone)
@@ -308,18 +308,8 @@ impl AssetServer {
                 e
             })?;
 
-        let has_label = path.label().is_some();
-
         let (handle, should_load) = match input_handle {
             Some(handle) => {
-                if !has_label && handle.type_id() != loader.asset_type_id() {
-                    return Err(AssetLoadError::RequestedHandleTypeMismatch {
-                        path: path.into_owned(),
-                        requested: handle.type_id(),
-                        actual_asset_name: loader.asset_type_name(),
-                        loader_name: loader.type_name(),
-                    });
-                }
                 // if a handle was passed in, the "should load" check was already done
                 (handle, true)
             }
@@ -335,37 +325,51 @@ impl AssetServer {
             }
         };
 
+        if path.label().is_none() && handle.type_id() != loader.asset_type_id() {
+            return Err(AssetLoadError::RequestedHandleTypeMismatch {
+                path: path.into_owned(),
+                requested: handle.type_id(),
+                actual_asset_name: loader.asset_type_name(),
+                loader_name: loader.type_name(),
+            });
+        }
+
         if !should_load && !force {
             return Ok(handle);
         }
-        let base_asset_id = if has_label {
-            path.remove_label();
-            // If the path has a label, the current id does not match the asset root type.
-            // We need to get the actual asset id
+
+        let (base_handle, base_path) = if path.label().is_some() {
             let mut infos = self.data.infos.write();
-            let (actual_handle, _) = infos.get_or_create_path_handle_untyped(
-                path.clone(),
+            let base_path = path.without_label().into_owned();
+            let (base_handle, _) = infos.get_or_create_path_handle_untyped(
+                base_path.clone(),
                 loader.asset_type_id(),
                 loader.asset_type_name(),
-                // ignore current load state ... we kicked off this sub asset load because it needed to be loaded but
-                // does not currently exist
                 HandleLoadingMode::Force,
                 None,
             );
-            actual_handle.id()
+            (base_handle, base_path)
         } else {
-            handle.id()
+            (handle.clone(), path.clone())
         };
 
-        if let Some(meta_transform) = handle.meta_transform() {
+        if let Some(meta_transform) = base_handle.meta_transform() {
             (*meta_transform)(&mut *meta);
         }
 
         match self
-            .load_with_meta_loader_and_reader(&path, meta, &*loader, &mut *reader, true, false)
+            .load_with_meta_loader_and_reader(&base_path, meta, &*loader, &mut *reader, true, false)
             .await
         {
             Ok(mut loaded_asset) => {
+                if let Some(label) = path.label_cow() {
+                    if !loaded_asset.labeled_assets.contains_key(&label) {
+                        return Err(AssetLoadError::MissingLabel {
+                            base_path,
+                            label: label.to_string(),
+                        });
+                    }
+                }
                 for (_, labeled_asset) in loaded_asset.labeled_assets.drain() {
                     self.send_asset_event(InternalAssetEvent::Loaded {
                         id: labeled_asset.handle.id(),
@@ -373,13 +377,15 @@ impl AssetServer {
                     });
                 }
                 self.send_asset_event(InternalAssetEvent::Loaded {
-                    id: base_asset_id,
+                    id: base_handle.id(),
                     loaded_asset,
                 });
                 Ok(handle)
             }
             Err(err) => {
-                self.send_asset_event(InternalAssetEvent::Failed { id: base_asset_id });
+                self.send_asset_event(InternalAssetEvent::Failed {
+                    id: base_handle.id(),
+                });
                 Err(err)
             }
         }
@@ -866,6 +872,11 @@ pub enum AssetLoadError {
         path: AssetPath<'static>,
         loader: &'static str,
         error: AssetLoaderError,
+    },
+    #[error("The asset at '{base_path}' does not contain the labeled asset '{label}'.")]
+    MissingLabel {
+        base_path: AssetPath<'static>,
+        label: String,
     },
 }
 
