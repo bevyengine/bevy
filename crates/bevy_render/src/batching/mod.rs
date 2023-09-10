@@ -41,17 +41,19 @@ pub trait BatchMeta<T: BatchMeta<T>> {
     fn matches(&self, other: &T) -> bool;
 }
 
-pub fn process_phase<
+/// Batch the items in a render phase. This means comparing metadata needed to draw each phase item
+/// and trying to combine the draws into a batch.
+pub fn batch_render_phase<
     I: CachedRenderPipelinePhaseItem,
     T: BatchMeta<T>,       // Batch metadata used for distinguishing batches
     D: GpuArrayBufferable, // Per-instance data
 >(
     phase: &mut RenderPhase<I>,
-    mut get_batch_meta: impl FnMut(&mut I) -> Option<(T, GpuArrayBufferIndex<D>)>,
+    mut get_batch_meta: impl FnMut(&I) -> Option<(T, GpuArrayBufferIndex<D>)>,
 ) {
     let mut batch = BatchState::<T, D>::default();
     for i in 0..phase.items.len() {
-        let item = &mut phase.items[i];
+        let item = &phase.items[i];
         let Some((batch_meta, gpu_array_buffer_index)) = get_batch_meta(item) else {
             // It is necessary to start a new batch if an entity not matching the query is
             // encountered. This can be achieved by resetting the batch meta.

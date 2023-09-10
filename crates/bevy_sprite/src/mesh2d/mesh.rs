@@ -10,7 +10,7 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Affine3A, Vec2, Vec3Swizzles, Vec4};
 use bevy_reflect::Reflect;
 use bevy_render::{
-    batching::{process_phase, BatchMeta},
+    batching::{batch_render_phase, BatchMeta},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
@@ -286,7 +286,7 @@ pub fn prepare_and_batch_meshes2d(
     gpu_array_buffer.clear();
 
     for transparent_phase in &mut views {
-        process_phase(transparent_phase.into_inner(), |item| {
+        batch_render_phase(transparent_phase.into_inner(), |item| {
             let Ok((material2d_bind_group_id, mesh_handle, mesh_transforms)) =
                 meshes.get(item.entity())
             else {

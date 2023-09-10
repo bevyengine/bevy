@@ -21,7 +21,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Affine3A, Mat4, Vec2, Vec3Swizzles, Vec4};
 use bevy_render::{
-    batching::{process_phase, BatchMeta},
+    batching::{batch_render_phase, BatchMeta},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -466,28 +466,28 @@ pub fn prepare_and_batch_meshes(
     ) in &mut views
     {
         if let Some(opaque_prepass_phase) = opaque_prepass_phase {
-            process_phase(opaque_prepass_phase.into_inner(), |item| {
+            batch_render_phase(opaque_prepass_phase.into_inner(), |item| {
                 get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
             });
         }
         if let Some(alpha_mask_prepass_phase) = alpha_mask_prepass_phase {
-            process_phase(alpha_mask_prepass_phase.into_inner(), |item| {
+            batch_render_phase(alpha_mask_prepass_phase.into_inner(), |item| {
                 get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
             });
         }
-        process_phase(opaque_phase.into_inner(), |item| {
+        batch_render_phase(opaque_phase.into_inner(), |item| {
             get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
         });
-        process_phase(alpha_mask_phase.into_inner(), |item| {
+        batch_render_phase(alpha_mask_phase.into_inner(), |item| {
             get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
         });
-        process_phase(transparent_phase.into_inner(), |item| {
+        batch_render_phase(transparent_phase.into_inner(), |item| {
             get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
         });
     }
 
     for shadow_phase in &mut shadow_views {
-        process_phase(shadow_phase.into_inner(), |item| {
+        batch_render_phase(shadow_phase.into_inner(), |item| {
             get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
         });
     }
