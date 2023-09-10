@@ -348,13 +348,13 @@ pub fn create_bind_group_layouts(
             has_dynamic_offset: false,
             min_binding_size: Some(unsafe { NonZeroU64::new_unchecked(16) }),
         }),
-        // World cache b1
+        // World cache a
         entry(BindingType::Buffer {
             ty: BufferBindingType::Storage { read_only: false },
             has_dynamic_offset: false,
             min_binding_size: Some(unsafe { NonZeroU64::new_unchecked(4) }),
         }),
-        // World cache b2
+        // World cache b
         entry(BindingType::Buffer {
             ty: BufferBindingType::Storage { read_only: false },
             has_dynamic_offset: false,
