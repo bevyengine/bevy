@@ -46,7 +46,6 @@ use std::{
 /// clones internal owned [`AssetPaths`](AssetPath).
 /// This also means that you should use [`AssetPath::new`] in cases where `&str` is the explicit type.
 #[derive(Eq, PartialEq, Hash, Clone, Default)]
-// #[reflect(Debug, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
     path: CowArc<'a, Path>,
     label: Option<CowArc<'a, str>>,
@@ -280,7 +279,6 @@ impl<'de> Visitor<'de> for AssetPathVisitor {
 // See https://github.com/bevyengine/bevy/issues/9747
 // NOTE: This could use `impl_reflect_value` if it supported static lifetimes.
 
-#[allow(unused_mut)]
 impl GetTypeRegistration for AssetPath<'static> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
