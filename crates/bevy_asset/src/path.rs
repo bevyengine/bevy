@@ -276,6 +276,10 @@ impl<'de> Visitor<'de> for AssetPathVisitor {
     }
 }
 
+// NOTE: We manually implement "reflect value" because deriving Reflect on `AssetPath` breaks dynamic linking
+// See https://github.com/bevyengine/bevy/issues/9747
+// NOTE: This could use `impl_reflect_value` if it supported static lifetimes.
+
 #[allow(unused_mut)]
 impl GetTypeRegistration for AssetPath<'static> {
     fn get_type_registration() -> TypeRegistration {
