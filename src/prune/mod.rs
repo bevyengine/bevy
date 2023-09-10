@@ -93,6 +93,9 @@ impl FunctionReq {
         expr_map: &HashMap<Handle<Expression>, Handle<Expression>>,
     ) -> Expression {
         match expr {
+            Expression::Literal(_) => expr.clone(),
+            Expression::ZeroValue(_) => expr.clone(),
+            Expression::WorkGroupUniformLoadResult { ty: _ty } => expr.clone(),
             Expression::Access { base, index } => Expression::Access {
                 base: expr_map[base],
                 index: expr_map[index],
@@ -1150,6 +1153,9 @@ impl<'a> Pruner<'a> {
         );
 
         match expr {
+            Expression::Literal(_) => (),
+            Expression::ZeroValue(_) => (),
+            Expression::WorkGroupUniformLoadResult { .. } => (),
             Expression::AccessIndex { base, index } => self.add_expression(
                 function,
                 func_req,
@@ -1236,10 +1242,6 @@ impl<'a> Pruner<'a> {
                         context.locals.insert(*lv, part.clone());
                     }
                 }
-                let lv = function.local_variables.try_get(*lv).unwrap();
-                if let Some(init) = lv.init {
-                    self.constants.insert(init);
-                }
             }
             Expression::Load { pointer } => {
                 self.add_expression(function, func_req, context, *pointer, part);
@@ -1250,7 +1252,7 @@ impl<'a> Pruner<'a> {
                 gather: _gather,
                 coordinate,
                 array_index,
-                offset,
+                offset: _offset,
                 level,
                 depth_ref,
             } => {
@@ -1259,7 +1261,6 @@ impl<'a> Pruner<'a> {
                 self.add_expression(function, func_req, context, *coordinate, &PartReq::All);
                 array_index
                     .map(|e| self.add_expression(function, func_req, context, e, &PartReq::All));
-                offset.map(|c| self.constants.insert(c));
                 match level {
                     naga::SampleLevel::Auto | naga::SampleLevel::Zero => (),
                     naga::SampleLevel::Exact(e) | naga::SampleLevel::Bias(e) => {
@@ -1654,6 +1655,14 @@ impl<'a> Pruner<'a> {
                 let required = self.store_required(context, &var_ref);
                 RayQuery(required.is_some())
             }
+            Statement::WorkGroupUniformLoad { pointer, result } => {
+                let var_ref = Self::resolve_var(function, *result, Vec::default());
+                let required = self.store_required(context, &var_ref).is_some();
+                if required {
+                    self.add_expression(function, func_req, context, *pointer, &PartReq::All);
+                }
+                RayQuery(required)
+            }
         }
     }
 
@@ -1779,6 +1788,11 @@ impl<'a> Pruner<'a> {
     pub fn rewrite(&self) -> Module {
         let mut derived = DerivedModule::default();
         derived.set_shader_source(self.module, 0);
+
+        // just copy all the constants for now, so we can copy const handles as well
+        for (h_cexpr, _) in self.module.const_expressions.iter() {
+            derived.import_const_expression(h_cexpr);
+        }
 
         for (h_f, f) in self.module.functions.iter() {
             if let Some(req) = self.functions.get(&h_f) {

@@ -1,0 +1,15 @@
+var<private> _naga_oil_mod_NVXWI_membera: f32 = 0.0;
+
+fn add() {
+    let _e2: f32 = _naga_oil_mod_NVXWI_membera;
+    _naga_oil_mod_NVXWI_membera = (_e2 + 1.0);
+    return;
+}
+
+fn main() -> f32 {
+    add();
+    add();
+    let _e1: f32 = _naga_oil_mod_NVXWI_membera;
+    return _e1;
+}
+

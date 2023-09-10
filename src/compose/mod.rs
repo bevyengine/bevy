@@ -144,6 +144,7 @@ pub mod error;
 pub mod parse_imports;
 pub mod preprocess;
 mod test;
+pub mod util;
 pub mod tokenizer;
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug, Default)]
@@ -728,7 +729,11 @@ impl Composer {
                     Some(recompiled_h) => {
                         if let naga::TypeInner::Struct { members, .. } = &ty.inner {
                             let recompiled_ty = recompiled.types.get_handle(*recompiled_h).unwrap();
-                            let naga::TypeInner::Struct { members: recompiled_members, .. } = &recompiled_ty.inner else {
+                            let naga::TypeInner::Struct {
+                                members: recompiled_members,
+                                ..
+                            } = &recompiled_ty.inner
+                            else {
                                 panic!();
                             };
                             for (member, recompiled_member) in

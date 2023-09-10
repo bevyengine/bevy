@@ -43,9 +43,9 @@ impl ErrSource {
                 }) = composer
                     .preprocessor
                     .preprocess(raw_source, defs, composer.validate)
-                    else {
-                        return Default::default()
-                    };
+                else {
+                    return Default::default();
+                };
 
                 Cow::Owned(source)
             }
@@ -180,9 +180,9 @@ impl ComposerError {
 
         let files = SimpleFile::new(path, source.as_str());
         let config = term::Config::default();
-        #[cfg(test)]
+        #[cfg(any(test, target_arch = "wasm32"))]
         let mut writer = term::termcolor::NoColor::new(Vec::new());
-        #[cfg(not(test))]
+        #[cfg(not(any(test, target_arch = "wasm32")))]
         let mut writer = term::termcolor::Ansi::new(Vec::new());
 
         let (labels, notes) = match &self.inner {

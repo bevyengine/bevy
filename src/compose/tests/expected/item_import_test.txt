@@ -2,7 +2,6 @@
 
 
 
-
     let _e1: u32 = doubleX_naga_oil_mod_XMNXW443UOMX(XX_naga_oil_mod_XMNXW443UOMX);
     let _e1: u32 = doubleX_naga_oil_mod_XMNXW443UOMX(YX_naga_oil_mod_XMNXW443UOMX);
     return (in * 2u);
