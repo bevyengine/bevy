@@ -10,7 +10,7 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Affine3A, Vec2, Vec3Swizzles, Vec4};
 use bevy_reflect::Reflect;
 use bevy_render::{
-    batching::{batch_render_phase, BatchMeta},
+    batching::{batch_render_phase, BatchMeta, NoAutomaticBatching},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
@@ -271,11 +271,14 @@ pub fn prepare_and_batch_meshes2d(
     render_queue: Res<RenderQueue>,
     gpu_array_buffer: ResMut<GpuArrayBuffer<Mesh2dUniform>>,
     mut views: Query<&mut RenderPhase<Transparent2d>>,
-    meshes: Query<(
-        Option<&Material2dBindGroupId>,
-        &Mesh2dHandle,
-        &Mesh2dTransforms,
-    )>,
+    meshes: Query<
+        (
+            Option<&Material2dBindGroupId>,
+            &Mesh2dHandle,
+            &Mesh2dTransforms,
+        ),
+        Without<NoAutomaticBatching>,
+    >,
 ) {
     if meshes.is_empty() {
         return;

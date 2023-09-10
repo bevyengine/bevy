@@ -21,7 +21,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Affine3A, Mat4, Vec2, Vec3Swizzles, Vec4};
 use bevy_render::{
-    batching::{batch_render_phase, BatchMeta},
+    batching::{batch_render_phase, BatchMeta, NoAutomaticBatching},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -433,7 +433,10 @@ pub fn prepare_and_batch_meshes(
         &mut RenderPhase<Transparent3d>,
     )>,
     mut shadow_views: Query<&mut RenderPhase<Shadow>>,
-    meshes: Query<(Option<&MaterialBindGroupId>, &Handle<Mesh>, &MeshTransforms)>,
+    meshes: Query<
+        (Option<&MaterialBindGroupId>, &Handle<Mesh>, &MeshTransforms),
+        Without<NoAutomaticBatching>,
+    >,
 ) {
     let gpu_array_buffer = gpu_array_buffer.into_inner();
 

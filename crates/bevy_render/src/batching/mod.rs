@@ -1,6 +1,15 @@
+use bevy_ecs::component::Component;
 use nonmax::NonMaxU32;
 
 use crate::render_phase::{CachedRenderPipelinePhaseItem, PhaseItem, RenderPhase};
+
+/// Add this component to mesh entities to disable automatic batching
+#[derive(Component)]
+pub struct NoAutomaticBatching;
+
+pub trait BatchMeta<T: BatchMeta<T>> {
+    fn matches(&self, other: &T) -> bool;
+}
 
 struct BatchState<T: BatchMeta<T>> {
     meta: Option<T>,
@@ -35,10 +44,6 @@ fn update_batch_data<I: PhaseItem, T: BatchMeta<T>>(item: &mut I, batch: &BatchS
     let index = index.map_or(0, |index| index.get());
     *item.batch_range_mut() = index..(index + *count);
     *item.dynamic_offset_mut() = *dynamic_offset;
-}
-
-pub trait BatchMeta<T: BatchMeta<T>> {
-    fn matches(&self, other: &T) -> bool;
 }
 
 /// Batch the items in a render phase. This means comparing metadata needed to draw each phase item
