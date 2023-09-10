@@ -6,10 +6,12 @@ use std::ops::Deref;
 use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
 #[cfg(feature = "bevy_reflect")]
-use crate::reflect::{ReflectDefault, ReflectResource};
+use crate::reflect::ReflectResource;
 use crate::schedule::ScheduleLabel;
 use crate::system::Resource;
 use crate::world::World;
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::std_traits::ReflectDefault;
 
 pub use bevy_ecs_macros::States;
 
