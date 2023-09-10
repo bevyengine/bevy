@@ -78,7 +78,6 @@ impl UiSurface {
     /// Retrieves the Taffy node associated with the given UI node entity and updates its style.
     /// If no associated Taffy node exists a new Taffy node is inserted into the Taffy layout.
     pub fn upsert_node(&mut self, entity: Entity, style: &Style, context: &LayoutContext) {
-        println!("upsert: {entity:?}");
         let mut added = false;
         let taffy = &mut self.taffy;
         let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
@@ -169,15 +168,7 @@ without UI components as a child of an entity with UI components, results may be
 
         if let Ok(mut taffy_window_children) = self.taffy.children(taffy_parent) {
             let new_taffy_window_children = children
-                .map(|e| {
-                    let t = *self.entity_to_taffy.get(&e).unwrap();
-                    if let Ok(c) = self.taffy.children(taffy_parent) {
-                        if !c.contains(&t) {
-                            println!("new window child: {e:?}");
-                        }
-                    }
-                    t
-                })
+                .map(|e| *self.entity_to_taffy.get(&e).unwrap())
                 .collect::<Vec<taffy::node::Node>>();
             for child in new_taffy_window_children.into_iter() {
                 if !taffy_window_children.contains(&child) {
@@ -213,9 +204,7 @@ without UI components as a child of an entity with UI components, results may be
     /// Removes each entity from the internal map and then removes their associated node from taffy
     pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
-            println!("removing entity: {entity:?}");
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
-                println!("removing taffy_node: {node:?}");
                 self.taffy.remove(node).unwrap();
             }
         }
@@ -262,7 +251,7 @@ pub fn ui_layout_system(
     mut removed_content_sizes: RemovedComponents<ContentSize>,
 ) {
     // when a `Style` component is removed from an entity, remove the corresponding taffy node from the internal taffy layout tree
-    // filter so that if the `Style` component was immediately replaced, we do not remove the node.
+    // filter so that if the `Style` component was immediately replaced, we do not remove the node
     ui_surface.remove_entities(removed_styles.iter().filter(|entity| !style_query.contains(*entity)));
 
     // when a `ContentSize` component is removed from an entity, remove the measure from the corresponding taffy node
@@ -271,12 +260,12 @@ pub fn ui_layout_system(
     }
 
     // remove the associated taffy children of a ui node which had its children removed
-    // The taffy children remain in the taffy tree
+    // the taffy children remain in the taffy tree
     for entity in removed_children.iter() {
         ui_surface.try_remove_children(entity);
     }
 
-    // when the children of the bevy UI entities are added or removed, update the children of the corresponding taffy nodes
+    // when the children of the a Bevy UI entity are changed, update the children of the corresponding taffy nodes
     for (entity, children) in &children_query {
         if children.is_changed() {
             ui_surface.update_children(entity, &children);
@@ -314,7 +303,6 @@ pub fn ui_layout_system(
 
     if !scale_factor_events.is_empty() || ui_scale.is_changed() || resized {
         scale_factor_events.clear();
-        println!("full update");
 
         // update all nodes
         for (entity, style) in style_query.iter() {
@@ -323,7 +311,6 @@ pub fn ui_layout_system(
     } else {
         for (entity, style) in style_query.iter() {
             if style.is_changed() {
-                println!("update style for: {entity:?}");
                 ui_surface.upsert_node(entity, &style, &layout_context);
             }
         }
@@ -383,17 +370,9 @@ pub fn ui_nodes_system(
 
             // only trigger change detection when the new values are different
             if node.calculated_size != new_size {
-                println!(
-                    "update geom entity: {entity:?}: {} -> size: {new_size}",
-                    node.calculated_size
-                );
                 node.calculated_size = new_size;
             }
             if transform.translation.truncate() != new_position {
-                println!(
-                    "update geom entity: {entity:?}: {} -> position: {new_position}",
-                    transform.translation.truncate()
-                );
                 transform.translation = new_position.extend(0.);
             }
             if let Ok(children) = children_query.get(entity) {
