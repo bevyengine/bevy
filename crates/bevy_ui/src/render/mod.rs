@@ -427,7 +427,8 @@ pub fn extract_uinodes(
         )) = uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
-            if !view_visibility.get() || maybe_color.is_some_and(|f| f.0.a() == 0.0) || is_material {
+            if !view_visibility.get() || maybe_color.is_some_and(|f| f.0.a() == 0.0) || is_material
+            {
                 continue;
             }
 
@@ -446,7 +447,6 @@ pub fn extract_uinodes(
             } else {
                 Color::WHITE
             };
-
 
             extracted_uinodes.uinodes.insert(
                 entity,
@@ -758,7 +758,7 @@ pub fn prepare_uinodes(
                     let mut existing_batch = batches
                         .last_mut()
                         .filter(|_| batch_image_handle == extracted_uinode.image);
-                    
+
                     if existing_batch.is_none() {
                         if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
                             batch_item_index = item_index;
@@ -794,7 +794,7 @@ pub fn prepare_uinodes(
                                         layout: &ui_pipeline.image_layout,
                                     })
                                 });
-                            
+
                             existing_batch = batches.last_mut();
                         } else {
                             continue;

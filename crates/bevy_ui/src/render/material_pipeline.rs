@@ -86,7 +86,7 @@ where
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
- //               .init_resource::<DrawFunctions<TransparentMaterialUi>>()
+                //               .init_resource::<DrawFunctions<TransparentMaterialUi>>()
                 .add_render_command::<TransparentUi, DrawUiMaterial<M>>()
                 .init_resource::<ExtractedUiMaterials<M>>()
                 .init_resource::<ExtractedUiMaterialNodes<M>>()
@@ -105,7 +105,7 @@ where
                     (
                         prepare_ui_materials::<M>.in_set(RenderSet::PrepareAssets),
                         queue_ui_material_nodes::<M>.in_set(RenderSet::Queue),
-                      //  sort_phase_system::<TransparentMaterialUi>.in_set(RenderSet::PhaseSort),
+                        //  sort_phase_system::<TransparentMaterialUi>.in_set(RenderSet::PhaseSort),
                         prepare_uimaterial_nodes::<M>.in_set(RenderSet::PrepareBindGroups),
                     ),
                 );

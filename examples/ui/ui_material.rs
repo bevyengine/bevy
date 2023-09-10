@@ -2,8 +2,9 @@
 //! it
 
 use bevy::prelude::*;
+use bevy::reflect::TypePath;
+use bevy::render::render_resource::*;
 use bevy::ui::UiMaterialPlugin;
-use bevy_internal::{reflect::TypePath, render::render_resource::*};
 
 fn main() {
     App::new()
