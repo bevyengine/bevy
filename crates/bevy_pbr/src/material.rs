@@ -20,6 +20,7 @@ use bevy_ecs::{
     },
 };
 use bevy_render::{
+    camera::Projection,
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
@@ -390,6 +391,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&ScreenSpaceAmbientOcclusionSettings>,
         Option<&NormalPrepass>,
         Option<&TemporalAntiAliasSettings>,
+        Option<&Projection>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
@@ -406,6 +408,7 @@ pub fn queue_material_meshes<M: Material>(
         ssao,
         normal_prepass,
         taa_settings,
+        projection,
         mut opaque_phase,
         mut alpha_mask_phase,
         mut transparent_phase,
@@ -432,6 +435,13 @@ pub fn queue_material_meshes<M: Material>(
         };
         if environment_map_loaded {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+        }
+
+        if let Some(projection) = projection {
+            view_key |= match projection {
+                Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
+                Projection::Orthographic(_) => MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
+            };
         }
 
         if !view.hdr {

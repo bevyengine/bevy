@@ -29,6 +29,8 @@ use bevy_window::{
 use std::{borrow::Cow, ops::Range};
 use wgpu::{BlendState, Extent3d, LoadOp, TextureFormat};
 
+use super::Projection;
+
 /// Render viewport configuration for the [`Camera`] component.
 ///
 /// The viewport defines the area on the render target to which the camera renders its image.
@@ -644,6 +646,7 @@ pub fn extract_cameras(
             Option<&ColorGrading>,
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
+            Option<&Projection>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
@@ -658,6 +661,7 @@ pub fn extract_cameras(
         color_grading,
         temporal_jitter,
         render_layers,
+        perspective,
     ) in query.iter()
     {
         let color_grading = *color_grading.unwrap_or(&ColorGrading::default());
@@ -719,6 +723,10 @@ pub fn extract_cameras(
 
             if let Some(render_layers) = render_layers {
                 commands.insert(*render_layers);
+            }
+
+            if let Some(perspective) = perspective {
+                commands.insert(perspective.clone());
             }
         }
     }
