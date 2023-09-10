@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use bevy_reflect::{TypePath, TypeUuid};
+use bevy_asset::Asset;
 use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
 /// Materials are used alongside `UiMaterialPlugin` and `MaterialNodeBundle`
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
@@ -18,12 +18,11 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 /// ```
 /// # use bevy_ui::prelude::*;
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_reflect::{TypeUuid, TypePath};
+/// # use bevy_reflect::TypePath;
 /// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
-/// # use bevy_asset::{Handle, AssetServer, Assets};
+/// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 ///
-/// #[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
-/// #[uuid = "af2e2cb1-1764-4fd4-87ad-d6d412955a43"]
+/// #[derive(AsBindGroup, Debug, Clone, Asset)]
 /// pub struct CustomMaterial {
 ///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
 ///     // its shader-compatible equivalent. Most core math types already implement `ShaderType`.
@@ -73,7 +72,7 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 /// @group(1) @binding(2)
 /// var color_sampler: sampler;
 /// ```
-pub trait UiMaterial: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Sized {
+pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
     /// Returns this materials vertex shader. If [`ShaderRef::Default`] is returned, the default UI
     /// vertex shader will be used.
     fn vertex_shader() -> ShaderRef {

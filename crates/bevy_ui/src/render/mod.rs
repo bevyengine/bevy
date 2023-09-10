@@ -416,17 +416,18 @@ pub fn extract_uinodes(
 ) {
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((
+            entity,
             uinode,
             transform,
             maybe_color,
             maybe_image,
-            visibility,
             view_visibility,
+            clip,
             maybe_material,
         )) = uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
-            if !view_visibility.get() || color.0.a() == 0.0 {
+            if !view_visibility.get() || maybe_color.is_some_and(|f| f.0.a() == 0.0) {
                 continue;
             }
 
@@ -451,7 +452,7 @@ pub fn extract_uinodes(
                 ExtractedUiNode {
                     stack_index,
                     transform: transform.compute_matrix(),
-                    color: color.0,
+                    color,
                     rect: Rect {
                         min: Vec2::ZERO,
                         max: uinode.calculated_size,
@@ -695,7 +696,7 @@ pub fn queue_uinodes(
 
 #[derive(Resource, Default)]
 pub struct UiImageBindGroups {
-    pub values: HashMap<Handle<Image>, BindGroup>,
+    pub values: HashMap<AssetId<Image>, BindGroup>,
 }
 
 #[allow(clippy::too_many_arguments)]

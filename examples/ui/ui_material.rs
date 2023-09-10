@@ -2,10 +2,8 @@
 //! it
 
 use bevy::prelude::*;
-use bevy_internal::{
-    reflect::{TypePath, TypeUuid},
-    render::render_resource::*,
-};
+use bevy::ui::UiMaterialPlugin;
+use bevy_internal::{reflect::TypePath, render::render_resource::*};
 
 fn main() {
     App::new()
@@ -54,8 +52,7 @@ fn setup(mut commands: Commands, mut ui_materials: ResMut<Assets<CustomUiMateria
         });
 }
 
-#[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
-#[uuid = "7b5569c8-36d4-4c9d-acb7-d1754b385ab1"]
+#[derive(AsBindGroup, TypePath, Asset, Debug, Clone)]
 struct CustomUiMaterial {
     #[uniform(0)]
     fill_amount: f32,

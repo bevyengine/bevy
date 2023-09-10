@@ -7,7 +7,7 @@ use crate::{
     BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
     UiMaterial, UiMaterialNode, UiTextureAtlasImage, ZIndex,
 };
-use bevy_asset::Handle;
+use bevy_asset::{AssetId, Handle};
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
     prelude::Color,
@@ -355,7 +355,7 @@ pub struct MaterialNodeBundle<M: UiMaterial> {
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
     /// Indicates that this node is using the `UiMaterialPipeline`
@@ -372,7 +372,7 @@ impl<M: UiMaterial> Default for MaterialNodeBundle<M> {
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
-            computed_visibility: Default::default(),
+            view_visibility: Default::default(),
             z_index: Default::default(),
             material_node: Default::default(),
         }
