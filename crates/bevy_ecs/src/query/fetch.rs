@@ -1225,7 +1225,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         // if `Option<T>` is `None`.
         //
         // We pass a clone of the `FilteredAccess` to `T`, and only update the `Access`
-        // of `access` using `extend_access` so that we can apply `T`'s component_access
+        // using `extend_access` so that we can apply `T`'s component_access
         // without updating the `with` filters of `access`.
         let mut intermediate = access.clone();
         T::update_component_access(state, &mut intermediate);
