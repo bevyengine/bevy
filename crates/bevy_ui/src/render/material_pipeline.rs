@@ -462,7 +462,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                         batches.push((item.entity, new_batch));
 
                         existing_batch = batches.last_mut();
-                    } 
+                    }
 
                     let uinode_rect = extracted_uinode.rect;
 
