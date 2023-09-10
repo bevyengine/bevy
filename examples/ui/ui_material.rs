@@ -4,7 +4,6 @@
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use bevy::render::render_resource::*;
-use bevy::ui::UiMaterialPlugin;
 
 fn main() {
     App::new()

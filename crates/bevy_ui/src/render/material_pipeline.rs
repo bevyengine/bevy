@@ -18,21 +18,19 @@ use bevy_math::{Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     prelude::Color,
-    render_asset::{prepare_assets, RenderAssets},
+    render_asset::RenderAssets,
     render_phase::{
-        sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
-        DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
-        TrackedRenderPass,
+        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
+        RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
         AsBindGroupError, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
         BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState,
-        BufferBindingType, BufferUsages, BufferVec, CachedRenderPipelineId, ColorTargetState,
-        ColorWrites, FragmentState, FrontFace, MultisampleState, OwnedBindingResource,
-        PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor,
-        Shader, ShaderRef, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureFormat, VertexBufferLayout, VertexFormat, VertexState,
-        VertexStepMode,
+        BufferBindingType, BufferUsages, BufferVec, ColorTargetState, ColorWrites, FragmentState,
+        FrontFace, MultisampleState, OwnedBindingResource, PipelineCache, PolygonMode,
+        PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor, Shader, ShaderRef,
+        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
+        TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, FallbackImage, Image},
@@ -86,7 +84,6 @@ where
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                //               .init_resource::<DrawFunctions<TransparentMaterialUi>>()
                 .add_render_command::<TransparentUi, DrawUiMaterial<M>>()
                 .init_resource::<ExtractedUiMaterials<M>>()
                 .init_resource::<ExtractedUiMaterialNodes<M>>()
@@ -105,7 +102,6 @@ where
                     (
                         prepare_ui_materials::<M>.in_set(RenderSet::PrepareAssets),
                         queue_ui_material_nodes::<M>.in_set(RenderSet::Queue),
-                        //  sort_phase_system::<TransparentMaterialUi>.in_set(RenderSet::PhaseSort),
                         prepare_uimaterial_nodes::<M>.in_set(RenderSet::PrepareBindGroups),
                     ),
                 );
@@ -466,9 +462,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                         batches.push((item.entity, new_batch));
 
                         existing_batch = batches.last_mut();
-                    } else {
-                        continue;
-                    }
+                    } 
 
                     let uinode_rect = extracted_uinode.rect;
 
@@ -551,6 +545,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                             color: Color::WHITE.as_linear_rgba_f32(),
                         });
                     }
+
                     index += QUAD_INDICES.len() as u32;
                     existing_batch.unwrap().1.range.end = index;
                     ui_phase.items[batch_item_index].batch_size += 1;
@@ -744,49 +739,5 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 batch_size: 0,
             })
         }
-    }
-}
-
-pub struct TransparentMaterialUi {
-    pub sort_key: FloatOrd,
-    pub entity: Entity,
-    pub pipeline: CachedRenderPipelineId,
-    pub draw_function: DrawFunctionId,
-    pub batch_size: usize,
-}
-
-impl PhaseItem for TransparentMaterialUi {
-    type SortKey = FloatOrd;
-
-    #[inline]
-    fn entity(&self) -> Entity {
-        self.entity
-    }
-
-    #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        self.sort_key
-    }
-
-    #[inline]
-    fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        items.sort_by_key(|item| item.sort_key());
-    }
-
-    #[inline]
-    fn batch_size(&self) -> usize {
-        self.batch_size
-    }
-}
-
-impl CachedRenderPipelinePhaseItem for TransparentMaterialUi {
-    #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
     }
 }

@@ -7,7 +7,7 @@ use crate::{
     BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
     UiMaterial, UiMaterialNode, UiTextureAtlasImage, ZIndex,
 };
-use bevy_asset::{AssetId, Handle};
+use bevy_asset::{Handle};
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
     prelude::Color,
