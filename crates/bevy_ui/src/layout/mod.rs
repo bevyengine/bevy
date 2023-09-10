@@ -18,7 +18,7 @@ use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
-use taffy::{prelude::Size, style_helpers::TaffyMaxContent, tree::LayoutTree, Taffy};
+use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
 
 pub struct LayoutContext {
     pub scale_factor: f64,
@@ -262,23 +262,24 @@ pub fn ui_layout_system(
     mut removed_content_sizes: RemovedComponents<ContentSize>,
 ) {
     // when a `Style` component is removed from an entity, remove the corresponding taffy node from the internal taffy layout tree
-    // filter in case the `Style` component was immediately replaced
-    ui_surface.remove_entities(removed_styles.iter().filter(|entity| {
-        let replaced = style_query.contains(*entity);
-        if replaced {
-            println!("replaced: {entity:?}");
-        }
-        !replaced
-    }));
+    // filter so that if the `Style` component was immediately replaced, we do not remove the node.
+    ui_surface.remove_entities(removed_styles.iter().filter(|entity| !style_query.contains(*entity)));
 
     // when a `ContentSize` component is removed from an entity, remove the measure from the corresponding taffy node
     for entity in removed_content_sizes.iter() {
         ui_surface.try_remove_measure(entity);
     }
 
-    for (entity, style) in style_query.iter() {
-        if style.is_changed() {
-            println!("style changed for entity: {entity:?}");
+    // remove the associated taffy children of a ui node which had its children removed
+    // The taffy children remain in the taffy tree
+    for entity in removed_children.iter() {
+        ui_surface.try_remove_children(entity);
+    }
+
+    // when the children of the bevy UI entities are added or removed, update the children of the corresponding taffy nodes
+    for (entity, children) in &children_query {
+        if children.is_changed() {
+            ui_surface.update_children(entity, &children);
         }
     }
 
@@ -336,16 +337,6 @@ pub fn ui_layout_system(
 
     // update window children (for now assuming all Nodes live in the primary window)
     ui_surface.set_window_children(primary_window_entity, root_node_query.iter());
-
-    // update and remove children
-    for entity in removed_children.iter() {
-        ui_surface.try_remove_children(entity);
-    }
-    for (entity, children) in &children_query {
-        if children.is_changed() {
-            ui_surface.update_children(entity, &children);
-        }
-    }
 
     // compute layouts
     ui_surface.compute_window_layouts();
