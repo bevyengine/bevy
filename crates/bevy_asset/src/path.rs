@@ -24,7 +24,7 @@ use std::{
 ///
 /// ```no_run
 /// # use bevy_asset::{Asset, AssetServer, Handle};
-/// # use TypePath;
+/// # use bevy_reflect::TypePath;
 /// #
 /// # #[derive(Asset, TypePath, Default)]
 /// # struct Mesh;
