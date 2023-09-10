@@ -1,11 +1,12 @@
 use crate::{
-    io::{AssetReaderError, Reader},
+    io::{AssetReaderError, MissingAssetProviderError, MissingProcessedAssetReaderError, Reader},
     meta::{
         loader_settings_meta_transform, AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal,
         Settings,
     },
     path::AssetPath,
-    Asset, AssetLoadError, AssetServer, Assets, Handle, UntypedAssetId, UntypedHandle,
+    Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, UntypedAssetId,
+    UntypedHandle,
 };
 use bevy_ecs::world::World;
 use bevy_utils::{BoxedFuture, CowArc, HashMap, HashSet};
@@ -370,7 +371,7 @@ impl<'a> LoadContext<'a> {
     ) -> Handle<A> {
         let label = label.into();
         let loaded_asset: ErasedLoadedAsset = loaded_asset.into();
-        let labeled_path = self.asset_path.with_label(label.clone());
+        let labeled_path = self.asset_path.clone().with_label(label.clone());
         let handle = self
             .asset_server
             .get_or_create_path_handle(labeled_path, None);
@@ -388,7 +389,7 @@ impl<'a> LoadContext<'a> {
     ///
     /// See [`AssetPath`] for more on labeled assets.
     pub fn has_labeled_asset<'b>(&self, label: impl Into<CowArc<'b, str>>) -> bool {
-        let path = self.asset_path.with_label(label.into());
+        let path = self.asset_path.clone().with_label(label.into());
         self.asset_server.get_handle_untyped(&path).is_some()
     }
 
@@ -415,15 +416,21 @@ impl<'a> LoadContext<'a> {
     }
 
     /// Gets the source asset path for this load context.
-    pub async fn read_asset_bytes<'b>(
-        &mut self,
-        path: &'b Path,
+    pub async fn read_asset_bytes<'b, 'c>(
+        &'b mut self,
+        path: impl Into<AssetPath<'c>>,
     ) -> Result<Vec<u8>, ReadAssetBytesError> {
-        let mut reader = self.asset_server.reader().read(path).await?;
+        let path = path.into();
+        let provider = self.asset_server.get_provider(path.provider())?;
+        let asset_reader = match self.asset_server.mode() {
+            AssetServerMode::Unprocessed { .. } => provider.reader(),
+            AssetServerMode::Processed { .. } => provider.processed_reader()?,
+        };
+        let mut reader = asset_reader.read(path.path()).await?;
         let hash = if self.populate_hashes {
             // NOTE: ensure meta is read while the asset bytes reader is still active to ensure transactionality
             // See `ProcessorGatedReader` for more info
-            let meta_bytes = self.asset_server.reader().read_meta_bytes(path).await?;
+            let meta_bytes = asset_reader.read_meta_bytes(path.path()).await?;
             let minimal: ProcessedInfoMinimal = ron::de::from_bytes(&meta_bytes)
                 .map_err(DeserializeMetaError::DeserializeMinimal)?;
             let processed_info = minimal
@@ -435,8 +442,7 @@ impl<'a> LoadContext<'a> {
         };
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        self.loader_dependencies
-            .insert(AssetPath::from_path(path.to_owned()), hash);
+        self.loader_dependencies.insert(path.clone_owned(), hash);
         Ok(bytes)
     }
 
@@ -483,7 +489,7 @@ impl<'a> LoadContext<'a> {
         &mut self,
         label: impl Into<CowArc<'b, str>>,
     ) -> Handle<A> {
-        let path = self.asset_path.with_label(label);
+        let path = self.asset_path.clone().with_label(label);
         let handle = self.asset_server.get_or_create_path_handle::<A>(path, None);
         self.dependencies.insert(handle.id().untyped());
         handle
@@ -545,6 +551,10 @@ pub enum ReadAssetBytesError {
     DeserializeMetaError(#[from] DeserializeMetaError),
     #[error(transparent)]
     AssetReaderError(#[from] AssetReaderError),
+    #[error(transparent)]
+    MissingAssetProviderError(#[from] MissingAssetProviderError),
+    #[error(transparent)]
+    MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
     /// Encountered an I/O error while loading an asset.
     #[error("Encountered an io error while loading asset: {0}")]
     Io(#[from] std::io::Error),

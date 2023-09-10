@@ -100,11 +100,4 @@ impl AssetReader for HttpWasmAssetReader {
         error!("Reading directories is not supported with the HttpWasmAssetReader");
         Box::pin(async move { Ok(false) })
     }
-
-    fn watch_for_changes(
-        &self,
-        _event_sender: crossbeam_channel::Sender<super::AssetSourceEvent>,
-    ) -> Option<Box<dyn AssetWatcher>> {
-        None
-    }
 }

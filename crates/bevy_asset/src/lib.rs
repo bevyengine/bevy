@@ -6,7 +6,7 @@ pub mod saver;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Asset, AssetApp, AssetEvent, AssetId, AssetPlugin, AssetServer, Assets, Handle,
+        Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets, Handle,
         UntypedHandle,
     };
 }
@@ -37,7 +37,7 @@ pub use anyhow;
 pub use bevy_utils::BoxedFuture;
 
 use crate::{
-    io::{processor_gated::ProcessorGatedReader, AssetProvider, AssetProviders},
+    io::{rust_src::RustSrcRegistry, AssetProviderBuilder, AssetProviderBuilders, AssetProviderId},
     processor::{AssetProcessor, Process},
 };
 use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate, Startup};
@@ -52,138 +52,112 @@ use std::{any::TypeId, sync::Arc};
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetProvider`],
 /// which can be something like a filesystem, a network, etc.
 ///
-/// Supports flexible "modes", such as [`AssetPlugin::Processed`] and
-/// [`AssetPlugin::Unprocessed`] that enable using the asset workflow that best suits your project.
-pub enum AssetPlugin {
+/// Supports flexible "modes", such as [`AssetMode::Processed`] and
+/// [`AssetMode::Unprocessed`] that enable using the asset workflow that best suits your project.
+pub struct AssetPlugin {
+    /// The default file path to use (relative to the project root) for unprocessed assets.
+    pub file_path: String,
+    /// The default file path to use (relative to the project root) for processed assets.
+    pub processed_file_path: String,
+    /// If set, will override the default "watch for changes" setting. By default "watch for changes" will be `false` unless
+    /// the `watch` cargo feature is set. `watch` can be enabled manually, or it will be automatically enabled if a specific watcher
+    /// like `file_watcher` is enabled.
+    ///
+    /// Most use cases should leave this set to [`None`] and enable a specific watcher feature such as `file_watcher` to enable
+    /// watching for dev-scenarios.
+    pub watch_for_changes_override: Option<bool>,
+    /// The [`AssetMode`] to use for this server.
+    pub mode: AssetMode,
+}
+
+pub enum AssetMode {
     /// Loads assets without any "preprocessing" from the configured asset `source` (defaults to the `assets` folder).
-    Unprocessed {
-        source: AssetProvider,
-        watch_for_changes: bool,
-    },
+    Unprocessed,
     /// Loads "processed" assets from a given `destination` source (defaults to the `imported_assets/Default` folder). This should
     /// generally only be used when distributing apps. Use [`AssetPlugin::ProcessedDev`] to develop apps that process assets,
     /// then switch to [`AssetPlugin::Processed`] when deploying the apps.
-    Processed {
-        destination: AssetProvider,
-        watch_for_changes: bool,
-    },
+    Processed,
     /// Starts an [`AssetProcessor`] in the background that reads assets from the `source` provider (defaults to the `assets` folder),
     /// processes them according to their [`AssetMeta`], and writes them to the `destination` provider (defaults to the `imported_assets/Default` folder).
     ///
     /// By default this will hot reload changes to the `source` provider, resulting in reprocessing the asset and reloading it in the [`App`].
     ///
     /// [`AssetMeta`]: crate::meta::AssetMeta
-    ProcessedDev {
-        source: AssetProvider,
-        destination: AssetProvider,
-        watch_for_changes: bool,
-    },
+    ProcessedDev,
 }
 
 impl Default for AssetPlugin {
     fn default() -> Self {
-        Self::unprocessed()
+        Self {
+            mode: AssetMode::Unprocessed,
+            file_path: Self::DEFAULT_UNPROCESSED_FILE_PATH.to_string(),
+            processed_file_path: Self::DEFAULT_PROCESSED_FILE_PATH.to_string(),
+            watch_for_changes_override: None,
+        }
     }
 }
 
 impl AssetPlugin {
-    const DEFAULT_FILE_SOURCE: &'static str = "assets";
+    const DEFAULT_UNPROCESSED_FILE_PATH: &'static str = "assets";
     /// NOTE: this is in the Default sub-folder to make this forward compatible with "import profiles"
     /// and to allow us to put the "processor transaction log" at `imported_assets/log`
-    const DEFAULT_FILE_DESTINATION: &'static str = "imported_assets/Default";
-
-    /// Returns the default [`AssetPlugin::Processed`] configuration
-    pub fn processed() -> Self {
-        Self::Processed {
-            destination: Default::default(),
-            watch_for_changes: false,
-        }
-    }
-
-    /// Returns the default [`AssetPlugin::ProcessedDev`] configuration
-    pub fn processed_dev() -> Self {
-        Self::ProcessedDev {
-            source: Default::default(),
-            destination: Default::default(),
-            watch_for_changes: true,
-        }
-    }
-
-    /// Returns the default [`AssetPlugin::Unprocessed`] configuration
-    pub fn unprocessed() -> Self {
-        Self::Unprocessed {
-            source: Default::default(),
-            watch_for_changes: false,
-        }
-    }
-
-    /// Enables watching for changes, which will hot-reload assets when they change.
-    pub fn watch_for_changes(mut self) -> Self {
-        match &mut self {
-            AssetPlugin::Unprocessed {
-                watch_for_changes, ..
-            }
-            | AssetPlugin::Processed {
-                watch_for_changes, ..
-            }
-            | AssetPlugin::ProcessedDev {
-                watch_for_changes, ..
-            } => *watch_for_changes = true,
-        };
-        self
-    }
+    const DEFAULT_PROCESSED_FILE_PATH: &'static str = "imported_assets/Default";
 }
 
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut App) {
-        app.init_schedule(UpdateAssets)
-            .init_schedule(AssetEvents)
-            .init_resource::<AssetProviders>();
+        app.init_schedule(UpdateAssets).init_schedule(AssetEvents);
+        let rust_src = RustSrcRegistry::default();
         {
-            match self {
-                AssetPlugin::Unprocessed {
-                    source,
-                    watch_for_changes,
-                } => {
-                    let source_reader = app
-                        .world
-                        .resource_mut::<AssetProviders>()
-                        .get_source_reader(source);
-                    app.insert_resource(AssetServer::new(source_reader, *watch_for_changes));
+            let mut providers = app
+                .world
+                .get_resource_or_insert_with::<AssetProviderBuilders>(Default::default);
+            providers.init_default_providers(&self.file_path, &self.processed_file_path);
+            rust_src.register_provider(&mut providers);
+        }
+        {
+            let mut watch = cfg!(feature = "watch");
+            if let Some(watch_override) = self.watch_for_changes_override {
+                watch = watch_override;
+            }
+            match self.mode {
+                AssetMode::Unprocessed => {
+                    let mut providers = app.world.resource_mut::<AssetProviderBuilders>();
+                    let providers = providers.build_providers(watch, false);
+                    app.insert_resource(AssetServer::new(
+                        providers,
+                        AssetServerMode::Unprocessed,
+                        watch,
+                    ));
                 }
-                AssetPlugin::Processed {
-                    destination,
-                    watch_for_changes,
-                } => {
-                    let destination_reader = app
-                        .world
-                        .resource_mut::<AssetProviders>()
-                        .get_destination_reader(destination);
-                    app.insert_resource(AssetServer::new(destination_reader, *watch_for_changes));
+                AssetMode::Processed => {
+                    let mut providers = app.world.resource_mut::<AssetProviderBuilders>();
+                    let providers = providers.build_providers(false, watch);
+                    app.insert_resource(AssetServer::new(
+                        providers,
+                        AssetServerMode::Processed,
+                        watch,
+                    ));
                 }
-                AssetPlugin::ProcessedDev {
-                    source,
-                    destination,
-                    watch_for_changes,
-                } => {
-                    let mut asset_providers = app.world.resource_mut::<AssetProviders>();
-                    let processor = AssetProcessor::new(&mut asset_providers, source, destination);
-                    let destination_reader = asset_providers.get_destination_reader(source);
-                    // the main asset server gates loads based on asset state
-                    let gated_reader =
-                        ProcessorGatedReader::new(destination_reader, processor.data.clone());
+                AssetMode::ProcessedDev => {
+                    let mut providers = app.world.resource_mut::<AssetProviderBuilders>();
+                    let processor = AssetProcessor::new(&mut providers);
+                    let mut providers = providers.build_providers(false, watch);
+                    providers.gate_on_processor(processor.data.clone());
                     // the main asset server shares loaders with the processor asset server
                     app.insert_resource(AssetServer::new_with_loaders(
-                        Box::new(gated_reader),
+                        providers,
                         processor.server().data.loaders.clone(),
-                        *watch_for_changes,
+                        AssetServerMode::Processed,
+                        watch,
                     ))
                     .insert_resource(processor)
                     .add_systems(Startup, AssetProcessor::start);
                 }
             }
         }
-        app.init_asset::<LoadedFolder>()
+        app.insert_resource(rust_src)
+            .init_asset::<LoadedFolder>()
             .init_asset::<()>()
             .configure_sets(
                 UpdateAssets,
@@ -253,6 +227,12 @@ pub trait AssetApp {
     fn register_asset_loader<L: AssetLoader>(&mut self, loader: L) -> &mut Self;
     /// Registers the given `processor` in the [`App`]'s [`AssetProcessor`].
     fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self;
+    /// Registers the given [`AssetProviderBuilder`] with the given `id`.
+    fn register_asset_provider(
+        &mut self,
+        id: impl Into<AssetProviderId<'static>>,
+        provider: AssetProviderBuilder,
+    ) -> &mut Self;
     /// Sets the default asset processor for the given `extension`.
     fn set_default_asset_processor<P: Process>(&mut self, extension: &str) -> &mut Self;
     /// Initializes the given loader in the [`App`]'s [`AssetServer`].
@@ -345,6 +325,21 @@ impl AssetApp for App {
         }
         self
     }
+
+    fn register_asset_provider(
+        &mut self,
+        id: impl Into<AssetProviderId<'static>>,
+        provider: AssetProviderBuilder,
+    ) -> &mut Self {
+        {
+            let mut providers = self
+                .world
+                .get_resource_or_insert_with(AssetProviderBuilders::default);
+            providers.insert(id, provider);
+        }
+
+        self
+    }
 }
 
 /// A system set that holds all "track asset" operations.
@@ -361,55 +356,6 @@ pub struct UpdateAssets;
 #[derive(Debug, Hash, PartialEq, Eq, Clone, ScheduleLabel)]
 pub struct AssetEvents;
 
-/// Loads an "internal" asset by embedding the string stored in the given `path_str` and associates it with the given handle.
-#[macro_export]
-macro_rules! load_internal_asset {
-    ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
-        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.insert($handle, ($loader)(
-            include_str!($path_str),
-            std::path::Path::new(file!())
-                .parent()
-                .unwrap()
-                .join($path_str)
-                .to_string_lossy()
-        ));
-    }};
-    // we can't support params without variadic arguments, so internal assets with additional params can't be hot-reloaded
-    ($app: ident, $handle: ident, $path_str: expr, $loader: expr $(, $param:expr)+) => {{
-        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.insert($handle, ($loader)(
-            include_str!($path_str),
-            std::path::Path::new(file!())
-                .parent()
-                .unwrap()
-                .join($path_str)
-                .to_string_lossy(),
-            $($param),+
-        ));
-    }};
-}
-
-/// Loads an "internal" binary asset by embedding the bytes stored in the given `path_str` and associates it with the given handle.
-#[macro_export]
-macro_rules! load_internal_binary_asset {
-    ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
-        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.insert(
-            $handle,
-            ($loader)(
-                include_bytes!($path_str).as_ref(),
-                std::path::Path::new(file!())
-                    .parent()
-                    .unwrap()
-                    .join($path_str)
-                    .to_string_lossy()
-                    .into(),
-            ),
-        );
-    }};
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -419,11 +365,11 @@ mod tests {
         io::{
             gated::{GateOpener, GatedReader},
             memory::{Dir, MemoryAssetReader},
-            Reader,
+            AssetProvider, Reader,
         },
         loader::{AssetLoader, LoadContext},
-        Asset, AssetApp, AssetEvent, AssetId, AssetPlugin, AssetProvider, AssetProviders,
-        AssetServer, Assets, DependencyLoadState, LoadState, RecursiveDependencyLoadState,
+        Asset, AssetApp, AssetEvent, AssetId, AssetPlugin, AssetProviderId, AssetServer, Assets,
+        DependencyLoadState, LoadState, RecursiveDependencyLoadState,
     };
     use bevy_app::{App, Update};
     use bevy_core::TaskPoolPlugin;
@@ -508,17 +454,14 @@ mod tests {
     fn test_app(dir: Dir) -> (App, GateOpener) {
         let mut app = App::new();
         let (gated_memory_reader, gate_opener) = GatedReader::new(MemoryAssetReader { root: dir });
-        app.insert_resource(
-            AssetProviders::default()
-                .with_reader("Test", move || Box::new(gated_memory_reader.clone())),
+        app.register_asset_provider(
+            AssetProviderId::Default,
+            AssetProvider::build().with_reader(move || Box::new(gated_memory_reader.clone())),
         )
         .add_plugins((
             TaskPoolPlugin::default(),
             LogPlugin::default(),
-            AssetPlugin::Unprocessed {
-                source: AssetProvider::Custom("Test".to_string()),
-                watch_for_changes: false,
-            },
+            AssetPlugin::default(),
         ));
         (app, gate_opener)
     }

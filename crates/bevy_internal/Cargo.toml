@@ -102,7 +102,10 @@ glam_assert = ["bevy_math/glam_assert"]
 default_font = ["bevy_text?/default_font"]
 
 # Enables watching the filesystem for Bevy Asset hot-reloading
-filesystem_watcher = ["bevy_asset?/filesystem_watcher"]
+file_watcher = ["bevy_asset?/file_watcher"]
+
+# Enables watching rust src files for Bevy Asset hot-reloading
+rust_src_watcher = ["bevy_asset?/rust_src_watcher"]
 
 [dependencies]
 # bevy

@@ -5,6 +5,7 @@ pub mod file;
 pub mod gated;
 pub mod memory;
 pub mod processor_gated;
+pub mod rust_src;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
 
@@ -14,7 +15,6 @@ pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
 pub use provider::*;
 
 use bevy_utils::BoxedFuture;
-use crossbeam_channel::Sender;
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::{ready, Stream};
 use std::{
@@ -64,13 +64,6 @@ pub trait AssetReader: Send + Sync + 'static {
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<bool, AssetReaderError>>;
-
-    /// Returns an Asset watcher that will send events on the given channel.
-    /// If this reader does not support watching for changes, this will return [`None`].
-    fn watch_for_changes(
-        &self,
-        event_sender: Sender<AssetSourceEvent>,
-    ) -> Option<Box<dyn AssetWatcher>>;
 
     /// Reads asset metadata bytes at the given `path` into a [`Vec<u8>`]. This is a convenience
     /// function that wraps [`AssetReader::read_meta`] by default.
@@ -179,8 +172,8 @@ pub trait AssetWriter: Send + Sync + 'static {
 }
 
 /// An "asset source change event" that occurs whenever asset (or asset metadata) is created/added/removed
-#[derive(Clone, Debug)]
-pub enum AssetSourceEvent {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AssetProviderEvent {
     /// An asset at this path was added.
     AddedAsset(PathBuf),
     /// An asset at this path was modified.
@@ -216,7 +209,7 @@ pub enum AssetSourceEvent {
     },
 }
 
-/// A handle to an "asset watcher" process, that will listen for and emit [`AssetSourceEvent`] values for as long as
+/// A handle to an "asset watcher" process, that will listen for and emit [`AssetProviderEvent`] values for as long as
 /// [`AssetWatcher`] has not been dropped.
 ///
 /// See [`AssetReader::watch_for_changes`].

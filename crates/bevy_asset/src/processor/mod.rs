@@ -6,15 +6,15 @@ pub use process::*;
 
 use crate::{
     io::{
-        processor_gated::ProcessorGatedReader, AssetProvider, AssetProviders, AssetReader,
-        AssetReaderError, AssetSourceEvent, AssetWatcher, AssetWriter, AssetWriterError,
+        AssetProvider, AssetProviderBuilders, AssetProviderEvent, AssetProviderId, AssetProviders,
+        AssetReader, AssetReaderError, AssetWriter, AssetWriterError, MissingAssetProviderError,
     },
     meta::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
         AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
-    AssetLoadError, AssetLoaderError, AssetPath, AssetServer, DeserializeMetaError,
-    LoadDirectError, MissingAssetLoaderForExtensionError, CANNOT_WATCH_ERROR_MESSAGE,
+    AssetLoadError, AssetLoaderError, AssetPath, AssetServer, AssetServerMode,
+    DeserializeMetaError, LoadDirectError, MissingAssetLoaderForExtensionError,
 };
 use bevy_ecs::prelude::*;
 use bevy_log::{debug, error, trace, warn};
@@ -58,37 +58,23 @@ pub struct AssetProcessorData {
     /// Default processors for file extensions
     default_processors: RwLock<HashMap<String, &'static str>>,
     state: async_lock::RwLock<ProcessorState>,
-    source_reader: Box<dyn AssetReader>,
-    source_writer: Box<dyn AssetWriter>,
-    destination_reader: Box<dyn AssetReader>,
-    destination_writer: Box<dyn AssetWriter>,
+    providers: AssetProviders,
     initialized_sender: async_broadcast::Sender<()>,
     initialized_receiver: async_broadcast::Receiver<()>,
     finished_sender: async_broadcast::Sender<()>,
     finished_receiver: async_broadcast::Receiver<()>,
-    source_event_receiver: crossbeam_channel::Receiver<AssetSourceEvent>,
-    _source_watcher: Option<Box<dyn AssetWatcher>>,
 }
 
 impl AssetProcessor {
     /// Creates a new [`AssetProcessor`] instance.
-    pub fn new(
-        providers: &mut AssetProviders,
-        source: &AssetProvider,
-        destination: &AssetProvider,
-    ) -> Self {
+    pub fn new(providers: &mut AssetProviderBuilders) -> Self {
         let data = Arc::new(AssetProcessorData::new(
-            providers.get_source_reader(source),
-            providers.get_source_writer(source),
-            providers.get_destination_reader(destination),
-            providers.get_destination_writer(destination),
+            providers.build_providers(true, false),
         ));
-        let destination_reader = providers.get_destination_reader(destination);
         // The asset processor uses its own asset server with its own id space
-        let server = AssetServer::new(
-            Box::new(ProcessorGatedReader::new(destination_reader, data.clone())),
-            true,
-        );
+        let mut providers = providers.build_providers(false, false);
+        providers.gate_on_processor(data.clone());
+        let server = AssetServer::new(providers, AssetServerMode::Processed, false);
         Self { server, data }
     }
 
@@ -114,24 +100,18 @@ impl AssetProcessor {
         *self.data.state.read().await
     }
 
-    /// Retrieves the "source" [`AssetReader`] (the place where user-provided unprocessed "asset sources" are stored)
-    pub fn source_reader(&self) -> &dyn AssetReader {
-        &*self.data.source_reader
+    /// Retrieves the [`AssetReaders`] for this processor
+    #[inline]
+    pub fn get_provider<'a, 'b>(
+        &'a self,
+        provider: impl Into<AssetProviderId<'b>>,
+    ) -> Result<&'a AssetProvider, MissingAssetProviderError> {
+        self.data.providers.get(provider.into())
     }
 
-    /// Retrieves the "source" [`AssetWriter`] (the place where user-provided unprocessed "asset sources" are stored)
-    pub fn source_writer(&self) -> &dyn AssetWriter {
-        &*self.data.source_writer
-    }
-
-    /// Retrieves the "destination" [`AssetReader`] (the place where processed / [`AssetProcessor`]-managed assets are stored)
-    pub fn destination_reader(&self) -> &dyn AssetReader {
-        &*self.data.destination_reader
-    }
-
-    /// Retrieves the "destination" [`AssetWriter`] (the place where processed / [`AssetProcessor`]-managed assets are stored)
-    pub fn destination_writer(&self) -> &dyn AssetWriter {
-        &*self.data.destination_writer
+    #[inline]
+    pub fn providers(&self) -> &AssetProviders {
+        &self.data.providers
     }
 
     /// Logs an unrecoverable error. On the next run of the processor, all assets will be regenerated. This should only be used as a last resort.
@@ -144,14 +124,14 @@ impl AssetProcessor {
 
     /// Logs the start of an asset being processed. If this is not followed at some point in the log by a closing [`AssetProcessor::log_end_processing`],
     /// in the next run of the processor the asset processing will be considered "incomplete" and it will be reprocessed.
-    async fn log_begin_processing(&self, path: &Path) {
+    async fn log_begin_processing(&self, path: &AssetPath<'_>) {
         let mut log = self.data.log.write().await;
         let log = log.as_mut().unwrap();
         log.begin_processing(path).await.unwrap();
     }
 
     /// Logs the end of an asset being successfully processed. See [`AssetProcessor::log_begin_processing`].
-    async fn log_end_processing(&self, path: &Path) {
+    async fn log_end_processing(&self, path: &AssetPath<'_>) {
         let mut log = self.data.log.write().await;
         let log = log.as_mut().unwrap();
         log.end_processing(path).await.unwrap();
@@ -184,8 +164,11 @@ impl AssetProcessor {
         IoTaskPool::get().scope(|scope| {
             scope.spawn(async move {
                 self.initialize().await.unwrap();
-                let path = PathBuf::from("");
-                self.process_assets_internal(scope, path).await.unwrap();
+                for provider in self.providers().iter_processed() {
+                    self.process_assets_internal(scope, provider, PathBuf::from(""))
+                        .await
+                        .unwrap();
+                }
             });
         });
         // This must happen _after_ the scope resolves or it will happen "too early"
@@ -202,13 +185,17 @@ impl AssetProcessor {
         loop {
             let mut started_processing = false;
 
-            for event in self.data.source_event_receiver.try_iter() {
-                if !started_processing {
-                    self.set_state(ProcessorState::Processing).await;
-                    started_processing = true;
-                }
+            for provider in self.data.providers.iter_processed() {
+                if let Some(receiver) = provider.event_receiver() {
+                    for event in receiver.try_iter() {
+                        if !started_processing {
+                            self.set_state(ProcessorState::Processing).await;
+                            started_processing = true;
+                        }
 
-                self.handle_asset_source_event(event).await;
+                        self.handle_asset_provider_event(provider, event).await;
+                    }
+                }
             }
 
             if started_processing {
@@ -217,84 +204,95 @@ impl AssetProcessor {
         }
     }
 
-    async fn handle_asset_source_event(&self, event: AssetSourceEvent) {
+    async fn handle_asset_provider_event(
+        &self,
+        provider: &AssetProvider,
+        event: AssetProviderEvent,
+    ) {
         trace!("{event:?}");
         match event {
-            AssetSourceEvent::AddedAsset(path)
-            | AssetSourceEvent::AddedMeta(path)
-            | AssetSourceEvent::ModifiedAsset(path)
-            | AssetSourceEvent::ModifiedMeta(path) => {
-                self.process_asset(&path).await;
+            AssetProviderEvent::AddedAsset(path)
+            | AssetProviderEvent::AddedMeta(path)
+            | AssetProviderEvent::ModifiedAsset(path)
+            | AssetProviderEvent::ModifiedMeta(path) => {
+                self.process_asset(provider, path).await;
             }
-            AssetSourceEvent::RemovedAsset(path) => {
-                self.handle_removed_asset(path).await;
+            AssetProviderEvent::RemovedAsset(path) => {
+                self.handle_removed_asset(provider, path).await;
             }
-            AssetSourceEvent::RemovedMeta(path) => {
-                self.handle_removed_meta(&path).await;
+            AssetProviderEvent::RemovedMeta(path) => {
+                self.handle_removed_meta(provider, path).await;
             }
-            AssetSourceEvent::AddedFolder(path) => {
-                self.handle_added_folder(path).await;
+            AssetProviderEvent::AddedFolder(path) => {
+                self.handle_added_folder(provider, path).await;
             }
             // NOTE: As a heads up for future devs: this event shouldn't be run in parallel with other events that might
             // touch this folder (ex: the folder might be re-created with new assets). Clean up the old state first.
             // Currently this event handler is not parallel, but it could be (and likely should be) in the future.
-            AssetSourceEvent::RemovedFolder(path) => {
-                self.handle_removed_folder(&path).await;
+            AssetProviderEvent::RemovedFolder(path) => {
+                self.handle_removed_folder(provider, &path).await;
             }
-            AssetSourceEvent::RenamedAsset { old, new } => {
+            AssetProviderEvent::RenamedAsset { old, new } => {
                 // If there was a rename event, but the path hasn't changed, this asset might need reprocessing.
                 // Sometimes this event is returned when an asset is moved "back" into the asset folder
                 if old == new {
-                    self.process_asset(&new).await;
+                    self.process_asset(provider, new).await;
                 } else {
-                    self.handle_renamed_asset(old, new).await;
+                    self.handle_renamed_asset(provider, old, new).await;
                 }
             }
-            AssetSourceEvent::RenamedMeta { old, new } => {
+            AssetProviderEvent::RenamedMeta { old, new } => {
                 // If there was a rename event, but the path hasn't changed, this asset meta might need reprocessing.
                 // Sometimes this event is returned when an asset meta is moved "back" into the asset folder
                 if old == new {
-                    self.process_asset(&new).await;
+                    self.process_asset(provider, new).await;
                 } else {
                     debug!("Meta renamed from {old:?} to {new:?}");
                     let mut infos = self.data.asset_infos.write().await;
                     // Renaming meta should not assume that an asset has also been renamed. Check both old and new assets to see
                     // if they should be re-imported (and/or have new meta generated)
-                    infos.check_reprocess_queue.push_back(old);
-                    infos.check_reprocess_queue.push_back(new);
+                    let new_asset_path = AssetPath::from(new).with_provider(provider.id());
+                    let old_asset_path = AssetPath::from(old).with_provider(provider.id());
+                    infos.check_reprocess_queue.push_back(old_asset_path);
+                    infos.check_reprocess_queue.push_back(new_asset_path);
                 }
             }
-            AssetSourceEvent::RenamedFolder { old, new } => {
+            AssetProviderEvent::RenamedFolder { old, new } => {
                 // If there was a rename event, but the path hasn't changed, this asset folder might need reprocessing.
                 // Sometimes this event is returned when an asset meta is moved "back" into the asset folder
                 if old == new {
-                    self.handle_added_folder(new).await;
+                    self.handle_added_folder(provider, new).await;
                 } else {
                     // PERF: this reprocesses everything in the moved folder. this is not necessary in most cases, but
                     // requires some nuance when it comes to path handling.
-                    self.handle_removed_folder(&old).await;
-                    self.handle_added_folder(new).await;
+                    self.handle_removed_folder(provider, &old).await;
+                    self.handle_added_folder(provider, new).await;
                 }
             }
-            AssetSourceEvent::RemovedUnknown { path, is_meta } => {
-                match self.destination_reader().is_directory(&path).await {
+            AssetProviderEvent::RemovedUnknown { path, is_meta } => {
+                let processed_reader = provider.processed_reader().unwrap();
+                match processed_reader.is_directory(&path).await {
                     Ok(is_directory) => {
                         if is_directory {
-                            self.handle_removed_folder(&path).await;
+                            self.handle_removed_folder(provider, &path).await;
                         } else if is_meta {
-                            self.handle_removed_meta(&path).await;
+                            self.handle_removed_meta(provider, path).await;
                         } else {
-                            self.handle_removed_asset(path).await;
+                            self.handle_removed_asset(provider, path).await;
                         }
                     }
                     Err(err) => {
-                        if let AssetReaderError::NotFound(_) = err {
-                            // if the path is not found, a processed version does not exist
-                        } else {
-                            error!(
-                                "Path '{path:?}' as removed, but the destination reader could not determine if it \
-                                was a folder or a file due to the following error: {err}"
-                            );
+                        match err {
+                            AssetReaderError::NotFound(_) => {
+                                // if the path is not found, a processed version does not exist
+                            }
+                            AssetReaderError::Io(err) => {
+                                error!(
+                                    "Path '{}' was removed, but the destination reader could not determine if it \
+                                    was a folder or a file due to the following error: {err}",
+                                    AssetPath::from_path(&path).with_provider(provider.id())
+                                );
+                            }
                         }
                     }
                 }
@@ -302,38 +300,44 @@ impl AssetProcessor {
         }
     }
 
-    async fn handle_added_folder(&self, path: PathBuf) {
-        debug!("Folder {:?} was added. Attempting to re-process", path);
+    async fn handle_added_folder(&self, provider: &AssetProvider, path: PathBuf) {
+        debug!(
+            "Folder {} was added. Attempting to re-process",
+            AssetPath::from_path(&path).with_provider(provider.id())
+        );
         #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
         error!("AddFolder event cannot be handled in single threaded mode (or WASM) yet.");
         #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
         IoTaskPool::get().scope(|scope| {
             scope.spawn(async move {
-                self.process_assets_internal(scope, path).await.unwrap();
+                self.process_assets_internal(scope, provider, path)
+                    .await
+                    .unwrap();
             });
         });
     }
 
     /// Responds to a removed meta event by reprocessing the asset at the given path.
-    async fn handle_removed_meta(&self, path: &Path) {
+    async fn handle_removed_meta(&self, provider: &AssetProvider, path: PathBuf) {
         // If meta was removed, we might need to regenerate it.
         // Likewise, the user might be manually re-adding the asset.
         // Therefore, we shouldn't automatically delete the asset ... that is a
         // user-initiated action.
         debug!(
             "Meta for asset {:?} was removed. Attempting to re-process",
-            path
+            AssetPath::from_path(&path).with_provider(provider.id())
         );
-        self.process_asset(path).await;
+        self.process_asset(provider, path).await;
     }
 
     /// Removes all processed assets stored at the given path (respecting transactionality), then removes the folder itself.
-    async fn handle_removed_folder(&self, path: &Path) {
+    async fn handle_removed_folder(&self, provider: &AssetProvider, path: &Path) {
         debug!("Removing folder {:?} because source was removed", path);
-        match self.destination_reader().read_directory(path).await {
+        let processed_reader = provider.processed_reader().unwrap();
+        match processed_reader.read_directory(path).await {
             Ok(mut path_stream) => {
                 while let Some(child_path) = path_stream.next().await {
-                    self.handle_removed_asset(child_path).await;
+                    self.handle_removed_asset(provider, child_path).await;
                 }
             }
             Err(err) => match err {
@@ -349,28 +353,32 @@ impl AssetProcessor {
                 }
             },
         }
-        if let Err(AssetWriterError::Io(err)) =
-            self.destination_writer().remove_directory(path).await
-        {
-            // we can ignore NotFound because if the "final" file in a folder was removed
-            // then we automatically clean up this folder
-            if err.kind() != ErrorKind::NotFound {
-                error!("Failed to remove destination folder that no longer exists in asset source {path:?}: {err}");
+        let processed_writer = provider.processed_writer().unwrap();
+        if let Err(err) = processed_writer.remove_directory(path).await {
+            match err {
+                AssetWriterError::Io(err) => {
+                    // we can ignore NotFound because if the "final" file in a folder was removed
+                    // then we automatically clean up this folder
+                    if err.kind() != ErrorKind::NotFound {
+                        let asset_path = AssetPath::from_path(path).with_provider(provider.id());
+                        error!("Failed to remove destination folder that no longer exists in {asset_path}: {err}");
+                    }
+                }
             }
         }
     }
 
     /// Removes the processed version of an asset and associated in-memory metadata. This will block until all existing reads/writes to the
     /// asset have finished, thanks to the `file_transaction_lock`.
-    async fn handle_removed_asset(&self, path: PathBuf) {
-        debug!("Removing processed {:?} because source was removed", path);
-        let asset_path = AssetPath::from_path(path);
+    async fn handle_removed_asset(&self, provider: &AssetProvider, path: PathBuf) {
+        let asset_path = AssetPath::from(path).with_provider(provider.id());
+        debug!("Removing processed {asset_path} because source was removed");
         let mut infos = self.data.asset_infos.write().await;
         if let Some(info) = infos.get(&asset_path) {
             // we must wait for uncontested write access to the asset source to ensure existing readers / writers
             // can finish their operations
             let _write_lock = info.file_transaction_lock.write();
-            self.remove_processed_asset_and_meta(asset_path.path())
+            self.remove_processed_asset_and_meta(provider, asset_path.path())
                 .await;
         }
         infos.remove(&asset_path).await;
@@ -378,22 +386,25 @@ impl AssetProcessor {
 
     /// Handles a renamed source asset by moving it's processed results to the new location and updating in-memory paths + metadata.
     /// This will cause direct path dependencies to break.
-    async fn handle_renamed_asset(&self, old: PathBuf, new: PathBuf) {
+    async fn handle_renamed_asset(&self, provider: &AssetProvider, old: PathBuf, new: PathBuf) {
         let mut infos = self.data.asset_infos.write().await;
-        let old_asset_path = AssetPath::from_path(old);
-        if let Some(info) = infos.get(&old_asset_path) {
+        let old = AssetPath::from(old).with_provider(provider.id());
+        let new = AssetPath::from(new).with_provider(provider.id());
+        let processed_writer = provider.processed_writer().unwrap();
+        if let Some(info) = infos.get(&old) {
             // we must wait for uncontested write access to the asset source to ensure existing readers / writers
             // can finish their operations
             let _write_lock = info.file_transaction_lock.write();
-            let old = old_asset_path.path();
-            self.destination_writer().rename(old, &new).await.unwrap();
-            self.destination_writer()
-                .rename_meta(old, &new)
+            processed_writer
+                .rename(old.path(), new.path())
+                .await
+                .unwrap();
+            processed_writer
+                .rename_meta(old.path(), new.path())
                 .await
                 .unwrap();
         }
-        let new_asset_path = AssetPath::from_path(new);
-        infos.rename(&old_asset_path, &new_asset_path).await;
+        infos.rename(&old, &new).await;
     }
 
     async fn finish_processing_assets(&self) {
@@ -408,19 +419,20 @@ impl AssetProcessor {
     fn process_assets_internal<'scope>(
         &'scope self,
         scope: &'scope bevy_tasks::Scope<'scope, '_, ()>,
+        provider: &'scope AssetProvider,
         path: PathBuf,
     ) -> bevy_utils::BoxedFuture<'scope, Result<(), AssetReaderError>> {
         Box::pin(async move {
-            if self.source_reader().is_directory(&path).await? {
-                let mut path_stream = self.source_reader().read_directory(&path).await?;
+            if provider.reader().is_directory(&path).await? {
+                let mut path_stream = provider.reader().read_directory(&path).await?;
                 while let Some(path) = path_stream.next().await {
-                    self.process_assets_internal(scope, path).await?;
+                    self.process_assets_internal(scope, provider, path).await?;
                 }
             } else {
                 // Files without extensions are skipped
                 let processor = self.clone();
                 scope.spawn(async move {
-                    processor.process_asset(&path).await;
+                    processor.process_asset(provider, path).await;
                 });
             }
             Ok(())
@@ -434,8 +446,9 @@ impl AssetProcessor {
             IoTaskPool::get().scope(|scope| {
                 for path in check_reprocess_queue.drain(..) {
                     let processor = self.clone();
+                    let provider = self.get_provider(path.provider()).unwrap();
                     scope.spawn(async move {
-                        processor.process_asset(&path).await;
+                        processor.process_asset(provider, path.into()).await;
                     });
                 }
             });
@@ -512,68 +525,84 @@ impl AssetProcessor {
             })
         }
 
-        let mut source_paths = Vec::new();
-        let source_reader = self.source_reader();
-        get_asset_paths(source_reader, None, PathBuf::from(""), &mut source_paths)
+        for provider in self.providers().iter_processed() {
+            let Ok(processed_reader) = provider.processed_reader() else {
+                continue;
+            };
+            let Ok(processed_writer) = provider.processed_writer() else {
+                continue;
+            };
+            let mut source_paths = Vec::new();
+            get_asset_paths(
+                provider.reader(),
+                None,
+                PathBuf::from(""),
+                &mut source_paths,
+            )
             .await
             .map_err(InitializeError::FailedToReadSourcePaths)?;
 
-        let mut destination_paths = Vec::new();
-        let destination_reader = self.destination_reader();
-        let destination_writer = self.destination_writer();
-        get_asset_paths(
-            destination_reader,
-            Some(destination_writer),
-            PathBuf::from(""),
-            &mut destination_paths,
-        )
-        .await
-        .map_err(InitializeError::FailedToReadDestinationPaths)?;
+            let mut destination_paths = Vec::new();
+            get_asset_paths(
+                processed_reader,
+                Some(processed_writer),
+                PathBuf::from(""),
+                &mut destination_paths,
+            )
+            .await
+            .map_err(InitializeError::FailedToReadDestinationPaths)?;
 
-        for path in &source_paths {
-            asset_infos.get_or_insert(AssetPath::from_path(path.clone()));
-        }
-
-        for path in &destination_paths {
-            let asset_path = AssetPath::from_path(path.clone());
-            let mut dependencies = Vec::new();
-            if let Some(info) = asset_infos.get_mut(&asset_path) {
-                match self.destination_reader().read_meta_bytes(path).await {
-                    Ok(meta_bytes) => {
-                        match ron::de::from_bytes::<ProcessedInfoMinimal>(&meta_bytes) {
-                            Ok(minimal) => {
-                                trace!(
-                                    "Populated processed info for asset {path:?} {:?}",
-                                    minimal.processed_info
-                                );
-
-                                if let Some(processed_info) = &minimal.processed_info {
-                                    for process_dependency_info in
-                                        &processed_info.process_dependencies
-                                    {
-                                        dependencies.push(process_dependency_info.path.clone());
-                                    }
-                                }
-                                info.processed_info = minimal.processed_info;
-                            }
-                            Err(err) => {
-                                trace!("Removing processed data for {path:?} because meta could not be parsed: {err}");
-                                self.remove_processed_asset_and_meta(path).await;
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        trace!("Removing processed data for {path:?} because meta failed to load: {err}");
-                        self.remove_processed_asset_and_meta(path).await;
-                    }
-                }
-            } else {
-                trace!("Removing processed data for non-existent asset {path:?}");
-                self.remove_processed_asset_and_meta(path).await;
+            for path in source_paths {
+                asset_infos.get_or_insert(AssetPath::from(path).with_provider(provider.id()));
             }
 
-            for dependency in dependencies {
-                asset_infos.add_dependant(&dependency, asset_path.clone());
+            for path in destination_paths {
+                let mut dependencies = Vec::new();
+                let asset_path = AssetPath::from(path).with_provider(provider.id());
+                if let Some(info) = asset_infos.get_mut(&asset_path) {
+                    match processed_reader.read_meta_bytes(asset_path.path()).await {
+                        Ok(meta_bytes) => {
+                            match ron::de::from_bytes::<ProcessedInfoMinimal>(&meta_bytes) {
+                                Ok(minimal) => {
+                                    trace!(
+                                        "Populated processed info for asset {asset_path} {:?}",
+                                        minimal.processed_info
+                                    );
+
+                                    if let Some(processed_info) = &minimal.processed_info {
+                                        for process_dependency_info in
+                                            &processed_info.process_dependencies
+                                        {
+                                            dependencies.push(process_dependency_info.path.clone());
+                                        }
+                                    }
+                                    info.processed_info = minimal.processed_info;
+                                }
+                                Err(err) => {
+                                    trace!("Removing processed data for {asset_path} because meta could not be parsed: {err}");
+                                    self.remove_processed_asset_and_meta(
+                                        provider,
+                                        asset_path.path(),
+                                    )
+                                    .await;
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            trace!("Removing processed data for {asset_path} because meta failed to load: {err}");
+                            self.remove_processed_asset_and_meta(provider, asset_path.path())
+                                .await;
+                        }
+                    }
+                } else {
+                    trace!("Removing processed data for non-existent asset {asset_path}");
+                    self.remove_processed_asset_and_meta(provider, asset_path.path())
+                        .await;
+                }
+
+                for dependency in dependencies {
+                    asset_infos.add_dependant(&dependency, asset_path.clone());
+                }
             }
         }
 
@@ -584,19 +613,20 @@ impl AssetProcessor {
 
     /// Removes the processed version of an asset and its metadata, if it exists. This _is not_ transactional like `remove_processed_asset_transactional`, nor
     /// does it remove existing in-memory metadata.
-    async fn remove_processed_asset_and_meta(&self, path: &Path) {
-        if let Err(err) = self.destination_writer().remove(path).await {
+    async fn remove_processed_asset_and_meta(&self, provider: &AssetProvider, path: &Path) {
+        if let Err(err) = provider.processed_writer().unwrap().remove(path).await {
             warn!("Failed to remove non-existent asset {path:?}: {err}");
         }
 
-        if let Err(err) = self.destination_writer().remove_meta(path).await {
+        if let Err(err) = provider.processed_writer().unwrap().remove_meta(path).await {
             warn!("Failed to remove non-existent meta {path:?}: {err}");
         }
 
-        self.clean_empty_processed_ancestor_folders(path).await;
+        self.clean_empty_processed_ancestor_folders(provider, path)
+            .await;
     }
 
-    async fn clean_empty_processed_ancestor_folders(&self, path: &Path) {
+    async fn clean_empty_processed_ancestor_folders(&self, provider: &AssetProvider, path: &Path) {
         // As a safety precaution don't delete absolute paths to avoid deleting folders outside of the destination folder
         if path.is_absolute() {
             error!("Attempted to clean up ancestor folders of an absolute path. This is unsafe so the operation was skipped.");
@@ -606,8 +636,9 @@ impl AssetProcessor {
             if parent == Path::new("") {
                 break;
             }
-            if self
-                .destination_writer()
+            if provider
+                .processed_writer()
+                .unwrap()
                 .remove_empty_directory(parent)
                 .await
                 .is_err()
@@ -624,33 +655,38 @@ impl AssetProcessor {
     /// to block reads until the asset is processed).
     ///
     /// [`LoadContext`]: crate::loader::LoadContext
-    async fn process_asset(&self, path: &Path) {
-        let result = self.process_asset_internal(path).await;
+    async fn process_asset(&self, provider: &AssetProvider, path: PathBuf) {
+        let asset_path = AssetPath::from(path).with_provider(provider.id());
+        let result = self.process_asset_internal(provider, &asset_path).await;
         let mut infos = self.data.asset_infos.write().await;
-        let asset_path = AssetPath::from_path(path.to_owned());
         infos.finish_processing(asset_path, result).await;
     }
 
-    async fn process_asset_internal(&self, path: &Path) -> Result<ProcessResult, ProcessError> {
-        if path.extension().is_none() {
-            return Err(ProcessError::ExtensionRequired);
-        }
-        let asset_path = AssetPath::from_path(path.to_path_buf());
+    async fn process_asset_internal(
+        &self,
+        provider: &AssetProvider,
+        asset_path: &AssetPath<'static>,
+    ) -> Result<ProcessResult, ProcessError> {
+        // TODO: The extension check was removed now tht AssetPath is the input. is that ok?
         // TODO: check if already processing to protect against duplicate hot-reload events
-        debug!("Processing {:?}", path);
+        debug!("Processing {:?}", asset_path);
         let server = &self.server;
+        let path = asset_path.path();
+        let reader = provider.reader();
+
+        let reader_err = |err| ProcessError::AssetReaderError {
+            path: asset_path.clone(),
+            err,
+        };
+        let writer_err = |err| ProcessError::AssetWriterError {
+            path: asset_path.clone(),
+            err,
+        };
 
         // Note: we get the asset source reader first because we don't want to create meta files for assets that don't have source files
-        let mut reader = self.source_reader().read(path).await.map_err(|e| match e {
-            AssetReaderError::NotFound(_) => ProcessError::MissingAssetSource(path.to_owned()),
-            AssetReaderError::Io(err) => ProcessError::AssetSourceIoError(err),
-        })?;
+        let mut byte_reader = reader.read(path).await.map_err(reader_err)?;
 
-        let (mut source_meta, meta_bytes, processor) = match self
-            .source_reader()
-            .read_meta_bytes(path)
-            .await
-        {
+        let (mut source_meta, meta_bytes, processor) = match reader.read_meta_bytes(path).await {
             Ok(meta_bytes) => {
                 let minimal: AssetMetaMinimal = ron::de::from_bytes(&meta_bytes).map_err(|e| {
                     ProcessError::DeserializeMetaError(DeserializeMetaError::DeserializeMinimal(e))
@@ -684,7 +720,7 @@ impl AssetProcessor {
                     let meta = processor.default_meta();
                     (meta, Some(processor))
                 } else {
-                    match server.get_path_asset_loader(&asset_path).await {
+                    match server.get_path_asset_loader(asset_path.clone()).await {
                         Ok(loader) => (loader.default_meta(), None),
                         Err(MissingAssetLoaderForExtensionError { .. }) => {
                             let meta: Box<dyn AssetMetaDyn> =
@@ -695,19 +731,31 @@ impl AssetProcessor {
                 };
                 let meta_bytes = meta.serialize();
                 // write meta to source location if it doesn't already exist
-                self.source_writer()
+                provider
+                    .writer()?
                     .write_meta_bytes(path, &meta_bytes)
-                    .await?;
+                    .await
+                    .map_err(writer_err)?;
                 (meta, meta_bytes, processor)
             }
-            Err(err) => return Err(ProcessError::ReadAssetMetaError(err)),
+            Err(err) => {
+                return Err(ProcessError::ReadAssetMetaError {
+                    path: asset_path.clone(),
+                    err,
+                })
+            }
         };
 
+        let processed_writer = provider.processed_writer()?;
+
         let mut asset_bytes = Vec::new();
-        reader
+        byte_reader
             .read_to_end(&mut asset_bytes)
             .await
-            .map_err(ProcessError::AssetSourceIoError)?;
+            .map_err(|e| ProcessError::AssetReaderError {
+                path: asset_path.clone(),
+                err: AssetReaderError::Io(e),
+            })?;
 
         // PERF: in theory these hashes could be streamed if we want to avoid allocating the whole asset.
         // The downside is that reading assets would need to happen twice (once for the hash and once for the asset loader)
@@ -722,7 +770,7 @@ impl AssetProcessor {
         {
             let infos = self.data.asset_infos.read().await;
             if let Some(current_processed_info) = infos
-                .get(&asset_path)
+                .get(asset_path)
                 .and_then(|i| i.processed_info.as_ref())
             {
                 if current_processed_info.hash == new_hash {
@@ -754,18 +802,24 @@ impl AssetProcessor {
         // NOTE: if processing the asset fails this will produce an "unfinished" log entry, forcing a rebuild on next run.
         // Directly writing to the asset destination in the processor necessitates this behavior
         // TODO: this class of failure can be recovered via re-processing + smarter log validation that allows for duplicate transactions in the event of failures
-        self.log_begin_processing(path).await;
+        self.log_begin_processing(asset_path).await;
         if let Some(processor) = processor {
-            let mut writer = self.destination_writer().write(path).await?;
+            let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
             let mut processed_meta = {
                 let mut context =
-                    ProcessContext::new(self, &asset_path, &asset_bytes, &mut new_processed_info);
+                    ProcessContext::new(self, asset_path, &asset_bytes, &mut new_processed_info);
                 processor
                     .process(&mut context, source_meta, &mut *writer)
                     .await?
             };
 
-            writer.flush().await.map_err(AssetWriterError::Io)?;
+            writer
+                .flush()
+                .await
+                .map_err(|e| ProcessError::AssetWriterError {
+                    path: asset_path.clone(),
+                    err: AssetWriterError::Io(e),
+                })?;
 
             let full_hash = get_full_asset_hash(
                 new_hash,
@@ -777,20 +831,23 @@ impl AssetProcessor {
             new_processed_info.full_hash = full_hash;
             *processed_meta.processed_info_mut() = Some(new_processed_info.clone());
             let meta_bytes = processed_meta.serialize();
-            self.destination_writer()
+            processed_writer
                 .write_meta_bytes(path, &meta_bytes)
-                .await?;
+                .await
+                .map_err(writer_err)?;
         } else {
-            self.destination_writer()
+            processed_writer
                 .write_bytes(path, &asset_bytes)
-                .await?;
+                .await
+                .map_err(writer_err)?;
             *source_meta.processed_info_mut() = Some(new_processed_info.clone());
             let meta_bytes = source_meta.serialize();
-            self.destination_writer()
+            processed_writer
                 .write_meta_bytes(path, &meta_bytes)
-                .await?;
+                .await
+                .map_err(writer_err)?;
         }
-        self.log_end_processing(path).await;
+        self.log_end_processing(asset_path).await;
 
         Ok(ProcessResult::Processed(new_processed_info))
     }
@@ -818,27 +875,35 @@ impl AssetProcessor {
                             }
                             LogEntryError::UnfinishedTransaction(path) => {
                                 debug!("Asset {path:?} did not finish processing. Clearning state for that asset");
-                                if let Err(err) = self.destination_writer().remove(&path).await {
+                                let mut unrecoverable_err = |message: &str| {
+                                    error!("Failed to remove asset {path:?} because {message}");
+                                    state_is_valid = false;
+                                };
+                                let Ok(provider) = self.get_provider(path.provider()) else {
+                                    (unrecoverable_err)("AssetProvider does not exist");
+                                    continue;
+                                };
+                                let Ok(processed_writer) = provider.processed_writer() else {
+                                    (unrecoverable_err)("AssetProvider does not have a processed AssetWriter registered");
+                                    continue;
+                                };
+
+                                if let Err(err) = processed_writer.remove(path.path()).await {
                                     match err {
                                         AssetWriterError::Io(err) => {
                                             // any error but NotFound means we could be in a bad state
                                             if err.kind() != ErrorKind::NotFound {
-                                                error!("Failed to remove asset {path:?}: {err}");
-                                                state_is_valid = false;
+                                                (unrecoverable_err)("Failed to remove asset");
                                             }
                                         }
                                     }
                                 }
-                                if let Err(err) = self.destination_writer().remove_meta(&path).await
-                                {
+                                if let Err(err) = processed_writer.remove_meta(path.path()).await {
                                     match err {
                                         AssetWriterError::Io(err) => {
                                             // any error but NotFound means we could be in a bad state
                                             if err.kind() != ErrorKind::NotFound {
-                                                error!(
-                                                    "Failed to remove asset meta {path:?}: {err}"
-                                                );
-                                                state_is_valid = false;
+                                                (unrecoverable_err)("Failed to remove asset meta");
                                             }
                                         }
                                     }
@@ -852,12 +917,16 @@ impl AssetProcessor {
 
             if !state_is_valid {
                 error!("Processed asset transaction log state was invalid and unrecoverable for some reason (see previous logs). Removing processed assets and starting fresh.");
-                if let Err(err) = self
-                    .destination_writer()
-                    .remove_assets_in_directory(Path::new(""))
-                    .await
-                {
-                    panic!("Processed assets were in a bad state. To correct this, the asset processor attempted to remove all processed assets and start from scratch. This failed. There is no way to continue. Try restarting, or deleting imported asset folder manually. {err}");
+                for provider in self.providers().iter_processed() {
+                    let Ok(processed_writer) = provider.processed_writer() else {
+                        continue;
+                    };
+                    if let Err(err) = processed_writer
+                        .remove_assets_in_directory(Path::new(""))
+                        .await
+                    {
+                        panic!("Processed assets were in a bad state. To correct this, the asset processor attempted to remove all processed assets and start from scratch. This failed. There is no way to continue. Try restarting, or deleting imported asset folder manually. {err}");
+                    }
                 }
             }
         }
@@ -870,35 +939,20 @@ impl AssetProcessor {
 }
 
 impl AssetProcessorData {
-    pub fn new(
-        source_reader: Box<dyn AssetReader>,
-        source_writer: Box<dyn AssetWriter>,
-        destination_reader: Box<dyn AssetReader>,
-        destination_writer: Box<dyn AssetWriter>,
-    ) -> Self {
+    pub fn new(providers: AssetProviders) -> Self {
         let (mut finished_sender, finished_receiver) = async_broadcast::broadcast(1);
         let (mut initialized_sender, initialized_receiver) = async_broadcast::broadcast(1);
         // allow overflow on these "one slot" channels to allow receivers to retrieve the "latest" state, and to allow senders to
         // not block if there was older state present.
         finished_sender.set_overflow(true);
         initialized_sender.set_overflow(true);
-        let (source_event_sender, source_event_receiver) = crossbeam_channel::unbounded();
-        // TODO: watching for changes could probably be entirely optional / we could just warn here
-        let source_watcher = source_reader.watch_for_changes(source_event_sender);
-        if source_watcher.is_none() {
-            error!("{}", CANNOT_WATCH_ERROR_MESSAGE);
-        }
+
         AssetProcessorData {
-            source_reader,
-            source_writer,
-            destination_reader,
-            destination_writer,
+            providers,
             finished_sender,
             finished_receiver,
             initialized_sender,
             initialized_receiver,
-            source_event_receiver,
-            _source_watcher: source_watcher,
             state: async_lock::RwLock::new(ProcessorState::Initializing),
             log: Default::default(),
             processors: Default::default(),
@@ -908,11 +962,11 @@ impl AssetProcessorData {
     }
 
     /// Returns a future that will not finish until the path has been processed.
-    pub async fn wait_until_processed(&self, path: &Path) -> ProcessStatus {
+    pub async fn wait_until_processed(&self, path: AssetPath<'static>) -> ProcessStatus {
         self.wait_until_initialized().await;
         let mut receiver = {
             let infos = self.asset_infos.write().await;
-            let info = infos.get(&AssetPath::from_path(path.to_path_buf()));
+            let info = infos.get(&path);
             match info {
                 Some(info) => match info.status {
                     Some(result) => return result,
@@ -1038,7 +1092,7 @@ pub struct ProcessorAssetInfos {
     /// Therefore this _must_ always be consistent with the `infos` data. If a new asset is added to `infos`, it should
     /// check this maps for dependencies and add them. If an asset is removed, it should update the dependants here.
     non_existent_dependants: HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
-    check_reprocess_queue: VecDeque<PathBuf>,
+    check_reprocess_queue: VecDeque<AssetPath<'static>>,
 }
 
 impl ProcessorAssetInfos {
@@ -1100,7 +1154,7 @@ impl ProcessorAssetInfos {
                 info.update_status(ProcessStatus::Processed).await;
                 let dependants = info.dependants.iter().cloned().collect::<Vec<_>>();
                 for path in dependants {
-                    self.check_reprocess_queue.push_back(path.path().to_owned());
+                    self.check_reprocess_queue.push_back(path);
                 }
             }
             Ok(ProcessResult::SkippedNotChanged) => {
@@ -1118,17 +1172,17 @@ impl ProcessorAssetInfos {
                 // Skip assets without extensions
             }
             Err(ProcessError::MissingAssetLoaderForExtension(_)) => {
-                trace!("No loader found for {:?}", asset_path);
+                trace!("No loader found for {asset_path}");
             }
-            Err(ProcessError::MissingAssetSource(_)) => {
+            Err(ProcessError::AssetReaderError {
+                err: AssetReaderError::NotFound(_),
+                ..
+            }) => {
                 // if there is no asset source, no processing can be done
-                trace!(
-                    "No need to process asset {:?} because it does not exist",
-                    asset_path
-                );
+                trace!("No need to process asset {asset_path} because it does not exist");
             }
             Err(err) => {
-                error!("Failed to process asset {:?}: {:?}", asset_path, err);
+                error!("Failed to process asset {asset_path}: {err}");
                 // if this failed because a dependency could not be loaded, make sure it is reprocessed if that dependency is reprocessed
                 if let ProcessError::AssetLoadError(AssetLoadError::AssetLoaderError {
                     error: AssetLoaderError::Load(loader_error),
@@ -1223,10 +1277,10 @@ impl ProcessorAssetInfos {
                 new_info.dependants.iter().cloned().collect()
             };
             // Queue the asset for a reprocess check, in case it needs new meta.
-            self.check_reprocess_queue.push_back(new.path().to_owned());
+            self.check_reprocess_queue.push_back(new.clone());
             for dependant in dependants {
                 // Queue dependants for reprocessing because they might have been waiting for this asset.
-                self.check_reprocess_queue.push_back(dependant.into());
+                self.check_reprocess_queue.push_back(dependant);
             }
         }
     }

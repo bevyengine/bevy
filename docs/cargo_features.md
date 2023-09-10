@@ -51,7 +51,7 @@ The default feature set enables most of the expected features of a game engine, 
 |detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |exr|EXR image format support|
-|filesystem_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
+|file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
 |jpeg|JPEG image format support|
