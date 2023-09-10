@@ -76,7 +76,7 @@ fn interpolate_screen_probes(
     var rng = pixel_index + frame_index;
     var rng2 = frame_index;
 
-    let probe_thread_index = u32(floor(rand_f(&rng2) * 63.0));
+    let probe_thread_index = u32(rand_f(&rng2) * 63.0);
     let probe_thread_x = probe_thread_index % 8u;
     let probe_thread_y = (probe_thread_index - probe_thread_x) / 8u;
     let probe_thread_id = vec2<i32>(vec2(probe_thread_x, probe_thread_y));

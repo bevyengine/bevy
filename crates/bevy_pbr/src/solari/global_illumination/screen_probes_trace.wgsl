@@ -15,8 +15,11 @@ fn trace_screen_probes(
     var rng = pixel_index + frame_index;
     var rng2 = frame_index;
 
-    let probe_thread_id_offset = vec2<u32>(rand_vec2f(&rng2) * 7.0);
-    let probe_thread_id = global_id.xy - local_id.xy + probe_thread_id_offset;
+    let probe_thread_index = u32(rand_f(&rng2) * 63.0);
+    let probe_thread_x = probe_thread_index % 8u;
+    let probe_thread_y = (probe_thread_index - probe_thread_x) / 8u;
+    let probe_thread_id = global_id.xy - local_id.xy + vec2(probe_thread_x, probe_thread_y);
+
     let probe_pixel_depth = textureLoad(depth_buffer, probe_thread_id, 0i); // TODO: probe_thread_id may be off-screen
     if probe_pixel_depth == 0.0 {
         textureStore(screen_probes, global_id.xy, vec4(0.0, 0.0, 0.0, 1.0));
