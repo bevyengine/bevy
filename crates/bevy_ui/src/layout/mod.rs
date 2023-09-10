@@ -196,29 +196,6 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
-    //    /// Set the ui node entities without a [`Parent`] as children to the root node in the taffy layout.
-    //    pub fn set_window_children(
-    //     &mut self,
-    //     parent_window: Entity,
-    //     children: impl Iterator<Item = Entity>,
-    // ) {        
-    //     let taffy_parent = *self.window_nodes.get(&parent_window).unwrap();
-        
-    //     let new_taffy_window_children = children
-    //         .map(|e| {
-    //             let t = *self.entity_to_taffy.get(&e).unwrap();
-    //             if let Ok(c) = self.taffy.children(taffy_parent) {
-    //                 if !c.contains(&t) {
-    //                     println!("new window child: {e:?}");
-    //                 }
-    //             }
-    //             t
-    //         }).collect::<Vec<taffy::node::Node>>();
-    //     if let Ok(previous_taffy_children) = self.taffy.children(taffy_parent) {
-
-    //     }
-    //     self.taffy.set_children(taffy_parent, &taffy_window_children).unwrap();
-    // }
 
     /// Compute the layout for each window entity's corresponding root node in the layout.
     pub fn compute_window_layouts(&mut self) {
