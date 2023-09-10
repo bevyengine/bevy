@@ -5,7 +5,7 @@ use bevy_render::color::Color;
 use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
-use crate::{Font, DEFAULT_FONT_HANDLE};
+use crate::Font;
 
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
@@ -140,11 +140,12 @@ impl TextSection {
 }
 
 /// Describes horizontal alignment preference for positioning & bounds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum TextAlignment {
     /// Leftmost character is immediately to the right of the render position.<br/>
     /// Bounds start from the render position and advance rightwards.
+    #[default]
     Left,
     /// Leftmost & rightmost characters are equidistant to the render position.<br/>
     /// Bounds start from the render position and advance equally left & right.
@@ -181,7 +182,7 @@ pub struct TextStyle {
 impl Default for TextStyle {
     fn default() -> Self {
         Self {
-            font: DEFAULT_FONT_HANDLE.typed(),
+            font: Default::default(),
             font_size: 12.0,
             color: Color::WHITE,
         }

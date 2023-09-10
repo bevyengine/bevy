@@ -23,7 +23,6 @@ trace_chrome = [ "bevy_log/tracing-chrome" ]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy" ]
 trace_tracy_memory = ["bevy_log/trace_tracy_memory"]
 wgpu_trace = ["bevy_render/wgpu_trace"]
-debug_asset_server = ["bevy_asset/debug_asset_server"]
 detailed_trace = ["bevy_utils/detailed_trace"]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
@@ -62,11 +61,8 @@ symphonia-wav = ["bevy_audio/symphonia-wav"]
 shader_format_glsl = ["bevy_render/shader_format_glsl"]
 shader_format_spirv = ["bevy_render/shader_format_spirv"]
 
-# Enable watching file system for asset hot reload
-filesystem_watcher = ["bevy_asset/filesystem_watcher"]
-
 serialize = ["bevy_core/serialize", "bevy_input/serialize", "bevy_time/serialize", "bevy_window/serialize", "bevy_transform/serialize", "bevy_math/serialize", "bevy_scene/serialize"]
-multi-threaded = ["bevy_ecs/multi-threaded", "bevy_tasks/multi-threaded"]
+multi-threaded = ["bevy_asset/multi-threaded", "bevy_ecs/multi-threaded", "bevy_tasks/multi-threaded"]
 
 # Display server protocol support (X11 is enabled by default)
 wayland = ["bevy_winit/wayland"]
@@ -104,6 +100,9 @@ bevy_render = ["dep:bevy_render", "bevy_scene?/bevy_render"]
 glam_assert = ["bevy_math/glam_assert"]
 
 default_font = ["bevy_text?/default_font"]
+
+# Enables watching the filesystem for Bevy Asset hot-reloading
+filesystem_watcher = ["bevy_asset?/filesystem_watcher"]
 
 [dependencies]
 # bevy

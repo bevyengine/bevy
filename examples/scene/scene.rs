@@ -1,15 +1,10 @@
 //! This example illustrates loading scenes from files.
-use bevy::{asset::ChangeWatcher, prelude::*, tasks::IoTaskPool, utils::Duration};
+use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
 use std::{fs::File, io::Write};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            // This tells the AssetServer to watch for changes to assets.
-            // It enables our scenes to automatically reload in game when we modify their files.
-            watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins.set(AssetPlugin::default().watch_for_changes()))
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
         .register_type::<ResourceA>()

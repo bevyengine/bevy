@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::CORE_3D,
     prelude::Camera3d,
@@ -13,7 +13,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,
@@ -48,14 +48,10 @@ pub mod draw_3d_graph {
     }
 }
 
-const PREPROCESS_DEPTH_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 102258915420479);
-const GTAO_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 253938746510568);
-const SPATIAL_DENOISE_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 466162052558226);
-const GTAO_UTILS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 366465052568786);
+const PREPROCESS_DEPTH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(102258915420479);
+const GTAO_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(253938746510568);
+const SPATIAL_DENOISE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(466162052558226);
+const GTAO_UTILS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(366465052568786);
 
 /// Plugin for screen space ambient occlusion.
 pub struct ScreenSpaceAmbientOcclusionPlugin;
@@ -116,9 +112,14 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
             .init_resource::<SsaoPipelines>()
             .init_resource::<SpecializedComputePipelines<SsaoPipelines>>()
             .add_systems(ExtractSchedule, extract_ssao_settings)
-            .add_systems(Render, prepare_ssao_textures.in_set(RenderSet::Prepare))
-            .add_systems(Render, prepare_ssao_pipelines.in_set(RenderSet::Prepare))
-            .add_systems(Render, queue_ssao_bind_groups.in_set(RenderSet::Queue))
+            .add_systems(
+                Render,
+                (
+                    prepare_ssao_pipelines.in_set(RenderSet::Prepare),
+                    prepare_ssao_textures.in_set(RenderSet::PrepareResources),
+                    prepare_ssao_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                ),
+            )
             .add_render_graph_node::<ViewNodeRunner<SsaoNode>>(
                 CORE_3D,
                 draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
@@ -532,7 +533,7 @@ impl FromWorld for SsaoPipelines {
                     common_bind_group_layout.clone(),
                 ],
                 push_constant_ranges: vec![],
-                shader: PREPROCESS_DEPTH_SHADER_HANDLE.typed(),
+                shader: PREPROCESS_DEPTH_SHADER_HANDLE,
                 shader_defs: Vec::new(),
                 entry_point: "preprocess_depth".into(),
             });
@@ -545,7 +546,7 @@ impl FromWorld for SsaoPipelines {
                     common_bind_group_layout.clone(),
                 ],
                 push_constant_ranges: vec![],
-                shader: SPATIAL_DENOISE_SHADER_HANDLE.typed(),
+                shader: SPATIAL_DENOISE_SHADER_HANDLE,
                 shader_defs: Vec::new(),
                 entry_point: "spatial_denoise".into(),
             });
@@ -596,7 +597,7 @@ impl SpecializedComputePipeline for SsaoPipelines {
                 self.common_bind_group_layout.clone(),
             ],
             push_constant_ranges: vec![],
-            shader: GTAO_SHADER_HANDLE.typed(),
+            shader: GTAO_SHADER_HANDLE,
             shader_defs,
             entry_point: "gtao".into(),
         }
@@ -755,7 +756,7 @@ struct SsaoBindGroups {
     spatial_denoise_bind_group: BindGroup,
 }
 
-fn queue_ssao_bind_groups(
+fn prepare_ssao_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     pipelines: Res<SsaoPipelines>,
