@@ -80,7 +80,7 @@ impl World {
     /// Run stored systems by their [`SystemId`].
     /// Before running a system, it must first be registered.
     /// The method [`World::register_system`] stores a given system and returns a [`SystemId`].
-    /// This is different from [`RunSystemOnce::run_system_once`](crate::system::RunSystemOnce::run_system_once), 
+    /// This is different from [`RunSystemOnce::run_system_once`](crate::system::RunSystemOnce::run_system_once),
     /// because it keeps local state between calls and change detection works correctly.
     ///
     /// # Limitations
