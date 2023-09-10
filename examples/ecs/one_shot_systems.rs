@@ -4,10 +4,12 @@
 //! reducing the overhead of running extremely rarely run systems
 //! and improving schedule flexibility.
 //!
-//! See the [`SystemRegistry`](bevy::ecs::SystemRegistry) docs for more details.
+//! See the [`World::run_system`](bevy::ecs::World::run_system) or
+//! [`World::run_system_once`](bevy::ecs::World::run_system_once) docs for more
+//! details.
 
 use bevy::{
-    ecs::system::{RunSystem, SystemId},
+    ecs::system::{RunSystemOnce, SystemId},
     prelude::*,
 };
 
@@ -36,7 +38,7 @@ fn setup(world: &mut World) {
     // This entity does not have a Triggered component, so its callback won't run.
     let slider_toggled_id = world.register_system(slider_toggled);
     world.spawn(Callback(slider_toggled_id));
-    world.run_system(count_entities);
+    world.run_system_once(count_entities);
 }
 
 fn button_pressed() {
@@ -52,6 +54,6 @@ fn slider_toggled() {
 /// This could be done in an exclusive system rather than using `Commands` if preferred.
 fn evaluate_callbacks(query: Query<&Callback, With<Triggered>>, mut commands: Commands) {
     for callback in query.iter() {
-        commands.run_system_by_id(callback.0);
+        commands.run_system(callback.0);
     }
 }

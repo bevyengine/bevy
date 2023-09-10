@@ -165,8 +165,8 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// This function is not an efficient method of running systems and its meant to be used as a utility
 /// for testing and/or diagnostics.
 ///
-/// Systems called through [`run_system`](crate::system::RunSystem::run_system) do not hold onto any state,
-/// as they are created and destroyed every time [`run_system`](crate::system::RunSystem::run_system) is called.
+/// Systems called through [`run_system_once`](crate::system::RunSystemOnce::run_system_once) do not hold onto any state,
+/// as they are created and destroyed every time [`run_system_once`](crate::system::RunSystemOnce::run_system_once) is called.
 /// Practically, this means that [`Local`](crate::system::Local) variables are
 /// reset on every run and change detection does not work.
 ///
@@ -182,11 +182,11 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// }
 ///
 /// let mut world = World::default();
-/// world.run_system(increment); // prints 1
-/// world.run_system(increment); // still prints 1
+/// world.run_system_once(increment); // prints 1
+/// world.run_system_once(increment); // still prints 1
 /// ```
 ///
-/// If you do need systems to hold onto state between runs, use the [`World::run_system_by_id`](crate::system::World::run_system_by_id)
+/// If you do need systems to hold onto state between runs, use the [`World::run_system`](crate::system::World::run_system)
 /// and run the system by their [`SystemId`](crate::system::SystemId).
 ///
 /// # Usage
@@ -206,7 +206,7 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::RunSystem;
 /// let mut world = World::default();
-/// let entity = world.run_system(|mut commands: Commands| {
+/// let entity = world.run_system_once(|mut commands: Commands| {
 ///     commands.spawn_empty().id()
 /// });
 /// # assert!(world.get_entity(entity).is_some());
@@ -226,7 +226,7 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// world.spawn(T(0));
 /// world.spawn(T(1));
 /// world.spawn(T(1));
-/// let count = world.run_system(|query: Query<&T>| {
+/// let count = world.run_system_once(|query: Query<&T>| {
 ///     query.iter().filter(|t| t.0 == 1).count()
 /// });
 ///
@@ -250,26 +250,26 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// world.spawn(T(0));
 /// world.spawn(T(1));
 /// world.spawn(T(1));
-/// let count = world.run_system(count);
+/// let count = world.run_system_once(count);
 ///
 /// # assert_eq!(count, 2);
 /// ```
-pub trait RunSystem: Sized {
+pub trait RunSystemOnce: Sized {
     /// Runs a system and applies its deferred parameters.
-    fn run_system<T: IntoSystem<(), Out, Marker>, Out, Marker>(self, system: T) -> Out {
-        self.run_system_with((), system)
+    fn run_system_once<T: IntoSystem<(), Out, Marker>, Out, Marker>(self, system: T) -> Out {
+        self.run_system_once_with((), system)
     }
 
     /// Runs a system with given input and applies its deferred parameters.
-    fn run_system_with<T: IntoSystem<In, Out, Marker>, In, Out, Marker>(
+    fn run_system_once_with<T: IntoSystem<In, Out, Marker>, In, Out, Marker>(
         self,
         input: In,
         system: T,
     ) -> Out;
 }
 
-impl RunSystem for &mut World {
-    fn run_system_with<T: IntoSystem<In, Out, Marker>, In, Out, Marker>(
+impl RunSystemOnce for &mut World {
+    fn run_system_once_with<T: IntoSystem<In, Out, Marker>, In, Out, Marker>(
         self,
         input: In,
         system: T,
@@ -289,7 +289,7 @@ mod tests {
     use crate::prelude::*;
 
     #[test]
-    fn run_system() {
+    fn run_system_once() {
         struct T(usize);
 
         impl Resource for T {}
@@ -300,7 +300,7 @@ mod tests {
         }
 
         let mut world = World::default();
-        let n = world.run_system_with(1, system);
+        let n = world.run_system_once_with(1, system);
         assert_eq!(n, 2);
         assert_eq!(world.resource::<T>().0, 1);
     }
@@ -314,15 +314,13 @@ mod tests {
     }
 
     #[test]
-    /// We need to ensure that the system registry is accessible
-    /// even after being used once.
     fn run_two_systems() {
         let mut world = World::new();
         world.init_resource::<Counter>();
         assert_eq!(*world.resource::<Counter>(), Counter(0));
-        world.run_system(count_up);
+        world.run_system_once(count_up);
         assert_eq!(*world.resource::<Counter>(), Counter(1));
-        world.run_system(count_up);
+        world.run_system_once(count_up);
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
@@ -335,7 +333,7 @@ mod tests {
     fn command_processing() {
         let mut world = World::new();
         assert_eq!(world.entities.len(), 0);
-        world.run_system(spawn_entity);
+        world.run_system_once(spawn_entity);
         assert_eq!(world.entities.len(), 1);
     }
 
@@ -348,7 +346,7 @@ mod tests {
         let mut world = World::new();
         world.insert_non_send_resource(Counter(10));
         assert_eq!(*world.non_send_resource::<Counter>(), Counter(10));
-        world.run_system(non_send_count_down);
+        world.run_system_once(non_send_count_down);
         assert_eq!(*world.non_send_resource::<Counter>(), Counter(9));
     }
 }

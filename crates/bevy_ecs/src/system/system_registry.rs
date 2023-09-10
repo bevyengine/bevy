@@ -41,7 +41,7 @@ impl RemovedSystem {
 pub struct SystemId(Entity);
 
 impl World {
-    /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system_by_id`].
+    /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
     ///
     /// It's possible to register the same systems more than once, they'll be stored seperately.
     pub fn register_system<M, S: IntoSystem<(), (), M> + 'static>(
@@ -80,12 +80,13 @@ impl World {
     /// Run stored systems by their [`SystemId`].
     /// Before running a system, it must first be registered.
     /// The method [`World::register_system`] stores a given system and returns a [`SystemId`].
-    /// This is different from [`world::run_system`], because it keeps local state between calls and change detection works correctly.
+    /// This is different from [`RunSystemOnce::run_system_once`](crate::system::RunSystemOnce::run_system_once), 
+    /// because it keeps local state between calls and change detection works correctly.
     ///
     /// # Limitations
     ///
     ///  - Stored systems cannot be chained: they can neither have an [`In`](crate::system::In) nor return any values.
-    ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system_by_id`](crate::system::Commands).
+    ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands).
     ///  - Exclusive systems cannot be used.
     ///
     /// # Examples
@@ -103,9 +104,9 @@ impl World {
     /// let mut world = World::default();
     /// let counter_one = world.register_system(increment);
     /// let counter_two = world.register_system(increment);
-    /// world.run_system_by_id(counter_one); // -> 1
-    /// world.run_system_by_id(counter_one); // -> 2
-    /// world.run_system_by_id(counter_two); // -> 1
+    /// world.run_system(counter_one); // -> 1
+    /// world.run_system(counter_one); // -> 2
+    /// world.run_system(counter_two); // -> 1
     /// ```
     ///
     /// Change detection:
@@ -126,12 +127,12 @@ impl World {
     /// });
     ///
     /// // Resources are changed when they are first added
-    /// let _ = world.run_system_by_id(detector); // -> Something happened!
-    /// let _ = world.run_system_by_id(detector); // -> Nothing happened.
+    /// let _ = world.run_system(detector); // -> Something happened!
+    /// let _ = world.run_system(detector); // -> Nothing happened.
     /// world.resource_mut::<ChangeDetector>().set_changed();
-    /// let _ = world.run_system_by_id(detector); // -> Something happened!
+    /// let _ = world.run_system(detector); // -> Something happened!
     /// ```
-    pub fn run_system_by_id(&mut self, id: SystemId) -> Result<(), RegisteredSystemError> {
+    pub fn run_system(&mut self, id: SystemId) -> Result<(), RegisteredSystemError> {
         // lookup
         let mut entity = self
             .get_entity_mut(id.0)
@@ -164,23 +165,23 @@ impl World {
     }
 }
 
-/// The [`Command`] type for [`World::run_system_by_id`].
+/// The [`Command`] type for [`World::run_system`].
 #[derive(Debug, Clone)]
-pub struct RunSystemById {
+pub struct RunSystem {
     system_id: SystemId,
 }
 
-impl RunSystemById {
+impl RunSystem {
     /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
     pub fn new(system_id: SystemId) -> Self {
         Self { system_id }
     }
 }
 
-impl Command for RunSystemById {
+impl Command for RunSystem {
     #[inline]
     fn apply(self, world: &mut World) {
-        let _ = world.run_system_by_id(self.system_id);
+        let _ = world.run_system(self.system_id);
     }
 }
 
@@ -224,14 +225,14 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(0));
         // Resources are changed when they are first added.
         let id = world.register_system(count_up_iff_changed);
-        let _ = world.run_system_by_id(id);
+        let _ = world.run_system(id);
         assert_eq!(*world.resource::<Counter>(), Counter(1));
         // Nothing changed
-        let _ = world.run_system_by_id(id);
+        let _ = world.run_system(id);
         assert_eq!(*world.resource::<Counter>(), Counter(1));
         // Making a change
         world.resource_mut::<ChangeDetector>().set_changed();
-        let _ = world.run_system_by_id(id);
+        let _ = world.run_system(id);
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
@@ -247,13 +248,13 @@ mod tests {
         world.insert_resource(Counter(1));
         assert_eq!(*world.resource::<Counter>(), Counter(1));
         let id = world.register_system(doubling);
-        let _ = world.run_system_by_id(id);
+        let _ = world.run_system(id);
         assert_eq!(*world.resource::<Counter>(), Counter(1));
-        let _ = world.run_system_by_id(id);
+        let _ = world.run_system(id);
         assert_eq!(*world.resource::<Counter>(), Counter(2));
-        let _ = world.run_system_by_id(id);
+        let _ = world.run_system(id);
         assert_eq!(*world.resource::<Counter>(), Counter(4));
-        let _ = world.run_system_by_id(id);
+        let _ = world.run_system(id);
         assert_eq!(*world.resource::<Counter>(), Counter(8));
     }
 
@@ -266,7 +267,7 @@ mod tests {
 
         fn nested(query: Query<&Callback>, mut commands: Commands) {
             for callback in query.iter() {
-                commands.run_system_by_id(callback.0);
+                commands.run_system(callback.0);
             }
         }
 
@@ -283,7 +284,7 @@ mod tests {
 
         world.spawn(Callback(increment_two));
         world.spawn(Callback(increment_three));
-        let _ = world.run_system_by_id(nested_id);
+        let _ = world.run_system(nested_id);
         assert_eq!(*world.resource::<Counter>(), Counter(5));
     }
 }

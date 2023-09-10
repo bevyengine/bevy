@@ -5,7 +5,7 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
-    system::{RunSystemById, SystemId},
+    system::{RunSystem, SystemId},
     world::{EntityWorldMut, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
@@ -522,9 +522,9 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Runs the system corresponding to the given [`SystemId`].
     ///
-    /// Calls [`World::run_system_by_id`](crate::system::World::run_system_by_id).
-    pub fn run_system_by_id(&mut self, id: SystemId) {
-        self.queue.push(RunSystemById::new(id));
+    /// Calls [`World::run_system`](crate::system::World::run_system).
+    pub fn run_system(&mut self, id: SystemId) {
+        self.queue.push(RunSystem::new(id));
     }
 
     /// Pushes a generic [`Command`] to the command queue.
