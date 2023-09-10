@@ -182,7 +182,7 @@ pub mod common_conditions {
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
-        prelude::{Component, Query, With},
+        prelude::{Changed, Component, Query, With},
         removal_detection::RemovedComponents,
         schedule::{State, States},
         system::{IntoSystem, Res, Resource, System},
@@ -936,7 +936,7 @@ pub mod common_conditions {
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
-    /// if there are any entity with a component of the given type removed.
+    /// if there are any entities with a component of the given type removed.
     pub fn any_component_removed<T: Component>() -> impl FnMut(RemovedComponents<T>) -> bool {
         // `RemovedComponents` based on events and therefore events need to be consumed,
         // so that there are no false positives on subsequent calls of the run condition.
@@ -944,6 +944,24 @@ pub mod common_conditions {
         // PERF: note that `count` is efficient (not actually looping/iterating),
         // due to Bevy having a specialized implementation for events.
         move |mut removals: RemovedComponents<T>| removals.iter().count() != 0
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that
+    /// returns `true` if there are any entities with a component of the given
+    /// type changed. Newly added components are considered changed.
+    pub fn any_component_changed<T: Component>() -> impl FnMut(Query<(), Changed<T>>) -> bool + Clone
+    {
+        move |query: Query<(), Changed<T>>| !query.is_empty()
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that
+    /// returns `true` if there are any entities with a component of the given
+    /// type changed or removed. Newly added components are considered changed.
+    pub fn any_component_changed_or_removed<T: Component>(
+    ) -> impl FnMut(Query<(), Changed<T>>, RemovedComponents<T>) -> bool + Clone {
+        move |query: Query<(), Changed<T>>, mut removals: RemovedComponents<T>| {
+            !query.is_empty() || removals.iter().count() != 0
+        }
     }
 
     /// Generates a [`Condition`](super::Condition) that inverses the result of passed one.
