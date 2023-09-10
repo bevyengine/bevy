@@ -528,8 +528,8 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 #[derive(Clone)]
 pub struct ReflectFromPtr {
     type_id: TypeId,
-    to_reflect: for<'a> unsafe fn(Ptr<'a>) -> &'a dyn Reflect,
-    to_reflect_mut: for<'a> unsafe fn(PtrMut<'a>) -> &'a mut dyn Reflect,
+    to_reflect: unsafe fn(Ptr) -> &dyn Reflect,
+    to_reflect_mut: unsafe fn(PtrMut) -> &mut dyn Reflect,
 }
 
 impl ReflectFromPtr {
@@ -552,6 +552,26 @@ impl ReflectFromPtr {
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
     pub unsafe fn as_reflect_ptr_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
         (self.to_reflect_mut)(val)
+    }
+    /// Get a function pointer to turn a `Ptr` into `&dyn Reflect` for
+    /// the type this was constructed for.
+    ///
+    /// # Safety
+    /// When calling the unsafe function returned by this method you must ensure that:
+    /// - The input `Ptr` points to the `Reflect` type this [`ReflectFromPtr`]
+    ///   was constructed for.
+    pub fn get_to_reflect(&self) -> unsafe fn(Ptr) -> &dyn Reflect {
+        self.to_reflect
+    }
+    /// Get a function pointer to turn a `PtrMut` into `&mut dyn Reflect` for
+    /// the type this was constructed for.
+    ///
+    /// # Safety
+    /// When calling the unsafe function returned by this method you must ensure that:
+    /// - The input `PtrMut` points to the `Reflect` type this [`ReflectFromPtr`]
+    ///   was constructed for.
+    pub fn get_to_reflect_mut(&self) -> unsafe fn(PtrMut) -> &mut dyn Reflect {
+        self.to_reflect_mut
     }
 }
 
