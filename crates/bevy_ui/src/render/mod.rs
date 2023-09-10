@@ -408,7 +408,7 @@ pub fn extract_uinodes(
                 Option<&UiImage>,
                 &ViewVisibility,
                 Option<&CalculatedClip>,
-                Option<&UiMaterialNode>,
+                Has<UiMaterialNode>,
             ),
             Without<UiTextureAtlasImage>,
         >,
@@ -423,7 +423,7 @@ pub fn extract_uinodes(
             maybe_image,
             view_visibility,
             clip,
-            maybe_material,
+            is_material,
         )) = uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
@@ -462,7 +462,7 @@ pub fn extract_uinodes(
                     atlas_size: None,
                     flip_x,
                     flip_y,
-                    is_material: maybe_material.is_some(),
+                    is_material,
                 },
             );
         };
