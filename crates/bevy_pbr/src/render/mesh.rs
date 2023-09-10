@@ -439,6 +439,24 @@ pub fn prepare_and_batch_meshes(
 
     gpu_array_buffer.clear();
 
+    let mut get_batch_meta = |entity, pipeline_id, draw_function_id| {
+        let Ok((material_bind_group_id, mesh_handle, mesh_transforms)) = meshes.get(entity) else {
+            return None;
+        };
+        let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
+        Some((
+            BatchMeta3d {
+                pipeline_id,
+                draw_function_id,
+                material_bind_group_id: material_bind_group_id.cloned(),
+                mesh_asset_id: mesh_handle.id(),
+                mesh_flags: mesh_transforms.flags,
+                dynamic_offset: gpu_array_buffer_index.dynamic_offset,
+            },
+            gpu_array_buffer_index,
+        ))
+    };
+
     for (
         opaque_prepass_phase,
         alpha_mask_prepass_phase,
@@ -449,124 +467,28 @@ pub fn prepare_and_batch_meshes(
     {
         if let Some(opaque_prepass_phase) = opaque_prepass_phase {
             process_phase(opaque_prepass_phase.into_inner(), |item| {
-                let Ok((material_bind_group_id, mesh_handle, mesh_transforms)) =
-                    meshes.get(item.entity())
-                else {
-                    return None;
-                };
-                let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
-                Some((
-                    BatchMeta3d {
-                        pipeline_id: item.cached_pipeline(),
-                        draw_function_id: item.draw_function(),
-                        material_bind_group_id: material_bind_group_id.cloned(),
-                        mesh_asset_id: mesh_handle.id(),
-                        mesh_flags: mesh_transforms.flags,
-                        dynamic_offset: gpu_array_buffer_index.dynamic_offset,
-                    },
-                    gpu_array_buffer_index,
-                ))
+                get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
             });
         }
         if let Some(alpha_mask_prepass_phase) = alpha_mask_prepass_phase {
             process_phase(alpha_mask_prepass_phase.into_inner(), |item| {
-                let Ok((material_bind_group_id, mesh_handle, mesh_transforms)) =
-                    meshes.get(item.entity())
-                else {
-                    return None;
-                };
-                let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
-                Some((
-                    BatchMeta3d {
-                        pipeline_id: item.cached_pipeline(),
-                        draw_function_id: item.draw_function(),
-                        material_bind_group_id: material_bind_group_id.cloned(),
-                        mesh_asset_id: mesh_handle.id(),
-                        mesh_flags: mesh_transforms.flags,
-                        dynamic_offset: gpu_array_buffer_index.dynamic_offset,
-                    },
-                    gpu_array_buffer_index,
-                ))
+                get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
             });
         }
         process_phase(opaque_phase.into_inner(), |item| {
-            let Ok((material_bind_group_id, mesh_handle, mesh_transforms)) =
-                meshes.get(item.entity())
-            else {
-                return None;
-            };
-            let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
-            Some((
-                BatchMeta3d {
-                    pipeline_id: item.cached_pipeline(),
-                    draw_function_id: item.draw_function(),
-                    material_bind_group_id: material_bind_group_id.cloned(),
-                    mesh_asset_id: mesh_handle.id(),
-                    mesh_flags: mesh_transforms.flags,
-                    dynamic_offset: gpu_array_buffer_index.dynamic_offset,
-                },
-                gpu_array_buffer_index,
-            ))
+            get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
         });
         process_phase(alpha_mask_phase.into_inner(), |item| {
-            let Ok((material_bind_group_id, mesh_handle, mesh_transforms)) =
-                meshes.get(item.entity())
-            else {
-                return None;
-            };
-            let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
-            Some((
-                BatchMeta3d {
-                    pipeline_id: item.cached_pipeline(),
-                    draw_function_id: item.draw_function(),
-                    material_bind_group_id: material_bind_group_id.cloned(),
-                    mesh_asset_id: mesh_handle.id(),
-                    mesh_flags: mesh_transforms.flags,
-                    dynamic_offset: gpu_array_buffer_index.dynamic_offset,
-                },
-                gpu_array_buffer_index,
-            ))
+            get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
         });
         process_phase(transparent_phase.into_inner(), |item| {
-            let Ok((material_bind_group_id, mesh_handle, mesh_transforms)) =
-                meshes.get(item.entity())
-            else {
-                return None;
-            };
-            let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
-            Some((
-                BatchMeta3d {
-                    pipeline_id: item.cached_pipeline(),
-                    draw_function_id: item.draw_function(),
-                    material_bind_group_id: material_bind_group_id.cloned(),
-                    mesh_asset_id: mesh_handle.id(),
-                    mesh_flags: mesh_transforms.flags,
-                    dynamic_offset: gpu_array_buffer_index.dynamic_offset,
-                },
-                gpu_array_buffer_index,
-            ))
+            get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
         });
     }
 
     for shadow_phase in &mut shadow_views {
         process_phase(shadow_phase.into_inner(), |item| {
-            let Ok((material_bind_group_id, mesh_handle, mesh_transforms)) =
-                meshes.get(item.entity())
-            else {
-                return None;
-            };
-            let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
-            Some((
-                BatchMeta3d {
-                    pipeline_id: item.cached_pipeline(),
-                    draw_function_id: item.draw_function(),
-                    material_bind_group_id: material_bind_group_id.cloned(),
-                    mesh_asset_id: mesh_handle.id(),
-                    mesh_flags: mesh_transforms.flags,
-                    dynamic_offset: gpu_array_buffer_index.dynamic_offset,
-                },
-                gpu_array_buffer_index,
-            ))
+            get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
         });
     }
 
