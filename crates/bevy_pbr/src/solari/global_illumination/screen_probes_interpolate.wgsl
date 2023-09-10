@@ -88,7 +88,7 @@ fn interpolate_screen_probes(
     }
     let pixel_id = vec2<f32>(global_id.xy) + 0.5;
     let pixel_world_position = depth_to_world_position(pixel_depth, pixel_id / view.viewport.zw);
-    let pixel_world_normal = textureLoad(normals_buffer, global_id.xy, 0i).rgb;
+    let pixel_world_normal = normalize(textureLoad(normals_buffer, global_id.xy, 0i).rgb);
 
     // TODO: Spatiotemporal blue noise for jitter instead of rand_vec2f()
     var pixel_id_jittered = pixel_id + (rand_vec2f(&rng) * 16.0 - 8.0);
