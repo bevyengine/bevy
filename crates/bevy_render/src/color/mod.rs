@@ -58,7 +58,7 @@ pub enum Color {
 }
 
 impl Color {
-    /// <div style="background-color:rgb(94%, 97%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    /// <div style="background-color:rgb(61%, 84%, 89.4%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const ALICE_BLUE: Color = Color::rgb(0.61, 0.84, 0.894);
     /// <div style="background-color:rgb(98%, 92%, 84%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const ANTIQUE_WHITE: Color = Color::rgb(0.98, 0.92, 0.84);
