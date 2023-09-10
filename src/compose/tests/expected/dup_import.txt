@@ -7,7 +7,7 @@
     return (PIX_naga_oil_mod_XMNXW443UOMX * 1.0);
     return (PIX_naga_oil_mod_XMNXW443UOMX * 2.0);
     return (_e0 * _e1);
-const PIX_naga_oil_mod_XMNXW443UOMX: f32 = 3.0999999046325684;
+const PIX_naga_oil_mod_XMNXW443UOMX: f32 = 3.1;
 fn fX_naga_oil_mod_XMEX() -> f32 {
 fn fX_naga_oil_mod_XMIX() -> f32 {
 fn main() -> f32 {

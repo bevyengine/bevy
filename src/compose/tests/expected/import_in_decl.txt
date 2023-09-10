@@ -1,6 +1,6 @@
 const XX_naga_oil_mod_XMNXW443UOMX: u32 = 1u;
 
-var<private> arrX_naga_oil_mod_XMJUW4ZAX: array<u32,XX_naga_oil_mod_XMNXW443UOMX>;
+var<private> arrX_naga_oil_mod_XMJUW4ZAX: array<u32, 1>;
 
 fn main() -> f32 {
     let _e2: u32 = arrX_naga_oil_mod_XMJUW4ZAX[0];

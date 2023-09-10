@@ -6,7 +6,6 @@
 
 
 
-
     d.fine = 3.0;
     e.fine_member = 4.0;
     fine: f32,
