@@ -50,7 +50,7 @@ fn filter_screen_probes(
     let center_probe_depth = view.projection[3][2] / textureLoad(depth_buffer, center_probe_pixel_id, 0i);
 
     var irradiance = vec3(0.0);
-    var weight = 0.0;
+    var weight = 1.0;
     add_probe_contribution(&irradiance, &weight, center_probe_depth, vec2<i32>(global_id.xy) + vec2(-8i, 8i), center_probe_id + vec2(-1i, 1i), probe_thread_id);
     add_probe_contribution(&irradiance, &weight, center_probe_depth, vec2<i32>(global_id.xy) + vec2(0i, 8i), center_probe_id + vec2(0i, 1i), probe_thread_id);
     add_probe_contribution(&irradiance, &weight, center_probe_depth, vec2<i32>(global_id.xy) + vec2(8i, 8i), center_probe_id + vec2(1i, 1i), probe_thread_id);

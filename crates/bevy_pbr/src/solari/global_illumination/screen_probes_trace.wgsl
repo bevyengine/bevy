@@ -18,7 +18,7 @@ fn trace_screen_probes(
     var rng = pixel_index + frame_index;
     var rng2 = frame_index;
 
-    let probe_thread_index = u32(floor(rand_f(&rng2) * 63.0));
+    let probe_thread_index = u32(rand_f(&rng2) * 63.0);
     if local_index == probe_thread_index {
         let probe_pixel_depth = textureLoad(depth_buffer, global_id.xy, 0i); // TODO: global_id.xy may be off-screen
         let probe_pixel_uv = (vec2<f32>(global_id.xy) + 0.5) / view.viewport.zw;
