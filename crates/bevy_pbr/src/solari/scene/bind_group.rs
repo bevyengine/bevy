@@ -4,7 +4,7 @@ use super::{
     helpers::{new_storage_buffer, pack_object_indices, tlas_transform, IndexedVec},
     scene_types::{GpuSolariMaterial, SolariMaterial, SolariUniforms},
 };
-use crate::{DirectionalLight, StandardMaterial};
+use crate::{ExtractedDirectionalLight, StandardMaterial};
 use bevy_asset::Handle;
 use bevy_core::FrameCount;
 use bevy_ecs::system::{Query, Res, ResMut, Resource};
@@ -30,7 +30,7 @@ pub fn queue_scene_bind_group(
         &SolariMaterial,
         &GlobalTransform,
     )>,
-    sun: Query<(&DirectionalLight, &GlobalTransform)>,
+    sun: Query<&ExtractedDirectionalLight>,
     mut scene_bind_group: ResMut<SolariSceneBindGroup>,
     scene_bind_group_layout: Res<SolariSceneBindGroupLayout>,
     mesh_assets: Res<RenderAssets<Mesh>>,
@@ -189,15 +189,12 @@ pub fn queue_scene_bind_group(
     }
 
     // Build uniforms
-    let dummy_sun = (
-        &DirectionalLight {
-            color: Color::BLACK,
-            illuminance: 0.0,
-            ..default()
-        },
-        &GlobalTransform::default(),
-    );
     // TODO: Handle multiple directional lights
+    let dummy_sun = &ExtractedDirectionalLight {
+        color: Color::BLACK,
+        illuminance: 0.0,
+        ..default()
+    };
     let sun = sun.get_single().unwrap_or(dummy_sun);
     let uniforms = &SolariUniforms::new(&frame_count, sun, &render_device, &render_queue);
 

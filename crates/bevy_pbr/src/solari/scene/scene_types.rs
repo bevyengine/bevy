@@ -1,4 +1,4 @@
-use crate::{solari::SolariEnabled, DirectionalLight, StandardMaterial};
+use crate::{solari::SolariEnabled, ExtractedDirectionalLight, StandardMaterial};
 use bevy_asset::{Assets, Handle};
 use bevy_core::FrameCount;
 use bevy_ecs::{
@@ -45,15 +45,15 @@ pub struct SolariUniforms {
 impl SolariUniforms {
     pub fn new(
         frame_count: &FrameCount,
-        sun: (&DirectionalLight, &GlobalTransform),
+        sun: &ExtractedDirectionalLight,
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
     ) -> UniformBuffer<Self> {
-        let sun_color = sun.0.color.as_linear_rgba_f32();
+        let sun_color = sun.color.as_linear_rgba_f32();
         let uniforms = Self {
             frame_count: frame_count.0,
-            sun_direction: sun.1.back(),
-            sun_color: Vec3::new(sun_color[0], sun_color[1], sun_color[2]) * sun.0.illuminance,
+            sun_direction: sun.transform.back(),
+            sun_color: Vec3::new(sun_color[0], sun_color[1], sun_color[2]) * sun.illuminance,
         };
 
         let mut buffer = UniformBuffer::from(uniforms);
