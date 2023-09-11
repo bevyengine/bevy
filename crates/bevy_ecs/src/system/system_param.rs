@@ -9,6 +9,7 @@ use crate::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
     system::{Query, SystemMeta},
+    term_query::{QueryTermGroup, TermQuery, TermQueryState},
     world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
 };
 use bevy_ecs_macros::impl_param_set;
@@ -223,6 +224,46 @@ fn assert_component_access_compatibility(
         .collect::<Vec<&str>>();
     let accesses = conflicting_components.join(", ");
     panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s) {accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`.");
+}
+
+unsafe impl<Q: QueryTermGroup + 'static> SystemParam for TermQuery<'_, '_, Q> {
+    type State = TermQueryState<Q>;
+    type Item<'w, 's> = TermQuery<'w, 's, Q>;
+
+    fn init_state(world: &mut World, system_meta: &mut crate::system::SystemMeta) -> Self::State {
+        let state = TermQueryState::new(world);
+        assert_component_access_compatibility(
+            &system_meta.name,
+            "term_query",
+            "term_query",
+            &system_meta.component_access_set,
+            &state.component_access,
+            world,
+        );
+        system_meta
+            .component_access_set
+            .add(state.component_access.clone());
+        system_meta
+            .archetype_component_access
+            .extend(&state.archetype_component_access);
+        state
+    }
+
+    fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
+        state.new_archetype(archetype);
+        system_meta
+            .archetype_component_access
+            .extend(&state.archetype_component_access);
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &crate::system::SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        TermQuery::new(world, state, system_meta.last_run, change_tick)
+    }
 }
 
 /// A collection of potentially conflicting [`SystemParam`]s allowed by disjoint access.
