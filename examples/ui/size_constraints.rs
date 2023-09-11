@@ -1,7 +1,9 @@
 //! Demonstrates how the to use the size constraints to control the size of a UI node.
 
-use bevy::prelude::*;
-use bevy_internal::ui::{InteractionState, InteractionStateHandler, RelativeCursorPosition};
+use bevy::{
+    prelude::*,
+    ui::{InteractionState, InteractionStateHandler, RelativeCursorPosition},
+};
 
 fn main() {
     App::new()
