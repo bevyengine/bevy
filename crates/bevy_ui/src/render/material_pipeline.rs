@@ -149,10 +149,6 @@ pub struct UiMaterialBatch<M: UiMaterial> {
     pub material: AssetId<M>,
 }
 
-/// Marker component that is supposed to make batching easier
-#[derive(Component, Default, Clone, Debug)]
-pub struct UiMaterialNode;
-
 /// Render pipeline data for a given [`UiMaterial`]
 #[derive(Resource)]
 pub struct UiMaterialPipeline<M: UiMaterial> {
@@ -382,12 +378,11 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             &Handle<M>,
             &ViewVisibility,
             Option<&CalculatedClip>,
-            &UiMaterialNode,
         )>,
     >,
 ) {
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((entity, uinode, transform, handle, view_visibility, clip, _)) =
+        if let Ok((entity, uinode, transform, handle, view_visibility, clip)) =
             uinode_query.get(*entity)
         {
             // skip invisible nodes

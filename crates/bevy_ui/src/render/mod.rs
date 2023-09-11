@@ -401,31 +401,21 @@ pub fn extract_uinodes(
                 Entity,
                 &Node,
                 &GlobalTransform,
-                Option<&BackgroundColor>,
+                &BackgroundColor,
                 Option<&UiImage>,
                 &ViewVisibility,
                 Option<&CalculatedClip>,
-                Has<UiMaterialNode>,
             ),
             Without<UiTextureAtlasImage>,
         >,
     >,
 ) {
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((
-            entity,
-            uinode,
-            transform,
-            maybe_color,
-            maybe_image,
-            view_visibility,
-            clip,
-            is_material,
-        )) = uinode_query.get(*entity)
+        if let Ok((entity, uinode, transform, color, maybe_image, view_visibility, clip)) =
+            uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
-            if !view_visibility.get() || maybe_color.is_some_and(|f| f.0.a() == 0.0) || is_material
-            {
+            if !view_visibility.get() || color.0.a() == 0.0 {
                 continue;
             }
 
@@ -439,18 +429,12 @@ pub fn extract_uinodes(
                 (AssetId::default(), false, false)
             };
 
-            let color = if let Some(color) = maybe_color {
-                color.0
-            } else {
-                Color::WHITE
-            };
-
             extracted_uinodes.uinodes.insert(
                 entity,
                 ExtractedUiNode {
                     stack_index,
                     transform: transform.compute_matrix(),
-                    color,
+                    color: color.0,
                     rect: Rect {
                         min: Vec2::ZERO,
                         max: uinode.calculated_size,
