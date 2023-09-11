@@ -24,7 +24,9 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
 };
-use bevy_math::{vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{
+    vec2, Dir3, InvalidDirectionError, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3,
+};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
@@ -82,7 +84,7 @@ pub struct RenderTargetInfo {
 /// Holds internally computed [`Camera`] values.
 #[derive(Default, Debug, Clone)]
 pub struct ComputedCameraValues {
-    projection_matrix: Mat4,
+    projection_matrix: Option<Mat4>,
     target_info: Option<RenderTargetInfo>,
     // size of the `Viewport`
     old_viewport_size: Option<UVec2>,
@@ -285,7 +287,7 @@ impl Camera {
     ///  For logic that requires the full logical size of the
     /// [`RenderTarget`], prefer [`Camera::logical_target_size`].
     ///
-    /// Returns `None` if either:
+    /// Returns an error if either:
     /// - the function is called just after the `Camera` is created, before `camera_system` is executed,
     /// - the [`RenderTarget`] isn't correctly set:
     ///   - it references the [`PrimaryWindow`](RenderTarget::Window) when there is none,
@@ -293,11 +295,18 @@ impl Camera {
     ///   - it references an [`Image`](RenderTarget::Image) that doesn't exist (invalid handle),
     ///   - it references a [`TextureView`](RenderTarget::TextureView) that doesn't exist (invalid handle).
     #[inline]
-    pub fn logical_viewport_size(&self) -> Option<Vec2> {
-        self.viewport
-            .as_ref()
-            .and_then(|v| self.to_logical(v.physical_size))
-            .or_else(|| self.logical_target_size())
+    pub fn logical_viewport_size(&self) -> Result<Vec2, LogicalViewportSizeError> {
+        let viewport = self.viewport.as_ref();
+        if let Some(size) = viewport.and_then(|v| self.to_logical(v.physical_size)) {
+            Ok(size)
+        } else if let Some(size) = self.logical_target_size() {
+            Ok(size)
+        } else {
+            Err(LogicalViewportSizeError {
+                viewport_is_set: viewport.is_some(),
+                target_info_is_set: self.computed.target_info.is_some(),
+            })
+        }
     }
 
     /// The physical size of this camera's viewport (in physical pixels).
@@ -341,7 +350,40 @@ impl Camera {
     /// The projection matrix computed using this camera's [`CameraProjection`].
     #[inline]
     pub fn projection_matrix(&self) -> Mat4 {
-        self.computed.projection_matrix
+        self.computed.projection_matrix.unwrap_or_default()
+    }
+
+    #[inline]
+    fn checked_projection_matrix(&self) -> Result<Mat4, BadProjectionMatrixError> {
+        let projection_matrix = self
+            .computed
+            .projection_matrix
+            .ok_or(BadProjectionMatrixError::ProjectionMatrixUndefined)?;
+        match projection_matrix.is_finite() {
+            false => Err(BadProjectionMatrixError::BadProjectionMatrixValues(
+                projection_matrix,
+            )),
+            true => {
+                if projection_matrix == Mat4::ZERO {
+                    Err(BadProjectionMatrixError::BadProjectionMatrixValues(
+                        projection_matrix,
+                    ))
+                } else {
+                    Ok(projection_matrix)
+                }
+            }
+        }
+    }
+
+    #[inline]
+    fn finite_camera_transform_matrix(
+        camera_transform: &GlobalTransform,
+    ) -> Result<Mat4, CameraTransformNotFiniteError> {
+        let camera_transform_matrix = camera_transform.compute_matrix();
+        match camera_transform_matrix.is_finite() {
+            true => Ok(camera_transform_matrix),
+            false => Err(CameraTransformNotFiniteError(camera_transform_matrix)),
+        }
     }
 
     /// Given a position in world space, use the camera to compute the viewport-space coordinates.
@@ -349,29 +391,31 @@ impl Camera {
     /// To get the coordinates in Normalized Device Coordinates, you should use
     /// [`world_to_ndc`](Self::world_to_ndc).
     ///
-    /// Returns `None` if any of these conditions occur:
-    /// - The computed coordinates are beyond the near or far plane
-    /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
-    /// - The world coordinates cannot be mapped to the Normalized Device Coordinates. See [`world_to_ndc`](Camera::world_to_ndc)
-    /// May also panic if `glam_assert` is enabled. See [`world_to_ndc`](Camera::world_to_ndc).
+    /// May panic if `glam_assert` is enabled. See [`world_to_ndc`](Camera::world_to_ndc).
     #[doc(alias = "world_to_screen")]
     pub fn world_to_viewport(
         &self,
         camera_transform: &GlobalTransform,
         world_position: Vec3,
-    ) -> Option<Vec2> {
-        let target_size = self.logical_viewport_size()?;
-        let ndc_space_coords = self.world_to_ndc(camera_transform, world_position)?;
+    ) -> Result<Vec2, WorldToViewportError> {
+        let target_size = self
+            .logical_viewport_size()
+            .map_err(WorldToViewportError::LogicalViewportSize)?;
+        let ndc_space_coords = self
+            .world_to_ndc(camera_transform, world_position)
+            .map_err(WorldToViewportError::WorldToNdc)?;
         // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
         if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
-            return None;
+            return Err(WorldToViewportError::NdcCoordsOutsideFrustum(
+                ndc_space_coords,
+            ));
         }
 
         // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
         let mut viewport_position = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size;
         // Flip the Y co-ordinate origin from the bottom to the top.
         viewport_position.y = target_size.y - viewport_position.y;
-        Some(viewport_position)
+        Ok(viewport_position)
     }
 
     /// Returns a ray originating from the camera, that passes through everything beyond `viewport_position`.
@@ -383,32 +427,37 @@ impl Camera {
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
     ///
-    /// Returns `None` if any of these conditions occur:
-    /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
-    /// - The near or far plane cannot be computed. This can happen if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
     /// Panics if the projection matrix is null and `glam_assert` is enabled.
     pub fn viewport_to_world(
         &self,
         camera_transform: &GlobalTransform,
         mut viewport_position: Vec2,
-    ) -> Option<Ray3d> {
-        let target_size = self.logical_viewport_size()?;
+    ) -> Result<Ray3d, ViewportToWorldError> {
+        let target_size = self
+            .logical_viewport_size()
+            .map_err(ViewportToWorldError::LogicalViewportSize)?;
         // Flip the Y co-ordinate origin from the top to the bottom.
         viewport_position.y = target_size.y - viewport_position.y;
         let ndc = viewport_position * 2. / target_size - Vec2::ONE;
 
-        let ndc_to_world =
-            camera_transform.compute_matrix() * self.computed.projection_matrix.inverse();
+        let camera_transform_matrix = Self::finite_camera_transform_matrix(camera_transform)
+            .map_err(ViewportToWorldError::CameraTransformNotFinite)?;
+        let projection_matrix = self
+            .checked_projection_matrix()
+            .map_err(ViewportToWorldError::ProjectionMatrixNotFinite)?;
+
+        let ndc_to_world = camera_transform_matrix * projection_matrix.inverse();
         let world_near_plane = ndc_to_world.project_point3(ndc.extend(1.));
         // Using EPSILON because an ndc with Z = 0 returns NaNs.
         let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
 
         // The fallible direction constructor ensures that world_near_plane and world_far_plane aren't NaN.
-        Dir3::new(world_far_plane - world_near_plane).map_or(None, |direction| {
-            Some(Ray3d {
-                origin: world_near_plane,
-                direction,
-            })
+        let direction = Dir3::new(world_far_plane - world_near_plane)
+            .map_err(|e| ViewportToWorldError::InvalidDirection(e))?;
+
+        Ok(Ray3d {
+            origin: world_near_plane,
+            direction,
         })
     }
 
@@ -419,23 +468,24 @@ impl Camera {
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
     ///
-    /// Returns `None` if any of these conditions occur:
-    /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
-    /// - The viewport position cannot be mapped to the world. See [`ndc_to_world`](Camera::ndc_to_world)
     /// May panic. See [`ndc_to_world`](Camera::ndc_to_world).
     pub fn viewport_to_world_2d(
         &self,
         camera_transform: &GlobalTransform,
         mut viewport_position: Vec2,
-    ) -> Option<Vec2> {
-        let target_size = self.logical_viewport_size()?;
+    ) -> Result<Vec2, ViewportToWorld2DError> {
+        let target_size = self
+            .logical_viewport_size()
+            .map_err(ViewportToWorld2DError::LogicalViewportSize)?;
         // Flip the Y co-ordinate origin from the top to the bottom.
         viewport_position.y = target_size.y - viewport_position.y;
         let ndc = viewport_position * 2. / target_size - Vec2::ONE;
 
-        let world_near_plane = self.ndc_to_world(camera_transform, ndc.extend(1.))?;
+        let world_near_plane = self
+            .ndc_to_world(camera_transform, ndc.extend(1.))
+            .map_err(ViewportToWorld2DError::NdcToWorld)?;
 
-        Some(world_near_plane.truncate())
+        Ok(world_near_plane.truncate())
     }
 
     /// Given a position in world space, use the camera's viewport to compute the Normalized Device Coordinates.
@@ -445,19 +495,28 @@ impl Camera {
     /// To get the coordinates in the render target's viewport dimensions, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
-    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
     /// Panics if the `camera_transform` contains `NAN` and the `glam_assert` feature is enabled.
     pub fn world_to_ndc(
         &self,
         camera_transform: &GlobalTransform,
         world_position: Vec3,
-    ) -> Option<Vec3> {
+    ) -> Result<Vec3, WorldToNdcError> {
+        let camera_transform_matrix = Self::finite_camera_transform_matrix(camera_transform)
+            .map_err(WorldToNdcError::CameraTransformNotFinite)?;
+
+        let projection_matrix = self
+            .checked_projection_matrix()
+            .map_err(WorldToNdcError::ProjectionMatrixNotFinite)?;
+
         // Build a transformation matrix to convert from world space to NDC using camera data
-        let world_to_ndc: Mat4 =
-            self.computed.projection_matrix * camera_transform.compute_matrix().inverse();
+        let world_to_ndc: Mat4 = projection_matrix * camera_transform_matrix.inverse();
         let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
 
-        (!ndc_space_coords.is_nan()).then_some(ndc_space_coords)
+        if !ndc_space_coords.is_finite() {
+            return Err(WorldToNdcError::NdcSpaceCoordsNotFinite(ndc_space_coords));
+        }
+
+        Ok(ndc_space_coords)
     }
 
     /// Given a position in Normalized Device Coordinates,
@@ -468,18 +527,90 @@ impl Camera {
     /// To get the world space coordinates with the viewport position, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
-    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
     /// Panics if the projection matrix is null and `glam_assert` is enabled.
-    pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
+    pub fn ndc_to_world(
+        &self,
+        camera_transform: &GlobalTransform,
+        ndc: Vec3,
+    ) -> Result<Vec3, NdcToWorldError> {
+        let camera_transform_matrix = Self::finite_camera_transform_matrix(camera_transform)
+            .map_err(NdcToWorldError::CameraTransformNotFinite)?;
+
+        let projection_matrix = self
+            .checked_projection_matrix()
+            .map_err(NdcToWorldError::ProjectionMatrixNotFinite)?;
+
         // Build a transformation matrix to convert from NDC to world space using camera data
-        let ndc_to_world =
-            camera_transform.compute_matrix() * self.computed.projection_matrix.inverse();
+        let ndc_to_world = camera_transform_matrix * projection_matrix.inverse();
 
         let world_space_coords = ndc_to_world.project_point3(ndc);
+        if !world_space_coords.is_finite() {
+            return Err(NdcToWorldError::WorldSpaceCoordsNotFinite(
+                world_space_coords,
+            ));
+        }
 
-        (!world_space_coords.is_nan()).then_some(world_space_coords)
+        Ok(world_space_coords)
     }
 }
+
+/// Errors that occur when mapping an NDC point to an in-world point.
+#[derive(Debug)]
+pub enum NdcToWorldError {
+    WorldSpaceCoordsNotFinite(Vec3),
+    CameraTransformNotFinite(CameraTransformNotFiniteError),
+    ProjectionMatrixNotFinite(BadProjectionMatrixError),
+}
+
+/// Errors that occur when mapping an in-world point to a NDC point.
+#[derive(Debug)]
+pub enum WorldToNdcError {
+    NdcSpaceCoordsNotFinite(Vec3),
+    CameraTransformNotFinite(CameraTransformNotFiniteError),
+    ProjectionMatrixNotFinite(BadProjectionMatrixError),
+}
+
+/// An error that occurs when finding the logical viewport size.
+#[derive(Debug)]
+pub struct LogicalViewportSizeError {
+    pub viewport_is_set: bool,
+    pub target_info_is_set: bool,
+}
+
+/// Errors that occur when mapping a viewport point to an in-world ray.
+#[derive(Debug)]
+pub enum ViewportToWorldError {
+    LogicalViewportSize(LogicalViewportSizeError),
+    CameraTransformNotFinite(CameraTransformNotFiniteError),
+    ProjectionMatrixNotFinite(BadProjectionMatrixError),
+    InvalidDirection(InvalidDirectionError),
+}
+
+/// Errors that occur when mapping a viewport point to a 2D world.
+#[derive(Debug)]
+pub enum ViewportToWorld2DError {
+    NdcToWorld(NdcToWorldError),
+    LogicalViewportSize(LogicalViewportSizeError),
+}
+
+/// Errors that occur when mapping a world point to a viewport point.
+#[derive(Debug)]
+pub enum WorldToViewportError {
+    WorldToNdc(WorldToNdcError),
+    LogicalViewportSize(LogicalViewportSizeError),
+    NdcCoordsOutsideFrustum(Vec3),
+}
+
+/// Errors that occur when trying to get the projection matrix.
+#[derive(Debug)]
+pub enum BadProjectionMatrixError {
+    BadProjectionMatrixValues(Mat4),
+    ProjectionMatrixUndefined,
+}
+
+/// An error for when the projection matrix is not finite.
+#[derive(Debug)]
+pub struct CameraTransformNotFiniteError(Mat4);
 
 /// Control how this camera outputs once rendering is completed.
 #[derive(Debug, Clone, Copy)]
@@ -784,9 +915,10 @@ pub fn camera_system<T: CameraProjection + Component>(
                     }
                 }
                 camera.computed.target_info = new_computed_target_info;
-                if let Some(size) = camera.logical_viewport_size() {
+                if let Ok(size) = camera.logical_viewport_size() {
                     camera_projection.update(size.x, size.y);
-                    camera.computed.projection_matrix = camera_projection.get_projection_matrix();
+                    camera.computed.projection_matrix =
+                        Some(camera_projection.get_projection_matrix());
                 }
             }
         }

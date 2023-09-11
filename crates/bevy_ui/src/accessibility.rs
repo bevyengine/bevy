@@ -41,7 +41,7 @@ fn calc_bounds(
     if let Ok((camera, camera_transform)) = camera.get_single() {
         for (mut accessible, node, transform) in &mut nodes {
             if node.is_changed() || transform.is_changed() {
-                if let Some(translation) =
+                if let Ok(translation) =
                     camera.world_to_viewport(camera_transform, transform.translation())
                 {
                     let bounds = Rect::new(
