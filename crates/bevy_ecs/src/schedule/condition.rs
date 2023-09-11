@@ -182,7 +182,7 @@ pub mod common_conditions {
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
-        prelude::{Changed, Component, Query, With},
+        prelude::{Added, Changed, Component, Query, With},
         removal_detection::RemovedComponents,
         schedule::{State, States},
         system::{IntoSystem, Res, Resource, System},
@@ -954,14 +954,21 @@ pub mod common_conditions {
         move |query: Query<(), Changed<T>>| !query.is_empty()
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that
-    /// returns `true` if there are any entities with a component of the given
-    /// type changed or removed. Newly added components are considered changed.
+    /// Generates a [`Condition`] that returns `true` if there are any entities
+    /// with a component of the given type changed or removed. Newly added
+    /// components are considered changed.
     pub fn any_component_changed_or_removed<T: Component>() -> impl Condition<()> {
         // NOTE: The check for removed components must come before the check for changed compoents.
         // If `query.is_empty()` is called first, then the short-circuiting behavior means that the removed
         // components buffer may not be consumed every frame.
         any_component_removed::<T>().or_else(any_component_changed::<T>())
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that
+    /// returns `true` if there are any entities with a component of the given
+    /// type that were just added.
+    pub fn any_component_added<T: Component>() -> impl FnMut(Query<(), Added<T>>) -> bool + Clone {
+        move |query: Query<(), Added<T>>| !query.is_empty()
     }
 
     /// Generates a [`Condition`](super::Condition) that inverses the result of passed one.
