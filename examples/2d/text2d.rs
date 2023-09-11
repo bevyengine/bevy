@@ -61,7 +61,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate changing scale
     commands.spawn((
         Text2dBundle {
-            text: Text::from_section("scale", &text_style).with_alignment(text_alignment),
+            text: Text::from_section("scale", text_style).with_alignment(text_alignment),
             ..default()
         },
         AnimateScale,
