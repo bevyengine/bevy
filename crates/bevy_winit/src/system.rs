@@ -1,11 +1,9 @@
-use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
     prelude::{Changed, Component, Resource},
     removal_detection::RemovedComponents,
-    system::{Commands, NonSendMut, Query, ResMut},
-    world::Mut,
+    system::{NonSendMut, Query},
 };
 use bevy_utils::{
     tracing::{error, info, warn},
@@ -22,12 +20,11 @@ use winit::{
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, WINIT_CANVAS_SELECTOR};
 use crate::{
-    accessibility::{AccessKitAdapters, WinitActionHandlers},
     converters::{
         self, convert_enabled_buttons, convert_window_level, convert_window_theme,
         convert_winit_theme,
     },
-    get_best_videomode, get_fitting_videomode, WinitWindows,
+    get_best_videomode, get_fitting_videomode, FullWindowParams, WinitWindows,
 };
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
@@ -36,18 +33,11 @@ use crate::{
 /// If any of these entities are missing required components, those will be added with their
 /// default values.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn create_windows<'a>(
-    event_loop: &EventLoopWindowTarget<()>,
-    mut commands: Commands,
-    created_windows: impl Iterator<Item = (Entity, Mut<'a, Window>)>,
-    mut event_writer: EventWriter<WindowCreated>,
-    mut winit_windows: NonSendMut<WinitWindows>,
-    mut adapters: NonSendMut<AccessKitAdapters>,
-    mut handlers: ResMut<WinitActionHandlers>,
-    accessibility_requested: ResMut<AccessibilityRequested>,
-    #[cfg(target_arch = "wasm32")] event_channel: ResMut<CanvasParentResizeEventChannel>,
-) {
-    for (entity, mut window) in created_windows {
+pub(crate) fn create_windows(event_loop: &EventLoopWindowTarget<()>, params: FullWindowParams) {
+    let (mut commands, mut created_windows, mut event_writer, mut winit_windows, mut accessibility) =
+        params.0;
+
+    for (entity, mut window) in &mut created_windows {
         if winit_windows.get_window(entity).is_some() {
             continue;
         }
@@ -58,14 +48,8 @@ pub(crate) fn create_windows<'a>(
             entity
         );
 
-        let winit_window = winit_windows.create_window(
-            event_loop,
-            entity,
-            &window,
-            &mut adapters,
-            &mut handlers,
-            &accessibility_requested,
-        );
+        let winit_window =
+            winit_windows.create_window(event_loop, entity, &window, &mut accessibility);
 
         if let Some(theme) = winit_window.theme() {
             window.window_theme = Some(convert_winit_theme(theme));
@@ -92,7 +76,7 @@ pub(crate) fn create_windows<'a>(
                 } else {
                     WINIT_CANVAS_SELECTOR
                 };
-                event_channel.listen_to_selector(entity, selector);
+                params.1.listen_to_selector(entity, selector);
             }
         }
 
