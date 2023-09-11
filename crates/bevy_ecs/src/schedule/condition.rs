@@ -178,7 +178,7 @@ mod sealed {
 
 /// A collection of [run conditions](Condition) that may be useful in any bevy app.
 pub mod common_conditions {
-    use super::NotSystem;
+    use super::{Condition, NotSystem};
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
@@ -957,11 +957,11 @@ pub mod common_conditions {
     /// Generates a [`Condition`](super::Condition)-satisfying closure that
     /// returns `true` if there are any entities with a component of the given
     /// type changed or removed. Newly added components are considered changed.
-    pub fn any_component_changed_or_removed<T: Component>(
-    ) -> impl FnMut(Query<(), Changed<T>>, RemovedComponents<T>) -> bool + Clone {
-        move |query: Query<(), Changed<T>>, mut removals: RemovedComponents<T>| {
-            !query.is_empty() || removals.iter().count() != 0
-        }
+    pub fn any_component_changed_or_removed<T: Component>() -> impl Condition<()> {
+        // NOTE: The check for removed components must come before the check for changed compoents.
+        // If `query.is_empty()` is called first, then the short-circuiting behavior means that the removed
+        // components buffer may not be consumed every frame.
+        any_component_removed::<T>().or_else(any_component_changed::<T>())
     }
 
     /// Generates a [`Condition`](super::Condition) that inverses the result of passed one.
