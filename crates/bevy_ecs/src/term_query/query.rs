@@ -112,3 +112,35 @@ impl<'w, 's, Q: QueryTermGroup, F: QueryTermGroup> TermQuery<'w, 's, Q, F> {
         }
     }
 }
+
+impl<'w, 's, Q: QueryTermGroup, F: QueryTermGroup> IntoIterator for &TermQuery<'w, 's, Q, F> {
+    type Item = <Q::ReadOnly as QueryTermGroup>::Item<'w>;
+    type IntoIter = TermQueryIter<'w, 's, Q::ReadOnly>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        unsafe {
+            TermQueryIter::new(
+                self.world,
+                self.state.as_readonly(),
+                self.last_run,
+                self.this_run,
+            )
+        }
+    }
+}
+
+impl<'w, 's, Q: QueryTermGroup, F: QueryTermGroup> IntoIterator for &mut TermQuery<'w, 's, Q, F> {
+    type Item = Q::Item<'w>;
+    type IntoIter = TermQueryIter<'w, 's, Q>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        unsafe {
+            TermQueryIter::new(
+                self.world,
+                self.state.filterless(),
+                self.last_run,
+                self.this_run,
+            )
+        }
+    }
+}

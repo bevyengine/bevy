@@ -275,7 +275,7 @@ impl Fetchable for ComponentTerm {
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        dbg!(match self.operator {
+        match self.operator {
             TermOperator::Optional => true,
             // These are checked matches_component_set
             TermOperator::With => true,
@@ -289,15 +289,12 @@ impl Fetchable for ComponentTerm {
             }
             TermOperator::Added => {
                 let ticks = self.get_change_ticks(state, entity, table_row);
-                dbg!(ticks.last_run);
-                dbg!(ticks.this_run);
-                dbg!(ticks.added.read());
                 ticks
                     .added
                     .read()
                     .is_newer_than(ticks.last_run, ticks.this_run)
             }
-        })
+        }
     }
 
     fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
