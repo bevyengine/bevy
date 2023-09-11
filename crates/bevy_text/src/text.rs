@@ -125,7 +125,7 @@ impl TextSection {
     /// Create a new [`TextSection`].
     pub fn new(value: impl Into<String>, style: TextStyle) -> Self {
         let text_value = value.into();
-        if style.font_size <= 0.0 {
+        if style.font_size <= 0.0 || !style.font_size.is_finite() {
             bevy_log::warn!(
                 "TextSection \"{}\" is unable to be displayed due to a font size of {}.",
                 text_value,
