@@ -164,25 +164,11 @@ without UI components as a child of an entity with UI components, results may be
         parent_window: Entity,
         children: impl Iterator<Item = Entity>,
     ) {
-        let taffy_root = *self.window_nodes.get(&parent_window).unwrap();
-
-        let new_window_children = children
+        let taffy_node = self.window_nodes.get(&parent_window).unwrap();
+        let child_nodes = children
             .map(|e| *self.entity_to_taffy.get(&e).unwrap())
-            .collect::<Vec<_>>();
-
-        let window_children = if let Ok(mut window_children) = self.taffy.children(taffy_root) {
-            let child_set = new_window_children.iter().copied().collect::<HashSet<_>>();
-            let mut unique = HashSet::new();
-            window_children.extend(new_window_children);
-            window_children.retain(|child| child_set.contains(child) && unique.insert(*child));
-            window_children
-        } else {
-            new_window_children
-        };
-
-        self.taffy
-            .set_children(taffy_root, &window_children)
-            .unwrap();
+            .collect::<Vec<taffy::node::Node>>();
+        self.taffy.set_children(*taffy_node, &child_nodes).unwrap();
     }
 
     /// Compute the layout for each window entity's corresponding root node in the layout.
