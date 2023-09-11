@@ -1,3 +1,5 @@
+//! Demonstrates the use of [`UiMaterials`](UiMaterial) and how to change material values
+
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use bevy::render::render_resource::*;
