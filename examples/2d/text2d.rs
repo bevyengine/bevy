@@ -44,7 +44,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate changing translation
     commands.spawn((
         Text2dBundle {
-            text: Text::from_section("translation", text_style.clone())
+            text: Text::from_section("translation", &text_style)
                 .with_alignment(text_alignment),
             ..default()
         },
@@ -53,7 +53,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate changing rotation
     commands.spawn((
         Text2dBundle {
-            text: Text::from_section("rotation", text_style.clone()).with_alignment(text_alignment),
+            text: Text::from_section("rotation", &text_style).with_alignment(text_alignment),
             ..default()
         },
         AnimateRotation,
@@ -61,7 +61,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate changing scale
     commands.spawn((
         Text2dBundle {
-            text: Text::from_section("scale", text_style).with_alignment(text_alignment),
+            text: Text::from_section("scale", &text_style).with_alignment(text_alignment),
             ..default()
         },
         AnimateScale,
@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 text: Text {
                     sections: vec![TextSection::new(
                         "this text wraps in the box\n(Unicode linebreaks)",
-                        slightly_smaller_text_style.clone(),
+                        &slightly_smaller_text_style,
                     )],
                     alignment: TextAlignment::Left,
                     linebreak_behavior: BreakLineOn::WordBoundary,
@@ -121,7 +121,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 text: Text {
                     sections: vec![TextSection::new(
                         "this text wraps in the box\n(AnyCharacter linebreaks)",
-                        slightly_smaller_text_style.clone(),
+                        &slightly_smaller_text_style,
                     )],
                     alignment: TextAlignment::Left,
                     linebreak_behavior: BreakLineOn::AnyCharacter,

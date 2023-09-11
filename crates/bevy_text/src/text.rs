@@ -1,3 +1,5 @@
+use std::borrow::Borrow;
+
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_reflect::prelude::*;
@@ -59,7 +61,7 @@ impl Text {
     /// ) // You can still add an alignment.
     /// .with_alignment(TextAlignment::Center);
     /// ```
-    pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
+    pub fn from_section(value: impl Into<String>, style: impl Borrow<TextStyle>) -> Self {
         Self {
             sections: vec![TextSection::new(value, style)],
             ..default()
@@ -123,10 +125,10 @@ pub struct TextSection {
 
 impl TextSection {
     /// Create a new [`TextSection`].
-    pub fn new(value: impl Into<String>, style: TextStyle) -> Self {
+    pub fn new(value: impl Into<String>, style: impl Borrow<TextStyle>) -> Self {
         Self {
             value: value.into(),
-            style,
+            style: style.borrow().to_owned(),
         }
     }
 
@@ -189,17 +191,6 @@ impl Default for TextStyle {
     }
 }
 
-impl AsRef<TextStyle> for TextStyle {
-    fn as_ref(&self) -> &TextStyle {
-        &self
-    }
-}
-
-impl AsMut<TextStyle> for TextStyle {
-    fn as_mut(&mut self) -> &mut TextStyle {
-        self
-    }
-}
 
 /// Determines how lines will be broken when preventing text from running out of bounds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
