@@ -89,7 +89,9 @@ fn button_system(
         Changed<RelativeCursorPosition>,
     >,
 ) {
-    for (relative_cursor_position, mut button_color, IdleColor(idle_color)) in interaction_query.iter_mut() {
+    for (relative_cursor_position, mut button_color, IdleColor(idle_color)) in
+        interaction_query.iter_mut()
+    {
         if relative_cursor_position.mouse_over() {
             *button_color = Color::ORANGE_RED.into();
         } else {
