@@ -189,6 +189,18 @@ impl Default for TextStyle {
     }
 }
 
+impl AsRef<TextStyle> for TextStyle {
+    fn as_ref(&self) -> &TextStyle {
+        &self
+    }
+}
+
+impl AsMut<TextStyle> for TextStyle {
+    fn as_mut(&mut self) -> &mut TextStyle {
+        self
+    }
+}
+
 /// Determines how lines will be broken when preventing text from running out of bounds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
