@@ -4,16 +4,16 @@ use bevy_ptr::{Ptr, PtrMut, ThinSlicePtr, UnsafeCellDeref};
 
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    change_detection::{Mut, TicksMut},
+    change_detection::{Mut, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, Tick},
     entity::Entity,
-    prelude::{Component, Has, With, Without, World},
+    prelude::{Added, Changed, Component, Has, Ref, With, Without, World},
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{Fetchable, FetchedTerm, QueryTerm, Term, TermAccess};
+use super::{ComponentQueryTerm, Fetchable, TermAccess};
 
 #[derive(Clone)]
 pub enum TermOperator {
@@ -21,6 +21,7 @@ pub enum TermOperator {
     Without,
     Changed,
     Added,
+    Optional,
 }
 
 #[derive(Clone)]
@@ -86,6 +87,34 @@ impl ComponentTerm {
         }
     }
 
+    pub fn added(id: ComponentId) -> Self {
+        Self {
+            component: Some(id),
+            access: None,
+            operator: TermOperator::Added,
+            change_detection: true,
+        }
+    }
+
+    pub fn changed(id: ComponentId) -> Self {
+        Self {
+            component: Some(id),
+            access: None,
+            operator: TermOperator::Changed,
+            change_detection: true,
+        }
+    }
+
+    pub fn optional(mut self) -> Self {
+        self.operator = TermOperator::Optional;
+        self
+    }
+
+    pub fn with_change_detection(mut self) -> Self {
+        self.change_detection = true;
+        self
+    }
+
     pub fn id(&self) -> ComponentId {
         self.component.unwrap()
     }
@@ -102,7 +131,10 @@ impl ComponentTerm {
     ) -> Ptr<'w> {
         match state.pointer.as_ref().unwrap() {
             StoragePtr::SparseSet(sparse_set) => sparse_set.get(entity).debug_checked_unwrap(),
-            StoragePtr::Table(table) => table.byte_add(table_row.index() * state.size),
+            StoragePtr::Table {
+                table: Some(table), ..
+            } => table.byte_add(table_row.index() * state.size),
+            _ => unreachable!(),
         }
     }
 
@@ -123,36 +155,40 @@ impl ComponentTerm {
                     this_run: state.this_run,
                 }
             }
-            StoragePtr::Table(_) => {
-                let (added, changed) = state.ticks.debug_checked_unwrap();
-                FetchedChangeTicks {
-                    added: added.get(table_row.index()),
-                    changed: changed.get(table_row.index()),
+            StoragePtr::Table {
+                ticks: Some((added, changed)),
+                ..
+            } => FetchedChangeTicks {
+                added: added.get(table_row.index()),
+                changed: changed.get(table_row.index()),
 
-                    last_run: state.last_run,
-                    this_run: state.this_run,
-                }
-            }
+                last_run: state.last_run,
+                this_run: state.this_run,
+            },
+            _ => unreachable!(),
         }
     }
 }
 
 pub enum StoragePtr<'w> {
     SparseSet(&'w ComponentSparseSet),
-    Table(Ptr<'w>),
+    Table {
+        table: Option<Ptr<'w>>,
+        ticks: Option<(
+            ThinSlicePtr<'w, UnsafeCell<Tick>>,
+            ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        )>,
+    },
 }
 
 pub struct ComponentTermState<'w> {
     pointer: Option<StoragePtr<'w>>,
-    ticks: Option<(
-        ThinSlicePtr<'w, UnsafeCell<Tick>>,
-        ThinSlicePtr<'w, UnsafeCell<Tick>>,
-    )>,
 
     last_run: Tick,
     this_run: Tick,
 
     size: usize,
+    matches: bool,
 }
 
 pub struct FetchedChangeTicks<'w> {
@@ -164,8 +200,9 @@ pub struct FetchedChangeTicks<'w> {
 }
 
 pub struct FetchedComponent<'w> {
-    component: Option<Ptr<'w>>,
+    pointer: Option<Ptr<'w>>,
     change_ticks: Option<FetchedChangeTicks<'w>>,
+    matched: bool,
 }
 
 impl Fetchable for ComponentTerm {
@@ -181,9 +218,7 @@ impl Fetchable for ComponentTerm {
         let id = self.id();
         let info = world.components().get_info_unchecked(id);
         ComponentTermState {
-            pointer: self
-                .access
-                .is_some()
+            pointer: (self.access.is_some() || self.change_detection)
                 .then(|| {
                     world
                         .storages()
@@ -192,27 +227,30 @@ impl Fetchable for ComponentTerm {
                         .map(|set| StoragePtr::SparseSet(set))
                 })
                 .flatten(),
-            ticks: None,
 
             size: info.layout().size(),
 
             last_run,
             this_run,
+
+            matches: false,
         }
     }
 
-    unsafe fn set_table<'w>(&self, state: &mut Self::State<'w>, table: &'w Table) {
+    unsafe fn set_table<'w>(&self, state: &mut ComponentTermState<'w>, table: &'w Table) {
         if let Some(column) = table.get_column(self.id()) {
-            state.pointer = self
-                .access
-                .is_some()
-                .then(|| StoragePtr::Table(column.get_data_ptr()));
-            state.ticks = self.change_detection.then(|| {
-                (
-                    column.get_added_ticks_slice().into(),
-                    column.get_changed_ticks_slice().into(),
-                )
-            })
+            state.pointer = Some(StoragePtr::Table {
+                table: self.access.is_some().then(|| column.get_data_ptr()),
+                ticks: self.change_detection.then(|| {
+                    (
+                        column.get_added_ticks_slice().into(),
+                        column.get_changed_ticks_slice().into(),
+                    )
+                }),
+            });
+            state.matches = true;
+        } else {
+            state.matches = false;
         }
     }
 
@@ -223,13 +261,11 @@ impl Fetchable for ComponentTerm {
         table_row: TableRow,
     ) -> Self::Item<'w> {
         FetchedComponent {
-            component: self
-                .access
-                .is_some()
+            pointer: (self.access.is_some() && state.matches)
                 .then(|| self.get_component(state, entity, table_row)),
-            change_ticks: self
-                .change_detection
+            change_ticks: (self.change_detection && state.matches)
                 .then(|| self.get_change_ticks(state, entity, table_row)),
+            matched: state.matches,
         }
     }
 
@@ -239,7 +275,8 @@ impl Fetchable for ComponentTerm {
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        match self.operator {
+        dbg!(match self.operator {
+            TermOperator::Optional => true,
             // These are checked matches_component_set
             TermOperator::With => true,
             TermOperator::Without => true,
@@ -252,12 +289,15 @@ impl Fetchable for ComponentTerm {
             }
             TermOperator::Added => {
                 let ticks = self.get_change_ticks(state, entity, table_row);
+                dbg!(ticks.last_run);
+                dbg!(ticks.this_run);
+                dbg!(ticks.added.read());
                 ticks
                     .added
                     .read()
                     .is_newer_than(ticks.last_run, ticks.this_run)
             }
-        }
+        })
     }
 
     fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
@@ -292,102 +332,139 @@ impl Fetchable for ComponentTerm {
     fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         match self.operator {
             TermOperator::Without => !set_contains_id(self.id()),
+            TermOperator::Optional => true,
             _ => set_contains_id(self.id()),
         }
     }
 }
 
-impl<T: Component> QueryTerm for With<T> {
+impl<T: Component> ComponentQueryTerm for With<T> {
     type Item<'w> = ();
     type ReadOnly = Self;
 
-    fn init_term(world: &mut World) -> Term {
+    fn init_term(world: &mut World) -> ComponentTerm {
         let component = world.init_component::<T>();
-        Term::Component(ComponentTerm::with(component))
+        ComponentTerm::with(component)
     }
 
-    unsafe fn from_fetch<'w>(_term: FetchedTerm<'w>) -> Self::Item<'w> {}
+    unsafe fn from_fetch<'w>(_term: FetchedComponent<'w>) -> Self::Item<'w> {}
 }
 
-impl<T: Component> QueryTerm for Without<T> {
+impl<T: Component> ComponentQueryTerm for Without<T> {
     type Item<'w> = ();
     type ReadOnly = Self;
 
-    fn init_term(world: &mut World) -> Term {
+    fn init_term(world: &mut World) -> ComponentTerm {
         let component = world.init_component::<T>();
-        Term::Component(ComponentTerm::without(component))
+        ComponentTerm::without(component)
     }
 
-    unsafe fn from_fetch<'w>(_term: FetchedTerm<'w>) -> Self::Item<'w> {}
+    unsafe fn from_fetch<'w>(_term: FetchedComponent<'w>) -> Self::Item<'w> {}
 }
 
-impl<T: Component> QueryTerm for Has<T> {
+impl<T: Component> ComponentQueryTerm for Has<T> {
     type Item<'w> = bool;
     type ReadOnly = Self;
 
-    fn init_term(world: &mut World) -> Term {
+    fn init_term(world: &mut World) -> ComponentTerm {
         let component = world.init_component::<T>();
-        Term::Component(ComponentTerm::without(component))
+        ComponentTerm::with(component).optional()
     }
 
-    unsafe fn from_fetch<'w>(term: FetchedTerm<'w>) -> Self::Item<'w> {
-        let FetchedTerm::Component(term) = term else {
-            unreachable!();
-        };
-        term.component.is_some()
+    unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
+        term.matched
     }
 }
 
-impl<T: Component> QueryTerm for &T {
+impl<T: Component> ComponentQueryTerm for Added<T> {
+    type Item<'w> = ();
+    type ReadOnly = Self;
+
+    fn init_term(world: &mut World) -> ComponentTerm {
+        let component = world.init_component::<T>();
+        ComponentTerm::added(component)
+    }
+
+    unsafe fn from_fetch<'w>(_term: FetchedComponent<'w>) -> Self::Item<'w> {}
+}
+
+impl<T: Component> ComponentQueryTerm for Changed<T> {
+    type Item<'w> = ();
+    type ReadOnly = Self;
+
+    fn init_term(world: &mut World) -> ComponentTerm {
+        let component = world.init_component::<T>();
+        ComponentTerm::changed(component)
+    }
+
+    unsafe fn from_fetch<'w>(_term: FetchedComponent<'w>) -> Self::Item<'w> {}
+}
+
+impl<T: Component> ComponentQueryTerm for &T {
     type Item<'w> = &'w T;
     type ReadOnly = Self;
 
-    fn init_term(world: &mut World) -> Term {
+    fn init_term(world: &mut World) -> ComponentTerm {
         let component = world.init_component::<T>();
-        Term::Component(ComponentTerm::read_id(component))
+        ComponentTerm::read_id(component)
     }
 
-    unsafe fn from_fetch<'w>(term: FetchedTerm<'w>) -> Self::Item<'w> {
-        let FetchedTerm::Component(term) = term else {
-            unreachable!();
-        };
-        term.component.unwrap().deref()
+    unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
+        term.pointer.debug_checked_unwrap().deref()
     }
 }
 
-impl QueryTerm for Ptr<'_> {
+impl<T: Component> ComponentQueryTerm for Ref<'_, T> {
+    type Item<'w> = Ref<'w, T>;
+    type ReadOnly = Self;
+
+    fn init_term(world: &mut World) -> ComponentTerm {
+        let component = world.init_component::<T>();
+        ComponentTerm::read_id(component).with_change_detection()
+    }
+
+    unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
+        let change_detection = term.change_ticks.as_ref().debug_checked_unwrap();
+        Ref {
+            value: term.pointer.debug_checked_unwrap().deref(),
+            ticks: Ticks {
+                added: change_detection.added.deref(),
+                changed: change_detection.changed.deref(),
+
+                last_run: change_detection.last_run,
+                this_run: change_detection.this_run,
+            },
+        }
+    }
+}
+
+impl ComponentQueryTerm for Ptr<'_> {
     type Item<'w> = Ptr<'w>;
     type ReadOnly = Self;
 
-    fn init_term(_world: &mut World) -> Term {
-        Term::Component(ComponentTerm::read())
+    fn init_term(_world: &mut World) -> ComponentTerm {
+        ComponentTerm::read()
     }
 
-    unsafe fn from_fetch<'w>(term: FetchedTerm<'w>) -> Self::Item<'w> {
-        let FetchedTerm::Component(term) = term else {
-            unreachable!();
-        };
-        term.component.unwrap()
+    unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
+        term.pointer.debug_checked_unwrap()
     }
 }
 
-impl<'r, T: Component> QueryTerm for &'r mut T {
+impl<'r, T: Component> ComponentQueryTerm for &'r mut T {
     type Item<'w> = Mut<'w, T>;
     type ReadOnly = &'r T;
 
-    fn init_term(world: &mut World) -> Term {
+    fn init_term(world: &mut World) -> ComponentTerm {
         let component = world.init_component::<T>();
-        Term::Component(ComponentTerm::write_id(component))
+        ComponentTerm::write_id(component)
     }
 
-    unsafe fn from_fetch<'w>(term: FetchedTerm<'w>) -> Self::Item<'w> {
-        let FetchedTerm::Component(term) = term else {
-            unreachable!();
-        };
-        let change_detection = term.change_ticks.debug_checked_unwrap();
+    unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
+        let change_detection = term.change_ticks.as_ref().debug_checked_unwrap();
         Mut {
             value: term
-                .component
+                .pointer
                 .debug_checked_unwrap()
                 .assert_unique()
                 .deref_mut(),
@@ -402,18 +479,42 @@ impl<'r, T: Component> QueryTerm for &'r mut T {
     }
 }
 
-impl<'r> QueryTerm for PtrMut<'r> {
-    type Item<'w> = PtrMut<'w>;
+impl<'r> ComponentQueryTerm for PtrMut<'r> {
+    type Item<'w> = MutUntyped<'w>;
     type ReadOnly = Ptr<'r>;
 
-    fn init_term(_world: &mut World) -> Term {
-        Term::Component(ComponentTerm::read())
+    fn init_term(_world: &mut World) -> ComponentTerm {
+        ComponentTerm::read()
     }
 
-    unsafe fn from_fetch<'w>(term: FetchedTerm<'w>) -> Self::Item<'w> {
-        let FetchedTerm::Component(term) = term else {
-            unreachable!();
-        };
-        term.component.unwrap().assert_unique()
+    unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
+        let change_detection = term.change_ticks.as_ref().debug_checked_unwrap();
+        MutUntyped {
+            value: term.pointer.debug_checked_unwrap().assert_unique(),
+            ticks: TicksMut {
+                added: change_detection.added.deref_mut(),
+                changed: change_detection.changed.deref_mut(),
+
+                last_run: change_detection.last_run,
+                this_run: change_detection.this_run,
+            },
+        }
+    }
+}
+
+impl<C: ComponentQueryTerm> ComponentQueryTerm for Option<C> {
+    type Item<'w> = Option<C::Item<'w>>;
+    type ReadOnly = Option<C::ReadOnly>;
+
+    fn init_term(world: &mut World) -> ComponentTerm {
+        C::init_term(world).optional()
+    }
+
+    unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
+        if term.matched {
+            Some(C::from_fetch(term))
+        } else {
+            None
+        }
     }
 }

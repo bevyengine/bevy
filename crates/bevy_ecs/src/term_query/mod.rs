@@ -26,7 +26,7 @@ mod tests {
     #[derive(Component, PartialEq, Debug)]
     struct B(usize);
 
-    #[derive(Component)]
+    #[derive(Component, PartialEq, Debug)]
     struct C(usize);
 
     #[test]
@@ -89,7 +89,7 @@ mod tests {
         assert_eq!(2, query_b.iter(&world).count());
 
         let mut query_c = QueryBuilder::<Entity>::new(&mut world)
-            .term::<Or<(With<A>, Or<(With<B>, With<C>)>)>>()
+            .term::<Or<(With<A>, With<B>, With<C>)>>()
             .build();
         assert_eq!(3, query_c.iter(&world).count());
     }
@@ -259,5 +259,94 @@ mod tests {
         system.initialize(&mut world);
         unsafe { system.state_mut().0 = query.transmute() };
         system.run((), &mut world);
+    }
+
+    #[test]
+    fn term_query_has() {
+        let mut world = World::new();
+        world.spawn((A(0), B(0), C(0)));
+        world.spawn((A(0), B(0)));
+
+        let mut query = QueryBuilder::<(Has<B>, Has<C>)>::new(&mut world)
+            .with::<A>()
+            .build();
+        assert_eq!(
+            vec![(true, true), (true, false)],
+            query.iter(&world).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn term_query_added() {
+        let mut world = World::new();
+        let entity_a = world.spawn(A(0)).id();
+
+        let mut query = QueryBuilder::<(Entity, Has<B>)>::new(&mut world)
+            .term::<Added<A>>()
+            .build();
+
+        assert_eq!((entity_a, false), query.single(&world));
+
+        world.clear_trackers();
+
+        let entity_b = world.spawn((A(0), B(0))).id();
+        assert_eq!((entity_b, true), query.single(&world));
+
+        world.clear_trackers();
+
+        assert!(query.get_single(&world).is_err());
+    }
+
+    #[test]
+    fn term_query_changed() {
+        let mut world = World::new();
+        let entity_a = world.spawn(A(0)).id();
+
+        let mut detection_query = QueryBuilder::<Entity>::new(&mut world)
+            .term::<Changed<A>>()
+            .build();
+
+        let mut change_query = QueryBuilder::<&mut A>::new(&mut world).build();
+        assert_eq!(entity_a, detection_query.single(&world));
+
+        world.clear_trackers();
+
+        assert!(detection_query.get_single(&world).is_err());
+
+        change_query.single_mut(&mut world).0 = 1;
+
+        assert_eq!(entity_a, detection_query.single(&world));
+    }
+
+    #[test]
+    fn term_query_any_of() {
+        let mut world = World::new();
+        let entity_a = world.spawn((A(0), C(0))).id();
+        let entity_b = world.spawn((A(0), B(0))).id();
+
+        let mut query = QueryBuilder::<(Entity, AnyOf<(&B, &C)>)>::new(&mut world).build();
+
+        assert_eq!(
+            vec![
+                (entity_a, (None, Some(&C(0)))),
+                (entity_b, (Some(&B(0)), None))
+            ],
+            query.iter(&world).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn term_query_entity_ref() {
+        let mut world = World::new();
+        world.spawn((A(0), B(0)));
+
+        let mut query = QueryBuilder::<EntityRef>::new(&mut world)
+            .with::<A>()
+            .build();
+
+        let entity = query.single(&world);
+        assert_eq!(Some(&A(0)), entity.get::<A>());
+        assert_eq!(Some(&B(0)), entity.get::<B>());
+        assert_eq!(None, entity.get::<C>());
     }
 }

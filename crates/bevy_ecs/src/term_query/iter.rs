@@ -70,20 +70,21 @@ impl<'w, 's> TermQueryCursor<'w, 's> {
             let entity = archetype_entity.entity();
             let row = archetype_entity.table_row();
             // Apply filters
-            return query_state
+            if query_state
                 .terms
                 .iter()
                 .zip(self.term_state.iter_mut())
                 .all(|(term, state)| term.filter_fetch(state, entity, row))
-                .then(|| {
-                    // Fetch items
+            {
+                return Some(
                     query_state
                         .terms
                         .iter()
                         .zip(self.term_state.iter_mut())
                         .map(|(term, state)| term.fetch(state, entity, row))
-                        .collect()
-                });
+                        .collect(),
+                );
+            }
         }
     }
 }

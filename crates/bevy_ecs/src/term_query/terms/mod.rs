@@ -5,18 +5,18 @@ use crate::{
     component::{ComponentId, Tick},
     entity::Entity,
     prelude::World,
-    query::{Access, FilteredAccess},
+    query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
 mod component;
 mod entity;
-mod filter;
+mod group;
 
 pub use component::*;
 pub use entity::*;
-pub use filter::*;
+pub use group::*;
 
 #[derive(Clone)]
 pub enum Term {
@@ -34,7 +34,33 @@ pub enum TermAccess {
 pub enum FetchedTerm<'w> {
     Entity(<EntityTerm as Fetchable>::Item<'w>),
     Component(<ComponentTerm as Fetchable>::Item<'w>),
-    Filter(()),
+    Or(Vec<<ComponentTerm as Fetchable>::Item<'w>>),
+}
+
+impl<'w> FetchedTerm<'w> {
+    pub fn component(self) -> Option<<ComponentTerm as Fetchable>::Item<'w>> {
+        if let FetchedTerm::Component(term) = self {
+            Some(term)
+        } else {
+            None
+        }
+    }
+
+    pub fn entity(&self) -> Option<&<EntityTerm as Fetchable>::Item<'w>> {
+        if let FetchedTerm::Entity(term) = self {
+            Some(term)
+        } else {
+            None
+        }
+    }
+
+    pub fn group(self) -> Option<Vec<<ComponentTerm as Fetchable>::Item<'w>>> {
+        if let FetchedTerm::Or(term) = self {
+            Some(term)
+        } else {
+            None
+        }
+    }
 }
 
 pub enum TermState<'w> {
@@ -123,7 +149,7 @@ impl Fetchable for Term {
                 FetchedTerm::Component(term.fetch(state, entity, table_row))
             }
             (Term::Or(term), TermState::Or(state)) => {
-                FetchedTerm::Filter(term.fetch(state, entity, table_row))
+                FetchedTerm::Or(term.fetch(state, entity, table_row))
             }
             _ => unreachable!(),
         }
@@ -176,6 +202,38 @@ impl Fetchable for Term {
     }
 }
 
+pub trait QueryTerm {
+    type Item<'w>;
+    type ReadOnly: QueryTermGroup;
+
+    fn init_term(world: &mut World) -> Term;
+
+    unsafe fn from_fetch(fetch: FetchedTerm<'_>) -> Self::Item<'_>;
+}
+
+pub trait ComponentQueryTerm {
+    type Item<'w>;
+    type ReadOnly: QueryTermGroup + ComponentQueryTerm;
+
+    fn init_term(world: &mut World) -> ComponentTerm;
+
+    unsafe fn from_fetch<'w>(_term: FetchedComponent<'w>) -> Self::Item<'w>;
+}
+
+impl<T: ComponentQueryTerm> QueryTerm for T {
+    type Item<'w> = T::Item<'w>;
+    type ReadOnly = T::ReadOnly;
+
+    fn init_term(world: &mut World) -> Term {
+        Term::Component(T::init_term(world))
+    }
+
+    unsafe fn from_fetch(term: FetchedTerm<'_>) -> Self::Item<'_> {
+        let term = term.component().debug_checked_unwrap();
+        T::from_fetch(term)
+    }
+}
+
 pub trait QueryTermGroup {
     type Item<'w>;
     type ReadOnly: QueryTermGroup;
@@ -184,15 +242,6 @@ pub trait QueryTermGroup {
 
     unsafe fn from_fetches<'w>(terms: &mut impl Iterator<Item = FetchedTerm<'w>>)
         -> Self::Item<'w>;
-}
-
-pub trait QueryTerm {
-    type Item<'w>;
-    type ReadOnly: QueryTermGroup;
-
-    fn init_term(world: &mut World) -> Term;
-
-    unsafe fn from_fetch(fetch: FetchedTerm<'_>) -> Self::Item<'_>;
 }
 
 impl<T: QueryTerm> QueryTermGroup for T {
@@ -205,6 +254,34 @@ impl<T: QueryTerm> QueryTermGroup for T {
 
     unsafe fn from_fetches<'w>(
         terms: &mut impl Iterator<Item = FetchedTerm<'w>>,
+    ) -> Self::Item<'w> {
+        T::from_fetch(terms.next().unwrap())
+    }
+}
+
+pub trait ComponentQueryTermGroup {
+    type Item<'w>;
+    type ReadOnly: ComponentQueryTermGroup;
+    type Optional: ComponentQueryTermGroup;
+
+    fn init_terms(world: &mut World, terms: &mut Vec<ComponentTerm>);
+
+    unsafe fn from_fetches<'w>(
+        terms: &mut impl Iterator<Item = FetchedComponent<'w>>,
+    ) -> Self::Item<'w>;
+}
+
+impl<T: ComponentQueryTerm> ComponentQueryTermGroup for T {
+    type Item<'w> = T::Item<'w>;
+    type ReadOnly = T::ReadOnly;
+    type Optional = Option<T>;
+
+    fn init_terms(world: &mut World, terms: &mut Vec<ComponentTerm>) {
+        terms.push(T::init_term(world));
+    }
+
+    unsafe fn from_fetches<'w>(
+        terms: &mut impl Iterator<Item = FetchedComponent<'w>>,
     ) -> Self::Item<'w> {
         T::from_fetch(terms.next().unwrap())
     }
@@ -232,4 +309,28 @@ macro_rules! impl_query_term_tuple {
     };
 }
 
+macro_rules! impl_component_query_term_tuple {
+    ($($term: ident),*) => {
+        impl<$($term: ComponentQueryTermGroup),*> ComponentQueryTermGroup for ($($term,)*) {
+            type Item<'w> = ($($term::Item<'w>,)*);
+            type ReadOnly = ($($term::ReadOnly,)*);
+            type Optional = ($($term::Optional,)*);
+
+            fn init_terms(_world: &mut World, _terms: &mut Vec<ComponentTerm>) {
+                $(
+                    $term::init_terms(_world, _terms);
+                )*
+            }
+
+
+            unsafe fn from_fetches<'w>(_terms: &mut impl Iterator<Item = FetchedComponent<'w>>) -> Self::Item<'w> {
+                ($(
+                    $term::from_fetches(_terms),
+                )*)
+            }
+        }
+    };
+}
+
 all_tuples!(impl_query_term_tuple, 0, 15, T);
+all_tuples!(impl_component_query_term_tuple, 0, 15, T);

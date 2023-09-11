@@ -16,7 +16,7 @@ use super::{
     Fetchable, FetchedTerm, QueryTermGroup, Term, TermQueryIter, TermQueryIterUntyped, TermState,
 };
 
-pub struct TermQueryState<Q: QueryTermGroup = ()> {
+pub struct TermQueryState<Q: QueryTermGroup = (), F: QueryTermGroup = ()> {
     world_id: WorldId,
     pub(crate) terms: Vec<Term>,
     pub(crate) archetype_generation: ArchetypeGeneration,
@@ -28,15 +28,16 @@ pub struct TermQueryState<Q: QueryTermGroup = ()> {
     pub(crate) matched_table_ids: Vec<TableId>,
     // NOTE: we maintain both a ArchetypeId bitset and a vec because iterating the vec is faster
     pub(crate) matched_archetype_ids: Vec<ArchetypeId>,
-    _marker: PhantomData<fn() -> Q>,
+    _marker: PhantomData<fn() -> (Q, F)>,
 }
 
 pub type ROTermItem<'w, Q> = <<Q as QueryTermGroup>::ReadOnly as QueryTermGroup>::Item<'w>;
 
-impl<Q: QueryTermGroup> TermQueryState<Q> {
+impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     pub fn new(world: &mut World) -> Self {
         let mut terms = Vec::new();
         Q::init_terms(world, &mut terms);
+        F::ReadOnly::init_terms(world, &mut terms);
         Self::from_terms(world, terms)
     }
 
@@ -113,6 +114,10 @@ impl<Q: QueryTermGroup> TermQueryState<Q> {
         std::mem::transmute(self)
     }
 
+    pub fn filterless(&self) -> &TermQueryState<Q> {
+        unsafe { std::mem::transmute(self) }
+    }
+
     pub fn validate_world(&self, world_id: WorldId) {
         assert!(
             world_id == self.world_id,
@@ -182,7 +187,7 @@ impl<Q: QueryTermGroup> TermQueryState<Q> {
         last_run: Tick,
         this_run: Tick,
     ) -> TermQueryIter<'w, 's, Q> {
-        TermQueryIter::new(world, self, last_run, this_run)
+        TermQueryIter::new(world, self.filterless(), last_run, this_run)
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
@@ -192,7 +197,14 @@ impl<Q: QueryTermGroup> TermQueryState<Q> {
         let last_run = world.change_tick();
         let this_run = world.last_change_tick();
 
-        unsafe { TermQueryIterUntyped::new(world.as_unsafe_world_cell(), self, last_run, this_run) }
+        unsafe {
+            TermQueryIterUntyped::new(
+                world.as_unsafe_world_cell(),
+                self.filterless(),
+                last_run,
+                this_run,
+            )
+        }
     }
 
     pub(crate) unsafe fn get_unchecked_manual<'w>(

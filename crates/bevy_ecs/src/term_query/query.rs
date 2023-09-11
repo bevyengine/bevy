@@ -9,18 +9,18 @@ use crate::{
 
 use super::{QueryTermGroup, ROTermItem, TermQueryIter, TermQueryState};
 
-pub struct TermQuery<'w, 's, Q: QueryTermGroup> {
+pub struct TermQuery<'w, 's, Q: QueryTermGroup, F: QueryTermGroup = ()> {
     world: UnsafeWorldCell<'w>,
-    state: &'s TermQueryState<Q>,
+    state: &'s TermQueryState<Q, F>,
     last_run: Tick,
     this_run: Tick,
     _marker: PhantomData<Q>,
 }
 
-impl<'w, 's, Q: QueryTermGroup> TermQuery<'w, 's, Q> {
+impl<'w, 's, Q: QueryTermGroup, F: QueryTermGroup> TermQuery<'w, 's, Q, F> {
     pub fn new(
         world: UnsafeWorldCell<'w>,
-        state: &'s TermQueryState<Q>,
+        state: &'s TermQueryState<Q, F>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {

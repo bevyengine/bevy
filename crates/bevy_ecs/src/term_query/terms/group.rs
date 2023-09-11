@@ -2,27 +2,31 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::{ComponentId, Tick},
     entity::Entity,
-    prelude::{Or, World},
-    query::{Access, FilteredAccess},
+    prelude::{AnyOf, Or, World},
+    query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{Fetchable, FetchedTerm, QueryTermGroup, Term, TermState};
+use super::{
+    ComponentQueryTermGroup, ComponentTerm, ComponentTermState, Fetchable, FetchedComponent,
+    FetchedTerm, QueryTermGroup, Term,
+};
 
 #[derive(Clone)]
 pub struct OrTerm {
-    terms: Vec<Term>,
+    terms: Vec<ComponentTerm>,
+    fetch: bool,
 }
 
 pub struct OrTermState<'w> {
-    state: TermState<'w>,
+    state: ComponentTermState<'w>,
     matches: bool,
 }
 
 impl Fetchable for OrTerm {
     type State<'w> = Vec<OrTermState<'w>>;
-    type Item<'w> = ();
+    type Item<'w> = Vec<FetchedComponent<'w>>;
 
     unsafe fn init_state<'w>(
         &self,
@@ -53,10 +57,19 @@ impl Fetchable for OrTerm {
 
     unsafe fn fetch<'w>(
         &self,
-        _state: &mut Self::State<'w>,
-        _entity: Entity,
-        _table_row: TableRow,
+        state: &mut Self::State<'w>,
+        entity: Entity,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
+        if self.fetch {
+            self.terms
+                .iter()
+                .zip(state.iter_mut())
+                .map(|(term, state)| term.fetch(&mut state.state, entity, table_row))
+                .collect()
+        } else {
+            Vec::new()
+        }
     }
 
     unsafe fn filter_fetch<'w>(
@@ -106,19 +119,47 @@ impl Fetchable for OrTerm {
     }
 }
 
-impl<Q: QueryTermGroup> QueryTermGroup for Or<Q> {
+impl<Q: ComponentQueryTermGroup> QueryTermGroup for Or<Q> {
     type Item<'w> = ();
     type ReadOnly = Self;
 
     fn init_terms(world: &mut World, terms: &mut Vec<Term>) {
         let mut sub_terms = Vec::new();
         Q::init_terms(world, &mut sub_terms);
-        terms.push(Term::Or(OrTerm { terms: sub_terms }));
+        terms.push(Term::Or(OrTerm {
+            terms: sub_terms,
+            fetch: false,
+        }));
     }
 
     unsafe fn from_fetches<'w>(
         terms: &mut impl Iterator<Item = FetchedTerm<'w>>,
     ) -> Self::Item<'w> {
         terms.next();
+    }
+}
+
+impl<Q: ComponentQueryTermGroup> QueryTermGroup for AnyOf<Q> {
+    type Item<'w> = <Q::Optional as ComponentQueryTermGroup>::Item<'w>;
+    type ReadOnly = Self;
+
+    fn init_terms(world: &mut World, terms: &mut Vec<Term>) {
+        let mut sub_terms = Vec::new();
+        Q::Optional::init_terms(world, &mut sub_terms);
+        terms.push(Term::Or(OrTerm {
+            terms: sub_terms,
+            fetch: true,
+        }));
+    }
+
+    unsafe fn from_fetches<'w>(
+        terms: &mut impl Iterator<Item = FetchedTerm<'w>>,
+    ) -> Self::Item<'w> {
+        let term = terms
+            .next()
+            .debug_checked_unwrap()
+            .group()
+            .debug_checked_unwrap();
+        Q::Optional::from_fetches(&mut term.into_iter())
     }
 }

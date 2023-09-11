@@ -226,9 +226,11 @@ fn assert_component_access_compatibility(
     panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s) {accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`.");
 }
 
-unsafe impl<Q: QueryTermGroup + 'static> SystemParam for TermQuery<'_, '_, Q> {
-    type State = TermQueryState<Q>;
-    type Item<'w, 's> = TermQuery<'w, 's, Q>;
+unsafe impl<Q: QueryTermGroup + 'static, F: QueryTermGroup + 'static> SystemParam
+    for TermQuery<'_, '_, Q, F>
+{
+    type State = TermQueryState<Q, F>;
+    type Item<'w, 's> = TermQuery<'w, 's, Q, F>;
 
     fn init_state(world: &mut World, system_meta: &mut crate::system::SystemMeta) -> Self::State {
         let state = TermQueryState::new(world);
