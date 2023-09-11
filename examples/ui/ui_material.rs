@@ -1,5 +1,6 @@
 use bevy::prelude::*;
-use bevy_internal::{reflect::TypePath, render::render_resource::*};
+use bevy::reflect::TypePath;
+use bevy::render::render_resource::*;
 
 fn main() {
     App::new()
@@ -12,8 +13,10 @@ fn main() {
 
 fn update(time: Res<Time>, mut ui_materials: ResMut<Assets<CustomUiMaterial>>) {
     for (_, material) in ui_materials.iter_mut() {
+        // circle filling
         material.fill_amount = time.elapsed_seconds() % 1.0;
-        let new_color = Color::WHITE;
+        // rainbow color effect
+        let new_color = Color::hsl((time.elapsed_seconds() * 60.0) % 360.0, 1., 0.5);
         material.color = new_color.into();
     }
 }
@@ -30,58 +33,22 @@ fn setup(mut commands: Commands, mut ui_materials: ResMut<Assets<CustomUiMateria
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            background_color: Color::BLACK.into(),
             ..default()
         })
         .with_children(|parent| {
-            parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Px(500.0),
-                        height: Val::Px(500.0),
-                        border: UiRect::all(Val::Px(10.)),
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..Default::default()
-                    },
-                    border_color: BorderColor(Color::WHITE),
-                    ..Default::default()
-                })
-                .with_children(|parent| {
-                    parent.spawn(NodeBundle {
-                        style: Style {
-                            position_type: PositionType::Absolute,
-                            width: Val::Px(500.0),
-                            height: Val::Px(25.0),
-                            ..Default::default()
-                        },
-                        background_color: BackgroundColor(Color::GREEN),
-                        ..Default::default()
-                    });
-                    parent.spawn(MaterialNodeBundle {
-                        style: Style {
-                            position_type: PositionType::Absolute,
-                            width: Val::Px(250.0),
-                            height: Val::Px(250.0),
-                            ..default()
-                        },
-                        material: ui_materials.add(CustomUiMaterial {
-                            fill_amount: 0.0,
-                            color: Color::WHITE.into(),
-                        }),
-                        ..default()
-                    });
-                    parent.spawn(NodeBundle {
-                        style: Style {
-                            position_type: PositionType::Absolute,
-                            width: Val::Px(25.0),
-                            height: Val::Px(500.0),
-                            ..Default::default()
-                        },
-                        background_color: BackgroundColor(Color::RED),
-                        ..Default::default()
-                    });
-                });
+            parent.spawn(MaterialNodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    width: Val::Px(250.0),
+                    height: Val::Px(250.0),
+                    ..default()
+                },
+                material: ui_materials.add(CustomUiMaterial {
+                    fill_amount: 0.0,
+                    color: Color::WHITE.into(),
+                }),
+                ..default()
+            });
         });
 }
 
