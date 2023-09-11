@@ -387,13 +387,19 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     >,
 ) {
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((entity, uinode, transform, handle, _, clip, _)) = uinode_query.get(*entity) {
+        if let Ok((entity, uinode, transform, handle, view_visibility, clip, _)) =
+            uinode_query.get(*entity)
+        {
+            // skip invisible nodes
+            if !view_visibility.get() {
+                continue;
+            }
+
             // Skip loading materials
             if !materials.contains(handle) {
                 continue;
             }
 
-            // Skip invisible and completely transparent nodes
             extracted_uinodes.uinodes.insert(
                 entity,
                 ExtractedUiMaterialNode {
