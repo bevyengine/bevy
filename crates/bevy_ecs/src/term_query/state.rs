@@ -101,7 +101,11 @@ impl<Q: QueryTermGroup> TermQueryState<Q> {
         std::mem::transmute(self)
     }
 
-    pub unsafe fn transmute<O: QueryTermGroup>(&self) -> &TermQueryState<O> {
+    pub unsafe fn transmute<O: QueryTermGroup>(self) -> TermQueryState<O> {
+        std::mem::transmute(self)
+    }
+
+    pub unsafe fn transmute_ref<O: QueryTermGroup>(&self) -> &TermQueryState<O> {
         std::mem::transmute(self)
     }
 

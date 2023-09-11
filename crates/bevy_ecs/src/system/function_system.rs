@@ -355,6 +355,15 @@ where
     marker: PhantomData<fn() -> Marker>,
 }
 
+impl<Marker, F> FunctionSystem<Marker, F>
+where
+    F: SystemParamFunction<Marker>,
+{
+    pub unsafe fn state_mut(&mut self) -> &mut <F::Param as SystemParam>::State {
+        self.param_state.as_mut().unwrap()
+    }
+}
+
 // De-initializes the cloned system.
 impl<Marker, F> Clone for FunctionSystem<Marker, F>
 where

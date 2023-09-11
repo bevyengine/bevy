@@ -2,10 +2,10 @@ use std::marker::PhantomData;
 
 use crate::{
     component::ComponentId,
-    prelude::{Component, World},
+    prelude::{Component, With, Without, World},
 };
 
-use super::{QueryTermGroup, Term, TermQueryState};
+use super::{ComponentTerm, QueryTermGroup, Term, TermQueryState};
 
 pub struct QueryBuilder<'w, Q: QueryTermGroup = ()> {
     terms: Vec<Term>,
@@ -27,13 +27,30 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
     }
 
     pub fn term<T: QueryTermGroup>(&mut self) -> &mut Self {
-        self.current_term = self.terms.len();
         T::init_terms(self.world, &mut self.terms);
         self
     }
 
     pub fn term_at(&mut self, index: usize) -> &mut Self {
         self.current_term = index;
+        self
+    }
+
+    pub fn with<T: Component>(&mut self) -> &mut Self {
+        self.term::<With<T>>()
+    }
+
+    pub fn with_id(&mut self, id: ComponentId) -> &mut Self {
+        self.terms.push(Term::Component(ComponentTerm::with(id)));
+        self
+    }
+
+    pub fn without<T: Component>(&mut self) -> &mut Self {
+        self.term::<Without<T>>()
+    }
+
+    pub fn without_id(&mut self, id: ComponentId) -> &mut Self {
+        self.terms.push(Term::Component(ComponentTerm::without(id)));
         self
     }
 

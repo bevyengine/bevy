@@ -16,7 +16,7 @@ mod tests {
 
     use crate as bevy_ecs;
     use crate::prelude::*;
-    use crate::term_query::{QueryTerm, QueryTermGroup, TermQueryState};
+    use crate::term_query::{QueryTerm, QueryTermGroup, TermQuery, TermQueryState};
 
     use super::QueryBuilder;
 
@@ -36,14 +36,36 @@ mod tests {
         let entity_b = world.spawn((A(0), C(0))).id();
 
         let mut query_a = QueryBuilder::<Entity>::new(&mut world)
-            .term::<With<A>>()
-            .term::<Without<C>>()
+            .with::<A>()
+            .without::<C>()
             .build();
         assert_eq!(entity_a, query_a.single(&world));
 
         let mut query_b = QueryBuilder::<Entity>::new(&mut world)
-            .term::<With<A>>()
-            .term::<Without<B>>()
+            .with::<A>()
+            .without::<B>()
+            .build();
+        assert_eq!(entity_b, query_b.single(&world));
+    }
+
+    #[test]
+    fn test_builder_with_without_dynamic() {
+        let mut world = World::new();
+        let entity_a = world.spawn((A(0), B(0))).id();
+        let entity_b = world.spawn((A(0), C(0))).id();
+        let component_id_a = world.init_component::<A>();
+        let component_id_b = world.init_component::<B>();
+        let component_id_c = world.init_component::<C>();
+
+        let mut query_a = QueryBuilder::<Entity>::new(&mut world)
+            .with_id(component_id_a)
+            .without_id(component_id_c)
+            .build();
+        assert_eq!(entity_a, query_a.single(&world));
+
+        let mut query_b = QueryBuilder::<Entity>::new(&mut world)
+            .with_id(component_id_a)
+            .without_id(component_id_b)
             .build();
         assert_eq!(entity_b, query_b.single(&world));
     }
@@ -61,7 +83,7 @@ mod tests {
         assert_eq!(2, query_a.iter(&world).count());
 
         let mut query_b = QueryBuilder::<Entity>::new(&mut world)
-            .term::<With<B>>()
+            .with::<B>()
             .term::<Or<(With<A>, Without<A>)>>()
             .build();
         assert_eq!(2, query_b.iter(&world).count());
@@ -79,7 +101,7 @@ mod tests {
         world.spawn((A(1), B(0)));
         let mut query = QueryBuilder::<()>::new(&mut world)
             .term::<&A>()
-            .term::<With<B>>()
+            .with::<B>()
             .build();
         unsafe {
             query
@@ -108,8 +130,8 @@ mod tests {
         let a = unsafe { a.deref::<A>() };
         let b = unsafe { b.deref::<B>() };
 
-        assert_eq!(a.0, 0);
-        assert_eq!(b.0, 1);
+        assert_eq!(0, a.0);
+        assert_eq!(1, b.0);
     }
 
     #[test]
@@ -133,8 +155,8 @@ mod tests {
         let a = unsafe { a.deref::<A>() };
         let b = unsafe { b.deref::<B>() };
 
-        assert_eq!(a.0, 0);
-        assert_eq!(b.0, 1);
+        assert_eq!(0, a.0);
+        assert_eq!(1, b.0);
     }
 
     #[test]
@@ -149,8 +171,8 @@ mod tests {
         let (e, a, b) = unsafe { <(Entity, &A, &B)>::from_fetches(&mut terms.into_iter()) };
 
         assert_eq!(e, entity);
-        assert_eq!(&A(0), a);
-        assert_eq!(&B(1), b);
+        assert_eq!(0, a.0);
+        assert_eq!(1, b.0);
 
         // Alternatively extract individual terms dynamically
         let terms = query.single_raw(&mut world);
@@ -158,8 +180,55 @@ mod tests {
         // Turn into options so we can consume them out of order
         let mut terms = terms.into_iter().map(|t| Some(t)).collect::<Vec<_>>();
 
-        assert_eq!(&A(0), unsafe { <&A>::from_fetch(terms[1].take().unwrap()) });
+        assert_eq!(0, unsafe { <&A>::from_fetch(terms[1].take().unwrap()) }.0);
         assert_eq!(e, unsafe { Entity::from_fetch(terms[0].take().unwrap()) });
-        assert_eq!(&B(1), unsafe { <&B>::from_fetch(terms[2].take().unwrap()) });
+        assert_eq!(1, unsafe { <&B>::from_fetch(terms[2].take().unwrap()) }.0);
+    }
+
+    #[test]
+    fn term_query_system() {
+        let mut world = World::new();
+        world.spawn(A(1));
+        let entity = world.spawn((A(0), B(1))).id();
+
+        let sys = move |query: TermQuery<(Entity, &A, &B)>| {
+            let (e, a, b) = query.single();
+            assert_eq!(e, entity);
+            assert_eq!(0, a.0);
+            assert_eq!(1, b.0);
+        };
+
+        let mut system = IntoSystem::into_system(sys);
+        system.initialize(&mut world);
+        system.run((), &mut world);
+    }
+
+    #[test]
+    fn builder_query_system() {
+        let mut world = World::new();
+        world.spawn(A(0));
+        let entity = world.spawn((A(1), B(0))).id();
+
+        let sys = move |query: TermQuery<(Entity, &A)>| {
+            let (e, a) = query.single();
+            assert_eq!(e, entity);
+            assert_eq!(1, a.0);
+        };
+
+        // Add additional terms that don't appear in the original query
+        let query = QueryBuilder::<(Entity, &A)>::new(&mut world)
+            .with::<B>()
+            .build();
+        let mut system = IntoSystem::into_system(sys);
+        system.initialize(&mut world);
+        unsafe { system.state_mut().0 = query };
+        system.run((), &mut world);
+
+        // Alternatively truncate terms from a query to match the system
+        let query = QueryBuilder::<(Entity, &A, &B)>::new(&mut world).build();
+        let mut system = IntoSystem::into_system(sys);
+        system.initialize(&mut world);
+        unsafe { system.state_mut().0 = query.transmute() };
+        system.run((), &mut world);
     }
 }

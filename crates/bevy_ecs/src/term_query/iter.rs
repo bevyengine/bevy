@@ -98,7 +98,7 @@ impl<'w, 's> TermQueryIterUntyped<'w, 's> {
         this_run: Tick,
     ) -> Self {
         Self {
-            query_state: query_state.transmute(),
+            query_state: query_state.transmute_ref(),
             tables: &world.storages().tables,
             archetypes: world.archetypes(),
             cursor: TermQueryCursor::new(world, query_state, last_run, this_run),
