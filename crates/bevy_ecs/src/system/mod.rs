@@ -548,8 +548,8 @@ mod tests {
             Schedule,
         },
         system::{
-            Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
-            QueryComponentError, Res, ResMut, Resource, System, SystemState,
+            Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
+            Resource, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -1759,6 +1759,8 @@ mod tests {
 
     #[test]
     fn readonly_query_get_mut_component_fails() {
+        use crate::query::QueryComponentError;
+
         let mut world = World::new();
         let entity = world.spawn(W(42u32)).id();
         run_system(&mut world, move |q: Query<&mut W<u32>>| {
