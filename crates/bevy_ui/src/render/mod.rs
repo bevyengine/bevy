@@ -161,7 +161,6 @@ pub struct ExtractedUiNode {
     pub clip: Option<Rect>,
     pub flip_x: bool,
     pub flip_y: bool,
-    pub is_material: bool,
 }
 
 #[derive(Resource, Default)]
@@ -251,7 +250,6 @@ pub fn extract_atlas_uinodes(
                     atlas_size: Some(atlas_size),
                     flip_x: atlas_image.flip_x,
                     flip_y: atlas_image.flip_y,
-                    is_material: false,
                 },
             );
         }
@@ -385,7 +383,6 @@ pub fn extract_uinode_borders(
                             clip: clip.map(|clip| clip.clip),
                             flip_x: false,
                             flip_y: false,
-                            is_material: false,
                         },
                     );
                 }
@@ -463,7 +460,6 @@ pub fn extract_uinodes(
                     atlas_size: None,
                     flip_x,
                     flip_y,
-                    is_material,
                 },
             );
         };
@@ -613,7 +609,6 @@ pub fn extract_text_uinodes(
                         clip: clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
-                        is_material: false,
                     },
                 );
             }
