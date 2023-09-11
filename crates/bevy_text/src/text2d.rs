@@ -13,7 +13,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_math::{Vec2, Vec3};
+use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use bevy_render::{
     prelude::Color,
@@ -98,7 +98,7 @@ pub fn extract_text2d_sprite(
         .get_single()
         .map(|window| window.resolution.scale_factor() as f32)
         .unwrap_or(1.0);
-    let scaling = GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()));
+    let scaling = GlobalTransform::from_scale(Vec2::splat(scale_factor.recip()).extend(1.));
 
     for (view_visibility, text, text_layout_info, anchor, global_transform) in text2d_query.iter() {
         if !view_visibility.get() {
