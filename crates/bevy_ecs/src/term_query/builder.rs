@@ -31,7 +31,7 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
         self
     }
 
-    pub fn term_at(&mut self, index: usize) -> &mut Self {
+    pub unsafe fn term_at(&mut self, index: usize) -> &mut Self {
         self.current_term = index;
         self
     }

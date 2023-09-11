@@ -1,11 +1,11 @@
 use std::cell::UnsafeCell;
 
-use bevy_ptr::{Ptr, PtrMut, UnsafeCellDeref};
+use bevy_ptr::{Ptr, PtrMut, ThinSlicePtr, UnsafeCellDeref};
 
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     change_detection::{Mut, TicksMut},
-    component::{ComponentId, Tick, TickCells},
+    component::{ComponentId, Tick},
     entity::Entity,
     prelude::{Component, Has, With, Without, World},
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
@@ -19,6 +19,8 @@ use super::{Fetchable, FetchedTerm, QueryTerm, Term, TermAccess};
 pub enum TermOperator {
     With,
     Without,
+    Changed,
+    Added,
 }
 
 #[derive(Clone)]
@@ -91,16 +93,61 @@ impl ComponentTerm {
     pub fn set_id(&mut self, id: ComponentId) {
         self.component = Some(id);
     }
+
+    unsafe fn get_component<'w>(
+        &self,
+        state: &mut ComponentTermState<'w>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> Ptr<'w> {
+        match state.pointer.as_ref().unwrap() {
+            StoragePtr::SparseSet(sparse_set) => sparse_set.get(entity).debug_checked_unwrap(),
+            StoragePtr::Table(table) => table.byte_add(table_row.index() * state.size),
+        }
+    }
+
+    unsafe fn get_change_ticks<'w>(
+        &self,
+        state: &mut ComponentTermState<'w>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> FetchedChangeTicks<'w> {
+        match state.pointer.as_ref().unwrap() {
+            StoragePtr::SparseSet(sparse_set) => {
+                let ticks = sparse_set.get_tick_cells(entity).debug_checked_unwrap();
+                FetchedChangeTicks {
+                    added: ticks.added,
+                    changed: ticks.changed,
+
+                    last_run: state.last_run,
+                    this_run: state.this_run,
+                }
+            }
+            StoragePtr::Table(_) => {
+                let (added, changed) = state.ticks.debug_checked_unwrap();
+                FetchedChangeTicks {
+                    added: added.get(table_row.index()),
+                    changed: changed.get(table_row.index()),
+
+                    last_run: state.last_run,
+                    this_run: state.this_run,
+                }
+            }
+        }
+    }
 }
 
 pub enum StoragePtr<'w> {
-    SpareSet(&'w ComponentSparseSet),
+    SparseSet(&'w ComponentSparseSet),
     Table(Ptr<'w>),
 }
 
 pub struct ComponentTermState<'w> {
     pointer: Option<StoragePtr<'w>>,
-    change_detection: Option<TickCells<'w>>,
+    ticks: Option<(
+        ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        ThinSlicePtr<'w, UnsafeCell<Tick>>,
+    )>,
 
     last_run: Tick,
     this_run: Tick,
@@ -108,7 +155,7 @@ pub struct ComponentTermState<'w> {
     size: usize,
 }
 
-pub struct FetchedChangeDetection<'w> {
+pub struct FetchedChangeTicks<'w> {
     added: &'w UnsafeCell<Tick>,
     changed: &'w UnsafeCell<Tick>,
 
@@ -118,7 +165,7 @@ pub struct FetchedChangeDetection<'w> {
 
 pub struct FetchedComponent<'w> {
     component: Option<Ptr<'w>>,
-    change_detection: Option<FetchedChangeDetection<'w>>,
+    change_ticks: Option<FetchedChangeTicks<'w>>,
 }
 
 impl Fetchable for ComponentTerm {
@@ -134,12 +181,18 @@ impl Fetchable for ComponentTerm {
         let id = self.id();
         let info = world.components().get_info_unchecked(id);
         ComponentTermState {
-            pointer: world
-                .storages()
-                .sparse_sets
-                .get(self.id())
-                .map(|set| StoragePtr::SpareSet(set)),
-            change_detection: None,
+            pointer: self
+                .access
+                .is_some()
+                .then(|| {
+                    world
+                        .storages()
+                        .sparse_sets
+                        .get(self.id())
+                        .map(|set| StoragePtr::SparseSet(set))
+                })
+                .flatten(),
+            ticks: None,
 
             size: info.layout().size(),
 
@@ -150,7 +203,16 @@ impl Fetchable for ComponentTerm {
 
     unsafe fn set_table<'w>(&self, state: &mut Self::State<'w>, table: &'w Table) {
         if let Some(column) = table.get_column(self.id()) {
-            state.pointer = Some(StoragePtr::Table(column.get_data_ptr()));
+            state.pointer = self
+                .access
+                .is_some()
+                .then(|| StoragePtr::Table(column.get_data_ptr()));
+            state.ticks = self.change_detection.then(|| {
+                (
+                    column.get_added_ticks_slice().into(),
+                    column.get_changed_ticks_slice().into(),
+                )
+            })
         }
     }
 
@@ -160,46 +222,42 @@ impl Fetchable for ComponentTerm {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match state.pointer.as_ref() {
-            Some(StoragePtr::SpareSet(sparse_set)) => {
-                let (component, ticks) = sparse_set.get_with_ticks(entity).debug_checked_unwrap();
-                FetchedComponent {
-                    component: Some(component),
-                    change_detection: self.change_detection.then(|| FetchedChangeDetection {
-                        added: ticks.added,
-                        changed: ticks.changed,
-
-                        last_run: state.last_run,
-                        this_run: state.this_run,
-                    }),
-                }
-            }
-            Some(StoragePtr::Table(table)) => FetchedComponent {
-                component: Some(table.byte_add(table_row.index() * state.size)),
-                change_detection: self.change_detection.then(|| {
-                    let change_detection = state.change_detection.unwrap();
-                    FetchedChangeDetection {
-                        added: change_detection.added,
-                        changed: change_detection.changed,
-                        last_run: state.last_run,
-                        this_run: state.this_run,
-                    }
-                }),
-            },
-            None => FetchedComponent {
-                component: None,
-                change_detection: None,
-            },
+        FetchedComponent {
+            component: self
+                .access
+                .is_some()
+                .then(|| self.get_component(state, entity, table_row)),
+            change_ticks: self
+                .change_detection
+                .then(|| self.get_change_ticks(state, entity, table_row)),
         }
     }
 
     unsafe fn filter_fetch<'w>(
         &self,
         state: &mut Self::State<'w>,
-        _entity: Entity,
-        _table_row: TableRow,
+        entity: Entity,
+        table_row: TableRow,
     ) -> bool {
-        state.pointer.is_some()
+        match self.operator {
+            // These are checked matches_component_set
+            TermOperator::With => true,
+            TermOperator::Without => true,
+            TermOperator::Changed => {
+                let ticks = self.get_change_ticks(state, entity, table_row);
+                ticks
+                    .changed
+                    .read()
+                    .is_newer_than(ticks.last_run, ticks.this_run)
+            }
+            TermOperator::Added => {
+                let ticks = self.get_change_ticks(state, entity, table_row);
+                ticks
+                    .added
+                    .read()
+                    .is_newer_than(ticks.last_run, ticks.this_run)
+            }
+        }
     }
 
     fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
@@ -233,8 +291,8 @@ impl Fetchable for ComponentTerm {
 
     fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         match self.operator {
-            TermOperator::With => set_contains_id(self.id()),
             TermOperator::Without => !set_contains_id(self.id()),
+            _ => set_contains_id(self.id()),
         }
     }
 }
@@ -326,7 +384,7 @@ impl<'r, T: Component> QueryTerm for &'r mut T {
         let FetchedTerm::Component(term) = term else {
             unreachable!();
         };
-        let change_detection = term.change_detection.debug_checked_unwrap();
+        let change_detection = term.change_ticks.debug_checked_unwrap();
         Mut {
             value: term
                 .component

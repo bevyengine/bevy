@@ -272,6 +272,24 @@ impl ComponentSparseSet {
         }
     }
 
+    /// Returns an [`UnsafeCell`] to the "added" and "changed" ticks of the entity's component value.
+    ///
+    /// Returns `None` if `entity` does not have a component in the sparse set.
+    #[inline]
+    pub fn get_tick_cells(&self, entity: Entity) -> Option<TickCells<'_>> {
+        let dense_index = *self.sparse.get(entity.index())? as usize;
+        #[cfg(debug_assertions)]
+        assert_eq!(entity, self.entities[dense_index]);
+        let row = TableRow::new(dense_index);
+        // SAFETY: if the sparse index points to something in the dense vec, it exists
+        unsafe {
+            Some(TickCells {
+                added: self.dense.get_added_ticks_unchecked(row),
+                changed: self.dense.get_changed_ticks_unchecked(row),
+            })
+        }
+    }
+
     /// Returns a reference to the "added" and "changed" ticks of the entity's component value.
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.

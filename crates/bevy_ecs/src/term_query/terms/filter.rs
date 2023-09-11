@@ -22,7 +22,7 @@ pub struct OrTermState<'w> {
 
 impl Fetchable for OrTerm {
     type State<'w> = Vec<OrTermState<'w>>;
-    type Item<'w> = bool;
+    type Item<'w> = ();
 
     unsafe fn init_state<'w>(
         &self,
@@ -53,16 +53,10 @@ impl Fetchable for OrTerm {
 
     unsafe fn fetch<'w>(
         &self,
-        state: &mut Self::State<'w>,
-        entity: Entity,
-        table_row: TableRow,
+        _state: &mut Self::State<'w>,
+        _entity: Entity,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
-        self.terms
-            .iter()
-            .zip(state.iter_mut())
-            .all(|(term, state)| {
-                state.matches && term.filter_fetch(&mut state.state, entity, table_row)
-            })
     }
 
     unsafe fn filter_fetch<'w>(
@@ -71,7 +65,12 @@ impl Fetchable for OrTerm {
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        self.fetch(state, entity, table_row)
+        self.terms
+            .iter()
+            .zip(state.iter_mut())
+            .any(|(term, state)| {
+                state.matches && term.filter_fetch(&mut state.state, entity, table_row)
+            })
     }
 
     fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {

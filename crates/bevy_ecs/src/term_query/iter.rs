@@ -65,20 +65,25 @@ impl<'w, 's> TermQueryCursor<'w, 's> {
             //   because if it was not, then the if above would have been executed.
             // - fetch is only called once for each `archetype_entity`.
             let archetype_entity = self.archetype_entities.get_unchecked(self.current_row);
-            let fetched_terms = query_state
+            self.current_row += 1;
+
+            let entity = archetype_entity.entity();
+            let row = archetype_entity.table_row();
+            // Apply filters
+            return query_state
                 .terms
                 .iter()
                 .zip(self.term_state.iter_mut())
-                .map(|(term, state)| {
-                    term.fetch(
-                        state,
-                        archetype_entity.entity(),
-                        archetype_entity.table_row(),
-                    )
-                })
-                .collect();
-            self.current_row += 1;
-            return Some(fetched_terms);
+                .all(|(term, state)| term.filter_fetch(state, entity, row))
+                .then(|| {
+                    // Fetch items
+                    query_state
+                        .terms
+                        .iter()
+                        .zip(self.term_state.iter_mut())
+                        .map(|(term, state)| term.fetch(state, entity, row))
+                        .collect()
+                });
         }
     }
 }

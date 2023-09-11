@@ -30,7 +30,7 @@ mod tests {
     struct C(usize);
 
     #[test]
-    fn test_builder_with_without() {
+    fn builder_with_without_static() {
         let mut world = World::new();
         let entity_a = world.spawn((A(0), B(0))).id();
         let entity_b = world.spawn((A(0), C(0))).id();
@@ -49,7 +49,7 @@ mod tests {
     }
 
     #[test]
-    fn test_builder_with_without_dynamic() {
+    fn builder_with_without_dynamic() {
         let mut world = World::new();
         let entity_a = world.spawn((A(0), B(0))).id();
         let entity_b = world.spawn((A(0), C(0))).id();
@@ -71,7 +71,7 @@ mod tests {
     }
 
     #[test]
-    fn test_builder_or() {
+    fn builder_or() {
         let mut world = World::new();
         world.spawn((A(0), B(0)));
         world.spawn(B(0));
@@ -112,16 +112,20 @@ mod tests {
     }
 
     #[test]
-    fn test_builder_ptr_static() {
+    fn builder_ptr_static() {
         let mut world = World::new();
         let entity = world.spawn((A(0), B(1))).id();
 
-        let mut query = QueryBuilder::<(Entity, Ptr, Ptr)>::new(&mut world)
-            .term_at(1)
-            .set::<A>()
-            .term_at(2)
-            .set::<B>()
-            .build();
+        // Using term_at is currently unsafe as it allows you to edit the targets of arbitrary terms
+        // possibly putting the terms in the iterator out of sync with the internal state
+        let mut query = unsafe {
+            QueryBuilder::<(Entity, Ptr, Ptr)>::new(&mut world)
+                .term_at(1)
+                .set::<A>()
+                .term_at(2)
+                .set::<B>()
+                .build()
+        };
 
         let (e, a, b) = query.single(&world);
 
@@ -135,18 +139,22 @@ mod tests {
     }
 
     #[test]
-    fn test_builder_ptr_dynamic() {
+    fn builder_ptr_dynamic() {
         let mut world = World::new();
         let entity = world.spawn((A(0), B(1))).id();
         let component_id_a = world.init_component::<A>();
         let component_id_b = world.init_component::<B>();
 
-        let mut query = QueryBuilder::<(Entity, Ptr, Ptr)>::new(&mut world)
-            .term_at(1)
-            .set_id(component_id_a)
-            .term_at(2)
-            .set_id(component_id_b)
-            .build();
+        // Using term_at is currently unsafe as it allows you to edit the targets of arbitrary terms
+        // possibly putting the terms in the iterator out of sync with the internal state
+        let mut query = unsafe {
+            QueryBuilder::<(Entity, Ptr, Ptr)>::new(&mut world)
+                .term_at(1)
+                .set_id(component_id_a)
+                .term_at(2)
+                .set_id(component_id_b)
+                .build()
+        };
 
         let (e, a, b) = query.single(&world);
 
@@ -160,7 +168,7 @@ mod tests {
     }
 
     #[test]
-    fn test_builder_raw() {
+    fn term_query_raw() {
         let mut world = World::new();
         let entity = world.spawn((A(0), B(1))).id();
         let mut query = TermQueryState::<(Entity, &A, &B)>::new(&mut world);
@@ -183,6 +191,27 @@ mod tests {
         assert_eq!(0, unsafe { <&A>::from_fetch(terms[1].take().unwrap()) }.0);
         assert_eq!(e, unsafe { Entity::from_fetch(terms[0].take().unwrap()) });
         assert_eq!(1, unsafe { <&B>::from_fetch(terms[2].take().unwrap()) }.0);
+    }
+
+    #[test]
+    fn builder_raw_parts() {
+        let mut world = World::new();
+        let entity = world.spawn((A(0), B(1))).id();
+        let mut query = QueryBuilder::<()>::new(&mut world)
+            .term::<(Entity, &A)>()
+            .term::<(Entity, &B)>()
+            .build();
+
+        let mut terms = query.single_raw(&mut world).into_iter();
+
+        // Seperately consume our two terms
+        let (e1, a) = unsafe { <(Entity, &A)>::from_fetches(&mut terms) };
+        let (e2, b) = unsafe { <(Entity, &B)>::from_fetches(&mut terms) };
+
+        assert_eq!(e1, entity);
+        assert_eq!(e1, e2);
+        assert_eq!(0, a.0);
+        assert_eq!(1, b.0);
     }
 
     #[test]

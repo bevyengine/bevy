@@ -34,7 +34,7 @@ pub enum TermAccess {
 pub enum FetchedTerm<'w> {
     Entity(<EntityTerm as Fetchable>::Item<'w>),
     Component(<ComponentTerm as Fetchable>::Item<'w>),
-    Filter(<OrTerm as Fetchable>::Item<'w>),
+    Filter(()),
 }
 
 pub enum TermState<'w> {
@@ -123,7 +123,7 @@ impl Fetchable for Term {
                 FetchedTerm::Component(term.fetch(state, entity, table_row))
             }
             (Term::Or(term), TermState::Or(state)) => {
-                FetchedTerm::Filter(term.filter_fetch(state, entity, table_row))
+                FetchedTerm::Filter(term.fetch(state, entity, table_row))
             }
             _ => unreachable!(),
         }
