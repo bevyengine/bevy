@@ -1,6 +1,6 @@
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_utils::CowArc;
-use serde::{de::Visitor, ser::SerializeTupleStruct, Deserialize, Serialize};
+use serde::{de::Visitor, Deserialize, Serialize};
 use std::{
     fmt::{Debug, Display},
     hash::Hash,
