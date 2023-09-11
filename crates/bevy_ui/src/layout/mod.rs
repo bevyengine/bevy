@@ -379,7 +379,7 @@ pub fn ui_nodes_system(
             &ui_surface,
             &mut node_transform_query,
             &children_query,
-            inverse_target_scale_factor as f32,
+            inverse_target_scale_factor,
             Vec2::ZERO,
             Vec2::ZERO,
         );
