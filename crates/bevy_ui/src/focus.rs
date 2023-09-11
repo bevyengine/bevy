@@ -11,7 +11,7 @@ use bevy_ecs::{
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ComputedVisibility};
+use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
 use bevy_transform::components::GlobalTransform;
 
 use bevy_window::{PrimaryWindow, Window};
@@ -22,9 +22,9 @@ use smallvec::SmallVec;
 ///
 /// Updated in [`ui_focus_system`].
 ///
-/// If a UI node has both [`Pressed`] and [`ComputedVisibility`] components,
+/// If a UI node has both [`Pressed`] and [`ViewVisibility`] components,
 /// the node will be considered not pressed
-/// when [`ComputedVisibility::is_visible()`] is false.
+/// when [`ViewVisibility::get()`] is false.
 /// This ensures that hidden UI nodes are not interactable,
 /// and do not end up stuck in an active state if hidden at the wrong time.
 ///
@@ -193,12 +193,12 @@ pub struct NodeQuery {
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
-    computed_visibility: Option<&'static ComputedVisibility>,
+    view_visibility: Option<&'static ViewVisibility>,
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
-/// Entities with a hidden [`ComputedVisibility`] are always treated as released.
+/// Entities with a hidden [`ViewVisibility`] are always treated as released.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_focus_system(
     mut state: Local<State>,
@@ -259,7 +259,7 @@ pub fn ui_focus_system(
         .or_else(|| touches_input.first_pressed_position())
         // The cursor position returned by `Window` only takes into account the window scale factor and not `UiScale`.
         // To convert the cursor position to logical UI viewport coordinates we have to divide it by `UiScale`.
-        .map(|cursor_position| cursor_position / ui_scale.scale as f32);
+        .map(|cursor_position| cursor_position / ui_scale.0 as f32);
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
@@ -272,8 +272,8 @@ pub fn ui_focus_system(
         .filter_map(|entity| {
             if let Ok(node) = node_query.get_mut(*entity) {
                 // Nodes that are not rendered should not be interactable
-                if let Some(computed_visibility) = node.computed_visibility {
-                    if !computed_visibility.is_visible() {
+                if let Some(view_visibility) = node.view_visibility {
+                    if !view_visibility.get() {
                         // Reset their interaction to None to avoid strange stuck state
                         if let Some(mut pressed_state) = node.pressed_state {
                             // We cannot simply set the interaction to None, as that will trigger change detection repeatedly

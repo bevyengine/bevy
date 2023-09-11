@@ -10,7 +10,6 @@ use crate::{
     storage::{TableId, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
-use bevy_tasks::ComputeTaskPool;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
@@ -40,12 +39,11 @@ pub struct QueryState<Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
 
 impl<Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for QueryState<Q, F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "QueryState<Q, F> matched_table_ids: {} matched_archetype_ids: {}",
-            self.matched_table_ids.len(),
-            self.matched_archetype_ids.len()
-        )
+        f.debug_struct("QueryState")
+            .field("world_id", &self.world_id)
+            .field("matched_table_count", &self.matched_table_ids.len())
+            .field("matched_archetype_count", &self.matched_archetype_ids.len())
+            .finish_non_exhaustive()
     }
 }
 
@@ -129,12 +127,44 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     }
 
     /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
+    ///
+    /// # Panics
+    ///
+    /// If `world` does not match the one used to call `QueryState::new` for this instance.
     #[inline]
     pub fn is_empty(&self, world: &World, last_run: Tick, this_run: Tick) -> bool {
-        // SAFETY: NopFetch does not access any members while &self ensures no one has exclusive access
+        self.validate_world(world.id());
+        // SAFETY:
+        // - We have read-only access to the entire world.
+        // - The world has been validated.
+        unsafe {
+            self.is_empty_unsafe_world_cell(
+                world.as_unsafe_world_cell_readonly(),
+                last_run,
+                this_run,
+            )
+        }
+    }
+
+    /// Checks if the query is empty for the given [`UnsafeWorldCell`].
+    ///
+    /// # Safety
+    ///
+    /// - `world` must have permission to read any components required by this instance's `F` [`WorldQuery`].
+    /// - `world` must match the one used to create this [`QueryState`].
+    #[inline]
+    pub(crate) unsafe fn is_empty_unsafe_world_cell(
+        &self,
+        world: UnsafeWorldCell,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> bool {
+        // SAFETY:
+        // - The caller ensures that `world` has permission to access any data used by the filter.
+        // - The caller ensures that the world matches.
         unsafe {
             self.as_nop()
-                .iter_unchecked_manual(world.as_unsafe_world_cell_readonly(), last_run, this_run)
+                .iter_unchecked_manual(world, last_run, this_run)
                 .next()
                 .is_none()
         }
@@ -1031,6 +1061,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`] is unsound.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
     pub(crate) unsafe fn par_for_each_unchecked_manual<
         'w,
         FN: Fn(Q::Item<'w>) + Send + Sync + Clone,
@@ -1044,7 +1077,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-        ComputeTaskPool::get().scope(|scope| {
+        bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             if Q::IS_DENSE && F::IS_DENSE {
                 // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
                 let tables = &world.storages().tables;

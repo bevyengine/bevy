@@ -6,11 +6,10 @@
 //! With no arguments it will load the `FlightHelmet` glTF model from the repository assets subdirectory.
 
 use bevy::{
-    asset::ChangeWatcher,
+    asset::io::AssetProviders,
     math::Vec3A,
     prelude::*,
     render::primitives::{Aabb, Sphere},
-    utils::Duration,
     window::WindowPlugin,
 };
 
@@ -30,6 +29,9 @@ fn main() {
         color: Color::WHITE,
         brightness: 1.0 / 5.0f32,
     })
+    .insert_resource(AssetProviders::default().with_default_file_source(
+        std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
+    ))
     .add_plugins((
         DefaultPlugins
             .set(WindowPlugin {
@@ -39,11 +41,7 @@ fn main() {
                 }),
                 ..default()
             })
-            .set(AssetPlugin {
-                asset_folder: std::env::var("CARGO_MANIFEST_DIR")
-                    .unwrap_or_else(|_| ".".to_string()),
-                watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
-            }),
+            .set(AssetPlugin::default().watch_for_changes()),
         CameraControllerPlugin,
         SceneViewerPlugin,
         MorphViewerPlugin,

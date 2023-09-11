@@ -199,6 +199,7 @@ impl_reflect_value!(::core::num::NonZeroI8(
     Serialize,
     Deserialize
 ));
+impl_reflect_value!(::std::sync::Arc<T: Send + Sync>);
 
 // `Serialize` and `Deserialize` only for platforms supported by serde:
 // https://github.com/serde-rs/serde/blob/3ffb86fc70efd3d329519e2dddfa306cc04f167c/serde/src/de/impls.rs#L1732
@@ -1207,7 +1208,7 @@ impl<T: FromReflect + Clone + TypePath> List for Cow<'static, [T]> {
     }
 
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
-        // into_owned() is not uneccessary here because it avoids cloning whenever you have a Cow::Owned already
+        // into_owned() is not unnecessary here because it avoids cloning whenever you have a Cow::Owned already
         #[allow(clippy::unnecessary_to_owned)]
         self.into_owned()
             .into_iter()

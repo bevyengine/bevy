@@ -71,7 +71,7 @@ impl<T: 'static> SystemTypeSet<T> {
 impl<T> Debug for SystemTypeSet<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("SystemTypeSet")
-            .field(&std::any::type_name::<T>())
+            .field(&format_args!("fn {}()", &std::any::type_name::<T>()))
             .finish()
     }
 }
@@ -83,7 +83,7 @@ impl<T> Hash for SystemTypeSet<T> {
 }
 impl<T> Clone for SystemTypeSet<T> {
     fn clone(&self) -> Self {
-        Self(PhantomData)
+        *self
     }
 }
 
@@ -110,7 +110,8 @@ impl<T> SystemSet for SystemTypeSet<T> {
 }
 
 /// A [`SystemSet`] implicitly created when using
-/// [`Schedule::add_systems`](super::Schedule::add_systems).
+/// [`Schedule::add_systems`](super::Schedule::add_systems) or
+/// [`Schedule::configure_sets`](super::Schedule::configure_sets).
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct AnonymousSet(usize);
 
@@ -198,9 +199,9 @@ mod tests {
 
         let mut world = World::new();
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::new(A);
         schedule.add_systems(|mut flag: ResMut<Flag>| flag.0 = true);
-        world.add_schedule(schedule, A);
+        world.add_schedule(schedule);
 
         let boxed: Box<dyn ScheduleLabel> = Box::new(A);
 

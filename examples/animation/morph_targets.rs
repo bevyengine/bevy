@@ -88,8 +88,12 @@ fn name_morphs(
         return;
     }
 
-    let Some(mesh) = meshes.get(&morph_data.mesh) else { return };
-    let Some(names) = mesh.morph_target_names() else { return };
+    let Some(mesh) = meshes.get(&morph_data.mesh) else {
+        return;
+    };
+    let Some(names) = mesh.morph_target_names() else {
+        return;
+    };
     for name in names {
         println!("  {name}");
     }

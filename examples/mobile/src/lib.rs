@@ -39,7 +39,7 @@ fn touch_camera(
 ) {
     let window = windows.single();
 
-    for touch in touches.iter() {
+    for touch in touches.read() {
         if touch.phase == TouchPhase::Started {
             *last_position = None;
         }
@@ -118,7 +118,6 @@ fn setup_scene(
                 position_type: PositionType::Absolute,
                 left: Val::Px(50.0),
                 right: Val::Px(50.0),
-                top: Val::Auto,
                 bottom: Val::Px(50.0),
                 ..default()
             },
@@ -160,7 +159,9 @@ fn button_handler(
     }
 }
 
-fn setup_music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    let music = asset_server.load("sounds/Windless Slopes.ogg");
-    audio.play(music);
+fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
+    commands.spawn(AudioBundle {
+        source: asset_server.load("sounds/Windless Slopes.ogg"),
+        settings: PlaybackSettings::LOOP,
+    });
 }

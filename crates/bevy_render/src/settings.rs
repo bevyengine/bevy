@@ -53,6 +53,9 @@ impl Default for WgpuSettings {
 
         let backends = Some(wgpu::util::backend_bits_from_env().unwrap_or(default_backends));
 
+        let power_preference =
+            wgpu::util::power_preference_from_env().unwrap_or(PowerPreference::HighPerformance);
+
         let priority = settings_priority_from_env().unwrap_or(WgpuSettingsPriority::Functionality);
 
         let limits = if cfg!(all(feature = "webgl", target_arch = "wasm32"))
@@ -79,7 +82,7 @@ impl Default for WgpuSettings {
         Self {
             device_label: Default::default(),
             backends,
-            power_preference: PowerPreference::HighPerformance,
+            power_preference,
             priority,
             features: wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
             disabled_features: None,
