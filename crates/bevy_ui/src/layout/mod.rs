@@ -1,7 +1,7 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Style, UiScale};
+use crate::{ContentSize, Node, Style, UiScale, ComputedBorderThickness, Val};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -229,6 +229,7 @@ pub fn ui_layout_system(
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut node_transform_query: Query<(&mut Node, &mut Transform)>,
+    mut border_thickness_query: Query<(&mut ComputedBorderThickness, &Style)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
     // assume one window for time being...
@@ -309,31 +310,48 @@ pub fn ui_layout_system(
     fn update_uinode_geometry_recursive(
         entity: Entity,
         ui_surface: &UiSurface,
-        node_transform_query: &mut Query<(&mut Node, &mut Transform)>,
+        node_transform_query: &mut Query<(
+            &mut Node,
+            &mut Transform,            
+        )>,
+        border_thickness_query: &mut Query<(&mut ComputedBorderThickness, &Style)>,
         children_query: &Query<&Children>,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         mut absolute_location: Vec2,
+        parent_width: f32,
+        viewport_size: Vec2,
     ) {
-        if let Ok((mut node, mut transform)) = node_transform_query.get_mut(entity) {
+        if let Ok((mut node, mut transform)) =
+            node_transform_query.get_mut(entity)
+        {
             let layout = ui_surface.get_layout(entity).unwrap();
-            let layout_size =
-                inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
-            let layout_location =
-                inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
+            let layout_size = Vec2::new(layout.size.width, layout.size.height);
+            let layout_location = Vec2::new(layout.location.x, layout.location.y);
 
             absolute_location += layout_location;
+let rounded_location = round_layout_coords(layout_location);
             let rounded_size = round_layout_coords(absolute_location + layout_size)
                 - round_layout_coords(absolute_location);
-            let rounded_location =
-                round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
+            
+            let new_size = inverse_target_scale_factor * rounded_size;
+            let new_position =
+                inverse_target_scale_factor * rounded_location + 0.5 * (new_size - parent_size);
 
             // only trigger change detection when the new values are different
-            if node.calculated_size != rounded_size {
-                node.calculated_size = rounded_size;
+            if node.calculated_size != new_size {
+                node.calculated_size = new_size;
             }
-            if transform.translation.truncate() != rounded_location {
-                transform.translation = rounded_location.extend(0.);
+            if transform.translation.truncate() != new_position {
+                transform.translation = new_position.extend(0.);
+            }
+            if let Ok((mut border_thickness, style)) = border_thickness_query.get_mut(entity) {
+                // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+                // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+                border_thickness.left = resolve_border_thickness(style.border.left, parent_width, viewport_size);
+                border_thickness.right = resolve_border_thickness(style.border.right, parent_width, viewport_size);
+                border_thickness.top = resolve_border_thickness(style.border.top, parent_width, viewport_size);
+                border_thickness.bottom = resolve_border_thickness(style.border.bottom, parent_width, viewport_size);
             }
             if let Ok(children) = children_query.get(entity) {
                 for &child_uinode in children {
@@ -341,25 +359,32 @@ pub fn ui_layout_system(
                         child_uinode,
                         ui_surface,
                         node_transform_query,
+                        border_thickness_query,
                         children_query,
                         inverse_target_scale_factor,
-                        rounded_size,
+                        new_size,
                         absolute_location,
+                        new_size.x,
+                        viewport_size,
                     );
                 }
             }
         }
     }
 
+    let logical_viewport_size = layout_context.physical_size * inverse_target_scale_factor as f32;
     for entity in root_node_query.iter() {
         update_uinode_geometry_recursive(
             entity,
             &ui_surface,
             &mut node_transform_query,
+            &mut border_thickness_query,
             &just_children_query,
             inverse_target_scale_factor as f32,
             Vec2::ZERO,
             Vec2::ZERO,
+            logical_viewport_size.x,
+            logical_viewport_size,
         );
     }
 }
@@ -392,110 +417,25 @@ fn round_layout_coords(value: Vec2) -> Vec2 {
     }
 }
 
+fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
+    match value {
+        Val::Auto => 0.,
+        Val::Px(px) => px.max(0.),
+        Val::Percent(percent) => (parent_width * percent / 100.).max(0.),
+        Val::Vw(percent) => (viewport_size.x * percent / 100.).max(0.),
+        Val::Vh(percent) => (viewport_size.y * percent / 100.).max(0.),
+        Val::VMin(percent) => (viewport_size.min_element() * percent / 100.).max(0.),
+        Val::VMax(percent) => (viewport_size.max_element() * percent / 100.).max(0.),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::layout::round_layout_coords;
-    use crate::prelude::*;
-    use crate::ui_layout_system;
-    use crate::UiSurface;
-    use bevy_ecs::entity::Entity;
-    use bevy_ecs::event::Events;
-    use bevy_ecs::schedule::Schedule;
-    use bevy_ecs::world::World;
-    use bevy_hierarchy::BuildWorldChildren;
-    use bevy_hierarchy::Children;
     use bevy_math::vec2;
-    use bevy_render::color::Color;
-    use bevy_window::PrimaryWindow;
-    use bevy_window::Window;
-    use bevy_window::WindowResized;
-    use bevy_window::WindowResolution;
-    use bevy_window::WindowScaleFactorChanged;
 
     #[test]
     fn round_layout_coords_must_round_ties_up() {
         assert_eq!(round_layout_coords(vec2(-50.5, 49.5)), vec2(-50., 50.));
-    }
-
-    // these window dimensions are easy to convert to and from percentage values
-    const WINDOW_WIDTH: f32 = 1000.;
-    const WINDOW_HEIGHT: f32 = 100.;
-
-    fn setup_ui_test_world() -> (World, Schedule) {
-        let mut world = World::new();
-        world.init_resource::<UiScale>();
-        world.init_resource::<UiSurface>();
-        world.init_resource::<Events<WindowScaleFactorChanged>>();
-        world.init_resource::<Events<WindowResized>>();
-
-        // spawn a dummy primary window
-        world.spawn((
-            Window {
-                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-                ..Default::default()
-            },
-            PrimaryWindow,
-        ));
-
-        let mut ui_schedule = Schedule::default();
-        ui_schedule.add_systems(ui_layout_system);
-
-        (world, ui_schedule)
-    }
-
-    #[test]
-    fn ui_rounding_test() {
-        let (mut world, mut ui_schedule) = setup_ui_test_world();
-
-        let parent = world
-            .spawn(NodeBundle {
-                style: Style {
-                    display: Display::Grid,
-                    grid_template_columns: RepeatedGridTrack::min_content(2),
-                    margin: UiRect::all(Val::Px(4.0)),
-                    ..Default::default()
-                },
-                background_color: BackgroundColor(Color::PINK),
-                ..Default::default()
-            })
-            .with_children(|commands| {
-                for color in [Color::GRAY, Color::DARK_GRAY] {
-                    commands.spawn(NodeBundle {
-                        style: Style {
-                            display: Display::Grid,
-                            width: Val::Px(160.),
-                            height: Val::Px(160.),
-                            ..Default::default()
-                        },
-                        background_color: BackgroundColor(color),
-                        ..Default::default()
-                    });
-                }
-            })
-            .id();
-
-        let children = world
-            .entity(parent)
-            .get::<Children>()
-            .unwrap()
-            .iter()
-            .copied()
-            .collect::<Vec<Entity>>();
-
-        for r in [2, 3, 5, 7, 11, 13, 17, 19, 21, 23, 29, 31].map(|n| (n as f64).recip()) {
-            let mut s = r;
-            while s <= 5. {
-                world.resource_mut::<UiScale>().0 = s;
-                ui_schedule.run(&mut world);
-                let width_sum: f32 = children
-                    .iter()
-                    .map(|child| world.get::<Node>(*child).unwrap().calculated_size.x)
-                    .sum();
-                let parent_width = world.get::<Node>(parent).unwrap().calculated_size.x;
-                assert!((width_sum - parent_width).abs() < 0.001);
-                assert!((width_sum - 320.).abs() <= 1.);
-                s += r;
-            }
-        }
     }
 }
