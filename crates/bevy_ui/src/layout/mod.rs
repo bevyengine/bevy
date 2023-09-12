@@ -311,7 +311,7 @@ pub fn ui_layout_system(
     ui_surface.compute_window_layouts();
 }
 
-pub fn ui_nodes_system(
+pub(crate) fn ui_nodes_system(
     primary_window: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     ui_surface: Res<UiSurface>,
