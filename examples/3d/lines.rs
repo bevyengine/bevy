@@ -4,10 +4,8 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        mesh::{PrimitiveTopology},
-        render_resource::{
-            AsBindGroup, ShaderRef,
-        },
+        mesh::PrimitiveTopology,
+        render_resource::{AsBindGroup, ShaderRef},
     },
 };
 
