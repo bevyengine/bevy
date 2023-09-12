@@ -51,7 +51,7 @@ fn remove_component(
 }
 
 fn react_on_removal(mut removed: RemovedComponents<MyComponent>, mut query: Query<&mut Sprite>) {
-    // `RemovedComponents<T>::iter()` returns an iterator with the `Entity`s that had their
+    // `RemovedComponents<T>::read()` returns an iterator with the `Entity`s that had their
     // `Component` `T` (in this case `MyComponent`) removed at some point earlier during the frame.
     for entity in &mut removed {
         if let Ok(mut sprite) = query.get_mut(entity) {
