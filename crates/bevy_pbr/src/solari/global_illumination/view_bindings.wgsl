@@ -19,12 +19,17 @@ struct WorldCacheCellData {
 
 /// Maximum amount of entries in the world cache (must be a power of 2)
 const WORLD_CACHE_SIZE: u32 = 1048576u;
+/// Marker value for an empty cell
+const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
+
 /// Maximum amount of frames a cell can live for without being queried
 const WORLD_CACHE_CELL_LIFETIME: u32 = 30u;
 /// Maximum amount of steps to linearly probe for on key collision before giving up
 const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 10u;
-/// Marker value for an empty cell
-const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
+/// TODO: Docs
+const WORLD_CACHE_DISCRETIZATION_FACTOR: u32 = 2u;
+/// TODO: Docs
+const FIRST_RADIANCE_CASCADE_INTERVAL: f32 = 0.5;
 
 @group(1) @binding(0) var<uniform> view: View;
 @group(1) @binding(1) var depth_buffer: texture_depth_2d;
@@ -33,7 +38,7 @@ const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
 @group(1) @binding(4) var previous_depth_buffer: texture_depth_2d;
 @group(1) @binding(5) var previous_normals_buffer: texture_2d<f32>;
 
-@group(1) @binding(6) var screen_probes: texture_storage_2d<rgba16float, read_write>;
+@group(1) @binding(6) var screen_probes: texture_storage_2d_array<rgba16float, read_write>;
 @group(1) @binding(7) var<storage, read_write> screen_probes_spherical_harmonics: array<SphericalHarmonicsPacked>;
 @group(1) @binding(8) var diffuse_raw: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(9) var diffuse_denoiser_temporal_history: texture_2d<f32>;

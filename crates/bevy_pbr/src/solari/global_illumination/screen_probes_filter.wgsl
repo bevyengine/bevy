@@ -8,7 +8,7 @@ var<workgroup> spherical_harmonics_coefficents: array<array<vec3<f32>, 9>, 64>;
 // TODO: Validate neighbor probe exists
 // TODO: Angle weight
 fn add_probe_contribution(
-    irradiance_total: ptr<function, vec3<f32>>,
+    irradiance_total: ptr<function, vec3<f3 2>>,
     weight_total: ptr<function, f32>,
     center_probe_depth: f32,
     cell_id: vec2<i32>,
@@ -18,7 +18,7 @@ fn add_probe_contribution(
     let probe_pixel_id = probe_thread_id + (8i * probe_id);
     let probe_depth = view.projection[3][2] / textureLoad(depth_buffer, probe_pixel_id, 0i);
 
-    let probe_irradiance = textureLoad(screen_probes, cell_id).rgb;
+    let probe_irradiance = textureLoad(screen_probes, cell_id, 0i).rgb;
 
     let depth_weight = pow(saturate(1.0 - abs(probe_depth - center_probe_depth) / center_probe_depth), 8.0);
 

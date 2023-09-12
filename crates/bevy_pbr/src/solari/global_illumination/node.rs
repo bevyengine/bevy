@@ -138,7 +138,7 @@ impl ViewNode for SolariGlobalIlluminationNode {
         solari_pass.push_debug_group("diffuse_global_illumination");
 
         solari_pass.set_pipeline(screen_probes_trace_pipeline);
-        solari_pass.dispatch_workgroups(width, height, 1);
+        solari_pass.dispatch_workgroups(width, height, 4);
 
         solari_pass.set_pipeline(screen_probes_filter_pipeline);
         solari_pass.dispatch_workgroups(width, height, 1);

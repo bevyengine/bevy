@@ -17,7 +17,7 @@ fn sample_irradiance(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
         irradiance += sample_direct_lighting(cell_data.position, cell_data.normal, &rng);
 
         let ray_direction = sample_cosine_hemisphere(cell_data.normal, &rng);
-        let ray_hit = trace_ray(cell_data.position, ray_direction, 0.001);
+        let ray_hit = trace_ray(cell_data.position, ray_direction, 0.001, 1000.0);
         if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
             let ray_hit = map_ray_hit(ray_hit);
             irradiance += ray_hit.material.base_color * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal);

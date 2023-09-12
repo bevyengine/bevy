@@ -35,10 +35,9 @@ fn sample_cosine_hemisphere(normal: vec3<f32>, state: ptr<function, u32>) -> vec
     return normal + unit_sphere_direction;
 }
 
-fn trace_ray(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray_t_min: f32) -> RayIntersection {
+fn trace_ray(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray_t_min: f32, ray_t_max: f32) -> RayIntersection {
     let ray_flags = RAY_FLAG_NONE;
     let ray_cull_mask = 0xFFu;
-    let ray_t_max = 10000.0;
     let ray = RayDesc(ray_flags, ray_cull_mask, ray_t_min, ray_t_max, ray_origin, ray_direction);
 
     var rq: ray_query;

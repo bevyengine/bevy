@@ -1,6 +1,6 @@
 #define_import_path bevy_solari::world_cache::query
 
-#import bevy_solari::global_illumination::view_bindings WORLD_CACHE_SIZE, WORLD_CACHE_MAX_SEARCH_STEPS, WORLD_CACHE_EMPTY_CELL, WORLD_CACHE_CELL_LIFETIME, world_cache_checksums, world_cache_life, world_cache_cell_data, world_cache_irradiance, world_cache_cell_data
+#import bevy_solari::global_illumination::view_bindings WORLD_CACHE_SIZE, WORLD_CACHE_DISCRETIZATION_FACTOR, WORLD_CACHE_MAX_SEARCH_STEPS, WORLD_CACHE_EMPTY_CELL, WORLD_CACHE_CELL_LIFETIME, world_cache_checksums, world_cache_life, world_cache_cell_data, world_cache_irradiance, world_cache_cell_data
 
 fn pcg_hash(input: u32) -> u32 {
     let state = input * 747796405u + 2891336453u;
@@ -18,7 +18,7 @@ fn wrap_key(key: u32) -> u32 {
 }
 
 fn quantize_position(world_position: vec3<f32>) -> vec3<f32> {
-    return floor((world_position + 0.01) * 2.0);
+    return floor((world_position + 0.01) * f32(WORLD_CACHE_DISCRETIZATION_FACTOR));
 }
 
 fn quantize_normal(world_normal: vec3<f32>) -> vec3<f32> {
