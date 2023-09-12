@@ -395,10 +395,101 @@ fn round_layout_coords(value: Vec2) -> Vec2 {
 #[cfg(test)]
 mod tests {
     use crate::layout::round_layout_coords;
+use crate::prelude::*;
+    use crate::ui_layout_system;
+    use crate::UiSurface;
+    use bevy_ecs::entity::Entity;
+    use bevy_ecs::event::Events;
+    use bevy_ecs::schedule::Schedule;
+    use bevy_ecs::world::World;
+    use bevy_hierarchy::Children;
+    use bevy_hierarchy::BuildWorldChildren;
     use bevy_math::vec2;
+    use bevy_render::color::Color;
+    use bevy_window::PrimaryWindow;
+    use bevy_window::Window;
+    use bevy_window::WindowResized;
+    use bevy_window::WindowResolution;
+    use bevy_window::WindowScaleFactorChanged;
 
     #[test]
     fn round_layout_coords_must_round_ties_up() {
         assert_eq!(round_layout_coords(vec2(-50.5, 49.5)), vec2(-50., 50.));
     }
+    
+    // these window dimensions are easy to convert to and from percentage values
+    const WINDOW_WIDTH: f32 = 1000.;
+    const WINDOW_HEIGHT: f32 = 100.;
+
+    fn setup_ui_test_world() -> (World, Schedule) {
+        let mut world = World::new();
+        world.init_resource::<UiScale>();
+        world.init_resource::<UiSurface>();
+        world.init_resource::<Events<WindowScaleFactorChanged>>();
+        world.init_resource::<Events<WindowResized>>();
+
+        // spawn a dummy primary window
+        world.spawn((
+            Window {
+                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
+                ..Default::default()
+            },
+            PrimaryWindow,
+        ));
+
+        let mut ui_schedule = Schedule::default();
+        ui_schedule.add_systems(ui_layout_system);
+
+        (world, ui_schedule)
+    }
+
+    #[test]
+    fn ui_rounding_test() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+        
+        
+
+        let parent = world
+        .spawn(NodeBundle {
+            style: Style {
+                display: Display::Grid,
+                grid_template_columns: RepeatedGridTrack::min_content(2),
+                margin: UiRect::all(Val::Px(4.0)),
+                ..Default::default()
+            },
+            background_color: BackgroundColor(Color::PINK),
+            ..Default::default()
+        })
+        .with_children(|commands| {
+            for color in [Color::GRAY, Color::DARK_GRAY] {
+                commands.spawn(NodeBundle {
+                    style: Style {
+                        display: Display::Grid,
+                        width: Val::Px(160.),
+                        height: Val::Px(160.),
+                        ..Default::default()
+                    },
+                    background_color: BackgroundColor(color),
+                    ..Default::default()
+                });
+            }
+        }).id();
+
+        let children = world.entity(parent).get::<Children>().unwrap().iter().copied().collect::<Vec<Entity>>();
+
+        for r in [2, 3, 5, 7, 11, 13, 17, 19, 21, 23, 29, 31].map(|n| (n as f64).recip()) {
+            let mut s = r;
+            while s <= 5. {
+                world.resource_mut::<UiScale>().0 = s;
+                ui_schedule.run(&mut world);
+                let width_sum: f32 = children.iter().map(|child| world.get::<Node>(*child).unwrap().calculated_size.x).sum();
+                let d =(world.get::<Node>(parent).unwrap().calculated_size.x - width_sum).abs();
+                assert!(d < 0.001, "too big, bad number: {d}");
+                s += r;
+            }
+        }
+
+    }
+
+
 }
