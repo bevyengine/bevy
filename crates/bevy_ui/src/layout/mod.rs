@@ -317,13 +317,16 @@ pub fn ui_layout_system(
     ) {
         if let Ok((mut node, mut transform)) = node_transform_query.get_mut(entity) {
             let layout = ui_surface.get_layout(entity).unwrap();
-            let layout_size = inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
-            let layout_location = inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
+            let layout_size =
+                inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
+            let layout_location =
+                inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
 
             absolute_location += layout_location;
             let rounded_size = round_layout_coords(absolute_location + layout_size)
                 - round_layout_coords(absolute_location);
-            let rounded_location = round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
+            let rounded_location =
+                round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
 
             // only trigger change detection when the new values are different
             if node.calculated_size != rounded_size {
