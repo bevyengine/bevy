@@ -200,6 +200,18 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// Iterates over the events this [`RemovedComponents`] has not seen yet. This updates the
     /// [`RemovedComponents`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
+    pub fn read(&mut self) -> RemovedIter<'_> {
+        self.reader_mut_with_events()
+            .map(|(reader, events)| reader.read(events).cloned())
+            .into_iter()
+            .flatten()
+            .map(RemovedComponentEntity::into)
+    }
+
+    /// Iterates over the events this [`RemovedComponents`] has not seen yet. This updates the
+    /// [`RemovedComponents`]'s event counter, which means subsequent event reads will not include events
+    /// that happened before now.
+    #[deprecated = "use `.read()` instead."]
     pub fn iter(&mut self) -> RemovedIter<'_> {
         self.reader_mut_with_events()
             .map(|(reader, events)| reader.read(events).cloned())
@@ -208,7 +220,17 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
             .map(RemovedComponentEntity::into)
     }
 
+    /// Like [`read`](Self::read), except also returning the [`EventId`] of the events.
+    pub fn read_with_id(&mut self) -> RemovedIterWithId<'_> {
+        self.reader_mut_with_events()
+            .map(|(reader, events)| reader.read_with_id(events))
+            .into_iter()
+            .flatten()
+            .map(map_id_events)
+    }
+
     /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
+    #[deprecated = "use `.read_with_id()` instead."]
     pub fn iter_with_id(&mut self) -> RemovedIterWithId<'_> {
         self.reader_mut_with_events()
             .map(|(reader, events)| reader.read_with_id(events))
@@ -233,8 +255,8 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
 
     /// Consumes all available events.
     ///
-    /// This means these events will not appear in calls to [`RemovedComponents::iter()`] or
-    /// [`RemovedComponents::iter_with_id()`] and [`RemovedComponents::is_empty()`] will return `true`.
+    /// This means these events will not appear in calls to [`RemovedComponents::read()`] or
+    /// [`RemovedComponents::read_with_id()`] and [`RemovedComponents::is_empty()`] will return `true`.
     pub fn clear(&mut self) {
         if let Some((reader, events)) = self.reader_mut_with_events() {
             reader.clear(events);
@@ -249,7 +271,7 @@ where
     type Item = Entity;
     type IntoIter = RemovedIter<'a>;
     fn into_iter(self) -> Self::IntoIter {
-        self.iter()
+        self.read()
     }
 }
 
