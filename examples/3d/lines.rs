@@ -1,14 +1,12 @@
 //! Create a custom material to draw basic lines in 3D
 
 use bevy::{
-    pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
     render::{
-        mesh::{MeshVertexBufferLayout, PrimitiveTopology},
+        mesh::{PrimitiveTopology},
         render_resource::{
-            AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
-            SpecializedMeshPipelineError,
+            AsBindGroup, ShaderRef,
         },
     },
 };
@@ -70,17 +68,6 @@ struct LineMaterial {
 impl Material for LineMaterial {
     fn fragment_shader() -> ShaderRef {
         "shaders/line_material.wgsl".into()
-    }
-
-    fn specialize(
-        _pipeline: &MaterialPipeline<Self>,
-        descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayout,
-        _key: MaterialPipelineKey<Self>,
-    ) -> Result<(), SpecializedMeshPipelineError> {
-        // This is the important part to tell bevy to render this material as a line between vertices
-        descriptor.primitive.polygon_mode = PolygonMode::Line;
-        Ok(())
     }
 }
 
