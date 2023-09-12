@@ -341,8 +341,6 @@ pub fn ui_layout_system(
                 transform.translation = new_position.extend(0.);
             }
             if let Ok((mut border_thickness, style)) = border_thickness_query.get_mut(entity) {
-                // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
-                // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
                 border_thickness.left =
                     resolve_border_thickness(style.border.left, parent_width, viewport_size);
                 border_thickness.right =
@@ -416,6 +414,9 @@ fn round_layout_coords(value: Vec2) -> Vec2 {
     }
 }
 
+/// Resolve the border thickness on a UI node's edge
+/// Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
 fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
     match value {
         Val::Auto => 0.,
