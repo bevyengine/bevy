@@ -417,8 +417,8 @@ fn round_layout_coords(value: Vec2) -> Vec2 {
 /// Resolve the border thickness on a UI node's edge
 /// Both vertical and horizontal percentage border values are calculated based on the width of the parent node
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
-    match value {
+fn resolve_border_thickness(edge_value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
+    match edge_value {
         Val::Auto => 0.,
         Val::Px(px) => px.max(0.),
         Val::Percent(percent) => (parent_width * percent / 100.).max(0.),
