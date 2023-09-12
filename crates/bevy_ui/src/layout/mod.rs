@@ -340,7 +340,7 @@ pub fn ui_layout_system(
                         node_transform_query,
                         children_query,
                         inverse_target_scale_factor,
-                        layout_size,
+                        rounded_size,
                         absolute_location,
                     );
                 }
