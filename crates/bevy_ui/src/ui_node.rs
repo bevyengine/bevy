@@ -78,18 +78,18 @@ impl Default for Node {
     }
 }
 
-/// Thickness of a UI node's border
+/// Thickness in logical pixels of the border on each edge of a UI node
 /// Automatically computed by `ui_layout_system`
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct ComputedBorderThickness {
-    /// Thickness of the border on the left edge
+    /// Thickness in logical pixels of the border on the left edge
     pub left: f32,
-    /// Thickness of the border on the right edge
+    /// Thickness in logical pixels of the border on the right edge
     pub right: f32,
-    /// Thickness of the border on the top edge
+    /// Thickness in logical pixels of the border on the top edge
     pub top: f32,
-    /// Thickness of the border on the bottom edge
+    /// Thickness in logical pixels of the border on the bottom edge
     pub bottom: f32,
 }
 
