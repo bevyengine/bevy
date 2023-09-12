@@ -1396,10 +1396,6 @@ category = "Games"
 wasm = true
 
 [[example]]
-name = "alien_cake_addict_term_query"
-path = "examples/games/alien_cake_addict_term_query.rs"
-
-[[example]]
 name = "breakout"
 path = "examples/games/breakout.rs"
 doc-scrape-examples = true
@@ -1409,10 +1405,6 @@ name = "Breakout"
 description = "An implementation of the classic game \"Breakout\""
 category = "Games"
 wasm = true
-
-[[example]]
-name = "breakout_term_query"
-path = "examples/games/breakout_term_query.rs"
 
 [[example]]
 name = "contributors"

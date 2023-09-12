@@ -40,7 +40,7 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
         self.term::<With<T>>()
     }
 
-    pub fn with_id(&mut self, id: ComponentId) -> &mut Self {
+    pub fn with_component(&mut self, id: ComponentId) -> &mut Self {
         self.terms.push(Term::Component(ComponentTerm::with(id)));
         self
     }
@@ -49,12 +49,12 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
         self.term::<Without<T>>()
     }
 
-    pub fn without_id(&mut self, id: ComponentId) -> &mut Self {
+    pub fn without_component(&mut self, id: ComponentId) -> &mut Self {
         self.terms.push(Term::Component(ComponentTerm::without(id)));
         self
     }
 
-    pub fn ref_id(&mut self, id: ComponentId) -> &mut Self {
+    pub fn ref_component(&mut self, id: ComponentId) -> &mut Self {
         self.terms.push(Term::Component(ComponentTerm::read_id(id)));
         self
     }
@@ -65,13 +65,13 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
         self
     }
 
-    pub fn set<T: Component>(&mut self) -> &mut Self {
+    pub fn set_dynamic<T: Component>(&mut self) -> &mut Self {
         let id = self.world.init_component::<T>();
-        self.set_id(id);
+        self.set_dynamic_component(id);
         self
     }
 
-    pub fn set_id(&mut self, id: ComponentId) -> &mut Self {
+    pub fn set_dynamic_component(&mut self, id: ComponentId) -> &mut Self {
         if let Term::Component(term) = &mut self.terms[self.current_term] {
             term.set_id(id)
         }

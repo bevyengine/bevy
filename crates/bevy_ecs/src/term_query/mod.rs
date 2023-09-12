@@ -58,14 +58,14 @@ mod tests {
         let component_id_c = world.init_component::<C>();
 
         let mut query_a = QueryBuilder::<Entity>::new(&mut world)
-            .with_id(component_id_a)
-            .without_id(component_id_c)
+            .with_component(component_id_a)
+            .without_component(component_id_c)
             .build();
         assert_eq!(entity_a, query_a.single(&world));
 
         let mut query_b = QueryBuilder::<Entity>::new(&mut world)
-            .with_id(component_id_a)
-            .without_id(component_id_b)
+            .with_component(component_id_a)
+            .without_component(component_id_b)
             .build();
         assert_eq!(entity_b, query_b.single(&world));
     }
@@ -121,9 +121,9 @@ mod tests {
         let mut query = unsafe {
             QueryBuilder::<(Entity, Ptr, Ptr)>::new(&mut world)
                 .term_at(1)
-                .set::<A>()
+                .set_dynamic::<A>()
                 .term_at(2)
-                .set::<B>()
+                .set_dynamic::<B>()
                 .build()
         };
 
@@ -150,9 +150,9 @@ mod tests {
         let mut query = unsafe {
             QueryBuilder::<(Entity, Ptr, Ptr)>::new(&mut world)
                 .term_at(1)
-                .set_id(component_id_a)
+                .set_dynamic_component(component_id_a)
                 .term_at(2)
-                .set_id(component_id_b)
+                .set_dynamic_component(component_id_b)
                 .build()
         };
 
