@@ -1,7 +1,7 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Style, UiScale, ComputedBorderThickness, Val};
+use crate::{ComputedBorderThickness, ContentSize, Node, Style, UiScale, Val};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -310,10 +310,7 @@ pub fn ui_layout_system(
     fn update_uinode_geometry_recursive(
         entity: Entity,
         ui_surface: &UiSurface,
-        node_transform_query: &mut Query<(
-            &mut Node,
-            &mut Transform,            
-        )>,
+        node_transform_query: &mut Query<(&mut Node, &mut Transform)>,
         border_thickness_query: &mut Query<(&mut ComputedBorderThickness, &Style)>,
         children_query: &Query<&Children>,
         inverse_target_scale_factor: f32,
@@ -322,18 +319,16 @@ pub fn ui_layout_system(
         parent_width: f32,
         viewport_size: Vec2,
     ) {
-        if let Ok((mut node, mut transform)) =
-            node_transform_query.get_mut(entity)
-        {
+        if let Ok((mut node, mut transform)) = node_transform_query.get_mut(entity) {
             let layout = ui_surface.get_layout(entity).unwrap();
             let layout_size = Vec2::new(layout.size.width, layout.size.height);
             let layout_location = Vec2::new(layout.location.x, layout.location.y);
 
             absolute_location += layout_location;
-let rounded_location = round_layout_coords(layout_location);
+            let rounded_location = round_layout_coords(layout_location);
             let rounded_size = round_layout_coords(absolute_location + layout_size)
                 - round_layout_coords(absolute_location);
-            
+
             let new_size = inverse_target_scale_factor * rounded_size;
             let new_position =
                 inverse_target_scale_factor * rounded_location + 0.5 * (new_size - parent_size);
@@ -348,10 +343,14 @@ let rounded_location = round_layout_coords(layout_location);
             if let Ok((mut border_thickness, style)) = border_thickness_query.get_mut(entity) {
                 // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
                 // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-                border_thickness.left = resolve_border_thickness(style.border.left, parent_width, viewport_size);
-                border_thickness.right = resolve_border_thickness(style.border.right, parent_width, viewport_size);
-                border_thickness.top = resolve_border_thickness(style.border.top, parent_width, viewport_size);
-                border_thickness.bottom = resolve_border_thickness(style.border.bottom, parent_width, viewport_size);
+                border_thickness.left =
+                    resolve_border_thickness(style.border.left, parent_width, viewport_size);
+                border_thickness.right =
+                    resolve_border_thickness(style.border.right, parent_width, viewport_size);
+                border_thickness.top =
+                    resolve_border_thickness(style.border.top, parent_width, viewport_size);
+                border_thickness.bottom =
+                    resolve_border_thickness(style.border.bottom, parent_width, viewport_size);
             }
             if let Ok(children) = children_query.get(entity) {
                 for &child_uinode in children {

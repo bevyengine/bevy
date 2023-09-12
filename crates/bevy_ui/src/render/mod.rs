@@ -285,14 +285,15 @@ pub fn extract_uinode_borders(
                 || node.size().y <= 0.
             {
                 continue;
-            }           
+            }
 
             // Calculate the border rects, ensuring no overlap.
             // The border occupies the space between the node's bounding rect and the node's bounding rect inset in each direction by the node's corresponding border value.
             let max = 0.5 * node.size();
             let min = -max;
             let inner_min = min + Vec2::new(border_thickness.left, border_thickness.top);
-            let inner_max = (max - Vec2::new(border_thickness.right, border_thickness.bottom)).max(inner_min);
+            let inner_max =
+                (max - Vec2::new(border_thickness.right, border_thickness.bottom)).max(inner_min);
             let border_rects = [
                 // Left border
                 Rect {
