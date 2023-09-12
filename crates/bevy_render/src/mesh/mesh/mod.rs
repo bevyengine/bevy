@@ -15,7 +15,7 @@ use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_log::warn;
 use bevy_math::*;
-use bevy_reflect::TypePath;
+use bevy_reflect::Reflect;
 use bevy_utils::{tracing::error, Hashed};
 use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
@@ -110,13 +110,15 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
 ///
 // TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
-#[derive(Asset, Debug, TypePath, Clone)]
+#[derive(Asset, Debug, Clone, Reflect)]
 pub struct Mesh {
+    #[reflect(ignore)]
     primitive_topology: PrimitiveTopology,
     /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
     /// for this mesh. Attribute ids to attribute values.
     /// Uses a BTreeMap because, unlike HashMap, it has a defined iteration order,
     /// which allows easy stable VertexBuffers (i.e. same buffer order)
+    #[reflect(ignore)]
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
     morph_targets: Option<Handle<Image>>,
@@ -834,7 +836,7 @@ impl From<&VertexAttributeValues> for VertexFormat {
 /// An array of indices into the [`VertexAttributeValues`] for a mesh.
 ///
 /// It describes the order in which the vertex attributes should be joined into faces.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub enum Indices {
     U16(Vec<u16>),
     U32(Vec<u32>),
