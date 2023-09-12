@@ -284,8 +284,8 @@ impl ComponentSparseSet {
         // SAFETY: if the sparse index points to something in the dense vec, it exists
         unsafe {
             Some(TickCells {
-                added: self.dense.get_added_ticks_unchecked(row),
-                changed: self.dense.get_changed_ticks_unchecked(row),
+                added: self.dense.get_added_tick_unchecked(row),
+                changed: self.dense.get_changed_tick_unchecked(row),
             })
         }
     }
