@@ -363,7 +363,7 @@ pub struct Style {
     /// - For Flexbox containers, sets default cross-axis alignment of the child items.
     /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
     ///
-    /// This value is overridden [`JustifySelf`] on the child node is set.
+    /// This value is overridden if [`AlignSelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
     pub align_items: AlignItems,
@@ -371,7 +371,7 @@ pub struct Style {
     /// - For Flexbox containers, this property has no effect. See `justify_content` for main-axis alignment of flex items.
     /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
     ///
-    /// This value is overridden [`JustifySelf`] on the child node is set.
+    /// This value is overridden if [`JustifySelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
     pub justify_items: JustifyItems,
