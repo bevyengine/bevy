@@ -293,7 +293,7 @@ impl GetTypeRegistration for AssetPath<'static> {
 
 impl TypePath for AssetPath<'static> {
     fn type_path() -> &'static str {
-        "AssetPath<'static>"
+        "bevy_asset::path::AssetPath<'static>"
     }
     fn short_type_path() -> &'static str {
         "AssetPath<'static>"
