@@ -84,13 +84,32 @@ impl Default for Node {
 #[reflect(Component, Default)]
 pub struct ComputedBorderThickness {
     /// Thickness in logical pixels of the border on the left edge
-    pub left: f32,
+    pub(crate) left: f32,
     /// Thickness in logical pixels of the border on the right edge
-    pub right: f32,
+    pub(crate) right: f32,
     /// Thickness in logical pixels of the border on the top edge
-    pub top: f32,
+    pub(crate) top: f32,
     /// Thickness in logical pixels of the border on the bottom edge
-    pub bottom: f32,
+    pub(crate) bottom: f32,
+}
+
+impl ComputedBorderThickness {
+    /// Thickness in logical pixels of the border on the left edge
+    pub fn left(&self) -> f32 {
+        self.left
+    }
+    /// Thickness in logical pixels of the border on the right edge
+    pub fn right(&self) -> f32 {
+        self.right
+    }
+    /// Thickness in logical pixels of the border on the top edge
+    pub fn top(&self) -> f32 {
+        self.top
+    }
+    /// Thickness in logical pixels of the border on the bottom edge
+    pub fn bottom(&self) -> f32 {
+        self.bottom
+    }
 }
 
 /// Represents the possible value types for layout properties.
