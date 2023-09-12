@@ -21,7 +21,7 @@ fn main() {
 // `Reflect` enable a bunch of cool behaviors, so its worth checking out the dedicated `reflect.rs`
 // example. The `FromWorld` trait determines how your component is constructed when it loads.
 // For simple use cases you can just implement the `Default` trait (which automatically implements
-// FromResources). The simplest registered component just needs these two derives:
+// `FromWorld`). The simplest registered component just needs these three derives:
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)] // this tells the reflect derive to also reflect component behaviors
 struct ComponentA {

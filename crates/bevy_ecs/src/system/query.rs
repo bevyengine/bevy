@@ -2,12 +2,13 @@ use crate::{
     component::{Component, Tick},
     entity::Entity,
     query::{
-        BatchingStrategy, QueryCombinationIter, QueryEntityError, QueryIter, QueryManyIter,
-        QueryParIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyWorldQuery, WorldQuery,
+        BatchingStrategy, QueryCombinationIter, QueryComponentError, QueryEntityError, QueryIter,
+        QueryManyIter, QueryParIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyWorldQuery,
+        WorldQuery,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, Mut},
 };
-use std::{any::TypeId, borrow::Borrow, fmt::Debug};
+use std::{any::TypeId, borrow::Borrow};
 
 /// [System parameter] that provides selective access to the [`Component`] data stored in a [`World`].
 ///
@@ -927,7 +928,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`get_many`](Self::get_many) for the non-panicking version.
     #[inline]
     pub fn many<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'_, Q>; N] {
-        self.get_many(entities).unwrap()
+        match self.get_many(entities) {
+            Ok(items) => items,
+            Err(error) => panic!("Cannot get query results: {error}"),
+        }
     }
 
     /// Returns the query item for the given [`Entity`].
@@ -1038,7 +1042,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`many`](Self::many) to get read-only query items.
     #[inline]
     pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [Q::Item<'_>; N] {
-        self.get_many_mut(entities).unwrap()
+        match self.get_many_mut(entities) {
+            Ok(items) => items,
+            Err(error) => panic!("Cannot get query result: {error}"),
+        }
     }
 
     /// Returns the query item for the given [`Entity`].
@@ -1095,29 +1102,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`get_component_mut`](Self::get_component_mut) to get a mutable reference of a component.
     #[inline]
     pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
-        let world = self.world;
-        let entity_ref = world
-            .get_entity(entity)
-            .ok_or(QueryComponentError::NoSuchEntity)?;
-        let component_id = world
-            .components()
-            .get_id(TypeId::of::<T>())
-            .ok_or(QueryComponentError::MissingComponent)?;
-        let archetype_component = entity_ref
-            .archetype()
-            .get_archetype_component_id(component_id)
-            .ok_or(QueryComponentError::MissingComponent)?;
-        if self
-            .state
-            .archetype_component_access
-            .has_read(archetype_component)
-        {
-            // SAFETY: `self.world` must have access to the component `T` for this entity,
-            // since it was registered in `self.state`'s archetype component access set.
-            unsafe { entity_ref.get::<T>() }.ok_or(QueryComponentError::MissingComponent)
-        } else {
-            Err(QueryComponentError::MissingReadAccess)
-        }
+        self.state.get_component(self.world, entity)
     }
 
     /// Returns a mutable reference to the component `T` of the given entity.
@@ -1170,15 +1155,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     #[inline]
     #[track_caller]
     pub fn component<T: Component>(&self, entity: Entity) -> &T {
-        match self.get_component(entity) {
-            Ok(component) => component,
-            Err(error) => {
-                panic!(
-                    "Cannot get component `{:?}` from {entity:?}: {error}",
-                    TypeId::of::<T>()
-                )
-            }
-        }
+        self.state.component(self.world, entity)
     }
 
     /// Returns a mutable reference to the component `T` of the given entity.
@@ -1222,33 +1199,17 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         &self,
         entity: Entity,
     ) -> Result<Mut<'_, T>, QueryComponentError> {
-        // SAFETY: this check is required to ensure soundness in the case of `to_readonly().get_component_mut()`
+        // This check is required to ensure soundness in the case of `to_readonly().get_component_mut()`
         // See the comments on the `force_read_only_component_access` field for more info.
         if self.force_read_only_component_access {
             return Err(QueryComponentError::MissingWriteAccess);
         }
-        let world = self.world;
-        let entity_ref = world
-            .get_entity(entity)
-            .ok_or(QueryComponentError::NoSuchEntity)?;
-        let component_id = world
-            .components()
-            .get_id(TypeId::of::<T>())
-            .ok_or(QueryComponentError::MissingComponent)?;
-        let archetype_component = entity_ref
-            .archetype()
-            .get_archetype_component_id(component_id)
-            .ok_or(QueryComponentError::MissingComponent)?;
-        if self
-            .state
-            .archetype_component_access
-            .has_write(archetype_component)
-        {
-            entity_ref
-                .get_mut_using_ticks::<T>(self.last_run, self.this_run)
-                .ok_or(QueryComponentError::MissingComponent)
-        } else {
-            Err(QueryComponentError::MissingWriteAccess)
+
+        // SAFETY: The above check ensures we are not a readonly query.
+        // It is the callers responsibility to ensure multiple mutable access is not provided.
+        unsafe {
+            self.state
+                .get_component_unchecked_mut(self.world, entity, self.last_run, self.this_run)
         }
     }
 
@@ -1476,99 +1437,6 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator for &'w mut Quer
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter_mut()
-    }
-}
-
-/// An error that occurs when retrieving a specific [`Entity`]'s component from a [`Query`].
-#[derive(Debug, PartialEq, Eq)]
-pub enum QueryComponentError {
-    /// The [`Query`] does not have read access to the requested component.
-    ///
-    /// This error occurs when the requested component is not included in the original query.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::{prelude::*, system::QueryComponentError};
-    /// #
-    /// # #[derive(Component)]
-    /// # struct OtherComponent;
-    /// #
-    /// # #[derive(Component, PartialEq, Debug)]
-    /// # struct RequestedComponent;
-    /// #
-    /// # #[derive(Resource)]
-    /// # struct SpecificEntity {
-    /// #     entity: Entity,
-    /// # }
-    /// #
-    /// fn get_missing_read_access_error(query: Query<&OtherComponent>, res: Res<SpecificEntity>) {
-    ///     assert_eq!(
-    ///         query.get_component::<RequestedComponent>(res.entity),
-    ///         Err(QueryComponentError::MissingReadAccess),
-    ///     );
-    ///     println!("query doesn't have read access to RequestedComponent because it does not appear in Query<&OtherComponent>");
-    /// }
-    /// # bevy_ecs::system::assert_is_system(get_missing_read_access_error);
-    /// ```
-    MissingReadAccess,
-    /// The [`Query`] does not have write access to the requested component.
-    ///
-    /// This error occurs when the requested component is not included in the original query, or the mutability of the requested component is mismatched with the original query.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::{prelude::*, system::QueryComponentError};
-    /// #
-    /// # #[derive(Component, PartialEq, Debug)]
-    /// # struct RequestedComponent;
-    /// #
-    /// # #[derive(Resource)]
-    /// # struct SpecificEntity {
-    /// #     entity: Entity,
-    /// # }
-    /// #
-    /// fn get_missing_write_access_error(mut query: Query<&RequestedComponent>, res: Res<SpecificEntity>) {
-    ///     assert_eq!(
-    ///         query.get_component::<RequestedComponent>(res.entity),
-    ///         Err(QueryComponentError::MissingWriteAccess),
-    ///     );
-    ///     println!("query doesn't have write access to RequestedComponent because it doesn't have &mut in Query<&RequestedComponent>");
-    /// }
-    /// # bevy_ecs::system::assert_is_system(get_missing_write_access_error);
-    /// ```
-    MissingWriteAccess,
-    /// The given [`Entity`] does not have the requested component.
-    MissingComponent,
-    /// The requested [`Entity`] does not exist.
-    NoSuchEntity,
-}
-
-impl std::error::Error for QueryComponentError {}
-
-impl std::fmt::Display for QueryComponentError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            QueryComponentError::MissingReadAccess => {
-                write!(
-                    f,
-                    "This query does not have read access to the requested component."
-                )
-            }
-            QueryComponentError::MissingWriteAccess => {
-                write!(
-                    f,
-                    "This query does not have write access to the requested component."
-                )
-            }
-            QueryComponentError::MissingComponent => {
-                write!(f, "The given entity does not have the requested component.")
-            }
-            QueryComponentError::NoSuchEntity => {
-                write!(f, "The requested entity does not exist.")
-            }
-        }
     }
 }
 

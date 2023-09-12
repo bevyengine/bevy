@@ -1,9 +1,10 @@
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use serde::{Deserialize, Serialize};
+use bevy_utils::CowArc;
+use serde::{de::Visitor, ser::SerializeTupleStruct, Deserialize, Serialize};
 use std::{
-    borrow::Cow,
     fmt::{Debug, Display},
     hash::Hash,
+    ops::Deref,
     path::{Path, PathBuf},
 };
 
@@ -33,11 +34,17 @@ use std::{
 /// // This loads the `PlayerMesh` labeled asset from the `my_scene.scn` base asset.
 /// let mesh: Handle<Mesh> = asset_server.load("my_scene.scn#PlayerMesh");
 /// ```
-#[derive(Eq, PartialEq, Hash, Clone, Serialize, Deserialize, Reflect)]
+///
+/// [`AssetPath`] implements [`From`] for `&'static str`, `&'static Path`, and `&'a String`,
+/// which allows us to optimize the static cases.
+/// This means that the common case of `asset_server.load("my_scene.scn")` when it creates and
+/// clones internal owned [`AssetPaths`](AssetPath).
+/// This also means that you should use [`AssetPath::new`] in cases where `&str` is the explicit type.
+#[derive(Eq, PartialEq, Hash, Clone, Reflect)]
 #[reflect(Debug, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
-    pub path: Cow<'a, Path>,
-    pub label: Option<Cow<'a, str>>,
+    path: CowArc<'a, Path>,
+    label: Option<CowArc<'a, str>>,
 }
 
 impl<'a> Debug for AssetPath<'a> {
@@ -57,74 +64,95 @@ impl<'a> Display for AssetPath<'a> {
 }
 
 impl<'a> AssetPath<'a> {
-    /// Creates a new asset path using borrowed information.
-    #[inline]
-    pub fn new_ref(path: &'a Path, label: Option<&'a str>) -> AssetPath<'a> {
-        AssetPath {
-            path: Cow::Borrowed(path),
-            label: label.map(Cow::Borrowed),
+    /// Creates a new [`AssetPath`] from a string in the asset path format:
+    /// * An asset at the root: `"scene.gltf"`
+    /// * An asset nested in some folders: `"some/path/scene.gltf"`
+    /// * An asset with a "label": `"some/path/scene.gltf#Mesh0"`
+    ///
+    /// Prefer [`From<'static str>`] for static strings, as this will prevent allocations
+    /// and reference counting for [`AssetPath::into_owned`].
+    pub fn new(asset_path: &'a str) -> AssetPath<'a> {
+        let (path, label) = Self::get_parts(asset_path);
+        Self {
+            path: CowArc::Borrowed(path),
+            label: label.map(CowArc::Borrowed),
         }
     }
 
-    /// Creates a new asset path.
+    fn get_parts(asset_path: &str) -> (&Path, Option<&str>) {
+        let mut parts = asset_path.splitn(2, '#');
+        let path = Path::new(parts.next().expect("Path must be set."));
+        let label = parts.next();
+        (path, label)
+    }
+
+    /// Creates a new [`AssetPath`] from a [`Path`].
     #[inline]
-    pub fn new(path: PathBuf, label: Option<String>) -> AssetPath<'a> {
+    pub fn from_path(path: impl Into<CowArc<'a, Path>>) -> AssetPath<'a> {
         AssetPath {
-            path: Cow::Owned(path),
-            label: label.map(Cow::Owned),
+            path: path.into(),
+            label: None,
         }
     }
 
     /// Gets the "sub-asset label".
     #[inline]
     pub fn label(&self) -> Option<&str> {
-        self.label.as_ref().map(|label| label.as_ref())
+        self.label.as_deref()
     }
 
     /// Gets the path to the asset in the "virtual filesystem".
     #[inline]
     pub fn path(&self) -> &Path {
-        &self.path
+        self.path.deref()
     }
 
     /// Gets the path to the asset in the "virtual filesystem" without a label (if a label is currently set).
     #[inline]
     pub fn without_label(&self) -> AssetPath<'_> {
-        AssetPath::new_ref(&self.path, None)
+        Self {
+            path: self.path.clone(),
+            label: None,
+        }
     }
 
-    /// Removes a "sub-asset label" from this [`AssetPath`] and returns it, if one was set.
+    /// Removes a "sub-asset label" from this [`AssetPath`], if one was set.
     #[inline]
-    pub fn remove_label(&mut self) -> Option<Cow<'a, str>> {
+    pub fn remove_label(&mut self) {
+        self.label = None;
+    }
+
+    /// Takes the "sub-asset label" from this [`AssetPath`], if one was set.
+    #[inline]
+    pub fn take_label(&mut self) -> Option<CowArc<'a, str>> {
         self.label.take()
     }
 
     /// Returns this asset path with the given label. This will replace the previous
     /// label if it exists.
     #[inline]
-    pub fn with_label(&self, label: impl Into<Cow<'a, str>>) -> AssetPath<'a> {
+    pub fn with_label(&self, label: impl Into<CowArc<'a, str>>) -> AssetPath<'a> {
         AssetPath {
             path: self.path.clone(),
             label: Some(label.into()),
         }
     }
 
-    /// Converts the borrowed path data to owned.
-    #[inline]
-    pub fn to_owned(&self) -> AssetPath<'static> {
+    /// Converts this into an "owned" value. If internally a value is borrowed, it will be cloned into an "owned [`Arc`]".
+    /// If it is already an "owned [`Arc`]", it will remain unchanged.
+    ///
+    /// [`Arc`]: std::sync::Arc
+    pub fn into_owned(self) -> AssetPath<'static> {
         AssetPath {
-            path: Cow::Owned(self.path.to_path_buf()),
-            label: self
-                .label
-                .as_ref()
-                .map(|value| Cow::Owned(value.to_string())),
+            path: self.path.into_owned(),
+            label: self.label.map(|l| l.into_owned()),
         }
     }
 
     /// Returns the full extension (including multiple '.' values).
     /// Ex: Returns `"config.ron"` for `"my_asset.config.ron"`
     pub fn get_full_extension(&self) -> Option<String> {
-        let file_name = self.path.file_name()?.to_str()?;
+        let file_name = self.path().file_name()?.to_str()?;
         let index = file_name.find('.')?;
         let extension = file_name[index + 1..].to_lowercase();
         Some(extension)
@@ -141,47 +169,104 @@ impl<'a> AssetPath<'a> {
     }
 }
 
-impl<'a> From<&'a str> for AssetPath<'a> {
-    fn from(asset_path: &'a str) -> Self {
-        let mut parts = asset_path.splitn(2, '#');
-        let path = Path::new(parts.next().expect("Path must be set."));
-        let label = parts.next();
+impl From<&'static str> for AssetPath<'static> {
+    #[inline]
+    fn from(asset_path: &'static str) -> Self {
+        let (path, label) = Self::get_parts(asset_path);
         AssetPath {
-            path: Cow::Borrowed(path),
-            label: label.map(Cow::Borrowed),
+            path: CowArc::Static(path),
+            label: label.map(CowArc::Static),
         }
     }
 }
 
 impl<'a> From<&'a String> for AssetPath<'a> {
+    #[inline]
     fn from(asset_path: &'a String) -> Self {
-        asset_path.as_str().into()
+        AssetPath::new(asset_path.as_str())
     }
 }
 
-impl<'a> From<&'a Path> for AssetPath<'a> {
-    fn from(path: &'a Path) -> Self {
-        AssetPath {
-            path: Cow::Borrowed(path),
+impl From<String> for AssetPath<'static> {
+    #[inline]
+    fn from(asset_path: String) -> Self {
+        AssetPath::new(asset_path.as_str()).into_owned()
+    }
+}
+
+impl From<&'static Path> for AssetPath<'static> {
+    #[inline]
+    fn from(path: &'static Path) -> Self {
+        Self {
+            path: CowArc::Static(path),
             label: None,
         }
     }
 }
 
-impl<'a> From<PathBuf> for AssetPath<'a> {
+impl From<PathBuf> for AssetPath<'static> {
+    #[inline]
     fn from(path: PathBuf) -> Self {
-        AssetPath {
-            path: Cow::Owned(path),
+        Self {
+            path: path.into(),
             label: None,
         }
+    }
+}
+
+impl<'a, 'b> From<&'a AssetPath<'b>> for AssetPath<'b> {
+    fn from(value: &'a AssetPath<'b>) -> Self {
+        value.clone()
     }
 }
 
 impl<'a> From<AssetPath<'a>> for PathBuf {
-    fn from(path: AssetPath<'a>) -> Self {
-        match path.path {
-            Cow::Borrowed(borrowed) => borrowed.to_owned(),
-            Cow::Owned(owned) => owned,
-        }
+    fn from(value: AssetPath<'a>) -> Self {
+        value.path().to_path_buf()
+    }
+}
+
+impl<'a> Serialize for AssetPath<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_tuple_struct("AssetPath", 1)?;
+        let string = self.to_string();
+        state.serialize_field(&string)?;
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for AssetPath<'static> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_tuple_struct("AssetPath", 1, AssetPathVisitor)
+    }
+}
+
+struct AssetPathVisitor;
+
+impl<'de> Visitor<'de> for AssetPathVisitor {
+    type Value = AssetPath<'static>;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("string AssetPath")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(AssetPath::new(v).into_owned())
+    }
+
+    fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(AssetPath::from(v))
     }
 }
