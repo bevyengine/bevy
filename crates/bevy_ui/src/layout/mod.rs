@@ -317,24 +317,20 @@ pub fn ui_layout_system(
     ) {
         if let Ok((mut node, mut transform)) = node_transform_query.get_mut(entity) {
             let layout = ui_surface.get_layout(entity).unwrap();
-            let layout_size = Vec2::new(layout.size.width, layout.size.height);
-            let layout_location = Vec2::new(layout.location.x, layout.location.y);
+            let layout_size = inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
+            let layout_location = inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
 
             absolute_location += layout_location;
-            let rounded_location = round_layout_coords(layout_location);
             let rounded_size = round_layout_coords(absolute_location + layout_size)
                 - round_layout_coords(absolute_location);
-
-            let new_size = inverse_target_scale_factor * rounded_size;
-            let new_position =
-                inverse_target_scale_factor * rounded_location + 0.5 * (new_size - parent_size);
+            let rounded_location = round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
 
             // only trigger change detection when the new values are different
-            if node.calculated_size != new_size {
-                node.calculated_size = new_size;
+            if node.calculated_size != rounded_size {
+                node.calculated_size = rounded_size;
             }
-            if transform.translation.truncate() != new_position {
-                transform.translation = new_position.extend(0.);
+            if transform.translation.truncate() != rounded_location {
+                transform.translation = rounded_location.extend(0.);
             }
             if let Ok(children) = children_query.get(entity) {
                 for &child_uinode in children {
@@ -344,7 +340,7 @@ pub fn ui_layout_system(
                         node_transform_query,
                         children_query,
                         inverse_target_scale_factor,
-                        new_size,
+                        layout_size,
                         absolute_location,
                     );
                 }
