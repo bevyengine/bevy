@@ -54,6 +54,17 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
         self
     }
 
+    pub fn ref_id(&mut self, id: ComponentId) -> &mut Self {
+        self.terms.push(Term::Component(ComponentTerm::read_id(id)));
+        self
+    }
+
+    pub fn mut_id(&mut self, id: ComponentId) -> &mut Self {
+        self.terms
+            .push(Term::Component(ComponentTerm::write_id(id)));
+        self
+    }
+
     pub fn set<T: Component>(&mut self) -> &mut Self {
         let id = self.world.init_component::<T>();
         self.set_id(id);
