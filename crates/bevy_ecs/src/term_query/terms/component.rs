@@ -1,4 +1,4 @@
-use std::cell::UnsafeCell;
+use std::{cell::UnsafeCell, hint::unreachable_unchecked};
 
 use bevy_ptr::{Ptr, PtrMut, ThinSlicePtr, UnsafeCellDeref};
 
@@ -130,12 +130,12 @@ impl ComponentTerm {
         entity: Entity,
         table_row: TableRow,
     ) -> Ptr<'w> {
-        match state.pointer.as_ref().unwrap() {
+        match state.pointer.as_ref().debug_checked_unwrap() {
             StoragePtr::SparseSet(sparse_set) => sparse_set.get(entity).debug_checked_unwrap(),
             StoragePtr::Table {
                 table: Some(table), ..
             } => table.byte_add(table_row.index() * state.size),
-            _ => unreachable!(),
+            _ => unreachable_unchecked(),
         }
     }
 
@@ -146,7 +146,7 @@ impl ComponentTerm {
         entity: Entity,
         table_row: TableRow,
     ) -> FetchedChangeTicks<'w> {
-        match state.pointer.as_ref().unwrap() {
+        match state.pointer.as_ref().debug_checked_unwrap() {
             StoragePtr::SparseSet(sparse_set) => {
                 let ticks = sparse_set.get_tick_cells(entity).debug_checked_unwrap();
                 FetchedChangeTicks {
@@ -167,7 +167,7 @@ impl ComponentTerm {
                 last_run: state.last_run,
                 this_run: state.this_run,
             },
-            _ => unreachable!(),
+            _ => unreachable_unchecked(),
         }
     }
 }
@@ -249,20 +249,26 @@ impl Fetchable for ComponentTerm {
         state
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn set_table<'w>(&self, state: &mut ComponentTermState<'w>, table: &'w Table) {
         if let StorageType::SparseSet = state.storage {
             return;
         };
         if let Some(column) = table.get_column(self.id()) {
             state.pointer = Some(StoragePtr::Table {
-                table: self.access.is_some().then(|| column.get_data_ptr()),
-                ticks: self.change_detection.then(|| {
-                    (
+                table: if self.access.is_some() {
+                    Some(column.get_data_ptr())
+                } else {
+                    None
+                },
+                ticks: if self.change_detection {
+                    Some((
                         column.get_added_ticks_slice().into(),
                         column.get_changed_ticks_slice().into(),
-                    )
-                }),
+                    ))
+                } else {
+                    None
+                },
             });
             state.matches = true;
         } else {
@@ -278,10 +284,16 @@ impl Fetchable for ComponentTerm {
         table_row: TableRow,
     ) -> Self::Item<'w> {
         FetchedComponent {
-            pointer: (self.access.is_some() && state.matches)
-                .then(|| self.get_component(state, entity, table_row)),
-            change_ticks: (self.change_detection && state.matches)
-                .then(|| self.get_change_ticks(state, entity, table_row)),
+            pointer: if self.access.is_some() && state.matches {
+                Some(self.get_component(state, entity, table_row))
+            } else {
+                None
+            },
+            change_ticks: if self.change_detection && state.matches {
+                Some(self.get_change_ticks(state, entity, table_row))
+            } else {
+                None
+            },
             matched: state.matches,
         }
     }

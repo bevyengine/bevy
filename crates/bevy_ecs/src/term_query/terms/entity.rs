@@ -52,7 +52,7 @@ impl Fetchable for EntityTerm {
         world
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn set_table<'w>(&self, _state: &mut Self::State<'w>, _table: &'w Table) {}
 
     #[inline(always)]
@@ -64,10 +64,11 @@ impl Fetchable for EntityTerm {
     ) -> FetchedEntity<'w> {
         FetchedEntity {
             entity,
-            cell: self
-                .access
-                .is_some()
-                .then(|| world.get_entity(entity).debug_checked_unwrap()),
+            cell: if self.access.is_some() {
+                Some(world.get_entity(entity).debug_checked_unwrap())
+            } else {
+                None
+            },
         }
     }
 

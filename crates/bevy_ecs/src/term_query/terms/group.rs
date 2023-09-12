@@ -52,7 +52,7 @@ impl Fetchable for OrTerm {
             .collect()
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn set_table<'w>(&self, state: &mut Self::State<'w>, table: &'w Table) {
         self.terms
             .iter()
