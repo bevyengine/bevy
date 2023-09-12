@@ -1164,7 +1164,7 @@ mod tests {
 
         let mut new = value.map_unchanged(|ptr| {
             // SAFETY: The underlying type of `ptr` matches `reflect_from_ptr`.
-            let value = unsafe { reflect_from_ptr.as_reflect_ptr_mut(ptr) };
+            let value = unsafe { reflect_from_ptr.as_reflect_mut(ptr) };
             value
         });
 
