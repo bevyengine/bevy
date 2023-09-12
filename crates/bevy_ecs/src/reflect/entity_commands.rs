@@ -34,7 +34,7 @@ pub trait ReflectCommandExt {
     ///
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::reflect::ReflectCommandExt;
-    /// # use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
+    /// # use bevy_reflect::{FromReflect, Reflect, TypeRegistry};
     /// // A resource that can hold any component that implements reflect as a boxed reflect component
     /// #[derive(Resource)]
     /// struct Prefab{
@@ -104,7 +104,7 @@ pub trait ReflectCommandExt {
     ///
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::reflect::ReflectCommandExt;
-    /// # use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
+    /// # use bevy_reflect::{FromReflect, Reflect, TypeRegistry};
     ///
     /// // A resource that can hold any component that implements reflect as a boxed reflect component
     /// #[derive(Resource)]

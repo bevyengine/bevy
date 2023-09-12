@@ -446,7 +446,7 @@
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
 //! [derive macro documentation]: derive@crate::Reflect
 //! [deriving `Reflect`]: derive@crate::Reflect
-//! [type data]: TypeData
+//! [type data]: BaseTypeData
 //! [`ReflectDefault`]: std_traits::ReflectDefault
 //! [object-safe]: https://doc.rust-lang.org/reference/items/traits.html#object-safety
 //! [`serde`]: ::serde
@@ -476,6 +476,7 @@ mod reflect;
 mod struct_trait;
 mod tuple;
 mod tuple_struct;
+mod type_data;
 mod type_info;
 mod type_path;
 mod type_registry;
@@ -530,6 +531,7 @@ pub use reflect::*;
 pub use struct_trait::*;
 pub use tuple::*;
 pub use tuple_struct::*;
+pub use type_data::*;
 pub use type_info::*;
 pub use type_path::*;
 pub use type_registry::*;

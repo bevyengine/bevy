@@ -1,4 +1,4 @@
-use crate::{FromType, Reflect};
+use crate::{Reflect, TypeData};
 
 /// A trait that enables types to be dynamically constructed from reflected data.
 ///
@@ -111,8 +111,8 @@ impl ReflectFromReflect {
     }
 }
 
-impl<T: FromReflect> FromType<T> for ReflectFromReflect {
-    fn from_type() -> Self {
+impl<T: FromReflect> TypeData<T> for ReflectFromReflect {
+    fn create_type_data() -> Self {
         Self {
             from_reflect: |reflect_value| {
                 T::from_reflect(reflect_value).map(|value| Box::new(value) as Box<dyn Reflect>)

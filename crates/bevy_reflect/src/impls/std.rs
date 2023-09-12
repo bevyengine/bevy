@@ -2,10 +2,10 @@ use crate::std_traits::ReflectDefault;
 use crate::{self as bevy_reflect, ReflectFromPtr, ReflectFromReflect, ReflectOwned};
 use crate::{
     impl_type_path, map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum,
-    DynamicMap, Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
-    ListIter, Map, MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef,
-    ReflectSerialize, TupleVariantInfo, TypeInfo, TypePath, TypeRegistration, Typed,
-    UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter, VariantInfo, VariantType,
+    DynamicMap, Enum, EnumInfo, FromReflect, GetTypeRegistration, List, ListInfo, ListIter, Map,
+    MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef, ReflectSerialize,
+    TupleVariantInfo, TypeInfo, TypePath, TypeRegistration, Typed, UnitVariantInfo, UnnamedField,
+    ValueInfo, VariantFieldIter, VariantInfo, VariantType,
 };
 
 use crate::utility::{
@@ -353,9 +353,7 @@ macro_rules! impl_reflect_for_veclike {
 
         impl<T: FromReflect + TypePath> GetTypeRegistration for $ty {
             fn get_type_registration() -> TypeRegistration {
-                let mut registration = TypeRegistration::of::<$ty>();
-                registration.insert::<ReflectFromPtr>(FromType::<$ty>::from_type());
-                registration
+                TypeRegistration::of::<$ty>().register::<Self, ReflectFromPtr>()
             }
         }
 
@@ -576,9 +574,7 @@ macro_rules! impl_reflect_for_hashmap {
             S: TypePath + BuildHasher + Send + Sync,
         {
             fn get_type_registration() -> TypeRegistration {
-                let mut registration = TypeRegistration::of::<Self>();
-                registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-                registration
+                TypeRegistration::of::<Self>().register::<Self, ReflectFromPtr>()
             }
         }
 
@@ -770,7 +766,7 @@ impl<T: Reflect + TypePath, const N: usize> TypePath for [T; N] {
 }
 
 // TODO:
-// `FromType::from_type` requires `Deserialize<'de>` to be implemented for `T`.
+// `TypeData::create_type_data` requires `Deserialize<'de>` to be implemented for `T`.
 // Currently serde only supports `Deserialize<'de>` for arrays up to size 32.
 // This can be changed to use const generics once serde utilizes const generics for arrays.
 // Tracking issue: https://github.com/serde-rs/serde/issues/1937
@@ -1152,11 +1148,10 @@ impl TypePath for Cow<'static, str> {
 
 impl GetTypeRegistration for Cow<'static, str> {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Cow<'static, str>>();
-        registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, str>>::from_type());
-        registration.insert::<ReflectFromPtr>(FromType::<Cow<'static, str>>::from_type());
-        registration.insert::<ReflectSerialize>(FromType::<Cow<'static, str>>::from_type());
-        registration
+        TypeRegistration::of::<Cow<'static, str>>()
+            .register::<Self, ReflectDeserialize>()
+            .register::<Self, ReflectFromPtr>()
+            .register::<Self, ReflectSerialize>()
     }
 }
 
@@ -1444,9 +1439,7 @@ impl TypePath for &'static Path {
 
 impl GetTypeRegistration for &'static Path {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-        registration
+        TypeRegistration::of::<Self>().register::<Self, ReflectFromPtr>()
     }
 }
 
@@ -1560,12 +1553,11 @@ impl FromReflect for Cow<'static, Path> {
 
 impl GetTypeRegistration for Cow<'static, Path> {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-        registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
-        registration
+        TypeRegistration::of::<Self>()
+            .register::<Self, ReflectDeserialize>()
+            .register::<Self, ReflectFromPtr>()
+            .register::<Self, ReflectSerialize>()
+            .register::<Self, ReflectFromReflect>()
     }
 }
 

@@ -1,6 +1,7 @@
 //! Contains code related specifically to Bevy's type registration.
 
 use crate::derive_data::ReflectMeta;
+use crate::fq_std::FQOption;
 use crate::utility::{extend_where_clause, WhereClauseOptions};
 use bit_set::BitSet;
 use quote::quote;
@@ -20,7 +21,7 @@ pub(crate) fn impl_get_type_registration(
 
     let from_reflect_data = if meta.from_reflect().should_auto_derive() {
         Some(quote! {
-        registration.insert::<#bevy_reflect_path::ReflectFromReflect>(#bevy_reflect_path::FromType::<Self>::from_type());
+            .register::<Self, #bevy_reflect_path::ReflectFromReflect>()
         })
     } else {
         None
@@ -29,8 +30,10 @@ pub(crate) fn impl_get_type_registration(
     let serialization_data = serialization_denylist.map(|denylist| {
         let denylist = denylist.into_iter();
         quote! {
-            let ignored_indices = ::core::iter::IntoIterator::into_iter([#(#denylist),*]);
-            registration.insert::<#bevy_reflect_path::serde::SerializationData>(#bevy_reflect_path::serde::SerializationData::new(ignored_indices));
+            .insert(#bevy_reflect_path::serde::SerializationData::new({
+                let ignored_indices = ::core::iter::IntoIterator::into_iter([#(#denylist),*]);
+                ignored_indices
+            }), #FQOption::None)
         }
     });
 
@@ -38,12 +41,11 @@ pub(crate) fn impl_get_type_registration(
         #[allow(unused_mut)]
         impl #impl_generics #bevy_reflect_path::GetTypeRegistration for #type_path #ty_generics #where_reflect_clause {
             fn get_type_registration() -> #bevy_reflect_path::TypeRegistration {
-                let mut registration = #bevy_reflect_path::TypeRegistration::of::<Self>();
-                registration.insert::<#bevy_reflect_path::ReflectFromPtr>(#bevy_reflect_path::FromType::<Self>::from_type());
-                #from_reflect_data
-                #serialization_data
-                #(registration.insert::<#registration_data>(#bevy_reflect_path::FromType::<Self>::from_type());)*
-                registration
+                #bevy_reflect_path::TypeRegistration::of::<Self>()
+                    .register::<Self, #bevy_reflect_path::ReflectFromPtr>()
+                    #from_reflect_data
+                    #serialization_data
+                    #(.register::<Self, #registration_data>())*
             }
         }
     }

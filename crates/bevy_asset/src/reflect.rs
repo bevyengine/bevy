@@ -1,7 +1,7 @@
 use std::any::{Any, TypeId};
 
 use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
-use bevy_reflect::{FromReflect, FromType, Reflect};
+use bevy_reflect::{FromReflect, Reflect, TypeData};
 
 use crate::{Asset, Assets, Handle, UntypedAssetId, UntypedHandle};
 
@@ -122,8 +122,8 @@ impl ReflectAsset {
     }
 }
 
-impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
-    fn from_type() -> Self {
+impl<A: Asset + FromReflect> TypeData<A> for ReflectAsset {
+    fn create_type_data() -> Self {
         ReflectAsset {
             handle_type_id: TypeId::of::<Handle<A>>(),
             assets_resource_type_id: TypeId::of::<Assets<A>>(),
@@ -217,8 +217,8 @@ impl ReflectHandle {
     }
 }
 
-impl<A: Asset> FromType<Handle<A>> for ReflectHandle {
-    fn from_type() -> Self {
+impl<A: Asset> TypeData<Handle<A>> for ReflectHandle {
+    fn create_type_data() -> Self {
         ReflectHandle {
             asset_type_id: TypeId::of::<A>(),
             downcast_handle_untyped: |handle: &dyn Any| {

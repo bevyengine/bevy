@@ -75,8 +75,8 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
             }
         }
 
-        impl<T: #trait_ident + #bevy_reflect_path::Reflect> #bevy_reflect_path::FromType<T> for #reflect_trait_ident {
-            fn from_type() -> Self {
+        impl<T: #trait_ident + #bevy_reflect_path::Reflect> #bevy_reflect_path::TypeData<T> for #reflect_trait_ident {
+            fn create_type_data() -> Self {
                 Self {
                     get_func: |reflect_value| {
                         <dyn #bevy_reflect_path::Reflect>::downcast_ref::<T>(reflect_value).map(|value| value as &dyn #trait_ident)
