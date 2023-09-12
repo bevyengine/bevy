@@ -126,7 +126,7 @@ impl ComponentTerm {
     #[inline(always)]
     unsafe fn get_component<'w>(
         &self,
-        state: &mut ComponentTermState<'w>,
+        state: &ComponentTermState<'w>,
         entity: Entity,
         table_row: TableRow,
     ) -> Ptr<'w> {
@@ -142,7 +142,7 @@ impl ComponentTerm {
     #[inline(always)]
     unsafe fn get_change_ticks<'w>(
         &self,
-        state: &mut ComponentTermState<'w>,
+        state: &ComponentTermState<'w>,
         entity: Entity,
         table_row: TableRow,
     ) -> FetchedChangeTicks<'w> {
@@ -273,7 +273,7 @@ impl Fetchable for ComponentTerm {
     #[inline(always)]
     unsafe fn fetch<'w>(
         &self,
-        state: &mut Self::State<'w>,
+        state: &Self::State<'w>,
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
@@ -289,7 +289,7 @@ impl Fetchable for ComponentTerm {
     #[inline(always)]
     unsafe fn filter_fetch<'w>(
         &self,
-        state: &mut Self::State<'w>,
+        state: &Self::State<'w>,
         entity: Entity,
         table_row: TableRow,
     ) -> bool {

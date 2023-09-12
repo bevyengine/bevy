@@ -58,11 +58,7 @@ impl<'w, 's> TermQueryCursor<'w, 's> {
                     let table = tables.get(*table_id).debug_checked_unwrap();
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                    query_state
-                        .terms
-                        .iter()
-                        .zip(self.term_state.iter_mut())
-                        .for_each(|(term, state)| term.set_table(state, table));
+                    query_state.set_table(&mut self.term_state, table);
                     self.table_entities = table.entities();
                     self.current_len = table.entity_count();
                     self.current_row = 0;
@@ -81,20 +77,8 @@ impl<'w, 's> TermQueryCursor<'w, 's> {
                 // - fetch is only called once for each `entity`.
                 self.current_row += 1;
 
-                if query_state
-                    .terms
-                    .iter()
-                    .zip(self.term_state.iter_mut())
-                    .all(|(term, state)| term.filter_fetch(state, entity, row))
-                {
-                    return Some(
-                        query_state
-                            .terms
-                            .iter()
-                            .zip(self.term_state.iter_mut())
-                            .map(|(term, state)| term.fetch(state, entity, row))
-                            .collect(),
-                    );
+                if query_state.filter_fetch(&self.term_state, entity, row) {
+                    return Some(query_state.fetch(&self.term_state, entity, row));
                 }
             }
         } else {
@@ -105,11 +89,7 @@ impl<'w, 's> TermQueryCursor<'w, 's> {
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     let table = tables.get(archetype.table_id()).debug_checked_unwrap();
-                    query_state
-                        .terms
-                        .iter()
-                        .zip(self.term_state.iter_mut())
-                        .for_each(|(term, state)| term.set_table(state, table));
+                    query_state.set_table(&mut self.term_state, table);
                     self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();
                     self.current_row = 0;
@@ -127,20 +107,8 @@ impl<'w, 's> TermQueryCursor<'w, 's> {
                 let entity = archetype_entity.entity();
                 let row = archetype_entity.table_row();
                 // Apply filters
-                if query_state
-                    .terms
-                    .iter()
-                    .zip(self.term_state.iter_mut())
-                    .all(|(term, state)| term.filter_fetch(state, entity, row))
-                {
-                    return Some(
-                        query_state
-                            .terms
-                            .iter()
-                            .zip(self.term_state.iter_mut())
-                            .map(|(term, state)| term.fetch(state, entity, row))
-                            .collect(),
-                    );
+                if query_state.filter_fetch(&mut self.term_state, entity, row) {
+                    return Some(query_state.fetch(&mut self.term_state, entity, row));
                 }
             }
         }

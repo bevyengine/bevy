@@ -58,7 +58,7 @@ impl Fetchable for EntityTerm {
     #[inline(always)]
     unsafe fn fetch<'w>(
         &self,
-        world: &mut Self::State<'w>,
+        world: &Self::State<'w>,
         entity: Entity,
         _table_row: TableRow,
     ) -> FetchedEntity<'w> {
@@ -74,7 +74,7 @@ impl Fetchable for EntityTerm {
     #[inline(always)]
     unsafe fn filter_fetch<'w>(
         &self,
-        _state: &mut Self::State<'w>,
+        _state: &Self::State<'w>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {

@@ -65,6 +65,21 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
         self
     }
 
+    pub fn added_by_id(&mut self, id: ComponentId) -> &mut Self {
+        self.terms.push(Term::Component(ComponentTerm::added(id)));
+        self
+    }
+
+    pub fn changed_by_id(&mut self, id: ComponentId) -> &mut Self {
+        self.terms.push(Term::Component(ComponentTerm::changed(id)));
+        self
+    }
+
+    pub fn push(&mut self, term: Term) -> &mut Self {
+        self.terms.push(term);
+        self
+    }
+
     pub fn set_dynamic<T: Component>(&mut self) -> &mut Self {
         let id = self.world.init_component::<T>();
         self.set_dynamic_by_id(id);

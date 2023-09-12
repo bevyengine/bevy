@@ -68,15 +68,15 @@ impl Fetchable for OrTerm {
     #[inline(always)]
     unsafe fn fetch<'w>(
         &self,
-        state: &mut Self::State<'w>,
+        state: &Self::State<'w>,
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
         if self.fetch {
             self.terms
                 .iter()
-                .zip(state.iter_mut())
-                .map(|(term, state)| term.fetch(&mut state.component, entity, table_row))
+                .zip(state.iter())
+                .map(|(term, state)| term.fetch(&state.component, entity, table_row))
                 .collect()
         } else {
             Vec::new()
@@ -86,16 +86,13 @@ impl Fetchable for OrTerm {
     #[inline(always)]
     unsafe fn filter_fetch<'w>(
         &self,
-        state: &mut Self::State<'w>,
+        state: &Self::State<'w>,
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        self.terms
-            .iter()
-            .zip(state.iter_mut())
-            .any(|(term, state)| {
-                state.matches && term.filter_fetch(&mut state.component, entity, table_row)
-            })
+        self.terms.iter().zip(state.iter()).any(|(term, state)| {
+            state.matches && term.filter_fetch(&state.component, entity, table_row)
+        })
     }
 
     #[inline]

@@ -100,14 +100,14 @@ pub trait Fetchable {
 
     unsafe fn fetch<'w>(
         &self,
-        state: &mut Self::State<'w>,
+        state: &Self::State<'w>,
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w>;
 
     unsafe fn filter_fetch<'w>(
         &self,
-        state: &mut Self::State<'w>,
+        state: &Self::State<'w>,
         entity: Entity,
         table_row: TableRow,
     ) -> bool;
@@ -156,7 +156,7 @@ impl Fetchable for Term {
     #[inline(always)]
     unsafe fn fetch<'w>(
         &self,
-        state: &mut Self::State<'w>,
+        state: &Self::State<'w>,
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
@@ -177,7 +177,7 @@ impl Fetchable for Term {
     #[inline(always)]
     unsafe fn filter_fetch<'w>(
         &self,
-        state: &mut Self::State<'w>,
+        state: &Self::State<'w>,
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
@@ -280,7 +280,7 @@ impl<T: QueryTerm> QueryTermGroup for T {
     unsafe fn from_fetches<'w>(
         terms: &mut impl Iterator<Item = FetchedTerm<'w>>,
     ) -> Self::Item<'w> {
-        T::from_fetch(terms.next().unwrap())
+        T::from_fetch(terms.next().debug_checked_unwrap())
     }
 }
 
@@ -309,7 +309,7 @@ impl<T: ComponentQueryTerm> ComponentQueryTermGroup for T {
     unsafe fn from_fetches<'w>(
         terms: &mut impl Iterator<Item = FetchedComponent<'w>>,
     ) -> Self::Item<'w> {
-        T::from_fetch(terms.next().unwrap())
+        T::from_fetch(terms.next().debug_checked_unwrap())
     }
 }
 

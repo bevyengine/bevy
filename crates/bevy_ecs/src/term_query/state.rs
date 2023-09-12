@@ -8,7 +8,7 @@ use crate::{
     entity::Entity,
     prelude::World,
     query::{Access, DebugCheckedUnwrap, FilteredAccess, QueryEntityError, QuerySingleError},
-    storage::TableId,
+    storage::{Table, TableId, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, WorldId},
 };
 
@@ -471,40 +471,103 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         this_run: Tick,
     ) {
         let mut term_state = self.init_term_state(world, last_run, this_run);
+        let dense = term_state.iter().all(|t| t.dense());
 
         let tables = &world.storages().tables;
-        let archetypes = world.archetypes();
-        for archetype_id in &self.matched_archetype_ids {
-            let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();
-            let table = tables.get(archetype.table_id()).debug_checked_unwrap();
-            self.terms
-                .iter()
-                .zip(term_state.iter_mut())
-                .for_each(|(term, state)| term.set_table(state, table));
+        if dense {
+            for table_id in &self.matched_table_ids {
+                let table = tables.get(*table_id).debug_checked_unwrap();
+                self.set_table(&mut term_state, table);
 
-            let entities = archetype.entities();
-            for idx in 0..archetype.len() {
-                let archetype_entity = entities.get_unchecked(idx);
-                let entity = archetype_entity.entity();
-                let row = archetype_entity.table_row();
-                // Apply filters
-                if !self
-                    .terms
-                    .iter()
-                    .zip(term_state.iter_mut())
-                    .all(|(term, state)| term.filter_fetch(state, entity, row))
-                {
-                    continue;
+                let entities = table.entities();
+                for row in 0..table.entity_count() {
+                    let entity = *entities.get_unchecked(row);
+                    let row = TableRow::new(row);
+                    if !self.filter_fetch(&term_state, entity, row) {
+                        continue;
+                    }
+                    func(Q::from_fetches(
+                        &mut self.fetch(&term_state, entity, row).into_iter(),
+                    ))
                 }
+            }
+        } else {
+            let archetypes = world.archetypes();
+            for archetype_id in &self.matched_archetype_ids {
+                let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();
+                let table = tables.get(archetype.table_id()).debug_checked_unwrap();
+                self.set_table(&mut term_state, table);
 
-                func(Q::from_fetches(
-                    &mut self
-                        .terms
-                        .iter()
-                        .zip(term_state.iter_mut())
-                        .map(|(term, state)| term.fetch(state, entity, row)),
-                ))
+                let entities = archetype.entities();
+                for idx in 0..archetype.len() {
+                    let archetype_entity = entities.get_unchecked(idx);
+                    let entity = archetype_entity.entity();
+                    let row = archetype_entity.table_row();
+                    if !self.filter_fetch(&term_state, entity, row) {
+                        continue;
+                    }
+
+                    func(Q::from_fetches(
+                        &mut self.fetch(&term_state, entity, row).into_iter(),
+                    ))
+                }
             }
         }
+    }
+
+    #[inline(always)]
+    pub unsafe fn set_table<'w>(&self, state: &mut TermVec<TermState<'w>>, table: &'w Table) {
+        let len = self.terms.len();
+        let terms = &self.terms[..len];
+        let state = &mut state[..len];
+
+        for i in 0..len {
+            let term = &terms[i];
+            let state = &mut state[i];
+            term.set_table(state, table);
+        }
+    }
+
+    #[inline(always)]
+    pub unsafe fn filter_fetch<'w>(
+        &self,
+        state: &TermVec<TermState<'w>>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> bool {
+        let len = self.terms.len();
+        let terms = &self.terms[..len];
+        let state = &state[..len];
+
+        for i in 0..len {
+            let term = &terms[i];
+            let state = &state[i];
+            if !term.filter_fetch(state, entity, table_row) {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    #[inline(always)]
+    pub unsafe fn fetch<'w>(
+        &self,
+        state: &TermVec<TermState<'w>>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> TermVec<FetchedTerm<'w>> {
+        let len = self.terms.len();
+        let terms = &self.terms[..len];
+        let state = &state[..len];
+        let mut result = TermVec::with_capacity(len);
+
+        for i in 0..len {
+            let term = &terms[i];
+            let state = &state[i];
+            result.push(term.fetch(state, entity, table_row));
+        }
+
+        result
     }
 }
