@@ -19,6 +19,8 @@ use super::{
 // For experimenting with different term storage types
 pub type TermVec<T> = Vec<T>;
 
+// Used to avoid allocating space for fetched terms in the hot loop
+// Instead we re-use a buffer we allocate when the query or iterator is created
 pub(crate) struct RawFetches {
     mem: *mut u8,
     len: usize,
@@ -243,8 +245,8 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     #[inline]
     pub fn iter_raw<'w, 's>(&'s mut self, world: &'w mut World) -> TermQueryIterUntyped<'w, 's> {
         self.update_archetypes(world);
-        let last_run = world.change_tick();
-        let this_run = world.last_change_tick();
+        let last_run = world.last_change_tick();
+        let this_run = world.change_tick();
 
         unsafe {
             TermQueryIterUntyped::new(
