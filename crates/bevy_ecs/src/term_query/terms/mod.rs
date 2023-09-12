@@ -1,3 +1,5 @@
+use std::hint::unreachable_unchecked;
+
 use bevy_utils::all_tuples;
 
 use crate::{
@@ -33,6 +35,7 @@ pub enum TermAccess {
     Write,
 }
 
+#[derive(Clone)]
 pub enum FetchedTerm<'w> {
     Entity(<EntityTerm as Fetchable>::Item<'w>),
     Component(<ComponentTerm as Fetchable>::Item<'w>),
@@ -41,7 +44,7 @@ pub enum FetchedTerm<'w> {
 
 impl<'w> FetchedTerm<'w> {
     #[inline(always)]
-    pub fn component(self) -> Option<<ComponentTerm as Fetchable>::Item<'w>> {
+    pub fn component(&self) -> Option<&<ComponentTerm as Fetchable>::Item<'w>> {
         if let FetchedTerm::Component(term) = self {
             Some(term)
         } else {
@@ -59,7 +62,7 @@ impl<'w> FetchedTerm<'w> {
     }
 
     #[inline(always)]
-    pub fn group(self) -> Option<Vec<<ComponentTerm as Fetchable>::Item<'w>>> {
+    pub fn group(&self) -> Option<&Vec<<ComponentTerm as Fetchable>::Item<'w>>> {
         if let FetchedTerm::Or(term) = self {
             Some(term)
         } else {
@@ -149,7 +152,7 @@ impl Fetchable for Term {
             (Term::Entity(term), TermState::Entity(state)) => term.set_table(state, table),
             (Term::Component(term), TermState::Component(state)) => term.set_table(state, table),
             (Term::Or(term), TermState::Or(state)) => term.set_table(state, table),
-            _ => unreachable!(),
+            _ => unreachable_unchecked(),
         }
     }
 
@@ -170,7 +173,7 @@ impl Fetchable for Term {
             (Term::Or(term), TermState::Or(state)) => {
                 FetchedTerm::Or(term.fetch(state, entity, table_row))
             }
-            _ => unreachable!(),
+            _ => unreachable_unchecked(),
         }
     }
 
@@ -189,7 +192,7 @@ impl Fetchable for Term {
                 term.filter_fetch(state, entity, table_row)
             }
             (Term::Or(term), TermState::Or(state)) => term.filter_fetch(state, entity, table_row),
-            _ => unreachable!(),
+            _ => unreachable_unchecked(),
         }
     }
 
@@ -231,7 +234,7 @@ pub trait QueryTerm {
 
     fn init_term(world: &mut World) -> Term;
 
-    unsafe fn from_fetch(fetch: FetchedTerm<'_>) -> Self::Item<'_>;
+    unsafe fn from_fetch<'w>(fetch: &FetchedTerm<'w>) -> Self::Item<'w>;
 }
 
 pub trait ComponentQueryTerm {
@@ -240,7 +243,7 @@ pub trait ComponentQueryTerm {
 
     fn init_term(world: &mut World) -> ComponentTerm;
 
-    unsafe fn from_fetch<'w>(_term: FetchedComponent<'w>) -> Self::Item<'w>;
+    unsafe fn from_fetch<'w>(_term: &FetchedComponent<'w>) -> Self::Item<'w>;
 }
 
 impl<T: ComponentQueryTerm> QueryTerm for T {
@@ -252,7 +255,7 @@ impl<T: ComponentQueryTerm> QueryTerm for T {
     }
 
     #[inline(always)]
-    unsafe fn from_fetch(term: FetchedTerm<'_>) -> Self::Item<'_> {
+    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
         let term = term.component().debug_checked_unwrap();
         T::from_fetch(term)
     }
@@ -264,8 +267,9 @@ pub trait QueryTermGroup {
 
     fn init_terms(world: &mut World, terms: &mut TermVec<Term>);
 
-    unsafe fn from_fetches<'w>(terms: &mut impl Iterator<Item = FetchedTerm<'w>>)
-        -> Self::Item<'w>;
+    unsafe fn from_fetches<'w: 'f, 'f>(
+        terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
+    ) -> Self::Item<'w>;
 }
 
 impl<T: QueryTerm> QueryTermGroup for T {
@@ -277,8 +281,8 @@ impl<T: QueryTerm> QueryTermGroup for T {
     }
 
     #[inline(always)]
-    unsafe fn from_fetches<'w>(
-        terms: &mut impl Iterator<Item = FetchedTerm<'w>>,
+    unsafe fn from_fetches<'w: 'f, 'f>(
+        terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
     ) -> Self::Item<'w> {
         T::from_fetch(terms.next().debug_checked_unwrap())
     }
@@ -291,8 +295,8 @@ pub trait ComponentQueryTermGroup {
 
     fn init_terms(world: &mut World, terms: &mut Vec<ComponentTerm>);
 
-    unsafe fn from_fetches<'w>(
-        terms: &mut impl Iterator<Item = FetchedComponent<'w>>,
+    unsafe fn from_fetches<'w: 'f, 'f>(
+        terms: &mut impl Iterator<Item = &'f FetchedComponent<'w>>,
     ) -> Self::Item<'w>;
 }
 
@@ -306,8 +310,8 @@ impl<T: ComponentQueryTerm> ComponentQueryTermGroup for T {
     }
 
     #[inline(always)]
-    unsafe fn from_fetches<'w>(
-        terms: &mut impl Iterator<Item = FetchedComponent<'w>>,
+    unsafe fn from_fetches<'w: 'f, 'f>(
+        terms: &mut impl Iterator<Item = &'f FetchedComponent<'w>>,
     ) -> Self::Item<'w> {
         T::from_fetch(terms.next().debug_checked_unwrap())
     }
@@ -326,7 +330,7 @@ macro_rules! impl_query_term_tuple {
             }
 
             #[inline(always)]
-            unsafe fn from_fetches<'w>(_terms: &mut impl Iterator<Item = FetchedTerm<'w>>) -> Self::Item<'w> {
+            unsafe fn from_fetches<'w: 'f, 'f>(_terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>) -> Self::Item<'w> {
                 ($(
                     $term::from_fetches(_terms),
                 )*)
@@ -350,7 +354,7 @@ macro_rules! impl_component_query_term_tuple {
 
 
             #[inline(always)]
-            unsafe fn from_fetches<'w>(_terms: &mut impl Iterator<Item = FetchedComponent<'w>>) -> Self::Item<'w> {
+            unsafe fn from_fetches<'w: 'f, 'f>(_terms: &mut impl Iterator<Item = &'f FetchedComponent<'w>>) -> Self::Item<'w> {
                 ($(
                     $term::from_fetches(_terms),
                 )*)

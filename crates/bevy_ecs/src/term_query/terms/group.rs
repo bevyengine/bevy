@@ -145,8 +145,8 @@ impl<Q: ComponentQueryTermGroup> QueryTermGroup for Or<Q> {
     }
 
     #[inline(always)]
-    unsafe fn from_fetches<'w>(
-        terms: &mut impl Iterator<Item = FetchedTerm<'w>>,
+    unsafe fn from_fetches<'w: 'f, 'f>(
+        terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
     ) -> Self::Item<'w> {
         terms.next();
     }
@@ -166,8 +166,8 @@ impl<Q: ComponentQueryTermGroup> QueryTermGroup for AnyOf<Q> {
     }
 
     #[inline(always)]
-    unsafe fn from_fetches<'w>(
-        terms: &mut impl Iterator<Item = FetchedTerm<'w>>,
+    unsafe fn from_fetches<'w: 'f, 'f>(
+        terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
     ) -> Self::Item<'w> {
         let term = terms
             .next()

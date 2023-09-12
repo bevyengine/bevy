@@ -33,6 +33,7 @@ impl EntityTerm {
     }
 }
 
+#[derive(Clone)]
 pub struct FetchedEntity<'w> {
     entity: Entity,
     cell: Option<UnsafeEntityCell<'w>>,
@@ -129,10 +130,9 @@ impl QueryTerm for Entity {
     }
 
     #[inline(always)]
-    unsafe fn from_fetch<'w>(term: FetchedTerm<'w>) -> Self::Item<'w> {
-        let FetchedTerm::Entity(term) = term else {
-            unreachable!();
-        };
+    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
+        let term = term.entity().debug_checked_unwrap();
+
         term.entity
     }
 }
@@ -146,10 +146,8 @@ impl QueryTerm for EntityRef<'_> {
     }
 
     #[inline(always)]
-    unsafe fn from_fetch<'w>(term: FetchedTerm<'w>) -> Self::Item<'w> {
-        let FetchedTerm::Entity(term) = term else {
-            unreachable!();
-        };
+    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
+        let term = term.entity().debug_checked_unwrap();
         EntityRef::new(term.cell.debug_checked_unwrap())
     }
 }
@@ -163,10 +161,8 @@ impl<'r> QueryTerm for EntityMut<'r> {
     }
 
     #[inline(always)]
-    unsafe fn from_fetch<'w>(term: FetchedTerm<'w>) -> Self::Item<'w> {
-        let FetchedTerm::Entity(term) = term else {
-            unreachable!();
-        };
+    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
+        let term = term.entity().debug_checked_unwrap();
         EntityMut::new(term.cell.debug_checked_unwrap())
     }
 }

@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{alloc::Layout, marker::PhantomData, mem::MaybeUninit};
 
 use fixedbitset::FixedBitSet;
 
@@ -15,13 +15,53 @@ use crate::{
 use super::{
     Fetchable, FetchedTerm, QueryTermGroup, Term, TermQueryIter, TermQueryIterUntyped, TermState,
 };
-use smallvec::SmallVec;
 
-pub type TermVec<T> = SmallVec<[T; 12]>;
+// For experimenting with different term storage types
+pub type TermVec<T> = Vec<T>;
+
+pub(crate) struct RawFetches {
+    mem: *mut u8,
+    len: usize,
+}
+
+impl RawFetches {
+    #[inline]
+    pub(crate) fn new(len: usize) -> Self {
+        Self {
+            mem: unsafe { std::alloc::alloc(Layout::array::<FetchedTerm>(len).unwrap_unchecked()) },
+            len,
+        }
+    }
+
+    #[inline(always)]
+    pub(crate) fn as_uninit<'w>(&self) -> &mut [MaybeUninit<FetchedTerm<'w>>] {
+        unsafe { std::slice::from_raw_parts_mut(self.mem.cast(), self.len) }
+    }
+
+    #[inline(always)]
+    pub(crate) fn as_slice<'w>(&self) -> &mut [FetchedTerm<'w>] {
+        unsafe { std::slice::from_raw_parts_mut(self.mem.cast(), self.len) }
+    }
+}
+
+impl Drop for RawFetches {
+    fn drop(&mut self) {
+        unsafe {
+            std::alloc::dealloc(
+                self.mem,
+                Layout::array::<FetchedTerm>(self.len).unwrap_unchecked(),
+            )
+        }
+    }
+}
+
+unsafe impl Send for RawFetches {}
+unsafe impl Sync for RawFetches {}
 
 pub struct TermQueryState<Q: QueryTermGroup = (), F: QueryTermGroup = ()> {
     world_id: WorldId,
     pub(crate) terms: TermVec<Term>,
+    fetches: RawFetches,
     pub(crate) archetype_generation: ArchetypeGeneration,
     pub(crate) matched_tables: FixedBitSet,
     pub(crate) matched_archetypes: FixedBitSet,
@@ -50,8 +90,11 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         terms
             .iter()
             .for_each(|term| term.update_component_access(&mut component_access));
+        let fetches = RawFetches::new(terms.len());
+
         Self {
             terms,
+            fetches,
             world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_table_ids: Vec::new(),
@@ -239,15 +282,14 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
             .get(location.table_id)
             .debug_checked_unwrap();
 
-        let mut fetched_terms =
-            self.terms
-                .iter()
-                .zip(term_state.iter_mut())
-                .map(|(term, state)| {
-                    term.set_table(state, table);
-                    term.fetch(state, entity, location.table_row)
-                });
-        Ok(Q::from_fetches(&mut fetched_terms))
+        self.set_table(&mut term_state, table);
+        self.fetch(
+            &term_state,
+            entity,
+            location.table_row,
+            self.fetches.as_uninit(),
+        );
+        Ok(Q::from_fetches(&mut self.fetches.as_slice().iter()))
     }
 
     /// Returns a single immutable query result when there is exactly one entity matching
@@ -378,16 +420,16 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     }
 
     #[inline]
-    pub fn single_raw<'w>(&mut self, world: &'w mut World) -> TermVec<FetchedTerm<'w>> {
+    pub fn single_raw<'w, 's>(&'s mut self, world: &'w mut World) -> Vec<FetchedTerm<'w>> {
         self.get_single_raw(world).unwrap()
     }
 
     #[inline]
-    pub fn get_single_raw<'w>(
-        &mut self,
+    pub fn get_single_raw<'w, 's>(
+        &'s mut self,
         world: &'w mut World,
-    ) -> Result<TermVec<FetchedTerm<'w>>, QuerySingleError> {
-        let mut query = self.iter_raw(world);
+    ) -> Result<Vec<FetchedTerm<'w>>, QuerySingleError> {
+        let query = &mut self.iter_raw(world);
         let first = query.next();
         let extra = query.next().is_some();
 
@@ -472,6 +514,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     ) {
         let mut term_state = self.init_term_state(world, last_run, this_run);
         let dense = term_state.iter().all(|t| t.dense());
+        let raw_fetches = RawFetches::new(self.terms.len());
 
         let tables = &world.storages().tables;
         if dense {
@@ -486,9 +529,8 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
                     if !self.filter_fetch(&term_state, entity, row) {
                         continue;
                     }
-                    func(Q::from_fetches(
-                        &mut self.fetch(&term_state, entity, row).into_iter(),
-                    ))
+                    self.fetch(&term_state, entity, row, raw_fetches.as_uninit());
+                    func(Q::from_fetches(&mut raw_fetches.as_slice().iter()))
                 }
             }
         } else {
@@ -507,9 +549,8 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
                         continue;
                     }
 
-                    func(Q::from_fetches(
-                        &mut self.fetch(&term_state, entity, row).into_iter(),
-                    ))
+                    self.fetch(&term_state, entity, row, raw_fetches.as_uninit());
+                    func(Q::from_fetches(&mut raw_fetches.as_slice().iter()))
                 }
             }
         }
@@ -551,23 +592,21 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     }
 
     #[inline(always)]
-    pub unsafe fn fetch<'w>(
-        &self,
+    pub unsafe fn fetch<'w, 's>(
+        &'s self,
         state: &TermVec<TermState<'w>>,
         entity: Entity,
         table_row: TableRow,
-    ) -> TermVec<FetchedTerm<'w>> {
+        mem: &mut [MaybeUninit<FetchedTerm<'w>>],
+    ) {
         let len = self.terms.len();
         let terms = &self.terms[..len];
         let state = &state[..len];
-        let mut result = TermVec::with_capacity(len);
 
         for i in 0..len {
             let term = &terms[i];
             let state = &state[i];
-            result.push(term.fetch(state, entity, table_row));
+            mem[i].write(term.fetch(state, entity, table_row));
         }
-
-        result
     }
 }

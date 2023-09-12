@@ -202,6 +202,7 @@ impl ComponentTermState<'_> {
     }
 }
 
+#[derive(Clone)]
 pub struct FetchedChangeTicks<'w> {
     added: &'w UnsafeCell<Tick>,
     changed: &'w UnsafeCell<Tick>,
@@ -210,6 +211,7 @@ pub struct FetchedChangeTicks<'w> {
     this_run: Tick,
 }
 
+#[derive(Clone)]
 pub struct FetchedComponent<'w> {
     pointer: Option<Ptr<'w>>,
     change_ticks: Option<FetchedChangeTicks<'w>>,
@@ -378,7 +380,7 @@ impl<T: Component> ComponentQueryTerm for With<T> {
     }
 
     #[inline(always)]
-    unsafe fn from_fetch<'w>(_term: FetchedComponent<'w>) -> Self::Item<'w> {}
+    unsafe fn from_fetch<'w>(_term: &'w FetchedComponent<'w>) -> Self::Item<'w> {}
 }
 
 impl<T: Component> ComponentQueryTerm for Without<T> {
@@ -391,7 +393,7 @@ impl<T: Component> ComponentQueryTerm for Without<T> {
     }
 
     #[inline(always)]
-    unsafe fn from_fetch<'w>(_term: FetchedComponent<'w>) -> Self::Item<'w> {}
+    unsafe fn from_fetch<'w>(_term: &'w FetchedComponent<'w>) -> Self::Item<'w> {}
 }
 
 impl<T: Component> ComponentQueryTerm for Has<T> {
@@ -404,7 +406,7 @@ impl<T: Component> ComponentQueryTerm for Has<T> {
     }
 
     #[inline(always)]
-    unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(term: &'w FetchedComponent<'w>) -> Self::Item<'w> {
         term.matched
     }
 }
@@ -419,7 +421,7 @@ impl<T: Component> ComponentQueryTerm for Added<T> {
     }
 
     #[inline(always)]
-    unsafe fn from_fetch<'w>(_term: FetchedComponent<'w>) -> Self::Item<'w> {}
+    unsafe fn from_fetch<'w>(_term: &'w FetchedComponent<'w>) -> Self::Item<'w> {}
 }
 
 impl<T: Component> ComponentQueryTerm for Changed<T> {
@@ -432,7 +434,7 @@ impl<T: Component> ComponentQueryTerm for Changed<T> {
     }
 
     #[inline(always)]
-    unsafe fn from_fetch<'w>(_term: FetchedComponent<'w>) -> Self::Item<'w> {}
+    unsafe fn from_fetch<'w>(_term: &FetchedComponent<'w>) -> Self::Item<'w> {}
 }
 
 impl<T: Component> ComponentQueryTerm for &T {
@@ -445,7 +447,7 @@ impl<T: Component> ComponentQueryTerm for &T {
     }
 
     #[inline(always)]
-    unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(term: &FetchedComponent<'w>) -> Self::Item<'w> {
         term.pointer.debug_checked_unwrap().deref()
     }
 }
@@ -460,7 +462,7 @@ impl<T: Component> ComponentQueryTerm for Ref<'_, T> {
     }
 
     #[inline(always)]
-    unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(term: &FetchedComponent<'w>) -> Self::Item<'w> {
         let change_detection = term.change_ticks.as_ref().debug_checked_unwrap();
         Ref {
             value: term.pointer.debug_checked_unwrap().deref(),
@@ -484,7 +486,7 @@ impl ComponentQueryTerm for Ptr<'_> {
     }
 
     #[inline(always)]
-    unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(term: &FetchedComponent<'w>) -> Self::Item<'w> {
         term.pointer.debug_checked_unwrap()
     }
 }
@@ -499,7 +501,7 @@ impl<'r, T: Component> ComponentQueryTerm for &'r mut T {
     }
 
     #[inline(always)]
-    unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(term: &FetchedComponent<'w>) -> Self::Item<'w> {
         let change_detection = term.change_ticks.as_ref().debug_checked_unwrap();
         Mut {
             value: term
@@ -527,7 +529,7 @@ impl<'r> ComponentQueryTerm for PtrMut<'r> {
     }
 
     #[inline(always)]
-    unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(term: &FetchedComponent<'w>) -> Self::Item<'w> {
         let change_detection = term.change_ticks.as_ref().debug_checked_unwrap();
         MutUntyped {
             value: term.pointer.debug_checked_unwrap().assert_unique(),
@@ -551,7 +553,7 @@ impl<C: ComponentQueryTerm> ComponentQueryTerm for Option<C> {
     }
 
     #[inline(always)]
-    unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(term: &FetchedComponent<'w>) -> Self::Item<'w> {
         if term.matched {
             Some(C::from_fetch(term))
         } else {

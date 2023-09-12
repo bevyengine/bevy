@@ -9,11 +9,12 @@ use crate::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{Fetchable, FetchedTerm, QueryTermGroup, TermQueryState, TermState, TermVec};
+use super::{FetchedTerm, QueryTermGroup, RawFetches, TermQueryState, TermState, TermVec};
 
 pub struct TermQueryCursor<'w, 's> {
     table_id_iter: slice::Iter<'s, TableId>,
     archetype_id_iter: slice::Iter<'s, ArchetypeId>,
+    raw_fetches: RawFetches,
     table_entities: &'w [Entity],
     archetype_entities: &'w [ArchetypeEntity],
     term_state: TermVec<TermState<'w>>,
@@ -34,6 +35,7 @@ impl<'w, 's> TermQueryCursor<'w, 's> {
         Self {
             table_id_iter: query_state.matched_table_ids.iter(),
             archetype_id_iter: query_state.matched_archetype_ids.iter(),
+            raw_fetches: RawFetches::new(term_state.len()),
             table_entities: &[],
             archetype_entities: &[],
             dense: term_state.iter().all(|t| t.dense()),
@@ -49,7 +51,7 @@ impl<'w, 's> TermQueryCursor<'w, 's> {
         tables: &'w Tables,
         archetypes: &'w Archetypes,
         query_state: &'s TermQueryState<Q>,
-    ) -> Option<TermVec<FetchedTerm<'w>>> {
+    ) -> Option<&[FetchedTerm<'w>]> {
         if self.dense {
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
@@ -78,7 +80,8 @@ impl<'w, 's> TermQueryCursor<'w, 's> {
                 self.current_row += 1;
 
                 if query_state.filter_fetch(&self.term_state, entity, row) {
-                    return Some(query_state.fetch(&self.term_state, entity, row));
+                    query_state.fetch(&self.term_state, entity, row, self.raw_fetches.as_uninit());
+                    return Some(self.raw_fetches.as_slice());
                 }
             }
         } else {
@@ -108,7 +111,8 @@ impl<'w, 's> TermQueryCursor<'w, 's> {
                 let row = archetype_entity.table_row();
                 // Apply filters
                 if query_state.filter_fetch(&mut self.term_state, entity, row) {
-                    return Some(query_state.fetch(&mut self.term_state, entity, row));
+                    query_state.fetch(&self.term_state, entity, row, self.raw_fetches.as_uninit());
+                    return Some(self.raw_fetches.as_slice());
                 }
             }
         }
@@ -139,15 +143,24 @@ impl<'w, 's> TermQueryIterUntyped<'w, 's> {
     }
 }
 
-impl<'w, 's> Iterator for TermQueryIterUntyped<'w, 's> {
-    type Item = TermVec<FetchedTerm<'w>>;
-
+// This would be a streaming iterator if rust supported those
+impl<'w, 's> TermQueryIterUntyped<'w, 's> {
     #[inline(always)]
-    fn next(&mut self) -> Option<Self::Item> {
+    fn next_fetch<'f>(&'f mut self) -> Option<&'f [FetchedTerm<'w>]> {
         unsafe {
             self.cursor
                 .next(self.tables, self.archetypes, self.query_state)
         }
+    }
+}
+
+// Slower iterator API that clones fetches
+impl<'w, 's> Iterator for TermQueryIterUntyped<'w, 's> {
+    type Item = Vec<FetchedTerm<'w>>;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_fetch().map(|fetches| fetches.to_vec())
     }
 }
 
@@ -177,9 +190,11 @@ impl<'w, 's, Q: QueryTermGroup> Iterator for TermQueryIter<'w, 's, Q> {
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
-            self.inner
-                .next()
-                .map(|fetches| Q::from_fetches(&mut fetches.into_iter()))
+            if let Some(fetches) = &mut self.inner.next_fetch() {
+                Some(Q::from_fetches(&mut fetches.iter()))
+            } else {
+                None
+            }
         }
     }
 }

@@ -176,7 +176,7 @@ mod tests {
         // Our result is completely untyped
         let terms = query.single_raw(&mut world);
         // Consume our fetched terms to produce a set of term items
-        let (e, a, b) = unsafe { <(Entity, &A, &B)>::from_fetches(&mut terms.into_iter()) };
+        let (e, a, b) = unsafe { <(Entity, &A, &B)>::from_fetches(&mut terms.iter()) };
 
         assert_eq!(e, entity);
         assert_eq!(0, a.0);
@@ -185,12 +185,9 @@ mod tests {
         // Alternatively extract individual terms dynamically
         let terms = query.single_raw(&mut world);
 
-        // Turn into options so we can consume them out of order
-        let mut terms = terms.into_iter().map(|t| Some(t)).collect::<Vec<_>>();
-
-        assert_eq!(0, unsafe { <&A>::from_fetch(terms[1].take().unwrap()) }.0);
-        assert_eq!(e, unsafe { Entity::from_fetch(terms[0].take().unwrap()) });
-        assert_eq!(1, unsafe { <&B>::from_fetch(terms[2].take().unwrap()) }.0);
+        assert_eq!(0, unsafe { <&A>::from_fetch(&terms[1]) }.0);
+        assert_eq!(e, unsafe { Entity::from_fetch(&terms[0]) });
+        assert_eq!(1, unsafe { <&B>::from_fetch(&terms[2]) }.0);
     }
 
     #[test]
@@ -202,11 +199,12 @@ mod tests {
             .term::<(Entity, &B)>()
             .build();
 
-        let mut terms = query.single_raw(&mut world).into_iter();
+        let terms = query.single_raw(&mut world);
+        let mut iter = terms.iter();
 
         // Seperately consume our two terms
-        let (e1, a) = unsafe { <(Entity, &A)>::from_fetches(&mut terms) };
-        let (e2, b) = unsafe { <(Entity, &B)>::from_fetches(&mut terms) };
+        let (e1, a) = unsafe { <(Entity, &A)>::from_fetches(&mut iter) };
+        let (e2, b) = unsafe { <(Entity, &B)>::from_fetches(&mut iter) };
 
         assert_eq!(e1, entity);
         assert_eq!(e1, e2);
