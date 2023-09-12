@@ -15,10 +15,13 @@ use crate::{
 use super::{
     Fetchable, FetchedTerm, QueryTermGroup, Term, TermQueryIter, TermQueryIterUntyped, TermState,
 };
+use smallvec::SmallVec;
+
+pub type TermVec<T> = SmallVec<[T; 12]>;
 
 pub struct TermQueryState<Q: QueryTermGroup = (), F: QueryTermGroup = ()> {
     world_id: WorldId,
-    pub(crate) terms: Vec<Term>,
+    pub(crate) terms: TermVec<Term>,
     pub(crate) archetype_generation: ArchetypeGeneration,
     pub(crate) matched_tables: FixedBitSet,
     pub(crate) matched_archetypes: FixedBitSet,
@@ -35,12 +38,33 @@ pub type ROTermItem<'w, Q> = <<Q as QueryTermGroup>::ReadOnly as QueryTermGroup>
 
 impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     pub fn new(world: &mut World) -> Self {
-        let mut terms = Vec::new();
+        let mut terms = TermVec::new();
         Q::init_terms(world, &mut terms);
         F::ReadOnly::init_terms(world, &mut terms);
         Self::from_terms(world, terms)
     }
 
+    #[inline]
+    pub fn from_terms(world: &mut World, terms: TermVec<Term>) -> Self {
+        let mut component_access = FilteredAccess::default();
+        terms
+            .iter()
+            .for_each(|term| term.update_component_access(&mut component_access));
+        Self {
+            terms,
+            world_id: world.id(),
+            archetype_generation: ArchetypeGeneration::initial(),
+            matched_table_ids: Vec::new(),
+            matched_archetype_ids: Vec::new(),
+            archetype_component_access: Access::default(),
+            component_access,
+            matched_tables: FixedBitSet::default(),
+            matched_archetypes: FixedBitSet::default(),
+            _marker: PhantomData::default(),
+        }
+    }
+
+    #[inline]
     pub fn new_archetype(&mut self, archetype: &Archetype) {
         if self
             .terms
@@ -66,40 +90,21 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         }
     }
 
+    #[inline]
     pub unsafe fn init_term_state<'w>(
         &self,
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-    ) -> Vec<TermState<'w>> {
+    ) -> TermVec<TermState<'w>> {
         self.terms
             .iter()
             .map(|term| term.init_state(world, last_run, this_run))
             .collect()
     }
 
-    pub fn from_terms(world: &mut World, terms: Vec<Term>) -> Self {
-        let mut component_access = FilteredAccess::default();
-        terms
-            .iter()
-            .for_each(|term| term.update_component_access(&mut component_access));
-        Self {
-            terms,
-            world_id: world.id(),
-            archetype_generation: ArchetypeGeneration::initial(),
-            matched_table_ids: Vec::new(),
-            matched_archetype_ids: Vec::new(),
-            archetype_component_access: Access::default(),
-            component_access,
-            matched_tables: FixedBitSet::default(),
-            matched_archetypes: FixedBitSet::default(),
-            _marker: PhantomData::default(),
-        }
-    }
-
-    pub unsafe fn as_readonly(&self) -> &TermQueryState<Q::ReadOnly> {
-        // TODO: Checked version
-        std::mem::transmute(self)
+    pub fn as_readonly(&self) -> &TermQueryState<Q::ReadOnly> {
+        unsafe { std::mem::transmute(self) }
     }
 
     pub unsafe fn transmute<O: QueryTermGroup>(self) -> TermQueryState<O> {
@@ -131,6 +136,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         self.update_archetypes_unsafe_world_cell(world.as_unsafe_world_cell_readonly());
     }
 
+    #[inline]
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
         self.validate_world(world.id());
         let archetypes = world.archetypes();
@@ -207,6 +213,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         }
     }
 
+    #[inline]
     pub(crate) unsafe fn get_unchecked_manual<'w>(
         &self,
         world: UnsafeWorldCell<'w>,
@@ -371,7 +378,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     }
 
     #[inline]
-    pub fn single_raw<'w>(&mut self, world: &'w mut World) -> Vec<FetchedTerm<'w>> {
+    pub fn single_raw<'w>(&mut self, world: &'w mut World) -> TermVec<FetchedTerm<'w>> {
         self.get_single_raw(world).unwrap()
     }
 
@@ -379,7 +386,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     pub fn get_single_raw<'w>(
         &mut self,
         world: &'w mut World,
-    ) -> Result<Vec<FetchedTerm<'w>>, QuerySingleError> {
+    ) -> Result<TermVec<FetchedTerm<'w>>, QuerySingleError> {
         let mut query = self.iter_raw(world);
         let first = query.next();
         let extra = query.next().is_some();
@@ -390,6 +397,114 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
             (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
                 Self,
             >())),
+        }
+    }
+
+    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
+    /// iter() method, but cannot be chained like a normal [`Iterator`].
+    ///
+    /// This can only be called for read-only queries, see [`Self::for_each_mut`] for write-queries.
+    #[inline]
+    pub fn for_each<'w, FN: FnMut(ROTermItem<'w, Q>)>(&mut self, world: &'w World, func: FN) {
+        self.update_archetypes(world);
+        // SAFETY: query is read only
+        unsafe {
+            self.as_readonly().for_each_unchecked_manual(
+                world.as_unsafe_world_cell_readonly(),
+                func,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            );
+        }
+    }
+
+    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
+    /// `iter_mut()` method, but cannot be chained like a normal [`Iterator`].
+    #[inline]
+    pub fn for_each_mut<'w, FN: FnMut(Q::Item<'w>)>(&mut self, world: &'w mut World, func: FN) {
+        self.update_archetypes(world);
+        let change_tick = world.change_tick();
+        let last_change_tick = world.last_change_tick();
+        // SAFETY: query has unique world access
+        unsafe {
+            self.for_each_unchecked_manual(
+                world.as_unsafe_world_cell(),
+                func,
+                last_change_tick,
+                change_tick,
+            );
+        }
+    }
+
+    /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
+    /// iter() method, but cannot be chained like a normal [`Iterator`].
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    #[inline]
+    pub unsafe fn for_each_unchecked<'w, FN: FnMut(Q::Item<'w>)>(
+        &mut self,
+        world: UnsafeWorldCell<'w>,
+        func: FN,
+    ) {
+        self.update_archetypes_unsafe_world_cell(world);
+        self.for_each_unchecked_manual(world, func, world.last_change_tick(), world.change_tick());
+    }
+
+    /// Runs `func` on each query result for the given [`World`], where the last change and
+    /// the current change tick are given. This is faster than the equivalent
+    /// iter() method, but cannot be chained like a normal [`Iterator`].
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched [`WorldId`] is unsound.
+    pub(crate) unsafe fn for_each_unchecked_manual<'w, FN: FnMut(Q::Item<'w>)>(
+        &self,
+        world: UnsafeWorldCell<'w>,
+        mut func: FN,
+        last_run: Tick,
+        this_run: Tick,
+    ) {
+        let mut term_state = self.init_term_state(world, last_run, this_run);
+
+        let tables = &world.storages().tables;
+        let archetypes = world.archetypes();
+        for archetype_id in &self.matched_archetype_ids {
+            let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();
+            let table = tables.get(archetype.table_id()).debug_checked_unwrap();
+            self.terms
+                .iter()
+                .zip(term_state.iter_mut())
+                .for_each(|(term, state)| term.set_table(state, table));
+
+            let entities = archetype.entities();
+            for idx in 0..archetype.len() {
+                let archetype_entity = entities.get_unchecked(idx);
+                let entity = archetype_entity.entity();
+                let row = archetype_entity.table_row();
+                // Apply filters
+                if !self
+                    .terms
+                    .iter()
+                    .zip(term_state.iter_mut())
+                    .all(|(term, state)| term.filter_fetch(state, entity, row))
+                {
+                    continue;
+                }
+
+                func(Q::from_fetches(
+                    &mut self
+                        .terms
+                        .iter()
+                        .zip(term_state.iter_mut())
+                        .map(|(term, state)| term.fetch(state, entity, row)),
+                ))
+            }
         }
     }
 }

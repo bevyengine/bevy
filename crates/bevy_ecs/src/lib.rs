@@ -53,6 +53,7 @@ pub mod prelude {
             Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
             ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemParamFunction,
         },
+        term_query::{TermQuery, TermQueryState},
         world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
     };
 }

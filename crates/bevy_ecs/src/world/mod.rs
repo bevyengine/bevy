@@ -23,6 +23,7 @@ use crate::{
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::Resource,
+    term_query::{QueryTermGroup, TermQueryState},
     world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -1005,6 +1006,18 @@ impl World {
     #[inline]
     pub fn query_filtered<Q: WorldQuery, F: ReadOnlyWorldQuery>(&mut self) -> QueryState<Q, F> {
         QueryState::new(self)
+    }
+
+    #[inline]
+    pub fn term_query<Q: QueryTermGroup>(&mut self) -> TermQueryState<Q> {
+        self.term_query_filtered::<Q, ()>()
+    }
+
+    #[inline]
+    pub fn term_query_filtered<Q: QueryTermGroup, F: QueryTermGroup>(
+        &mut self,
+    ) -> TermQueryState<Q, F> {
+        TermQueryState::new(self)
     }
 
     /// Returns an iterator of entities that had components of type `T` removed

@@ -29,6 +29,7 @@ rustc-hash = "1.1"
 downcast-rs = "1.2"
 serde = "1"
 thiserror = "1.0"
+smallvec = "1.6"
 
 [dev-dependencies]
 rand = "0.8"

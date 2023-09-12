@@ -349,4 +349,40 @@ mod tests {
         assert_eq!(Some(&B(0)), entity.get::<B>());
         assert_eq!(None, entity.get::<C>());
     }
+
+    #[derive(Component)]
+    #[component(storage = "SparseSet")]
+    struct S(usize);
+
+    #[test]
+    fn term_query_sparse_set() {
+        let mut world = World::new();
+        let entity_a = world.spawn((A(0), S(1))).id();
+
+        let mut query = world.term_query::<(Entity, &A, &S)>();
+
+        let (e, a, s) = query.single(&world);
+        assert_eq!(entity_a, e);
+        assert_eq!(0, a.0);
+        assert_eq!(1, s.0);
+    }
+
+    #[test]
+    fn term_query_iteration() {
+        let mut world = World::new();
+        let entity = world.spawn((A(1), B(0), C(0))).id();
+        world.spawn_batch((1..1000).map(|i| (A(i), B(0))));
+
+        let mut query = world.term_query::<(&A, &mut B)>();
+
+        query
+            .iter_mut(&mut world)
+            .for_each(|(a, mut b)| b.0 = a.0 * 2);
+
+        let mut query = world.term_query_filtered::<(Entity, &B), With<C>>();
+        let (e, b) = query.single(&world);
+
+        assert_eq!(e, entity);
+        assert_eq!(2, b.0);
+    }
 }

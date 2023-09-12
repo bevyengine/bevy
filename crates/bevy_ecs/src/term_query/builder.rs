@@ -5,10 +5,10 @@ use crate::{
     prelude::{Component, With, Without, World},
 };
 
-use super::{ComponentTerm, QueryTermGroup, Term, TermQueryState};
+use super::{ComponentTerm, QueryTermGroup, Term, TermQueryState, TermVec};
 
 pub struct QueryBuilder<'w, Q: QueryTermGroup = ()> {
-    terms: Vec<Term>,
+    terms: TermVec<Term>,
     current_term: usize,
     world: &'w mut World,
     _marker: PhantomData<Q>,
@@ -16,7 +16,7 @@ pub struct QueryBuilder<'w, Q: QueryTermGroup = ()> {
 
 impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
     pub fn new(world: &'w mut World) -> Self {
-        let mut terms = Vec::new();
+        let mut terms = TermVec::new();
         Q::init_terms(world, &mut terms);
         Self {
             current_term: terms.len(),

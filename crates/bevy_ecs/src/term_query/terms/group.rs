@@ -5,6 +5,7 @@ use crate::{
     prelude::{AnyOf, Or, World},
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{Table, TableRow},
+    term_query::TermVec,
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -20,14 +21,22 @@ pub struct OrTerm {
 }
 
 pub struct OrTermState<'w> {
-    state: ComponentTermState<'w>,
+    component: ComponentTermState<'w>,
     matches: bool,
+}
+
+impl OrTermState<'_> {
+    #[inline]
+    pub fn dense(&self) -> bool {
+        !self.matches || self.component.dense()
+    }
 }
 
 impl Fetchable for OrTerm {
     type State<'w> = Vec<OrTermState<'w>>;
     type Item<'w> = Vec<FetchedComponent<'w>>;
 
+    #[inline]
     unsafe fn init_state<'w>(
         &self,
         world: UnsafeWorldCell<'w>,
@@ -37,12 +46,13 @@ impl Fetchable for OrTerm {
         self.terms
             .iter()
             .map(|term| OrTermState {
-                state: term.init_state(world, last_run, this_run),
+                component: term.init_state(world, last_run, this_run),
                 matches: false,
             })
             .collect()
     }
 
+    #[inline]
     unsafe fn set_table<'w>(&self, state: &mut Self::State<'w>, table: &'w Table) {
         self.terms
             .iter()
@@ -50,11 +60,12 @@ impl Fetchable for OrTerm {
             .for_each(|(term, state)| {
                 state.matches = term.matches_component_set(&|id| table.has_column(id));
                 if state.matches {
-                    term.set_table(&mut state.state, table)
+                    term.set_table(&mut state.component, table)
                 }
             })
     }
 
+    #[inline(always)]
     unsafe fn fetch<'w>(
         &self,
         state: &mut Self::State<'w>,
@@ -65,13 +76,14 @@ impl Fetchable for OrTerm {
             self.terms
                 .iter()
                 .zip(state.iter_mut())
-                .map(|(term, state)| term.fetch(&mut state.state, entity, table_row))
+                .map(|(term, state)| term.fetch(&mut state.component, entity, table_row))
                 .collect()
         } else {
             Vec::new()
         }
     }
 
+    #[inline(always)]
     unsafe fn filter_fetch<'w>(
         &self,
         state: &mut Self::State<'w>,
@@ -82,10 +94,11 @@ impl Fetchable for OrTerm {
             .iter()
             .zip(state.iter_mut())
             .any(|(term, state)| {
-                state.matches && term.filter_fetch(&mut state.state, entity, table_row)
+                state.matches && term.filter_fetch(&mut state.component, entity, table_row)
             })
     }
 
+    #[inline]
     fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
         let mut iter = self.terms.iter();
         let Some(term) = iter.next() else {
@@ -102,6 +115,7 @@ impl Fetchable for OrTerm {
         *access = new_access;
     }
 
+    #[inline]
     fn update_archetype_component_access(
         &self,
         archetype: &Archetype,
@@ -112,6 +126,7 @@ impl Fetchable for OrTerm {
             .for_each(|term| term.update_archetype_component_access(archetype, access))
     }
 
+    #[inline]
     fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         self.terms
             .iter()
@@ -123,7 +138,7 @@ impl<Q: ComponentQueryTermGroup> QueryTermGroup for Or<Q> {
     type Item<'w> = ();
     type ReadOnly = Self;
 
-    fn init_terms(world: &mut World, terms: &mut Vec<Term>) {
+    fn init_terms(world: &mut World, terms: &mut TermVec<Term>) {
         let mut sub_terms = Vec::new();
         Q::init_terms(world, &mut sub_terms);
         terms.push(Term::Or(OrTerm {
@@ -132,6 +147,7 @@ impl<Q: ComponentQueryTermGroup> QueryTermGroup for Or<Q> {
         }));
     }
 
+    #[inline(always)]
     unsafe fn from_fetches<'w>(
         terms: &mut impl Iterator<Item = FetchedTerm<'w>>,
     ) -> Self::Item<'w> {
@@ -143,7 +159,7 @@ impl<Q: ComponentQueryTermGroup> QueryTermGroup for AnyOf<Q> {
     type Item<'w> = <Q::Optional as ComponentQueryTermGroup>::Item<'w>;
     type ReadOnly = Self;
 
-    fn init_terms(world: &mut World, terms: &mut Vec<Term>) {
+    fn init_terms(world: &mut World, terms: &mut TermVec<Term>) {
         let mut sub_terms = Vec::new();
         Q::Optional::init_terms(world, &mut sub_terms);
         terms.push(Term::Or(OrTerm {
@@ -152,6 +168,7 @@ impl<Q: ComponentQueryTermGroup> QueryTermGroup for AnyOf<Q> {
         }));
     }
 
+    #[inline(always)]
     unsafe fn from_fetches<'w>(
         terms: &mut impl Iterator<Item = FetchedTerm<'w>>,
     ) -> Self::Item<'w> {

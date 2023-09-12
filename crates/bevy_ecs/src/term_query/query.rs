@@ -102,6 +102,7 @@ impl<'w, 's, Q: QueryTermGroup, F: QueryTermGroup> TermQuery<'w, 's, Q, F> {
         self.get_single_mut().unwrap()
     }
 
+    #[inline]
     pub fn get_single_mut(&mut self) -> Result<Q::Item<'_>, QuerySingleError> {
         // SAFETY:
         // the query ensures mutable access to the components it accesses, and the query

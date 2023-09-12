@@ -42,6 +42,7 @@ impl Fetchable for EntityTerm {
     type State<'w> = UnsafeWorldCell<'w>;
     type Item<'w> = FetchedEntity<'w>;
 
+    #[inline]
     unsafe fn init_state<'w>(
         &self,
         world: UnsafeWorldCell<'w>,
@@ -51,8 +52,10 @@ impl Fetchable for EntityTerm {
         world
     }
 
+    #[inline]
     unsafe fn set_table<'w>(&self, _state: &mut Self::State<'w>, _table: &'w Table) {}
 
+    #[inline(always)]
     unsafe fn fetch<'w>(
         &self,
         world: &mut Self::State<'w>,
@@ -68,6 +71,7 @@ impl Fetchable for EntityTerm {
         }
     }
 
+    #[inline(always)]
     unsafe fn filter_fetch<'w>(
         &self,
         _state: &mut Self::State<'w>,
@@ -77,6 +81,7 @@ impl Fetchable for EntityTerm {
         true
     }
 
+    #[inline]
     fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
         debug_assert!(
             self.access.is_none() || !access.access().has_any_write(),
@@ -89,6 +94,7 @@ impl Fetchable for EntityTerm {
         }
     }
 
+    #[inline]
     fn update_archetype_component_access(
         &self,
         archetype: &Archetype,
@@ -107,6 +113,7 @@ impl Fetchable for EntityTerm {
         }
     }
 
+    #[inline]
     fn matches_component_set(&self, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         true
     }
@@ -120,6 +127,7 @@ impl QueryTerm for Entity {
         Term::Entity(EntityTerm::none())
     }
 
+    #[inline(always)]
     unsafe fn from_fetch<'w>(term: FetchedTerm<'w>) -> Self::Item<'w> {
         let FetchedTerm::Entity(term) = term else {
             unreachable!();
@@ -136,6 +144,7 @@ impl QueryTerm for EntityRef<'_> {
         Term::Entity(EntityTerm::read())
     }
 
+    #[inline(always)]
     unsafe fn from_fetch<'w>(term: FetchedTerm<'w>) -> Self::Item<'w> {
         let FetchedTerm::Entity(term) = term else {
             unreachable!();
@@ -152,6 +161,7 @@ impl<'r> QueryTerm for EntityMut<'r> {
         Term::Entity(EntityTerm::write())
     }
 
+    #[inline(always)]
     unsafe fn from_fetch<'w>(term: FetchedTerm<'w>) -> Self::Item<'w> {
         let FetchedTerm::Entity(term) = term else {
             unreachable!();

@@ -5,7 +5,7 @@ use bevy_ptr::{Ptr, PtrMut, ThinSlicePtr, UnsafeCellDeref};
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     change_detection::{Mut, MutUntyped, Ticks, TicksMut},
-    component::{ComponentId, Tick},
+    component::{ComponentId, StorageType, Tick},
     entity::Entity,
     prelude::{Added, Changed, Component, Has, Ref, With, Without, World},
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
@@ -123,6 +123,7 @@ impl ComponentTerm {
         self.component = Some(id);
     }
 
+    #[inline(always)]
     unsafe fn get_component<'w>(
         &self,
         state: &mut ComponentTermState<'w>,
@@ -138,6 +139,7 @@ impl ComponentTerm {
         }
     }
 
+    #[inline(always)]
     unsafe fn get_change_ticks<'w>(
         &self,
         state: &mut ComponentTermState<'w>,
@@ -188,7 +190,16 @@ pub struct ComponentTermState<'w> {
     this_run: Tick,
 
     size: usize,
+    storage: StorageType,
+
     matches: bool,
+}
+
+impl ComponentTermState<'_> {
+    #[inline]
+    pub fn dense(&self) -> bool {
+        self.storage == StorageType::Table
+    }
 }
 
 pub struct FetchedChangeTicks<'w> {
@@ -209,6 +220,7 @@ impl Fetchable for ComponentTerm {
     type State<'w> = ComponentTermState<'w>;
     type Item<'w> = FetchedComponent<'w>;
 
+    #[inline]
     unsafe fn init_state<'w>(
         &self,
         world: UnsafeWorldCell<'w>,
@@ -217,27 +229,31 @@ impl Fetchable for ComponentTerm {
     ) -> ComponentTermState<'w> {
         let id = self.id();
         let info = world.components().get_info_unchecked(id);
-        ComponentTermState {
-            pointer: (self.access.is_some() || self.change_detection)
-                .then(|| {
-                    world
-                        .storages()
-                        .sparse_sets
-                        .get(self.id())
-                        .map(|set| StoragePtr::SparseSet(set))
-                })
-                .flatten(),
-
+        let storage = info.storage_type();
+        let mut state = ComponentTermState {
+            pointer: None,
             size: info.layout().size(),
+            storage,
 
-            last_run,
             this_run,
+            last_run,
 
             matches: false,
+        };
+        if let StorageType::SparseSet = storage {
+            let set = world.storages().sparse_sets.get(self.id());
+            state.pointer = set.map(|set| StoragePtr::SparseSet(set));
+            state.matches = set.is_some();
         }
+
+        state
     }
 
+    #[inline]
     unsafe fn set_table<'w>(&self, state: &mut ComponentTermState<'w>, table: &'w Table) {
+        if let StorageType::SparseSet = state.storage {
+            return;
+        };
         if let Some(column) = table.get_column(self.id()) {
             state.pointer = Some(StoragePtr::Table {
                 table: self.access.is_some().then(|| column.get_data_ptr()),
@@ -254,6 +270,7 @@ impl Fetchable for ComponentTerm {
         }
     }
 
+    #[inline(always)]
     unsafe fn fetch<'w>(
         &self,
         state: &mut Self::State<'w>,
@@ -269,6 +286,7 @@ impl Fetchable for ComponentTerm {
         }
     }
 
+    #[inline(always)]
     unsafe fn filter_fetch<'w>(
         &self,
         state: &mut Self::State<'w>,
@@ -277,7 +295,7 @@ impl Fetchable for ComponentTerm {
     ) -> bool {
         match self.operator {
             TermOperator::Optional => true,
-            // These are checked matches_component_set
+            // These are checked in matches_component_set
             TermOperator::With => true,
             TermOperator::Without => true,
             TermOperator::Changed => {
@@ -297,6 +315,7 @@ impl Fetchable for ComponentTerm {
         }
     }
 
+    #[inline]
     fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
         let id = self.id();
         debug_assert!(
@@ -311,6 +330,7 @@ impl Fetchable for ComponentTerm {
         }
     }
 
+    #[inline]
     fn update_archetype_component_access(
         &self,
         archetype: &Archetype,
@@ -326,6 +346,7 @@ impl Fetchable for ComponentTerm {
         }
     }
 
+    #[inline]
     fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         match self.operator {
             TermOperator::Without => !set_contains_id(self.id()),
@@ -344,6 +365,7 @@ impl<T: Component> ComponentQueryTerm for With<T> {
         ComponentTerm::with(component)
     }
 
+    #[inline(always)]
     unsafe fn from_fetch<'w>(_term: FetchedComponent<'w>) -> Self::Item<'w> {}
 }
 
@@ -356,6 +378,7 @@ impl<T: Component> ComponentQueryTerm for Without<T> {
         ComponentTerm::without(component)
     }
 
+    #[inline(always)]
     unsafe fn from_fetch<'w>(_term: FetchedComponent<'w>) -> Self::Item<'w> {}
 }
 
@@ -368,6 +391,7 @@ impl<T: Component> ComponentQueryTerm for Has<T> {
         ComponentTerm::with(component).optional()
     }
 
+    #[inline(always)]
     unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
         term.matched
     }
@@ -382,6 +406,7 @@ impl<T: Component> ComponentQueryTerm for Added<T> {
         ComponentTerm::added(component)
     }
 
+    #[inline(always)]
     unsafe fn from_fetch<'w>(_term: FetchedComponent<'w>) -> Self::Item<'w> {}
 }
 
@@ -394,6 +419,7 @@ impl<T: Component> ComponentQueryTerm for Changed<T> {
         ComponentTerm::changed(component)
     }
 
+    #[inline(always)]
     unsafe fn from_fetch<'w>(_term: FetchedComponent<'w>) -> Self::Item<'w> {}
 }
 
@@ -406,6 +432,7 @@ impl<T: Component> ComponentQueryTerm for &T {
         ComponentTerm::read_id(component)
     }
 
+    #[inline(always)]
     unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
         term.pointer.debug_checked_unwrap().deref()
     }
@@ -420,6 +447,7 @@ impl<T: Component> ComponentQueryTerm for Ref<'_, T> {
         ComponentTerm::read_id(component).with_change_detection()
     }
 
+    #[inline(always)]
     unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
         let change_detection = term.change_ticks.as_ref().debug_checked_unwrap();
         Ref {
@@ -443,6 +471,7 @@ impl ComponentQueryTerm for Ptr<'_> {
         ComponentTerm::read()
     }
 
+    #[inline(always)]
     unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
         term.pointer.debug_checked_unwrap()
     }
@@ -457,6 +486,7 @@ impl<'r, T: Component> ComponentQueryTerm for &'r mut T {
         ComponentTerm::write_id(component)
     }
 
+    #[inline(always)]
     unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
         let change_detection = term.change_ticks.as_ref().debug_checked_unwrap();
         Mut {
@@ -484,6 +514,7 @@ impl<'r> ComponentQueryTerm for PtrMut<'r> {
         ComponentTerm::read()
     }
 
+    #[inline(always)]
     unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
         let change_detection = term.change_ticks.as_ref().debug_checked_unwrap();
         MutUntyped {
@@ -507,6 +538,7 @@ impl<C: ComponentQueryTerm> ComponentQueryTerm for Option<C> {
         C::init_term(world).optional()
     }
 
+    #[inline(always)]
     unsafe fn from_fetch<'w>(term: FetchedComponent<'w>) -> Self::Item<'w> {
         if term.matched {
             Some(C::from_fetch(term))
