@@ -296,7 +296,7 @@ async fn load_gltf<'a, 'b, 'c>(
     let mut named_materials = HashMap::default();
     // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
     for material in gltf.materials() {
-        let handle = load_material(&material, load_context);
+        let handle = load_material(&material, load_context, false);
         if let Some(name) = material.name() {
             named_materials.insert(name.to_string(), handle.clone());
         }
