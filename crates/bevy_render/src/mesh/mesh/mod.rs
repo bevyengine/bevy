@@ -908,7 +908,10 @@ impl MikktspaceGeometryHelper<'_> {
 
 impl bevy_mikktspace::Geometry for MikktspaceGeometryHelper<'_> {
     fn num_faces(&self) -> usize {
-        self.indices.map(Indices::len).unwrap_or_else(|| self.positions.len()) / 3
+        self.indices
+            .map(Indices::len)
+            .unwrap_or_else(|| self.positions.len())
+            / 3
     }
 
     fn num_vertices_of_face(&self, _: usize) -> usize {
@@ -987,7 +990,6 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
             ))
         }
     };
-
 
     let len = positions.len();
     let tangents = vec![[0., 0., 0., 0.]; len];
