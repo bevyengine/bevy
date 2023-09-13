@@ -122,8 +122,45 @@ impl Term {
     }
 }
 
+pub enum TermStatePtr<'w> {
+    SparseSet(&'w ComponentSparseSet),
+    Table(Option<Ptr<'w>>),
+    World(UnsafeWorldCell<'w>),
+    Group(Vec<TermState<'w>>),
+    None,
+}
+
+pub struct TermStateTicks<'w> {
+    ptrs: Option<(
+        ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        ThinSlicePtr<'w, UnsafeCell<Tick>>,
+    )>,
+
+    last_run: Tick,
+    this_run: Tick,
+}
+
+pub struct TermState<'w> {
+    ptr: TermStatePtr<'w>,
+    ticks: TermStateTicks<'w>,
+
+    size: usize,
+    matches: bool,
+}
+
+impl TermState<'_> {
+    #[inline]
+    pub fn dense(&self) -> bool {
+        if let TermStatePtr::SparseSet(_) = self.ptr {
+            false
+        } else {
+            true
+        }
+    }
+}
+
 #[derive(Clone)]
-pub struct FetchedChangeTicks<'w> {
+pub struct FetchedTicks<'w> {
     added: &'w UnsafeCell<Tick>,
     changed: &'w UnsafeCell<Tick>,
 
@@ -135,7 +172,7 @@ pub struct FetchedChangeTicks<'w> {
 pub enum FetchPtr<'w> {
     Component {
         component: Ptr<'w>,
-        change_ticks: Option<FetchedChangeTicks<'w>>,
+        change_ticks: Option<FetchedTicks<'w>>,
     },
     Entity {
         location: EntityLocation,
@@ -163,7 +200,7 @@ impl<'w> FetchedTerm<'w> {
         }
     }
 
-    pub fn change_ticks(&self) -> Option<&FetchedChangeTicks<'w>> {
+    pub fn change_ticks(&self) -> Option<&FetchedTicks<'w>> {
         if let FetchPtr::Component {
             change_ticks: Some(change_ticks),
             ..
@@ -188,43 +225,6 @@ impl<'w> FetchedTerm<'w> {
             Some(sub_terms)
         } else {
             None
-        }
-    }
-}
-
-pub enum StatePtr<'w> {
-    SparseSet(&'w ComponentSparseSet),
-    Table(Option<Ptr<'w>>),
-    World(UnsafeWorldCell<'w>),
-    Group(Vec<TermState<'w>>),
-    None,
-}
-
-pub struct TickState<'w> {
-    pointers: Option<(
-        ThinSlicePtr<'w, UnsafeCell<Tick>>,
-        ThinSlicePtr<'w, UnsafeCell<Tick>>,
-    )>,
-
-    last_run: Tick,
-    this_run: Tick,
-}
-
-pub struct TermState<'w> {
-    pointer: StatePtr<'w>,
-    change_ticks: TickState<'w>,
-
-    size: usize,
-    matches: bool,
-}
-
-impl TermState<'_> {
-    #[inline]
-    pub fn dense(&self) -> bool {
-        if let StatePtr::SparseSet(_) = self.pointer {
-            false
-        } else {
-            true
         }
     }
 }
@@ -278,15 +278,15 @@ impl Fetchable for Term {
         last_run: Tick,
         this_run: Tick,
     ) -> TermState<'w> {
-        let change_ticks = TickState {
-            pointers: None,
+        let change_ticks = TermStateTicks {
+            ptrs: None,
             last_run,
             this_run,
         };
         if self.entity {
             TermState {
-                pointer: StatePtr::World(world),
-                change_ticks,
+                ptr: TermStatePtr::World(world),
+                ticks: change_ticks,
                 size: 0,
                 matches: true,
             }
@@ -294,18 +294,18 @@ impl Fetchable for Term {
             let info = world.components().get_info_unchecked(component_id);
             let storage = info.storage_type();
             let mut matches = false;
-            let mut pointer = StatePtr::Table(None);
+            let mut pointer = TermStatePtr::Table(None);
             if let StorageType::SparseSet = storage {
                 let set = world.storages().sparse_sets.get(component_id);
                 if let Some(set) = set {
-                    pointer = StatePtr::SparseSet(set);
+                    pointer = TermStatePtr::SparseSet(set);
                     matches = true;
                 }
             }
             TermState {
-                pointer,
+                ptr: pointer,
                 size: info.layout().size(),
-                change_ticks,
+                ticks: change_ticks,
                 matches,
             }
         } else {
@@ -315,8 +315,8 @@ impl Fetchable for Term {
                 .map(|term| term.init_state(world, last_run, this_run))
                 .collect();
             TermState {
-                pointer: StatePtr::Group(state),
-                change_ticks,
+                ptr: TermStatePtr::Group(state),
+                ticks: change_ticks,
                 size: 0,
                 matches: false,
             }
@@ -325,11 +325,11 @@ impl Fetchable for Term {
 
     #[inline]
     unsafe fn set_table<'w>(&self, state: &mut Self::State<'w>, table: &'w Table) {
-        state.matches = match &mut state.pointer {
-            StatePtr::Table(_) => {
+        state.matches = match &mut state.ptr {
+            TermStatePtr::Table(_) => {
                 if let Some(column) = table.get_column(self.component.debug_checked_unwrap()) {
-                    state.pointer = StatePtr::Table(Some(column.get_data_ptr()));
-                    state.change_ticks.pointers = Some((
+                    state.ptr = TermStatePtr::Table(Some(column.get_data_ptr()));
+                    state.ticks.ptrs = Some((
                         column.get_added_ticks_slice().into(),
                         column.get_changed_ticks_slice().into(),
                     ));
@@ -339,7 +339,7 @@ impl Fetchable for Term {
                     false
                 }
             }
-            StatePtr::Group(state) => {
+            TermStatePtr::Group(state) => {
                 let mut group_matches = false;
                 self.sub_terms
                     .iter()
@@ -377,8 +377,8 @@ impl Fetchable for Term {
             };
         }
 
-        match &state.pointer {
-            StatePtr::World(world) => FetchedTerm {
+        match &state.ptr {
+            TermStatePtr::World(world) => FetchedTerm {
                 entity,
                 ptr: if self.access.is_some() {
                     FetchPtr::Entity {
@@ -390,21 +390,21 @@ impl Fetchable for Term {
                 },
                 matched: true,
             },
-            StatePtr::Table(table) => FetchedTerm {
+            TermStatePtr::Table(table) => FetchedTerm {
                 entity,
                 ptr: FetchPtr::Component {
                     component: table
                         .debug_checked_unwrap()
                         .byte_add(table_row.index() * state.size),
                     change_ticks: if self.change_detection {
-                        let (added, changed) = state.change_ticks.pointers.debug_checked_unwrap();
+                        let (added, changed) = state.ticks.ptrs.debug_checked_unwrap();
 
-                        Some(FetchedChangeTicks {
+                        Some(FetchedTicks {
                             added: added.get(table_row.index()),
                             changed: changed.get(table_row.index()),
 
-                            last_run: state.change_ticks.last_run,
-                            this_run: state.change_ticks.this_run,
+                            last_run: state.ticks.last_run,
+                            this_run: state.ticks.this_run,
                         })
                     } else {
                         None
@@ -413,18 +413,18 @@ impl Fetchable for Term {
                 matched: true,
             },
 
-            StatePtr::SparseSet(sparse_set) => FetchedTerm {
+            TermStatePtr::SparseSet(sparse_set) => FetchedTerm {
                 entity,
                 ptr: FetchPtr::Component {
                     component: sparse_set.get(entity).debug_checked_unwrap(),
                     change_ticks: if self.change_detection {
                         let ticks = sparse_set.get_tick_cells(entity).debug_checked_unwrap();
-                        Some(FetchedChangeTicks {
+                        Some(FetchedTicks {
                             added: ticks.added,
                             changed: ticks.changed,
 
-                            last_run: state.change_ticks.last_run,
-                            this_run: state.change_ticks.this_run,
+                            last_run: state.ticks.last_run,
+                            this_run: state.ticks.this_run,
                         })
                     } else {
                         None
@@ -432,7 +432,7 @@ impl Fetchable for Term {
                 },
                 matched: true,
             },
-            StatePtr::Group(sub_state) => FetchedTerm {
+            TermStatePtr::Group(sub_state) => FetchedTerm {
                 entity,
                 ptr: FetchPtr::Group {
                     sub_terms: {
@@ -445,7 +445,7 @@ impl Fetchable for Term {
                 },
                 matched: true,
             },
-            StatePtr::None => FetchedTerm {
+            TermStatePtr::None => FetchedTerm {
                 entity,
                 ptr: FetchPtr::None,
                 matched: false,
@@ -460,9 +460,9 @@ impl Fetchable for Term {
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        match &state.pointer {
-            StatePtr::World(_) => true,
-            StatePtr::SparseSet(set) => {
+        match &state.ptr {
+            TermStatePtr::World(_) => true,
+            TermStatePtr::SparseSet(set) => {
                 match self.operator {
                     TermOperator::Optional => true,
                     // These are checked in matches_component_set
@@ -473,45 +473,45 @@ impl Fetchable for Term {
                         cells
                             .added
                             .read()
-                            .is_newer_than(state.change_ticks.last_run, state.change_ticks.this_run)
+                            .is_newer_than(state.ticks.last_run, state.ticks.this_run)
                     }
                     TermOperator::Changed => {
                         let cells = set.get_tick_cells(entity).debug_checked_unwrap();
                         cells
                             .changed
                             .read()
-                            .is_newer_than(state.change_ticks.last_run, state.change_ticks.this_run)
+                            .is_newer_than(state.ticks.last_run, state.ticks.this_run)
                     }
                 }
             }
-            StatePtr::Table(_) => {
+            TermStatePtr::Table(_) => {
                 match self.operator {
                     TermOperator::Optional => true,
                     // These are checked in matches_component_set
                     TermOperator::With => true,
                     TermOperator::Without => true,
                     TermOperator::Added => {
-                        let (added, _) = state.change_ticks.pointers.debug_checked_unwrap();
+                        let (added, _) = state.ticks.ptrs.debug_checked_unwrap();
                         added
                             .get(table_row.index())
                             .read()
-                            .is_newer_than(state.change_ticks.last_run, state.change_ticks.this_run)
+                            .is_newer_than(state.ticks.last_run, state.ticks.this_run)
                     }
                     TermOperator::Changed => {
-                        let (_, changed) = state.change_ticks.pointers.debug_checked_unwrap();
+                        let (_, changed) = state.ticks.ptrs.debug_checked_unwrap();
                         changed
                             .get(table_row.index())
                             .read()
-                            .is_newer_than(state.change_ticks.last_run, state.change_ticks.this_run)
+                            .is_newer_than(state.ticks.last_run, state.ticks.this_run)
                     }
                 }
             }
-            StatePtr::Group(states) => self
+            TermStatePtr::Group(states) => self
                 .sub_terms
                 .iter()
                 .zip(states.iter())
                 .all(|(term, state)| term.filter_fetch(state, entity, table_row)),
-            StatePtr::None => true,
+            TermStatePtr::None => true,
         }
     }
 
