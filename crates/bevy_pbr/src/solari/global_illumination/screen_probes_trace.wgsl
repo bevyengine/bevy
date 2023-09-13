@@ -10,7 +10,7 @@ fn trace_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let probe_size = u32(pow(2.0, f32(global_id.z) + 3.0));
     let probe_pixel_id = ((global_id.xy / probe_size) * probe_size) + (probe_size / 2u);
 
-    // Reconstruct probe world position and early out if the probe is placed on a background pixel
+    // Reconstruct probe world position of the probe and early out if the probe is placed on a background pixel
     let probe_pixel_depth = textureLoad(depth_buffer, probe_pixel_id, 0i);
     if probe_pixel_depth == 0.0 {
         textureStore(screen_probes_a, global_id.xy, global_id.z, vec4(0.0, 0.0, 0.0, 1.0));
