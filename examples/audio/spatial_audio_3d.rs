@@ -30,28 +30,32 @@ fn setup(
             ..default()
         },
         Emitter,
-        SpatialAudioBundle {
+        AudioBundle {
             source: asset_server.load("sounds/Windless Slopes.ogg"),
-            settings: PlaybackSettings::LOOP,
-            spatial: SpatialSettings::new(Transform::IDENTITY, gap, Vec3::ZERO),
+            settings: PlaybackSettings::LOOP.with_spatial(true),
         },
     ));
 
-    // left ear
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
-        material: materials.add(Color::RED.into()),
-        transform: Transform::from_xyz(-gap / 2.0, 0.0, 0.0),
-        ..default()
-    });
+    let listener = SpatialListener::new(gap);
+    commands
+        .spawn((SpatialBundle::default(), listener.clone()))
+        .with_children(|parent| {
+            // left ear indicator
+            parent.spawn(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
+                material: materials.add(Color::RED.into()),
+                transform: Transform::from_translation(listener.left_ear_offset),
+                ..default()
+            });
 
-    // right ear
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
-        material: materials.add(Color::GREEN.into()),
-        transform: Transform::from_xyz(gap / 2.0, 0.0, 0.0),
-        ..default()
-    });
+            // right ear indicator
+            parent.spawn(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
+                material: materials.add(Color::GREEN.into()),
+                transform: Transform::from_translation(listener.right_ear_offset),
+                ..default()
+            });
+        });
 
     // light
     commands.spawn(PointLightBundle {
@@ -63,6 +67,7 @@ fn setup(
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
+
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -73,15 +78,9 @@ fn setup(
 #[derive(Component)]
 struct Emitter;
 
-fn update_positions(
-    time: Res<Time>,
-    mut emitters: Query<(&mut Transform, Option<&SpatialAudioSink>), With<Emitter>>,
-) {
-    for (mut emitter_transform, sink) in emitters.iter_mut() {
+fn update_positions(time: Res<Time>, mut emitters: Query<&mut Transform, With<Emitter>>) {
+    for mut emitter_transform in emitters.iter_mut() {
         emitter_transform.translation.x = time.elapsed_seconds().sin() * 3.0;
         emitter_transform.translation.z = time.elapsed_seconds().cos() * 3.0;
-        if let Some(sink) = &sink {
-            sink.set_emitter_position(emitter_transform.translation);
-        }
     }
 }

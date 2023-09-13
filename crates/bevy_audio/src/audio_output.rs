@@ -1,9 +1,11 @@
 use crate::{
     AudioSourceBundle, Decodable, GlobalVolume, PlaybackMode, PlaybackSettings, SpatialAudioSink,
-    SpatialAudioSourceBundle, SpatialSettings, Volume,
+    SpatialListener, SpatialScale, Volume,
 };
 use bevy_asset::{Asset, Assets, Handle};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::SystemParam};
+use bevy_math::Vec3;
+use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::warn;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source, SpatialSink};
 
@@ -51,6 +53,35 @@ pub struct PlaybackDespawnMarker;
 #[derive(Component)]
 pub struct PlaybackRemoveMarker;
 
+#[derive(SystemParam)]
+pub(crate) struct SpatialListenerSystemParam<'w, 's> {
+    pub(crate) query: Query<'w, 's, (&'static GlobalTransform, &'static SpatialListener)>,
+    pub(crate) spatial_scale: Res<'w, SpatialScale>,
+}
+impl<'w, 's> SpatialListenerSystemParam<'w, 's> {
+    pub(crate) fn get_ear_positions(&self) -> (Vec3, Vec3) {
+        let mut listener_iter = self.query.iter();
+        let (left_ear, right_ear) = listener_iter
+            .next()
+            .map(|(listener_transform, listener_settings)| {
+                let left = listener_transform.transform_point(listener_settings.left_ear_offset)
+                    * self.spatial_scale.0;
+                let right = listener_transform.transform_point(listener_settings.right_ear_offset)
+                    * self.spatial_scale.0;
+                (left, right)
+            })
+            .unwrap_or_else(|| {
+                let listener_settings = SpatialListener::default();
+                (
+                    (listener_settings.left_ear_offset * self.spatial_scale.0),
+                    (listener_settings.right_ear_offset * self.spatial_scale.0),
+                )
+            });
+
+        (left_ear, right_ear)
+    }
+}
+
 /// Plays "queued" audio through the [`AudioOutput`] resource.
 ///
 /// "Queued" audio is any audio entity (with the components from
@@ -68,10 +99,11 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             Entity,
             &Handle<Source>,
             &PlaybackSettings,
-            Option<&SpatialSettings>,
+            Option<&GlobalTransform>,
         ),
         (Without<AudioSink>, Without<SpatialAudioSink>),
     >,
+    listener: SpatialListenerSystemParam,
     mut commands: Commands,
 ) where
     f32: rodio::cpal::FromSample<Source::DecoderItem>,
@@ -81,15 +113,28 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
         return;
     };
 
-    for (entity, source_handle, settings, spatial) in &query_nonplaying {
+    for (entity, source_handle, settings, maybe_emitter_transform) in &query_nonplaying {
         if let Some(audio_source) = audio_sources.get(source_handle) {
             // audio data is available (has loaded), begin playback and insert sink component
-            if let Some(spatial) = spatial {
+            if settings.spatial {
+                let (left_ear, right_ear) = listener.get_ear_positions();
+
+                if listener.query.iter().len() > 1 {
+                    warn!("Multiple SpatialListeners found. Using first.");
+                }
+
+                let emitter_translation = maybe_emitter_transform
+                    .map(|t| t.translation().into())
+                    .unwrap_or_else(|| {
+                        warn!("Spatial AudioBundle with no GlobalTransform component. Using zero.");
+                        Vec3::ZERO.into()
+                    });
+
                 match SpatialSink::try_new(
                     stream_handle,
-                    spatial.emitter,
-                    spatial.left_ear,
-                    spatial.right_ear,
+                    emitter_translation,
+                    left_ear.into(),
+                    right_ear.into(),
                 ) {
                     Ok(sink) => {
                         sink.set_speed(settings.speed);
@@ -216,11 +261,9 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
     }
     for (entity, sink) in &query_spatial_remove {
         if sink.sink.empty() {
-            commands.entity(entity).remove::<(
-                SpatialAudioSourceBundle<T>,
-                SpatialAudioSink,
-                PlaybackRemoveMarker,
-            )>();
+            commands
+                .entity(entity)
+                .remove::<(AudioSourceBundle<T>, SpatialAudioSink, PlaybackRemoveMarker)>();
         }
     }
 }
@@ -228,4 +271,25 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
 /// Run Condition to only play audio if the audio output is available
 pub(crate) fn audio_output_available(audio_output: Res<AudioOutput>) -> bool {
     audio_output.stream_handle.is_some()
+}
+
+pub(crate) fn update_emitter_positions(
+    mut emitters: Query<(&mut GlobalTransform, &SpatialAudioSink), Changed<GlobalTransform>>,
+    spatial_scale: Res<SpatialScale>,
+) {
+    for (transform, sink) in emitters.iter_mut() {
+        let translation = transform.translation() * spatial_scale.0;
+        sink.set_emitter_position(translation);
+    }
+}
+
+pub(crate) fn update_listener_positions(
+    mut emitters: Query<&SpatialAudioSink, Changed<GlobalTransform>>,
+    listener: SpatialListenerSystemParam,
+) {
+    for sink in emitters.iter_mut() {
+        let (left_ear, right_ear) = listener.get_ear_positions();
+
+        sink.set_ears_position(left_ear, right_ear);
+    }
 }
