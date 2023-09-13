@@ -5,7 +5,7 @@ use crate::{
     prelude::{Component, With, Without, World},
 };
 
-use super::{ComponentTerm, QueryTermGroup, Term, TermQueryState, TermVec};
+use super::{QueryTermGroup, Term, TermQueryState, TermVec};
 
 pub struct QueryBuilder<'w, Q: QueryTermGroup = ()> {
     terms: TermVec<Term>,
@@ -41,7 +41,7 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
     }
 
     pub fn with_by_id(&mut self, id: ComponentId) -> &mut Self {
-        self.terms.push(Term::Component(ComponentTerm::with(id)));
+        self.terms.push(Term::with_id(id));
         self
     }
 
@@ -50,28 +50,27 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
     }
 
     pub fn without_by_id(&mut self, id: ComponentId) -> &mut Self {
-        self.terms.push(Term::Component(ComponentTerm::without(id)));
+        self.terms.push(Term::without_id(id));
         self
     }
 
     pub fn ref_by_id(&mut self, id: ComponentId) -> &mut Self {
-        self.terms.push(Term::Component(ComponentTerm::read_id(id)));
+        self.terms.push(Term::read_id(id));
         self
     }
 
     pub fn mut_by_id(&mut self, id: ComponentId) -> &mut Self {
-        self.terms
-            .push(Term::Component(ComponentTerm::write_id(id)));
+        self.terms.push(Term::write_id(id));
         self
     }
 
     pub fn added_by_id(&mut self, id: ComponentId) -> &mut Self {
-        self.terms.push(Term::Component(ComponentTerm::added(id)));
+        self.terms.push(Term::added_id(id));
         self
     }
 
     pub fn changed_by_id(&mut self, id: ComponentId) -> &mut Self {
-        self.terms.push(Term::Component(ComponentTerm::changed(id)));
+        self.terms.push(Term::changed_id(id));
         self
     }
 
@@ -87,9 +86,7 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
     }
 
     pub fn set_dynamic_by_id(&mut self, id: ComponentId) -> &mut Self {
-        if let Term::Component(term) = &mut self.terms[self.current_term] {
-            term.set_id(id)
-        }
+        self.terms[self.current_term].component = Some(id);
         self
     }
 

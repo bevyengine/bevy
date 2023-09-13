@@ -1,15 +1,16 @@
-use std::hint::unreachable_unchecked;
+use std::{cell::UnsafeCell, hint::unreachable_unchecked};
 
+use bevy_ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
 
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    component::{ComponentId, Tick},
-    entity::Entity,
+    component::{ComponentId, StorageType, Tick},
+    entity::{Entity, EntityLocation},
     prelude::World,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
-    storage::{Table, TableRow},
-    world::unsafe_world_cell::UnsafeWorldCell,
+    storage::{ComponentSparseSet, Table, TableRow},
+    world::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell},
 };
 
 mod component;
@@ -22,68 +23,208 @@ pub use group::*;
 
 use super::TermVec;
 
-#[derive(Clone)]
-pub enum Term {
-    Entity(EntityTerm),
-    Component(ComponentTerm),
-    Or(OrTerm),
-}
-
 #[derive(Eq, PartialEq, Clone)]
 pub enum TermAccess {
     Read,
     Write,
 }
 
+#[derive(Clone, Default)]
+pub enum TermOperator {
+    #[default]
+    With,
+    Without,
+    Changed,
+    Added,
+    Optional,
+}
+
+#[derive(Clone, Default)]
+pub struct Term {
+    pub entity: bool,
+    pub component: Option<ComponentId>,
+    pub access: Option<TermAccess>,
+    pub operator: TermOperator,
+    pub change_detection: bool,
+    pub sub_terms: Vec<Term>,
+}
+
+impl Term {
+    pub fn sub_terms(sub_terms: Vec<Term>) -> Self {
+        let mut term = Self::default();
+        term.sub_terms = sub_terms;
+        term
+    }
+
+    pub fn set_id(mut self, id: ComponentId) -> Self {
+        self.component = Some(id);
+        self
+    }
+
+    pub fn set_operator(mut self, op: TermOperator) -> Self {
+        self.operator = op;
+        self
+    }
+
+    pub fn set_access(mut self, access: TermAccess) -> Self {
+        self.access = Some(access);
+        self
+    }
+
+    pub fn set_optional(mut self) -> Self {
+        self.operator = TermOperator::Optional;
+        self
+    }
+
+    pub fn entity() -> Self {
+        let mut term = Self::default();
+        term.entity = true;
+        term
+    }
+
+    pub fn with_id(id: ComponentId) -> Self {
+        Self::default().set_id(id)
+    }
+
+    pub fn without_id(id: ComponentId) -> Self {
+        Self::default()
+            .set_operator(TermOperator::Without)
+            .set_id(id)
+    }
+
+    pub fn read() -> Self {
+        Self::default().set_access(TermAccess::Read)
+    }
+
+    pub fn read_id(id: ComponentId) -> Self {
+        Self::read().set_id(id)
+    }
+
+    pub fn write() -> Self {
+        Self::default().set_access(TermAccess::Write)
+    }
+
+    pub fn write_id(id: ComponentId) -> Self {
+        Self::write().set_id(id)
+    }
+
+    pub fn added_id(id: ComponentId) -> Self {
+        Self::with_id(id).set_operator(TermOperator::Added)
+    }
+
+    pub fn changed_id(id: ComponentId) -> Self {
+        Self::with_id(id).set_operator(TermOperator::Changed)
+    }
+
+    pub fn with_change_detection(mut self) -> Self {
+        self.change_detection = true;
+        self
+    }
+}
+
 #[derive(Clone)]
-pub enum FetchedTerm<'w> {
-    Entity(<EntityTerm as Fetchable>::Item<'w>),
-    Component(<ComponentTerm as Fetchable>::Item<'w>),
-    Or(Vec<<ComponentTerm as Fetchable>::Item<'w>>),
+pub struct FetchedChangeTicks<'w> {
+    added: &'w UnsafeCell<Tick>,
+    changed: &'w UnsafeCell<Tick>,
+
+    last_run: Tick,
+    this_run: Tick,
+}
+
+#[derive(Clone)]
+pub enum FetchPtr<'w> {
+    Component {
+        component: Ptr<'w>,
+        change_ticks: Option<FetchedChangeTicks<'w>>,
+    },
+    Entity {
+        location: EntityLocation,
+        world: UnsafeWorldCell<'w>,
+    },
+    Group {
+        sub_terms: Vec<FetchedTerm<'w>>,
+    },
+    None,
+}
+
+#[derive(Clone)]
+pub struct FetchedTerm<'w> {
+    entity: Entity,
+    ptr: FetchPtr<'w>,
+    matched: bool,
 }
 
 impl<'w> FetchedTerm<'w> {
-    #[inline]
-    pub fn component(&self) -> Option<&<ComponentTerm as Fetchable>::Item<'w>> {
-        if let FetchedTerm::Component(term) = self {
-            Some(term)
+    pub fn component_ptr(&self) -> Option<Ptr<'w>> {
+        if let FetchPtr::Component { component, .. } = self.ptr {
+            Some(component)
         } else {
             None
         }
     }
 
-    #[inline]
-    pub fn entity(&self) -> Option<&<EntityTerm as Fetchable>::Item<'w>> {
-        if let FetchedTerm::Entity(term) = self {
-            Some(term)
+    pub fn change_ticks(&self) -> Option<&FetchedChangeTicks<'w>> {
+        if let FetchPtr::Component {
+            change_ticks: Some(change_ticks),
+            ..
+        } = &self.ptr
+        {
+            Some(change_ticks)
         } else {
             None
         }
     }
 
-    #[inline]
-    pub fn group(&self) -> Option<&Vec<<ComponentTerm as Fetchable>::Item<'w>>> {
-        if let FetchedTerm::Or(term) = self {
-            Some(term)
+    pub fn entity_cell(&self) -> Option<UnsafeEntityCell<'w>> {
+        if let FetchPtr::Entity { location, world } = self.ptr {
+            Some(UnsafeEntityCell::new(world, self.entity, location))
+        } else {
+            None
+        }
+    }
+
+    pub fn sub_terms(&self) -> Option<&Vec<FetchedTerm<'w>>> {
+        if let FetchPtr::Group { sub_terms } = &self.ptr {
+            Some(sub_terms)
         } else {
             None
         }
     }
 }
 
-pub enum TermState<'w> {
-    Entity(<EntityTerm as Fetchable>::State<'w>),
-    Component(<ComponentTerm as Fetchable>::State<'w>),
-    Or(<OrTerm as Fetchable>::State<'w>),
+pub enum StatePtr<'w> {
+    SparseSet(&'w ComponentSparseSet),
+    Table(Option<Ptr<'w>>),
+    World(UnsafeWorldCell<'w>),
+    Group(Vec<TermState<'w>>),
+    None,
+}
+
+pub struct TickState<'w> {
+    pointers: Option<(
+        ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        ThinSlicePtr<'w, UnsafeCell<Tick>>,
+    )>,
+
+    last_run: Tick,
+    this_run: Tick,
+}
+
+pub struct TermState<'w> {
+    pointer: StatePtr<'w>,
+    change_ticks: TickState<'w>,
+
+    size: usize,
+    matches: bool,
 }
 
 impl TermState<'_> {
     #[inline]
     pub fn dense(&self) -> bool {
-        match self {
-            TermState::Entity(_) => true,
-            TermState::Component(term) => term.dense(),
-            TermState::Or(terms) => terms.iter().all(|t| t.dense()),
+        if let StatePtr::SparseSet(_) = self.pointer {
+            false
+        } else {
+            true
         }
     }
 }
@@ -137,22 +278,77 @@ impl Fetchable for Term {
         last_run: Tick,
         this_run: Tick,
     ) -> TermState<'w> {
-        match self {
-            Term::Component(term) => {
-                TermState::Component(term.init_state(world, last_run, this_run))
+        let change_ticks = TickState {
+            pointers: None,
+            last_run,
+            this_run,
+        };
+        if self.entity {
+            TermState {
+                pointer: StatePtr::World(world),
+                change_ticks,
+                size: 0,
+                matches: true,
             }
-            Term::Entity(term) => TermState::Entity(term.init_state(world, last_run, this_run)),
-            Term::Or(terms) => TermState::Or(terms.init_state(world, last_run, this_run)),
+        } else if let Some(component_id) = self.component {
+            let info = world.components().get_info_unchecked(component_id);
+            let storage = info.storage_type();
+            let mut matches = false;
+            let mut pointer = StatePtr::Table(None);
+            if let StorageType::SparseSet = storage {
+                let set = world.storages().sparse_sets.get(component_id);
+                if let Some(set) = set {
+                    pointer = StatePtr::SparseSet(set);
+                    matches = true;
+                }
+            }
+            TermState {
+                pointer,
+                size: info.layout().size(),
+                change_ticks,
+                matches,
+            }
+        } else {
+            let state = self
+                .sub_terms
+                .iter()
+                .map(|term| term.init_state(world, last_run, this_run))
+                .collect();
+            TermState {
+                pointer: StatePtr::Group(state),
+                change_ticks,
+                size: 0,
+                matches: false,
+            }
         }
     }
 
     #[inline]
     unsafe fn set_table<'w>(&self, state: &mut Self::State<'w>, table: &'w Table) {
-        match (self, state) {
-            (Term::Entity(term), TermState::Entity(state)) => term.set_table(state, table),
-            (Term::Component(term), TermState::Component(state)) => term.set_table(state, table),
-            (Term::Or(term), TermState::Or(state)) => term.set_table(state, table),
-            _ => unreachable_unchecked(),
+        state.matches = match &mut state.pointer {
+            StatePtr::Table(_) => {
+                if let Some(column) = table.get_column(self.component.debug_checked_unwrap()) {
+                    state.pointer = StatePtr::Table(Some(column.get_data_ptr()));
+                    state.change_ticks.pointers = Some((
+                        column.get_added_ticks_slice().into(),
+                        column.get_changed_ticks_slice().into(),
+                    ));
+
+                    true
+                } else {
+                    false
+                }
+            }
+            StatePtr::Group(state) => {
+                self.sub_terms
+                    .iter()
+                    .zip(state.iter_mut())
+                    .any(|(term, mut state)| {
+                        term.set_table(&mut state, table);
+                        state.matches
+                    })
+            }
+            _ => true,
         }
     }
 
@@ -163,17 +359,95 @@ impl Fetchable for Term {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match (self, state) {
-            (Term::Entity(term), TermState::Entity(state)) => {
-                FetchedTerm::Entity(term.fetch(state, entity, table_row))
-            }
-            (Term::Component(term), TermState::Component(state)) => {
-                FetchedTerm::Component(term.fetch(state, entity, table_row))
-            }
-            (Term::Or(term), TermState::Or(state)) => {
-                FetchedTerm::Or(term.fetch(state, entity, table_row))
-            }
-            _ => unreachable_unchecked(),
+        if !state.matches {
+            return FetchedTerm {
+                entity,
+                ptr: FetchPtr::None,
+                matched: false,
+            };
+        }
+
+        if self.access.is_none() {
+            return FetchedTerm {
+                entity,
+                ptr: FetchPtr::None,
+                matched: true,
+            };
+        }
+
+        match &state.pointer {
+            StatePtr::World(world) => FetchedTerm {
+                entity,
+                ptr: if self.access.is_some() {
+                    FetchPtr::Entity {
+                        world: *world,
+                        location: world.entities().get(entity).debug_checked_unwrap(),
+                    }
+                } else {
+                    FetchPtr::None
+                },
+                matched: true,
+            },
+            StatePtr::Table(table) => FetchedTerm {
+                entity,
+                ptr: FetchPtr::Component {
+                    component: table
+                        .debug_checked_unwrap()
+                        .byte_add(table_row.index() * state.size),
+                    change_ticks: if self.change_detection {
+                        let (added, changed) = state.change_ticks.pointers.debug_checked_unwrap();
+
+                        Some(FetchedChangeTicks {
+                            added: added.get(table_row.index()),
+                            changed: changed.get(table_row.index()),
+
+                            last_run: state.change_ticks.last_run,
+                            this_run: state.change_ticks.this_run,
+                        })
+                    } else {
+                        None
+                    },
+                },
+                matched: true,
+            },
+
+            StatePtr::SparseSet(sparse_set) => FetchedTerm {
+                entity,
+                ptr: FetchPtr::Component {
+                    component: sparse_set.get(entity).debug_checked_unwrap(),
+                    change_ticks: if self.change_detection {
+                        let ticks = sparse_set.get_tick_cells(entity).debug_checked_unwrap();
+                        Some(FetchedChangeTicks {
+                            added: ticks.added,
+                            changed: ticks.changed,
+
+                            last_run: state.change_ticks.last_run,
+                            this_run: state.change_ticks.this_run,
+                        })
+                    } else {
+                        None
+                    },
+                },
+                matched: true,
+            },
+            StatePtr::Group(sub_state) => FetchedTerm {
+                entity,
+                ptr: FetchPtr::Group {
+                    sub_terms: {
+                        self.sub_terms
+                            .iter()
+                            .zip(sub_state.iter())
+                            .map(|(term, state)| term.fetch(state, entity, table_row))
+                            .collect()
+                    },
+                },
+                matched: true,
+            },
+            StatePtr::None => FetchedTerm {
+                entity,
+                ptr: FetchPtr::None,
+                matched: false,
+            },
         }
     }
 
@@ -184,24 +458,98 @@ impl Fetchable for Term {
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        match (self, state) {
-            (Term::Entity(term), TermState::Entity(state)) => {
-                term.filter_fetch(state, entity, table_row)
+        match &state.pointer {
+            StatePtr::World(_) => true,
+            StatePtr::SparseSet(set) => {
+                match self.operator {
+                    TermOperator::Optional => true,
+                    // These are checked in matches_component_set
+                    TermOperator::With => true,
+                    TermOperator::Without => true,
+                    TermOperator::Added => {
+                        let cells = set.get_tick_cells(entity).debug_checked_unwrap();
+                        cells
+                            .added
+                            .read()
+                            .is_newer_than(state.change_ticks.last_run, state.change_ticks.this_run)
+                    }
+                    TermOperator::Changed => {
+                        let cells = set.get_tick_cells(entity).debug_checked_unwrap();
+                        cells
+                            .changed
+                            .read()
+                            .is_newer_than(state.change_ticks.last_run, state.change_ticks.this_run)
+                    }
+                }
             }
-            (Term::Component(term), TermState::Component(state)) => {
-                term.filter_fetch(state, entity, table_row)
+            StatePtr::Table(_) => {
+                match self.operator {
+                    TermOperator::Optional => true,
+                    // These are checked in matches_component_set
+                    TermOperator::With => true,
+                    TermOperator::Without => true,
+                    TermOperator::Added => {
+                        let (added, _) = state.change_ticks.pointers.debug_checked_unwrap();
+                        added
+                            .get(table_row.index())
+                            .read()
+                            .is_newer_than(state.change_ticks.last_run, state.change_ticks.this_run)
+                    }
+                    TermOperator::Changed => {
+                        let (_, changed) = state.change_ticks.pointers.debug_checked_unwrap();
+                        changed
+                            .get(table_row.index())
+                            .read()
+                            .is_newer_than(state.change_ticks.last_run, state.change_ticks.this_run)
+                    }
+                }
             }
-            (Term::Or(term), TermState::Or(state)) => term.filter_fetch(state, entity, table_row),
-            _ => unreachable_unchecked(),
+            StatePtr::Group(states) => self
+                .sub_terms
+                .iter()
+                .zip(states.iter())
+                .all(|(term, state)| term.filter_fetch(state, entity, table_row)),
+            StatePtr::None => true,
         }
     }
 
     #[inline]
     fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
-        match self {
-            Term::Entity(term) => term.update_component_access(access),
-            Term::Component(term) => term.update_component_access(access),
-            Term::Or(term) => term.update_component_access(access),
+        if self.entity {
+            debug_assert!(
+                self.access.is_none() || !access.access().has_any_write(),
+                "EntityTerm has conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
+            );
+            match self.access {
+                Some(TermAccess::Read) => access.read_all(),
+                Some(TermAccess::Write) => access.write_all(),
+                None => {}
+            }
+        } else if let Some(component_id) = self.component {
+            debug_assert!(
+                self.access.is_none() || !access.access().has_write(component_id),
+                "{:?} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
+                component_id,
+            );
+            match self.access {
+                Some(TermAccess::Read) => access.add_read(component_id),
+                Some(TermAccess::Write) => access.add_write(component_id),
+                None => {}
+            };
+        } else {
+            let mut iter = self.sub_terms.iter();
+            let Some(term) = iter.next() else {
+                return
+            };
+            let mut new_access = access.clone();
+            term.update_component_access(&mut new_access);
+            iter.for_each(|term| {
+                let mut intermediate = access.clone();
+                term.update_component_access(&mut intermediate);
+                new_access.append_or(&intermediate);
+                new_access.extend_access(&intermediate);
+            });
+            *access = new_access;
         }
     }
 
@@ -211,59 +559,71 @@ impl Fetchable for Term {
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
     ) {
-        match self {
-            Term::Entity(term) => term.update_archetype_component_access(archetype, access),
-            Term::Component(term) => term.update_archetype_component_access(archetype, access),
-            Term::Or(term) => term.update_archetype_component_access(archetype, access),
+        if self.entity {
+            match self.access {
+                Some(TermAccess::Read) => {
+                    for component_id in archetype.components() {
+                        let archetype_id =
+                            archetype.get_archetype_component_id(component_id).unwrap();
+                        access.add_read(archetype_id);
+                    }
+                }
+                Some(TermAccess::Write) => {
+                    for component_id in archetype.components() {
+                        let archetype_id =
+                            archetype.get_archetype_component_id(component_id).unwrap();
+                        access.add_write(archetype_id);
+                    }
+                }
+                None => {}
+            }
+        } else if let Some(component_id) = self.component {
+            if let Some(archetype_component_id) = archetype.get_archetype_component_id(component_id)
+            {
+                match self.access {
+                    Some(TermAccess::Read) => access.add_read(archetype_component_id),
+                    Some(TermAccess::Write) => access.add_write(archetype_component_id),
+                    None => {}
+                }
+            }
+        } else {
+            self.sub_terms
+                .iter()
+                .for_each(|term| term.update_archetype_component_access(archetype, access))
         }
     }
 
     #[inline]
     fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
-        match self {
-            Term::Entity(term) => term.matches_component_set(set_contains_id),
-            Term::Component(term) => term.matches_component_set(set_contains_id),
-            Term::Or(term) => term.matches_component_set(set_contains_id),
+        if self.entity {
+            return true;
+        } else if let Some(component_id) = self.component {
+            match self.operator {
+                TermOperator::Without => !set_contains_id(component_id),
+                TermOperator::Optional => true,
+                _ => set_contains_id(component_id),
+            }
+        } else {
+            self.sub_terms
+                .iter()
+                .any(|term| term.matches_component_set(set_contains_id))
         }
     }
 }
 
 pub trait QueryTerm {
     type Item<'w>;
-    type ReadOnly: QueryTermGroup;
+    type ReadOnly: QueryTerm;
 
     fn init_term(world: &mut World) -> Term;
 
     unsafe fn from_fetch<'w>(fetch: &FetchedTerm<'w>) -> Self::Item<'w>;
 }
 
-pub trait ComponentQueryTerm {
-    type Item<'w>;
-    type ReadOnly: QueryTermGroup + ComponentQueryTerm;
-
-    fn init_term(world: &mut World) -> ComponentTerm;
-
-    unsafe fn from_fetch<'w>(_term: &FetchedComponent<'w>) -> Self::Item<'w>;
-}
-
-impl<T: ComponentQueryTerm> QueryTerm for T {
-    type Item<'w> = T::Item<'w>;
-    type ReadOnly = T::ReadOnly;
-
-    fn init_term(world: &mut World) -> Term {
-        Term::Component(T::init_term(world))
-    }
-
-    #[inline]
-    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
-        let term = term.component().debug_checked_unwrap();
-        T::from_fetch(term)
-    }
-}
-
 pub trait QueryTermGroup {
     type Item<'w>;
     type ReadOnly: QueryTermGroup;
+    type Optional: QueryTermGroup;
 
     fn init_terms(world: &mut World, terms: &mut TermVec<Term>);
 
@@ -275,6 +635,7 @@ pub trait QueryTermGroup {
 impl<T: QueryTerm> QueryTermGroup for T {
     type Item<'w> = T::Item<'w>;
     type ReadOnly = T::ReadOnly;
+    type Optional = Option<T>;
 
     fn init_terms(world: &mut World, terms: &mut TermVec<Term>) {
         terms.push(T::init_term(world));
@@ -288,40 +649,12 @@ impl<T: QueryTerm> QueryTermGroup for T {
     }
 }
 
-pub trait ComponentQueryTermGroup {
-    type Item<'w>;
-    type ReadOnly: ComponentQueryTermGroup;
-    type Optional: ComponentQueryTermGroup;
-
-    fn init_terms(world: &mut World, terms: &mut Vec<ComponentTerm>);
-
-    unsafe fn from_fetches<'w: 'f, 'f>(
-        terms: &mut impl Iterator<Item = &'f FetchedComponent<'w>>,
-    ) -> Self::Item<'w>;
-}
-
-impl<T: ComponentQueryTerm> ComponentQueryTermGroup for T {
-    type Item<'w> = T::Item<'w>;
-    type ReadOnly = T::ReadOnly;
-    type Optional = Option<T>;
-
-    fn init_terms(world: &mut World, terms: &mut Vec<ComponentTerm>) {
-        terms.push(T::init_term(world));
-    }
-
-    #[inline]
-    unsafe fn from_fetches<'w: 'f, 'f>(
-        terms: &mut impl Iterator<Item = &'f FetchedComponent<'w>>,
-    ) -> Self::Item<'w> {
-        T::from_fetch(terms.next().debug_checked_unwrap())
-    }
-}
-
 macro_rules! impl_query_term_tuple {
     ($($term: ident),*) => {
         impl<$($term: QueryTermGroup),*> QueryTermGroup for ($($term,)*) {
             type Item<'w> = ($($term::Item<'w>,)*);
             type ReadOnly = ($($term::ReadOnly,)*);
+            type Optional = ($($term::Optional,)*);
 
             fn init_terms(_world: &mut World, _terms: &mut TermVec<Term>) {
                 $(
@@ -339,29 +672,4 @@ macro_rules! impl_query_term_tuple {
     };
 }
 
-macro_rules! impl_component_query_term_tuple {
-    ($($term: ident),*) => {
-        impl<$($term: ComponentQueryTermGroup),*> ComponentQueryTermGroup for ($($term,)*) {
-            type Item<'w> = ($($term::Item<'w>,)*);
-            type ReadOnly = ($($term::ReadOnly,)*);
-            type Optional = ($($term::Optional,)*);
-
-            fn init_terms(_world: &mut World, _terms: &mut Vec<ComponentTerm>) {
-                $(
-                    $term::init_terms(_world, _terms);
-                )*
-            }
-
-
-            #[inline]
-            unsafe fn from_fetches<'w: 'f, 'f>(_terms: &mut impl Iterator<Item = &'f FetchedComponent<'w>>) -> Self::Item<'w> {
-                ($(
-                    $term::from_fetches(_terms),
-                )*)
-            }
-        }
-    };
-}
-
 all_tuples!(impl_query_term_tuple, 0, 15, T);
-all_tuples!(impl_component_query_term_tuple, 0, 15, T);
