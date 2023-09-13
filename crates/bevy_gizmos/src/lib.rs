@@ -16,7 +16,7 @@
 //!
 //! See the documentation on [`Gizmos`](crate::gizmos::Gizmos) for more examples.
 //!
-//! Gizmos will only be visible for the upcomming frame, or until the next fixed
+//! Gizmos will only be visible for the upcoming frame, or until the next fixed
 //! update if drawn during [`FixedUpdate`] as indicated by [`FixedUpdateScheduleIsCurrentlyRunning`].
 //!
 //! [`FixedUpdate`]: ::bevy_app::FixedUpdate
@@ -102,7 +102,7 @@ impl Plugin for GizmoPlugin {
                     .after(TransformSystem::TransformPropagate),
             )
             // Ensure gizmos from previous fixed update are cleaned up if no other system
-            // accesses gizmos during fixed update any more
+            // accesses `Gizmos` during fixed update any more
             .add_systems(FixedUpdate, |_: Gizmos| ());
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
