@@ -7,7 +7,7 @@ use crate::{
     view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
     Extract,
 };
-use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -528,14 +528,14 @@ impl NormalizedRenderTarget {
     fn is_changed(
         &self,
         changed_window_ids: &HashSet<Entity>,
-        changed_image_handles: &HashSet<&Handle<Image>>,
+        changed_image_handles: &HashSet<&AssetId<Image>>,
     ) -> bool {
         match self {
             NormalizedRenderTarget::Window(window_ref) => {
                 changed_window_ids.contains(&window_ref.entity())
             }
             NormalizedRenderTarget::Image(image_handle) => {
-                changed_image_handles.contains(&image_handle)
+                changed_image_handles.contains(&image_handle.id())
             }
             NormalizedRenderTarget::TextureView(_) => true,
         }
@@ -578,11 +578,11 @@ pub fn camera_system<T: CameraProjection + Component>(
     changed_window_ids.extend(window_created_events.read().map(|event| event.window));
     changed_window_ids.extend(window_resized_events.read().map(|event| event.window));
 
-    let changed_image_handles: HashSet<&Handle<Image>> = image_asset_events
+    let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_events
         .read()
         .filter_map(|event| {
-            if let AssetEvent::Modified { handle } = event {
-                Some(handle)
+            if let AssetEvent::Modified { id } = event {
+                Some(id)
             } else {
                 None
             }

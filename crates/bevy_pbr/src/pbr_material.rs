@@ -2,9 +2,9 @@ use crate::{
     AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, ParallaxMappingMethod,
     PBR_PREPASS_SHADER_HANDLE, PBR_SHADER_HANDLE,
 };
-use bevy_asset::Handle;
+use bevy_asset::{Asset, Handle};
 use bevy_math::Vec4;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypeUuid};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     color::Color, mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*,
     texture::Image,
@@ -15,8 +15,7 @@ use bevy_render::{
 /// <https://google.github.io/filament/Material%20Properties.pdf>.
 ///
 /// May be created directly from a [`Color`] or an [`Image`].
-#[derive(AsBindGroup, Reflect, Debug, Clone, TypeUuid)]
-#[uuid = "7494888b-c082-457b-aacf-517228cc0c22"]
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[bind_group_data(StandardMaterialKey)]
 #[uniform(0, StandardMaterialUniform)]
 #[reflect(Default, Debug)]
@@ -45,6 +44,7 @@ pub struct StandardMaterial {
     /// [`base_color`]: StandardMaterial::base_color
     #[texture(1)]
     #[sampler(2)]
+    #[dependency]
     pub base_color_texture: Option<Handle<Image>>,
 
     // Use a color for user friendliness even though we technically don't use the alpha channel
@@ -74,6 +74,7 @@ pub struct StandardMaterial {
     /// [`emissive`]: StandardMaterial::emissive
     #[texture(3)]
     #[sampler(4)]
+    #[dependency]
     pub emissive_texture: Option<Handle<Image>>,
 
     /// Linear perceptual roughness, clamped to `[0.089, 1.0]` in the shader.
@@ -122,6 +123,7 @@ pub struct StandardMaterial {
     /// [`perceptual_roughness`]: StandardMaterial::perceptual_roughness
     #[texture(5)]
     #[sampler(6)]
+    #[dependency]
     pub metallic_roughness_texture: Option<Handle<Image>>,
 
     /// Specular intensity for non-metals on a linear scale of `[0.0, 1.0]`.
@@ -157,6 +159,7 @@ pub struct StandardMaterial {
     /// [`Mesh::generate_tangents`]: bevy_render::mesh::Mesh::generate_tangents
     #[texture(9)]
     #[sampler(10)]
+    #[dependency]
     pub normal_map_texture: Option<Handle<Image>>,
 
     /// Normal map textures authored for DirectX have their y-component flipped. Set this to flip
@@ -175,6 +178,7 @@ pub struct StandardMaterial {
     /// This is similar to ambient occlusion, but built into the model.
     #[texture(7)]
     #[sampler(8)]
+    #[dependency]
     pub occlusion_texture: Option<Handle<Image>>,
 
     /// Support two-sided lighting by automatically flipping the normals for "back" faces
@@ -278,6 +282,7 @@ pub struct StandardMaterial {
     /// [`max_parallax_layer_count`]: StandardMaterial::max_parallax_layer_count
     #[texture(11)]
     #[sampler(12)]
+    #[dependency]
     pub depth_map: Option<Handle<Image>>,
 
     /// How deep the offset introduced by the depth map should be.
@@ -465,7 +470,8 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         }
         let has_normal_map = self.normal_map_texture.is_some();
         if has_normal_map {
-            if let Some(texture) = images.get(self.normal_map_texture.as_ref().unwrap()) {
+            let normal_map_id = self.normal_map_texture.as_ref().map(|h| h.id()).unwrap();
+            if let Some(texture) = images.get(normal_map_id) {
                 match texture.texture_format {
                     // All 2-component unorm formats
                     TextureFormat::Rg8Unorm
@@ -561,11 +567,11 @@ impl Material for StandardMaterial {
     }
 
     fn prepass_fragment_shader() -> ShaderRef {
-        PBR_PREPASS_SHADER_HANDLE.typed().into()
+        PBR_PREPASS_SHADER_HANDLE.into()
     }
 
     fn fragment_shader() -> ShaderRef {
-        PBR_SHADER_HANDLE.typed().into()
+        PBR_SHADER_HANDLE.into()
     }
 
     #[inline]

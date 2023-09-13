@@ -5,12 +5,12 @@ use crate::{
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
-    texture::{Image, DEFAULT_IMAGE_HANDLE},
+    texture::Image,
     view::{InheritedVisibility, ViewVisibility, Visibility},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
-#[derive(Bundle, Clone)]
+#[derive(Bundle, Clone, Default)]
 pub struct SpriteBundle {
     pub sprite: Sprite,
     pub transform: Transform,
@@ -24,19 +24,6 @@ pub struct SpriteBundle {
     pub view_visibility: ViewVisibility,
 }
 
-impl Default for SpriteBundle {
-    fn default() -> Self {
-        Self {
-            sprite: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            texture: DEFAULT_IMAGE_HANDLE.typed(),
-            visibility: Default::default(),
-            inherited_visibility: Default::default(),
-            view_visibility: Default::default(),
-        }
-    }
-}
 /// A Bundle of components for drawing a single sprite from a sprite sheet (also referred
 /// to as a `TextureAtlas`)
 #[derive(Bundle, Clone, Default)]

@@ -92,7 +92,7 @@ fn scene_load_check(
 ) {
     match scene_handle.instance_id {
         None => {
-            if asset_server.get_load_state(&scene_handle.gltf_handle) == LoadState::Loaded {
+            if asset_server.load_state(&scene_handle.gltf_handle) == LoadState::Loaded {
                 let gltf = gltf_assets.get(&scene_handle.gltf_handle).unwrap();
                 if gltf.scenes.len() > 1 {
                     info!(

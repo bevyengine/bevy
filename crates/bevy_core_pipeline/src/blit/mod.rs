@@ -1,13 +1,11 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
-use bevy_reflect::TypeUuid;
 use bevy_render::{render_resource::*, renderer::RenderDevice, RenderApp};
 
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 
-pub const BLIT_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2312396983770133547);
+pub const BLIT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2312396983770133547);
 
 /// Adds support for specialized "blit pipelines", which can be used to write one texture to another.
 pub struct BlitPlugin;
@@ -86,7 +84,7 @@ impl SpecializedRenderPipeline for BlitPipeline {
             layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: BLIT_SHADER_HANDLE.typed(),
+                shader: BLIT_SHADER_HANDLE,
                 shader_defs: vec![],
                 entry_point: "fs_main".into(),
                 targets: vec![Some(ColorTargetState {

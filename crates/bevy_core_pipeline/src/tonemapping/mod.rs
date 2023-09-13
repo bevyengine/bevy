@@ -1,8 +1,8 @@
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
@@ -17,11 +17,10 @@ mod node;
 use bevy_utils::default;
 pub use node::TonemappingNode;
 
-const TONEMAPPING_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17015368199668024512);
+const TONEMAPPING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17015368199668024512);
 
-const TONEMAPPING_SHARED_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2499430578245347910);
+const TONEMAPPING_SHARED_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(2499430578245347910);
 
 /// 3D LUT (look up table) textures used for tonemapping
 #[derive(Resource, Clone, ExtractResource)]
@@ -207,7 +206,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: TONEMAPPING_SHADER_HANDLE.typed(),
+                shader: TONEMAPPING_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

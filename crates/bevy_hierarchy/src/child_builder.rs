@@ -904,7 +904,7 @@ mod tests {
     fn push_and_clear_children_commands() {
         let mut world = World::default();
         let entities = world
-            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
+            .spawn_batch(vec![C(1), C(2), C(3), C(4), C(5)])
             .collect::<Vec<Entity>>();
 
         let mut queue = CommandQueue::default();
@@ -942,7 +942,7 @@ mod tests {
     fn push_and_replace_children_commands() {
         let mut world = World::default();
         let entities = world
-            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
+            .spawn_batch(vec![C(1), C(2), C(3), C(4), C(5)])
             .collect::<Vec<Entity>>();
 
         let mut queue = CommandQueue::default();

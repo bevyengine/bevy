@@ -4,15 +4,7 @@
 //! # Basic usage
 //! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`node_bundles::TextBundle`] and [`node_bundles::NodeBundle`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
-mod focus;
-mod geometry;
-mod layout;
-mod render;
-mod stack;
-mod ui_node;
 
-#[cfg(feature = "bevy_text")]
-mod accessibility;
 pub mod camera_config;
 pub mod measurement;
 pub mod node_bundles;
@@ -22,8 +14,14 @@ pub mod widget;
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::Reflect;
 #[cfg(feature = "bevy_text")]
-use bevy_render::camera::CameraUpdateSystem;
-use bevy_render::{extract_component::ExtractComponentPlugin, RenderApp};
+mod accessibility;
+mod focus;
+mod geometry;
+mod layout;
+mod render;
+mod stack;
+mod ui_node;
+
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
@@ -43,8 +41,10 @@ pub mod prelude {
 
 use crate::prelude::UiCameraConfig;
 use bevy_app::prelude::*;
+use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
+use bevy_render::{extract_component::ExtractComponentPlugin, texture::Image, RenderApp};
 use bevy_transform::TransformSystem;
 use stack::ui_stack_system;
 pub use stack::UiStack;
@@ -137,12 +137,14 @@ impl Plugin for UiPlugin {
                     // In practice, they run independently since `bevy_render::camera_update_system`
                     // will only ever observe its own render target, and `widget::measure_text_system`
                     // will never modify a pre-existing `Image` asset.
-                    .ambiguous_with(CameraUpdateSystem)
+                    .ambiguous_with(bevy_render::camera::CameraUpdateSystem)
                     // Potential conflict: `Assets<Image>`
                     // Since both systems will only ever insert new [`Image`] assets,
                     // they will never observe each other's effects.
                     .ambiguous_with(bevy_text::update_text2d_layout),
-                widget::text_system.after(UiSystem::Layout),
+                widget::text_system
+                    .after(UiSystem::Layout)
+                    .before(Assets::<Image>::track_assets),
             ),
         );
         #[cfg(feature = "bevy_text")]
