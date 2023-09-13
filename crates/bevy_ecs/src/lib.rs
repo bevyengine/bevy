@@ -10,6 +10,7 @@ pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod event;
+pub mod identifier;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
@@ -69,6 +70,7 @@ mod tests {
         world::{EntityRef, Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
+    use std::num::NonZeroU32;
     use std::{
         any::TypeId,
         marker::PhantomData,
@@ -1590,7 +1592,7 @@ mod tests {
             "spawning into existing `world_b` entities works"
         );
 
-        let e4_mismatched_generation = Entity::new(3, 2).unwrap();
+        let e4_mismatched_generation = Entity::new(3, NonZeroU32::new(2).unwrap());
         assert!(
             world_b.get_or_spawn(e4_mismatched_generation).is_none(),
             "attempting to spawn on top of an entity with a mismatched entity generation fails"
@@ -1685,7 +1687,7 @@ mod tests {
         let e0 = world.spawn(A(0)).id();
         let e1 = Entity::from_raw(1);
         let e2 = world.spawn_empty().id();
-        let invalid_e2 = Entity::new(e2.index(), 2).unwrap();
+        let invalid_e2 = Entity::new(e2.index(), NonZeroU32::new(2).unwrap());
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];
 
