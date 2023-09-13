@@ -1,4 +1,4 @@
-use std::{cell::UnsafeCell, hint::unreachable_unchecked};
+use std::cell::UnsafeCell;
 
 use bevy_ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
@@ -340,13 +340,15 @@ impl Fetchable for Term {
                 }
             }
             StatePtr::Group(state) => {
+                let mut group_matches = false;
                 self.sub_terms
                     .iter()
                     .zip(state.iter_mut())
-                    .any(|(term, mut state)| {
+                    .for_each(|(term, mut state)| {
                         term.set_table(&mut state, table);
-                        state.matches
-                    })
+                        group_matches |= state.matches
+                    });
+                group_matches
             }
             _ => true,
         }

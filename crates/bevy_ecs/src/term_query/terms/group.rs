@@ -33,7 +33,7 @@ impl<Q: QueryTermGroup> QueryTermGroup for AnyOf<Q> {
     fn init_terms(world: &mut World, terms: &mut TermVec<Term>) {
         let mut sub_terms = Vec::new();
         Q::Optional::init_terms(world, &mut sub_terms);
-        terms.push(Term::sub_terms(sub_terms).set_access(TermAccess::Write));
+        terms.push(Term::sub_terms(sub_terms).set_access(TermAccess::Read));
     }
 
     #[inline]
