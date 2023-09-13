@@ -1,5 +1,5 @@
 #import bevy_solari::scene_bindings uniforms, map_ray_hit
-#import bevy_solari::global_illumination::view_bindings view, depth_buffer, screen_probes, FIRST_RADIANCE_CASCADE_INTERVAL
+#import bevy_solari::global_illumination::view_bindings view, depth_buffer, screen_probes_a, FIRST_RADIANCE_CASCADE_INTERVAL
 #import bevy_solari::world_cache::query query_world_cache
 #import bevy_solari::utils rand_f, rand_vec2f, trace_ray, depth_to_world_position
 #import bevy_pbr::utils octahedral_decode
@@ -11,7 +11,7 @@ fn trace_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let probe_pixel_depth = textureLoad(depth_buffer, probe_pixel_id, 0i);
     if probe_pixel_depth == 0.0 {
-        textureStore(screen_probes, global_id.xy, global_id.z, vec4(0.0, 0.0, 0.0, 1.0));
+        textureStore(screen_probes_a, global_id.xy, global_id.z, vec4(0.0, 0.0, 0.0, 1.0));
         return;
     }
     let probe_pixel_uv = (vec2<f32>(probe_pixel_id) + 0.5) / view.viewport.zw;
@@ -35,5 +35,5 @@ fn trace_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
         color = vec4(hit_color, 0.0);
     }
 
-    textureStore(screen_probes, global_id.xy, global_id.z, color);
+    textureStore(screen_probes_a, global_id.xy, global_id.z, color);
 }

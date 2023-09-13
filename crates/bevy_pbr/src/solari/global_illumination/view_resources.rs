@@ -32,7 +32,8 @@ use std::num::NonZeroU64;
 pub struct SolariGlobalIlluminationViewResources {
     pub previous_depth_buffer: CachedTexture,
     pub previous_normals_buffer: CachedTexture,
-    screen_probes: CachedTexture,
+    screen_probes_a: CachedTexture,
+    screen_probes_b: CachedTexture,
     screen_probes_spherical_harmonics: CachedBuffer,
     diffuse_raw: CachedTexture,
     diffuse_denoiser_temporal_history: CachedTexture,
@@ -121,12 +122,17 @@ pub fn prepare_resources(
             viewport_size,
         );
 
-        let mut screen_probes = texture(
-            "solari_global_illumination_screen_probes",
+        let mut screen_probes_a = texture(
+            "solari_global_illumination_screen_probes_a",
             TextureFormat::Rgba16Float,
             size_8,
         );
-        screen_probes.size.depth_or_array_layers = 4;
+        screen_probes_a.size.depth_or_array_layers = 4;
+        let screen_probes_b = texture(
+            "solari_global_illumination_screen_probes_b",
+            TextureFormat::Rgba16Float,
+            size_8,
+        );
         let screen_probes_spherical_harmonics = buffer(
             "solari_global_illumination_screen_probes_spherical_harmonics",
             probe_count * 112,
@@ -204,7 +210,8 @@ pub fn prepare_resources(
             .insert(SolariGlobalIlluminationViewResources {
                 previous_depth_buffer: texture_cache.get(&render_device, previous_depth_buffer),
                 previous_normals_buffer: texture_cache.get(&render_device, previous_normals_buffer),
-                screen_probes: texture_cache.get(&render_device, screen_probes),
+                screen_probes_a: texture_cache.get(&render_device, screen_probes_a),
+                screen_probes_b: texture_cache.get(&render_device, screen_probes_b),
                 screen_probes_spherical_harmonics: buffer_cache
                     .get(&render_device, screen_probes_spherical_harmonics),
                 diffuse_raw: texture_cache.get(&render_device, diffuse_raw),
@@ -283,11 +290,17 @@ pub fn create_bind_group_layouts(
             view_dimension: TextureViewDimension::D2,
             multisampled: false,
         }),
-        // Screen probes
+        // Screen probes a
         entry(BindingType::StorageTexture {
             access: StorageTextureAccess::ReadWrite,
             format: TextureFormat::Rgba16Float,
             view_dimension: TextureViewDimension::D2Array,
+        }),
+        // Screen probes b
+        entry(BindingType::StorageTexture {
+            access: StorageTextureAccess::ReadWrite,
+            format: TextureFormat::Rgba16Float,
+            view_dimension: TextureViewDimension::D2,
         }),
         // Screen probe spherical harmonics
         entry(BindingType::Buffer {
@@ -433,7 +446,8 @@ pub fn prepare_bind_groups(
             entry(t(prepass_textures.motion_vectors.as_ref().unwrap())),
             entry(t(&solari_resources.previous_depth_buffer)),
             entry(t(&solari_resources.previous_normals_buffer)),
-            entry(t(&solari_resources.screen_probes)),
+            entry(t(&solari_resources.screen_probes_a)),
+            entry(t(&solari_resources.screen_probes_b)),
             entry(b(&solari_resources.screen_probes_spherical_harmonics)),
             entry(t(&solari_resources.diffuse_raw)),
             entry(t(&solari_resources.diffuse_denoiser_temporal_history)),
