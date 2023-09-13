@@ -6,7 +6,7 @@
 
 @compute @workgroup_size(8, 8, 1)
 fn trace_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    // Find the center pixel of each probe for this thread (global.xy = pixel, global.z = cascade)
+    // Find the center texel of each probe tile for this thread (global.xy = pixel, global.z = cascade)
     let probe_size = u32(pow(2.0, f32(global_id.z) + 3.0));
     let probe_pixel_id = ((global_id.xy / probe_size) * probe_size) + (probe_size / 2u);
 
