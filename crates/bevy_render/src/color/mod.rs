@@ -750,25 +750,15 @@ impl Color {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_render::color::{Color, palette::Srgba};
+    /// # use bevy_render::color::{Color, palette::{Srgba, Lab}};
     /// #
     /// let start = Color::RED;
     /// let end = Color::BLUE;
     ///
     /// // Purple
     /// let middle = start.mix_in::<Srgba>(end, 0.5);
-    /// #
-    /// # fn assert_approx(a: f32, b: f32) {
-    /// #     let diff = (a - b).abs();
-    /// #     assert!(
-    /// #         diff < 1e-3,
-    /// #         "Expected {a} ~ {b}; Difference of {diff} Found"
-    /// #     );
-    /// # }
-    /// # assert_approx(middle.r(), Color::PURPLE.r());
-    /// # assert_approx(middle.g(), Color::PURPLE.g());
-    /// # assert_approx(middle.b(), Color::PURPLE.b());
-    /// # assert_approx(middle.a(), Color::PURPLE.a());
+    ///
+    /// assert!(middle.difference_in::<Lab>(Color::PURPLE).abs() < 1e-3);
     /// ```
     ///
     /// See also [`in_space`](`Color::in_space`), [`from_space`](`Color::from_space`)
@@ -820,23 +810,14 @@ impl Color {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_render::color::{Color, palette::Hsla};
+    /// # use bevy_render::color::{Color, palette::{Hsla, Lab}};
     /// #
     /// let red = Color::RED;
     /// let green = red.with_hue_in::<Hsla>(120.);
     /// let blue = red.with_hue_in::<Hsla>(240.);
-    /// # fn assert_approx(a: f32, b: f32) {
-    /// #     let diff = (a - b).abs();
-    /// #     assert!(
-    /// #         diff < 1e-3,
-    /// #         "Expected {a} ~ {b}; Difference of {diff} Found"
-    /// #     );
-    /// # }
-    /// # let green_ref = Color::GREEN;
-    /// # assert_approx(green.r(), green_ref.r());
-    /// # assert_approx(green.g(), green_ref.g());
-    /// # assert_approx(green.b(), green_ref.b());
-    /// # assert_approx(green.a(), green_ref.a());
+    ///
+    /// assert!(green.difference_in::<Lab>(Color::GREEN).abs() < 1e-3);
+    /// assert!(blue.difference_in::<Lab>(Color::BLUE).abs() < 1e-3);
     /// ```
     ///
     /// See also [`in_space`](`Color::in_space`), [`from_space`](`Color::from_space`), [`shift_hue_in`](`Color::shift_hue_in`), [`hue_in`](`Color::hue_in`)
@@ -859,26 +840,15 @@ impl Color {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_render::color::{Color, palette::Hsla};
+    /// # use bevy_render::color::{Color, palette::{Hsla, Lab}};
     /// #
     /// // Dark Yellow
     /// let primary = Color::hsl(45., 1.0, 0.5);
     ///
     /// // Light Blue
     /// let compliment = primary.shift_hue_in::<Hsla>(180.);
-    /// #
-    /// # fn assert_approx(a: f32, b: f32) {
-    /// #     let diff = (a - b).abs();
-    /// #     assert!(
-    /// #         diff < 1e-3,
-    /// #         "Expected {a} ~ {b}; Difference of {diff} Found"
-    /// #     );
-    /// # }
-    /// # let compliment_ref = Color::hsl(45. + 180., 1.0, 0.5);
-    /// # assert_approx(compliment.r(), compliment_ref.r());
-    /// # assert_approx(compliment.g(), compliment_ref.g());
-    /// # assert_approx(compliment.b(), compliment_ref.b());
-    /// # assert_approx(compliment.a(), compliment_ref.a());
+    ///
+    /// assert!(compliment.difference_in::<Lab>(Color::hsl(45. + 180., 1.0, 0.5)).abs() < 1e-3);
     /// ```
     ///
     /// See also [`in_space`](`Color::in_space`), [`from_space`](`Color::from_space`), [`with_hue_in`](`Color::with_hue_in`), [`hue_in`](`Color::hue_in`)
@@ -901,26 +871,15 @@ impl Color {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_render::color::{Color, palette::Hsla};
+    /// # use bevy_render::color::{Color, palette::{Hsla, Lab}};
     /// #
     /// // 50% Saturation
     /// let primary = Color::hsl(45., 0.5, 0.5);
     ///
     /// // 75% Saturation
     /// let primary_saturated = primary.saturate_in::<Hsla>(0.5);
-    /// #
-    /// # fn assert_approx(a: f32, b: f32) {
-    /// #     let diff = (a - b).abs();
-    /// #     assert!(
-    /// #         diff < 1e-3,
-    /// #         "Expected {a} ~ {b}; Difference of {diff} Found"
-    /// #     );
-    /// # }
-    /// # let primary_saturated_ref = Color::hsl(45., 0.75, 0.5);
-    /// # assert_approx(primary_saturated.r(), primary_saturated_ref.r());
-    /// # assert_approx(primary_saturated.g(), primary_saturated_ref.g());
-    /// # assert_approx(primary_saturated.b(), primary_saturated_ref.b());
-    /// # assert_approx(primary_saturated.a(), primary_saturated_ref.a());
+    ///
+    /// assert!(primary_saturated.difference_in::<Lab>(Color::hsl(45., 0.75, 0.5)).abs() < 1e-3);
     /// ```
     ///
     /// See also [`in_space`](`Color::in_space`), [`from_space`](`Color::from_space`), [`desaturate_in`](`Color::desaturate_in`)
@@ -943,26 +902,15 @@ impl Color {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_render::color::{Color, palette::Hsla};
+    /// # use bevy_render::color::{Color, palette::{Hsla, Lab}};
     /// #
     /// // 50% Saturation
     /// let primary = Color::hsl(45., 0.5, 0.5);
     ///
     /// // 25% Saturation
     /// let primary_desaturated = primary.desaturate_in::<Hsla>(0.5);
-    /// #
-    /// # fn assert_approx(a: f32, b: f32) {
-    /// #     let diff = (a - b).abs();
-    /// #     assert!(
-    /// #         diff < 1e-3,
-    /// #         "Expected {a} ~ {b}; Difference of {diff} Found"
-    /// #     );
-    /// # }
-    /// # let primary_desaturated_ref = Color::hsl(45., 0.25, 0.5);
-    /// # assert_approx(primary_desaturated.r(), primary_desaturated_ref.r());
-    /// # assert_approx(primary_desaturated.g(), primary_desaturated_ref.g());
-    /// # assert_approx(primary_desaturated.b(), primary_desaturated_ref.b());
-    /// # assert_approx(primary_desaturated.a(), primary_desaturated_ref.a());
+    ///
+    /// assert!(primary_desaturated.difference_in::<Lab>(Color::hsl(45., 0.25, 0.5)).abs() < 1e-3);
     /// ```
     ///
     /// See also [`in_space`](`Color::in_space`), [`from_space`](`Color::from_space`), [`saturate_in`](`Color::saturate_in`)
@@ -985,26 +933,15 @@ impl Color {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_render::color::{Color, palette::Hsla};
+    /// # use bevy_render::color::{Color, palette::{Hsla, Lab}};
     /// #
     /// // 50% Lightness
     /// let primary = Color::hsl(45., 0.5, 0.5);
     ///
     /// // 75% Saturation
     /// let primary_light = primary.lighten_in::<Hsla>(0.5);
-    /// #
-    /// # fn assert_approx(a: f32, b: f32) {
-    /// #     let diff = (a - b).abs();
-    /// #     assert!(
-    /// #         diff < 1e-3,
-    /// #         "Expected {a} ~ {b}; Difference of {diff} Found"
-    /// #     );
-    /// # }
-    /// # let primary_light_ref = Color::hsl(45., 0.5, 0.75);
-    /// # assert_approx(primary_light.r(), primary_light_ref.r());
-    /// # assert_approx(primary_light.g(), primary_light_ref.g());
-    /// # assert_approx(primary_light.b(), primary_light_ref.b());
-    /// # assert_approx(primary_light.a(), primary_light_ref.a());
+    ///
+    /// assert!(primary_light.difference_in::<Lab>(Color::hsl(45., 0.5, 0.75)).abs() < 1e-3);
     /// ```
     ///
     /// See also [`in_space`](`Color::in_space`), [`from_space`](`Color::from_space`), [`darken_in`](`Color::darken_in`)
@@ -1027,26 +964,15 @@ impl Color {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_render::color::{Color, palette::Hsla};
+    /// # use bevy_render::color::{Color, palette::{Hsla, Lab}};
     /// #
     /// // 50% Lightness
     /// let primary = Color::hsl(45., 0.5, 0.5);
     ///
     /// // 25% Lightness
     /// let primary_dark = primary.darken_in::<Hsla>(0.5);
-    /// #
-    /// # fn assert_approx(a: f32, b: f32) {
-    /// #     let diff = (a - b).abs();
-    /// #     assert!(
-    /// #         diff < 1e-3,
-    /// #         "Expected {a} ~ {b}; Difference of {diff} Found"
-    /// #     );
-    /// # }
-    /// # let primary_dark_ref = Color::hsl(45., 0.5, 0.25);
-    /// # assert_approx(primary_dark.r(), primary_dark_ref.r());
-    /// # assert_approx(primary_dark.g(), primary_dark_ref.g());
-    /// # assert_approx(primary_dark.b(), primary_dark_ref.b());
-    /// # assert_approx(primary_dark.a(), primary_dark_ref.a());
+    ///
+    /// assert!(primary_dark.difference_in::<Lab>(Color::hsl(45., 0.5, 0.25)).abs() < 1e-3);
     /// ```
     ///
     /// See also [`in_space`](`Color::in_space`), [`from_space`](`Color::from_space`), [`lighten_in`](`Color::lighten_in`)
@@ -1058,6 +984,35 @@ impl Color {
         Self: FromColorUnclamped<C>,
     {
         self.in_space::<C>().darken(amount).into_color()
+    }
+
+    /// Compare this `Color` with another, within a specific colorspace, using the
+    /// CIEDE2000 color difference metric.
+    ///
+    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
+    /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::{Color, palette::Lch};
+    /// #
+    /// let a = Color::RED;
+    /// let b = Color::hsl(0., 1.0, 0.5);
+    ///
+    /// assert!(a.difference_in::<Lch>(b).abs() < 1e-3);
+    /// ```
+    ///
+    /// See also [`in_space`](`Color::in_space`), [`from_space`](`Color::from_space`)
+    ///
+    #[must_use]
+    pub fn difference_in<C>(self, rhs: Self) -> <C as palette::color_difference::Ciede2000>::Scalar
+    where
+        C: FromColorUnclamped<Self> + palette::Clamp + palette::color_difference::Ciede2000,
+        Self: FromColorUnclamped<C>,
+    {
+        self.in_space::<C>().difference(rhs.in_space::<C>())
     }
 }
 
@@ -1512,57 +1467,44 @@ mod tests {
 
     #[test]
     fn lerp() {
-        fn assert_approx(a: f32, b: f32) {
-            let diff = (a - b).abs();
-            assert!(
-                diff < 1e-3,
-                "Expected {a} ~ {b}; Difference of {diff} Found"
-            );
-        }
-
         let color_start = Color::BLUE;
         let color_end = Color::RED;
 
         let color_mix = color_start.mix_in::<palette::Srgba>(color_end, 0.5);
 
-        assert_approx(color_mix.r, 0.5);
-        assert_approx(color_mix.g, 0.);
-        assert_approx(color_mix.b, 0.5);
-        assert_approx(color_mix.a, 1.);
+        assert!(color_mix.difference_in::<palette::Lch>(Color::PURPLE).abs() < 1e-3);
 
         let color_mix = color_start.mix_in::<palette::LinSrgba>(color_end, 0.5);
 
-        assert_approx(color_mix.r, 0.7353569);
-        assert_approx(color_mix.g, 0.);
-        assert_approx(color_mix.b, 0.7353569);
-        assert_approx(color_mix.a, 1.);
+        assert!(
+            color_mix
+                .difference_in::<palette::Lch>(Color::rgb(0.7353569, 0., 0.7353569))
+                .abs()
+                < 1e-3
+        );
 
         let color_mix = color_start.mix_in::<palette::Oklcha>(color_end, 0.5);
 
-        assert_approx(color_mix.r, 0.7299066);
-        assert_approx(color_mix.g, 0.);
-        assert_approx(color_mix.b, 0.7600829);
-        assert_approx(color_mix.a, 1.);
+        assert!(
+            color_mix
+                .difference_in::<palette::Lch>(Color::rgb(0.7299066, 0., 0.7600829))
+                .abs()
+                < 1e-3
+        );
     }
 
     #[test]
     fn hue_shift() {
-        fn assert_approx(a: f32, b: f32) {
-            let diff = (a - b).abs();
-            assert!(
-                diff < 1e-3,
-                "Expected {a} ~ {b}; Difference of {diff} Found"
-            );
-        }
-
         let color_start = Color::hsl(45., 0.5, 0.5);
         let color_complement = color_start.shift_hue_in::<palette::Hsla>(180.);
         let color_complement_ref = Color::hsl(45. + 180., 0.5, 0.5);
 
-        assert_approx(color_complement.r, color_complement_ref.r);
-        assert_approx(color_complement.g, color_complement_ref.g);
-        assert_approx(color_complement.b, color_complement_ref.b);
-        assert_approx(color_complement.a, color_complement_ref.a);
+        assert!(
+            color_complement
+                .difference_in::<palette::Lch>(color_complement_ref)
+                .abs()
+                < 1e-3
+        );
 
         use super::palette::ShiftHue;
 
@@ -1573,29 +1515,18 @@ mod tests {
             .shift_hue(60.);
         let color_complement = Color::from_space(color_complement);
 
-        assert_approx(color_complement.r, color_complement_ref.r);
-        assert_approx(color_complement.g, color_complement_ref.g);
-        assert_approx(color_complement.b, color_complement_ref.b);
-        assert_approx(color_complement.a, color_complement_ref.a);
+        assert!(
+            color_complement
+                .difference_in::<palette::Lch>(color_complement_ref)
+                .abs()
+                < 1e-3
+        );
     }
 
     #[test]
     fn key_colors() {
-        fn assert_approx(a: f32, b: f32) {
-            let diff = (a - b).abs();
-            let relative_diff = diff / a.abs();
-            let percentage = relative_diff * 100.;
-            assert!(
-                (relative_diff.is_finite() && relative_diff < 1e-3) || diff < 1e-2,
-                "Expected {a} ~ {b}; Difference of {diff} ({percentage:.1}%) Found"
-            );
-        }
-
         fn assert_color_approx(a: Color, b: Color) {
-            assert_approx(a.r, b.r);
-            assert_approx(a.g, b.g);
-            assert_approx(a.b, b.b);
-            assert_approx(a.a, b.a);
+            assert!(a.difference_in::<palette::Lch>(b).abs() < 1e-2);
         }
 
         assert_color_approx(Color::RED, Color::hsl(0., 1.0, 0.5));
