@@ -26,7 +26,7 @@ fn trace_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // Calculate radiance interval for this probe based on which cascade it's part of
     var radiance_interval_min = FIRST_RADIANCE_CASCADE_INTERVAL * pow(2.0, f32(global_id.z) - 1.0);
-    let radiance_interval_max = radiance_interval_min * 2.0;
+    var radiance_interval_max = radiance_interval_min * 2.0;
     if global_id.z == 0u {
         radiance_interval_min = 0.001;
         radiance_interval_max = FIRST_RADIANCE_CASCADE_INTERVAL;
