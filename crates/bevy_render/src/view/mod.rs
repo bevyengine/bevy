@@ -1,12 +1,12 @@
 pub mod visibility;
 pub mod window;
 
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{ExtractedCamera, TemporalJitter},
+    camera::{ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
     render_asset::RenderAssets,
@@ -19,7 +19,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec4, Vec3, Vec4, Vec4Swizzles};
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use std::sync::{
@@ -31,8 +31,7 @@ use wgpu::{
     TextureFormat, TextureUsages,
 };
 
-pub const VIEW_TYPE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 15421373904451797197);
+pub const VIEW_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(15421373904451797197);
 
 pub struct ViewPlugin;
 
@@ -40,8 +39,8 @@ impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, VIEW_TYPE_HANDLE, "view.wgsl", Shader::from_wgsl);
 
-        app.register_type::<ComputedVisibility>()
-            .register_type::<ComputedVisibilityFlags>()
+        app.register_type::<InheritedVisibility>()
+            .register_type::<ViewVisibility>()
             .register_type::<Msaa>()
             .register_type::<NoFrustumCulling>()
             .register_type::<RenderLayers>()
@@ -50,23 +49,19 @@ impl Plugin for ViewPlugin {
             .register_type::<ColorGrading>()
             .init_resource::<Msaa>()
             // NOTE: windows.is_changed() handles cases where a window was resized
-            .add_plugin(ExtractResourcePlugin::<Msaa>::default())
-            .add_plugin(VisibilityPlugin);
+            .add_plugins((ExtractResourcePlugin::<Msaa>::default(), VisibilityPlugin));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<ViewUniforms>()
-                .configure_set(Render, ViewSet::PrepareUniforms.in_set(RenderSet::Prepare))
-                .add_systems(
-                    Render,
-                    (
-                        prepare_view_uniforms.in_set(ViewSet::PrepareUniforms),
-                        prepare_view_targets
-                            .after(WindowSystem::Prepare)
-                            .in_set(RenderSet::Prepare)
-                            .after(crate::render_asset::prepare_assets::<Image>),
-                    ),
-                );
+            render_app.init_resource::<ViewUniforms>().add_systems(
+                Render,
+                (
+                    prepare_view_targets
+                        .in_set(RenderSet::ManageViews)
+                        .after(prepare_windows)
+                        .after(crate::render_asset::prepare_assets::<Image>),
+                    prepare_view_uniforms.in_set(RenderSet::PrepareResources),
+                ),
+            );
         }
     }
 }
@@ -87,7 +82,9 @@ impl Plugin for ViewPlugin {
 ///     .insert_resource(Msaa::default())
 ///     .run();
 /// ```
-#[derive(Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd)]
+#[derive(
+    Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd, Debug,
+)]
 #[reflect(Resource)]
 pub enum Msaa {
     Off = 1,
@@ -172,6 +169,7 @@ pub struct ViewUniform {
     // viewport(x_origin, y_origin, width, height)
     viewport: Vec4,
     color_grading: ColorGrading,
+    mip_bias: f32,
 }
 
 #[derive(Resource, Default)]
@@ -351,11 +349,16 @@ pub fn prepare_view_uniforms(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut view_uniforms: ResMut<ViewUniforms>,
-    views: Query<(Entity, &ExtractedView, Option<&TemporalJitter>)>,
+    views: Query<(
+        Entity,
+        &ExtractedView,
+        Option<&TemporalJitter>,
+        Option<&MipBias>,
+    )>,
 ) {
     view_uniforms.uniforms.clear();
 
-    for (entity, camera, temporal_jitter) in &views {
+    for (entity, camera, temporal_jitter, mip_bias) in &views {
         let viewport = camera.viewport.as_vec4();
         let unjittered_projection = camera.projection;
         let mut projection = unjittered_projection;
@@ -368,11 +371,17 @@ pub fn prepare_view_uniforms(
         let view = camera.transform.compute_matrix();
         let inverse_view = view.inverse();
 
+        let view_proj = if temporal_jitter.is_some() {
+            projection * inverse_view
+        } else {
+            camera
+                .view_projection
+                .unwrap_or_else(|| projection * inverse_view)
+        };
+
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
-                view_proj: camera
-                    .view_projection
-                    .unwrap_or_else(|| projection * inverse_view),
+                view_proj,
                 unjittered_view_proj: unjittered_projection * inverse_view,
                 inverse_view_proj: view * inverse_projection,
                 view,
@@ -382,6 +391,7 @@ pub fn prepare_view_uniforms(
                 world_position: camera.transform.translation(),
                 viewport,
                 color_grading: camera.color_grading,
+                mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
             }),
         };
 
@@ -412,13 +422,14 @@ fn prepare_view_targets(
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     cameras: Query<(Entity, &ExtractedCamera, &ExtractedView)>,
+    manual_texture_views: Res<ManualTextureViews>,
 ) {
     let mut textures = HashMap::default();
     for (entity, camera, view) in cameras.iter() {
         if let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target) {
             if let (Some(out_texture_view), Some(out_texture_format)) = (
-                target.get_texture_view(&windows, &images),
-                target.get_texture_format(&windows, &images),
+                target.get_texture_view(&windows, &images, &manual_texture_views),
+                target.get_texture_format(&windows, &images, &manual_texture_views),
             ) {
                 let size = Extent3d {
                     width: target_size.x,
@@ -501,11 +512,4 @@ fn prepare_view_targets(
             }
         }
     }
-}
-
-/// System sets for the [`view`](crate::view) module.
-#[derive(SystemSet, PartialEq, Eq, Hash, Debug, Clone)]
-pub enum ViewSet {
-    /// Prepares view uniforms
-    PrepareUniforms,
 }

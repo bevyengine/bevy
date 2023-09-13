@@ -1,5 +1,4 @@
 use crate::{DynamicEntity, DynamicScene};
-use anyhow::Result;
 use bevy_ecs::entity::Entity;
 use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
 use bevy_reflect::{
@@ -424,13 +423,13 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
 mod tests {
     use crate::serde::{SceneDeserializer, SceneSerializer};
     use crate::{DynamicScene, DynamicSceneBuilder};
-    use bevy_app::AppTypeRegistry;
-    use bevy_ecs::entity::{Entity, EntityMap, EntityMapper, MapEntities};
+    use bevy_ecs::entity::{Entity, EntityMapper, MapEntities};
     use bevy_ecs::prelude::{Component, ReflectComponent, ReflectResource, Resource, World};
     use bevy_ecs::query::{With, Without};
-    use bevy_ecs::reflect::ReflectMapEntities;
+    use bevy_ecs::reflect::{AppTypeRegistry, ReflectMapEntities};
     use bevy_ecs::world::FromWorld;
-    use bevy_reflect::{FromReflect, Reflect, ReflectSerialize};
+    use bevy_reflect::{Reflect, ReflectSerialize};
+    use bevy_utils::HashMap;
     use bincode::Options;
     use serde::de::DeserializeSeed;
     use serde::Serialize;
@@ -454,7 +453,7 @@ mod tests {
         baz: MyEnum,
     }
 
-    #[derive(Reflect, FromReflect, Default)]
+    #[derive(Reflect, Default)]
     enum MyEnum {
         #[default]
         Unit,
@@ -604,7 +603,7 @@ mod tests {
             "expected `entities` to contain 3 entities"
         );
 
-        let mut map = EntityMap::default();
+        let mut map = HashMap::default();
         let mut dst_world = create_world();
         scene.write_to_world(&mut dst_world, &mut map).unwrap();
 
@@ -631,7 +630,7 @@ mod tests {
 
         let registry = world.resource::<AppTypeRegistry>();
 
-        let scene = DynamicScene::from_world(&world, registry);
+        let scene = DynamicScene::from_world(&world);
 
         let serialized = scene
             .serialize_ron(&world.resource::<AppTypeRegistry>().0)
@@ -643,7 +642,7 @@ mod tests {
 
         let deserialized_scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let mut map = EntityMap::default();
+        let mut map = HashMap::default();
         let mut dst_world = create_world();
         deserialized_scene
             .write_to_world(&mut dst_world, &mut map)
@@ -681,7 +680,7 @@ mod tests {
 
         let registry = world.resource::<AppTypeRegistry>();
 
-        let scene = DynamicScene::from_world(&world, registry);
+        let scene = DynamicScene::from_world(&world);
 
         let scene_serializer = SceneSerializer::new(&scene, &registry.0);
         let serialized_scene = postcard::to_allocvec(&scene_serializer).unwrap();
@@ -719,7 +718,7 @@ mod tests {
 
         let registry = world.resource::<AppTypeRegistry>();
 
-        let scene = DynamicScene::from_world(&world, registry);
+        let scene = DynamicScene::from_world(&world);
 
         let scene_serializer = SceneSerializer::new(&scene, &registry.0);
         let mut buf = Vec::new();
@@ -762,7 +761,7 @@ mod tests {
 
         let registry = world.resource::<AppTypeRegistry>();
 
-        let scene = DynamicScene::from_world(&world, registry);
+        let scene = DynamicScene::from_world(&world);
 
         let scene_serializer = SceneSerializer::new(&scene, &registry.0);
         let serialized_scene = bincode::serialize(&scene_serializer).unwrap();
@@ -807,7 +806,7 @@ mod tests {
                 .find(|dynamic_entity| dynamic_entity.entity == expected.entity)
                 .unwrap_or_else(|| panic!("missing entity (expected: `{:?}`)", expected.entity));
 
-            assert_eq!(expected.entity, received.entity, "entities did not match",);
+            assert_eq!(expected.entity, received.entity, "entities did not match");
 
             for expected in &expected.components {
                 let received = received
@@ -836,8 +835,7 @@ mod tests {
         #[should_panic(expected = "entity count did not match")]
         fn should_panic_when_entity_count_not_eq() {
             let mut world = create_world();
-            let registry = world.resource::<AppTypeRegistry>();
-            let scene_a = DynamicScene::from_world(&world, registry);
+            let scene_a = DynamicScene::from_world(&world);
 
             world.spawn(MyComponent {
                 foo: [1, 2, 3],
@@ -845,8 +843,7 @@ mod tests {
                 baz: MyEnum::Unit,
             });
 
-            let registry = world.resource::<AppTypeRegistry>();
-            let scene_b = DynamicScene::from_world(&world, registry);
+            let scene_b = DynamicScene::from_world(&world);
 
             assert_scene_eq(&scene_a, &scene_b);
         }
@@ -864,8 +861,7 @@ mod tests {
                 })
                 .id();
 
-            let registry = world.resource::<AppTypeRegistry>();
-            let scene_a = DynamicScene::from_world(&world, registry);
+            let scene_a = DynamicScene::from_world(&world);
 
             world.entity_mut(entity).insert(MyComponent {
                 foo: [3, 2, 1],
@@ -873,8 +869,7 @@ mod tests {
                 baz: MyEnum::Unit,
             });
 
-            let registry = world.resource::<AppTypeRegistry>();
-            let scene_b = DynamicScene::from_world(&world, registry);
+            let scene_b = DynamicScene::from_world(&world);
 
             assert_scene_eq(&scene_a, &scene_b);
         }
@@ -892,13 +887,11 @@ mod tests {
                 })
                 .id();
 
-            let registry = world.resource::<AppTypeRegistry>();
-            let scene_a = DynamicScene::from_world(&world, registry);
+            let scene_a = DynamicScene::from_world(&world);
 
             world.entity_mut(entity).remove::<MyComponent>();
 
-            let registry = world.resource::<AppTypeRegistry>();
-            let scene_b = DynamicScene::from_world(&world, registry);
+            let scene_b = DynamicScene::from_world(&world);
 
             assert_scene_eq(&scene_a, &scene_b);
         }

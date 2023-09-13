@@ -1,11 +1,11 @@
-use crate::MeshPipeline;
-use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
+use crate::{DrawMesh, MeshPipelineKey, SetMeshBindGroup, SetMeshViewBindGroup};
+use crate::{MeshPipeline, MeshTransforms};
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::Render;
 use bevy_render::{
@@ -22,8 +22,7 @@ use bevy_render::{
 };
 use bevy_utils::tracing::error;
 
-pub const WIREFRAME_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 192598014480025766);
+pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
 
 #[derive(Debug, Default)]
 pub struct WireframePlugin;
@@ -40,14 +39,16 @@ impl Plugin for WireframePlugin {
         app.register_type::<Wireframe>()
             .register_type::<WireframeConfig>()
             .init_resource::<WireframeConfig>()
-            .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default())
-            .add_plugin(ExtractComponentPlugin::<Wireframe>::default());
+            .add_plugins((
+                ExtractResourcePlugin::<WireframeConfig>::default(),
+                ExtractComponentPlugin::<Wireframe>::default(),
+            ));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Opaque3d, DrawWireframes>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
-                .add_systems(Render, queue_wireframes.in_set(RenderSet::Queue));
+                .add_systems(Render, queue_wireframes.in_set(RenderSet::QueueMeshes));
         }
     }
 
@@ -79,7 +80,7 @@ impl FromWorld for WireframePipeline {
     fn from_world(render_world: &mut World) -> Self {
         WireframePipeline {
             mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            shader: WIREFRAME_SHADER_HANDLE.typed(),
+            shader: WIREFRAME_SHADER_HANDLE,
         }
     }
 }
@@ -94,6 +95,10 @@ impl SpecializedMeshPipeline for WireframePipeline {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
         descriptor.vertex.shader = self.shader.clone_weak();
+        descriptor
+            .vertex
+            .shader_defs
+            .push("MESH_BINDGROUP_1".into());
         descriptor.fragment.as_mut().unwrap().shader = self.shader.clone_weak();
         descriptor.primitive.polygon_mode = PolygonMode::Line;
         descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
@@ -111,8 +116,8 @@ fn queue_wireframes(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     mut material_meshes: ParamSet<(
-        Query<(Entity, &Handle<Mesh>, &MeshUniform)>,
-        Query<(Entity, &Handle<Mesh>, &MeshUniform), With<Wireframe>>,
+        Query<(Entity, &Handle<Mesh>, &MeshTransforms)>,
+        Query<(Entity, &Handle<Mesh>, &MeshTransforms), With<Wireframe>>,
     )>,
     mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<Opaque3d>)>,
 ) {
@@ -123,10 +128,13 @@ fn queue_wireframes(
 
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let add_render_phase =
-            |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
+            |(entity, mesh_handle, mesh_transforms): (Entity, &Handle<Mesh>, &MeshTransforms)| {
                 if let Some(mesh) = render_meshes.get(mesh_handle) {
-                    let key = view_key
+                    let mut key = view_key
                         | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    if mesh.morph_targets.is_some() {
+                        key |= MeshPipelineKey::MORPH_TARGETS;
+                    }
                     let pipeline_id = pipelines.specialize(
                         &pipeline_cache,
                         &wireframe_pipeline,
@@ -144,7 +152,9 @@ fn queue_wireframes(
                         entity,
                         pipeline: pipeline_id,
                         draw_function: draw_custom,
-                        distance: rangefinder.distance(&mesh_uniform.transform),
+                        distance: rangefinder
+                            .distance_translation(&mesh_transforms.transform.translation),
+                        batch_size: 1,
                     });
                 }
             };

@@ -227,9 +227,14 @@ impl DiagnosticsStore {
             .and_then(|diagnostic| diagnostic.measurement())
     }
 
-    /// Return an iterator over all [`Diagnostic`].
+    /// Return an iterator over all [`Diagnostic`]s.
     pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> {
         self.diagnostics.values()
+    }
+
+    /// Return an iterator over all [`Diagnostic`]s, by mutable reference.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Diagnostic> {
+        self.diagnostics.values_mut()
     }
 }
 
@@ -299,7 +304,7 @@ impl RegisterDiagnostic for App {
     ///
     /// App::new()
     ///     .register_diagnostic(Diagnostic::new(UNIQUE_DIAG_ID, "example", 10))
-    ///     .add_plugin(DiagnosticsPlugin)
+    ///     .add_plugins(DiagnosticsPlugin)
     ///     .run();
     /// ```
     fn register_diagnostic(&mut self, diagnostic: Diagnostic) -> &mut Self {
