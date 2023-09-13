@@ -16,10 +16,9 @@ pub fn batch_render_phase<
     phase: &mut RenderPhase<I>,
     mut get_batch_meta: impl FnMut(&I) -> Option<(T, NonMaxU32, Option<NonMaxU32>)>,
 ) {
-    // we iterate in reverse so that we can write to the last item of the current batch, and still skip the 
-    // right number of phase items when iterating forwards in the Render stage
-    let mut items = phase.items.iter_mut().rev().peekable();
-    let mut batch_start_index = None;
+    let mut items = phase.items.iter_mut().peekable();
+    let mut batch_start_item = None;
+    let mut batch_start_index = 0;
     let mut next_batch = items.peek().and_then(|item| get_batch_meta(item));
     while let Some(item) = items.next() {
         // get current batch meta and update next batch meta
@@ -31,16 +30,18 @@ pub fn batch_render_phase<
             continue;
         };
 
-        // record the start index if we are beginning a new batch
-        if batch_start_index.is_none() {
-            batch_start_index = Some(index);
+        // if we are beginning a new batch record the start item and index 
+        if batch_start_item.is_none() {
+            batch_start_item = Some(item);
+            batch_start_index = index.get();
         }
 
         if Some(&batch_meta) != next_batch.as_ref().map(|(meta, ..)| meta) {
-            // next item doesn't match, update the phase item to render this batch
-            *item.batch_range_mut() = batch_start_index.take().unwrap().get()..index.get() + 1;
-            *item.dynamic_offset_mut() = dynamic_offset;
-            batch_start_index = None;
+            // next item doesn't match the current batch (or doesn't exist), 
+            // update the phase item to render this batch
+            let batch_start_item = batch_start_item.take().unwrap();
+            *batch_start_item.batch_range_mut() = batch_start_index..index.get() + 1;
+            *batch_start_item.dynamic_offset_mut() = dynamic_offset;
         }
     }
 }
