@@ -17,14 +17,14 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(example_control_system);
+        .add_systems(Startup, setup)
+        .add_systems(Update, example_control_system);
 
     // Unfortunately, MSAA and HDR are not supported simultaneously under WebGL.
     // Since this example uses HDR, we must disable MSAA for WASM builds, at least
     // until WebGPU is ready and no longer behind a feature flag in Web browsers.
     #[cfg(target_arch = "wasm32")]
-    app.insert_resource(Msaa { samples: 1 }); // Default is 4 samples (MSAA on)
+    app.insert_resource(Msaa::Off);
 
     app.run();
 }
@@ -204,11 +204,8 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(10.0),
-                left: Val::Px(10.0),
-                ..default()
-            },
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
             ..default()
         }),
     );
@@ -216,61 +213,43 @@ fn setup(
     commands.spawn((
         TextBundle::from_section("", text_style).with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(10.0),
-                right: Val::Px(10.0),
-                ..default()
-            },
+            top: Val::Px(10.0),
+            right: Val::Px(10.0),
             ..default()
         }),
         ExampleDisplay,
     ));
 
-    commands.spawn((
-        TextBundle::from_section("┌─ Opaque\n│\n│\n│\n│", label_text_style.clone()).with_style(
-            Style {
-                position_type: PositionType::Absolute,
-                ..default()
-            },
-        ),
-        ExampleLabel { entity: opaque },
-    ));
+    let mut label = |entity: Entity, label: &str| {
+        commands
+            .spawn((
+                NodeBundle {
+                    style: Style {
+                        position_type: PositionType::Absolute,
+                        ..default()
+                    },
+                    ..default()
+                },
+                ExampleLabel { entity },
+            ))
+            .with_children(|parent| {
+                parent.spawn(
+                    TextBundle::from_section(label, label_text_style.clone())
+                        .with_style(Style {
+                            position_type: PositionType::Absolute,
+                            bottom: Val::ZERO,
+                            ..default()
+                        })
+                        .with_no_wrap(),
+                );
+            });
+    };
 
-    commands.spawn((
-        TextBundle::from_section("┌─ Blend\n│\n│\n│", label_text_style.clone()).with_style(Style {
-            position_type: PositionType::Absolute,
-            ..default()
-        }),
-        ExampleLabel { entity: blend },
-    ));
-
-    commands.spawn((
-        TextBundle::from_section("┌─ Premultiplied\n│\n│", label_text_style.clone()).with_style(
-            Style {
-                position_type: PositionType::Absolute,
-                ..default()
-            },
-        ),
-        ExampleLabel {
-            entity: premultiplied,
-        },
-    ));
-
-    commands.spawn((
-        TextBundle::from_section("┌─ Add\n│", label_text_style.clone()).with_style(Style {
-            position_type: PositionType::Absolute,
-            ..default()
-        }),
-        ExampleLabel { entity: add },
-    ));
-
-    commands.spawn((
-        TextBundle::from_section("┌─ Multiply", label_text_style).with_style(Style {
-            position_type: PositionType::Absolute,
-            ..default()
-        }),
-        ExampleLabel { entity: multiply },
-    ));
+    label(opaque, "┌─ Opaque\n│\n│\n│\n│");
+    label(blend, "┌─ Blend\n│\n│\n│");
+    label(premultiplied, "┌─ Premultiplied\n│\n│");
+    label(add, "┌─ Add\n│");
+    label(multiply, "┌─ Multiply");
 }
 
 #[derive(Component)]
@@ -326,7 +305,7 @@ fn example_control_system(
     let randomize_colors = input.just_pressed(KeyCode::C);
 
     for (material_handle, controls) in &controllable {
-        let mut material = materials.get_mut(material_handle).unwrap();
+        let material = materials.get_mut(material_handle).unwrap();
         material.base_color.set_a(state.alpha);
 
         if controls.color && randomize_colors {
@@ -353,21 +332,17 @@ fn example_control_system(
         0.0
     };
 
-    camera_transform.rotate_around(
-        Vec3::ZERO,
-        Quat::from_euler(EulerRot::XYZ, 0.0, rotation, 0.0),
-    );
+    camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(rotation));
 
     for (mut style, label) in &mut labels {
-        let world_position =
-            labelled.get(label.entity).unwrap().translation() + Vec3::new(0.0, 1.0, 0.0);
+        let world_position = labelled.get(label.entity).unwrap().translation() + Vec3::Y;
 
         let viewport_position = camera
             .world_to_viewport(camera_global_transform, world_position)
             .unwrap();
 
-        style.position.bottom = Val::Px(viewport_position.y);
-        style.position.left = Val::Px(viewport_position.x);
+        style.top = Val::Px(viewport_position.y);
+        style.left = Val::Px(viewport_position.x);
     }
 
     let mut display = display.single_mut();

@@ -1,6 +1,7 @@
 //! Accessibility for Bevy
 
 #![warn(missing_docs)]
+#![allow(clippy::type_complexity)]
 #![forbid(unsafe_code)]
 
 use std::{
@@ -17,7 +18,7 @@ use bevy_ecs::{
     system::Resource,
 };
 
-/// Event wrapper struct for [`accesskit::ActionRequest`].
+/// Wrapper struct for [`accesskit::ActionRequest`]. Required to allow it to be used as an `Event`.
 #[derive(Event, Deref, DerefMut)]
 pub struct ActionRequest(pub accesskit::ActionRequest);
 

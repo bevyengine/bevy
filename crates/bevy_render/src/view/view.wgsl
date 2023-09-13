@@ -9,6 +9,7 @@ struct ColorGrading {
 
 struct View {
     view_proj: mat4x4<f32>,
+    unjittered_view_proj: mat4x4<f32>,
     inverse_view_proj: mat4x4<f32>,
     view: mat4x4<f32>,
     inverse_view: mat4x4<f32>,
@@ -18,4 +19,5 @@ struct View {
     // viewport(x_origin, y_origin, width, height)
     viewport: vec4<f32>,
     color_grading: ColorGrading,
+    mip_bias: f32,
 };

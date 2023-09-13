@@ -88,7 +88,7 @@ pub fn dds_format_to_texture_format(
                     TextureFormat::Bc3RgbaUnorm
                 }
             }
-            D3DFormat::A16B16G16R16 => TextureFormat::Rgba16Uint,
+            D3DFormat::A16B16G16R16 => TextureFormat::Rgba16Unorm,
             D3DFormat::Q16W16V16U16 => TextureFormat::Rgba16Sint,
             D3DFormat::R16F => TextureFormat::R16Float,
             D3DFormat::G16R16F => TextureFormat::Rg16Float,
@@ -215,7 +215,7 @@ pub fn dds_format_to_texture_format(
             }
 
             DxgiFormat::BC6H_Typeless | DxgiFormat::BC6H_UF16 => TextureFormat::Bc6hRgbUfloat,
-            DxgiFormat::BC6H_SF16 => TextureFormat::Bc6hRgbSfloat,
+            DxgiFormat::BC6H_SF16 => TextureFormat::Bc6hRgbFloat,
             DxgiFormat::BC7_Typeless | DxgiFormat::BC7_UNorm | DxgiFormat::BC7_UNorm_sRGB => {
                 if is_srgb {
                     TextureFormat::Bc7RgbaUnormSrgb

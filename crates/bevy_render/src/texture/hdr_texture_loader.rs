@@ -1,7 +1,5 @@
 use crate::texture::{Image, TextureFormatPixelInfo};
-use anyhow::Result;
-use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
-use bevy_utils::BoxedFuture;
+use bevy_asset::{anyhow::Error, io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads HDR textures as Texture assets
@@ -9,11 +7,14 @@ use wgpu::{Extent3d, TextureDimension, TextureFormat};
 pub struct HdrTextureLoader;
 
 impl AssetLoader for HdrTextureLoader {
+    type Asset = Image;
+    type Settings = ();
     fn load<'a>(
         &'a self,
-        bytes: &'a [u8],
-        load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<()>> {
+        reader: &'a mut Reader,
+        _settings: &'a (),
+        _load_context: &'a mut LoadContext,
+    ) -> bevy_utils::BoxedFuture<'a, Result<Image, Error>> {
         Box::pin(async move {
             let format = TextureFormat::Rgba32Float;
             debug_assert_eq!(
@@ -22,7 +23,9 @@ impl AssetLoader for HdrTextureLoader {
                 "Format should have 32bit x 4 size"
             );
 
-            let decoder = image::codecs::hdr::HdrDecoder::new(bytes)?;
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            let decoder = image::codecs::hdr::HdrDecoder::new(bytes.as_slice())?;
             let info = decoder.metadata();
             let rgb_data = decoder.read_image_hdr()?;
             let mut rgba_data = Vec::with_capacity(rgb_data.len() * format.pixel_size());
@@ -36,7 +39,7 @@ impl AssetLoader for HdrTextureLoader {
                 rgba_data.extend_from_slice(&alpha.to_ne_bytes());
             }
 
-            let texture = Image::new(
+            Ok(Image::new(
                 Extent3d {
                     width: info.width,
                     height: info.height,
@@ -45,10 +48,7 @@ impl AssetLoader for HdrTextureLoader {
                 TextureDimension::D2,
                 rgba_data,
                 format,
-            );
-
-            load_context.set_default_asset(LoadedAsset::new(texture));
-            Ok(())
+            ))
         })
     }
 

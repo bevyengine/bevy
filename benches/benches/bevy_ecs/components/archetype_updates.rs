@@ -7,9 +7,9 @@ struct A<const N: u16>(f32);
 fn setup(system_count: usize) -> (World, Schedule) {
     let mut world = World::new();
     fn empty() {}
-    let mut schedule = Schedule::new();
+    let mut schedule = Schedule::default();
     for _ in 0..system_count {
-        schedule.add_system(empty);
+        schedule.add_systems(empty);
     }
     schedule.run(&mut world);
     (world, schedule)

@@ -17,8 +17,8 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_system(setup)
-        .add_system(toggle_mouse_passthrough) // This allows us to hit 'P' to toggle on/off the mouse's passthrough
+        .add_systems(Startup, setup)
+        .add_systems(Update, toggle_mouse_passthrough) // This allows us to hit 'P' to toggle on/off the mouse's passthrough
         .run();
 }
 
@@ -40,11 +40,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Set the style of the TextBundle itself.
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(5.),
-                right: Val::Px(10.),
-                ..default()
-            },
+            bottom: Val::Px(5.),
+            right: Val::Px(10.),
             ..default()
         }),
     ));

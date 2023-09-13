@@ -1,15 +1,15 @@
 //! Implements loader for a custom asset type.
 
 use bevy::{
-    asset::{AssetLoader, LoadContext, LoadedAsset},
+    asset::{anyhow::Error, io::Reader, AssetLoader, LoadContext},
     prelude::*,
-    reflect::TypeUuid,
+    reflect::TypePath,
     utils::BoxedFuture,
 };
+use futures_lite::AsyncReadExt;
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize, TypeUuid)]
-#[uuid = "39cadc56-aa9c-4543-8640-a018b74b5052"]
+#[derive(Asset, TypePath, Debug, Deserialize)]
 pub struct CustomAsset {
     pub value: i32,
 }
@@ -18,15 +18,19 @@ pub struct CustomAsset {
 pub struct CustomAssetLoader;
 
 impl AssetLoader for CustomAssetLoader {
+    type Asset = CustomAsset;
+    type Settings = ();
     fn load<'a>(
         &'a self,
-        bytes: &'a [u8],
-        load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<(), bevy::asset::Error>> {
+        reader: &'a mut Reader,
+        _settings: &'a (),
+        _load_context: &'a mut LoadContext,
+    ) -> BoxedFuture<'a, Result<Self::Asset, Error>> {
         Box::pin(async move {
-            let custom_asset = ron::de::from_bytes::<CustomAsset>(bytes)?;
-            load_context.set_default_asset(LoadedAsset::new(custom_asset));
-            Ok(())
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            let custom_asset = ron::de::from_bytes::<CustomAsset>(&bytes)?;
+            Ok(custom_asset)
         })
     }
 
@@ -39,10 +43,10 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<State>()
-        .add_asset::<CustomAsset>()
+        .init_asset::<CustomAsset>()
         .init_asset_loader::<CustomAssetLoader>()
-        .add_startup_system(setup)
-        .add_system(print_on_load)
+        .add_systems(Startup, setup)
+        .add_systems(Update, print_on_load)
         .run();
 }
 

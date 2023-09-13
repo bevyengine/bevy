@@ -1,3 +1,5 @@
+//! Helpers for mapping window entities to accessibility types
+
 use std::{
     collections::VecDeque,
     sync::{atomic::Ordering, Arc, Mutex},
@@ -9,7 +11,7 @@ use bevy_a11y::{
     accesskit::{ActionHandler, ActionRequest, NodeBuilder, NodeClassSet, Role, TreeUpdate},
     AccessKitEntityExt, AccessibilityNode, AccessibilityRequested, Focus,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
@@ -44,7 +46,7 @@ fn handle_window_focus(
     adapters: NonSend<AccessKitAdapters>,
     mut focused: EventReader<WindowFocused>,
 ) {
-    for event in focused.iter() {
+    for event in focused.read() {
         if let Some(adapter) = adapters.get(&event.window) {
             adapter.update_if_active(|| {
                 let focus_id = (*focus).unwrap_or_else(|| event.window);
@@ -66,7 +68,7 @@ fn window_closed(
     mut receivers: ResMut<WinitActionHandlers>,
     mut events: EventReader<WindowClosed>,
 ) {
-    for WindowClosed { window, .. } in events.iter() {
+    for WindowClosed { window, .. } in events.read() {
         adapters.remove(window);
         receivers.remove(window);
     }
@@ -167,9 +169,14 @@ impl Plugin for AccessibilityPlugin {
         app.init_non_send_resource::<AccessKitAdapters>()
             .init_resource::<WinitActionHandlers>()
             .add_event::<ActionRequestWrapper>()
-            .add_system(handle_window_focus)
-            .add_system(window_closed)
-            .add_system(poll_receivers)
-            .add_system(update_accessibility_nodes);
+            .add_systems(
+                PostUpdate,
+                (
+                    handle_window_focus,
+                    window_closed,
+                    poll_receivers,
+                    update_accessibility_nodes,
+                ),
+            );
     }
 }

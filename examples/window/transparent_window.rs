@@ -1,7 +1,7 @@
 //! Shows how to display a window in transparent mode.
 //!
 //! This feature works as expected depending on the platform. Please check the
-//! [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowDescriptor.html#structfield.transparent)
+//! [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.transparent)
 //! for more details.
 
 #[cfg(target_os = "macos")]
@@ -13,9 +13,6 @@ use bevy::{
 
 fn main() {
     App::new()
-        // ClearColor must have 0 alpha, otherwise some color will bleed through
-        .insert_resource(ClearColor(Color::NONE))
-        .add_startup_system(setup)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 // Setting `transparent` allows the `ClearColor`'s alpha value to take effect
@@ -28,6 +25,9 @@ fn main() {
             }),
             ..default()
         }))
+        // ClearColor must have 0 alpha, otherwise some color will bleed through
+        .insert_resource(ClearColor(Color::NONE))
+        .add_systems(Startup, setup)
         .run();
 }
 

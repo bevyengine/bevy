@@ -12,21 +12,22 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_system(setup)
-        .add_system(display_override)
-        .add_system(toggle_override)
-        .add_system(change_scale_factor)
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (display_override, toggle_override, change_scale_factor),
+        )
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     // camera
     commands.spawn(Camera2dBundle::default());
     // root node
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                width: Val::Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
@@ -37,7 +38,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
+                        width: Val::Px(200.0),
+                        height: Val::Percent(100.0),
                         border: UiRect::all(Val::Px(2.0)),
                         ..default()
                     },
@@ -49,9 +51,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextBundle::from_section(
                             "Example text",
                             TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 30.0,
                                 color: Color::WHITE,
+                                ..default()
                             },
                         )
                         .with_style(Style {

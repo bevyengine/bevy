@@ -20,16 +20,18 @@ struct Foxes {
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
-                present_mode: PresentMode::AutoNoVsync,
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
+                    present_mode: PresentMode::AutoNoVsync,
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_plugin(FrameTimeDiagnosticsPlugin)
-        .add_plugin(LogDiagnosticsPlugin::default())
+            FrameTimeDiagnosticsPlugin,
+            LogDiagnosticsPlugin::default(),
+        ))
         .insert_resource(Foxes {
             count: std::env::args()
                 .nth(1)
@@ -41,10 +43,15 @@ fn main() {
             color: Color::WHITE,
             brightness: 1.0,
         })
-        .add_startup_system(setup)
-        .add_system(setup_scene_once_loaded)
-        .add_system(keyboard_animation_control)
-        .add_system(update_fox_rings.after(keyboard_animation_control))
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (
+                setup_scene_once_loaded,
+                keyboard_animation_control,
+                update_fox_rings.after(keyboard_animation_control),
+            ),
+        )
         .run();
 }
 
@@ -263,13 +270,13 @@ fn keyboard_animation_control(
         }
 
         if keyboard_input.just_pressed(KeyCode::Left) {
-            let elapsed = player.elapsed();
-            player.set_elapsed(elapsed - 0.1);
+            let elapsed = player.seek_time();
+            player.seek_to(elapsed - 0.1);
         }
 
         if keyboard_input.just_pressed(KeyCode::Right) {
-            let elapsed = player.elapsed();
-            player.set_elapsed(elapsed + 0.1);
+            let elapsed = player.seek_time();
+            player.seek_to(elapsed + 0.1);
         }
 
         if keyboard_input.just_pressed(KeyCode::Return) {

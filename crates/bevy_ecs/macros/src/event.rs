@@ -1,7 +1,6 @@
-use bevy_macro_utils::{get_lit_str, Symbol};
 use proc_macro::TokenStream;
-use quote::{quote, ToTokens};
-use syn::{parse_macro_input, parse_quote, DeriveInput, Error, Path, Result};
+use quote::quote;
+use syn::{parse_macro_input, parse_quote, DeriveInput, Error, LitStr, Path, Result};
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -46,64 +45,93 @@ enum StorageTy {
     SmallVec(usize),
 }
 
-pub const EVENT: Symbol = Symbol("event");
-pub const STORAGE: Symbol = Symbol("storage");
+pub const EVENT: &str = "event";
+pub const STORAGE: &str = "storage";
 
 fn parse_event_attr(ast: &DeriveInput) -> Result<Attrs> {
-    let meta_items = bevy_macro_utils::parse_attrs(ast, EVENT)?;
-
+    // let meta_items = bevy_macro_utils::parse_attrs(ast, EVENT)?;
     let mut attrs = Attrs {
         storage: StorageTy::Vec,
     };
 
-    for meta in meta_items {
-        use syn::{
-            Meta::NameValue,
-            NestedMeta::{Lit, Meta},
-        };
-        match meta {
-            Meta(NameValue(m)) if m.path == STORAGE => {
-                attrs.storage = match get_lit_str(STORAGE, &m.lit)?.value().as_str() {
-                    "vec" => StorageTy::Vec,
-                    lit if lit.starts_with("smallvec(") && lit.ends_with(')') => {
-                        let trimmed = &lit["smallvec(".len()..][..1];
+    for meta in ast.attrs.iter().filter(|a| a.path().is_ident(EVENT)) {
+        meta.parse_nested_meta(|nested| {
+            if nested.path.is_ident(STORAGE) {
+                attrs.storage = match nested.value()?.parse::<LitStr>()?.value() {
+                    s if s == "Vec" => StorageTy::Vec,
+                    s if s.starts_with("SmallVec(") && s.ends_with(')') => {
+                        let trimmed = &s["SmallVec(".len()..][..1];
                         match trimmed.parse::<usize>() {
                             Ok(size) => StorageTy::SmallVec(size),
                             Err(_) => {
                                 return Err(Error::new_spanned(
-                                    m.lit,
+                                    nested.path,
                                     format!("Invalid smallvec size {trimmed}."),
                                 ))
                             }
                         }
                     }
-                    e => {
-                        return Err(Error::new_spanned(
-                            m.lit,
-                            format!(
-                        "Invalid storage type behaviour `{e}`, expected 'vec' or 'smallvec(N)'.",
-                    ),
-                        ))
+                    s => {
+                        return Err(nested.error(format!(
+                            "Invalid storage type `{s}`, expected 'Vec' or 'SmallVec(n)'.",
+                        )));
                     }
-                }
+                };
+                Ok(())
+            } else {
+                Err(nested.error("Unsupported attribute"))
             }
-            Meta(meta_item) => {
-                return Err(Error::new_spanned(
-                    meta_item.path(),
-                    format!(
-                        "unknown event attribute `{}`",
-                        meta_item.path().into_token_stream()
-                    ),
-                ));
-            }
-            Lit(lit) => {
-                return Err(Error::new_spanned(
-                    lit,
-                    "unexpected literal in event attribute",
-                ))
-            }
-        }
+        })?;
     }
+
+    // for meta in meta_items {
+    //     use syn::{
+    //         Meta::NameValue,
+    //         NestedMeta::{Lit, Meta},
+    //     };
+    //     match meta {
+    //         Meta(NameValue(m)) if m.path == STORAGE => {
+    //             attrs.storage = match get_lit_str(STORAGE, &m.lit)?.value().as_str() {
+    //                 "vec" => StorageTy::Vec,
+    //                 lit if lit.starts_with("smallvec(") && lit.ends_with(')') => {
+    //                     let trimmed = &lit["smallvec(".len()..][..1];
+    //                     match trimmed.parse::<usize>() {
+    //                         Ok(size) => StorageTy::SmallVec(size),
+    //                         Err(_) => {
+    //                             return Err(Error::new_spanned(
+    //                                 m.lit,
+    //                                 format!("Invalid smallvec size {trimmed}."),
+    //                             ))
+    //                         }
+    //                     }
+    //                 }
+    //                 e => {
+    //                     return Err(Error::new_spanned(
+    //                         m.lit,
+    //                         format!(
+    //                     "Invalid storage type behaviour `{e}`, expected 'vec' or 'smallvec(N)'.",
+    //                 ),
+    //                     ))
+    //                 }
+    //             }
+    //         }
+    //         Meta(meta_item) => {
+    //             return Err(Error::new_spanned(
+    //                 meta_item.path(),
+    //                 format!(
+    //                     "unknown event attribute `{}`",
+    //                     meta_item.path().into_token_stream()
+    //                 ),
+    //             ));
+    //         }
+    //         Lit(lit) => {
+    //             return Err(Error::new_spanned(
+    //                 lit,
+    //                 "unexpected literal in event attribute",
+    //             ))
+    //         }
+    //     }
+    // }
 
     Ok(attrs)
 }

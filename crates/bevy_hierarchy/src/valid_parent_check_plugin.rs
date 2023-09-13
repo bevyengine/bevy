@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use bevy_app::{App, CoreSet, Plugin};
+use bevy_app::{App, Last, Plugin};
 use bevy_core::Name;
 use bevy_ecs::prelude::*;
 use bevy_log::warn;
@@ -45,11 +45,11 @@ impl<T> Default for ReportHierarchyIssue<T> {
     }
 }
 
-/// System to print a warning for each `Entity` with a `T` component
+/// System to print a warning for each [`Entity`] with a `T` component
 /// which parent hasn't a `T` component.
 ///
 /// Hierarchy propagations are top-down, and limited only to entities
-/// with a specific component (such as `ComputedVisibility` and `GlobalTransform`).
+/// with a specific component (such as `InheritedVisibility` and `GlobalTransform`).
 /// This means that entities with one of those component
 /// and a parent without the same component is probably a programming error.
 /// (See B0004 explanation linked in warning message)
@@ -96,10 +96,10 @@ impl<T: Component> Default for ValidParentCheckPlugin<T> {
 
 impl<T: Component> Plugin for ValidParentCheckPlugin<T> {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ReportHierarchyIssue<T>>().add_system(
+        app.init_resource::<ReportHierarchyIssue<T>>().add_systems(
+            Last,
             check_hierarchy_component_has_valid_parent::<T>
-                .run_if(resource_equals(ReportHierarchyIssue::<T>::new(true)))
-                .in_base_set(CoreSet::Last),
+                .run_if(resource_equals(ReportHierarchyIssue::<T>::new(true))),
         );
     }
 }
