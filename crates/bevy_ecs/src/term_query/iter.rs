@@ -45,7 +45,7 @@ impl<'w, 's> TermQueryCursor<'w, 's> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn next<Q: QueryTermGroup>(
         &mut self,
         tables: &'w Tables,
@@ -145,7 +145,7 @@ impl<'w, 's> TermQueryIterUntyped<'w, 's> {
 
 // This would be a streaming iterator if rust supported those
 impl<'w, 's> TermQueryIterUntyped<'w, 's> {
-    #[inline(always)]
+    #[inline]
     fn next_fetch<'f>(&'f mut self) -> Option<&'f [FetchedTerm<'w>]> {
         unsafe {
             self.cursor
@@ -158,7 +158,7 @@ impl<'w, 's> TermQueryIterUntyped<'w, 's> {
 impl<'w, 's> Iterator for TermQueryIterUntyped<'w, 's> {
     type Item = Vec<FetchedTerm<'w>>;
 
-    #[inline(always)]
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.next_fetch().map(|fetches| fetches.to_vec())
     }
@@ -170,7 +170,7 @@ pub struct TermQueryIter<'w, 's, Q: QueryTermGroup> {
 }
 
 impl<'w, 's, Q: QueryTermGroup> TermQueryIter<'w, 's, Q> {
-    #[inline(always)]
+    #[inline]
     pub unsafe fn new(
         world: UnsafeWorldCell<'w>,
         query_state: &'s TermQueryState<Q>,
@@ -187,7 +187,7 @@ impl<'w, 's, Q: QueryTermGroup> TermQueryIter<'w, 's, Q> {
 impl<'w, 's, Q: QueryTermGroup> Iterator for TermQueryIter<'w, 's, Q> {
     type Item = Q::Item<'w>;
 
-    #[inline(always)]
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
             if let Some(fetches) = &mut self.inner.next_fetch() {

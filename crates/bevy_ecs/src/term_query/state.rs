@@ -35,12 +35,12 @@ impl RawFetches {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub(crate) fn as_uninit<'w>(&self) -> &mut [MaybeUninit<FetchedTerm<'w>>] {
         unsafe { std::slice::from_raw_parts_mut(self.mem.cast(), self.len) }
     }
 
-    #[inline(always)]
+    #[inline]
     pub(crate) fn as_slice<'w>(&self) -> &mut [FetchedTerm<'w>] {
         unsafe { std::slice::from_raw_parts_mut(self.mem.cast(), self.len) }
     }
@@ -558,7 +558,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub unsafe fn set_table<'w>(&self, state: &mut TermVec<TermState<'w>>, table: &'w Table) {
         let len = self.terms.len();
         let terms = &self.terms[..len];

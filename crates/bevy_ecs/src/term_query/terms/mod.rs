@@ -43,7 +43,7 @@ pub enum FetchedTerm<'w> {
 }
 
 impl<'w> FetchedTerm<'w> {
-    #[inline(always)]
+    #[inline]
     pub fn component(&self) -> Option<&<ComponentTerm as Fetchable>::Item<'w>> {
         if let FetchedTerm::Component(term) = self {
             Some(term)
@@ -52,7 +52,7 @@ impl<'w> FetchedTerm<'w> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn entity(&self) -> Option<&<EntityTerm as Fetchable>::Item<'w>> {
         if let FetchedTerm::Entity(term) = self {
             Some(term)
@@ -61,7 +61,7 @@ impl<'w> FetchedTerm<'w> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn group(&self) -> Option<&Vec<<ComponentTerm as Fetchable>::Item<'w>>> {
         if let FetchedTerm::Or(term) = self {
             Some(term)
@@ -254,7 +254,7 @@ impl<T: ComponentQueryTerm> QueryTerm for T {
         Term::Component(T::init_term(world))
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
         let term = term.component().debug_checked_unwrap();
         T::from_fetch(term)
@@ -280,7 +280,7 @@ impl<T: QueryTerm> QueryTermGroup for T {
         terms.push(T::init_term(world));
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn from_fetches<'w: 'f, 'f>(
         terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
     ) -> Self::Item<'w> {
@@ -309,7 +309,7 @@ impl<T: ComponentQueryTerm> ComponentQueryTermGroup for T {
         terms.push(T::init_term(world));
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn from_fetches<'w: 'f, 'f>(
         terms: &mut impl Iterator<Item = &'f FetchedComponent<'w>>,
     ) -> Self::Item<'w> {
@@ -329,7 +329,7 @@ macro_rules! impl_query_term_tuple {
                 )*
             }
 
-            #[inline(always)]
+            #[inline]
             unsafe fn from_fetches<'w: 'f, 'f>(_terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>) -> Self::Item<'w> {
                 ($(
                     $term::from_fetches(_terms),
@@ -353,7 +353,7 @@ macro_rules! impl_component_query_term_tuple {
             }
 
 
-            #[inline(always)]
+            #[inline]
             unsafe fn from_fetches<'w: 'f, 'f>(_terms: &mut impl Iterator<Item = &'f FetchedComponent<'w>>) -> Self::Item<'w> {
                 ($(
                     $term::from_fetches(_terms),

@@ -53,10 +53,10 @@ impl Fetchable for EntityTerm {
         world
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn set_table<'w>(&self, _state: &mut Self::State<'w>, _table: &'w Table) {}
 
-    #[inline(always)]
+    #[inline]
     unsafe fn fetch<'w>(
         &self,
         world: &Self::State<'w>,
@@ -73,7 +73,7 @@ impl Fetchable for EntityTerm {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn filter_fetch<'w>(
         &self,
         _state: &Self::State<'w>,
@@ -129,7 +129,7 @@ impl QueryTerm for Entity {
         Term::Entity(EntityTerm::none())
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
         let term = term.entity().debug_checked_unwrap();
 
@@ -145,7 +145,7 @@ impl QueryTerm for EntityRef<'_> {
         Term::Entity(EntityTerm::read())
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
         let term = term.entity().debug_checked_unwrap();
         EntityRef::new(term.cell.debug_checked_unwrap())
@@ -160,7 +160,7 @@ impl<'r> QueryTerm for EntityMut<'r> {
         Term::Entity(EntityTerm::write())
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
         let term = term.entity().debug_checked_unwrap();
         EntityMut::new(term.cell.debug_checked_unwrap())

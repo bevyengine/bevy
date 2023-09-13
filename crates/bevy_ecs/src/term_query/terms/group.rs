@@ -52,7 +52,7 @@ impl Fetchable for OrTerm {
             .collect()
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn set_table<'w>(&self, state: &mut Self::State<'w>, table: &'w Table) {
         self.terms
             .iter()
@@ -65,7 +65,7 @@ impl Fetchable for OrTerm {
             })
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn fetch<'w>(
         &self,
         state: &Self::State<'w>,
@@ -83,7 +83,7 @@ impl Fetchable for OrTerm {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn filter_fetch<'w>(
         &self,
         state: &Self::State<'w>,
@@ -144,7 +144,7 @@ impl<Q: ComponentQueryTermGroup> QueryTermGroup for Or<Q> {
         }));
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn from_fetches<'w: 'f, 'f>(
         terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
     ) -> Self::Item<'w> {
@@ -165,7 +165,7 @@ impl<Q: ComponentQueryTermGroup> QueryTermGroup for AnyOf<Q> {
         }));
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn from_fetches<'w: 'f, 'f>(
         terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
     ) -> Self::Item<'w> {
