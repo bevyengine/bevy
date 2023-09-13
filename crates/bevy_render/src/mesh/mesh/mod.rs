@@ -887,7 +887,7 @@ impl RenderAsset for Mesh {
 }
 
 struct MikktspaceGeometryHelper<'a> {
-    indices: &'a Indices,
+    indices: Option<&'a Indices>,
     positions: &'a Vec<[f32; 3]>,
     normals: &'a Vec<[f32; 3]>,
     uvs: &'a Vec<[f32; 2]>,
@@ -899,15 +899,16 @@ impl MikktspaceGeometryHelper<'_> {
         let index_index = face * 3 + vert;
 
         match self.indices {
-            Indices::U16(indices) => indices[index_index] as usize,
-            Indices::U32(indices) => indices[index_index] as usize,
+            Some(Indices::U16(indices)) => indices[index_index] as usize,
+            Some(Indices::U32(indices)) => indices[index_index] as usize,
+            None => index_index,
         }
     }
 }
 
 impl bevy_mikktspace::Geometry for MikktspaceGeometryHelper<'_> {
     fn num_faces(&self) -> usize {
-        self.indices.len() / 3
+        self.indices.map(Indices::len).unwrap_or_else(|| self.positions.len()) / 3
     }
 
     fn num_vertices_of_face(&self, _: usize) -> usize {
@@ -987,21 +988,11 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
         }
     };
 
-    let indices = if mesh.indices().is_none() {
-        if positions.len() < u16::MAX as usize {
-            Indices::U16((0..positions.len()).map(|i| i as u16).collect())
-        } else {
-            Indices::U32((0..positions.len()).map(|i| i as u32).collect())
-        }
-    } else {
-        Indices::U16(Default::default())
-    };
-    let indices = mesh.indices().unwrap_or(&indices);
 
     let len = positions.len();
     let tangents = vec![[0., 0., 0., 0.]; len];
     let mut mikktspace_mesh = MikktspaceGeometryHelper {
-        indices,
+        indices: mesh.indices(),
         positions,
         normals,
         uvs,
