@@ -22,10 +22,21 @@
 //! [`FixedUpdate`]: ::bevy_app::FixedUpdate
 //! [`FixedUpdateScheduleIsCurrentlyRunning`]: ::bevy_app::FixedUpdateScheduleIsCurrentlyRunning
 
-use std::mem;
+pub mod gizmos;
+
+#[cfg(feature = "bevy_sprite")]
+mod pipeline_2d;
+#[cfg(feature = "bevy_pbr")]
+mod pipeline_3d;
+
+/// The `bevy_gizmos` prelude.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{gizmos::Gizmos, AabbGizmo, AabbGizmoConfig, GizmoConfig};
+}
 
 use bevy_app::{FixedUpdate, Last, Plugin, PostUpdate};
-use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_core::cast_slice;
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -39,7 +50,7 @@ use bevy_ecs::{
         Commands, Query, Res, ResMut, Resource, SystemParamItem,
     },
 };
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath, TypeUuid};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
     color::Color,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -61,23 +72,10 @@ use bevy_transform::{
     TransformSystem,
 };
 
-pub mod gizmos;
-
-#[cfg(feature = "bevy_sprite")]
-mod pipeline_2d;
-#[cfg(feature = "bevy_pbr")]
-mod pipeline_3d;
-
 use gizmos::{GizmoStorages, Gizmos};
+use std::mem;
 
-/// The `bevy_gizmos` prelude.
-pub mod prelude {
-    #[doc(hidden)]
-    pub use crate::{gizmos::Gizmos, AabbGizmo, AabbGizmoConfig, GizmoConfig};
-}
-
-const LINE_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7414812689238026784);
+const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 pub struct GizmoPlugin;
@@ -87,7 +85,7 @@ impl Plugin for GizmoPlugin {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
         app.add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
-            .add_asset::<LineGizmo>()
+            .init_asset::<LineGizmo>()
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
             .init_resource::<GizmoConfig>()
@@ -375,8 +373,7 @@ struct LineGizmoUniform {
     _padding: bevy_math::Vec2,
 }
 
-#[derive(Debug, Default, Clone, TypeUuid, TypePath)]
-#[uuid = "02b99cbf-bb26-4713-829a-aee8e08dedc0"]
+#[derive(Asset, Debug, Default, Clone, TypePath)]
 struct LineGizmo {
     positions: Vec<[f32; 3]>,
     colors: Vec<[f32; 4]>,

@@ -1063,7 +1063,7 @@ pub fn prepare_lights(
                 .spawn((
                     ShadowView {
                         depth_texture_view,
-                        pass_name: format!("shadow pass spot light {light_index}",),
+                        pass_name: format!("shadow pass spot light {light_index}"),
                     },
                     ExtractedView {
                         viewport: UVec4::new(
@@ -1597,7 +1597,7 @@ pub fn queue_shadows<M: Material>(
                 if let Ok((mesh_handle, material_handle)) = casting_meshes.get(entity) {
                     if let (Some(mesh), Some(material)) = (
                         render_meshes.get(mesh_handle),
-                        render_materials.get(material_handle),
+                        render_materials.get(&material_handle.id()),
                     ) {
                         let mut mesh_key =
                             MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)

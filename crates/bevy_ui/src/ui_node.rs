@@ -3,10 +3,7 @@ use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
-use bevy_render::{
-    color::Color,
-    texture::{Image, DEFAULT_IMAGE_HANDLE},
-};
+use bevy_render::{color::Color, texture::Image};
 use bevy_transform::prelude::GlobalTransform;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -366,7 +363,7 @@ pub struct Style {
     /// - For Flexbox containers, sets default cross-axis alignment of the child items.
     /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
     ///
-    /// This value is overridden [`JustifySelf`] on the child node is set.
+    /// This value is overridden if [`AlignSelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
     pub align_items: AlignItems,
@@ -374,7 +371,7 @@ pub struct Style {
     /// - For Flexbox containers, this property has no effect. See `justify_content` for main-axis alignment of flex items.
     /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
     ///
-    /// This value is overridden [`JustifySelf`] on the child node is set.
+    /// This value is overridden if [`JustifySelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
     pub justify_items: JustifyItems,
@@ -1628,7 +1625,7 @@ impl Default for BorderColor {
 }
 
 /// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct UiImage {
     /// Handle to the texture
@@ -1637,16 +1634,6 @@ pub struct UiImage {
     pub flip_x: bool,
     /// Whether the image should be flipped along its y-axis
     pub flip_y: bool,
-}
-
-impl Default for UiImage {
-    fn default() -> UiImage {
-        UiImage {
-            texture: DEFAULT_IMAGE_HANDLE.typed(),
-            flip_x: false,
-            flip_y: false,
-        }
-    }
 }
 
 impl UiImage {
