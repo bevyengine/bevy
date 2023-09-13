@@ -10,7 +10,7 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Affine3A, Vec2, Vec3Swizzles, Vec4};
 use bevy_reflect::Reflect;
 use bevy_render::{
-    batching::{batch_render_phase, BatchMeta, NoAutomaticBatching},
+    batching::{batch_render_phase, NoAutomaticBatching},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
@@ -253,16 +253,6 @@ struct BatchMeta2d {
     material2d_bind_group_id: Option<Material2dBindGroupId>,
     mesh_asset_id: AssetId<Mesh>,
     dynamic_offset: Option<NonMaxU32>,
-}
-
-impl BatchMeta<BatchMeta2d> for BatchMeta2d {
-    fn matches(&self, other: &BatchMeta2d) -> bool {
-        self.pipeline_id == other.pipeline_id
-            && self.draw_function_id == other.draw_function_id
-            && self.mesh_asset_id == other.mesh_asset_id
-            && self.dynamic_offset == other.dynamic_offset
-            && self.material2d_bind_group_id == other.material2d_bind_group_id
-    }
 }
 
 #[allow(clippy::too_many_arguments)]
