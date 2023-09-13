@@ -1,9 +1,7 @@
 #import bevy_solari::scene_bindings uniforms
-#import bevy_solari::global_illumination::view_bindings depth_buffer, screen_probes, screen_probes_spherical_harmonics, view, SphericalHarmonicsPacked
+#import bevy_solari::global_illumination::view_bindings depth_buffer, screen_probes_a, screen_probes_b, screen_probes_spherical_harmonics, view, SphericalHarmonicsPacked
 #import bevy_solari::utils rand_f, rand_vec2f
 #import bevy_pbr::utils octahedral_decode
-
-var<workgroup> spherical_harmonics_coefficents: array<array<vec3<f32>, 9>, 64>;
 
 // TODO: Validate neighbor probe exists
 // TODO: Angle weight
@@ -18,7 +16,11 @@ fn add_probe_contribution(
     let probe_pixel_id = probe_thread_id + (8i * probe_id);
     let probe_depth = view.projection[3][2] / textureLoad(depth_buffer, probe_pixel_id, 0i);
 
-    let probe_irradiance = textureLoad(screen_probes, cell_id).rgb;
+#ifdef FIRST_PASS
+    let probe_irradiance = textureLoad(screen_probes_a, cell_id).rgb;
+#else
+    let probe_irradiance = textureLoad(screen_probes_b, cell_id).rgb;
+#endif
 
     let depth_weight = pow(saturate(1.0 - abs(probe_depth - center_probe_depth) / center_probe_depth), 8.0);
 
@@ -49,20 +51,32 @@ fn filter_screen_probes(
     let center_probe_pixel_id = probe_thread_id + (center_probe_id * 8i);
     let center_probe_depth = view.projection[3][2] / textureLoad(depth_buffer, center_probe_pixel_id, 0i);
 
+#ifdef FIRST_PASS
+    let direction = vec2(0i, 1i);
+#else
+    let direction = vec2(1i, 0i);
+#endif
+
     var irradiance = vec3(0.0);
     var weight = 1.0;
-    add_probe_contribution(&irradiance, &weight, center_probe_depth, vec2<i32>(global_id.xy) + vec2(-8i, 8i), center_probe_id + vec2(-1i, 1i), probe_thread_id);
-    add_probe_contribution(&irradiance, &weight, center_probe_depth, vec2<i32>(global_id.xy) + vec2(0i, 8i), center_probe_id + vec2(0i, 1i), probe_thread_id);
-    add_probe_contribution(&irradiance, &weight, center_probe_depth, vec2<i32>(global_id.xy) + vec2(8i, 8i), center_probe_id + vec2(1i, 1i), probe_thread_id);
-    add_probe_contribution(&irradiance, &weight, center_probe_depth, vec2<i32>(global_id.xy) + vec2(-8i, 0i), center_probe_id + vec2(-1i, 0i), probe_thread_id);
-    add_probe_contribution(&irradiance, &weight, center_probe_depth, vec2<i32>(global_id.xy) + vec2(0i, 0i), center_probe_id + vec2(0i, 0i), probe_thread_id);
-    add_probe_contribution(&irradiance, &weight, center_probe_depth, vec2<i32>(global_id.xy) + vec2(8i, 0i), center_probe_id + vec2(1i, 0i), probe_thread_id);
-    add_probe_contribution(&irradiance, &weight, center_probe_depth, vec2<i32>(global_id.xy) + vec2(-8i, -8i), center_probe_id + vec2(-1i, -1i), probe_thread_id);
-    add_probe_contribution(&irradiance, &weight, center_probe_depth, vec2<i32>(global_id.xy) + vec2(0i, -8i), center_probe_id + vec2(0i, -1i), probe_thread_id);
-    add_probe_contribution(&irradiance, &weight, center_probe_depth, vec2<i32>(global_id.xy) + vec2(8i, -8i), center_probe_id + vec2(1i, -1i), probe_thread_id);
+    for (var step = -3i; step <= 3i; step++) {
+        let offset = direction * step;
+        add_probe_contribution(&irradiance, &weight, center_probe_depth, vec2<i32>(global_id.xy) + offset, center_probe_id + offset, probe_thread_id);
+    }
     irradiance /= weight;
 
-    let octahedral_pixel_center = vec2<f32>(local_id.xy) + rand_vec2f(&rng);
+#ifdef FIRST_PASS
+    textureStore(screen_probes_b, global_id.xy, vec4(irradiance, 1.0));
+#else
+    convert_to_spherical_harmonics(irradiance, local_id, local_index, probe_index, &rng);
+#endif
+}
+
+#ifndef FIRST_PASS
+var<workgroup> spherical_harmonics_coefficents: array<array<vec3<f32>, 9>, 64>;
+
+fn convert_to_spherical_harmonics(irradiance: vec3<f32>, local_id: vec3<u32>, local_index: u32, probe_index: u32, rng: ptr<function, u32>) {
+    let octahedral_pixel_center = vec2<f32>(local_id.xy) + rand_vec2f(rng);
     let octahedral_normal = octahedral_decode(octahedral_pixel_center / 8.0);
     let x = octahedral_normal.x;
     let y = octahedral_normal.y;
@@ -72,6 +86,7 @@ fn filter_screen_probes(
     let xy = x * y;
     let zz = z * z;
     let xx_yy = x * x - y * y;
+
     var L00 = (0.282095) * irradiance;
     var L11 = (0.488603 * x) * irradiance;
     var L10 = (0.488603 * z) * irradiance;
@@ -107,6 +122,7 @@ fn filter_screen_probes(
         }
         workgroupBarrier();
     }
+
     if local_index == 0u {
         L00 = spherical_harmonics_coefficents[0][0] / 64.0;
         L11 = spherical_harmonics_coefficents[0][1] / 64.0;
@@ -128,3 +144,4 @@ fn filter_screen_probes(
         );
     }
 }
+#endif

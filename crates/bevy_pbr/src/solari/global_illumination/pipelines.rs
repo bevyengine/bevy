@@ -27,7 +27,8 @@ pub enum SolariGlobalIlluminationPass {
     SampleForWorldCache,
     BlendNewWorldCacheSamples,
     ScreenProbesTrace,
-    ScreenProbesFilter,
+    ScreenProbesFilterFirstPass,
+    ScreenProbesFilterSecondPass,
     ScreenProbesInterpolate,
     DenoiseDiffuseTemporal,
     DenoiseDiffuseSpatial,
@@ -111,7 +112,11 @@ impl SpecializedComputePipeline for SolariGlobalIlluminationPipelines {
             SolariGlobalIlluminationPass::ScreenProbesTrace => {
                 ("trace_screen_probes", SOLARI_SCREEN_PROBES_TRACE_SHADER)
             }
-            SolariGlobalIlluminationPass::ScreenProbesFilter => {
+            SolariGlobalIlluminationPass::ScreenProbesFilterFirstPass => {
+                ("filter_screen_probes", SOLARI_SCREEN_PROBES_FILTER_SHADER)
+            }
+            SolariGlobalIlluminationPass::ScreenProbesFilterSecondPass => {
+                shader_defs.push("FIRST_PASS".into());
                 ("filter_screen_probes", SOLARI_SCREEN_PROBES_FILTER_SHADER)
             }
             SolariGlobalIlluminationPass::ScreenProbesInterpolate => (
@@ -146,7 +151,8 @@ pub struct SolariGlobalIlluminationPipelineIds {
     pub sample_for_world_cache: CachedComputePipelineId,
     pub blend_new_world_cache_samples: CachedComputePipelineId,
     pub screen_probes_trace: CachedComputePipelineId,
-    pub screen_probes_filter: CachedComputePipelineId,
+    pub screen_probes_filter_first_pass: CachedComputePipelineId,
+    pub screen_probes_filter_second_pass: CachedComputePipelineId,
     pub screen_probes_interpolate: CachedComputePipelineId,
     pub denoise_diffuse_temporal: CachedComputePipelineId,
     pub denoise_diffuse_spatial: CachedComputePipelineId,
@@ -192,8 +198,11 @@ pub fn prepare_pipelines(
                 screen_probes_trace: create_pipeline(
                     SolariGlobalIlluminationPass::ScreenProbesTrace,
                 ),
-                screen_probes_filter: create_pipeline(
-                    SolariGlobalIlluminationPass::ScreenProbesFilter,
+                screen_probes_filter_first_pass: create_pipeline(
+                    SolariGlobalIlluminationPass::ScreenProbesFilterFirstPass,
+                ),
+                screen_probes_filter_second_pass: create_pipeline(
+                    SolariGlobalIlluminationPass::ScreenProbesFilterSecondPass,
                 ),
                 screen_probes_interpolate: create_pipeline(
                     SolariGlobalIlluminationPass::ScreenProbesInterpolate,
