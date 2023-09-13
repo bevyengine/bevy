@@ -85,8 +85,8 @@ impl<'w, 's> SpatialListenerSystemParam<'w, 's> {
 /// Plays "queued" audio through the [`AudioOutput`] resource.
 ///
 /// "Queued" audio is any audio entity (with the components from
-/// [`AudioBundle`][crate::AudioBundle] or [`SpatialAudioBundle`][crate::SpatialAudioBundle])
-/// that does not have an [`AudioSink`]/[`SpatialAudioSink`] component.
+/// [`AudioBundle`][crate::AudioBundle] that does not have an
+/// [`AudioSink`]/[`SpatialAudioSink`] component.
 ///
 /// This system detects such entities, checks if their source asset
 /// data is available, and creates/inserts the sink.

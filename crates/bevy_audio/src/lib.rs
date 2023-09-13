@@ -61,7 +61,7 @@ struct AudioPlaySet;
 
 /// Adds support for audio playback to a Bevy Application
 ///
-/// Insert an [`AudioBundle`] or [`SpatialAudioBundle`] onto your entities to play audio.
+/// Insert an [`AudioBundle`] onto your entities to play audio.
 #[derive(Default)]
 pub struct AudioPlugin {
     /// The global volume for all audio entities with a [`Volume::Relative`] volume.
