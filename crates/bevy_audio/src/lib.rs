@@ -50,7 +50,7 @@ pub use rodio::Sample;
 pub use sinks::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{Asset, AssetApp};
+use bevy_asset::{Asset, AssetApp, Handle};
 use bevy_ecs::prelude::*;
 
 use audio_output::*;
@@ -71,8 +71,7 @@ pub struct AudioPlugin {
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(self.global_volume)
-            .configure_sets(PostUpdate, AudioPlaySet.run_if(audio_output_available))
-            .init_resource::<AudioOutput>();
+            .configure_sets(PostUpdate, AudioPlaySet.run_if(audio_output_available));
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]
         {
@@ -94,7 +93,21 @@ impl AddAudioSource for App {
             PostUpdate,
             play_queued_audio_system::<T>.in_set(AudioPlaySet),
         );
-        self.add_systems(PostUpdate, cleanup_finished_audio::<T>.in_set(AudioPlaySet));
+
+        self.add_systems(PostUpdate, cleanup_finished_audio::<T>.in_set(AudioPlaySet))
+            // This system will automatically add the `AudioOutput` resource which start the output stream as soon
+            // as the first entity with an audio source is added.
+            .add_systems(
+                PostUpdate,
+                (|world: &mut World| {
+                    world.init_resource::<AudioOutput>();
+                })
+                .run_if(
+                    not(resource_exists::<AudioOutput>())
+                        .and_then(any_with_component::<Handle<T>>()),
+                )
+                .before(AudioPlaySet),
+            );
         self
     }
 }

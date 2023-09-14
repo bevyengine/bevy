@@ -226,6 +226,8 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
 }
 
 /// Run Condition to only play audio if the audio output is available
-pub(crate) fn audio_output_available(audio_output: Res<AudioOutput>) -> bool {
-    audio_output.stream_handle.is_some()
+pub(crate) fn audio_output_available(audio_output: Option<Res<AudioOutput>>) -> bool {
+    audio_output
+        .map(|output| output.stream_handle.is_some())
+        .unwrap_or_default()
 }
