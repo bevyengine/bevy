@@ -158,6 +158,24 @@ impl VertexBufferLayout {
             attributes,
         }
     }
+
+    /// Returns a [`VertexBufferLayout`] with the shader location of every attribute offset by
+    /// `location`.
+    pub fn offset_locations(self, location: u32) -> Self {
+        Self {
+            array_stride: self.array_stride,
+            step_mode: self.step_mode,
+            attributes: self
+                .attributes
+                .into_iter()
+                .map(|attr| VertexAttribute {
+                    format: attr.format,
+                    offset: attr.offset,
+                    shader_location: attr.shader_location + location,
+                })
+                .collect(),
+        }
+    }
 }
 
 /// Describes the fragment process in a render pipeline.
