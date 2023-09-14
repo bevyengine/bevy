@@ -6,7 +6,8 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_utils::{default, tracing::debug, HashMap, HashSet};
+use bevy_log::{debug, warn};
+use bevy_utils::{default, HashMap, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
 };
@@ -142,11 +143,8 @@ fn extract_windows(
 
         if extracted_window.size_changed {
             debug!(
-                "Window size changed from {}x{} to {}x{}",
-                extracted_window.physical_width,
-                extracted_window.physical_height,
-                new_width,
-                new_height
+                "Window size changed from {}x{} to {new_width}x{new_height}",
+                extracted_window.physical_width, extracted_window.physical_height,
             );
             extracted_window.physical_width = new_width;
             extracted_window.physical_height = new_height;
@@ -185,6 +183,26 @@ pub struct WindowSurfaces {
     surfaces: HashMap<Entity, SurfaceData>,
     /// List of windows that we have already called the initial `configure_surface` for
     configured_windows: HashSet<Entity>,
+}
+
+fn wgpu_present_mode(bevy_window_type: PresentMode) -> wgpu::PresentMode {
+    match bevy_window_type {
+        PresentMode::Fifo => wgpu::PresentMode::Fifo,
+        PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,
+        PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
+        PresentMode::Immediate => wgpu::PresentMode::Immediate,
+        PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
+        PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
+    }
+}
+fn wgpu_alpha_mode(bevy_window_type: CompositeAlphaMode) -> wgpu::CompositeAlphaMode {
+    match bevy_window_type {
+        CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
+        CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,
+        CompositeAlphaMode::PreMultiplied => wgpu::CompositeAlphaMode::PreMultiplied,
+        CompositeAlphaMode::PostMultiplied => wgpu::CompositeAlphaMode::PostMultiplied,
+        CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
+    }
 }
 
 /// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
@@ -228,55 +246,19 @@ pub fn prepare_windows(
         let surface_data = window_surfaces
             .surfaces
             .entry(window.entity)
-            .or_insert_with(|| unsafe {
-                // NOTE: On some OSes this MUST be called from the main thread.
-                // As of wgpu 0.15, only failable if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
-                let surface = render_instance
-                    .create_surface(&window.handle.get_handle())
-                    .expect("Failed to create wgpu surface");
-                let caps = surface.get_capabilities(&render_adapter);
-                let formats = caps.formats;
-                // For future HDR output support, we'll need to request a format that supports HDR,
-                // but as of wgpu 0.15 that is not yet supported.
-                // Prefer sRGB formats for surfaces, but fall back to first available format if no sRGB formats are available.
-                let mut format = *formats.get(0).expect("No supported formats for surface");
-                for available_format in formats {
-                    // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
-                    if available_format == TextureFormat::Rgba8UnormSrgb
-                        || available_format == TextureFormat::Bgra8UnormSrgb
-                    {
-                        format = available_format;
-                        break;
-                    }
-                }
-
-                SurfaceData { surface, format }
-            });
+            .or_insert_with(|| create_surface(&render_instance, &render_adapter, &window.handle));
 
         let surface_configuration = wgpu::SurfaceConfiguration {
             format: surface_data.format,
             width: window.physical_width,
             height: window.physical_height,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            present_mode: match window.present_mode {
-                PresentMode::Fifo => wgpu::PresentMode::Fifo,
-                PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,
-                PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
-                PresentMode::Immediate => wgpu::PresentMode::Immediate,
-                PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
-                PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
-            },
-            alpha_mode: match window.alpha_mode {
-                CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
-                CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,
-                CompositeAlphaMode::PreMultiplied => wgpu::CompositeAlphaMode::PreMultiplied,
-                CompositeAlphaMode::PostMultiplied => wgpu::CompositeAlphaMode::PostMultiplied,
-                CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
-            },
-            view_formats: if !surface_data.format.is_srgb() {
-                vec![surface_data.format.add_srgb_suffix()]
-            } else {
+            present_mode: wgpu_present_mode(window.present_mode),
+            alpha_mode: wgpu_alpha_mode(window.alpha_mode),
+            view_formats: if surface_data.format.is_srgb() {
                 vec![]
+            } else {
+                vec![surface_data.format.add_srgb_suffix()]
             },
         };
 
@@ -289,24 +271,15 @@ pub fn prepare_windows(
             .flags;
 
         if !sample_flags.sample_count_supported(msaa.samples()) {
-            let fallback = if sample_flags.sample_count_supported(Msaa::default().samples()) {
+            let requested_msaa = *msaa;
+
+            *msaa = if sample_flags.sample_count_supported(Msaa::default().samples()) {
                 Msaa::default()
             } else {
                 Msaa::Off
             };
-
-            let fallback_str = if fallback == Msaa::Off {
-                "disabling MSAA".to_owned()
-            } else {
-                format!("MSAA {}x", fallback.samples())
-            };
-
-            bevy_log::warn!(
-                "MSAA {}x is not supported on this device. Falling back to {}.",
-                msaa.samples(),
-                fallback_str,
-            );
-            *msaa = fallback;
+            let fallback = *msaa;
+            warn!("{requested_msaa} is not supported on this device. Falling back to {fallback}.");
         }
 
         // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
@@ -331,9 +304,7 @@ pub fn prepare_windows(
         let surface = &surface_data.surface;
         if not_already_configured || window.size_changed || window.present_mode_changed {
             render_device.configure_surface(surface, &surface_configuration);
-            let frame = surface
-                .get_current_texture()
-                .expect("Error configuring surface");
+            let frame = surface.get_current_texture().unwrap();
             window.set_swapchain_texture(frame);
         } else {
             match surface.get_current_texture() {
@@ -342,9 +313,7 @@ pub fn prepare_windows(
                 }
                 Err(wgpu::SurfaceError::Outdated) => {
                     render_device.configure_surface(surface, &surface_configuration);
-                    let frame = surface
-                        .get_current_texture()
-                        .expect("Error reconfiguring surface");
+                    let frame = surface.get_current_texture().unwrap();
                     window.set_swapchain_texture(frame);
                 }
                 #[cfg(target_os = "linux")]
@@ -411,4 +380,32 @@ pub fn prepare_windows(
             });
         }
     }
+}
+
+fn create_surface(
+    render_instance: &RenderInstance,
+    render_adapter: &RenderAdapter,
+    handle: &RawHandleWrapper,
+) -> SurfaceData {
+    // NOTE: On some OSes this MUST be called from the main thread.
+    // As of wgpu 0.15, only failable if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
+    let surface = unsafe { render_instance.create_surface(&handle.get_handle()) };
+    let surface = surface.expect("Failed to create wgpu surface");
+    let formats = surface.get_capabilities(&render_adapter).formats;
+
+    // For future HDR output support, we'll need to request a format that supports HDR,
+    // but as of wgpu 0.15 that is not yet supported.
+    // Prefer sRGB formats for surfaces, but fall back to first available format if no sRGB formats are available.
+    let mut format = *formats.get(0).expect("No supported formats for surface");
+    for available_format in formats {
+        // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
+        if available_format == TextureFormat::Rgba8UnormSrgb
+            || available_format == TextureFormat::Bgra8UnormSrgb
+        {
+            format = available_format;
+            break;
+        }
+    }
+
+    SurfaceData { surface, format }
 }
