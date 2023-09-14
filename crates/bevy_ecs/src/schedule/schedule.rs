@@ -459,6 +459,7 @@ pub struct ScheduleGraph {
     conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
     changed: bool,
     settings: ScheduleBuildSettings,
+    pub distances: Vec<u32>,
 }
 
 impl ScheduleGraph {
@@ -478,6 +479,7 @@ impl ScheduleGraph {
             conflicting_systems: Vec::new(),
             changed: false,
             settings: default(),
+            distances: default(),
         }
     }
 
@@ -951,7 +953,7 @@ impl ScheduleGraph {
         let mut dependency_flattened = self.get_dependency_flattened(&set_systems);
 
         // insert auto sync points
-        self.insert_sync_points(&mut dependency_flattened);
+        self.distances = self.insert_sync_points(&mut dependency_flattened);
 
         // topsort
         let mut dependency_flattened_dag = Dag {
@@ -984,32 +986,58 @@ impl ScheduleGraph {
     }
 
     // modify the graph to have sync nodes for any depedants after a system with deferred system params
-    fn insert_sync_points(
+    /// Temporarily make this pub so I can test it
+    pub fn insert_sync_points(
         &mut self,
         dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
-    ) -> GraphMap<NodeId, u32, Directed> {
+    ) -> Vec<u32> {
         let mut sync_point_graph = GraphMap::new();
-        // TODO probably need to use more realistic node indexes for the next step
-        let mut temp_node_index = 0;
+        let mut temp_node_index = dependency_flattened.node_count();
         for (source_node, target_node, _edge_weight) in dependency_flattened.all_edges() {
             if self.systems[source_node.index()]
                 .get()
                 .unwrap()
                 .has_deferred()
             {
-                sync_point_graph.add_edge(source_node, NodeId::TempSyncNode(temp_node_index), 0);
-                sync_point_graph.add_edge(
-                    NodeId::TempSyncNode(temp_node_index),
-                    target_node,
-                    1, // an edge after a sync point increases the distance
-                );
+                dbg!("has deferred");
+                sync_point_graph.add_edge(source_node, NodeId::TempSyncNode(temp_node_index), ());
+                sync_point_graph.add_edge(NodeId::TempSyncNode(temp_node_index), target_node, ());
                 temp_node_index += 1;
             } else {
-                sync_point_graph.add_edge(source_node, target_node, 0);
+                sync_point_graph.add_edge(source_node, target_node, ());
             }
         }
 
-        sync_point_graph
+        dbg!(&sync_point_graph);
+
+        let topo = self
+            .topsort_graph(&sync_point_graph, ReportCycles::Dependency)
+            .unwrap();
+
+        let mut distances: Vec<Option<u32>> = vec![None; topo.len()];
+        for node in &topo {
+            for (source, target, _) in sync_point_graph
+                .all_edges()
+                .filter(|(source, _, _)| source == node)
+            {
+                let weight = if matches!(source, NodeId::TempSyncNode(_)) {
+                    1
+                } else if is_apply_deferred(self.systems[source.index()].get().unwrap()) {
+                    1
+                } else {
+                    0
+                };
+
+                distances[target.index()] = distances[target.index()]
+                    .or(Some(0))
+                    .map(|distance| distance.max(distances[node.index()].unwrap_or(0) + weight));
+            }
+        }
+
+        distances
+            .drain(..)
+            .map(|distance| distance.unwrap_or(0))
+            .collect()
     }
 
     fn map_sets_to_systems(
@@ -1814,6 +1842,7 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         schedule::{IntoSystemConfigs, IntoSystemSetConfigs, Schedule, SystemSet},
+        system::Commands,
         world::World,
     };
 
@@ -1833,5 +1862,15 @@ mod tests {
                 .in_set(Set),
         );
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn insert_sync_points() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        schedule.add_systems((|_commands: Commands| {}, || {}).chain());
+        schedule.initialize(&mut world).unwrap();
+
+        assert_eq!(schedule.graph().distances, &[0, 1, 0])
     }
 }
