@@ -598,18 +598,25 @@ pub fn extract_text_uinodes(
     }
 }
 
+/// The vertex for a Ui components
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
 pub struct UiVertex {
+    /// Position of the vertex, stored in a buffer as x, y, z coordinates accordingly
     pub position: [f32; 3],
+    /// UV coordinates
     pub uv: [f32; 2],
+    /// Color of the vertex
     pub color: [f32; 4],
+    /// Usage of the texture by this vertex
     pub mode: u32,
 }
 
 #[derive(Resource)]
 pub struct UiMeta {
+    // Buffer with Ui vertices
     pub vertices: BufferVec<UiVertex>,
+    // Bind group for the view projection matrix
     pub view_bind_group: Option<BindGroup>,
 }
 
