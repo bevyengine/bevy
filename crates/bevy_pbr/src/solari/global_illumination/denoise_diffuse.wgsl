@@ -26,8 +26,8 @@ fn denoise_diffuse_temporal(@builtin(global_invocation_id) global_id: vec3<u32>)
     // TODO: Is it ok to use depth_to_world_position(), which uses the current view, for previous_position?
     let previous_position = depth_to_world_position(previous_depth, history_uv);
     let current_position = depth_to_world_position(current_depth, uv);
-    let previous_normal = normalize(textureLoad(previous_normals_buffer, history_id, 0i).rgb);
-    let current_normal = normalize(textureLoad(normals_buffer, global_id.xy, 0i).rgb);
+    let previous_normal = normalize(textureLoad(previous_normals_buffer, history_id, 0i).xyz * 2.0 - vec3(1.0));
+    let current_normal = normalize(textureLoad(normals_buffer, global_id.xy, 0i).xyz * 2.0 - vec3(1.0));
 
     let plane_distance = abs(dot(previous_position - current_position, current_normal));
     if plane_distance >= 0.5 {
