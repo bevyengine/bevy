@@ -194,7 +194,7 @@ symphonia-vorbis = ["bevy_internal/symphonia-vorbis"]
 symphonia-wav = ["bevy_internal/symphonia-wav"]
 
 # Enable serialization support through serde
-serialize = ["bevy_internal/serialize"]
+serialize = ["bevy_internal/serialize", "bevy_asset"]
 
 # Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.
 multi-threaded = ["bevy_internal/multi-threaded"]
