@@ -7,7 +7,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Affine3, Affine3A, Vec2, Vec3Swizzles, Vec4};
+use bevy_math::{Affine3, Vec2, Vec4};
 use bevy_reflect::Reflect;
 use bevy_render::{
     batching::{batch_render_phase, NoAutomaticBatching},
@@ -159,36 +159,12 @@ pub struct Mesh2dUniform {
 
 impl From<&Mesh2dTransforms> for Mesh2dUniform {
     fn from(mesh_transforms: &Mesh2dTransforms) -> Self {
-        let transpose_model_3x3 = mesh_transforms.transform.matrix3.transpose();
-        let inverse_transpose_model_3x3 = Affine3A::from(&mesh_transforms.transform)
-            .inverse()
-            .matrix3
-            .transpose();
+        let (inverse_transpose_model_a, inverse_transpose_model_b) =
+            mesh_transforms.transform.inverse_transpose_3x3();
         Self {
-            transform: [
-                transpose_model_3x3
-                    .x_axis
-                    .extend(mesh_transforms.transform.translation.x),
-                transpose_model_3x3
-                    .y_axis
-                    .extend(mesh_transforms.transform.translation.y),
-                transpose_model_3x3
-                    .z_axis
-                    .extend(mesh_transforms.transform.translation.z),
-            ],
-            inverse_transpose_model_a: [
-                (
-                    inverse_transpose_model_3x3.x_axis,
-                    inverse_transpose_model_3x3.y_axis.x,
-                )
-                    .into(),
-                (
-                    inverse_transpose_model_3x3.y_axis.yz(),
-                    inverse_transpose_model_3x3.z_axis.xy(),
-                )
-                    .into(),
-            ],
-            inverse_transpose_model_b: inverse_transpose_model_3x3.z_axis.z,
+            transform: mesh_transforms.transform.to_transpose(),
+            inverse_transpose_model_a,
+            inverse_transpose_model_b,
             flags: mesh_transforms.flags,
         }
     }

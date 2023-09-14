@@ -19,7 +19,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Affine3, Affine3A, Mat4, Vec2, Vec3Swizzles, Vec4};
+use bevy_math::{Affine3, Mat4, Vec2, Vec4};
 use bevy_render::{
     batching::{batch_render_phase, NoAutomaticBatching},
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -188,48 +188,13 @@ pub struct MeshUniform {
 
 impl From<&MeshTransforms> for MeshUniform {
     fn from(mesh_transforms: &MeshTransforms) -> Self {
-        let transpose_model_3x3 = mesh_transforms.transform.matrix3.transpose();
-        let transpose_previous_model_3x3 = mesh_transforms.previous_transform.matrix3.transpose();
-        let inverse_transpose_model_3x3 = Affine3A::from(&mesh_transforms.transform)
-            .inverse()
-            .matrix3
-            .transpose();
+        let (inverse_transpose_model_a, inverse_transpose_model_b) =
+            mesh_transforms.transform.inverse_transpose_3x3();
         Self {
-            transform: [
-                transpose_model_3x3
-                    .x_axis
-                    .extend(mesh_transforms.transform.translation.x),
-                transpose_model_3x3
-                    .y_axis
-                    .extend(mesh_transforms.transform.translation.y),
-                transpose_model_3x3
-                    .z_axis
-                    .extend(mesh_transforms.transform.translation.z),
-            ],
-            previous_transform: [
-                transpose_previous_model_3x3
-                    .x_axis
-                    .extend(mesh_transforms.previous_transform.translation.x),
-                transpose_previous_model_3x3
-                    .y_axis
-                    .extend(mesh_transforms.previous_transform.translation.y),
-                transpose_previous_model_3x3
-                    .z_axis
-                    .extend(mesh_transforms.previous_transform.translation.z),
-            ],
-            inverse_transpose_model_a: [
-                (
-                    inverse_transpose_model_3x3.x_axis,
-                    inverse_transpose_model_3x3.y_axis.x,
-                )
-                    .into(),
-                (
-                    inverse_transpose_model_3x3.y_axis.yz(),
-                    inverse_transpose_model_3x3.z_axis.xy(),
-                )
-                    .into(),
-            ],
-            inverse_transpose_model_b: inverse_transpose_model_3x3.z_axis.z,
+            transform: mesh_transforms.transform.to_transpose(),
+            previous_transform: mesh_transforms.previous_transform.to_transpose(),
+            inverse_transpose_model_a,
+            inverse_transpose_model_b,
             flags: mesh_transforms.flags,
         }
     }
