@@ -101,7 +101,6 @@ impl AddAudioSource for App {
     {
         self.init_asset::<T>().add_systems(
             PostUpdate,
-            // TODO after transform propagation?
             play_queued_audio_system::<T>.in_set(AudioPlaySet),
         );
         self.add_systems(PostUpdate, cleanup_finished_audio::<T>.in_set(AudioPlaySet));
