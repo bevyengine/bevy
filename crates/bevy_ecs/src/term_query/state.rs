@@ -247,15 +247,16 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         self.update_archetypes(world);
         let last_run = world.last_change_tick();
         let this_run = world.change_tick();
+        unsafe { self.iter_raw_manual(world.as_unsafe_world_cell(), last_run, this_run) }
+    }
 
-        unsafe {
-            TermQueryIterUntyped::new(
-                world.as_unsafe_world_cell(),
-                self.filterless(),
-                last_run,
-                this_run,
-            )
-        }
+    pub(crate) unsafe fn iter_raw_manual<'w, 's>(
+        &'s self,
+        world: UnsafeWorldCell<'w>,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> TermQueryIterUntyped<'w, 's> {
+        TermQueryIterUntyped::new(world, self.filterless(), last_run, this_run)
     }
 
     #[inline]
@@ -422,7 +423,10 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     }
 
     #[inline]
-    pub fn single_raw<'w, 's>(&'s mut self, world: &'w mut World) -> Vec<FetchedTerm<'w>> {
+    pub fn single_raw<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> (&'s TermVec<Term>, Vec<FetchedTerm<'w>>) {
         self.get_single_raw(world).unwrap()
     }
 
@@ -430,8 +434,8 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     pub fn get_single_raw<'w, 's>(
         &'s mut self,
         world: &'w mut World,
-    ) -> Result<Vec<FetchedTerm<'w>>, QuerySingleError> {
-        let query = &mut self.iter_raw(world);
+    ) -> Result<(&'s TermVec<Term>, Vec<FetchedTerm<'w>>), QuerySingleError> {
+        let mut query = self.iter_raw(world);
         let first = query.next();
         let extra = query.next().is_some();
 

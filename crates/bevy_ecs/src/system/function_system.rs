@@ -360,6 +360,7 @@ where
     F: SystemParamFunction<Marker>,
 {
     pub unsafe fn state_mut(&mut self) -> &mut <F::Param as SystemParam>::State {
+        self.archetype_generation = ArchetypeGeneration::initial();
         self.param_state.as_mut().unwrap()
     }
 }

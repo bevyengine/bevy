@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, slice};
+use std::slice;
 
 use crate::{
     archetype::{ArchetypeEntity, ArchetypeId, Archetypes},
@@ -9,7 +9,7 @@ use crate::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{FetchedTerm, QueryTermGroup, RawFetches, TermQueryState, TermState, TermVec};
+use super::{FetchedTerm, QueryTermGroup, RawFetches, Term, TermQueryState, TermState, TermVec};
 
 pub struct TermQueryCursor<'w, 's> {
     table_id_iter: slice::Iter<'s, TableId>,
@@ -143,30 +143,24 @@ impl<'w, 's> TermQueryIterUntyped<'w, 's> {
     }
 }
 
-// This would be a streaming iterator if rust supported those
-impl<'w, 's> TermQueryIterUntyped<'w, 's> {
+impl<'w, 's> Iterator for TermQueryIterUntyped<'w, 's> {
+    type Item = (&'s TermVec<Term>, Vec<FetchedTerm<'w>>);
+
     #[inline]
-    fn next_fetch<'f>(&'f mut self) -> Option<&'f [FetchedTerm<'w>]> {
+    fn next(&mut self) -> Option<Self::Item> {
         unsafe {
             self.cursor
                 .next(self.tables, self.archetypes, self.query_state)
+                .map(|fetches| (&self.query_state.terms, fetches.to_vec()))
         }
     }
 }
 
-// Slower iterator API that clones fetches
-impl<'w, 's> Iterator for TermQueryIterUntyped<'w, 's> {
-    type Item = Vec<FetchedTerm<'w>>;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        self.next_fetch().map(|fetches| fetches.to_vec())
-    }
-}
-
 pub struct TermQueryIter<'w, 's, Q: QueryTermGroup> {
-    inner: TermQueryIterUntyped<'w, 's>,
-    _marker: PhantomData<Q>,
+    query_state: &'s TermQueryState<Q>,
+    tables: &'w Tables,
+    archetypes: &'w Archetypes,
+    cursor: TermQueryCursor<'w, 's>,
 }
 
 impl<'w, 's, Q: QueryTermGroup> TermQueryIter<'w, 's, Q> {
@@ -178,8 +172,10 @@ impl<'w, 's, Q: QueryTermGroup> TermQueryIter<'w, 's, Q> {
         this_run: Tick,
     ) -> Self {
         Self {
-            inner: TermQueryIterUntyped::new(world, query_state, last_run, this_run),
-            _marker: PhantomData::default(),
+            query_state,
+            tables: &world.storages().tables,
+            archetypes: world.archetypes(),
+            cursor: TermQueryCursor::new(world, query_state, last_run, this_run),
         }
     }
 }
@@ -190,7 +186,10 @@ impl<'w, 's, Q: QueryTermGroup> Iterator for TermQueryIter<'w, 's, Q> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
-            if let Some(fetches) = &mut self.inner.next_fetch() {
+            if let Some(fetches) = self
+                .cursor
+                .next(self.tables, self.archetypes, self.query_state)
+            {
                 Some(Q::from_fetches(&mut fetches.iter()))
             } else {
                 None

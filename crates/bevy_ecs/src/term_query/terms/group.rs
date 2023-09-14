@@ -4,7 +4,7 @@ use crate::{
     term_query::TermVec,
 };
 
-use super::{FetchedTerm, QueryTermGroup, Term, TermAccess};
+use super::{FetchedTerm, QueryTermGroup, Term};
 
 impl<Q: QueryTermGroup> QueryTermGroup for Or<Q> {
     type Item<'w> = ();
@@ -14,7 +14,7 @@ impl<Q: QueryTermGroup> QueryTermGroup for Or<Q> {
     fn init_terms(world: &mut World, terms: &mut TermVec<Term>) {
         let mut sub_terms = Vec::new();
         Q::init_terms(world, &mut sub_terms);
-        terms.push(Term::sub_terms(sub_terms));
+        terms.push(Term::or_terms(sub_terms));
     }
 
     #[inline]
@@ -33,7 +33,7 @@ impl<Q: QueryTermGroup> QueryTermGroup for AnyOf<Q> {
     fn init_terms(world: &mut World, terms: &mut TermVec<Term>) {
         let mut sub_terms = Vec::new();
         Q::Optional::init_terms(world, &mut sub_terms);
-        terms.push(Term::sub_terms(sub_terms).set_access(TermAccess::Read));
+        terms.push(Term::any_of_terms(sub_terms));
     }
 
     #[inline]

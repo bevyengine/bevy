@@ -23,13 +23,13 @@ pub use group::*;
 
 use super::TermVec;
 
-#[derive(Eq, PartialEq, Clone)]
+#[derive(Eq, PartialEq, Clone, Copy, Debug)]
 pub enum TermAccess {
     Read,
     Write,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Eq, PartialEq, Copy, Debug)]
 pub enum TermOperator {
     #[default]
     With,
@@ -39,7 +39,7 @@ pub enum TermOperator {
     Optional,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct Term {
     pub entity: bool,
     pub component: Option<ComponentId>,
@@ -50,10 +50,14 @@ pub struct Term {
 }
 
 impl Term {
-    pub fn sub_terms(sub_terms: Vec<Term>) -> Self {
+    pub fn or_terms(sub_terms: Vec<Term>) -> Self {
         let mut term = Self::default();
         term.sub_terms = sub_terms;
         term
+    }
+
+    pub fn any_of_terms(sub_terms: Vec<Term>) -> Self {
+        Self::or_terms(sub_terms).set_access(TermAccess::Read)
     }
 
     pub fn set_id(mut self, id: ComponentId) -> Self {
@@ -186,9 +190,9 @@ pub enum FetchPtr<'w> {
 
 #[derive(Clone)]
 pub struct FetchedTerm<'w> {
-    entity: Entity,
-    ptr: FetchPtr<'w>,
-    matched: bool,
+    pub entity: Entity,
+    pub ptr: FetchPtr<'w>,
+    pub matched: bool,
 }
 
 impl<'w> FetchedTerm<'w> {

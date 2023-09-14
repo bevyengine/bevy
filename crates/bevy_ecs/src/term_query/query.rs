@@ -7,7 +7,7 @@ use crate::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{QueryTermGroup, ROTermItem, TermQueryIter, TermQueryState};
+use super::{QueryTermGroup, ROTermItem, TermQueryIter, TermQueryIterUntyped, TermQueryState};
 
 pub struct TermQuery<'w, 's, Q: QueryTermGroup, F: QueryTermGroup = ()> {
     world: UnsafeWorldCell<'w>,
@@ -53,6 +53,14 @@ impl<'w, 's, Q: QueryTermGroup, F: QueryTermGroup> TermQuery<'w, 's, Q, F> {
         unsafe {
             self.state
                 .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+        }
+    }
+
+    #[inline]
+    pub fn iter_raw(&mut self) -> TermQueryIterUntyped<'_, 's> {
+        unsafe {
+            self.state
+                .iter_raw_manual(self.world, self.last_run, self.this_run)
         }
     }
 

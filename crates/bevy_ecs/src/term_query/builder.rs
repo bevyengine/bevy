@@ -74,6 +74,30 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
         self
     }
 
+    pub fn optional(&mut self, f: impl Fn(&mut QueryBuilder)) -> &mut Self {
+        let mut builder = QueryBuilder::new(self.world);
+        f(&mut builder);
+        let terms = builder.terms.into_iter().map(|term| term.set_optional());
+        self.terms.extend(terms);
+        self
+    }
+
+    pub fn or(&mut self, f: impl Fn(&mut QueryBuilder)) -> &mut Self {
+        let mut builder = QueryBuilder::new(self.world);
+        f(&mut builder);
+        let term = Term::or_terms(builder.terms);
+        self.terms.push(term);
+        self
+    }
+
+    pub fn any_of(&mut self, f: impl Fn(&mut QueryBuilder)) -> &mut Self {
+        let mut builder = QueryBuilder::new(self.world);
+        f(&mut builder);
+        let term = Term::any_of_terms(builder.terms);
+        self.terms.push(term);
+        self
+    }
+
     pub fn push(&mut self, term: Term) -> &mut Self {
         self.terms.push(term);
         self
@@ -88,6 +112,10 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
     pub fn set_dynamic_by_id(&mut self, id: ComponentId) -> &mut Self {
         self.terms[self.current_term].component = Some(id);
         self
+    }
+
+    pub fn terms(&self) -> &TermVec<Term> {
+        &self.terms
     }
 
     pub fn build(&mut self) -> TermQueryState<Q> {

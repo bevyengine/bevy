@@ -237,7 +237,7 @@ unsafe impl<Q: QueryTermGroup + 'static, F: QueryTermGroup + 'static> SystemPara
         assert_component_access_compatibility(
             &system_meta.name,
             "term_query",
-            "term_query",
+            "term_query_filter",
             &system_meta.component_access_set,
             &state.component_access,
             world,
