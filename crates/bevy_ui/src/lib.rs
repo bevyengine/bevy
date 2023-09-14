@@ -57,6 +57,8 @@ pub struct UiPlugin;
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum UiSystem {
+    /// After this label, the ui nodes have been updated
+    Nodes,
     /// After this label, the ui layout state has been updated
     Layout,
     /// After this label, input interactions with UI entities have been updated for this frame
@@ -143,7 +145,7 @@ impl Plugin for UiPlugin {
                     // they will never observe each other's effects.
                     .ambiguous_with(bevy_text::update_text2d_layout),
                 widget::text_system
-                    .after(UiSystem::Layout)
+                    .after(UiSystem::Nodes)
                     .before(Assets::<Image>::track_assets),
             ),
         );
@@ -169,8 +171,10 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                ui_layout_system
-                    .in_set(UiSystem::Layout)
+                ui_layout_system.in_set(UiSystem::Layout),
+                ui_nodes_system
+                    .in_set(UiSystem::Nodes)
+                    .after(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
                 ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system.after(TransformSystem::TransformPropagate),

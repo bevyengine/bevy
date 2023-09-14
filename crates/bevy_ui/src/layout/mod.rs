@@ -221,16 +221,33 @@ pub fn ui_layout_system(
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    style_query: Query<(Entity, Ref<Style>), With<Node>>,
-    mut measure_query: Query<(Entity, &mut ContentSize)>,
-    children_query: Query<(Entity, Ref<Children>), With<Node>>,
-    just_children_query: Query<&Children>,
+    root_node_query: Query<Entity, (With<Style>, Without<Parent>)>,
+    style_query: Query<(Entity, Ref<Style>)>,
+    mut measure_query: Query<(Entity, &mut ContentSize), With<Style>>,
+    children_query: Query<(Entity, Ref<Children>), With<Style>>,
+    mut removed_styles: RemovedComponents<Style>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
-    mut node_transform_query: Query<(&mut Node, &mut Transform)>,
-    mut removed_nodes: RemovedComponents<Node>,
 ) {
+    // when a `Style` component is removed from an entity, remove the corresponding taffy node from the internal taffy layout tree
+    // filter so that if the `Style` component was immediately replaced, we do not remove the node
+    ui_surface.remove_entities(
+        removed_styles
+            .iter()
+            .filter(|entity| !style_query.contains(*entity)),
+    );
+
+    // remove the associated taffy children of a ui node which had its children removed
+    // the taffy children remain in the taffy tree
+    for entity in removed_children.iter() {
+        ui_surface.try_remove_children(entity);
+    }
+
+    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
+    for entity in removed_content_sizes.iter() {
+        ui_surface.try_remove_measure(entity);
+    }
+
     // assume one window for time being...
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let (primary_window_entity, logical_to_physical_factor, physical_size) =
@@ -280,21 +297,10 @@ pub fn ui_layout_system(
         }
     }
 
-    // clean up removed nodes
-    ui_surface.remove_entities(removed_nodes.iter());
-
-    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-    for entity in removed_content_sizes.iter() {
-        ui_surface.try_remove_measure(entity);
-    }
-
     // update window children (for now assuming all Nodes live in the primary window)
     ui_surface.set_window_children(primary_window_entity, root_node_query.iter());
 
-    // update and remove children
-    for entity in removed_children.iter() {
-        ui_surface.try_remove_children(entity);
-    }
+    // when the children of the a Bevy UI entity are changed, update the children of the corresponding taffy nodes
     for (entity, children) in &children_query {
         if children.is_changed() {
             ui_surface.update_children(entity, &children);
@@ -303,8 +309,23 @@ pub fn ui_layout_system(
 
     // compute layouts
     ui_surface.compute_window_layouts();
+}
 
-    let inverse_target_scale_factor = 1. / scale_factor;
+pub(crate) fn ui_nodes_system(
+    primary_window: Query<&Window, With<PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
+    ui_surface: Res<UiSurface>,
+    mut node_transform_query: Query<(&mut Node, &mut Transform)>,
+    children_query: Query<&Children>,
+    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
+) {
+    let scale_factor = primary_window
+        .get_single()
+        .map(|window| window.resolution.scale_factor())
+        .unwrap_or(1.0)
+        * ui_scale.0;
+
+    let inverse_target_scale_factor = (scale_factor as f32).recip();
 
     fn update_uinode_geometry_recursive(
         entity: Entity,
@@ -357,8 +378,8 @@ pub fn ui_layout_system(
             entity,
             &ui_surface,
             &mut node_transform_query,
-            &just_children_query,
-            inverse_target_scale_factor as f32,
+            &children_query,
+            inverse_target_scale_factor,
             Vec2::ZERO,
             Vec2::ZERO,
         );
