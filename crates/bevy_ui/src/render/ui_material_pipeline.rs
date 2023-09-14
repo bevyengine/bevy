@@ -76,7 +76,7 @@ where
         load_internal_asset!(
             app,
             MATERIAL_UI_SHADER_HANDLE,
-            "material.wgsl",
+            "ui_material.wgsl",
             Shader::from_wgsl
         );
         app.init_asset::<M>()

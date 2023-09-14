@@ -6,9 +6,9 @@
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 pub mod camera_config;
-pub mod material;
 pub mod measurement;
 pub mod node_bundles;
+pub mod ui_material;
 pub mod update;
 pub mod widget;
 
@@ -26,9 +26,9 @@ mod ui_node;
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
-pub use material::*;
 pub use measurement::*;
 pub use render::*;
+pub use ui_material::*;
 pub use ui_node::*;
 use widget::UiImageSize;
 
@@ -36,7 +36,7 @@ use widget::UiImageSize;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, material::*, node_bundles::*, ui_node::*, widget::Button,
+        camera_config::*, geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button,
         widget::Label, Interaction, UiMaterialPlugin, UiScale,
     };
 }

@@ -1,6 +1,6 @@
-mod material_pipeline;
 mod pipeline;
 mod render_pass;
+mod ui_material_pipeline;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::storage::SparseSet;
@@ -8,9 +8,9 @@ use bevy_hierarchy::Parent;
 use bevy_render::view::ViewVisibility;
 use bevy_render::{ExtractSchedule, Render};
 use bevy_window::{PrimaryWindow, Window};
-pub use material_pipeline::*;
 pub use pipeline::*;
 pub use render_pass::*;
+pub use ui_material_pipeline::*;
 
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
