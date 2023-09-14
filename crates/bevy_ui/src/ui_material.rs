@@ -65,7 +65,8 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 /// ```
 /// In WGSL shaders, the material's binding would look like this:
 ///
-/// If you only use the fragment shader make sure to import `UiVertexOutput` from bevy_ui in your
+/// If you only use the fragment shader make sure to import `UiVertexOutput` from
+/// `bevy_ui::ui_vertex_output` in your
 /// wgsl shader.
 /// Also note that binding group 0 is always taken with the view matrix.
 ///
