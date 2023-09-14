@@ -61,7 +61,7 @@ symphonia-wav = ["bevy_audio/symphonia-wav"]
 shader_format_glsl = ["bevy_render/shader_format_glsl"]
 shader_format_spirv = ["bevy_render/shader_format_spirv"]
 
-serialize = ["bevy_core/serialize", "bevy_input/serialize", "bevy_time/serialize", "bevy_window/serialize", "bevy_transform/serialize", "bevy_math/serialize", "bevy_scene/serialize"]
+serialize = ["bevy_core/serialize", "bevy_input/serialize", "bevy_time/serialize", "bevy_window/serialize", "bevy_transform/serialize", "bevy_math/serialize", "bevy_scene?/serialize"]
 multi-threaded = ["bevy_asset/multi-threaded", "bevy_ecs/multi-threaded", "bevy_tasks/multi-threaded"]
 
 # Display server protocol support (X11 is enabled by default)
