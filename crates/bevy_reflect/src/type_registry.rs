@@ -56,7 +56,7 @@ impl Debug for TypeRegistryArc {
 /// See the [crate-level documentation] for more information on type registration.
 ///
 /// [crate-level documentation]: crate
-pub trait GetTypeRegistration {
+pub trait GetTypeRegistration: 'static {
     /// Returns the default [`TypeRegistration`] for this type.
     fn get_type_registration() -> TypeRegistration;
     /// Registers other types needed by this type.
@@ -122,10 +122,11 @@ impl TypeRegistry {
     where
         T: GetTypeRegistration,
     {
-        if !self.add_registration(T::get_type_registration()) {
+        if self.contains(TypeId::of::<T>()) {
             return;
         }
 
+        self.force_add_registration(T::get_type_registration());
         T::register_type_dependencies(self);
     }
 
