@@ -213,11 +213,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// that happened before now.
     #[deprecated = "use `.read()` instead."]
     pub fn iter(&mut self) -> RemovedIter<'_> {
-        self.reader_mut_with_events()
-            .map(|(reader, events)| reader.read(events).cloned())
-            .into_iter()
-            .flatten()
-            .map(RemovedComponentEntity::into)
+        self.read()
     }
 
     /// Like [`read`](Self::read), except also returning the [`EventId`] of the events.
@@ -232,11 +228,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
     #[deprecated = "use `.read_with_id()` instead."]
     pub fn iter_with_id(&mut self) -> RemovedIterWithId<'_> {
-        self.reader_mut_with_events()
-            .map(|(reader, events)| reader.read_with_id(events))
-            .into_iter()
-            .flatten()
-            .map(map_id_events)
+        self.read_with_id()
     }
 
     /// Determines the number of removal events available to be read from this [`RemovedComponents`] without consuming any.
