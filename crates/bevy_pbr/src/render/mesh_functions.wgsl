@@ -4,26 +4,7 @@
 #import bevy_pbr::mesh_bindings       mesh
 #import bevy_pbr::mesh_types          MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT
 #import bevy_render::instance_index   get_instance_index
-
-fn affine_to_square(affine: mat3x4<f32>) -> mat4x4<f32> {
-    return transpose(mat4x4<f32>(
-        affine[0],
-        affine[1],
-        affine[2],
-        vec4<f32>(0.0, 0.0, 0.0, 1.0),
-    ));
-}
-
-fn mat2x4_f32_to_mat3x3_unpack(
-    a: mat2x4<f32>,
-    b: f32,
-) -> mat3x3<f32> {
-    return mat3x3<f32>(
-        a[0].xyz,
-        vec3<f32>(a[0].w, a[1].xy),
-        vec3<f32>(a[1].zw, b),
-    );
-}
+#import bevy_render::maths            affine_to_square, mat2x4_f32_to_mat3x3_unpack
 
 fn get_model_matrix(instance_index: u32) -> mat4x4<f32> {
     return affine_to_square(mesh[get_instance_index(instance_index)].model);

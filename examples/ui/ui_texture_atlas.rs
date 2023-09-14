@@ -50,7 +50,7 @@ fn setup(
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn((AtlasImageBundle {
+            parent.spawn(AtlasImageBundle {
                 style: Style {
                     width: Val::Px(256.),
                     height: Val::Px(256.),
@@ -59,7 +59,7 @@ fn setup(
                 texture_atlas: texture_atlas_handle,
                 texture_atlas_image: UiTextureAtlasImage::default(),
                 ..default()
-            },));
+            });
             parent.spawn(TextBundle::from_sections([
                 TextSection::new("press ".to_string(), text_style.clone()),
                 TextSection::new(

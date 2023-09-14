@@ -9,12 +9,13 @@ use crate::{
     render_resource::{Buffer, TextureView, VertexBufferLayout},
     renderer::RenderDevice,
 };
-use bevy_asset::Handle;
+use bevy_asset::{Asset, Handle};
 use bevy_core::cast_slice;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_log::warn;
 use bevy_math::*;
-use bevy_reflect::{TypePath, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_utils::{tracing::error, Hashed};
 use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
@@ -109,14 +110,15 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
 ///
 // TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
-#[derive(Debug, TypeUuid, TypePath, Clone)]
-#[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
+#[derive(Asset, Debug, Clone, Reflect)]
 pub struct Mesh {
+    #[reflect(ignore)]
     primitive_topology: PrimitiveTopology,
     /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
     /// for this mesh. Attribute ids to attribute values.
     /// Uses a BTreeMap because, unlike HashMap, it has a defined iteration order,
     /// which allows easy stable VertexBuffers (i.e. same buffer order)
+    #[reflect(ignore)]
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
     morph_targets: Option<Handle<Image>>,
@@ -323,17 +325,20 @@ impl Mesh {
 
     /// Counts all vertices of the mesh.
     ///
-    /// # Panics
-    /// Panics if the attributes have different vertex counts.
+    /// If the attributes have different vertex counts, the smallest is returned.
     pub fn count_vertices(&self) -> usize {
         let mut vertex_count: Option<usize> = None;
         for (attribute_id, attribute_data) in &self.attributes {
             let attribute_len = attribute_data.values.len();
             if let Some(previous_vertex_count) = vertex_count {
-                assert_eq!(previous_vertex_count, attribute_len,
-                        "{attribute_id:?} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh.");
+                if previous_vertex_count != attribute_len {
+                    warn!("{attribute_id:?} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh, \
+                        all attributes will be truncated to match the smallest.");
+                    vertex_count = Some(std::cmp::min(previous_vertex_count, attribute_len));
+                }
+            } else {
+                vertex_count = Some(attribute_len);
             }
-            vertex_count = Some(attribute_len);
         }
 
         vertex_count.unwrap_or(0)
@@ -343,8 +348,8 @@ impl Mesh {
     /// Therefore the attributes are located in the order of their [`MeshVertexAttribute::id`].
     /// This is used to transform the vertex data into a GPU friendly format.
     ///
-    /// # Panics
-    /// Panics if the attributes have different vertex counts.
+    /// If the vertex attributes have different lengths, they are all truncated to
+    /// the length of the smallest.
     pub fn get_vertex_buffer_data(&self) -> Vec<u8> {
         let mut vertex_size = 0;
         for attribute_data in self.attributes.values() {
@@ -356,7 +361,7 @@ impl Mesh {
         let mut attributes_interleaved_buffer = vec![0; vertex_count * vertex_size];
         // bundle into interleaved buffers
         let mut attribute_offset = 0;
-        for attribute_data in self.attributes.values() {
+        for attribute_data in self.attributes.values().take(vertex_count) {
             let attribute_size = attribute_data.attribute.format.get_size() as usize;
             let attributes_bytes = attribute_data.values.get_bytes();
             for (vertex_index, attribute_bytes) in
@@ -831,7 +836,7 @@ impl From<&VertexAttributeValues> for VertexFormat {
 /// An array of indices into the [`VertexAttributeValues`] for a mesh.
 ///
 /// It describes the order in which the vertex attributes should be joined into faces.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub enum Indices {
     U16(Vec<u16>),
     U32(Vec<u32>),

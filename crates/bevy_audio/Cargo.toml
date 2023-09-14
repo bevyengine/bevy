@@ -20,7 +20,6 @@ bevy_derive = { path = "../bevy_derive", version = "0.12.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 
 # other
-anyhow = "1.0.4"
 rodio = { version = "0.17", default-features = false }
 parking_lot = "0.12.1"
 

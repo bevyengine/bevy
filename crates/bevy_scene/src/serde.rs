@@ -1,5 +1,4 @@
 use crate::{DynamicEntity, DynamicScene};
-use anyhow::Result;
 use bevy_ecs::entity::Entity;
 use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
 use bevy_reflect::{
@@ -807,7 +806,7 @@ mod tests {
                 .find(|dynamic_entity| dynamic_entity.entity == expected.entity)
                 .unwrap_or_else(|| panic!("missing entity (expected: `{:?}`)", expected.entity));
 
-            assert_eq!(expected.entity, received.entity, "entities did not match",);
+            assert_eq!(expected.entity, received.entity, "entities did not match");
 
             for expected in &expected.components {
                 let received = received

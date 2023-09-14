@@ -740,7 +740,7 @@ impl World {
             let mut spawner = bundle_info.get_bundle_spawner(
                 &mut self.entities,
                 &mut self.archetypes,
-                &mut self.components,
+                &self.components,
                 &mut self.storages,
                 change_tick,
             );
@@ -1448,7 +1448,7 @@ impl World {
         let mut spawn_or_insert = SpawnOrInsert::Spawn(bundle_info.get_bundle_spawner(
             &mut self.entities,
             &mut self.archetypes,
-            &mut self.components,
+            &self.components,
             &mut self.storages,
             change_tick,
         ));
@@ -1471,7 +1471,7 @@ impl World {
                             let mut inserter = bundle_info.get_bundle_inserter(
                                 &mut self.entities,
                                 &mut self.archetypes,
-                                &mut self.components,
+                                &self.components,
                                 &mut self.storages,
                                 location.archetype_id,
                                 change_tick,
@@ -1491,7 +1491,7 @@ impl World {
                         let mut spawner = bundle_info.get_bundle_spawner(
                             &mut self.entities,
                             &mut self.archetypes,
-                            &mut self.components,
+                            &self.components,
                             &mut self.storages,
                             change_tick,
                         );

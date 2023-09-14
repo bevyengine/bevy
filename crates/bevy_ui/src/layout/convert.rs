@@ -620,7 +620,7 @@ mod tests {
                 | (LengthPercentage::Percent(a), LengthPercentage::Percent(b)) =>
                     (a - b).abs() < 0.0001,
                 _ => false,
-            },);
+            });
         }
     }
 }
