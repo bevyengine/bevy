@@ -1,5 +1,5 @@
 #import bevy_solari::scene_bindings uniforms
-#import bevy_solari::global_illumination::view_bindings view, depth_buffer, normals_buffer, screen_probes_spherical_harmonics, diffuse_raw
+#import bevy_solari::global_illumination::view_bindings view, depth_buffer, normals_buffer, screen_probes_spherical_harmonics, diffuse_raw, screen_probes_a
 #import bevy_solari::utils rand_f, rand_vec2f, depth_to_world_position
 
 // TODO: Validate neighbor probe exists
@@ -18,7 +18,7 @@ fn interpolate_probe(
     let probe_pixel_id = probe_thread_id + (8i * probe_id);
     let probe_pixel_id_center = vec2<f32>(probe_pixel_id) + 0.5;
     let probe_depth = textureLoad(depth_buffer, probe_pixel_id, 0i);
-    let probe_world_position = depth_to_world_position(probe_depth, probe_pixel_id_center / view.viewport.zw);
+    let probe_world_position = depth_to_world_position(probe_depth, probe_pixel_id_center / vec2<f32>(textureDimensions(screen_probes_a)));
     let plane_distance = abs(dot(probe_world_position - pixel_world_position, pixel_world_normal));
 
     let c1 = 0.429043;
@@ -87,12 +87,12 @@ fn interpolate_screen_probes(
         return;
     }
     let pixel_id = vec2<f32>(global_id.xy) + 0.5;
-    let pixel_world_position = depth_to_world_position(pixel_depth, pixel_id / view.viewport.zw);
+    let pixel_world_position = depth_to_world_position(pixel_depth, pixel_id / vec2<f32>(textureDimensions(screen_probes_a)));
     let pixel_world_normal = normalize(textureLoad(normals_buffer, global_id.xy, 0i).xyz * 2.0 - vec3(1.0));
 
     // TODO: Spatiotemporal blue noise for jitter instead of rand_vec2f()
     var pixel_id_jittered = pixel_id + (rand_vec2f(&rng) * 16.0 - 8.0);
-    let pixel_world_position_jittered = depth_to_world_position(pixel_depth, pixel_id_jittered / view.viewport.zw);
+    let pixel_world_position_jittered = depth_to_world_position(pixel_depth, pixel_id_jittered / vec2<f32>(textureDimensions(screen_probes_a)));
     let plane_distance = abs(dot(pixel_world_position - pixel_world_position_jittered, pixel_world_normal));
     if plane_distance >= 0.5 {
         pixel_id_jittered = pixel_id;
