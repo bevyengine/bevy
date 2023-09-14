@@ -903,6 +903,9 @@ impl ScheduleGraph {
                         condition.initialize(world);
                     }
                 }
+                NodeId::TempSyncNode(_) => {
+                    unreachable!("should never insert temp nodes in regular schedule")
+                }
             }
         }
     }
@@ -945,7 +948,10 @@ impl ScheduleGraph {
         // check that there are no edges to system-type sets that have multiple instances
         self.check_system_type_set_ambiguity(&set_systems)?;
 
-        let dependency_flattened = self.get_dependency_flattened(&set_systems);
+        let mut dependency_flattened = self.get_dependency_flattened(&set_systems);
+
+        // insert auto sync points
+        self.insert_sync_points(&mut dependency_flattened);
 
         // topsort
         let mut dependency_flattened_dag = Dag {
@@ -977,6 +983,35 @@ impl ScheduleGraph {
         Ok(self.build_schedule_inner(dependency_flattened_dag, hier_results.reachable))
     }
 
+    // modify the graph to have sync nodes for any depedants after a system with deferred system params
+    fn insert_sync_points(
+        &mut self,
+        dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
+    ) -> GraphMap<NodeId, u32, Directed> {
+        let mut sync_point_graph = GraphMap::new();
+        // TODO probably need to use more realistic node indexes for the next step
+        let mut temp_node_index = 0;
+        for (source_node, target_node, _edge_weight) in dependency_flattened.all_edges() {
+            if self.systems[source_node.index()]
+                .get()
+                .unwrap()
+                .has_deferred()
+            {
+                sync_point_graph.add_edge(source_node, NodeId::TempSyncNode(temp_node_index), 0);
+                sync_point_graph.add_edge(
+                    NodeId::TempSyncNode(temp_node_index),
+                    target_node,
+                    1, // an edge after a sync point increases the distance
+                );
+                temp_node_index += 1;
+            } else {
+                sync_point_graph.add_edge(source_node, target_node, 0);
+            }
+        }
+
+        sync_point_graph
+    }
+
     fn map_sets_to_systems(
         &self,
         hierarchy_topsort: &[NodeId],
@@ -1004,6 +1039,9 @@ impl ScheduleGraph {
                         let child_system_bitset = set_system_bitsets.get(&child).unwrap();
                         systems.extend_from_slice(child_systems);
                         system_bitset.union_with(child_system_bitset);
+                    }
+                    NodeId::TempSyncNode(_) => {
+                        unreachable!("temp nodes should not be inserted into the regular schedule")
                     }
                 }
             }
@@ -1079,6 +1117,7 @@ impl ScheduleGraph {
                         }
                     }
                 }
+                _ => unreachable!("temp nodes are not allowed in this schedule"),
             }
         }
 
@@ -1340,6 +1379,7 @@ impl ScheduleGraph {
                     set.name()
                 }
             }
+            _ => unreachable!("temp nodes are not allowed here"),
         };
         if self.settings.use_shortnames {
             name = bevy_utils::get_short_name(&name);
@@ -1364,6 +1404,7 @@ impl ScheduleGraph {
         match id {
             NodeId::System(_) => "system",
             NodeId::Set(_) => "system set",
+            NodeId::TempSyncNode(_) => "temp sync node",
         }
     }
 

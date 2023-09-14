@@ -17,13 +17,15 @@ pub enum NodeId {
     System(usize),
     /// Identifier for a system set.
     Set(usize),
+    /// used for inserting sync nodes automatically before merging sync points
+    TempSyncNode(usize),
 }
 
 impl NodeId {
     /// Returns the internal integer value.
     pub(crate) fn index(&self) -> usize {
         match self {
-            NodeId::System(index) | NodeId::Set(index) => *index,
+            NodeId::System(index) | NodeId::Set(index) | NodeId::TempSyncNode(index) => *index,
         }
     }
 
