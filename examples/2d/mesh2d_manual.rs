@@ -148,9 +148,9 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
             false => TextureFormat::bevy_default(),
         };
 
-        // meshes typically live in bind group 2. because we are using bindgroup 1
-        // we need to add MESH_BINDGROUP_1 shader def so that the bindings are correctly
-        // linked in the shader
+        // Meshes typically live in bind group 2. Because we are using bind group 1
+        // we need to add the MESH_BINDGROUP_1 shader def so that the bindings are correctly
+        // linked in the shader.
         let shader_defs = vec!["MESH_BINDGROUP_1".into()];
 
         RenderPipelineDescriptor {
