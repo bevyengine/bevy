@@ -91,6 +91,7 @@ fn sample_shadow_map_jimenez_fourteen(light_local: vec2<f32>, depth: f32, array_
         m.x, m.y
     );
 
+    // Empirically chosen fudge factor to make PCF look better across different CSM cascades
     let f = map(0.00390625, 0.022949219, 0.015, 0.035, texel_size);
     let uv_offset_scale = f / (texel_size * shadow_map_size);
 
