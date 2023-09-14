@@ -498,7 +498,7 @@ impl AssetProcessor {
                                 .await?
                                 && contains_files;
                     }
-                    if !contains_files {
+                    if !contains_files && path.parent().is_some() {
                         if let Some(writer) = clean_empty_folders_writer {
                             // it is ok for this to fail as it is just a cleanup job.
                             let _ = writer.remove_empty_directory(&path).await;
