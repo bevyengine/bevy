@@ -137,7 +137,6 @@ impl<M: UiMaterial> Default for UiMaterialMeta<M> {
 pub struct UiMaterialVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
-    pub color: [f32; 4],
 }
 
 /// in this [`UiMaterialPipeline`] there is (currently) no batching going on.
@@ -173,8 +172,6 @@ where
                 VertexFormat::Float32x3,
                 // uv
                 VertexFormat::Float32x2,
-                // color
-                VertexFormat::Float32x4,
             ],
         );
         let shader_defs = Vec::new();
@@ -541,7 +538,6 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                         ui_meta.vertices.push(UiMaterialVertex {
                             position: positions_clipped[i].into(),
                             uv: uvs[i].into(),
-                            color: Color::WHITE.as_linear_rgba_f32(),
                         });
                     }
 

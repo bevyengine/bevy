@@ -12,6 +12,10 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 ///
 /// Materials must also implement [`Asset`] so they can be treated as such.
 ///
+/// If you are only using the fragment shader, make sure your shader imports the `UiVertexOutput`
+/// from `bevy_ui::ui_vertex_output` and uses it as the input of your fragment shader like the
+/// example below does.
+///
 /// # Example
 ///
 /// Here is a simple [`UiMaterial`] implementation. The [`AsBindGroup`] derive has many features. To see what else is available,
@@ -61,7 +65,13 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 /// ```
 /// In WGSL shaders, the material's binding would look like this:
 ///
+/// If you only use the fragment shader make sure to import `UiVertexOutput` from bevy_ui in your
+/// wgsl shader.
+/// Also note that binding group 0 is always taken with the view matrix.
+///
 /// ```wgsl
+/// #import bevy_ui::ui_vertex_output UiVertexOutput
+///
 /// struct CustomMaterial {
 ///     color: vec4<f32>,
 /// }
@@ -72,6 +82,11 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 /// var color_texture: texture_2d<f32>;
 /// @group(1) @binding(2)
 /// var color_sampler: sampler;
+///
+/// @fragment
+/// fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
+///
+/// }
 /// ```
 pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
     /// Returns this materials vertex shader. If [`ShaderRef::Default`] is returned, the default UI
