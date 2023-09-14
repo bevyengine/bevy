@@ -17,7 +17,6 @@ use bevy_ecs::{
 use bevy_math::{Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
-    prelude::Color,
     render_asset::RenderAssets,
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
