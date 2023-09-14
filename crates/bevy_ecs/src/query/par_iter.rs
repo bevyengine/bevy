@@ -11,7 +11,7 @@ use super::{QueryItem, QueryState, ReadOnlyWorldQuery, WorldQuery};
 ///
 /// By default, this batch size is automatically determined by dividing
 /// the size of the largest matched archetype by the number
-/// of threads. This attempts to minimize the overhead of scheduling
+/// of threads (rounded up). This attempts to minimize the overhead of scheduling
 /// tasks onto multiple threads, but assumes each entity has roughly the
 /// same amount of work to be done, which may not hold true in every
 /// workload.
