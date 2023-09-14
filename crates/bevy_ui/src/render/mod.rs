@@ -600,7 +600,7 @@ pub fn extract_text_uinodes(
 
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
-struct UiVertex {
+pub struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub color: [f32; 4],
@@ -609,8 +609,8 @@ struct UiVertex {
 
 #[derive(Resource)]
 pub struct UiMeta {
-    vertices: BufferVec<UiVertex>,
-    view_bind_group: Option<BindGroup>,
+    pub vertices: BufferVec<UiVertex>,
+    pub view_bind_group: Option<BindGroup>,
 }
 
 impl Default for UiMeta {
