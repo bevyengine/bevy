@@ -74,6 +74,15 @@ pub(crate) fn create_windows<'a>(
         window
             .resolution
             .set_scale_factor(winit_window.scale_factor());
+
+        window
+            .internal
+            .set_maximized_state(winit_window.is_maximized());
+
+        window
+            .internal
+            .set_minimized_state(winit_window.is_minimized());
+
         commands
             .entity(entity)
             .insert(RawHandleWrapper {
@@ -263,10 +272,14 @@ pub(crate) fn changed_windows(
 
             if let Some(maximized) = window.internal.take_maximize_request() {
                 winit_window.set_maximized(maximized);
+                let maximized_state = winit_window.is_maximized();
+                window.internal.set_maximized_state(maximized_state);
             }
 
             if let Some(minimized) = window.internal.take_minimize_request() {
                 winit_window.set_minimized(minimized);
+                let minimized_state = winit_window.is_minimized();
+                window.internal.set_minimized_state(minimized_state);
             }
 
             if window.focused != cache.window.focused && window.focused {
