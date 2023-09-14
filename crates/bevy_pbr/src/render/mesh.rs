@@ -21,7 +21,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Affine3A, Mat4, Vec2, Vec3Swizzles, Vec4};
 use bevy_render::{
-    batching::{batch_render_phase, BatchMeta, NoAutomaticBatching},
+    batching::{batch_render_phase, NoAutomaticBatching},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -393,7 +393,6 @@ pub fn extract_skinned_meshes(
 ///   result of the `prepare_mesh_uniforms` system, e.g. due to having to split
 ///   data across separate uniform bindings within the same buffer due to the
 ///   maximum uniform buffer binding size.
-#[derive(PartialEq, Eq)]
 struct BatchMeta3d {
     /// The pipeline id encompasses all pipeline configuration including vertex
     /// buffers and layouts, shaders and their specializations, bind group
@@ -408,13 +407,14 @@ struct BatchMeta3d {
     dynamic_offset: Option<NonMaxU32>,
 }
 
-impl BatchMeta<BatchMeta3d> for BatchMeta3d {
+impl PartialEq for BatchMeta3d {
     #[inline]
-    fn matches(&self, other: &BatchMeta3d) -> bool {
+    fn eq(&self, other: &BatchMeta3d) -> bool {
         self.pipeline_id == other.pipeline_id
             && self.draw_function_id == other.draw_function_id
             && self.mesh_asset_id == other.mesh_asset_id
             && (self.mesh_flags & (MeshFlags::SKINNED | MeshFlags::MORPH_TARGETS).bits()) == 0
+            && (other.mesh_flags & (MeshFlags::SKINNED | MeshFlags::MORPH_TARGETS).bits()) == 0
             && self.dynamic_offset == other.dynamic_offset
             && self.material_bind_group_id == other.material_bind_group_id
     }
