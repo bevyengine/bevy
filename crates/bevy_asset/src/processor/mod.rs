@@ -87,7 +87,7 @@ impl AssetProcessor {
         // The asset processor uses its own asset server with its own id space
         let server = AssetServer::new(
             Box::new(ProcessorGatedReader::new(destination_reader, data.clone())),
-            true,
+            false,
         );
         Self { server, data }
     }
