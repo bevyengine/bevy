@@ -873,7 +873,7 @@ pub enum AssetLoadError {
         loader: &'static str,
         error: AssetLoaderError,
     },
-    #[error("The asset at '{base_path}' does not contain the labeled asset '{label}'.")]
+    #[error("The file at '{base_path}' does not contain the labeled asset '{label}'.")]
     MissingLabel {
         base_path: AssetPath<'static>,
         label: String,
