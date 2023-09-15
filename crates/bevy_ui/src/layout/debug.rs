@@ -12,14 +12,14 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
         .iter()
         .map(|(entity, node)| (*node, *entity))
         .collect();
-    for (&entity, nodes) in ui_surface.window_root_nodes.iter() {
+    for (&entity, roots) in ui_surface.window_roots.iter() {
         let mut out = String::new();
-        for node in nodes {
+        for root in roots {
             print_node(
                 ui_surface,
                 &taffy_to_entity,
                 entity,
-                *node,
+                root.implicit_viewport_node,
                 false,
                 String::new(),
                 &mut out,

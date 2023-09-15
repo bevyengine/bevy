@@ -15,7 +15,7 @@ use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
-use bevy_utils::HashMap;
+use bevy_utils::{default, HashMap};
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::Taffy;
@@ -39,10 +39,18 @@ impl LayoutContext {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RootNodePair {
+    // The implicit "viewport" node created by Bevy
+    implicit_viewport_node: taffy::node::Node,
+    // The root (parentless) node specified by the user
+    user_root_node: taffy::node::Node,
+}
+
 #[derive(Resource)]
 pub struct UiSurface {
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
-    window_root_nodes: HashMap<Entity, Vec<taffy::node::Node>>,
+    window_roots: HashMap<Entity, Vec<RootNodePair>>,
     taffy: Taffy,
 }
 
@@ -57,7 +65,7 @@ impl fmt::Debug for UiSurface {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("UiSurface")
             .field("entity_to_taffy", &self.entity_to_taffy)
-            .field("window_nodes", &self.window_root_nodes)
+            .field("window_nodes", &self.window_roots)
             .finish()
     }
 }
@@ -68,7 +76,7 @@ impl Default for UiSurface {
         taffy.disable_rounding();
         Self {
             entity_to_taffy: Default::default(),
-            window_root_nodes: Default::default(),
+            window_roots: Default::default(),
             taffy,
         }
     }
@@ -138,10 +146,45 @@ without UI components as a child of an entity with UI components, results may be
         parent_window: Entity,
         children: impl Iterator<Item = Entity>,
     ) {
-        let child_nodes = children
-            .map(|e| *self.entity_to_taffy.get(&e).unwrap())
-            .collect();
-        self.window_root_nodes.insert(parent_window, child_nodes);
+        let viewport_style = taffy::style::Style {
+            display: taffy::style::Display::Grid,
+            size: taffy::geometry::Size {
+                width: taffy::style::Dimension::Percent(1.0),
+                height: taffy::style::Dimension::Percent(1.0),
+            },
+            align_items: Some(taffy::style::AlignItems::Start),
+            justify_items: Some(taffy::style::JustifyItems::Start),
+            ..default()
+        };
+
+        let empty_vec = Vec::new();
+        let existing_roots = self.window_roots.get(&parent_window).unwrap_or(&empty_vec);
+
+        let mut new_roots = Vec::new();
+        for entity in children {
+            let node = *self.entity_to_taffy.get(&entity).unwrap();
+            let root_node = existing_roots
+                .iter()
+                .find(|n| n.user_root_node == node)
+                .cloned()
+                .unwrap_or_else(|| RootNodePair {
+                    implicit_viewport_node: self
+                        .taffy
+                        .new_with_children(viewport_style.clone(), &[node])
+                        .unwrap(),
+                    user_root_node: node,
+                });
+            new_roots.push(root_node);
+        }
+
+        // Cleanup the implicit root nodes of any user root nodes that have been removed
+        for old_root in existing_roots {
+            if !new_roots.contains(old_root) {
+                self.taffy.remove(old_root.implicit_viewport_node).unwrap();
+            }
+        }
+
+        self.window_roots.insert(parent_window, new_roots);
     }
 
     /// Compute the layout for each window entity's corresponding root node in the layout.
@@ -152,9 +195,9 @@ without UI components as a child of an entity with UI components, results may be
                 window_resolution.physical_height() as f32
             ),
         };
-        for root_node in self.window_root_nodes.get(&window).unwrap() {
+        for root_nodes in self.window_roots.get(&window).unwrap() {
             self.taffy
-                .compute_layout(*root_node, available_space)
+                .compute_layout(root_nodes.implicit_viewport_node, available_space)
                 .unwrap();
         }
     }
