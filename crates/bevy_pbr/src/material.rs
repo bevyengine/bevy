@@ -1,7 +1,7 @@
 use crate::{
-    is_skinned, render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshFlags,
-    MeshPipeline, MeshPipelineKey, MeshTransforms, PrepassPipelinePlugin, PrepassPlugin,
-    ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
+    render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
+    MeshTransforms, PrepassPipelinePlugin, PrepassPlugin, ScreenSpaceAmbientOcclusionSettings,
+    SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
@@ -405,7 +405,7 @@ pub fn queue_material_meshes<M: Material>(
         &Handle<M>,
         &mut MaterialBindGroupId,
         &Handle<Mesh>,
-        &mut MeshTransforms,
+        &MeshTransforms,
     )>,
     images: Res<RenderAssets<Image>>,
     mut views: Query<(
@@ -490,12 +490,8 @@ pub fn queue_material_meshes<M: Material>(
 
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
-            if let Ok((
-                material_handle,
-                mut material_bind_group_id,
-                mesh_handle,
-                mut mesh_transforms,
-            )) = material_meshes.get_mut(*visible_entity)
+            if let Ok((material_handle, mut material_bind_group_id, mesh_handle, mesh_transforms)) =
+                material_meshes.get_mut(*visible_entity)
             {
                 if let (Some(mesh), Some(material)) = (
                     render_meshes.get(mesh_handle),
@@ -505,12 +501,8 @@ pub fn queue_material_meshes<M: Material>(
                         MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                             | view_key;
 
-                    if is_skinned(&mesh.layout) {
-                        mesh_transforms.flags |= MeshFlags::SKINNED.bits();
-                    }
                     if mesh.morph_targets.is_some() {
                         mesh_key |= MeshPipelineKey::MORPH_TARGETS;
-                        mesh_transforms.flags |= MeshFlags::MORPH_TARGETS.bits();
                     }
                     match material.properties.alpha_mode {
                         AlphaMode::Blend => {

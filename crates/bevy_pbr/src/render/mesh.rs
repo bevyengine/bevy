@@ -205,8 +205,6 @@ bitflags::bitflags! {
     #[repr(transparent)]
     pub struct MeshFlags: u32 {
         const SHADOW_RECEIVER            = (1 << 0);
-        const SKINNED                    = (1 << 1);
-        const MORPH_TARGETS              = (1 << 2);
         // Indicates the sign of the determinant of the 3x3 model matrix. If the sign is positive,
         // then the flag should be set, else it should not be set.
         const SIGN_DETERMINANT_MODEL_3X3 = (1 << 31);
@@ -332,7 +330,12 @@ pub fn extract_skinned_meshes(
             SkinnedMeshJoints::build(skin, &inverse_bindposes, &joint_query, &mut uniform.buffer)
         {
             last_start = last_start.max(skinned_joints.index as usize);
-            values.push((entity, skinned_joints.to_buffer_index()));
+            // NOTE: The skinned joints uniform buffer has to be bound at a dynamic offset per
+            // entity and so cannot currently be batched.
+            values.push((
+                entity,
+                (skinned_joints.to_buffer_index(), NoAutomaticBatching),
+            ));
         }
     }
 
@@ -368,7 +371,6 @@ struct BatchMeta3d {
     draw_function_id: DrawFunctionId,
     material_bind_group_id: Option<MaterialBindGroupId>,
     mesh_asset_id: AssetId<Mesh>,
-    mesh_flags: u32,
     dynamic_offset: Option<NonMaxU32>,
 }
 
@@ -378,8 +380,6 @@ impl PartialEq for BatchMeta3d {
         self.pipeline_id == other.pipeline_id
             && self.draw_function_id == other.draw_function_id
             && self.mesh_asset_id == other.mesh_asset_id
-            && (self.mesh_flags & (MeshFlags::SKINNED | MeshFlags::MORPH_TARGETS).bits()) == 0
-            && (other.mesh_flags & (MeshFlags::SKINNED | MeshFlags::MORPH_TARGETS).bits()) == 0
             && self.dynamic_offset == other.dynamic_offset
             && self.material_bind_group_id == other.material_bind_group_id
     }
@@ -418,7 +418,6 @@ pub fn prepare_and_batch_meshes(
                 draw_function_id,
                 material_bind_group_id: material_bind_group_id.cloned(),
                 mesh_asset_id: mesh_handle.id(),
-                mesh_flags: mesh_transforms.flags,
                 dynamic_offset: gpu_array_buffer_index.dynamic_offset,
             },
             gpu_array_buffer_index.index,
@@ -839,7 +838,7 @@ impl MeshPipelineKey {
     }
 }
 
-pub fn is_skinned(layout: &Hashed<InnerMeshVertexBufferLayout>) -> bool {
+fn is_skinned(layout: &Hashed<InnerMeshVertexBufferLayout>) -> bool {
     layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX) && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
 }
 pub fn setup_morph_and_skinning_defs(

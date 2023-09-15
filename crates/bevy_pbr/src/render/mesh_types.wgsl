@@ -29,7 +29,5 @@ struct MorphWeights {
 #endif
 
 const MESH_FLAGS_SHADOW_RECEIVER_BIT: u32            = 1u;
-const MESH_FLAGS_SKINNED_BIT: u32                    = 2u;
-const MESH_FLAGS_MORPH_TARGETS_BIT: u32              = 4u;
 // 2^31 - if the flag is set, the sign is positive, else it is negative
 const MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT: u32 = 2147483648u;
