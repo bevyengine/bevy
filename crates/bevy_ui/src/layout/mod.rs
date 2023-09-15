@@ -281,10 +281,10 @@ pub fn ui_layout_system(
     }
 
     // clean up removed nodes
-    ui_surface.remove_entities(removed_nodes.iter());
+    ui_surface.remove_entities(removed_nodes.read());
 
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-    for entity in removed_content_sizes.iter() {
+    for entity in removed_content_sizes.read() {
         ui_surface.try_remove_measure(entity);
     }
 
@@ -292,7 +292,7 @@ pub fn ui_layout_system(
     ui_surface.set_window_children(primary_window_entity, root_node_query.iter());
 
     // update and remove children
-    for entity in removed_children.iter() {
+    for entity in removed_children.read() {
         ui_surface.try_remove_children(entity);
     }
     for (entity, children) in &children_query {
