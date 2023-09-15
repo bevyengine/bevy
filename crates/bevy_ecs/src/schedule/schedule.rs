@@ -998,8 +998,8 @@ impl ScheduleGraph {
                 .get()
                 .unwrap()
                 .has_deferred()
+                && !is_apply_deferred(self.systems[target_node.index()].get().unwrap())
             {
-                dbg!("has deferred");
                 sync_point_graph.add_edge(source_node, NodeId::TempSyncNode(temp_node_index), ());
                 sync_point_graph.add_edge(NodeId::TempSyncNode(temp_node_index), target_node, ());
                 temp_node_index += 1;
@@ -1007,8 +1007,6 @@ impl ScheduleGraph {
                 sync_point_graph.add_edge(source_node, target_node, ());
             }
         }
-
-        dbg!(&sync_point_graph);
 
         let topo = self
             .topsort_graph(&sync_point_graph, ReportCycles::Dependency)
@@ -1020,9 +1018,9 @@ impl ScheduleGraph {
                 .all_edges()
                 .filter(|(source, _, _)| source == node)
             {
-                let weight = if matches!(source, NodeId::TempSyncNode(_)) {
-                    1
-                } else if is_apply_deferred(self.systems[source.index()].get().unwrap()) {
+                let weight = if matches!(source, NodeId::TempSyncNode(_))
+                    || is_apply_deferred(self.systems[source.index()].get().unwrap())
+                {
                     1
                 } else {
                     0
@@ -1032,6 +1030,22 @@ impl ScheduleGraph {
                     .or(Some(0))
                     .map(|distance| distance.max(distances[node.index()].unwrap_or(0) + weight));
             }
+        }
+
+        // merge apply_deferred systems at the same distance
+        let mut sync_points = HashMap::new();
+        for node in topo.iter().filter(|node| {
+            matches!(node, NodeId::TempSyncNode(_))
+                || is_apply_deferred(self.systems[node.index()].get().unwrap())
+        }) {
+            let distance = distances[node.index()].unwrap_or(0);
+            let nodes = if let Some(nodes) = sync_points.get_mut(&distance) {
+                nodes
+            } else {
+                sync_points.insert(distance, Vec::new());
+                sync_points.get_mut(&distance).unwrap()
+            };
+            nodes.push(*node);
         }
 
         distances
