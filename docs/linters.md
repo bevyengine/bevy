@@ -13,7 +13,7 @@ cargo fmt --all
 Can be automatically run with [`cargo run -p ci`](../tools/ci) (which also runs other checks) or manually with this command:
 
 ```bash
-cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip
+cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity
 ```
 
 Explanation:

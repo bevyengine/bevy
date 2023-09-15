@@ -89,6 +89,10 @@ impl ProcessorTransactionLog {
             }
         }
 
+        if let Some(parent_folder) = path.parent() {
+            async_fs::create_dir_all(parent_folder).await?;
+        }
+
         Ok(Self {
             log_file: File::create(path).await?,
         })
