@@ -9,7 +9,7 @@ use crate::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
     system::{Query, SystemMeta},
-    term_query::{QueryTermGroup, TermQuery, TermQueryState},
+    term_query::{QueryTermGroup, TermQueryState},
     world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
 };
 use bevy_ecs_macros::impl_param_set;
@@ -23,6 +23,8 @@ use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+
+use super::TermQuery;
 
 /// A parameter that can be used in a [`System`](super::System).
 ///
@@ -264,6 +266,9 @@ unsafe impl<Q: QueryTermGroup + 'static, F: QueryTermGroup + 'static> SystemPara
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
+        // SAFETY: We have registered all of the query's world accesses,
+        // so the caller ensures that `world` has permission to access any
+        // world data that the query needs.
         TermQuery::new(world, state, system_meta.last_run, change_tick)
     }
 }

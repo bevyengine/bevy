@@ -1,5 +1,5 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
-#![allow(missing_docs)]
+#![warn(missing_docs)]
 #![allow(clippy::type_complexity)]
 #![doc = include_str!("../README.md")]
 
@@ -53,7 +53,7 @@ pub mod prelude {
             Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
             ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemParamFunction,
         },
-        term_query::{TermQuery, TermQueryState},
+        term_query::TermQueryState,
         world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
     };
 }

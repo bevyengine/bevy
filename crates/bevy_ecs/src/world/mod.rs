@@ -1008,11 +1008,23 @@ impl World {
         QueryState::new(self)
     }
 
+    /// Returns [`TermQueryState`] for the given [`QueryTermGroup`], which is used to efficiently
+    /// run queries on the [`World`] by storing and reusing the [`TermQueryState`].
+    ///
+    /// This is broadly analogous to, and shares the same API as [`World::query`] except that
+    /// it uses a dynamic implementation which trades speed for flexibility. In most use cases
+    /// [`World::query`] is prefered.
     #[inline]
     pub fn term_query<Q: QueryTermGroup>(&mut self) -> TermQueryState<Q> {
         self.term_query_filtered::<Q, ()>()
     }
 
+    /// Returns [`TermQueryState`] for the given [`QueryTermGroup`], which is used to efficiently
+    /// run queries on the [`World`] by storing and reusing the [`TermQueryState`].
+    ///
+    /// This is broadly analogous to, and shares the same API as [`World::query_filtered`] except that
+    /// it uses a dynamic implementation which trades speed for flexibility. In most use cases
+    /// [`World::query_filtered`] is prefered.
     #[inline]
     pub fn term_query_filtered<Q: QueryTermGroup, F: QueryTermGroup>(
         &mut self,

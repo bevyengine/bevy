@@ -13,20 +13,17 @@ use crate::{
 };
 
 use super::{
-    Fetchable, FetchedTerm, QueryTermGroup, Term, TermQueryIter, TermQueryIterUntyped, TermState,
+    FetchedTerm, QueryTermGroup, Term, TermOperator, TermQueryIter, TermQueryIterUntyped, TermState,
 };
-
-// For experimenting with different term storage types
-pub type TermVec<T> = Vec<T>;
 
 // Used to avoid allocating space for fetched terms in the hot loop
 // Instead we re-use a buffer we allocate when the query or iterator is created
-pub(crate) struct RawFetches {
+pub(crate) struct FetchBuffer {
     mem: *mut u8,
     len: usize,
 }
 
-impl RawFetches {
+impl FetchBuffer {
     #[inline]
     pub(crate) fn new(len: usize) -> Self {
         Self {
@@ -35,18 +32,14 @@ impl RawFetches {
         }
     }
 
+    // Access the [`FetchBuffer`] as a slice of [`FetchedTerm`]
     #[inline]
     pub(crate) fn as_uninit<'w>(&self) -> &mut [MaybeUninit<FetchedTerm<'w>>] {
         unsafe { std::slice::from_raw_parts_mut(self.mem.cast(), self.len) }
     }
-
-    #[inline]
-    pub(crate) fn as_slice<'w>(&self) -> &mut [FetchedTerm<'w>] {
-        unsafe { std::slice::from_raw_parts_mut(self.mem.cast(), self.len) }
-    }
 }
 
-impl Drop for RawFetches {
+impl Drop for FetchBuffer {
     fn drop(&mut self) {
         unsafe {
             std::alloc::dealloc(
@@ -57,13 +50,14 @@ impl Drop for RawFetches {
     }
 }
 
-unsafe impl Send for RawFetches {}
-unsafe impl Sync for RawFetches {}
+unsafe impl Send for FetchBuffer {}
+unsafe impl Sync for FetchBuffer {}
 
+/// Provides scoped access to a [`World`] state according to a given [`QueryTermGroup`]
 pub struct TermQueryState<Q: QueryTermGroup = (), F: QueryTermGroup = ()> {
     world_id: WorldId,
-    pub(crate) terms: TermVec<Term>,
-    fetches: RawFetches,
+    fetches: FetchBuffer,
+    pub(crate) terms: Vec<Term>,
     pub(crate) archetype_generation: ArchetypeGeneration,
     pub(crate) matched_tables: FixedBitSet,
     pub(crate) matched_archetypes: FixedBitSet,
@@ -76,23 +70,29 @@ pub struct TermQueryState<Q: QueryTermGroup = (), F: QueryTermGroup = ()> {
     _marker: PhantomData<fn() -> (Q, F)>,
 }
 
+/// The read-only variant of the item type returned when a [`TermQueryState`] is iterated over immutably
 pub type ROTermItem<'w, Q> = <<Q as QueryTermGroup>::ReadOnly as QueryTermGroup>::Item<'w>;
 
 impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
+    /// Creates a new [`TermQueryState`] from a given [`World`] generating terms from `Q` and `F`.
     pub fn new(world: &mut World) -> Self {
-        let mut terms = TermVec::new();
+        let mut terms = Vec::new();
         Q::init_terms(world, &mut terms);
         F::ReadOnly::init_terms(world, &mut terms);
-        Self::from_terms(world, terms)
+        // SAFETY: We know these terms match Q as we generated them directly
+        unsafe { Self::from_terms(world, terms) }
     }
 
+    /// Creates a new [`TermQueryState`] from a given [`World`] and set of terms.
+    ///
+    /// SAFETY: Q must have the same or weaker access requirements than the given terms
     #[inline]
-    pub fn from_terms(world: &mut World, terms: TermVec<Term>) -> Self {
+    pub unsafe fn from_terms(world: &mut World, terms: Vec<Term>) -> Self {
         let mut component_access = FilteredAccess::default();
         terms
             .iter()
             .for_each(|term| term.update_component_access(&mut component_access));
-        let fetches = RawFetches::new(terms.len());
+        let fetches = FetchBuffer::new(terms.len());
 
         Self {
             terms,
@@ -109,13 +109,15 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         }
     }
 
+    /// Update the current [`TermQueryState`] with information from the provided [`Archetype`]
+    /// (if applicable, i.e. if the archetype has any intersecting [`ComponentId`] with the current [`TermQueryState`]).
     #[inline]
     pub fn new_archetype(&mut self, archetype: &Archetype) {
-        if self
-            .terms
-            .iter()
-            .all(|t| t.matches_component_set(&|id| archetype.contains(id)))
-        {
+        if self.terms.iter().all(|t| {
+            t.matches_component_set(&|id| {
+                t.operator == TermOperator::Optional || archetype.contains(id)
+            })
+        }) {
             self.terms.iter().for_each(|t| {
                 t.update_archetype_component_access(archetype, &mut self.archetype_component_access)
             });
@@ -136,38 +138,75 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     }
 
     #[inline]
-    pub unsafe fn init_term_state<'w>(
+    pub(crate) unsafe fn init_term_state<'w>(
         &self,
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-    ) -> TermVec<TermState<'w>> {
+    ) -> Vec<TermState<'w>> {
         self.terms
             .iter()
             .map(|term| term.init_state(world, last_run, this_run))
             .collect()
     }
 
+    /// Re-interpret this [`TermQueryState`] as it's read only counterpart
+    ///
+    /// Note: This doesn't change any of the underlying [`Term`]s
     pub fn as_readonly(&self) -> &TermQueryState<Q::ReadOnly> {
+        // SAFETY: ReadOnly versions of a query have a subset of the access requirements
         unsafe { std::mem::transmute(self) }
     }
 
-    pub unsafe fn transmute<O: QueryTermGroup>(self) -> TermQueryState<O> {
-        std::mem::transmute(self)
-    }
-
-    pub unsafe fn transmute_ref<O: QueryTermGroup>(&self) -> &TermQueryState<O> {
-        std::mem::transmute(self)
-    }
-
-    pub unsafe fn transmute_mut<O: QueryTermGroup>(&mut self) -> &mut TermQueryState<O> {
-        std::mem::transmute(self)
-    }
-
+    /// Re-interpret this [`TermQueryState`] as one without the associated filter type parameter
     pub fn filterless(&self) -> &TermQueryState<Q> {
+        // SAFETY: The filter type parameter isn't used after construction of the state so dropping it is a nop
         unsafe { std::mem::transmute(self) }
     }
 
+    /// Converts this [`TermQueryState`] to any other [`TermQueryState`].
+    ///
+    /// Consider using [`TermQueryState::as_readonly`] or [`TermQueryState::filterless`] instead
+    /// which are safe functions.
+    ///
+    /// # SAFETY
+    ///
+    /// `NewQ` must have a subset of the access that `Q` does and match the exact same archetypes/tables
+    pub unsafe fn transmute<NewQ: QueryTermGroup>(self) -> TermQueryState<NewQ> {
+        std::mem::transmute(self)
+    }
+
+    /// Converts this [`TermQueryState`] reference to any other [`TermQueryState`].
+    ///
+    /// Consider using [`TermQueryState::as_readonly`] or [`TermQueryState::filterless`] instead
+    /// which are safe functions.
+    ///
+    /// # SAFETY
+    ///
+    /// `NewQ` must have a subset of the access that `Q` does and match the exact same archetypes/tables
+    pub unsafe fn transmute_ref<NewQ: QueryTermGroup>(&self) -> &TermQueryState<NewQ> {
+        std::mem::transmute(self)
+    }
+
+    /// Converts this [`TermQueryState`] reference to any other [`TermQueryState`].
+    ///
+    /// Consider using [`TermQueryState::as_readonly`] or [`TermQueryState::filterless`] instead
+    /// which are safe functions.
+    ///
+    /// # SAFETY
+    ///
+    /// `NewQ` must have a subset of the access that `Q` does and match the exact same archetypes/tables
+    pub unsafe fn transmute_mut<NewQ: QueryTermGroup>(&mut self) -> &mut TermQueryState<NewQ> {
+        std::mem::transmute(self)
+    }
+
+    /// # Panics
+    ///
+    /// If `world_id` does not match the [`World`] used to call `QueryState::new` for this instance.
+    ///
+    /// Many unsafe query methods require the world to match for soundness. This function is the easiest
+    /// way of ensuring that it matches.
+    #[inline]
     pub fn validate_world(&self, world_id: WorldId) {
         assert!(
             world_id == self.world_id,
@@ -176,11 +215,37 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         );
     }
 
+    /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before querying data,
+    /// the results may not accurately reflect what is in the `world`.
+    ///
+    /// This is only required if a `manual` method (such as [`Self::get_manual`]) is being called, and it only needs to
+    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
+    /// non-`manual` methods such as [`TermQueryState::get`] do not need to call this as it will be automatically called for them.
+    ///
+    /// If you have an [`UnsafeWorldCell`] instead of `&World`, consider using [`TermQueryState::update_archetypes_unsafe_world_cell`].
+    ///
+    /// # Panics
+    ///
+    /// If `world` does not match the one used to call `QueryState::new` for this instance.
     #[inline]
     pub fn update_archetypes(&mut self, world: &World) {
         self.update_archetypes_unsafe_world_cell(world.as_unsafe_world_cell_readonly());
     }
 
+    /// Updates the state's internal view of the `world`'s archetypes. If this is not called before querying data,
+    /// the results may not accurately reflect what is in the `world`.
+    ///
+    /// This is only required if a `manual` method (such as [`Self::get_manual`]) is being called, and it only needs to
+    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
+    /// non-`manual` methods such as [`TermQueryState::get`] do not need to call this as it will be automatically called for them.
+    ///
+    /// # Note
+    ///
+    /// This method only accesses world metadata.
+    ///
+    /// # Panics
+    ///
+    /// If `world` does not match the one used to call `TermQueryState::new` for this instance.
     #[inline]
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
         self.validate_world(world.id());
@@ -259,6 +324,82 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         TermQueryIterUntyped::new(world, self.filterless(), last_run, this_run)
     }
 
+    /// Gets the query result for the given [`World`] and [`Entity`].
+    ///
+    /// This can only be called for read-only queries, see [`Self::get_mut`] for write-queries.
+    #[inline]
+    pub fn get<'w>(
+        &mut self,
+        world: &'w World,
+        entity: Entity,
+    ) -> Result<ROTermItem<'w, Q>, QueryEntityError> {
+        self.update_archetypes(world);
+        // SAFETY: query is read only
+        unsafe {
+            self.as_readonly().get_unchecked_manual(
+                world.as_unsafe_world_cell_readonly(),
+                entity,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
+    }
+
+    /// Gets the query result for the given [`World`] and [`Entity`].
+    ///
+    /// This method is slightly more efficient than [`TermQueryState::get`] in some situations, since
+    /// it does not update this instance's internal cache. This method will return an error if `entity`
+    /// belongs to an archetype that has not been cached.
+    ///
+    /// To ensure that the cache is up to date, call [`TermQueryState::update_archetypes`] before this method.
+    /// The cache is also updated in [`TermQueryState::new`], `TermQueryState::get`, or any method with mutable
+    /// access to `self`.
+    ///
+    /// This can only be called for read-only queries, see [`Self::get_mut`] for mutable queries.
+    #[inline]
+    pub fn get_manual<'w>(
+        &self,
+        world: &'w World,
+        entity: Entity,
+    ) -> Result<ROTermItem<'w, Q>, QueryEntityError> {
+        self.validate_world(world.id());
+        // SAFETY: query is read only and world is validated
+        unsafe {
+            self.as_readonly().get_unchecked_manual(
+                world.as_unsafe_world_cell_readonly(),
+                entity,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
+    }
+
+    /// Gets the query result for the given [`World`] and [`Entity`].
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    #[inline]
+    pub unsafe fn get_unchecked<'w>(
+        &mut self,
+        world: UnsafeWorldCell<'w>,
+        entity: Entity,
+    ) -> Result<Q::Item<'w>, QueryEntityError> {
+        self.update_archetypes_unsafe_world_cell(world);
+        self.get_unchecked_manual(world, entity, world.last_change_tick(), world.change_tick())
+    }
+
+    /// Gets the query result for the given [`World`] and [`Entity`], where the last change and
+    /// the current change tick are given.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    ///
+    /// This must be called on the same `World` that the `TermQuery` was generated from:
+    /// use `TermQueryState::validate_world` to verify this.
     #[inline]
     pub(crate) unsafe fn get_unchecked_manual<'w>(
         &self,
@@ -286,13 +427,13 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
             .debug_checked_unwrap();
 
         self.set_table(&mut term_state, table);
-        self.fetch(
+        let fetches = self.fetch(
             &term_state,
             entity,
             location.table_row,
             self.fetches.as_uninit(),
         );
-        Ok(Q::from_fetches(&mut self.fetches.as_slice().iter()))
+        Ok(Q::from_fetches_unchecked(&mut fetches.iter()))
     }
 
     /// Returns a single immutable query result when there is exactly one entity matching
@@ -422,19 +563,33 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         }
     }
 
+    /// Returns a single set of fetched query terms when there is exactly one entity matching
+    /// the query.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of query results is not exactly one. Use
+    /// [`get_single_raw`](Self::get_single_raw) to return a `Result` instead of panicking.
+    ///
+    /// TODO: Better name? single_terms? single_dynamic?
     #[inline]
     pub fn single_raw<'w, 's>(
         &'s mut self,
         world: &'w mut World,
-    ) -> (&'s TermVec<Term>, Vec<FetchedTerm<'w>>) {
+    ) -> (&'s Vec<Term>, Vec<FetchedTerm<'w>>) {
         self.get_single_raw(world).unwrap()
     }
 
+    /// Returns a single set of fetched query terms when there is exactly one entity matching
+    /// the query.
+    ///
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
     #[inline]
     pub fn get_single_raw<'w, 's>(
         &'s mut self,
         world: &'w mut World,
-    ) -> Result<(&'s TermVec<Term>, Vec<FetchedTerm<'w>>), QuerySingleError> {
+    ) -> Result<(&'s Vec<Term>, Vec<FetchedTerm<'w>>), QuerySingleError> {
         let mut query = self.iter_raw(world);
         let first = query.next();
         let extra = query.next().is_some();
@@ -520,7 +675,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     ) {
         let mut term_state = self.init_term_state(world, last_run, this_run);
         let dense = term_state.iter().all(|t| t.dense());
-        let raw_fetches = RawFetches::new(self.terms.len());
+        let fetch_buffer = FetchBuffer::new(self.terms.len());
 
         let tables = &world.storages().tables;
         if dense {
@@ -535,8 +690,8 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
                     if !self.filter_fetch(&term_state, entity, row) {
                         continue;
                     }
-                    self.fetch(&term_state, entity, row, raw_fetches.as_uninit());
-                    func(Q::from_fetches(&mut raw_fetches.as_slice().iter()))
+                    let fetches = self.fetch(&term_state, entity, row, fetch_buffer.as_uninit());
+                    func(Q::from_fetches_unchecked(&mut fetches.iter()))
                 }
             }
         } else {
@@ -544,7 +699,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
             for archetype_id in &self.matched_archetype_ids {
                 let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();
                 let table = tables.get(archetype.table_id()).debug_checked_unwrap();
-                self.set_table(&mut term_state, table);
+                self.set_archetype(&mut term_state, archetype, table);
 
                 let entities = archetype.entities();
                 for idx in 0..archetype.len() {
@@ -555,15 +710,35 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
                         continue;
                     }
 
-                    self.fetch(&term_state, entity, row, raw_fetches.as_uninit());
-                    func(Q::from_fetches(&mut raw_fetches.as_slice().iter()))
+                    let fetches = self.fetch(&term_state, entity, row, fetch_buffer.as_uninit());
+                    func(Q::from_fetches_unchecked(&mut fetches.iter()))
                 }
             }
         }
     }
 
+    // Updates the internal state for each term by calling [`Term::set_archetype`] on each term
     #[inline]
-    pub unsafe fn set_table<'w>(&self, state: &mut TermVec<TermState<'w>>, table: &'w Table) {
+    pub(crate) unsafe fn set_archetype<'w>(
+        &self,
+        state: &mut Vec<TermState<'w>>,
+        archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        let len = self.terms.len();
+        let terms = &self.terms[..len];
+        let state = &mut state[..len];
+
+        for i in 0..len {
+            let term = &terms[i];
+            let state = &mut state[i];
+            term.set_archetype(state, archetype, table);
+        }
+    }
+
+    // Updates the internal state for each term by calling [`Term::setset_table_archetype`] on each term
+    #[inline]
+    pub(crate) unsafe fn set_table<'w>(&self, state: &mut Vec<TermState<'w>>, table: &'w Table) {
         let len = self.terms.len();
         let terms = &self.terms[..len];
         let state = &mut state[..len];
@@ -575,10 +750,11 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         }
     }
 
+    // Resolves this query against the given entity and table row, returns true if the entity matches
     #[inline(always)]
-    pub unsafe fn filter_fetch<'w>(
+    pub(crate) unsafe fn filter_fetch<'w>(
         &self,
-        state: &TermVec<TermState<'w>>,
+        state: &Vec<TermState<'w>>,
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
@@ -597,14 +773,15 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         true
     }
 
+    // Resolves this query against the given entity and table row, returns the fetched slice of [`FetchedTerm`]
     #[inline(always)]
-    pub unsafe fn fetch<'w, 's>(
+    pub(crate) unsafe fn fetch<'w, 's>(
         &'s self,
-        state: &TermVec<TermState<'w>>,
+        state: &Vec<TermState<'w>>,
         entity: Entity,
         table_row: TableRow,
         mem: &mut [MaybeUninit<FetchedTerm<'w>>],
-    ) {
+    ) -> &mut [FetchedTerm<'w>] {
         let len = self.terms.len();
         let terms = &self.terms[..len];
         let state = &state[..len];
@@ -614,5 +791,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
             let state = &state[i];
             mem[i].write(term.fetch(state, entity, table_row));
         }
+
+        std::mem::transmute(mem)
     }
 }

@@ -1,14 +1,16 @@
+//! Contains APIs for retrieving component data dynamically from the world at runtime.
+
 mod builder;
 mod iter;
-mod query;
+mod query_term;
 mod state;
-mod terms;
+mod term;
 
 pub use builder::*;
 pub use iter::*;
-pub use query::*;
+pub use query_term::*;
 pub use state::*;
-pub use terms::*;
+pub use term::*;
 
 #[cfg(test)]
 mod tests {
@@ -16,7 +18,8 @@ mod tests {
 
     use crate as bevy_ecs;
     use crate::prelude::*;
-    use crate::term_query::{QueryTerm, QueryTermGroup, TermQuery, TermQueryState};
+    use crate::system::TermQuery;
+    use crate::term_query::{QueryTerm, QueryTermGroup, TermQueryState};
 
     use super::QueryBuilder;
 
@@ -176,7 +179,7 @@ mod tests {
         // Our result is completely untyped
         let (_, fetches) = query.single_raw(&mut world);
         // Consume our fetched terms to produce a set of term items
-        let (e, a, b) = unsafe { <(Entity, &A, &B)>::from_fetches(&mut fetches.iter()) };
+        let (e, a, b) = unsafe { <(Entity, &A, &B)>::from_fetches_unchecked(&mut fetches.iter()) };
 
         assert_eq!(e, entity);
         assert_eq!(0, a.0);
@@ -185,9 +188,9 @@ mod tests {
         // Alternatively extract individual terms dynamically
         let (_, fetches) = query.single_raw(&mut world);
 
-        assert_eq!(0, unsafe { <&A>::from_fetch(&fetches[1]) }.0);
-        assert_eq!(e, unsafe { Entity::from_fetch(&fetches[0]) });
-        assert_eq!(1, unsafe { <&B>::from_fetch(&fetches[2]) }.0);
+        assert_eq!(0, unsafe { <&A>::from_fetch_unchecked(&fetches[1]) }.0);
+        assert_eq!(e, unsafe { Entity::from_fetch_unchecked(&fetches[0]) });
+        assert_eq!(1, unsafe { <&B>::from_fetch_unchecked(&fetches[2]) }.0);
     }
 
     #[test]
@@ -203,8 +206,8 @@ mod tests {
         let mut iter = fetches.iter();
 
         // Seperately consume our two terms
-        let (e1, a) = unsafe { <(Entity, &A)>::from_fetches(&mut iter) };
-        let (e2, b) = unsafe { <(Entity, &B)>::from_fetches(&mut iter) };
+        let (e1, a) = unsafe { <(Entity, &A)>::from_fetches_unchecked(&mut iter) };
+        let (e2, b) = unsafe { <(Entity, &B)>::from_fetches_unchecked(&mut iter) };
 
         assert_eq!(e1, entity);
         assert_eq!(e1, e2);

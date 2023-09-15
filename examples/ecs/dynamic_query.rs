@@ -5,10 +5,12 @@ use bevy_internal::{
     ecs::{
         component::{ComponentDescriptor, ComponentId, StorageType},
         term_query::{FetchedTerm, QueryBuilder, QueryTerm, QueryTermGroup, Term, TermAccess},
+        system::TermQuery,
     },
     ptr::OwningPtr,
     utils::HashMap,
 };
+
 
 const PROMPT: &str = "
 Commands:
@@ -55,7 +57,7 @@ fn main() {
 
         if line.is_empty() { return };
 
-        let Some((first, rest)) = line.split_once(|c: char| c.is_whitespace()) else {
+        let Some((first, rest)) = line.trim().split_once(|c: char| c.is_whitespace()) else {
             match &line.chars().next() {
                 Some('c') => println!("{}", COMPONENT_PROMPT),
                 Some('s') => println!("{}", ENTITY_PROMPT),
@@ -64,6 +66,7 @@ fn main() {
             } 
             continue;
         };
+
         match &first[0..1] {
             "c" => {
                 rest.split(",").for_each(|component| {
@@ -129,6 +132,7 @@ fn main() {
 
                 unsafe { system.state_mut().0 = query };
                 system.run((), &mut world);
+                
             }
             _ => continue,
         }
@@ -238,7 +242,7 @@ fn print_match(term: &Term, fetch: &FetchedTerm, world: &World) -> String {
 
 fn query_system(mut query: TermQuery<Entity>, world: &World) {
     query.iter_raw().for_each(|(terms, fetches)| {
-        let entity = unsafe { Entity::from_fetch(&fetches[0]) };
+        let entity = unsafe { Entity::from_fetch_unchecked(&fetches[0]) };
         let components = terms
             .iter()
             .zip(fetches.iter())

@@ -9,16 +9,18 @@ use crate::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{FetchedTerm, QueryTermGroup, RawFetches, Term, TermQueryState, TermState, TermVec};
+use super::{FetchBuffer, FetchedTerm, QueryTermGroup, Term, TermQueryState, TermState};
 
-pub struct TermQueryCursor<'w, 's> {
+struct TermQueryCursor<'w, 's> {
     table_id_iter: slice::Iter<'s, TableId>,
     archetype_id_iter: slice::Iter<'s, ArchetypeId>,
-    raw_fetches: RawFetches,
+    raw_fetches: FetchBuffer,
     table_entities: &'w [Entity],
     archetype_entities: &'w [ArchetypeEntity],
-    term_state: TermVec<TermState<'w>>,
+    term_state: Vec<TermState<'w>>,
+    // length of the table table or length of the archetype, depending on whether all terms are dense
     current_len: usize,
+    // either table row or archetype index, depending on whether all terms are dense
     current_row: usize,
     dense: bool,
 }
@@ -35,7 +37,7 @@ impl<'w, 's> TermQueryCursor<'w, 's> {
         Self {
             table_id_iter: query_state.matched_table_ids.iter(),
             archetype_id_iter: query_state.matched_archetype_ids.iter(),
-            raw_fetches: RawFetches::new(term_state.len()),
+            raw_fetches: FetchBuffer::new(term_state.len()),
             table_entities: &[],
             archetype_entities: &[],
             dense: term_state.iter().all(|t| t.dense()),
@@ -71,17 +73,20 @@ impl<'w, 's> TermQueryCursor<'w, 's> {
                 // `current_row` is a table row in range of the current table, because if it was not, then the if above would have been executed.
                 let entity = *self.table_entities.get_unchecked(self.current_row);
                 let row = TableRow::new(self.current_row);
+                self.current_row += 1;
 
                 // SAFETY:
                 // - set_table was called prior.
                 // - `current_row` must be a table row in range of the current table,
                 //   because if it was not, then the if above would have been executed.
                 // - fetch is only called once for each `entity`.
-                self.current_row += 1;
-
                 if query_state.filter_fetch(&self.term_state, entity, row) {
-                    query_state.fetch(&self.term_state, entity, row, self.raw_fetches.as_uninit());
-                    return Some(self.raw_fetches.as_slice());
+                    return Some(query_state.fetch(
+                        &self.term_state,
+                        entity,
+                        row,
+                        self.raw_fetches.as_uninit(),
+                    ));
                 }
             }
         } else {
@@ -92,7 +97,7 @@ impl<'w, 's> TermQueryCursor<'w, 's> {
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     let table = tables.get(archetype.table_id()).debug_checked_unwrap();
-                    query_state.set_table(&mut self.term_state, table);
+                    query_state.set_archetype(&mut self.term_state, archetype, table);
                     self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();
                     self.current_row = 0;
@@ -109,16 +114,22 @@ impl<'w, 's> TermQueryCursor<'w, 's> {
 
                 let entity = archetype_entity.entity();
                 let row = archetype_entity.table_row();
-                // Apply filters
                 if query_state.filter_fetch(&mut self.term_state, entity, row) {
-                    query_state.fetch(&self.term_state, entity, row, self.raw_fetches.as_uninit());
-                    return Some(self.raw_fetches.as_slice());
+                    return Some(query_state.fetch(
+                        &self.term_state,
+                        entity,
+                        row,
+                        self.raw_fetches.as_uninit(),
+                    ));
                 }
             }
         }
     }
 }
 
+/// An untyped [`Iterator`] over query results of a [`TermQuery`](crate::system::TermQuery).
+///
+/// This struct is created by the [`TermQuery::iter_raw`](crate::system::TermQuery::iter_raw) method.
 pub struct TermQueryIterUntyped<'w, 's> {
     query_state: &'s TermQueryState<()>,
     tables: &'w Tables,
@@ -127,8 +138,11 @@ pub struct TermQueryIterUntyped<'w, 's> {
 }
 
 impl<'w, 's> TermQueryIterUntyped<'w, 's> {
+    /// # Safety
+    /// - `world` must have permission to access any of the components registered in `query_state`.
+    /// - `world` must be the same one used to initialize `query_state`.
     #[inline]
-    pub unsafe fn new<Q: QueryTermGroup>(
+    pub(crate) unsafe fn new<Q: QueryTermGroup>(
         world: UnsafeWorldCell<'w>,
         query_state: &'s TermQueryState<Q>,
         last_run: Tick,
@@ -144,7 +158,7 @@ impl<'w, 's> TermQueryIterUntyped<'w, 's> {
 }
 
 impl<'w, 's> Iterator for TermQueryIterUntyped<'w, 's> {
-    type Item = (&'s TermVec<Term>, Vec<FetchedTerm<'w>>);
+    type Item = (&'s Vec<Term>, Vec<FetchedTerm<'w>>);
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -156,6 +170,10 @@ impl<'w, 's> Iterator for TermQueryIterUntyped<'w, 's> {
     }
 }
 
+/// An [`Iterator`] over query results of a [`TermQuery`](crate::system::TermQuery).
+///
+/// This struct is created by the [`TermQuery::iter`](crate::system::TermQuery::iter) and
+/// [`TermQuery::iter_mut`](crate::system::TermQuery::iter_mut) methods.
 pub struct TermQueryIter<'w, 's, Q: QueryTermGroup> {
     query_state: &'s TermQueryState<Q>,
     tables: &'w Tables,
@@ -164,8 +182,11 @@ pub struct TermQueryIter<'w, 's, Q: QueryTermGroup> {
 }
 
 impl<'w, 's, Q: QueryTermGroup> TermQueryIter<'w, 's, Q> {
+    /// # Safety
+    /// - `world` must have permission to access any of the components registered in `query_state`.
+    /// - `world` must be the same one used to initialize `query_state`.
     #[inline]
-    pub unsafe fn new(
+    pub(crate) unsafe fn new(
         world: UnsafeWorldCell<'w>,
         query_state: &'s TermQueryState<Q>,
         last_run: Tick,
@@ -185,12 +206,15 @@ impl<'w, 's, Q: QueryTermGroup> Iterator for TermQueryIter<'w, 's, Q> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
+        // SAFETY:
+        // `tables` and `archetypes` belong to the same world that the cursor was initialized for.
+        // `query_state` is the state that was passed to `QueryIterationCursor::init`.
         unsafe {
             if let Some(fetches) = self
                 .cursor
                 .next(self.tables, self.archetypes, self.query_state)
             {
-                Some(Q::from_fetches(&mut fetches.iter()))
+                Some(Q::from_fetches_unchecked(&mut fetches.iter()))
             } else {
                 None
             }
