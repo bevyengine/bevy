@@ -60,11 +60,8 @@ pub mod ptr {
 }
 
 pub mod reflect {
-    // TODO: remove these renames once TypeRegistryArc is no longer required
     //! Type reflection used for dynamically interacting with rust types.
-    pub use bevy_reflect::{
-        TypeRegistry as TypeRegistryInternal, TypeRegistryArc as TypeRegistry, *,
-    };
+    pub use bevy_reflect::*;
 }
 
 #[cfg(feature = "bevy_scene")]
