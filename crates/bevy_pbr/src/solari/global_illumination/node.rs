@@ -63,6 +63,7 @@ impl ViewNode for SolariGlobalIlluminationNode {
             Some(sample_for_world_cache_pipeline),
             Some(blend_new_world_cache_samples_pipeline),
             Some(screen_probes_trace_pipeline),
+            Some(screen_probes_merge_cascades_pipeline),
             Some(screen_probes_filter_first_pass_pipeline),
             Some(screen_probes_filter_second_pass_pipeline),
             Some(screen_probes_interpolate_pipeline),
@@ -77,6 +78,7 @@ impl ViewNode for SolariGlobalIlluminationNode {
             pipeline_cache.get_compute_pipeline(pipeline_ids.sample_for_world_cache),
             pipeline_cache.get_compute_pipeline(pipeline_ids.blend_new_world_cache_samples),
             pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_trace),
+            pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_merge_cascades),
             pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_filter_first_pass),
             pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_filter_second_pass),
             pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_interpolate),
@@ -141,6 +143,12 @@ impl ViewNode for SolariGlobalIlluminationNode {
 
         solari_pass.set_pipeline(screen_probes_trace_pipeline);
         solari_pass.dispatch_workgroups(width, height, 4);
+
+        solari_pass.set_pipeline(screen_probes_merge_cascades_pipeline);
+        for cascade in (0..3u32).rev() {
+            solari_pass.set_push_constants(0, &cascade.to_le_bytes());
+            solari_pass.dispatch_workgroups(width, height, 1);
+        }
 
         solari_pass.set_pipeline(screen_probes_filter_first_pass_pipeline);
         solari_pass.dispatch_workgroups(width, height, 1);

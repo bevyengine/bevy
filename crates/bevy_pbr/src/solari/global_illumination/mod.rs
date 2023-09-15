@@ -24,14 +24,16 @@ mod view_resources;
 const WORLD_CACHE_SIZE: u64 = 1048576;
 
 const SOLARI_VIEW_BINDINGS_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1717171717171755);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 0717171717171755);
 const SOLARI_WORLD_CACHE_QUERY_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2717171717171755);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1717171717171755);
 const SOLARI_WORLD_CACHE_COMPACT_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3717171717171755);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2717171717171755);
 const SOLARI_WORLD_CACHE_UPDATE_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4717171717171755);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3717171717171755);
 const SOLARI_SCREEN_PROBES_TRACE_SHADER: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4717171717171755);
+const SOLARI_SCREEN_PROBES_MERGE_CASCADES_SHADER: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5717171717171755);
 const SOLARI_SCREEN_PROBES_FILTER_SHADER: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6717171717171755);
@@ -74,6 +76,12 @@ impl Plugin for SolariGlobalIlluminationPlugin {
             app,
             SOLARI_SCREEN_PROBES_TRACE_SHADER,
             "screen_probes_trace.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            SOLARI_SCREEN_PROBES_MERGE_CASCADES_SHADER,
+            "screen_probes_merge_casades.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(

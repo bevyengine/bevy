@@ -4,7 +4,10 @@ use super::{
     SOLARI_SCREEN_PROBES_INTEPOLATE_SHADER, SOLARI_SCREEN_PROBES_TRACE_SHADER,
     SOLARI_WORLD_CACHE_COMPACT_SHADER, SOLARI_WORLD_CACHE_UPDATE_SHADER,
 };
-use crate::solari::scene::SolariSceneBindGroupLayout;
+use crate::solari::{
+    global_illumination::SOLARI_SCREEN_PROBES_MERGE_CASCADES_SHADER,
+    scene::SolariSceneBindGroupLayout,
+};
 use bevy_core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass};
 use bevy_ecs::{
     component::Component,
@@ -15,7 +18,7 @@ use bevy_ecs::{
 };
 use bevy_render::render_resource::{
     BindGroupLayout, CachedComputePipelineId, ComputePipelineDescriptor, PipelineCache,
-    SpecializedComputePipeline, SpecializedComputePipelines,
+    PushConstantRange, ShaderStages, SpecializedComputePipeline, SpecializedComputePipelines,
 };
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
@@ -27,6 +30,7 @@ pub enum SolariGlobalIlluminationPass {
     SampleForWorldCache,
     BlendNewWorldCacheSamples,
     ScreenProbesTrace,
+    ScreenProbesMergeCascades,
     ScreenProbesFilterFirstPass,
     ScreenProbesFilterSecondPass,
     ScreenProbesInterpolate,
@@ -59,10 +63,14 @@ impl SpecializedComputePipeline for SolariGlobalIlluminationPipelines {
     type Key = SolariGlobalIlluminationPass;
 
     fn specialize(&self, pass: Self::Key) -> ComputePipelineDescriptor {
+        use SolariGlobalIlluminationPass::*;
+
         let mut view_layout = &self.view_bind_group_layout;
+        let mut push_constant_ranges = vec![];
         let mut shader_defs = vec![];
+
         let (entry_point, shader) = match pass {
-            SolariGlobalIlluminationPass::DecayWorldCache => {
+            DecayWorldCache => {
                 view_layout = &self.view_with_world_cache_dispatch_bind_group_layout;
                 shader_defs.extend_from_slice(&[
                     "INCLUDE_WORLD_CACHE_ACTIVE_CELLS_DISPATCH".into(),
@@ -70,7 +78,7 @@ impl SpecializedComputePipeline for SolariGlobalIlluminationPipelines {
                 ]);
                 ("decay_world_cache", SOLARI_WORLD_CACHE_COMPACT_SHADER)
             }
-            SolariGlobalIlluminationPass::CompactWorldCacheSingleBlock => {
+            CompactWorldCacheSingleBlock => {
                 view_layout = &self.view_with_world_cache_dispatch_bind_group_layout;
                 shader_defs.extend_from_slice(&[
                     "INCLUDE_WORLD_CACHE_ACTIVE_CELLS_DISPATCH".into(),
@@ -81,7 +89,7 @@ impl SpecializedComputePipeline for SolariGlobalIlluminationPipelines {
                     SOLARI_WORLD_CACHE_COMPACT_SHADER,
                 )
             }
-            SolariGlobalIlluminationPass::CompactWorldCacheBlocks => {
+            CompactWorldCacheBlocks => {
                 view_layout = &self.view_with_world_cache_dispatch_bind_group_layout;
                 shader_defs.extend_from_slice(&[
                     "INCLUDE_WORLD_CACHE_ACTIVE_CELLS_DISPATCH".into(),
@@ -92,7 +100,7 @@ impl SpecializedComputePipeline for SolariGlobalIlluminationPipelines {
                     SOLARI_WORLD_CACHE_COMPACT_SHADER,
                 )
             }
-            SolariGlobalIlluminationPass::CompactWorldWriteActiveCells => {
+            CompactWorldWriteActiveCells => {
                 view_layout = &self.view_with_world_cache_dispatch_bind_group_layout;
                 shader_defs.extend_from_slice(&[
                     "INCLUDE_WORLD_CACHE_ACTIVE_CELLS_DISPATCH".into(),
@@ -103,38 +111,38 @@ impl SpecializedComputePipeline for SolariGlobalIlluminationPipelines {
                     SOLARI_WORLD_CACHE_COMPACT_SHADER,
                 )
             }
-            SolariGlobalIlluminationPass::SampleForWorldCache => {
-                ("sample_irradiance", SOLARI_WORLD_CACHE_UPDATE_SHADER)
-            }
-            SolariGlobalIlluminationPass::BlendNewWorldCacheSamples => {
-                ("blend_new_samples", SOLARI_WORLD_CACHE_UPDATE_SHADER)
-            }
-            SolariGlobalIlluminationPass::ScreenProbesTrace => {
-                ("trace_screen_probes", SOLARI_SCREEN_PROBES_TRACE_SHADER)
-            }
-            SolariGlobalIlluminationPass::ScreenProbesFilterFirstPass => {
+            SampleForWorldCache => ("sample_irradiance", SOLARI_WORLD_CACHE_UPDATE_SHADER),
+            BlendNewWorldCacheSamples => ("blend_new_samples", SOLARI_WORLD_CACHE_UPDATE_SHADER),
+            ScreenProbesTrace => ("trace_screen_probes", SOLARI_SCREEN_PROBES_TRACE_SHADER),
+            ScreenProbesFilterFirstPass => {
                 ("filter_screen_probes", SOLARI_SCREEN_PROBES_FILTER_SHADER)
             }
-            SolariGlobalIlluminationPass::ScreenProbesFilterSecondPass => {
+            ScreenProbesMergeCascades => {
+                push_constant_ranges.push(PushConstantRange {
+                    stages: ShaderStages::COMPUTE,
+                    range: 0..4,
+                });
+                (
+                    "merge_screen_probe_cascades",
+                    SOLARI_SCREEN_PROBES_MERGE_CASCADES_SHADER,
+                )
+            }
+            ScreenProbesFilterSecondPass => {
                 shader_defs.push("FIRST_PASS".into());
                 ("filter_screen_probes", SOLARI_SCREEN_PROBES_FILTER_SHADER)
             }
-            SolariGlobalIlluminationPass::ScreenProbesInterpolate => (
+            ScreenProbesInterpolate => (
                 "interpolate_screen_probes",
                 SOLARI_SCREEN_PROBES_INTEPOLATE_SHADER,
             ),
-            SolariGlobalIlluminationPass::DenoiseDiffuseTemporal => {
-                ("denoise_diffuse_temporal", SOLARI_DENOISE_DIFFUSE_SHADER)
-            }
-            SolariGlobalIlluminationPass::DenoiseDiffuseSpatial => {
-                ("denoise_diffuse_spatial", SOLARI_DENOISE_DIFFUSE_SHADER)
-            }
+            DenoiseDiffuseTemporal => ("denoise_diffuse_temporal", SOLARI_DENOISE_DIFFUSE_SHADER),
+            DenoiseDiffuseSpatial => ("denoise_diffuse_spatial", SOLARI_DENOISE_DIFFUSE_SHADER),
         };
 
         ComputePipelineDescriptor {
             label: Some(format!("solari_global_illumination_{entry_point}_pipeline").into()),
             layout: vec![self.scene_bind_group_layout.clone(), view_layout.clone()],
-            push_constant_ranges: vec![],
+            push_constant_ranges,
             shader: shader.typed(),
             shader_defs,
             entry_point: entry_point.into(),
@@ -151,6 +159,7 @@ pub struct SolariGlobalIlluminationPipelineIds {
     pub sample_for_world_cache: CachedComputePipelineId,
     pub blend_new_world_cache_samples: CachedComputePipelineId,
     pub screen_probes_trace: CachedComputePipelineId,
+    pub screen_probes_merge_cascades: CachedComputePipelineId,
     pub screen_probes_filter_first_pass: CachedComputePipelineId,
     pub screen_probes_filter_second_pass: CachedComputePipelineId,
     pub screen_probes_interpolate: CachedComputePipelineId,
@@ -173,46 +182,29 @@ pub fn prepare_pipelines(
     mut pipelines: ResMut<SpecializedComputePipelines<SolariGlobalIlluminationPipelines>>,
     pipeline: Res<SolariGlobalIlluminationPipelines>,
 ) {
+    use SolariGlobalIlluminationPass::*;
+
     let mut create_pipeline = |key| pipelines.specialize(&pipeline_cache, &pipeline, key);
 
     for entity in &views {
         commands
             .entity(entity)
             .insert(SolariGlobalIlluminationPipelineIds {
-                decay_world_cache: create_pipeline(SolariGlobalIlluminationPass::DecayWorldCache),
-                compact_world_cache_single_block: create_pipeline(
-                    SolariGlobalIlluminationPass::CompactWorldCacheSingleBlock,
-                ),
-                compact_world_cache_blocks: create_pipeline(
-                    SolariGlobalIlluminationPass::CompactWorldCacheBlocks,
-                ),
+                decay_world_cache: create_pipeline(DecayWorldCache),
+                compact_world_cache_single_block: create_pipeline(CompactWorldCacheSingleBlock),
+                compact_world_cache_blocks: create_pipeline(CompactWorldCacheBlocks),
                 compact_world_cache_write_active_cells: create_pipeline(
-                    SolariGlobalIlluminationPass::CompactWorldWriteActiveCells,
+                    CompactWorldWriteActiveCells,
                 ),
-                sample_for_world_cache: create_pipeline(
-                    SolariGlobalIlluminationPass::SampleForWorldCache,
-                ),
-                blend_new_world_cache_samples: create_pipeline(
-                    SolariGlobalIlluminationPass::BlendNewWorldCacheSamples,
-                ),
-                screen_probes_trace: create_pipeline(
-                    SolariGlobalIlluminationPass::ScreenProbesTrace,
-                ),
-                screen_probes_filter_first_pass: create_pipeline(
-                    SolariGlobalIlluminationPass::ScreenProbesFilterFirstPass,
-                ),
-                screen_probes_filter_second_pass: create_pipeline(
-                    SolariGlobalIlluminationPass::ScreenProbesFilterSecondPass,
-                ),
-                screen_probes_interpolate: create_pipeline(
-                    SolariGlobalIlluminationPass::ScreenProbesInterpolate,
-                ),
-                denoise_diffuse_temporal: create_pipeline(
-                    SolariGlobalIlluminationPass::DenoiseDiffuseTemporal,
-                ),
-                denoise_diffuse_spatial: create_pipeline(
-                    SolariGlobalIlluminationPass::DenoiseDiffuseSpatial,
-                ),
+                sample_for_world_cache: create_pipeline(SampleForWorldCache),
+                blend_new_world_cache_samples: create_pipeline(BlendNewWorldCacheSamples),
+                screen_probes_trace: create_pipeline(ScreenProbesTrace),
+                screen_probes_merge_cascades: create_pipeline(ScreenProbesMergeCascades),
+                screen_probes_filter_first_pass: create_pipeline(ScreenProbesFilterFirstPass),
+                screen_probes_filter_second_pass: create_pipeline(ScreenProbesFilterSecondPass),
+                screen_probes_interpolate: create_pipeline(ScreenProbesInterpolate),
+                denoise_diffuse_temporal: create_pipeline(DenoiseDiffuseTemporal),
+                denoise_diffuse_spatial: create_pipeline(DenoiseDiffuseSpatial),
             });
     }
 }

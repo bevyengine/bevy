@@ -18,9 +18,9 @@ mod helpers;
 mod scene_types;
 
 const SOLARI_SCENE_TYPES_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 0717171717171755);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 0017171717171755);
 const SOLARI_SCENE_BINDINGS_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 0717171717171756);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 0017171717171756);
 
 pub struct SolariScenePlugin;
 
