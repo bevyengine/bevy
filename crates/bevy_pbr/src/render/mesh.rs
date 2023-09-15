@@ -21,7 +21,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Mat4, Vec2, Vec4};
 use bevy_render::{
-    batching::{batch_render_phase, NoAutomaticBatching},
+    batching::{batch_render_phase, BatchMeta, NoAutomaticBatching},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -31,8 +31,8 @@ use bevy_render::{
     prelude::Msaa,
     render_asset::RenderAssets,
     render_phase::{
-        CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem, RenderCommand,
-        RenderCommandResult, RenderPhase, TrackedRenderPass,
+        CachedRenderPipelinePhaseItem, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase,
+        TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
@@ -45,7 +45,6 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, HashMap, Hashed};
-use nonmax::NonMaxU32;
 
 use crate::render::{
     morph::{extract_morphs, prepare_morphs, MorphIndex, MorphUniform},
@@ -348,43 +347,6 @@ pub fn extract_skinned_meshes(
     commands.insert_or_spawn_batch(values);
 }
 
-/// Data necessary to be equal for two draw commands to be mergeable
-///
-/// This is based on the following assumptions:
-/// - Only entities with prepared assets (pipelines, materials, meshes) are
-///   queued to phases
-/// - View bindings are constant across a phase for a given draw function as
-///   phases are per-view
-/// - `prepare_mesh_uniforms` is the only system that performs this batching
-///   and has sole responsibility for preparing the per-object data. As such
-///   the mesh binding and dynamic offsets are assumed to only be variable as a
-///   result of the `prepare_mesh_uniforms` system, e.g. due to having to split
-///   data across separate uniform bindings within the same buffer due to the
-///   maximum uniform buffer binding size.
-struct BatchMeta3d {
-    /// The pipeline id encompasses all pipeline configuration including vertex
-    /// buffers and layouts, shaders and their specializations, bind group
-    /// layouts, etc.
-    pipeline_id: CachedRenderPipelineId,
-    /// The draw function id defines the RenderCommands that are called to
-    /// set the pipeline and bindings, and make the draw command
-    draw_function_id: DrawFunctionId,
-    material_bind_group_id: Option<MaterialBindGroupId>,
-    mesh_asset_id: AssetId<Mesh>,
-    dynamic_offset: Option<NonMaxU32>,
-}
-
-impl PartialEq for BatchMeta3d {
-    #[inline]
-    fn eq(&self, other: &BatchMeta3d) -> bool {
-        self.pipeline_id == other.pipeline_id
-            && self.draw_function_id == other.draw_function_id
-            && self.mesh_asset_id == other.mesh_asset_id
-            && self.dynamic_offset == other.dynamic_offset
-            && self.material_bind_group_id == other.material_bind_group_id
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_and_batch_meshes(
     render_device: Res<RenderDevice>,
@@ -413,7 +375,7 @@ pub fn prepare_and_batch_meshes(
         };
         let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
         Some((
-            BatchMeta3d {
+            BatchMeta::<MaterialBindGroupId> {
                 pipeline_id,
                 draw_function_id,
                 material_bind_group_id: material_bind_group_id.cloned(),

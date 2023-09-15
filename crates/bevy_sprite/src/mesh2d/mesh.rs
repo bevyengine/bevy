@@ -1,5 +1,5 @@
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::{load_internal_asset, Handle};
 
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{
@@ -10,13 +10,13 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Vec2, Vec4};
 use bevy_reflect::Reflect;
 use bevy_render::{
-    batching::{batch_render_phase, NoAutomaticBatching},
+    batching::{batch_render_phase, BatchMeta, NoAutomaticBatching},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_phase::{
-        CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem, RenderCommand,
-        RenderCommandResult, RenderPhase, TrackedRenderPass,
+        CachedRenderPipelinePhaseItem, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase,
+        TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
@@ -29,7 +29,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use nonmax::NonMaxU32;
 
 use crate::Material2dBindGroupId;
 
@@ -204,33 +203,6 @@ pub fn extract_mesh2d(
     commands.insert_or_spawn_batch(values);
 }
 
-/// Data necessary to be equal for two draw commands to be mergeable
-///
-/// This is based on the following assumptions:
-/// - Only entities with prepared assets (pipelines, materials, meshes) are
-///   queued to phases
-/// - View bindings are constant across a phase for a given draw function as
-///   phases are per-view
-/// - `prepare_mesh_uniforms` is the only system that performs this batching
-///   and has sole responsibility for preparing the per-object data. As such
-///   the mesh binding and dynamic offsets are assumed to only be variable as a
-///   result of the `prepare_mesh_uniforms` system, e.g. due to having to split
-///   data across separate uniform bindings within the same buffer due to the
-///   maximum uniform buffer binding size.
-#[derive(PartialEq, Eq)]
-struct BatchMeta2d {
-    /// The pipeline id encompasses all pipeline configuration including vertex
-    /// buffers and layouts, shaders and their specializations, bind group
-    /// layouts, etc.
-    pipeline_id: CachedRenderPipelineId,
-    /// The draw function id defines the RenderCommands that are called to
-    /// set the pipeline and bindings, and make the draw command
-    draw_function_id: DrawFunctionId,
-    material2d_bind_group_id: Option<Material2dBindGroupId>,
-    mesh_asset_id: AssetId<Mesh>,
-    dynamic_offset: Option<NonMaxU32>,
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_and_batch_meshes2d(
     render_device: Res<RenderDevice>,
@@ -263,10 +235,10 @@ pub fn prepare_and_batch_meshes2d(
             };
             let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
             Some((
-                BatchMeta2d {
+                BatchMeta::<Material2dBindGroupId> {
                     pipeline_id: item.cached_pipeline(),
                     draw_function_id: item.draw_function(),
-                    material2d_bind_group_id: material2d_bind_group_id.cloned(),
+                    material_bind_group_id: material2d_bind_group_id.cloned(),
                     mesh_asset_id: mesh_handle.0.id(),
                     dynamic_offset: gpu_array_buffer_index.dynamic_offset,
                 },
