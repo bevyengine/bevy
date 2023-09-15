@@ -89,7 +89,9 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowBackendScaleFactorChanged>()
             .add_event::<FileDragAndDrop>()
             .add_event::<WindowMoved>()
-            .add_event::<WindowThemeChanged>();
+            .add_event::<WindowThemeChanged>()
+            .add_event::<WindowMaximized>()
+            .add_event::<WindowMinimized>();
 
         if let Some(primary_window) = &self.primary_window {
             app.world
