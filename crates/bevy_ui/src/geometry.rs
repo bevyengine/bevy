@@ -9,12 +9,12 @@ use thiserror::Error;
 
 /// Represents the possible value types for layout properties.
 ///
-/// This enum allows specifying values for various [`Style`] properties in different units,
+/// This enum allows specifying values for various [`Style`](crate::Style) properties in different units,
 /// such as logical pixels, percentages, or automatically determined values.
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Val {
-    /// Automatically determine the value based on the context and other [`Style`] properties.
+    /// Automatically determine the value based on the context and other [`Style`](crate::Style) properties.
     Auto,
     /// Set this value in logical pixels.
     Px(f32),
@@ -23,7 +23,7 @@ pub enum Val {
     /// If the UI node has no parent, the percentage is calculated based on the window's length
     /// along the corresponding axis.
     ///
-    /// The chosen axis depends on the `Style` field set:
+    /// The chosen axis depends on the [`Style`](crate::Style) field set:
     /// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
     /// * For `gap`, `min_size`, `size`, and `max_size`:
     ///   - `width` is relative to the parent's width.
