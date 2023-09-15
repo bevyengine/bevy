@@ -246,7 +246,6 @@ fn extract_material_meshes<M: Material>(
         }
     }
     *previous_len = values.len();
-    // FIXME: Entities still have to be spawned because phases assume entities exist
     commands.insert_or_spawn_batch(values);
 }
 

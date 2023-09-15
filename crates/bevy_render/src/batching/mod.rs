@@ -19,10 +19,10 @@ pub struct NoAutomaticBatching;
 ///   queued to phases
 /// - View bindings are constant across a phase for a given draw function as
 ///   phases are per-view
-/// - `prepare_mesh_uniforms` is the only system that performs this batching
+/// - `prepare_and_batch_meshes` is the only system that performs this batching
 ///   and has sole responsibility for preparing the per-object data. As such
 ///   the mesh binding and dynamic offsets are assumed to only be variable as a
-///   result of the `prepare_mesh_uniforms` system, e.g. due to having to split
+///   result of the `prepare_and_batch_meshes` system, e.g. due to having to split
 ///   data across separate uniform bindings within the same buffer due to the
 ///   maximum uniform buffer binding size.
 pub struct BatchMeta<T: PartialEq> {
