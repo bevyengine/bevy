@@ -256,17 +256,6 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     }
 }
 
-impl<'a, 'w, 's: 'a, T> IntoIterator for &'a mut RemovedComponents<'w, 's, T>
-where
-    T: Component,
-{
-    type Item = Entity;
-    type IntoIter = RemovedIter<'a>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.read()
-    }
-}
-
 // SAFETY: Only reads World removed component events
 unsafe impl<'a> ReadOnlySystemParam for &'a RemovedComponentEvents {}
 
