@@ -224,8 +224,8 @@ impl Val {
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub struct UiRect {
     /// The value corresponding to the left side of the UI rect.
     pub left: Val,
