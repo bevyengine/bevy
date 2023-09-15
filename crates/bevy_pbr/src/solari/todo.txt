@@ -1,9 +1,10 @@
 * Radiance cascades for screen probes (https://drive.google.com/file/d/1L6v1_7HY2X-LV3Ofb6oyTIxgEaP4LOI6/view)
 * World cache improvements
-    * Short trace distance
     * Tie world cache to camera, use a log scale for cell size
+    * Short trace distance
     * Reservoir sampling for the world cache update method
         * Light sources and other cache entries via choosing a random slice of world_cache_active_cell_indices
+    * If visible last frame, reproject last frame's lighting
     * Variance driven world cache update rate, skipping very stable cells, and adapting to lighting changes faster
 * Improve spatiotemporal denoiser
     * Spatial weights

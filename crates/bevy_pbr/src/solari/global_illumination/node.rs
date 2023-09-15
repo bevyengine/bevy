@@ -144,17 +144,21 @@ impl ViewNode for SolariGlobalIlluminationNode {
         solari_pass.set_pipeline(screen_probes_trace_pipeline);
         solari_pass.dispatch_workgroups(width, height, 4);
 
+        solari_pass.push_debug_group("merge_cascades");
         solari_pass.set_pipeline(screen_probes_merge_cascades_pipeline);
         for cascade in (0..3u32).rev() {
             solari_pass.set_push_constants(0, &cascade.to_le_bytes());
             solari_pass.dispatch_workgroups(width, height, 1);
         }
+        solari_pass.pop_debug_group();
 
+        solari_pass.push_debug_group("filter_probes");
         solari_pass.set_pipeline(screen_probes_filter_first_pass_pipeline);
         solari_pass.dispatch_workgroups(width, height, 1);
 
         solari_pass.set_pipeline(screen_probes_filter_second_pass_pipeline);
         solari_pass.dispatch_workgroups(width, height, 1);
+        solari_pass.pop_debug_group();
 
         solari_pass.set_pipeline(screen_probes_interpolate_pipeline);
         solari_pass.dispatch_workgroups(width, height, 1);
