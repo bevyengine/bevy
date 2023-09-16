@@ -8,7 +8,7 @@ use crate::{
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetId, Assets, Handle};
 use bevy_core_pipeline::{
-    core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
+    core_3d::{Opaque3d, Transparent3d},
     prepass::{AlphaMask3dPrepass, Opaque3dPrepass, ViewPrepassTextures},
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
@@ -21,7 +21,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Mat4, Vec2, Vec4};
 use bevy_render::{
-    batching::{batch_render_phase, BatchMeta, NoAutomaticBatching},
+    batching::{batch_render_phase, flush_buffer, GetBatchData, NoAutomaticBatching},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -30,10 +30,7 @@ use bevy_render::{
     },
     prelude::Msaa,
     render_asset::RenderAssets,
-    render_phase::{
-        CachedRenderPipelinePhaseItem, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase,
-        TrackedRenderPass,
-    },
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
@@ -122,7 +119,22 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        prepare_and_batch_meshes.in_set(RenderSet::PrepareResources),
+                        (
+                            batch_render_phase::<Opaque3dPrepass, MeshPipeline>
+                                .in_set(RenderSet::PrepareResources),
+                            batch_render_phase::<AlphaMask3dPrepass, MeshPipeline>
+                                .in_set(RenderSet::PrepareResources),
+                            batch_render_phase::<Opaque3d, MeshPipeline>
+                                .in_set(RenderSet::PrepareResources),
+                            batch_render_phase::<Transparent3d, MeshPipeline>
+                                .in_set(RenderSet::PrepareResources),
+                            batch_render_phase::<AlphaMask3dPrepass, MeshPipeline>
+                                .in_set(RenderSet::PrepareResources),
+                            batch_render_phase::<Shadow, MeshPipeline>
+                                .in_set(RenderSet::PrepareResources),
+                        )
+                            .chain(),
+                        flush_buffer::<MeshPipeline>.in_set(RenderSet::PrepareResourcesFlush),
                         prepare_skinned_meshes.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
                         prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
@@ -345,84 +357,6 @@ pub fn extract_skinned_meshes(
 
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn prepare_and_batch_meshes(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    gpu_array_buffer: ResMut<GpuArrayBuffer<MeshUniform>>,
-    mut views: Query<(
-        Option<&mut RenderPhase<Opaque3dPrepass>>,
-        Option<&mut RenderPhase<AlphaMask3dPrepass>>,
-        &mut RenderPhase<Opaque3d>,
-        &mut RenderPhase<AlphaMask3d>,
-        &mut RenderPhase<Transparent3d>,
-    )>,
-    mut shadow_views: Query<&mut RenderPhase<Shadow>>,
-    meshes: Query<
-        (Option<&MaterialBindGroupId>, &Handle<Mesh>, &MeshTransforms),
-        Without<NoAutomaticBatching>,
-    >,
-) {
-    let gpu_array_buffer = gpu_array_buffer.into_inner();
-
-    gpu_array_buffer.clear();
-
-    let mut get_batch_meta = |entity, pipeline_id, draw_function_id| {
-        let Ok((material_bind_group_id, mesh_handle, mesh_transforms)) = meshes.get(entity) else {
-            return None;
-        };
-        let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
-        Some((
-            BatchMeta::<MaterialBindGroupId> {
-                pipeline_id,
-                draw_function_id,
-                material_bind_group_id: material_bind_group_id.cloned(),
-                mesh_asset_id: mesh_handle.id(),
-                dynamic_offset: gpu_array_buffer_index.dynamic_offset,
-            },
-            gpu_array_buffer_index.index,
-            gpu_array_buffer_index.dynamic_offset,
-        ))
-    };
-
-    for (
-        opaque_prepass_phase,
-        alpha_mask_prepass_phase,
-        opaque_phase,
-        alpha_mask_phase,
-        transparent_phase,
-    ) in &mut views
-    {
-        if let Some(opaque_prepass_phase) = opaque_prepass_phase {
-            batch_render_phase(opaque_prepass_phase.into_inner(), |item| {
-                get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
-            });
-        }
-        if let Some(alpha_mask_prepass_phase) = alpha_mask_prepass_phase {
-            batch_render_phase(alpha_mask_prepass_phase.into_inner(), |item| {
-                get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
-            });
-        }
-        batch_render_phase(opaque_phase.into_inner(), |item| {
-            get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
-        });
-        batch_render_phase(alpha_mask_phase.into_inner(), |item| {
-            get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
-        });
-        batch_render_phase(transparent_phase.into_inner(), |item| {
-            get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
-        });
-    }
-
-    for shadow_phase in &mut shadow_views {
-        batch_render_phase(shadow_phase.into_inner(), |item| {
-            get_batch_meta(item.entity(), item.cached_pipeline(), item.draw_function())
-        });
-    }
-
-    gpu_array_buffer.write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Resource, Clone)]
@@ -706,6 +640,25 @@ impl MeshPipeline {
                 &self.dummy_white_gpu_image.sampler,
             ))
         }
+    }
+}
+
+impl GetBatchData for MeshPipeline {
+    type Query = (
+        Option<&'static MaterialBindGroupId>,
+        &'static Handle<Mesh>,
+        &'static MeshTransforms,
+    );
+    type CompareData = (Option<MaterialBindGroupId>, AssetId<Mesh>);
+    type BufferData = MeshUniform;
+
+    fn get_batch_data(
+        (material_bind_group_id, mesh_handle, mesh_transforms): <Self::Query as bevy_ecs::query::WorldQuery>::Item<'_>,
+    ) -> (Self::CompareData, Self::BufferData) {
+        (
+            (material_bind_group_id.cloned(), mesh_handle.id()),
+            mesh_transforms.into(),
+        )
     }
 }
 
