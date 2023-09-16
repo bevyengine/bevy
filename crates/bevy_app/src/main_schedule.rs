@@ -145,8 +145,6 @@ impl Main {
         let _ = world.try_run_schedule(PreStartup);
         let _ = world.try_run_schedule(Startup);
         let _ = world.try_run_schedule(PostStartup);
-
-        Self::run_main(world);
     }
 
     /// A system that runs the "main schedule"
