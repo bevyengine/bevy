@@ -2,6 +2,7 @@
     * Fix bugs, add comments
     * Redo screen_probes_interpolate
     * Evaluate if screen_probes_filter and denoise_diffuse are still needed, and rewrite if so
+    * More efficent merging/tracing routines
 * World cache improvements
     * Tie world cache to camera, use a log scale for cell size
     * Short trace distance
