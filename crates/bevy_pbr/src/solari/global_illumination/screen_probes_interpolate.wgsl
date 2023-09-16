@@ -1,26 +1,52 @@
-#import bevy_solari::scene_bindings uniforms
-#import bevy_solari::global_illumination::view_bindings view, depth_buffer, normals_buffer, screen_probes_spherical_harmonics, diffuse_raw, screen_probes_a
-#import bevy_solari::utils rand_f, rand_vec2f, depth_to_world_position
+#import bevy_solari::global_illumination::view_bindings view, depth_buffer, normals_buffer, screen_probes_spherical_harmonics, screen_probes_a, diffuse_raw
+#import bevy_solari::utils depth_to_world_position
 
-// TODO: Validate neighbor probe exists
-// TODO: Change screen space distance to depend on camera zoom
-fn interpolate_probe(
-    irradiance_total: ptr<function, vec3<f32>>,
-    irradiance_no_rejections_total: ptr<function, vec3<f32>>,
-    weight_total: ptr<function, f32>,
-    pixel_id: vec2<f32>,
-    pixel_world_position: vec3<f32>,
-    pixel_world_normal: vec3<f32>,
-    probe_count_x: i32,
-    probe_id: vec2<i32>,
-    probe_thread_id: vec2<i32>,
+// TODO: Plane distance / tile size weights, relaxed interpolation?
+// TODO: Jitter interpolation?
+
+@compute @workgroup_size(8, 8, 1)
+fn interpolate_screen_probes(
+    @builtin(global_invocation_id) global_id: vec3<u32>,
+    @builtin(workgroup_id) workgroup_id: vec3<u32>,
+    @builtin(num_workgroups) workgroup_count: vec3<u32>,
 ) {
-    let probe_pixel_id = probe_thread_id + (8i * probe_id);
-    let probe_pixel_id_center = vec2<f32>(probe_pixel_id) + 0.5;
-    let probe_depth = textureLoad(depth_buffer, probe_pixel_id, 0i);
-    let probe_world_position = depth_to_world_position(probe_depth, probe_pixel_id_center / view.viewport.zw);
-    let plane_distance = abs(dot(probe_world_position - pixel_world_position, pixel_world_normal));
+    let screen_size = vec2<u32>(view.viewport.zw);
+    if any(global_id.xy >= screen_size) { return; }
 
+    let pixel_depth = view.projection[3][2] / textureLoad(depth_buffer, global_id.xy, 0i);
+    if pixel_depth == 0.0 {
+        textureStore(diffuse_raw, global_id.xy, vec4(0.0, 0.0, 0.0, 1.0));
+        return;
+    }
+    let pixel_uv = (vec2<f32>(global_id.xy) + 0.5) / view.viewport.zw;
+    let pixel_world_position = depth_to_world_position(pixel_depth, pixel_uv);
+    let pixel_world_normal = normalize(textureLoad(normals_buffer, global_id.xy, 0i).xyz * 2.0 - vec3(1.0));
+
+    let probe_count = textureDimensions(screen_probes_a) / 8u;
+    let probe_id_f = pixel_uv * vec2<f32>(probe_count) - 0.5;
+
+    let tl_probe_id = max(vec2<u32>(probe_id_f), vec2(0u));
+    let tr_probe_id = min(tl_probe_id + vec2(1u, 0u), probe_count);
+    let bl_probe_id = min(tl_probe_id + vec2(0u, 1u), probe_count);
+    let br_probe_id = min(tl_probe_id + vec2(1u, 1u), probe_count);
+
+    let tl_probe_sample = sample_probe(tl_probe_id, pixel_world_normal, probe_count);
+    let tr_probe_sample = sample_probe(tr_probe_id, pixel_world_normal, probe_count);
+    let bl_probe_sample = sample_probe(bl_probe_id, pixel_world_normal, probe_count);
+    let br_probe_sample = sample_probe(tr_probe_id, pixel_world_normal, probe_count);
+
+    let r = fract(probe_id_f);
+    let tl_probe_weight = (1.0 - r.x) * (1.0 - r.y);
+    let tr_probe_weight = r.x * (1.0 - r.y);
+    let bl_probe_weight = (1.0 - r.x) * r.y;
+    let br_probe_weight = r.x * r.y;
+
+    let irradiance = (tl_probe_sample * tl_probe_weight) + (tr_probe_sample * tr_probe_weight) + (bl_probe_sample * bl_probe_weight) + (br_probe_sample * br_probe_weight);
+
+    textureStore(diffuse_raw, global_id.xy, vec4(irradiance, 1.0));
+}
+
+fn sample_probe(probe_id: vec2<u32>, pixel_world_normal: vec3<f32>, probe_count: vec2<u32>) -> vec3<f32> {
     let c1 = 0.429043;
     let c2 = 0.511664;
     let c3 = 0.743125;
@@ -35,8 +61,9 @@ fn interpolate_probe(
     let zz = z * z;
     let xx_yy = x * x - y * y;
 
-    let sh_index = probe_id.x + probe_id.y * probe_count_x;
+    let sh_index = probe_id.x + probe_id.y * probe_count.x;
     let sh = screen_probes_spherical_harmonics[sh_index];
+
     let L00 = sh.a.xyz;
     let L11 = vec3(sh.a.w, sh.b.xy);
     let L10 = vec3(sh.b.zw, sh.c.x);
@@ -46,75 +73,5 @@ fn interpolate_probe(
     let L2_2 = vec3(sh.e.zw, sh.f.x);
     let L20 = sh.f.yzw;
     let L22 = sh.g;
-    var irradiance = (c1 * L22 * xx_yy) + (c3 * L20 * zz) + (c4 * L00) - (c5 * L20) + (2.0 * c1 * ((L2_2 * xy) + (L21 * xz) + (L2_1 * yz))) + (2.0 * c2 * ((L11 * x) + (L1_1 * y) + (L10 * z)));
-
-    *irradiance_no_rejections_total += irradiance;
-    if plane_distance > 0.01 {
-        return;
-    }
-
-    let screen_distance = distance(probe_pixel_id_center, pixel_id);
-    let screen_distance_weight = smoothstep(32.0, 0.0, screen_distance);
-    irradiance *= screen_distance_weight;
-    *weight_total += screen_distance_weight;
-
-    *irradiance_total += irradiance;
-}
-
-@compute @workgroup_size(8, 8, 1)
-fn interpolate_screen_probes(
-    @builtin(global_invocation_id) global_id: vec3<u32>,
-    @builtin(workgroup_id) workgroup_id: vec3<u32>,
-    @builtin(num_workgroups) workgroup_count: vec3<u32>,
-) {
-    let screen_size = vec2<u32>(view.viewport.zw);
-    if any(global_id.xy >= screen_size) { return; }
-
-    let probe_index = workgroup_id.x + workgroup_id.y * workgroup_count.x;
-    let pixel_index = global_id.x + global_id.y * screen_size.x;
-    let frame_index = uniforms.frame_count * 5782582u;
-    var rng = pixel_index + frame_index;
-    var rng2 = frame_index;
-
-    let probe_thread_index = u32(rand_f(&rng2) * 63.0);
-    let probe_thread_x = probe_thread_index % 8u;
-    let probe_thread_y = (probe_thread_index - probe_thread_x) / 8u;
-    let probe_thread_id = vec2<i32>(vec2(probe_thread_x, probe_thread_y));
-
-    let pixel_depth = textureLoad(depth_buffer, global_id.xy, 0i);
-    if pixel_depth == 0.0 {
-        textureStore(diffuse_raw, global_id.xy, vec4(0.0, 0.0, 0.0, 1.0));
-        return;
-    }
-    let pixel_id = vec2<f32>(global_id.xy) + 0.5;
-    let pixel_world_position = depth_to_world_position(pixel_depth, pixel_id / view.viewport.zw);
-    let pixel_world_normal = normalize(textureLoad(normals_buffer, global_id.xy, 0i).xyz * 2.0 - vec3(1.0));
-
-    // TODO: Spatiotemporal blue noise for jitter instead of rand_vec2f()
-    var pixel_id_jittered = pixel_id + (rand_vec2f(&rng) * 16.0 - 8.0);
-    let pixel_world_position_jittered = depth_to_world_position(pixel_depth, pixel_id_jittered / view.viewport.zw);
-    let plane_distance = abs(dot(pixel_world_position - pixel_world_position_jittered, pixel_world_normal));
-    if plane_distance >= 0.5 {
-        pixel_id_jittered = pixel_id;
-    }
-
-    var irradiance = vec3(0.0);
-    var irradiance_no_rejections = vec3(0.0);
-    var weight = 0.0;
-    interpolate_probe(&irradiance, &irradiance_no_rejections, &weight, pixel_id_jittered, pixel_world_position, pixel_world_normal, i32(workgroup_count.x), vec2<i32>(workgroup_id.xy) + vec2(-1i, 1i), probe_thread_id);
-    interpolate_probe(&irradiance, &irradiance_no_rejections, &weight, pixel_id_jittered, pixel_world_position, pixel_world_normal, i32(workgroup_count.x), vec2<i32>(workgroup_id.xy) + vec2(0i, 1i), probe_thread_id);
-    interpolate_probe(&irradiance, &irradiance_no_rejections, &weight, pixel_id_jittered, pixel_world_position, pixel_world_normal, i32(workgroup_count.x), vec2<i32>(workgroup_id.xy) + vec2(1i, 1i), probe_thread_id);
-    interpolate_probe(&irradiance, &irradiance_no_rejections, &weight, pixel_id_jittered, pixel_world_position, pixel_world_normal, i32(workgroup_count.x), vec2<i32>(workgroup_id.xy) + vec2(-1i, 0i), probe_thread_id);
-    interpolate_probe(&irradiance, &irradiance_no_rejections, &weight, pixel_id_jittered, pixel_world_position, pixel_world_normal, i32(workgroup_count.x), vec2<i32>(workgroup_id.xy) + vec2(0i, 0i), probe_thread_id);
-    interpolate_probe(&irradiance, &irradiance_no_rejections, &weight, pixel_id_jittered, pixel_world_position, pixel_world_normal, i32(workgroup_count.x), vec2<i32>(workgroup_id.xy) + vec2(1i, 0i), probe_thread_id);
-    interpolate_probe(&irradiance, &irradiance_no_rejections, &weight, pixel_id_jittered, pixel_world_position, pixel_world_normal, i32(workgroup_count.x), vec2<i32>(workgroup_id.xy) + vec2(-1i, -1i), probe_thread_id);
-    interpolate_probe(&irradiance, &irradiance_no_rejections, &weight, pixel_id_jittered, pixel_world_position, pixel_world_normal, i32(workgroup_count.x), vec2<i32>(workgroup_id.xy) + vec2(0i, -1i), probe_thread_id);
-    interpolate_probe(&irradiance, &irradiance_no_rejections, &weight, pixel_id_jittered, pixel_world_position, pixel_world_normal, i32(workgroup_count.x), vec2<i32>(workgroup_id.xy) + vec2(1i, -1i), probe_thread_id);
-    if weight == 0.0 {
-        irradiance = irradiance_no_rejections;
-        weight = 9.0;
-    }
-    irradiance /= weight;
-
-    textureStore(diffuse_raw, global_id.xy, vec4(irradiance, 1.0));
+    return (c1 * L22 * xx_yy) + (c3 * L20 * zz) + (c4 * L00) - (c5 * L20) + (2.0 * c1 * ((L2_2 * xy) + (L21 * xz) + (L2_1 * yz))) + (2.0 * c2 * ((L11 * x) + (L1_1 * y) + (L10 * z)));
 }
