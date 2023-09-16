@@ -8,7 +8,7 @@
 fn trace_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Find the center texel of each probe tile for this thread (global_id.xy = texel coordinate, global_id.z = cascade)
     let probe_size = u32(exp2(f32(global_id.z) + 3.0));
-    let probe_center_pixel_id = ((global_id.xy / probe_size) * probe_size) + ((probe_size - 1u) / 2u);
+    let probe_center_pixel_id = ((global_id.xy / probe_size) * probe_size) + (probe_size / 2u - 1u);
 
     // Reconstruct probe world position of the probe and early out if the probe is placed on a background pixel
     let probe_center_depth = textureLoad(depth_buffer, probe_center_pixel_id, 0i);
@@ -16,7 +16,7 @@ fn trace_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
         textureStore(screen_probes_a, global_id.xy, global_id.z, vec4(0.0, 0.0, 0.0, 1.0));
         return;
     }
-    let probe_center_uv = (vec2<f32>(probe_center_pixel_id) + 0.5) / vec2<f32>(textureDimensions(screen_probes_a));
+    let probe_center_uv = (vec2<f32>(probe_center_pixel_id) + 0.5) / view.viewport.zw;
     let probe_world_position = depth_to_world_position(probe_center_depth, probe_center_uv);
 
     // Calculate world-space normal of the assigned probe texel for this thread
