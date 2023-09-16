@@ -288,6 +288,15 @@ impl App {
             panic!("App::run() was called from within Plugin::build(), which is not allowed.");
         }
 
+        // Finish the startup phase.
+        Main::startup(&mut app.world);
+
+        // Force plugins to finish their setup and advance by one frame to make sure everything is
+        // setup up. This is important to prevent black frames during the launch animation on iOS,
+        // but it seems to also solve a brief flicker during startup on Linux/Wayland.
+        app.finish();
+        app.update();
+
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
         (runner)(app);
     }
