@@ -951,16 +951,14 @@ impl ScheduleGraph {
         let mut dependency_flattened = self.get_dependency_flattened(&set_systems);
 
         // modify graph with auto sync points
-        let dependency_flattened_with_auto_syncs =
-            self.insert_sync_points(&mut dependency_flattened);
+        let dependency_flattened = self.insert_sync_points(&mut dependency_flattened)?;
+
+        dbg!(&dependency_flattened);
 
         // topsort
         let mut dependency_flattened_dag = Dag {
-            topsort: self.topsort_graph(
-                &dependency_flattened_with_auto_syncs,
-                ReportCycles::Dependency,
-            )?,
-            graph: dependency_flattened_with_auto_syncs,
+            topsort: self.topsort_graph(&dependency_flattened, ReportCycles::Dependency)?,
+            graph: dependency_flattened,
         };
 
         let flat_results = check_graph(
@@ -992,8 +990,8 @@ impl ScheduleGraph {
     pub fn insert_sync_points(
         &mut self,
         dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
-    ) -> GraphMap<NodeId, (), Directed> {
-        let mut sync_point_graph = GraphMap::new();
+    ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError> {
+        let mut sync_point_graph = dependency_flattened.clone();
         let mut temp_node_index = dependency_flattened.node_count();
         for (source_node, target_node, _edge_weight) in dependency_flattened.all_edges() {
             if self.systems[source_node.index()]
@@ -1005,14 +1003,10 @@ impl ScheduleGraph {
                 sync_point_graph.add_edge(source_node, NodeId::TempSyncNode(temp_node_index), ());
                 sync_point_graph.add_edge(NodeId::TempSyncNode(temp_node_index), target_node, ());
                 temp_node_index += 1;
-            } else {
-                sync_point_graph.add_edge(source_node, target_node, ());
             }
         }
 
-        let topo = self
-            .topsort_graph(&sync_point_graph, ReportCycles::Dependency)
-            .unwrap();
+        let topo = self.topsort_graph(&sync_point_graph, ReportCycles::Dependency)?;
 
         let mut distances: Vec<Option<u32>> = vec![None; topo.len()];
         for node in &topo {
@@ -1058,9 +1052,11 @@ impl ScheduleGraph {
         }
 
         // replace temp nodes
-        let mut new_graph = GraphMap::new();
+        let mut new_graph = sync_point_graph.clone();
         for (source, target, ()) in sync_point_graph.all_edges_mut() {
+            let mut replace_edge = false;
             let new_source = if matches!(source, NodeId::TempSyncNode(_)) {
+                replace_edge = true;
                 *sync_point_map
                     .get(&distances[source.index()].unwrap())
                     .unwrap()
@@ -1069,6 +1065,7 @@ impl ScheduleGraph {
             };
 
             let new_target = if matches!(target, NodeId::TempSyncNode(_)) {
+                replace_edge = true;
                 *sync_point_map
                     .get(&distances[target.index()].unwrap())
                     .unwrap()
@@ -1076,20 +1073,31 @@ impl ScheduleGraph {
                 target
             };
 
-            new_graph.add_edge(new_source, new_target, ());
+            if replace_edge {
+                new_graph.add_edge(new_source, new_target, ());
+            }
         }
 
-        new_graph
+        // delete temp nodes and edges
+        for node in sync_point_graph
+            .nodes()
+            .filter(|node| matches!(node, NodeId::TempSyncNode(_)))
+        {
+            new_graph.remove_node(node);
+        }
+
+        Ok(new_graph)
     }
 
     /// add a apply_buffers system with no config
     fn add_auto_sync(&mut self) -> NodeId {
         let id = NodeId::System(self.systems.len());
-        // I think we can skip initializing the system as it has no real config
+
         self.systems
             .push(SystemNode::new(Box::new(IntoSystem::into_system(
                 apply_deferred,
             ))));
+        self.system_conditions.push(Vec::new());
 
         id
     }
@@ -1895,10 +1903,17 @@ impl ScheduleBuildSettings {
 mod tests {
     use crate::{
         self as bevy_ecs,
+        prelude::{Res, Resource},
         schedule::{IntoSystemConfigs, IntoSystemSetConfigs, Schedule, SystemSet},
         system::Commands,
         world::World,
     };
+
+    #[derive(Resource)]
+    struct Resource1;
+
+    #[derive(Resource)]
+    struct Resource2;
 
     // regression test for https://github.com/bevyengine/bevy/issues/9114
     #[test]
@@ -1918,13 +1933,41 @@ mod tests {
         schedule.run(&mut world);
     }
 
-    // #[test]
-    // fn insert_sync_points() {
-    //     let mut schedule = Schedule::default();
-    //     let mut world = World::default();
-    //     schedule.add_systems((|_commands: Commands| {}, || {}).chain());
-    //     schedule.initialize(&mut world).unwrap();
+    #[test]
+    fn inserts_a_sync_point() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |_: Res<Resource1>| {},
+            )
+                .chain(),
+        );
+        schedule.run(&mut world);
 
-    //     assert_eq!(schedule.graph().distances, &[0, 1, 0])
-    // }
+        // inserted a sync point
+        assert_eq!(schedule.executable.systems.len(), 3);
+    }
+
+    #[test]
+    fn merges_sync_points_into_one() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        // insert two parallel command systems, it should only create one sync point
+        schedule.add_systems(
+            (
+                (
+                    |mut commands: Commands| commands.insert_resource(Resource1),
+                    |mut commands: Commands| commands.insert_resource(Resource2),
+                ),
+                |_: Res<Resource1>, _: Res<Resource2>| {},
+            )
+                .chain(),
+        );
+        schedule.run(&mut world);
+
+        // inserted a sync point
+        assert_eq!(schedule.executable.systems.len(), 4);
+    }
 }
