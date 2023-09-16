@@ -1,6 +1,4 @@
 * Radiance cascades for screen probes (https://drive.google.com/file/d/1L6v1_7HY2X-LV3Ofb6oyTIxgEaP4LOI6/view)
-    * Redo screen_probes_interpolate
-    * Evaluate if screen_probes_filter and denoise_diffuse are still needed, and rewrite if so
     * More efficent merging/tracing routines
     * Add comments
 * World cache improvements

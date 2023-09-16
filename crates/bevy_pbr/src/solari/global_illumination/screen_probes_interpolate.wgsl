@@ -1,15 +1,8 @@
 #import bevy_solari::global_illumination::view_bindings view, depth_buffer, normals_buffer, screen_probes_spherical_harmonics, screen_probes_a, diffuse_raw
 #import bevy_solari::utils depth_to_world_position
 
-// TODO: Plane distance / tile size weights, relaxed interpolation?
-// TODO: Jitter interpolation?
-
 @compute @workgroup_size(8, 8, 1)
-fn interpolate_screen_probes(
-    @builtin(global_invocation_id) global_id: vec3<u32>,
-    @builtin(workgroup_id) workgroup_id: vec3<u32>,
-    @builtin(num_workgroups) workgroup_count: vec3<u32>,
-) {
+fn interpolate_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let screen_size = vec2<u32>(view.viewport.zw);
     if any(global_id.xy >= screen_size) { return; }
 
@@ -36,12 +29,14 @@ fn interpolate_screen_probes(
     let br_probe_sample = sample_probe(tr_probe_id, pixel_world_normal, probe_count);
 
     let r = fract(probe_id_f);
-    let tl_probe_weight = (1.0 - r.x) * (1.0 - r.y);
-    let tr_probe_weight = r.x * (1.0 - r.y);
-    let bl_probe_weight = (1.0 - r.x) * r.y;
-    let br_probe_weight = r.x * r.y;
+    let tl_probe_weight = (1.0 - r.x) * (1.0 - r.y) * plane_distance_weight(tl_probe_id, pixel_world_position, pixel_world_normal);
+    let tr_probe_weight = r.x * (1.0 - r.y) * plane_distance_weight(tr_probe_id, pixel_world_position, pixel_world_normal);
+    let bl_probe_weight = (1.0 - r.x) * r.y * plane_distance_weight(bl_probe_id, pixel_world_position, pixel_world_normal);
+    let br_probe_weight = r.x * r.y * plane_distance_weight(br_probe_id, pixel_world_position, pixel_world_normal);
 
-    let irradiance = (tl_probe_sample * tl_probe_weight) + (tr_probe_sample * tr_probe_weight) + (bl_probe_sample * bl_probe_weight) + (br_probe_sample * br_probe_weight);
+    var irradiance = (tl_probe_sample * tl_probe_weight) + (tr_probe_sample * tr_probe_weight) + (bl_probe_sample * bl_probe_weight) + (br_probe_sample * br_probe_weight);
+    irradiance /= tl_probe_weight + tr_probe_weight + bl_probe_weight + br_probe_weight;
+    irradiance = max(irradiance, vec3(0.0));
 
     textureStore(diffuse_raw, global_id.xy, vec4(irradiance, 1.0));
 }
@@ -74,4 +69,17 @@ fn sample_probe(probe_id: vec2<u32>, pixel_world_normal: vec3<f32>, probe_count:
     let L20 = sh.f.yzw;
     let L22 = sh.g;
     return (c1 * L22 * xx_yy) + (c3 * L20 * zz) + (c4 * L00) - (c5 * L20) + (2.0 * c1 * ((L2_2 * xy) + (L21 * xz) + (L2_1 * yz))) + (2.0 * c2 * ((L11 * x) + (L1_1 * y) + (L10 * z)));
+}
+
+fn plane_distance_weight(probe_id: vec2<u32>, pixel_world_position: vec3<f32>, pixel_world_normal: vec3<f32>) -> f32 {
+    var probe_center_pixel_id = (probe_id * 8u) + 3u;
+    probe_center_pixel_id = min(probe_center_pixel_id, vec2<u32>(view.viewport.zw) - 1u);
+
+    let probe_depth = textureLoad(depth_buffer, probe_center_pixel_id, 0i);
+    let probe_center_uv = (vec2<f32>(probe_center_pixel_id) + 0.5) / view.viewport.zw;
+    let probe_world_position = depth_to_world_position(probe_depth, probe_center_uv);
+
+    let plane_distance = abs(dot(probe_world_position - pixel_world_position, pixel_world_normal));
+
+    return step(0.5, plane_distance);
 }
