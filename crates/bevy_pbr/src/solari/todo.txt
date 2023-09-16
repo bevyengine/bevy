@@ -1,15 +1,19 @@
 * Radiance cascades for screen probes (https://drive.google.com/file/d/1L6v1_7HY2X-LV3Ofb6oyTIxgEaP4LOI6/view)
+    * Fix bugs, add comments
+    * Redo screen_probes_interpolate
+    * Evaluate if screen_probes_filter and denoise_diffuse are still needed, and rewrite if so
 * World cache improvements
     * Tie world cache to camera, use a log scale for cell size
     * Short trace distance
     * Reservoir sampling for the world cache update method
         * Light sources and other cache entries via choosing a random slice of world_cache_active_cell_indices
     * If visible last frame, reproject last frame's lighting
+    * Think about hashing ray direction, instead of hit position
     * Variance driven world cache update rate, skipping very stable cells, and adapting to lighting changes faster
+
 * Improve spatiotemporal denoiser
     * Spatial weights
     * Early return for denoise passes for sky pixels or 0 spatial denoising
-
 * Specular lighting
 * Cleanup, remaining TODOs, performance profiling, documentation, etc
     * "A Fast and Robust Method for Avoiding Self-Intersection"

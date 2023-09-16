@@ -1,16 +1,17 @@
-#import bevy_solari::scene_bindings uniforms, map_ray_hit
+#import bevy_solari::scene_bindings map_ray_hit
 #import bevy_solari::global_illumination::view_bindings view, depth_buffer, screen_probes_a, FIRST_RADIANCE_CASCADE_INTERVAL
 #import bevy_solari::world_cache::query query_world_cache
-#import bevy_solari::utils rand_f, rand_vec2f, trace_ray, depth_to_world_position
+#import bevy_solari::utils trace_ray, depth_to_world_position
 #import bevy_pbr::utils octahedral_decode
 
 @compute @workgroup_size(8, 8, 1)
 fn trace_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Find the center texel of each probe tile for this thread (global_id.xy = texel coordinate, global_id.z = cascade)
     let probe_size = u32(exp2(f32(global_id.z) + 3.0));
+    // TODO: Clamp to viewport size
     let probe_center_pixel_id = ((global_id.xy / probe_size) * probe_size) + (probe_size / 2u - 1u);
 
-    // Reconstruct probe world position of the probe and early out if the probe is placed on a background pixel
+    // Reconstruct world position of the probe and early out if the probe is placed on a background pixel
     let probe_center_depth = textureLoad(depth_buffer, probe_center_pixel_id, 0i);
     if probe_center_depth == 0.0 {
         textureStore(screen_probes_a, global_id.xy, global_id.z, vec4(0.0, 0.0, 0.0, 1.0));
