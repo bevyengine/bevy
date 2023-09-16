@@ -57,11 +57,11 @@ fn merge_screen_probe_cascades(@builtin(global_invocation_id) global_id: vec3<u3
     textureStore(screen_probes_a, global_id.xy, lower_cascade, merged_sample);
 }
 
-fn sample_upper_probe(tl_pixel_id: vec2<u32>) -> vec4<f32> {
-    let tl_direction_sample = textureLoad(screen_probes_a, tl_pixel_id, lower_cascade + 1u);
-    let tr_direction_sample = textureLoad(screen_probes_a, tl_pixel_id + vec2(1u, 0u), lower_cascade + 1u);
-    let bl_direction_sample = textureLoad(screen_probes_a, tl_pixel_id + vec2(0u, 1u), lower_cascade + 1u);
-    let br_direction_sample = textureLoad(screen_probes_a, tl_pixel_id + vec2(1u, 1u), lower_cascade + 1u);
+fn sample_upper_probe(tl_cell_id: vec2<u32>) -> vec4<f32> {
+    let tl_direction_sample = textureLoad(screen_probes_a, tl_cell_id, lower_cascade + 1u);
+    let tr_direction_sample = textureLoad(screen_probes_a, tl_cell_id + vec2(1u, 0u), lower_cascade + 1u);
+    let bl_direction_sample = textureLoad(screen_probes_a, tl_cell_id + vec2(0u, 1u), lower_cascade + 1u);
+    let br_direction_sample = textureLoad(screen_probes_a, tl_cell_id + vec2(1u, 1u), lower_cascade + 1u);
     return (tl_direction_sample + tr_direction_sample + bl_direction_sample + br_direction_sample) / 4.0;
 }
 
