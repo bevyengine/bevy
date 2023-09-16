@@ -81,5 +81,5 @@ fn plane_distance_weight(probe_id: vec2<u32>, pixel_world_position: vec3<f32>, p
 
     let plane_distance = abs(dot(probe_world_position - pixel_world_position, pixel_world_normal));
 
-    return step(0.5, plane_distance);
+    return step(0.1, plane_distance);
 }
