@@ -8,7 +8,7 @@ use crate::{
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetId, Assets, Handle};
 use bevy_core_pipeline::{
-    core_3d::{Opaque3d, Transparent3d},
+    core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
     prepass::{AlphaMask3dPrepass, Opaque3dPrepass, ViewPrepassTextures},
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
@@ -120,20 +120,15 @@ impl Plugin for MeshRenderPlugin {
                     Render,
                     (
                         (
-                            batch_render_phase::<Opaque3dPrepass, MeshPipeline>
-                                .in_set(RenderSet::PrepareResources),
-                            batch_render_phase::<AlphaMask3dPrepass, MeshPipeline>
-                                .in_set(RenderSet::PrepareResources),
-                            batch_render_phase::<Opaque3d, MeshPipeline>
-                                .in_set(RenderSet::PrepareResources),
-                            batch_render_phase::<Transparent3d, MeshPipeline>
-                                .in_set(RenderSet::PrepareResources),
-                            batch_render_phase::<AlphaMask3dPrepass, MeshPipeline>
-                                .in_set(RenderSet::PrepareResources),
-                            batch_render_phase::<Shadow, MeshPipeline>
-                                .in_set(RenderSet::PrepareResources),
+                            batch_render_phase::<Opaque3dPrepass, MeshPipeline>,
+                            batch_render_phase::<AlphaMask3dPrepass, MeshPipeline>,
+                            batch_render_phase::<Opaque3d, MeshPipeline>,
+                            batch_render_phase::<Transparent3d, MeshPipeline>,
+                            batch_render_phase::<AlphaMask3d, MeshPipeline>,
+                            batch_render_phase::<Shadow, MeshPipeline>,
                         )
-                            .chain(),
+                            .chain()
+                            .in_set(RenderSet::PrepareResources),
                         flush_buffer::<MeshPipeline>.in_set(RenderSet::PrepareResourcesFlush),
                         prepare_skinned_meshes.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
