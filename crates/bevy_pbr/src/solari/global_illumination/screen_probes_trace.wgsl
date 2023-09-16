@@ -12,13 +12,13 @@ fn trace_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
     probe_center_pixel_id = min(probe_center_pixel_id, vec2<u32>(view.viewport.zw) - 1u);
 
     // Reconstruct world position of the probe and early out if the probe is placed on a background pixel
-    let probe_center_depth = textureLoad(depth_buffer, probe_center_pixel_id, 0i);
-    if probe_center_depth == 0.0 {
+    let probe_depth = textureLoad(depth_buffer, probe_center_pixel_id, 0i);
+    if probe_depth == 0.0 {
         textureStore(screen_probes_a, global_id.xy, global_id.z, vec4(0.0, 0.0, 0.0, 1.0));
         return;
     }
     let probe_center_uv = (vec2<f32>(probe_center_pixel_id) + 0.5) / view.viewport.zw;
-    let probe_world_position = depth_to_world_position(probe_center_depth, probe_center_uv);
+    let probe_world_position = depth_to_world_position(probe_depth, probe_center_uv);
 
     // Calculate world-space normal of the assigned probe texel for this thread
     let probe_cell_center = vec2<f32>(global_id.xy % probe_size) + 0.5;
@@ -38,7 +38,7 @@ fn trace_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let ray_hit = trace_ray(probe_world_position, probe_cell_normal, radiance_interval_min, radiance_interval_max);
     if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
         let ray_hit = map_ray_hit(ray_hit);
-        let hit_color = ray_hit.material.emissive + ray_hit.material.base_color * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal);
+        let hit_color = ray_hit.material.base_color * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal);
         color = vec4(hit_color, 0.0);
     }
 
