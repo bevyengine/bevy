@@ -76,7 +76,7 @@ impl SystemMeta {
     }
 
     /// Marks the system as having deferred buffers like [`Commands`](`super::Commands`)
-    /// This lets the scheduler insert [`apply_buffer`] systems as needed.
+    /// This lets the scheduler insert [`apply_deferred`](`crate::prelude::apply_deferred`) systems automatically.
     pub fn set_has_deferred(&mut self) {
         self.has_deferred = true;
     }

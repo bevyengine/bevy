@@ -1072,7 +1072,7 @@ impl ScheduleGraph {
         Ok(new_graph)
     }
 
-    /// add a apply_buffers system with no config
+    /// add a [`apply_deferred`] system with no config
     fn add_auto_sync(&mut self) -> NodeId {
         let id = NodeId::System(self.systems.len());
 
