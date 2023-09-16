@@ -9,9 +9,9 @@
     @group(0) @binding(4)
     var dt_lut_sampler: sampler;
 #else
-    @group(0) @binding(15)
-    var dt_lut_texture: texture_3d<f32>;
     @group(0) @binding(16)
+    var dt_lut_texture: texture_3d<f32>;
+    @group(0) @binding(17)
     var dt_lut_sampler: sampler;
 #endif
 
@@ -24,7 +24,7 @@ fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
     return textureSampleLevel(dt_lut_texture, dt_lut_sampler, p, 0.0).rgb;
 #else ifdef TONEMAP_METHOD_BLENDER_FILMIC
     return textureSampleLevel(dt_lut_texture, dt_lut_sampler, p, 0.0).rgb;
-#else 
+#else
     return vec3(1.0, 0.0, 1.0);
  #endif
 }
@@ -36,18 +36,30 @@ fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
 
 fn rgb_to_ycbcr(col: vec3<f32>) -> vec3<f32> {
     let m = mat3x3<f32>(
-        0.2126, 0.7152, 0.0722, 
-        -0.1146, -0.3854, 0.5, 
-        0.5, -0.4542, -0.0458
+        0.2126,
+        0.7152,
+        0.0722,
+        -0.1146,
+        -0.3854,
+        0.5,
+        0.5,
+        -0.4542,
+        -0.0458
     );
     return col * m;
 }
 
 fn ycbcr_to_rgb(col: vec3<f32>) -> vec3<f32> {
     let m = mat3x3<f32>(
-        1.0, 0.0, 1.5748, 
-        1.0, -0.1873, -0.4681, 
-        1.0, 1.8556, 0.0
+        1.0,
+        0.0,
+        1.5748,
+        1.0,
+        -0.1873,
+        -0.4681,
+        1.0,
+        1.8556,
+        0.0
     );
     return max(vec3(0.0), col * m);
 }
@@ -116,14 +128,14 @@ fn RRTAndODTFit(v: vec3<f32>) -> vec3<f32> {
     return a / b;
 }
 
-fn ACESFitted(color: vec3<f32>) -> vec3<f32> {    
+fn ACESFitted(color: vec3<f32>) -> vec3<f32> {
     var fitted_color = color;
 
     // sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
     let rgb_to_rrt = mat3x3<f32>(
         vec3(0.59719, 0.35458, 0.04823),
         vec3(0.07600, 0.90834, 0.01566),
-        vec3(0.02840, 0.13383, 0.83777)    
+        vec3(0.02840, 0.13383, 0.83777)
     );
 
     // ODT_SAT => XYZ => D60_2_D65 => sRGB
@@ -180,7 +192,7 @@ fn convertOpenDomainToNormalizedLog2_(color: vec3<f32>, minimum_ev: f32, maximum
     // remove negative before log transform
     var normalized_color = max(vec3(0.0), color);
     // avoid infinite issue with log -- ref[1]
-    normalized_color = select(normalized_color, 0.00001525878 + normalized_color, normalized_color  < vec3<f32>(0.00003051757));
+    normalized_color = select(normalized_color, 0.00001525878 + normalized_color, normalized_color < vec3<f32>(0.00003051757));
     normalized_color = clamp(
         log2(normalized_color / in_midgray),
         vec3(minimum_ev),
@@ -218,7 +230,7 @@ fn applyAgXLog(Image: vec3<f32>) -> vec3<f32> {
     prepared_image = vec3(r, g, b);
 
     prepared_image = convertOpenDomainToNormalizedLog2_(prepared_image, -10.0, 6.5);
-    
+
     prepared_image = clamp(prepared_image, vec3(0.0), vec3(1.0));
     return prepared_image;
 }
@@ -283,10 +295,10 @@ fn tone_mapping(in: vec4<f32>, color_grading: ColorGrading) -> vec4<f32> {
     // Possible future grading:
 
     // highlight gain gamma: 0..
-    // let luma = powsafe(vec3(tonemapping_luminance(color)), 1.0); 
+    // let luma = powsafe(vec3(tonemapping_luminance(color)), 1.0);
 
-    // highlight gain: 0.. 
-    // color += color * luma.xxx * 1.0; 
+    // highlight gain: 0..
+    // color += color * luma.xxx * 1.0;
 
     // Linear pre tonemapping grading
     color = saturation(color, color_grading.pre_saturation);
@@ -309,14 +321,13 @@ fn tone_mapping(in: vec4<f32>, color_grading: ColorGrading) -> vec4<f32> {
 #else ifdef TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
     color = somewhat_boring_display_transform(color.rgb);
 #else ifdef TONEMAP_METHOD_TONY_MC_MAPFACE
-    color = sample_tony_mc_mapface_lut(color); 
+    color = sample_tony_mc_mapface_lut(color);
 #else ifdef TONEMAP_METHOD_BLENDER_FILMIC
     color = sample_blender_filmic_lut(color.rgb);
 #endif
 
     // Perceptual post tonemapping grading
     color = saturation(color, color_grading.post_saturation);
-    
+
     return vec4(color, in.a);
 }
-
