@@ -640,7 +640,6 @@ pub enum ShadowFilteringMethod {
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
     AddClusters,
-    AddClustersFlush,
     AssignLightsToClusters,
     UpdateDirectionalLightCascades,
     UpdateLightFrusta,

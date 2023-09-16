@@ -1008,14 +1008,12 @@ impl ScheduleGraph {
         }
 
         // calculate the number of sync points each sync point is from the beginning of the graph
-        // we will use this information to merge sync points later
+        // we will use this to merge sync points that are at the same distance.
         let topo = self.topsort_graph(&sync_point_graph, ReportCycles::Dependency)?;
         let mut distances: Vec<Option<u32>> = vec![None; topo.len()];
         for node in &topo {
             for target in sync_point_graph.neighbors_directed(*node, Outgoing) {
-                let weight = if matches!(node, NodeId::TempSyncNode(_))
-                    || is_apply_deferred(self.systems[node.index()].get().unwrap())
-                {
+                let weight = if matches!(node, NodeId::TempSyncNode(_)) {
                     1
                 } else {
                     0
@@ -1029,7 +1027,7 @@ impl ScheduleGraph {
 
         // only merge automatically added sync points as manually added sync points could have run criteria
         let mut sync_point_map = HashMap::new();
-        let mut get_sync_point = move |distance: u32| {
+        let mut get_sync_point = |distance: u32| {
             sync_point_map
                 .get(&distance)
                 .copied()
