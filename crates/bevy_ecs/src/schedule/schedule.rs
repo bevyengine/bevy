@@ -953,8 +953,6 @@ impl ScheduleGraph {
         // modify graph with auto sync points
         let dependency_flattened = self.insert_sync_points(&mut dependency_flattened)?;
 
-        dbg!(&dependency_flattened);
-
         // topsort
         let mut dependency_flattened_dag = Dag {
             topsort: self.topsort_graph(&dependency_flattened, ReportCycles::Dependency)?,
@@ -993,6 +991,8 @@ impl ScheduleGraph {
     ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError> {
         let mut sync_point_graph = dependency_flattened.clone();
         let mut temp_node_index = dependency_flattened.node_count();
+        let mut temp_nodes = Vec::new();
+        // loop through all edges and insert a temp sync point if there isn't one that already exists
         for (source_node, target_node, _edge_weight) in dependency_flattened.all_edges() {
             if self.systems[source_node.index()]
                 .get()
@@ -1002,20 +1002,19 @@ impl ScheduleGraph {
             {
                 sync_point_graph.add_edge(source_node, NodeId::TempSyncNode(temp_node_index), ());
                 sync_point_graph.add_edge(NodeId::TempSyncNode(temp_node_index), target_node, ());
+                temp_nodes.push(NodeId::TempSyncNode(temp_node_index));
                 temp_node_index += 1;
             }
         }
 
+        // calculate the number of sync points each sync point is from the beginning of the graph
+        // we will use this information to merge sync points later
         let topo = self.topsort_graph(&sync_point_graph, ReportCycles::Dependency)?;
-
         let mut distances: Vec<Option<u32>> = vec![None; topo.len()];
         for node in &topo {
-            for (source, target, _) in sync_point_graph
-                .all_edges()
-                .filter(|(source, _, _)| source == node)
-            {
-                let weight = if matches!(source, NodeId::TempSyncNode(_))
-                    || is_apply_deferred(self.systems[source.index()].get().unwrap())
+            for target in sync_point_graph.neighbors_directed(*node, Outgoing) {
+                let weight = if matches!(node, NodeId::TempSyncNode(_))
+                    || is_apply_deferred(self.systems[node.index()].get().unwrap())
                 {
                     1
                 } else {
@@ -1028,28 +1027,19 @@ impl ScheduleGraph {
             }
         }
 
-        // only merge auto sync points as manually added apply_deferred could have run criteria
-        let mut sync_points = HashMap::new();
-        for node in topo
-            .iter()
-            .filter(|node| matches!(node, NodeId::TempSyncNode(_)))
-        {
-            let distance = distances[node.index()].unwrap_or(0);
-            let nodes = if let Some(nodes) = sync_points.get_mut(&distance) {
-                nodes
-            } else {
-                sync_points.insert(distance, Vec::new());
-                sync_points.get_mut(&distance).unwrap()
-            };
-            nodes.push(*node);
-        }
-
-        // create sync points
+        // only merge automatically added sync points as manually added sync points could have run criteria
         let mut sync_point_map = HashMap::new();
-        for distance in sync_points.keys() {
-            let node_id = self.add_auto_sync();
-            sync_point_map.insert(distance, node_id);
-        }
+        let mut get_sync_point = move |distance: u32| {
+            sync_point_map
+                .get(&distance)
+                .copied()
+                .or_else(|| {
+                    let node_id = self.add_auto_sync();
+                    sync_point_map.insert(distance, node_id);
+                    Some(node_id)
+                })
+                .unwrap()
+        };
 
         // replace temp nodes
         let mut new_graph = sync_point_graph.clone();
@@ -1057,18 +1047,14 @@ impl ScheduleGraph {
             let mut replace_edge = false;
             let new_source = if matches!(source, NodeId::TempSyncNode(_)) {
                 replace_edge = true;
-                *sync_point_map
-                    .get(&distances[source.index()].unwrap())
-                    .unwrap()
+                get_sync_point(distances[source.index()].unwrap())
             } else {
                 source
             };
 
             let new_target = if matches!(target, NodeId::TempSyncNode(_)) {
                 replace_edge = true;
-                *sync_point_map
-                    .get(&distances[target.index()].unwrap())
-                    .unwrap()
+                get_sync_point(distances[target.index()].unwrap())
             } else {
                 target
             };
@@ -1078,11 +1064,8 @@ impl ScheduleGraph {
             }
         }
 
-        // delete temp nodes and edges
-        for node in sync_point_graph
-            .nodes()
-            .filter(|node| matches!(node, NodeId::TempSyncNode(_)))
-        {
+        // remove temp nodes and edges
+        for node in temp_nodes {
             new_graph.remove_node(node);
         }
 
