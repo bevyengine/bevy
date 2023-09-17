@@ -115,6 +115,10 @@ impl SpecializedComputePipeline for SolariGlobalIlluminationPipelines {
             BlendNewWorldCacheSamples => ("blend_new_samples", SOLARI_WORLD_CACHE_UPDATE_SHADER),
             ScreenProbesTrace => ("trace_screen_probes", SOLARI_SCREEN_PROBES_TRACE_SHADER),
             ScreenProbesFilterFirstPass => {
+                shader_defs.push("FIRST_PASS".into());
+                ("filter_screen_probes", SOLARI_SCREEN_PROBES_FILTER_SHADER)
+            }
+            ScreenProbesFilterSecondPass => {
                 ("filter_screen_probes", SOLARI_SCREEN_PROBES_FILTER_SHADER)
             }
             ScreenProbesMergeCascades => {
@@ -126,10 +130,6 @@ impl SpecializedComputePipeline for SolariGlobalIlluminationPipelines {
                     "merge_screen_probe_cascades",
                     SOLARI_SCREEN_PROBES_MERGE_CASCADES_SHADER,
                 )
-            }
-            ScreenProbesFilterSecondPass => {
-                shader_defs.push("FIRST_PASS".into());
-                ("filter_screen_probes", SOLARI_SCREEN_PROBES_FILTER_SHADER)
             }
             ScreenProbesInterpolate => (
                 "interpolate_screen_probes",
