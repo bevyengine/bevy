@@ -10,7 +10,7 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Vec2, Vec4};
 use bevy_reflect::Reflect;
 use bevy_render::{
-    batching::{batch_render_phase, flush_buffer, GetBatchData},
+    batching::{batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
@@ -94,9 +94,10 @@ impl Plugin for Mesh2dRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        batch_render_phase::<Transparent2d, Mesh2dPipeline>
+                        batch_and_prepare_render_phase::<Transparent2d, Mesh2dPipeline>
                             .in_set(RenderSet::PrepareResources),
-                        flush_buffer::<Mesh2dPipeline>.in_set(RenderSet::PrepareResourcesFlush),
+                        write_batched_instance_buffer::<Mesh2dPipeline>
+                            .in_set(RenderSet::PrepareResourcesFlush),
                         prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
                         prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                     ),

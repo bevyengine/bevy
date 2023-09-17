@@ -21,7 +21,10 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Mat4, Vec2, Vec4};
 use bevy_render::{
-    batching::{batch_render_phase, flush_buffer, GetBatchData, NoAutomaticBatching},
+    batching::{
+        batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
+        NoAutomaticBatching,
+    },
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -120,16 +123,17 @@ impl Plugin for MeshRenderPlugin {
                     Render,
                     (
                         (
-                            batch_render_phase::<Opaque3dPrepass, MeshPipeline>,
-                            batch_render_phase::<AlphaMask3dPrepass, MeshPipeline>,
-                            batch_render_phase::<Opaque3d, MeshPipeline>,
-                            batch_render_phase::<Transparent3d, MeshPipeline>,
-                            batch_render_phase::<AlphaMask3d, MeshPipeline>,
-                            batch_render_phase::<Shadow, MeshPipeline>,
+                            batch_and_prepare_render_phase::<Opaque3dPrepass, MeshPipeline>,
+                            batch_and_prepare_render_phase::<AlphaMask3dPrepass, MeshPipeline>,
+                            batch_and_prepare_render_phase::<Opaque3d, MeshPipeline>,
+                            batch_and_prepare_render_phase::<Transparent3d, MeshPipeline>,
+                            batch_and_prepare_render_phase::<AlphaMask3d, MeshPipeline>,
+                            batch_and_prepare_render_phase::<Shadow, MeshPipeline>,
                         )
                             .chain()
                             .in_set(RenderSet::PrepareResources),
-                        flush_buffer::<MeshPipeline>.in_set(RenderSet::PrepareResourcesFlush),
+                        write_batched_instance_buffer::<MeshPipeline>
+                            .in_set(RenderSet::PrepareResourcesFlush),
                         prepare_skinned_meshes.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
                         prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),

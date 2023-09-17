@@ -62,7 +62,7 @@ pub trait GetBatchData {
 
 /// Batch the items in a render phase. This means comparing metadata needed to draw each phase item
 /// and trying to combine the draws into a batch.
-pub fn batch_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBatchData>(
+pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBatchData>(
     gpu_array_buffer: ResMut<GpuArrayBuffer<F::BufferData>>,
     mut views: Query<&mut RenderPhase<I>>,
     query: Query<(Option<&NoAutomaticBatching>, F::Query)>,
@@ -124,7 +124,7 @@ pub fn batch_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBatchData>(
     }
 }
 
-pub fn flush_buffer<F: GetBatchData>(
+pub fn write_batched_instance_buffer<F: GetBatchData>(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     gpu_array_buffer: ResMut<GpuArrayBuffer<F::BufferData>>,
