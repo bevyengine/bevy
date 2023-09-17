@@ -1,7 +1,7 @@
-#import bevy_solari::scene_bindings map_ray_hit
+#import bevy_solari::scene_bindings map_ray_hit, uniforms
 #import bevy_solari::global_illumination::view_bindings view, depth_buffer, screen_probes_a, FIRST_RADIANCE_CASCADE_INTERVAL
 #import bevy_solari::world_cache::query query_world_cache
-#import bevy_solari::utils trace_ray, depth_to_world_position
+#import bevy_solari::utils trace_ray, depth_to_world_position, rand_vec2f
 #import bevy_pbr::utils octahedral_decode
 
 @compute @workgroup_size(8, 8, 1)
