@@ -154,7 +154,10 @@ impl Plugin for AccessibilityPlugin {
                 button_changed,
                 image_changed,
                 label_changed,
-            ),
+            )
+                .chain()
+                .after(bevy_winit::accessibility::AccessKitSystemSet)
+                .after(bevy_pbr::SimulationLightSystems::AddClustersFlush),
         );
     }
 }

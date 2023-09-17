@@ -132,6 +132,7 @@ impl Plugin for UiPlugin {
             PostUpdate,
             (
                 widget::measure_text_system
+                    .after(widget::update_atlas_content_size_system)
                     .before(UiSystem::Layout)
                     // Potential conflict: `Assets<Image>`
                     // In practice, they run independently since `bevy_render::camera_update_system`
@@ -144,13 +145,20 @@ impl Plugin for UiPlugin {
                     .ambiguous_with(bevy_text::update_text2d_layout),
                 widget::text_system
                     .after(UiSystem::Layout)
+                    .after(bevy_render::view::VisibilitySystems::CalculateBounds)
+                    .after(bevy_pbr::SimulationLightSystems::AddClustersFlush)
+                    .after(bevy_text::update_text2d_layout)
+                    .before(bevy_text::remove_dropped_font_atlas_sets)
                     .before(Assets::<Image>::track_assets),
             ),
         );
         #[cfg(feature = "bevy_text")]
         app.add_plugins(accessibility::AccessibilityPlugin);
         app.add_systems(PostUpdate, {
-            let system = widget::update_image_content_size_system.before(UiSystem::Layout);
+            let system = widget::update_image_content_size_system
+                .before(UiSystem::Layout)
+                .before(bevy_render::view::VisibilitySystems::CalculateBoundsFlush)
+                .after(widget::measure_text_system);
             // Potential conflicts: `Assets<Image>`
             // They run independently since `widget::image_node_system` will only ever observe
             // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
@@ -171,9 +179,15 @@ impl Plugin for UiPlugin {
             (
                 ui_layout_system
                     .in_set(UiSystem::Layout)
-                    .before(TransformSystem::TransformPropagate),
-                ui_stack_system.in_set(UiSystem::Stack),
-                update_clipping_system.after(TransformSystem::TransformPropagate),
+                    .before(TransformSystem::TransformPropagate)
+                    .before(bevy_pbr::SimulationLightSystems::AddClustersFlush)
+                    .before(bevy_render::view::VisibilitySystems::CalculateBoundsFlush),
+                ui_stack_system
+                    .in_set(UiSystem::Stack)
+                    .after(bevy_pbr::SimulationLightSystems::AddClustersFlush),
+                update_clipping_system
+                    .after(TransformSystem::TransformPropagate)
+                    .after(bevy_pbr::SimulationLightSystems::AddClustersFlush),
             ),
         );
 

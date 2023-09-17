@@ -16,6 +16,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
     query::With,
+    schedule::{IntoSystemConfigs, SystemSet},
     system::{NonSend, NonSendMut, Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
@@ -161,6 +162,10 @@ fn update_accessibility_nodes(
     }
 }
 
+/// Label for [`AccessibilityPlugin`] systems.
+#[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
+pub struct AccessKitSystemSet;
+
 /// Implements winit-specific `AccessKit` functionality.
 pub struct AccessibilityPlugin;
 
@@ -176,7 +181,9 @@ impl Plugin for AccessibilityPlugin {
                     window_closed,
                     poll_receivers,
                     update_accessibility_nodes,
-                ),
+                )
+                    .chain()
+                    .in_set(AccessKitSystemSet),
             );
     }
 }

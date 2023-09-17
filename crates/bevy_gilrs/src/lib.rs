@@ -31,7 +31,12 @@ impl Plugin for GilrsPlugin {
                     .init_non_send_resource::<RunningRumbleEffects>()
                     .add_systems(PreStartup, gilrs_event_startup_system)
                     .add_systems(PreUpdate, gilrs_event_system.before(InputSystem))
-                    .add_systems(PostUpdate, play_gilrs_rumble.in_set(RumbleSystem));
+                    .add_systems(
+                        PostUpdate,
+                        play_gilrs_rumble
+                            .in_set(RumbleSystem)
+                            .after(bevy_pbr::SimulationLightSystems::AddClustersFlush),
+                    );
             }
             Err(err) => error!("Failed to start Gilrs. {}", err),
         }

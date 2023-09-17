@@ -90,7 +90,8 @@ impl Plugin for GizmoPlugin {
                     draw_aabbs,
                     draw_all_aabbs.run_if(|config: Res<GizmoConfig>| config.aabb.draw_all),
                 )
-                    .after(TransformSystem::TransformPropagate),
+                    .after(TransformSystem::TransformPropagate)
+                    .after(bevy_pbr::SimulationLightSystems::AddClustersFlush),
             );
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {

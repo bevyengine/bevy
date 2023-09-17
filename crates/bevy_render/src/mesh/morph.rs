@@ -28,7 +28,10 @@ impl Plugin for MorphPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.register_type::<MorphWeights>()
             .register_type::<MeshMorphWeights>()
-            .add_systems(PostUpdate, inherit_weights);
+            .add_systems(
+                PostUpdate,
+                inherit_weights.after(crate::view::VisibilitySystems::CalculateBoundsFlush),
+            );
     }
 }
 

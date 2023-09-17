@@ -195,8 +195,17 @@ impl Plugin for PbrPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    add_clusters.in_set(SimulationLightSystems::AddClusters),
-                    apply_deferred.in_set(SimulationLightSystems::AddClustersFlush),
+                    add_clusters
+                        .in_set(SimulationLightSystems::AddClusters)
+                        .after(bevy_render::view::VisibilitySystems::CalculateBoundsFlush),
+                    apply_deferred
+                        .in_set(SimulationLightSystems::AddClustersFlush)
+                        .after(bevy_render::view::VisibilitySystems::CalculateBounds)
+                        .after(VisibilitySystems::CheckVisibility)
+                        .after(bevy_winit::accessibility::AccessKitSystemSet)
+                        .before(bevy_window::exit_on_all_closed)
+                        .after(TransformSystem::TransformPropagate)
+                        .after(bevy_render::mesh::morph::inherit_weights),
                     assign_lights_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)
@@ -204,6 +213,7 @@ impl Plugin for PbrPlugin {
                         .after(CameraUpdateSystem),
                     update_directional_light_cascades
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
+                        .after(SimulationLightSystems::AddClustersFlush)
                         .after(TransformSystem::TransformPropagate)
                         .after(CameraUpdateSystem),
                     update_directional_light_frusta
@@ -212,6 +222,7 @@ impl Plugin for PbrPlugin {
                         .after(VisibilitySystems::CheckVisibility)
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::UpdateDirectionalLightCascades)
+                        .after(SimulationLightSystems::AddClustersFlush)
                         // We assume that no entity will be both a directional light and a spot light,
                         // so these systems will run independently of one another.
                         // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.

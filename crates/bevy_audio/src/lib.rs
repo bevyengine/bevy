@@ -92,9 +92,16 @@ impl AddAudioSource for App {
     {
         self.init_asset::<T>().add_systems(
             PostUpdate,
-            play_queued_audio_system::<T>.in_set(AudioPlaySet),
+            play_queued_audio_system::<T>
+                .in_set(AudioPlaySet)
+                .after(bevy_pbr::SimulationLightSystems::AddClustersFlush),
         );
-        self.add_systems(PostUpdate, cleanup_finished_audio::<T>.in_set(AudioPlaySet));
+        self.add_systems(
+            PostUpdate,
+            cleanup_finished_audio::<T>
+                .in_set(AudioPlaySet)
+                .after(bevy_pbr::SimulationLightSystems::AddClustersFlush),
+        );
         self
     }
 }

@@ -215,7 +215,14 @@ impl Plugin for VisibilityPlugin {
 
         app
             // We add an AABB component in CalculateBounds, which must be ready on the same frame.
-            .add_systems(PostUpdate, apply_deferred.in_set(CalculateBoundsFlush))
+            .add_systems(
+                PostUpdate,
+                apply_deferred
+                    .in_set(CalculateBoundsFlush)
+                    .before(TransformSystem::TransformPropagate)
+                    .before(bevy_transform::systems::sync_simple_transforms)
+                    .after(bevy_winit::accessibility::AccessKitSystemSet),
+            )
             .configure_sets(PostUpdate, CalculateBoundsFlush.after(CalculateBounds))
             .add_systems(
                 PostUpdate,
@@ -225,6 +232,7 @@ impl Plugin for VisibilityPlugin {
                         .in_set(UpdateOrthographicFrusta)
                         .after(camera_system::<OrthographicProjection>)
                         .after(TransformSystem::TransformPropagate)
+                        .after(CalculateBoundsFlush)
                         // We assume that no camera will have more than one projection component,
                         // so these systems will run independently of one another.
                         // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
@@ -234,6 +242,7 @@ impl Plugin for VisibilityPlugin {
                         .in_set(UpdatePerspectiveFrusta)
                         .after(camera_system::<PerspectiveProjection>)
                         .after(TransformSystem::TransformPropagate)
+                        .after(CalculateBoundsFlush)
                         // We assume that no camera will have more than one projection component,
                         // so these systems will run independently of one another.
                         // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
@@ -241,9 +250,11 @@ impl Plugin for VisibilityPlugin {
                     update_frusta::<Projection>
                         .in_set(UpdateProjectionFrusta)
                         .after(camera_system::<Projection>)
-                        .after(TransformSystem::TransformPropagate),
+                        .after(TransformSystem::TransformPropagate)
+                        .after(CalculateBoundsFlush),
                     (visibility_propagate_system, reset_view_visibility)
-                        .in_set(VisibilityPropagate),
+                        .in_set(VisibilityPropagate)
+                        .after(crate::view::VisibilitySystems::CalculateBoundsFlush),
                     check_visibility
                         .in_set(CheckVisibility)
                         .after(CalculateBoundsFlush)
@@ -493,7 +504,10 @@ mod test {
     #[test]
     fn visibility_propagation() {
         let mut app = App::new();
-        app.add_systems(Update, visibility_propagate_system);
+        app.add_systems(
+            Update,
+            visibility_propagate_system.after(crate::view::VisibilitySystems::CalculateBoundsFlush),
+        );
 
         let root1 = app
             .world
@@ -600,7 +614,10 @@ mod test {
     #[test]
     fn visibility_propagation_unconditional_visible() {
         let mut app = App::new();
-        app.add_systems(Update, visibility_propagate_system);
+        app.add_systems(
+            Update,
+            visibility_propagate_system.after(crate::view::VisibilitySystems::CalculateBoundsFlush),
+        );
 
         let root1 = app
             .world
@@ -700,7 +717,9 @@ mod test {
     fn visibility_progation_change_detection() {
         let mut world = World::new();
         let mut schedule = Schedule::default();
-        schedule.add_systems(visibility_propagate_system);
+        schedule.add_systems(
+            visibility_propagate_system.after(crate::view::VisibilitySystems::CalculateBoundsFlush),
+        );
 
         // Set up an entity hierarchy.
 
