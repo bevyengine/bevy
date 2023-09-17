@@ -1,5 +1,5 @@
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, AssetId, Handle};
 
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{
@@ -10,14 +10,11 @@ use bevy_ecs::{
 use bevy_math::{Affine3, Vec2, Vec4};
 use bevy_reflect::Reflect;
 use bevy_render::{
-    batching::{batch_render_phase, BatchMeta, NoAutomaticBatching},
+    batching::{batch_render_phase, flush_buffer, GetBatchData},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
-    render_phase::{
-        CachedRenderPipelinePhaseItem, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase,
-        TrackedRenderPass,
-    },
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
@@ -97,7 +94,9 @@ impl Plugin for Mesh2dRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        prepare_and_batch_meshes2d.in_set(RenderSet::PrepareResources),
+                        batch_render_phase::<Transparent2d, Mesh2dPipeline>
+                            .in_set(RenderSet::PrepareResources),
+                        flush_buffer::<Mesh2dPipeline>.in_set(RenderSet::PrepareResourcesFlush),
                         prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
                         prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                     ),
@@ -201,54 +200,6 @@ pub fn extract_mesh2d(
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn prepare_and_batch_meshes2d(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    gpu_array_buffer: ResMut<GpuArrayBuffer<Mesh2dUniform>>,
-    mut views: Query<&mut RenderPhase<Transparent2d>>,
-    meshes: Query<
-        (
-            Option<&Material2dBindGroupId>,
-            &Mesh2dHandle,
-            &Mesh2dTransforms,
-        ),
-        Without<NoAutomaticBatching>,
-    >,
-) {
-    if meshes.is_empty() {
-        return;
-    }
-
-    let gpu_array_buffer = gpu_array_buffer.into_inner();
-
-    gpu_array_buffer.clear();
-
-    for transparent_phase in &mut views {
-        batch_render_phase(transparent_phase.into_inner(), |item| {
-            let Ok((material2d_bind_group_id, mesh_handle, mesh_transforms)) =
-                meshes.get(item.entity())
-            else {
-                return None;
-            };
-            let gpu_array_buffer_index = gpu_array_buffer.push(mesh_transforms.into());
-            Some((
-                BatchMeta::<Material2dBindGroupId> {
-                    pipeline_id: item.cached_pipeline(),
-                    draw_function_id: item.draw_function(),
-                    material_bind_group_id: material2d_bind_group_id.cloned(),
-                    mesh_asset_id: mesh_handle.0.id(),
-                    dynamic_offset: gpu_array_buffer_index.dynamic_offset,
-                },
-                gpu_array_buffer_index.index,
-                gpu_array_buffer_index.dynamic_offset,
-            ))
-        });
-    }
-
-    gpu_array_buffer.write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Resource, Clone)]
@@ -369,6 +320,25 @@ impl Mesh2dPipeline {
                 &self.dummy_white_gpu_image.sampler,
             ))
         }
+    }
+}
+
+impl GetBatchData for Mesh2dPipeline {
+    type Query = (
+        Option<&'static Material2dBindGroupId>,
+        &'static Mesh2dHandle,
+        &'static Mesh2dTransforms,
+    );
+    type CompareData = (Option<Material2dBindGroupId>, AssetId<Mesh>);
+    type BufferData = Mesh2dUniform;
+
+    fn get_batch_data(
+        (material_bind_group_id, mesh_handle, mesh_transforms): <Self::Query as bevy_ecs::query::WorldQuery>::Item<'_>,
+    ) -> (Self::CompareData, Self::BufferData) {
+        (
+            (material_bind_group_id.cloned(), mesh_handle.0.id()),
+            mesh_transforms.into(),
+        )
     }
 }
 
