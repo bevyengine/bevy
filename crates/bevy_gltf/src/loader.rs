@@ -748,11 +748,11 @@ fn load_node(
     let transform = Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix()));
     let world_transform = *parent_transform * transform;
     // according to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation,
-    // if the determinant of the transform is negative we must invert the winding order of 
-    // triangles in meshes on the node. 
-    // instead we equivalently test if the global scale is inverted by checking if the number 
-    // of negative scale factors is odd. if so we will assign a copy of the material with face 
-    // culling inverted, rather than modifying the mesh data directly. 
+    // if the determinant of the transform is negative we must invert the winding order of
+    // triangles in meshes on the node.
+    // instead we equivalently test if the global scale is inverted by checking if the number
+    // of negative scale factors is odd. if so we will assign a copy of the material with face
+    // culling inverted, rather than modifying the mesh data directly.
     let is_scale_inverted = world_transform.scale.is_negative_bitmask().count_ones() & 1 == 1;
     let mut node = world_builder.spawn(SpatialBundle::from(transform));
 
