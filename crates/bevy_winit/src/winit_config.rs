@@ -56,15 +56,7 @@ impl WinitSettings {
     /// [`Reactive`](UpdateMode::Reactive) if windows have focus,
     /// [`ReactiveLowPower`](UpdateMode::ReactiveLowPower) otherwise.
     pub fn desktop_app() -> Self {
-        WinitSettings {
-            focused_mode: UpdateMode::Reactive {
-                wait: Duration::from_secs(5),
-            },
-            unfocused_mode: UpdateMode::ReactiveLowPower {
-                wait: Duration::from_secs(60),
-            },
-            ..Default::default()
-        }
+        Self::game()
     }
 
     /// Returns the current [`UpdateMode`].

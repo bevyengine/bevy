@@ -694,8 +694,8 @@ impl Default for ClusterConfig {
         // 24 depth slices, square clusters with at most 4096 total clusters
         // use max light distance as clusters max `Z`-depth, first slice extends to 5.0
         Self::FixedZ {
-            total: 4096,
-            z_slices: 24,
+            total: 128,
+            z_slices: 4,
             z_config: ClusterZConfig::default(),
             dynamic_resizing: true,
         }

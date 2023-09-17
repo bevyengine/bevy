@@ -47,6 +47,9 @@ use bevy_window::{
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity::AndroidApp;
 
+#[cfg(target_os = "macos")]
+use winit::platform::macos::EventLoopBuilderExtMacOS;
+
 use winit::{
     event::{self, DeviceEvent, Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
@@ -75,6 +78,9 @@ pub struct WinitPlugin;
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
         let mut event_loop_builder = EventLoopBuilder::<()>::with_user_event();
+
+        event_loop_builder.with_activate_ignoring_other_apps(false);
+
         #[cfg(target_os = "android")]
         {
             use winit::platform::android::EventLoopBuilderExtAndroid;
@@ -438,6 +444,11 @@ pub fn winit_runner(mut app: App) {
                 };
 
                 runner_state.window_event_received = true;
+                event_writers.window_resized.send(WindowResized {
+                    window: window_entity,
+                    width: window.width(),
+                    height: window.height(),
+                });
 
                 match event {
                     WindowEvent::Resized(size) => {
