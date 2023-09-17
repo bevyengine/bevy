@@ -997,7 +997,7 @@ impl ScheduleGraph {
             if self.systems[source_node.index()]
                 .get()
                 .unwrap()
-                .has_deferred()
+                .should_sync()
                 && !is_apply_deferred(self.systems[target_node.index()].get().unwrap())
             {
                 sync_point_graph.add_edge(source_node, NodeId::TempSyncNode(temp_node_index), ());
@@ -1721,9 +1721,9 @@ impl ScheduleGraph {
         let n_ambiguities = ambiguities.len();
 
         let mut message = format!(
-            "{n_ambiguities} pairs of systems with conflicting data access have indeterminate execution order. \
-            Consider adding `before`, `after`, or `ambiguous_with` relationships between these:\n",
-        );
+                "{n_ambiguities} pairs of systems with conflicting data access have indeterminate execution order. \
+                Consider adding `before`, `after`, or `ambiguous_with` relationships between these:\n",
+            );
 
         for (name_a, name_b, conflicts) in self.conflicts_to_string(ambiguities, components) {
             writeln!(message, " -- {name_a} and {name_b}").unwrap();
@@ -1950,5 +1950,39 @@ mod tests {
 
         // inserted a sync point
         assert_eq!(schedule.executable.systems.len(), 4);
+    }
+
+    #[test]
+    fn adds_multiple_consecutive_syncs() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        // insert two consecutive command systems, it should create two sync points
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |mut commands: Commands| commands.insert_resource(Resource2),
+                |_: Res<Resource1>, _: Res<Resource2>| {},
+            )
+                .chain(),
+        );
+        schedule.run(&mut world);
+
+        assert_eq!(schedule.executable.systems.len(), 5);
+    }
+
+    #[test]
+    fn skips_adding_a_sync_point() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        schedule.add_systems(
+            (
+                (|mut commands: Commands| commands.insert_resource(Resource1)).no_sync_after(),
+                |res: Option<Res<Resource1>>| assert!(res.is_none()),
+            )
+                .chain(),
+        );
+        schedule.run(&mut world);
+
+        assert_eq!(schedule.executable.systems.len(), 2);
     }
 }

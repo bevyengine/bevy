@@ -205,6 +205,21 @@ impl<T> NodeConfigs<T> {
     }
 }
 
+impl NodeConfigs<BoxedSystem> {
+    fn no_sync_after_inner(&mut self) {
+        match self {
+            Self::NodeConfig(config) => {
+                System::no_sync_after(config.node.as_mut());
+            }
+            Self::Configs { configs, .. } => {
+                for config in configs {
+                    config.no_sync_after_inner();
+                }
+            }
+        }
+    }
+}
+
 /// Types that can convert into a [`SystemConfigs`].
 pub trait IntoSystemConfigs<Marker>
 where
@@ -316,6 +331,11 @@ where
     fn chain(self) -> SystemConfigs {
         self.into_configs().chain()
     }
+
+    /// Do not add auto sync points for these systems.
+    fn no_sync_after(self) -> SystemConfigs {
+        self.into_configs().no_sync_after()
+    }
 }
 
 impl IntoSystemConfigs<()> for SystemConfigs {
@@ -370,6 +390,11 @@ impl IntoSystemConfigs<()> for SystemConfigs {
 
     fn chain(self) -> Self {
         self.chain_inner()
+    }
+
+    fn no_sync_after(mut self) -> SystemConfigs {
+        self.no_sync_after_inner();
+        self
     }
 }
 

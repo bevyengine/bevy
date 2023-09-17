@@ -25,6 +25,7 @@ pub struct SystemMeta {
     // SystemParams from overriding each other
     is_send: bool,
     has_deferred: bool,
+    no_sync_after: bool,
     pub(crate) last_run: Tick,
     #[cfg(feature = "trace")]
     pub(crate) system_span: Span,
@@ -41,6 +42,7 @@ impl SystemMeta {
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
             has_deferred: false,
+            no_sync_after: false,
             last_run: Tick::new(0),
             #[cfg(feature = "trace")]
             system_span: info_span!("system", name = name),
@@ -478,8 +480,13 @@ where
     }
 
     #[inline]
-    fn has_deferred(&self) -> bool {
-        self.system_meta.has_deferred
+    fn should_sync(&self) -> bool {
+        self.system_meta.has_deferred && !self.system_meta.no_sync_after
+    }
+
+    #[inline]
+    fn no_sync_after(&mut self) {
+        self.system_meta.no_sync_after = true;
     }
 
     #[inline]
