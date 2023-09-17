@@ -17,6 +17,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3A, Mat4};
 use bevy_render::{
+    batching::batch_and_prepare_render_phase,
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
@@ -158,7 +159,12 @@ where
                 .add_systems(ExtractSchedule, extract_camera_previous_view_projection)
                 .add_systems(
                     Render,
-                    prepare_previous_view_projection_uniforms.in_set(RenderSet::PrepareResources),
+                    (
+                        prepare_previous_view_projection_uniforms,
+                        batch_and_prepare_render_phase::<Opaque3dPrepass, MeshPipeline>,
+                        batch_and_prepare_render_phase::<AlphaMask3dPrepass, MeshPipeline>,
+                    )
+                        .in_set(RenderSet::PrepareResources),
                 );
         }
 

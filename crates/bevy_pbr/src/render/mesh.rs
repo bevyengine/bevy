@@ -9,7 +9,7 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetId, Assets, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
-    prepass::{AlphaMask3dPrepass, Opaque3dPrepass, ViewPrepassTextures},
+    prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
     },
@@ -123,14 +123,11 @@ impl Plugin for MeshRenderPlugin {
                     Render,
                     (
                         (
-                            batch_and_prepare_render_phase::<Opaque3dPrepass, MeshPipeline>,
-                            batch_and_prepare_render_phase::<AlphaMask3dPrepass, MeshPipeline>,
                             batch_and_prepare_render_phase::<Opaque3d, MeshPipeline>,
                             batch_and_prepare_render_phase::<Transparent3d, MeshPipeline>,
                             batch_and_prepare_render_phase::<AlphaMask3d, MeshPipeline>,
                             batch_and_prepare_render_phase::<Shadow, MeshPipeline>,
                         )
-                            .chain()
                             .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<MeshPipeline>
                             .in_set(RenderSet::PrepareResourcesFlush),
