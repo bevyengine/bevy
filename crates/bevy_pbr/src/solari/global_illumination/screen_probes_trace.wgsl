@@ -21,16 +21,17 @@ fn trace_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let probe_world_position = depth_to_world_position(probe_depth, probe_center_uv);
 
     // Calculate world-space normal of the assigned probe texel for this thread
-    let probe_cell_center = vec2<f32>(global_id.xy % probe_size) + 0.5;
+    var rng = uniforms.frame_count * 5782582u;
+    let probe_cell_center = vec2<f32>(global_id.xy % probe_size) + rand_vec2f(&rng);
     let probe_cell_uv = probe_cell_center / f32(probe_size);
     let probe_cell_normal = octahedral_decode(probe_cell_uv);
 
     // Calculate radiance interval for this probe based on which cascade it's part of
-    var radiance_interval_min = FIRST_RADIANCE_CASCADE_INTERVAL * f32(probe_size / 16u);
-    var radiance_interval_max = radiance_interval_min * 2.0;
+    let i = f32(global_id.z);
+    var radiance_interval_min = FIRST_RADIANCE_CASCADE_INTERVAL * (exp2(i) - 1.0);
+    var radiance_interval_max = FIRST_RADIANCE_CASCADE_INTERVAL * (exp2(i + 1.0) - 1.0);
     if global_id.z == 0u {
         radiance_interval_min = 0.001;
-        radiance_interval_max = FIRST_RADIANCE_CASCADE_INTERVAL;
     }
 
     // Trace radiance interval, query world cache for lighting at hit
