@@ -4,7 +4,7 @@ use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{
     prelude::*,
-    query::ROQueryItem,
+    query::{ROQueryItem, WorldQuery},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Vec2, Vec4};
@@ -333,7 +333,9 @@ impl GetBatchData for Mesh2dPipeline {
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
-        (material_bind_group_id, mesh_handle, mesh_transforms): <Self::Query as bevy_ecs::query::WorldQuery>::Item<'_>,
+        (material_bind_group_id, mesh_handle, mesh_transforms): <Self::Query as WorldQuery>::Item<
+            '_,
+        >,
     ) -> (Self::CompareData, Self::BufferData) {
         (
             (material_bind_group_id.cloned(), mesh_handle.0.id()),
@@ -635,15 +637,15 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let mut dynamic_offsets: [u32; 1] = Default::default();
-        let mut index_count = 0;
-        if let Some(mesh_index) = item.dynamic_offset() {
-            dynamic_offsets[index_count] = mesh_index.get();
-            index_count += 1;
+        let mut offset_count = 0;
+        if let Some(dynamic_offset) = item.dynamic_offset() {
+            dynamic_offsets[offset_count] = dynamic_offset.get();
+            offset_count += 1;
         }
         pass.set_bind_group(
             I,
             &mesh2d_bind_group.into_inner().value,
-            &dynamic_offsets[..index_count],
+            &dynamic_offsets[..offset_count],
         );
         RenderCommandResult::Success
     }

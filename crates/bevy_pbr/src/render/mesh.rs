@@ -1334,20 +1334,20 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         };
 
         let mut dynamic_offsets: [u32; 3] = Default::default();
-        let mut index_count = 0;
-        if let Some(mesh_index) = item.dynamic_offset() {
-            dynamic_offsets[index_count] = mesh_index.get();
-            index_count += 1;
+        let mut offset_count = 0;
+        if let Some(dynamic_offset) = item.dynamic_offset() {
+            dynamic_offsets[offset_count] = dynamic_offset.get();
+            offset_count += 1;
         }
         if let Some(skin_index) = skin_index {
-            dynamic_offsets[index_count] = skin_index.index;
-            index_count += 1;
+            dynamic_offsets[offset_count] = skin_index.index;
+            offset_count += 1;
         }
         if let Some(morph_index) = morph_index {
-            dynamic_offsets[index_count] = morph_index.index;
-            index_count += 1;
+            dynamic_offsets[offset_count] = morph_index.index;
+            offset_count += 1;
         }
-        pass.set_bind_group(I, bind_group, &dynamic_offsets[0..index_count]);
+        pass.set_bind_group(I, bind_group, &dynamic_offsets[0..offset_count]);
 
         RenderCommandResult::Success
     }
