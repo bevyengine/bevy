@@ -33,7 +33,6 @@ around 4/20/2021, users had to [manually set up servers](https://wiki.ubuntu.com
 Make note of the date for documentation found across the internet.
 Following advice from before WSLg's release can lead to additional conflicts.
 
-
 ## [Fedora](https://getfedora.org/)
 
 ```bash
