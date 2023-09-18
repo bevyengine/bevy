@@ -30,7 +30,7 @@ impl World {
     }
 
     /// Retrieves an mutable `dyn T` reference to the given entity's Component of the given [`ComponentId`]
-    pub fn get_dyn_mut_by_id<T: ReflectFnsTypeData + 'static>(
+    pub fn get_dyn_mut_by_id<T: ReflectFnsTypeData>(
         &mut self,
         entity: Entity,
         component_id: ComponentId,
