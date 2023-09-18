@@ -412,7 +412,7 @@ mod tests {
     }
 
     #[test]
-    fn f32_4() { 
+    fn f32_4() {
         let buffer = vec![[0.0; 4]; 10];
         let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[f32; 4]> = values.clone().try_into().unwrap();
