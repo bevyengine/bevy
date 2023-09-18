@@ -143,11 +143,13 @@ without UI components as a child of an entity with UI components, results may be
     /// Set the ui node entities without a [`Parent`] as children to the root node in the taffy layout.
     pub fn set_window_children(
         &mut self,
-        parent_window: Entity,
+        window_id: Entity,
         children: impl Iterator<Item = Entity>,
     ) {
         let viewport_style = taffy::style::Style {
             display: taffy::style::Display::Grid,
+            // Note: Taffy percentages are floats ranging from 0.0 to 1.0.
+            // So this is setting width:100% and height:100%
             size: taffy::geometry::Size {
                 width: taffy::style::Dimension::Percent(1.0),
                 height: taffy::style::Dimension::Percent(1.0),
@@ -157,9 +159,7 @@ without UI components as a child of an entity with UI components, results may be
             ..default()
         };
 
-        let empty_vec = Vec::new();
-        let existing_roots = self.window_roots.get(&parent_window).unwrap_or(&empty_vec);
-
+        let existing_roots = self.window_roots.entry(window_id).or_default();
         let mut new_roots = Vec::new();
         for entity in children {
             let node = *self.entity_to_taffy.get(&entity).unwrap();
@@ -184,7 +184,7 @@ without UI components as a child of an entity with UI components, results may be
             }
         }
 
-        self.window_roots.insert(parent_window, new_roots);
+        self.window_roots.insert(window_id, new_roots);
     }
 
     /// Compute the layout for each window entity's corresponding root node in the layout.
