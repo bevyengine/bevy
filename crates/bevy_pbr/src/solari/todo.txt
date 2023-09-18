@@ -16,7 +16,6 @@
     * Variance driven world cache update rate, skipping very stable cells, and adapting to lighting changes faster
 * Consider 4x4 probes for the first cascade
 * More efficent screen probe cascade merging/tracing routines
-* Count emissive from screen probe tracing hits?
 
 * Specular lighting
 * Cleanup, remaining TODOs, performance profiling, documentation, etc

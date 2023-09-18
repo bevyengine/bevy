@@ -39,7 +39,7 @@ fn trace_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let ray_hit = trace_ray(probe_world_position, probe_cell_normal, radiance_interval_min, radiance_interval_max);
     if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
         let ray_hit = map_ray_hit(ray_hit);
-        let hit_color = ray_hit.material.base_color * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal);
+        let hit_color = ray_hit.material.emissive + ray_hit.material.base_color * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal);
         color = vec4(hit_color, 0.0);
     }
 
