@@ -1,6 +1,6 @@
 //! Demonstrates using a custom extension to the `StandardMaterial` to modify the results of the builtin pbr shader.
 
-use bevy::{pbr::ExtendedMaterial, prelude::*, reflect::TypeUuid, render::render_resource::*};
+use bevy::{pbr::ExtendedMaterial, prelude::*, render::render_resource::*};
 use bevy_internal::reflect::TypePath;
 
 fn main() {
@@ -60,8 +60,7 @@ fn rotate_things(mut q: Query<&mut Transform, With<Rotate>>, time: Res<Time>) {
     }
 }
 
-#[derive(AsBindGroup, TypePath, TypeUuid, Debug, Clone)]
-#[uuid = "a3d71c04-d054-4946-80f8-ba6cfbc90cad"]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
 struct MyExtendedMaterial {
     #[uniform(100)]
     quantize_steps: u32,
