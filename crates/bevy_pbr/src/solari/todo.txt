@@ -5,7 +5,6 @@
     * Jitter rays per-cell + time
     * Use spatiotemporal blue noise for ray jitter
     * Jitter per-pixel offset into the interpolation for use with TAA?
-* Spherical harmonics might still be broken?
 
 * World cache improvements
     * Tie world cache to camera, use a log scale for cell size

@@ -201,7 +201,7 @@ fn get_spherical_harmonics_coefficents(direction: vec3<f32>) -> array<f32, 9> {
     sh[4] = (1.092548 * x * z) * A2;
     sh[5] = (1.092548 * y * z) * A2;
     sh[6] = (1.092548 * x * y) * A2;
-    sh[7] = ((3.0 * z * z) - 1.0) * A2;
+    sh[7] = (0.315392 * (3.0 * z * z - 1.0)) * A2;
     sh[8] = (0.546274 * (x * x - y * y)) * A2;
     return sh;
 }
