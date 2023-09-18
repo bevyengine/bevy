@@ -1015,6 +1015,33 @@ impl Color {
     {
         self.in_space::<C>().difference(rhs.in_space::<C>())
     }
+
+    /// Convenience method for comparing colors using CIEDE2000 in the Lch color space. If the delta
+    /// is greater than 1., then the colors are considered just perceptually different enough to no
+    /// longer be equal.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_render::color::{Color, palette::Lch};
+    /// #
+    /// let a = Color::hsl(0., 1.0, 0.5);
+    /// let b = Color::hsl(1., 1.0, 0.5);
+    ///
+    /// // A 1 degree shift in hue within HSL isn't visually distinctive.
+    /// assert!(a.perceptually_eq(b));
+    ///
+    /// let a = Color::hsl(0., 1.0, 0.5);
+    /// let b = Color::hsl(10., 1.0, 0.5);
+    ///
+    /// // A 10 degree shift is.
+    /// assert!(!a.perceptually_eq(b));
+    /// ```
+    ///
+    /// See [Wikipedia's Article on Color Difference Tolerance](https://en.wikipedia.org/wiki/Color_difference#Tolerance)
+    pub fn perceptually_eq(self, rhs: Self) -> bool {
+        self.difference_in::<palette::Lch>(rhs).abs() < 1.
+    }
 }
 
 impl Default for Color {
