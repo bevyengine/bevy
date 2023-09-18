@@ -183,3 +183,26 @@ fn depth_to_world_position(depth: f32, uv: vec2<f32>) -> vec3<f32> {
     let world_pos = view.inverse_view_proj * vec4(xy_ndc, depth, 1.0);
     return world_pos.xyz / world_pos.w;
 }
+
+fn get_spherical_harmonics_coefficents(direction: vec3<f32>) -> array<f32, 9> {
+    let x = direction.x;
+    let y = direction.y;
+    let z = direction.z;
+
+    let A0 = PI;
+    let A1 = (2.0 * PI) / 3.0;
+    let A2 = PI / 4.0;
+
+
+    var sh: array<f32, 9>;
+    sh[0] = 0.282095 * A0;
+    sh[1] = (0.488603 * x) * A1;
+    sh[2] = (0.488603 * z) * A1;
+    sh[3] = (0.488603 * y) * A1;
+    sh[4] = (1.092548 * x * z) * A2;
+    sh[5] = (1.092548 * y * z) * A2;
+    sh[6] = (1.092548 * x * y) * A2;
+    sh[7] = ((3.0 * z * z) - 1.0) * A2;
+    sh[8] = (0.546274 * (x * x - y * y)) * A2;
+    return sh;
+}

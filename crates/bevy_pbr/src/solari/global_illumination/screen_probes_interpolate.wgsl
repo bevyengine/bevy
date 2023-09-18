@@ -1,5 +1,5 @@
 #import bevy_solari::global_illumination::view_bindings view, depth_buffer, normals_buffer, screen_probes_spherical_harmonics, screen_probes_a, diffuse_raw
-#import bevy_solari::utils depth_to_world_position
+#import bevy_solari::utils depth_to_world_position, get_spherical_harmonics_coefficents
 
 @compute @workgroup_size(8, 8, 1)
 fn interpolate_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -42,33 +42,31 @@ fn interpolate_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>
 }
 
 fn sample_probe(probe_id: vec2<u32>, pixel_world_normal: vec3<f32>, probe_count: vec2<u32>) -> vec3<f32> {
-    let c1 = 0.429043;
-    let c2 = 0.511664;
-    let c3 = 0.743125;
-    let c4 = 0.886227;
-    let c5 = 0.247708;
-    let x = pixel_world_normal.x;
-    let y = pixel_world_normal.y;
-    let z = pixel_world_normal.z;
-    let xz = x * z;
-    let yz = y * z;
-    let xy = x * y;
-    let zz = z * z;
-    let xx_yy = x * x - y * y;
+    let probe_sh_packed = screen_probes_spherical_harmonics[probe_id.x + probe_id.y * probe_count.x];
+    var probe_sh: array<vec3<f32>, 9>;
+    probe_sh[0] = probe_sh_packed.a.xyz;
+    probe_sh[1] = vec3(probe_sh_packed.a.w, probe_sh_packed.b.xy);
+    probe_sh[2] = vec3(probe_sh_packed.b.zw, probe_sh_packed.c.x);
+    probe_sh[3] = probe_sh_packed.c.yzw;
+    probe_sh[4] = probe_sh_packed.d.xyz;
+    probe_sh[5] = vec3(probe_sh_packed.d.w, probe_sh_packed.e.xy);
+    probe_sh[6] = vec3(probe_sh_packed.e.zw, probe_sh_packed.f.x);
+    probe_sh[7] = probe_sh_packed.f.yzw;
+    probe_sh[8] = probe_sh_packed.g.xyz;
 
-    let sh_index = probe_id.x + probe_id.y * probe_count.x;
-    let sh = screen_probes_spherical_harmonics[sh_index];
+    let pixel_sh = get_spherical_harmonics_coefficents(pixel_world_normal);
 
-    let L00 = sh.a.xyz;
-    let L11 = vec3(sh.a.w, sh.b.xy);
-    let L10 = vec3(sh.b.zw, sh.c.x);
-    let L1_1 = sh.c.yzw;
-    let L21 = sh.d.xyz;
-    let L2_1 = vec3(sh.d.w, sh.e.xy);
-    let L2_2 = vec3(sh.e.zw, sh.f.x);
-    let L20 = sh.f.yzw;
-    let L22 = sh.g;
-    return (c1 * L22 * xx_yy) + (c3 * L20 * zz) + (c4 * L00) - (c5 * L20) + (2.0 * c1 * ((L2_2 * xy) + (L21 * xz) + (L2_1 * yz))) + (2.0 * c2 * ((L11 * x) + (L1_1 * y) + (L10 * z)));
+    var irradiance = vec3(0.0);
+    irradiance += pixel_sh[0] * probe_sh[0];
+    irradiance += pixel_sh[1] * probe_sh[1];
+    irradiance += pixel_sh[2] * probe_sh[2];
+    irradiance += pixel_sh[3] * probe_sh[3];
+    irradiance += pixel_sh[4] * probe_sh[4];
+    irradiance += pixel_sh[5] * probe_sh[5];
+    irradiance += pixel_sh[6] * probe_sh[6];
+    irradiance += pixel_sh[7] * probe_sh[7];
+    irradiance += pixel_sh[8] * probe_sh[8];
+    return irradiance;
 }
 
 fn plane_distance_weight(probe_id: vec2<u32>, pixel_world_position: vec3<f32>, pixel_world_normal: vec3<f32>) -> f32 {

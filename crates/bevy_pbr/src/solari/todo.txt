@@ -9,10 +9,11 @@
     * If visible last frame, reproject last frame's lighting
     * Think about hashing ray direction, instead of hit position
     * Variance driven world cache update rate, skipping very stable cells, and adapting to lighting changes faster
-
 * Improve spatiotemporal denoiser
+    * Better reprojection
     * Spatial weights
     * Early return for denoise passes for sky pixels or 0 spatial denoising
+
 * Specular lighting
 * Cleanup, remaining TODOs, performance profiling, documentation, etc
     * "A Fast and Robust Method for Avoiding Self-Intersection"

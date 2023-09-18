@@ -16,6 +16,7 @@
 #ifdef ENVIRONMENT_MAP
 #import bevy_pbr::environment_map
 #endif
+#import bevy_pbr::utils PI
 
 #import bevy_pbr::mesh_bindings   mesh
 #import bevy_pbr::mesh_types      MESH_FLAGS_SHADOW_RECEIVER_BIT
@@ -271,7 +272,7 @@ fn pbr(
 #ifdef GLOBAL_ILLUMINATION
     let gi = textureLoad(view_bindings::global_illumination_texture, vec2<i32>(in.frag_coord.xy), 0).rgb;
     // TODO: Use occlusion?
-    indirect_light += gi * diffuse_color;
+    indirect_light += gi * (diffuse_color / PI);
 #endif
 
     let emissive_light = emissive.rgb * output_color.a;

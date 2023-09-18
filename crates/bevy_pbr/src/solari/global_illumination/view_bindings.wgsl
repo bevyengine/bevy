@@ -9,7 +9,7 @@ struct SphericalHarmonicsPacked {
     d: vec4<f32>,
     e: vec4<f32>,
     f: vec4<f32>,
-    g: vec3<f32>,
+    g: vec4<f32>,
 }
 
 struct WorldCacheCellData {
