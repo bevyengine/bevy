@@ -28,7 +28,6 @@ necessary servers for passing graphics and audio between Windows and the WSL ins
 With WSLg, a user's WSL instance can use X11 as well as Wayland.
 For more information, see WSLg [documentation](https://github.com/microsoft/wslg#wslg-architecture-overview).
 
-
 Prior to the release of [WSL Gui (WSLg)](https://en.wikipedia.org/wiki/Windows_Subsystem_for_Linux#WSLg)
 around 4/20/2021, users had to [manually set up servers](https://wiki.ubuntu.com/WSL#Advanced_Topics) on windows for graphic and audio.
 Make note of the date for documentation found across the internet.
