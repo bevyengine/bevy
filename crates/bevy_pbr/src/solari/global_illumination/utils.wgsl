@@ -193,7 +193,6 @@ fn get_spherical_harmonics_coefficents(direction: vec3<f32>) -> array<f32, 9> {
     let A1 = (2.0 * PI) / 3.0;
     let A2 = PI / 4.0;
 
-
     var sh: array<f32, 9>;
     sh[0] = 0.282095 * A0;
     sh[1] = (0.488603 * x) * A1;
