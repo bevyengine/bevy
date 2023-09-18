@@ -648,13 +648,14 @@ impl GetBatchData for MeshPipeline {
     type CompareData = (Option<MaterialBindGroupId>, AssetId<Mesh>);
     type BufferData = MeshUniform;
 
-    fn get_batch_data(
-        (material_bind_group_id, mesh_handle, mesh_transforms): QueryItem<Self::Query>,
-    ) -> (Self::CompareData, Self::BufferData) {
-        (
-            (material_bind_group_id.cloned(), mesh_handle.id()),
-            mesh_transforms.into(),
-        )
+    fn get_buffer_data(&(.., mesh_transforms): &QueryItem<Self::Query>) -> Self::BufferData {
+        mesh_transforms.into()
+    }
+
+    fn get_compare_data(
+        &(material_bind_group_id, mesh_handle, ..): &QueryItem<Self::Query>,
+    ) -> Self::CompareData {
+        (material_bind_group_id.cloned(), mesh_handle.id())
     }
 }
 

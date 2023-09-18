@@ -23,12 +23,12 @@ pub struct NoAutomaticBatching;
 ///   queued to phases
 /// - View bindings are constant across a phase for a given draw function as
 ///   phases are per-view
-/// - `prepare_and_batch_meshes` is the only system that performs this batching
-///   and has sole responsibility for preparing the per-object data. As such
-///   the mesh binding and dynamic offsets are assumed to only be variable as a
-///   result of the `prepare_and_batch_meshes` system, e.g. due to having to split
-///   data across separate uniform bindings within the same buffer due to the
-///   maximum uniform buffer binding size.
+/// - `batch_and_prepare_render_phase` is the only system that performs this
+///   batching and has sole responsibility for preparing the per-object data.
+///   As such the mesh binding and dynamic offsets are assumed to only be
+///   variable as a result of the `batch_and_prepare_render_phase` system, e.g.
+///   due to having to split data across separate uniform bindings within the
+///   same buffer due to the maximum uniform buffer binding size.
 #[derive(PartialEq)]
 struct BatchMeta<T: PartialEq> {
     /// The pipeline id encompasses all pipeline configuration including vertex
@@ -41,6 +41,7 @@ struct BatchMeta<T: PartialEq> {
     dynamic_offset: Option<NonMaxU32>,
     user_data: T,
 }
+
 impl<T: PartialEq> BatchMeta<T> {
     fn new(item: &impl CachedRenderPipelinePhaseItem, user_data: T) -> Self {
         BatchMeta {
@@ -52,11 +53,22 @@ impl<T: PartialEq> BatchMeta<T> {
     }
 }
 
+/// A trait to support getting data used for batching draw commands via phase
+/// items.
 pub trait GetBatchData {
     type Query: ReadOnlyWorldQuery;
+    /// Data used for comparison between phase items. If the pipeline id, draw
+    /// function id, per-instance data buffer dynamic offset and this data
+    /// matches, the draws can be batched.
     type CompareData: PartialEq;
+    /// The per-instance data to be inserted into the [`GpuArrayBuffer`]
+    /// containing these data for all instances.
     type BufferData: GpuArrayBufferable + Sync + Send + 'static;
-    fn get_batch_data(batch_data: QueryItem<Self::Query>) -> (Self::CompareData, Self::BufferData);
+    /// Get the per-instance data to be inserted into the [`GpuArrayBuffer`].
+    fn get_buffer_data(query_item: &QueryItem<Self::Query>) -> Self::BufferData;
+    /// Get the data used for comparison when deciding whether draws can be
+    /// batched.
+    fn get_compare_data(query_item: &QueryItem<Self::Query>) -> Self::CompareData;
 }
 
 /// Batch the items in a render phase. This means comparing metadata needed to draw each phase item
@@ -70,20 +82,24 @@ pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBa
 
     let mut process_item = |item: &mut I| {
         let (no_auto_batching, batch_query_item) = query.get(item.entity()).ok()?;
-        let (user_data, buffer_data) = F::get_batch_data(batch_query_item);
 
+        let buffer_data = F::get_buffer_data(&batch_query_item);
         let buffer_index = gpu_array_buffer.push(buffer_data);
+
         let index = buffer_index.index.get();
         *item.batch_range_mut() = index..index + 1;
         *item.dynamic_offset_mut() = buffer_index.dynamic_offset;
 
-        (!no_auto_batching).then(|| BatchMeta::new(item, user_data))
+        (!no_auto_batching).then(|| {
+            let compare_data = F::get_compare_data(&batch_query_item);
+            BatchMeta::new(item, compare_data)
+        })
     };
 
     for mut phase in &mut views {
-        let items = phase.items.iter_mut().map(|i| {
-            let batch_data = process_item(i);
-            (i.batch_range_mut(), batch_data)
+        let items = phase.items.iter_mut().map(|item| {
+            let batch_data = process_item(item);
+            (item.batch_range_mut(), batch_data)
         });
         items.reduce(|(start_range, prev_batch_meta), (range, batch_meta)| {
             if batch_meta.is_some() && prev_batch_meta == batch_meta {
