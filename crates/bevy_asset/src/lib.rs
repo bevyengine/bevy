@@ -233,7 +233,7 @@ impl VisitAssetDependencies for Option<UntypedHandle> {
 
 impl<A: Asset> VisitAssetDependencies for Vec<Handle<A>> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        for dependency in self.iter() {
+        for dependency in self {
             visit(dependency.id().untyped());
         }
     }
@@ -241,7 +241,7 @@ impl<A: Asset> VisitAssetDependencies for Vec<Handle<A>> {
 
 impl VisitAssetDependencies for Vec<UntypedHandle> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        for dependency in self.iter() {
+        for dependency in self {
             visit(dependency.id());
         }
     }

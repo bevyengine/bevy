@@ -255,7 +255,7 @@ pub fn text_system(
         // Scale factor changed, recompute text for all text nodes
         *last_scale_factor = scale_factor;
 
-        for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
+        for (node, text, text_layout_info, text_flags) in &mut text_query {
             queue_text(
                 &fonts,
                 &mut text_pipeline,
