@@ -1,5 +1,12 @@
 * Consider the weighing functions used for merging/filtering/interpolating
     * Plane distance used in interpolating seems to do nothing right now
+* Don't reproject final irradiance, reproject cascades instead
+* Try some jitter:
+    * Jitter rays per-cell + time
+    * Use spatiotemporal blue noise for ray jitter
+    * Jitter per-pixel offset into the interpolation for use with TAA?
+* Spherical harmonics might still be broken?
+
 * World cache improvements
     * Tie world cache to camera, use a log scale for cell size
     * Short trace distance
@@ -8,11 +15,9 @@
     * If visible last frame, reproject last frame's lighting
     * Think about hashing ray direction, instead of hit position
     * Variance driven world cache update rate, skipping very stable cells, and adapting to lighting changes faster
-* Improve spatiotemporal denoiser
-    * Better reprojection
-    * Spatial weights
-    * Early return for denoise passes for sky pixels or 0 spatial denoising
+* Consider 4x4 probes for the first cascade
 * More efficent screen probe cascade merging/tracing routines
+* Count emissive from screen probe tracing hits?
 
 * Specular lighting
 * Cleanup, remaining TODOs, performance profiling, documentation, etc
