@@ -683,7 +683,7 @@ impl VertexFormatSize for wgpu::VertexFormat {
 
 /// Contains an array where each entry describes a property of a single vertex.
 /// Matches the [`VertexFormats`](VertexFormat).
-/// 
+///
 /// Be aware that the [`Float64`](VertexAttributeValues::Float64),
 /// [`Float64x2`](VertexAttributeValues::Float64x2), [`Float64x3`](VertexAttributeValues::Float64x3) and
 /// [`Float64x4`](VertexAttributeValues::Float64x4) need to be used with Caution, because they might cause
@@ -1149,9 +1149,9 @@ mod tests {
 
     #[test]
     fn test_64_bit_format() {
-        pub const TEST_UV: MeshVertexAttribute = 
+        pub const TEST_UV: MeshVertexAttribute =
             MeshVertexAttribute::new("TEST_UV", 2000, VertexFormat::Float64x2);
-        
+
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
         mesh.insert_attribute(TEST_UV, vec![[0.0f64, 0.0f64]]);
     }
