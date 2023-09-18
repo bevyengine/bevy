@@ -7,7 +7,7 @@ use crate::prelude::{AppTypeRegistry, World};
 impl World {
     /// Retrieves an immutable `dyn T` reference to the given entity's Component of the given [`ComponentId`]
     #[allow(dead_code)]
-    fn get_dyn_by_id<T: ReflectFnsTypeData>(
+    pub fn get_dyn_by_id<T: ReflectFnsTypeData>(
         &self,
         entity: Entity,
         component_id: ComponentId,
@@ -33,7 +33,7 @@ impl World {
 
     /// Retrieves an mutable `dyn T` reference to the given entity's Component of the given [`ComponentId`]
     #[allow(dead_code)]
-    fn get_dyn_mut_by_id<T: ReflectFnsTypeData>(
+    pub fn get_dyn_mut_by_id<T: ReflectFnsTypeData>(
         &mut self,
         entity: Entity,
         component_id: ComponentId,
@@ -57,7 +57,7 @@ impl World {
 
     /// Retrieves an immutable `dyn Reflect` reference to the given entity's Component of the given [`ComponentId`]
     #[allow(dead_code)]
-    fn get_dyn_reflect_by_id(
+    pub fn get_dyn_reflect_by_id(
         &self,
         entity: Entity,
         component_id: ComponentId,
@@ -82,7 +82,7 @@ impl World {
     }
 
     /// Retrieves an mutable `dyn Reflect` reference to the given entity's Component of the given [`ComponentId`]
-    fn get_dyn_reflect_mut_by_id(
+    pub fn get_dyn_reflect_mut_by_id(
         &mut self,
         entity: Entity,
         component_id: ComponentId,
