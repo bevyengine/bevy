@@ -1,84 +1,63 @@
 use bevy_reflect::{Reflect, ReflectFnsTypeData, ReflectFromPtr};
+use std::any::TypeId;
 
 use crate::component::ComponentId;
 use crate::entity::Entity;
 use crate::prelude::{AppTypeRegistry, World};
 
 impl World {
+    /// Returns the TypeId of the underlying component type. Returns None if the component does not correspond to a Rust type.
+    pub fn component_type_id(&self, component_id: ComponentId) -> Option<TypeId> {
+        self.components()
+            .get_info(component_id)
+            .and_then(|n| n.type_id())
+    }
+
     /// Retrieves an immutable `dyn T` reference to the given entity's Component of the given [`ComponentId`]
-    #[allow(dead_code)]
     pub fn get_dyn_by_id<T: ReflectFnsTypeData>(
         &self,
         entity: Entity,
         component_id: ComponentId,
     ) -> Option<&T::Dyn> {
-        let Some(type_id) = self
-            .components()
-            .get_info(component_id)
-            .and_then(|n| n.type_id())
-        else {
-            return None;
-        };
+        let type_id = self.component_type_id(component_id)?;
 
-        let Some(dyn_obj) = self.get_dyn_reflect_by_id(entity, component_id) else {
-            return None;
-        };
+        let dyn_obj = self.get_dyn_reflect_by_id(entity, component_id)?;
 
         let type_registry = self.resource::<AppTypeRegistry>();
         let type_registry = type_registry.read();
-        type_registry
-            .get_type_data::<T>(type_id)
-            .and_then(|n| n.get(dyn_obj))
+        let type_data = type_registry.get_type_data::<T>(type_id)?;
+        type_data.get(dyn_obj)
     }
 
     /// Retrieves an mutable `dyn T` reference to the given entity's Component of the given [`ComponentId`]
-    #[allow(dead_code)]
     pub fn get_dyn_mut_by_id<T: ReflectFnsTypeData>(
         &mut self,
         entity: Entity,
         component_id: ComponentId,
     ) -> Option<&mut T::Dyn> {
-        let Some(type_id) = self
-            .components()
-            .get_info(component_id)
-            .and_then(|n| n.type_id())
-        else {
-            return None;
-        };
+        let type_id = self.component_type_id(component_id)?;
 
-        let type_registry = self.resource::<AppTypeRegistry>().clone();
+        let type_registry = self.get_resource::<AppTypeRegistry>()?.clone();
         let type_registry = type_registry.read();
-        let Some(type_data) = type_registry.get_type_data::<T>(type_id) else {
-            return None;
-        };
-        self.get_dyn_reflect_mut_by_id(entity, component_id)
-            .and_then(|dyn_obj| type_data.get_mut(dyn_obj))
+        let type_data = type_registry.get_type_data::<T>(type_id)?;
+        let dyn_obj = self.get_dyn_reflect_mut_by_id(entity, component_id)?;
+        type_data.get_mut(dyn_obj)
     }
 
     /// Retrieves an immutable `dyn Reflect` reference to the given entity's Component of the given [`ComponentId`]
-    #[allow(dead_code)]
     pub fn get_dyn_reflect_by_id(
         &self,
         entity: Entity,
         component_id: ComponentId,
     ) -> Option<&dyn Reflect> {
-        let Some(type_id) = self
-            .components()
-            .get_info(component_id)
-            .and_then(|n| n.type_id())
-        else {
-            return None;
-        };
-        let Some(component_ptr) = self.get_by_id(entity, component_id) else {
-            return None;
-        };
+        let type_id = self.component_type_id(component_id)?;
+        let component_ptr = self.get_by_id(entity, component_id)?;
 
         let type_registry = self.resource::<AppTypeRegistry>();
         let type_registry = type_registry.read();
-        type_registry
-            .get_type_data::<ReflectFromPtr>(type_id)
-            // SAFETY: type_id is correct
-            .map(|n| unsafe { n.as_reflect(component_ptr) })
+        let from_ptr = type_registry.get_type_data::<ReflectFromPtr>(type_id)?;
+        // SAFETY: type_id is correct
+        Some(unsafe { from_ptr.as_reflect(component_ptr) })
     }
 
     /// Retrieves an mutable `dyn Reflect` reference to the given entity's Component of the given [`ComponentId`]
@@ -87,26 +66,21 @@ impl World {
         entity: Entity,
         component_id: ComponentId,
     ) -> Option<&mut dyn Reflect> {
-        let Some(type_id) = self
-            .components()
-            .get_info(component_id)
-            .and_then(|n| n.type_id())
-        else {
-            return None;
-        };
+        let type_id = self.component_type_id(component_id)?;
 
-        let type_registry = self.resource::<AppTypeRegistry>().clone();
+        let type_registry = self.get_resource::<AppTypeRegistry>()?.clone();
         let type_registry = type_registry.read();
-        let Some(reflect_component_ptr) = type_registry.get_type_data::<ReflectFromPtr>(type_id)
-        else {
-            return None;
-        };
+        let reflect_component_ptr = type_registry.get_type_data::<ReflectFromPtr>(type_id)?;
 
-        self.get_mut_by_id(entity, component_id).map(|n| {
-            // SAFETY: type_id is correct
-            n.map_unchanged(|p| unsafe { reflect_component_ptr.as_reflect_mut(p) })
-                .value
-        })
+        let mut_ptr = self.get_mut_by_id(entity, component_id)?;
+        Some(
+            mut_ptr
+                .map_unchanged(|p| unsafe {
+                    // SAFETY: type_id is correct
+                    reflect_component_ptr.as_reflect_mut(p)
+                })
+                .value,
+        )
     }
 }
 
