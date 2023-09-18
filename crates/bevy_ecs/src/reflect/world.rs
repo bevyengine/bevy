@@ -6,7 +6,7 @@ use crate::entity::Entity;
 use crate::prelude::{AppTypeRegistry, World};
 
 impl World {
-    /// Returns the TypeId of the underlying component type. Returns None if the component does not correspond to a Rust type.
+    /// Returns the [`TypeId`] of the underlying component type. Returns None if the component does not correspond to a Rust type.
     pub fn component_type_id(&self, component_id: ComponentId) -> Option<TypeId> {
         self.components()
             .get_info(component_id)
@@ -82,9 +82,9 @@ impl World {
         let mut_ptr = self.get_mut_by_id(entity, component_id)?;
         Some(
             mut_ptr
-                .map_unchanged(|p| unsafe {
+                .map_unchanged(|p| {
                     // SAFETY: type_id is correct
-                    reflect_component_ptr.as_reflect_mut(p)
+                    unsafe { reflect_component_ptr.as_reflect_mut(p) }
                 })
                 .value,
         )
