@@ -268,6 +268,7 @@ impl TextBundle {
     }
 }
 
+#[cfg(feature = "bevy_text")]
 impl<I> From<I> for TextBundle
 where
     I: Into<TextSection>,

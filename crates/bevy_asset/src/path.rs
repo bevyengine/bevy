@@ -1,9 +1,14 @@
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::{
+    std_traits::ReflectDefault, utility::NonGenericTypeInfoCell, FromReflect, FromType,
+    GetTypeRegistration, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect,
+    ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, TypeInfo, TypePath, TypeRegistration,
+    Typed, ValueInfo,
+};
 use bevy_utils::CowArc;
-use serde::{de::Visitor, ser::SerializeTupleStruct, Deserialize, Serialize};
+use serde::{de::Visitor, Deserialize, Serialize};
 use std::{
     fmt::{Debug, Display},
-    hash::Hash,
+    hash::{Hash, Hasher},
     ops::Deref,
     path::{Path, PathBuf},
 };
@@ -40,8 +45,7 @@ use std::{
 /// This means that the common case of `asset_server.load("my_scene.scn")` when it creates and
 /// clones internal owned [`AssetPaths`](AssetPath).
 /// This also means that you should use [`AssetPath::new`] in cases where `&str` is the explicit type.
-#[derive(Eq, PartialEq, Hash, Clone, Reflect)]
-#[reflect(Debug, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Hash, Clone, Default)]
 pub struct AssetPath<'a> {
     path: CowArc<'a, Path>,
     label: Option<CowArc<'a, str>>,
@@ -231,10 +235,7 @@ impl<'a> Serialize for AssetPath<'a> {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_tuple_struct("AssetPath", 1)?;
-        let string = self.to_string();
-        state.serialize_field(&string)?;
-        state.end()
+        self.to_string().serialize(serializer)
     }
 }
 
@@ -243,7 +244,7 @@ impl<'de> Deserialize<'de> for AssetPath<'static> {
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_tuple_struct("AssetPath", 1, AssetPathVisitor)
+        deserializer.deserialize_string(AssetPathVisitor)
     }
 }
 
@@ -268,5 +269,136 @@ impl<'de> Visitor<'de> for AssetPathVisitor {
         E: serde::de::Error,
     {
         Ok(AssetPath::from(v))
+    }
+}
+
+// NOTE: We manually implement "reflect value" because deriving Reflect on `AssetPath` breaks dynamic linking
+// See https://github.com/bevyengine/bevy/issues/9747
+// NOTE: This could use `impl_reflect_value` if it supported static lifetimes.
+
+impl GetTypeRegistration for AssetPath<'static> {
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
+        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
+        registration.insert::<ReflectDefault>(FromType::<Self>::from_type());
+        registration
+    }
+}
+
+impl TypePath for AssetPath<'static> {
+    fn type_path() -> &'static str {
+        "bevy_asset::path::AssetPath<'static>"
+    }
+    fn short_type_path() -> &'static str {
+        "AssetPath<'static>"
+    }
+    fn type_ident() -> Option<&'static str> {
+        Some("AssetPath<'static>")
+    }
+    fn crate_name() -> Option<&'static str> {
+        Option::None
+    }
+    fn module_path() -> Option<&'static str> {
+        Option::None
+    }
+}
+impl Typed for AssetPath<'static> {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| {
+            let info = ValueInfo::new::<Self>();
+            TypeInfo::Value(info)
+        })
+    }
+}
+impl Reflect for AssetPath<'static> {
+    #[inline]
+    fn type_name(&self) -> &str {
+        ::core::any::type_name::<Self>()
+    }
+    #[inline]
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(<Self as Typed>::type_info())
+    }
+    #[inline]
+    fn into_any(self: Box<Self>) -> Box<dyn ::core::any::Any> {
+        self
+    }
+    #[inline]
+    fn as_any(&self) -> &dyn ::core::any::Any {
+        self
+    }
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn ::core::any::Any {
+        self
+    }
+    #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+    #[inline]
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+    #[inline]
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+    #[inline]
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone())
+    }
+    #[inline]
+    fn apply(&mut self, value: &dyn Reflect) {
+        let value = Reflect::as_any(value);
+        if let Some(value) = value.downcast_ref::<Self>() {
+            *self = value.clone();
+        } else {
+            panic!("Value is not {}.", std::any::type_name::<Self>());
+        }
+    }
+    #[inline]
+    fn set(
+        &mut self,
+        value: Box<dyn bevy_reflect::Reflect>,
+    ) -> Result<(), Box<dyn bevy_reflect::Reflect>> {
+        *self = <dyn bevy_reflect::Reflect>::take(value)?;
+        Ok(())
+    }
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::Value(self)
+    }
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::Value(self)
+    }
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Value(self)
+    }
+    fn reflect_hash(&self) -> Option<u64> {
+        let mut hasher = bevy_reflect::utility::reflect_hasher();
+        Hash::hash(&::core::any::Any::type_id(self), &mut hasher);
+        Hash::hash(self, &mut hasher);
+        Some(Hasher::finish(&hasher))
+    }
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        let value = <dyn Reflect>::as_any(value);
+        if let Some(value) = <dyn ::core::any::Any>::downcast_ref::<Self>(value) {
+            Some(::core::cmp::PartialEq::eq(self, value))
+        } else {
+            Some(false)
+        }
+    }
+    fn debug(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        ::core::fmt::Debug::fmt(self, f)
+    }
+}
+impl FromReflect for AssetPath<'static> {
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+        Some(Clone::clone(<dyn ::core::any::Any>::downcast_ref::<
+            AssetPath<'static>,
+        >(<dyn Reflect>::as_any(reflect))?))
     }
 }

@@ -281,10 +281,10 @@ pub fn ui_layout_system(
     }
 
     // clean up removed nodes
-    ui_surface.remove_entities(removed_nodes.iter());
+    ui_surface.remove_entities(removed_nodes.read());
 
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-    for entity in removed_content_sizes.iter() {
+    for entity in removed_content_sizes.read() {
         ui_surface.try_remove_measure(entity);
     }
 
@@ -292,7 +292,7 @@ pub fn ui_layout_system(
     ui_surface.set_window_children(primary_window_entity, root_node_query.iter());
 
     // update and remove children
-    for entity in removed_children.iter() {
+    for entity in removed_children.read() {
         ui_surface.try_remove_children(entity);
     }
     for (entity, children) in &children_query {
@@ -406,11 +406,17 @@ mod tests {
     use bevy_hierarchy::Children;
     use bevy_math::vec2;
     use bevy_render::color::Color;
+    use crate::ContentSize;
+    use bevy_hierarchy::despawn_with_children_recursive;
+    use bevy_math::Vec2;
+    use bevy_utils::prelude::default;
+    use bevy_utils::HashMap;
     use bevy_window::PrimaryWindow;
     use bevy_window::Window;
     use bevy_window::WindowResized;
     use bevy_window::WindowResolution;
     use bevy_window::WindowScaleFactorChanged;
+    use taffy::tree::LayoutTree;
 
     #[test]
     fn round_layout_coords_must_round_ties_up() {
@@ -441,6 +447,273 @@ mod tests {
         ui_schedule.add_systems(ui_layout_system);
 
         (world, ui_schedule)
+    }
+
+    fn ui_nodes_with_percent_100_dimensions_should_fill_their_parent() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        // spawn a root entity with width and height set to fill 100% of its parent
+        let ui_root = world
+            .spawn(NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    ..default()
+                },
+                ..default()
+            })
+            .id();
+
+        let ui_child = world
+            .spawn(NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    ..default()
+                },
+                ..default()
+            })
+            .id();
+
+        world.entity_mut(ui_root).add_child(ui_child);
+
+        ui_schedule.run(&mut world);
+        let ui_surface = world.resource::<UiSurface>();
+
+        for ui_entity in [ui_root, ui_child] {
+            let layout = ui_surface.get_layout(ui_entity).unwrap();
+            assert_eq!(layout.size.width, WINDOW_WIDTH);
+            assert_eq!(layout.size.height, WINDOW_HEIGHT);
+        }
+    }
+
+    #[test]
+    fn ui_surface_tracks_ui_entities() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        ui_schedule.run(&mut world);
+
+        // no UI entities in world, none in UiSurface
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.is_empty());
+
+        let ui_entity = world.spawn(NodeBundle::default()).id();
+
+        // `ui_layout_system` should map `ui_entity` to a ui node in `UiSurface::entity_to_taffy`
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.contains_key(&ui_entity));
+        assert_eq!(ui_surface.entity_to_taffy.len(), 1);
+
+        world.despawn(ui_entity);
+
+        // `ui_layout_system` should remove `ui_entity` from `UiSurface::entity_to_taffy`
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(!ui_surface.entity_to_taffy.contains_key(&ui_entity));
+        assert!(ui_surface.entity_to_taffy.is_empty());
+    }
+
+    #[test]
+    #[should_panic]
+    fn despawning_a_ui_entity_should_remove_its_corresponding_ui_node() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let ui_entity = world.spawn(NodeBundle::default()).id();
+
+        // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to `ui_entity`
+        ui_schedule.run(&mut world);
+
+        // retrieve the ui node corresponding to `ui_entity` from ui surface
+        let ui_surface = world.resource::<UiSurface>();
+        let ui_node = ui_surface.entity_to_taffy[&ui_entity];
+
+        world.despawn(ui_entity);
+
+        // `ui_layout_system` will recieve a `RemovedComponents<Node>` event for `ui_entity`
+        // and remove `ui_entity` from  `ui_node` from the internal layout tree
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+
+        // `ui_node` is removed, attempting to retrieve a style for `ui_node` panics
+        let _ = ui_surface.taffy.style(ui_node);
+    }
+
+    #[test]
+    fn changes_to_children_of_a_ui_entity_change_its_corresponding_ui_nodes_children() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let ui_parent_entity = world.spawn(NodeBundle::default()).id();
+
+        // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to `ui_entity`
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        let ui_parent_node = ui_surface.entity_to_taffy[&ui_parent_entity];
+
+        // `ui_parent_node` shouldn't have any children yet
+        assert_eq!(ui_surface.taffy.child_count(ui_parent_node).unwrap(), 0);
+
+        let mut ui_child_entities = (0..10)
+            .map(|_| {
+                let child = world.spawn(NodeBundle::default()).id();
+                world.entity_mut(ui_parent_entity).add_child(child);
+                child
+            })
+            .collect::<Vec<_>>();
+
+        ui_schedule.run(&mut world);
+
+        // `ui_parent_node` should have children now
+        let ui_surface = world.resource::<UiSurface>();
+        assert_eq!(
+            ui_surface.entity_to_taffy.len(),
+            1 + ui_child_entities.len()
+        );
+        assert_eq!(
+            ui_surface.taffy.child_count(ui_parent_node).unwrap(),
+            ui_child_entities.len()
+        );
+
+        let child_node_map = HashMap::from_iter(
+            ui_child_entities
+                .iter()
+                .map(|child_entity| (*child_entity, ui_surface.entity_to_taffy[child_entity])),
+        );
+
+        // the children should have a corresponding ui node and that ui node's parent should be `ui_parent_node`
+        for node in child_node_map.values() {
+            assert_eq!(ui_surface.taffy.parent(*node), Some(ui_parent_node));
+        }
+
+        // delete every second child
+        let mut deleted_children = vec![];
+        for i in (0..ui_child_entities.len()).rev().step_by(2) {
+            let child = ui_child_entities.remove(i);
+            world.despawn(child);
+            deleted_children.push(child);
+        }
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert_eq!(
+            ui_surface.entity_to_taffy.len(),
+            1 + ui_child_entities.len()
+        );
+        assert_eq!(
+            ui_surface.taffy.child_count(ui_parent_node).unwrap(),
+            ui_child_entities.len()
+        );
+
+        // the remaining children should still have nodes in the layout tree
+        for child_entity in &ui_child_entities {
+            let child_node = child_node_map[child_entity];
+            assert_eq!(ui_surface.entity_to_taffy[child_entity], child_node);
+            assert_eq!(ui_surface.taffy.parent(child_node), Some(ui_parent_node));
+            assert!(ui_surface
+                .taffy
+                .children(ui_parent_node)
+                .unwrap()
+                .contains(&child_node));
+        }
+
+        // the nodes of the deleted children should have been removed from the layout tree
+        for deleted_child_entity in &deleted_children {
+            assert!(!ui_surface
+                .entity_to_taffy
+                .contains_key(deleted_child_entity));
+            let deleted_child_node = child_node_map[deleted_child_entity];
+            assert!(!ui_surface
+                .taffy
+                .children(ui_parent_node)
+                .unwrap()
+                .contains(&deleted_child_node));
+        }
+
+        // despawn the parent entity and its descendants
+        despawn_with_children_recursive(&mut world, ui_parent_entity);
+
+        ui_schedule.run(&mut world);
+
+        // all nodes should have been deleted
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.is_empty());
+    }
+
+    #[test]
+    fn ui_node_should_be_set_to_its_content_size() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let content_size = Vec2::new(50., 25.);
+
+        let ui_entity = world
+            .spawn((
+                NodeBundle {
+                    style: Style {
+                        align_self: AlignSelf::Start,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                ContentSize::fixed_size(content_size),
+            ))
+            .id();
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        let layout = ui_surface.get_layout(ui_entity).unwrap();
+
+        // the node should takes its size from the fixed size measure func
+        assert_eq!(layout.size.width, content_size.x);
+        assert_eq!(layout.size.height, content_size.y);
+    }
+
+    #[test]
+    fn measure_funcs_should_be_removed_on_content_size_removal() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let content_size = Vec2::new(50., 25.);
+        let ui_entity = world
+            .spawn((
+                NodeBundle {
+                    style: Style {
+                        align_self: AlignSelf::Start,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                ContentSize::fixed_size(content_size),
+            ))
+            .id();
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        let ui_node = ui_surface.entity_to_taffy[&ui_entity];
+
+        // a node with a content size needs to be measured
+        assert!(ui_surface.taffy.needs_measure(ui_node));
+        let layout = ui_surface.get_layout(ui_entity).unwrap();
+        assert_eq!(layout.size.width, content_size.x);
+        assert_eq!(layout.size.height, content_size.y);
+
+        world.entity_mut(ui_entity).remove::<ContentSize>();
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        // a node without a content size does not need to be measured
+        assert!(!ui_surface.taffy.needs_measure(ui_node));
+
+        // Without a content size, the node has no width or height constraints so the length of both dimensions is 0.
+        let layout = ui_surface.get_layout(ui_entity).unwrap();
+        assert_eq!(layout.size.width, 0.);
+        assert_eq!(layout.size.height, 0.);
     }
 
     #[test]
@@ -498,4 +771,5 @@ mod tests {
             }
         }
     }
+    
 }
