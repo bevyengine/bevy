@@ -13,12 +13,27 @@ use crate::{
 
 /// Defines whether a [`Term`] has mutable or immutable access to a [`Component`] or [`Entity`].
 /// TODO: rename to match mutable and immutable?
-#[derive(Eq, PartialEq, Clone, Copy, Debug)]
+#[derive(Eq, PartialEq, Clone, Copy, Debug, Default, PartialOrd, Ord)]
 pub enum TermAccess {
+    /// This term doesn't access it's target at all i.e. With<T> or Entity
+    #[default]
+    None = 0,
     /// This term has immutable access to it's target i.e. &T or EntityRef
     Read,
     /// This term has mutable access to it's target i.e. &mut T or EntityMut
     Write,
+}
+
+impl TermAccess {
+    /// True if this term accesses it's target at all i.e. Read or Write
+    pub fn is_some(&self) -> bool {
+        self > &TermAccess::None
+    }
+
+    /// True if this term doesn't access it's target at all
+    pub fn is_none(&self) -> bool {
+        self == &TermAccess::None
+    }
 }
 
 /// Defines possible operators for a [`Term`].
@@ -50,9 +65,8 @@ pub struct Term {
     pub entity: bool,
     /// The [`Component`] this term targets if any, i.e. `&T`, `&mut T`
     pub component: Option<ComponentId>,
-    /// None if this Term does not read the component or entity, i.e. [`Entity`] or [`With<T>`]
-    /// Some if this Term reads/writes the component or entity i.e. [`EntityRef`] or `&T`
-    pub access: Option<TermAccess>,
+    /// Whether this Term reads/writes the component or entity
+    pub access: TermAccess,
     /// The operator to use while resolving this term, see [`TermOperator`]
     pub operator: TermOperator,
     /// Whether or not this term requires change detection information i.e. `&mut T` or [`Changed<T>`]
@@ -88,7 +102,7 @@ impl Term {
 
     /// Set the [`TermAccess`] of this [`Term`]
     pub fn set_access(mut self, access: TermAccess) -> Self {
-        self.access = Some(access);
+        self.access = access;
         self
     }
 
@@ -151,6 +165,20 @@ impl Term {
     pub fn with_change_detection(mut self) -> Self {
         self.change_detection = true;
         self
+    }
+
+    /// Whether this term can be safely interpreted as `other` i.e. &T => With<T> or &mut T => &T
+    pub fn interpretable_as(&self, other: &Term) -> bool {
+        self.entity == other.entity
+            && self.operator == other.operator
+            && self.access >= other.access
+            && (!self.change_detection || other.change_detection)
+            && self.sub_terms.iter().enumerate().all(|(i, term)| {
+                other
+                    .sub_terms
+                    .get(i)
+                    .is_some_and(|other| term.interpretable_as(other))
+            })
     }
 }
 
@@ -626,9 +654,9 @@ impl Term {
                 "EntityTerm has conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
             );
             match self.access {
-                Some(TermAccess::Read) => access.read_all(),
-                Some(TermAccess::Write) => access.write_all(),
-                None => {}
+                TermAccess::Read => access.read_all(),
+                TermAccess::Write => access.write_all(),
+                TermAccess::None => {}
             }
         // Components terms access their corresponding component id as a filter, to read or to write
         } else if let Some(component_id) = self.component {
@@ -638,9 +666,9 @@ impl Term {
                 component_id,
             );
             match self.access {
-                Some(TermAccess::Read) => access.add_read(component_id),
-                Some(TermAccess::Write) => access.add_write(component_id),
-                None => {}
+                TermAccess::Read => access.add_read(component_id),
+                TermAccess::Write => access.add_write(component_id),
+                TermAccess::None => {}
             };
         // For groups recurse into our sub_terms building an or group
         } else {
@@ -670,30 +698,30 @@ impl Term {
         // Entity terms either access just the entity id, read all components or write all components
         if self.entity {
             match self.access {
-                Some(TermAccess::Read) => {
+                TermAccess::Read => {
                     for component_id in archetype.components() {
                         let archetype_id =
                             archetype.get_archetype_component_id(component_id).unwrap();
                         access.add_read(archetype_id);
                     }
                 }
-                Some(TermAccess::Write) => {
+                TermAccess::Write => {
                     for component_id in archetype.components() {
                         let archetype_id =
                             archetype.get_archetype_component_id(component_id).unwrap();
                         access.add_write(archetype_id);
                     }
                 }
-                None => {}
+                TermAccess::None => {}
             }
         // Components terms access their corresponding component id as a filter, to read or to write
         } else if let Some(component_id) = self.component {
             if let Some(archetype_component_id) = archetype.get_archetype_component_id(component_id)
             {
                 match self.access {
-                    Some(TermAccess::Read) => access.add_read(archetype_component_id),
-                    Some(TermAccess::Write) => access.add_write(archetype_component_id),
-                    None => {}
+                    TermAccess::Read => access.add_read(archetype_component_id),
+                    TermAccess::Write => access.add_write(archetype_component_id),
+                    TermAccess::None => {}
                 }
             }
         // For groups recurse into our sub_terms

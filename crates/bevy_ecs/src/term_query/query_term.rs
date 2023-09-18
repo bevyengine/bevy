@@ -57,7 +57,7 @@ pub trait QueryTerm {
     fn init_term(world: &mut World) -> Term;
 
     /// Creates an instance of [`Self::Item`] out of a fetched [`Term`]
-    unsafe fn from_fetch_unchecked<'w>(fetch: &FetchedTerm<'w>) -> Self::Item<'w>;
+    unsafe fn from_fetch<'w>(fetch: &FetchedTerm<'w>) -> Self::Item<'w>;
 }
 
 /// A trait representing a group of types implementing [`QueryTerm`].
@@ -75,7 +75,7 @@ pub trait QueryTermGroup {
     fn init_terms(world: &mut World, terms: &mut Vec<Term>);
 
     /// Creates an instance of [`Self::Item`] out of an iterator of fetched [`Term`]s
-    unsafe fn from_fetches_unchecked<'w: 'f, 'f>(
+    unsafe fn from_fetches<'w: 'f, 'f>(
         terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
     ) -> Self::Item<'w>;
 }
@@ -92,10 +92,10 @@ impl<T: QueryTerm> QueryTermGroup for T {
     }
 
     #[inline]
-    unsafe fn from_fetches_unchecked<'w: 'f, 'f>(
+    unsafe fn from_fetches<'w: 'f, 'f>(
         terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
     ) -> Self::Item<'w> {
-        T::from_fetch_unchecked(terms.next().debug_checked_unwrap())
+        T::from_fetch(terms.next().debug_checked_unwrap())
     }
 }
 
@@ -114,9 +114,9 @@ macro_rules! impl_query_term_tuple {
             }
 
             #[inline]
-            unsafe fn from_fetches_unchecked<'w: 'f, 'f>(_terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>) -> Self::Item<'w> {
+            unsafe fn from_fetches<'w: 'f, 'f>(_terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>) -> Self::Item<'w> {
                 ($(
-                    $term::from_fetches_unchecked(_terms),
+                    $term::from_fetches(_terms),
                 )*)
             }
         }
@@ -134,7 +134,7 @@ impl QueryTerm for Entity {
     }
 
     #[inline]
-    unsafe fn from_fetch_unchecked<'w>(term: &'w FetchedTerm<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(term: &'w FetchedTerm<'w>) -> Self::Item<'w> {
         term.entity
     }
 }
@@ -148,7 +148,7 @@ impl QueryTerm for EntityRef<'_> {
     }
 
     #[inline]
-    unsafe fn from_fetch_unchecked<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
         EntityRef::new(term.entity_cell().debug_checked_unwrap())
     }
 }
@@ -162,7 +162,7 @@ impl<'r> QueryTerm for EntityMut<'r> {
     }
 
     #[inline]
-    unsafe fn from_fetch_unchecked<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
         EntityMut::new(term.entity_cell().debug_checked_unwrap())
     }
 }
@@ -177,7 +177,7 @@ impl<T: Component> QueryTerm for With<T> {
     }
 
     #[inline(always)]
-    unsafe fn from_fetch_unchecked<'w>(_term: &'w FetchedTerm<'w>) -> Self::Item<'w> {}
+    unsafe fn from_fetch<'w>(_term: &'w FetchedTerm<'w>) -> Self::Item<'w> {}
 }
 
 impl<T: Component> QueryTerm for Without<T> {
@@ -190,7 +190,7 @@ impl<T: Component> QueryTerm for Without<T> {
     }
 
     #[inline]
-    unsafe fn from_fetch_unchecked<'w>(_term: &'w FetchedTerm<'w>) -> Self::Item<'w> {}
+    unsafe fn from_fetch<'w>(_term: &'w FetchedTerm<'w>) -> Self::Item<'w> {}
 }
 
 impl<T: Component> QueryTerm for Has<T> {
@@ -203,7 +203,7 @@ impl<T: Component> QueryTerm for Has<T> {
     }
 
     #[inline]
-    unsafe fn from_fetch_unchecked<'w>(term: &'w FetchedTerm<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(term: &'w FetchedTerm<'w>) -> Self::Item<'w> {
         term.matched
     }
 }
@@ -218,7 +218,7 @@ impl<T: Component> QueryTerm for Added<T> {
     }
 
     #[inline]
-    unsafe fn from_fetch_unchecked<'w>(_term: &'w FetchedTerm<'w>) -> Self::Item<'w> {}
+    unsafe fn from_fetch<'w>(_term: &'w FetchedTerm<'w>) -> Self::Item<'w> {}
 }
 
 impl<T: Component> QueryTerm for Changed<T> {
@@ -231,7 +231,7 @@ impl<T: Component> QueryTerm for Changed<T> {
     }
 
     #[inline]
-    unsafe fn from_fetch_unchecked<'w>(_term: &'w FetchedTerm<'w>) -> Self::Item<'w> {}
+    unsafe fn from_fetch<'w>(_term: &'w FetchedTerm<'w>) -> Self::Item<'w> {}
 }
 
 impl<T: Component> QueryTerm for &T {
@@ -244,7 +244,7 @@ impl<T: Component> QueryTerm for &T {
     }
 
     #[inline]
-    unsafe fn from_fetch_unchecked<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
         term.component_ptr().debug_checked_unwrap().deref()
     }
 }
@@ -259,7 +259,7 @@ impl<T: Component> QueryTerm for Ref<'_, T> {
     }
 
     #[inline]
-    unsafe fn from_fetch_unchecked<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
         let change_detection = term.change_ticks().debug_checked_unwrap();
         Ref {
             value: term.component_ptr().debug_checked_unwrap().deref(),
@@ -283,7 +283,7 @@ impl QueryTerm for Ptr<'_> {
     }
 
     #[inline]
-    unsafe fn from_fetch_unchecked<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
         term.component_ptr().debug_checked_unwrap()
     }
 }
@@ -298,7 +298,7 @@ impl<'r, T: Component> QueryTerm for &'r mut T {
     }
 
     #[inline]
-    unsafe fn from_fetch_unchecked<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
         let change_detection = term.change_ticks().debug_checked_unwrap();
         Mut {
             value: term
@@ -326,7 +326,7 @@ impl<'r> QueryTerm for PtrMut<'r> {
     }
 
     #[inline]
-    unsafe fn from_fetch_unchecked<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
         let change_detection = term.change_ticks().debug_checked_unwrap();
         MutUntyped {
             value: term.component_ptr().debug_checked_unwrap().assert_unique(),
@@ -350,9 +350,9 @@ impl<C: QueryTerm> QueryTerm for Option<C> {
     }
 
     #[inline]
-    unsafe fn from_fetch_unchecked<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
         if term.matched {
-            Some(C::from_fetch_unchecked(term))
+            Some(C::from_fetch(term))
         } else {
             None
         }
@@ -371,7 +371,7 @@ impl<Q: QueryTermGroup> QueryTermGroup for Or<Q> {
     }
 
     #[inline]
-    unsafe fn from_fetches_unchecked<'w: 'f, 'f>(
+    unsafe fn from_fetches<'w: 'f, 'f>(
         terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
     ) -> Self::Item<'w> {
         terms.next();
@@ -390,10 +390,10 @@ impl<Q: QueryTermGroup> QueryTermGroup for AnyOf<Q> {
     }
 
     #[inline]
-    unsafe fn from_fetches_unchecked<'w: 'f, 'f>(
+    unsafe fn from_fetches<'w: 'f, 'f>(
         terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
     ) -> Self::Item<'w> {
         let term = terms.next().debug_checked_unwrap();
-        Q::Optional::from_fetches_unchecked(&mut term.sub_terms().debug_checked_unwrap().iter())
+        Q::Optional::from_fetches(&mut term.sub_terms().debug_checked_unwrap().iter())
     }
 }

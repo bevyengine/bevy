@@ -179,7 +179,7 @@ mod tests {
         // Our result is completely untyped
         let (_, fetches) = query.single_raw(&mut world);
         // Consume our fetched terms to produce a set of term items
-        let (e, a, b) = unsafe { <(Entity, &A, &B)>::from_fetches_unchecked(&mut fetches.iter()) };
+        let (e, a, b) = unsafe { <(Entity, &A, &B)>::from_fetches(&mut fetches.iter()) };
 
         assert_eq!(e, entity);
         assert_eq!(0, a.0);
@@ -188,9 +188,9 @@ mod tests {
         // Alternatively extract individual terms dynamically
         let (_, fetches) = query.single_raw(&mut world);
 
-        assert_eq!(0, unsafe { <&A>::from_fetch_unchecked(&fetches[1]) }.0);
-        assert_eq!(e, unsafe { Entity::from_fetch_unchecked(&fetches[0]) });
-        assert_eq!(1, unsafe { <&B>::from_fetch_unchecked(&fetches[2]) }.0);
+        assert_eq!(0, unsafe { <&A>::from_fetch(&fetches[1]) }.0);
+        assert_eq!(e, unsafe { Entity::from_fetch(&fetches[0]) });
+        assert_eq!(1, unsafe { <&B>::from_fetch(&fetches[2]) }.0);
     }
 
     #[test]
@@ -206,8 +206,8 @@ mod tests {
         let mut iter = fetches.iter();
 
         // Seperately consume our two terms
-        let (e1, a) = unsafe { <(Entity, &A)>::from_fetches_unchecked(&mut iter) };
-        let (e2, b) = unsafe { <(Entity, &B)>::from_fetches_unchecked(&mut iter) };
+        let (e1, a) = unsafe { <(Entity, &A)>::from_fetches(&mut iter) };
+        let (e2, b) = unsafe { <(Entity, &B)>::from_fetches(&mut iter) };
 
         assert_eq!(e1, entity);
         assert_eq!(e1, e2);
@@ -385,5 +385,43 @@ mod tests {
 
         assert_eq!(e, entity);
         assert_eq!(2, b.0);
+    }
+
+    macro_rules! create_entities {
+    ($world:ident; $( $variants:ident ),*) => {
+        $(
+            #[derive(Component)]
+            struct $variants(f32);
+            for _ in 0..20 {
+                $world.spawn(($variants(0.0), Data(1.0)));
+            }
+        )*
+    };
+}
+
+    #[derive(Component)]
+    struct Data(f32);
+
+    #[test]
+    fn test_iteration() {
+        let mut world = World::new();
+
+        create_entities!(world; A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z);
+
+        let mut query = world.term_query::<&mut Data>();
+
+        for mut data in query.iter_mut(&mut world) {
+            data.0 *= 2.0;
+        }
+
+        let count = query.iter(&world).count();
+
+        let mut query = world.query::<&mut Data>();
+
+        for data in query.iter(&world) {
+            assert_eq!(data.0, 2.0);
+        }
+
+        assert_eq!(count, query.iter(&world).count());
     }
 }

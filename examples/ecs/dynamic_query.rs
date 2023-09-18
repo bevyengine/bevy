@@ -206,7 +206,7 @@ fn print_match(term: &Term, fetch: &FetchedTerm, world: &World) -> String {
     if let Some(id) = term.component {
         let name = world.components().get_name(id).unwrap();
         if fetch.matched {
-            if let &Some(access) = &term.access {
+            if term.access.is_some() {
                 let info = world.components().get_info(id).unwrap();
                 let len = info.layout().size() / std::mem::size_of::<u64>();
 
@@ -214,7 +214,7 @@ fn print_match(term: &Term, fetch: &FetchedTerm, world: &World) -> String {
                 let data = unsafe {
                     std::slice::from_raw_parts_mut(ptr.assert_unique().as_ptr().cast::<u64>(), len)
                 };
-                if access == TermAccess::Write {
+                if term.access == TermAccess::Write {
                     for i in 0..len {
                         data[i] += 1;
                     }
@@ -242,7 +242,7 @@ fn print_match(term: &Term, fetch: &FetchedTerm, world: &World) -> String {
 
 fn query_system(mut query: TermQuery<Entity>, world: &World) {
     query.iter_raw().for_each(|(terms, fetches)| {
-        let entity = unsafe { Entity::from_fetch_unchecked(&fetches[0]) };
+        let entity = unsafe { Entity::from_fetch(&fetches[0]) };
         let components = terms
             .iter()
             .zip(fetches.iter())

@@ -214,7 +214,7 @@ impl<'w, 's, Q: QueryTermGroup> Iterator for TermQueryIter<'w, 's, Q> {
                 .cursor
                 .next(self.tables, self.archetypes, self.query_state)
             {
-                Some(Q::from_fetches_unchecked(&mut fetches.iter()))
+                Some(Q::from_fetches(&mut fetches.iter()))
             } else {
                 None
             }

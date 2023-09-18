@@ -164,6 +164,31 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         unsafe { std::mem::transmute(self) }
     }
 
+    /// Returns true if this query state could be iterate as type `NewQ`
+    pub fn interpretable_as<NewQ: QueryTermGroup>(&self, world: &mut World) -> bool {
+        let mut terms = Vec::new();
+        NewQ::init_terms(world, &mut terms);
+        terms
+            .iter()
+            .enumerate()
+            .all(|(i, a)| self.terms.get(i).is_some_and(|b| b.interpretable_as(a)))
+    }
+
+    /// Converts this [`TermQueryState`] to another compatible [`TermQueryState`].
+    ///
+    /// Consider using [`TermQueryState::as_readonly`] or [`TermQueryState::filterless`] instead
+    /// where possible.
+    pub fn try_transmute<NewQ: QueryTermGroup>(
+        self,
+        world: &mut World,
+    ) -> Option<TermQueryState<NewQ>> {
+        if self.interpretable_as::<NewQ>(world) {
+            Some(unsafe { std::mem::transmute(self) })
+        } else {
+            None
+        }
+    }
+
     /// Converts this [`TermQueryState`] to any other [`TermQueryState`].
     ///
     /// Consider using [`TermQueryState::as_readonly`] or [`TermQueryState::filterless`] instead
@@ -433,7 +458,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
             location.table_row,
             self.fetches.as_uninit(),
         );
-        Ok(Q::from_fetches_unchecked(&mut fetches.iter()))
+        Ok(Q::from_fetches(&mut fetches.iter()))
     }
 
     /// Returns a single immutable query result when there is exactly one entity matching
@@ -691,7 +716,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
                         continue;
                     }
                     let fetches = self.fetch(&term_state, entity, row, fetch_buffer.as_uninit());
-                    func(Q::from_fetches_unchecked(&mut fetches.iter()))
+                    func(Q::from_fetches(&mut fetches.iter()))
                 }
             }
         } else {
@@ -711,7 +736,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
                     }
 
                     let fetches = self.fetch(&term_state, entity, row, fetch_buffer.as_uninit());
-                    func(Q::from_fetches_unchecked(&mut fetches.iter()))
+                    func(Q::from_fetches(&mut fetches.iter()))
                 }
             }
         }

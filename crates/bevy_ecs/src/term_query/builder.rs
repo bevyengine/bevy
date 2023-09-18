@@ -4,11 +4,23 @@ use crate::{component::ComponentId, prelude::*};
 
 use super::{QueryTermGroup, Term, TermOperator, TermQueryState};
 
-/// Builder for [`TermQuery`]
+/// Builder for [`TermQuery`](crate::system::TermQuery)
 ///
-/// TODO: Doc examples
+/// ```
+/// let mut world = World::new();
+/// let entity_a = world.spawn((A(0), B(0))).id();
+/// let entity_b = world.spawn((A(0), C(0))).id();
 ///
-/// See tests in `mod.rs` for more details.
+/// // Instantiate the builder using the type signature of the iterator you will consume
+/// let mut query_a = QueryBuilder::<(Entity, &B)>::new(&mut world)
+/// // Add additional terms through builder methods
+///     .with::<A>()
+///     .without::<C>()
+///     .build();
+///
+/// // Consume an iterator
+/// let (entity, b) = query_a.single(&world);
+///```
 pub struct QueryBuilder<'w, Q: QueryTermGroup = ()> {
     terms: Vec<Term>,
     current_term: usize,
@@ -153,6 +165,32 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
     /// Immutable access to the current list of [`Term`]s within the builder
     pub fn terms(&self) -> &Vec<Term> {
         &self.terms
+    }
+
+    /// Returns true if this builder could safely build a [`TermQueryState<NewQ>`]
+    pub fn interpretable_as<NewQ: QueryTermGroup>(&mut self) -> bool {
+        let mut terms = Vec::new();
+        NewQ::init_terms(self.world, &mut terms);
+        terms
+            .iter()
+            .enumerate()
+            .all(|(i, a)| self.terms.get(i).is_some_and(|b| b.interpretable_as(a)))
+    }
+
+    /// Attempts to re-interpret this builder as [`QueryBuilder<NewQ>`]
+    pub fn try_transmute<NewQ: QueryTermGroup>(mut self) -> Option<QueryBuilder<'w, NewQ>> {
+        if self.interpretable_as::<NewQ>() {
+            Some(unsafe { std::mem::transmute(self) })
+        } else {
+            None
+        }
+    }
+
+    /// Re-interprets this builder as [`QueryBuilder<NewQ>`]
+    ///
+    /// SAFETY: Caller must ensure that [`Self::interpretable_as::<NewQ>()`] is true
+    pub unsafe fn transmute<NewQ: QueryTermGroup>(self) -> QueryBuilder<'w, NewQ> {
+        std::mem::transmute(self)
     }
 
     /// Create a [`TermQueryState`] from the [`Term`]s within the builder
