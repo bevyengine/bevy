@@ -102,7 +102,7 @@ impl WorldExt for World {
         let type_registry = type_registry.read();
         type_registry
             .get_type_data::<ReflectFromPtr>(type_id)
-            .map(|n| unsafe { n.as_reflect_ptr(component_ptr) })
+            .map(|n| unsafe { n.as_reflect(component_ptr) })
     }
 
     fn get_dyn_reflect_mut_by_id(
@@ -126,7 +126,7 @@ impl WorldExt for World {
         };
 
         self.get_mut_by_id(entity, component_id).map(|n| {
-            n.map_unchanged(|p| unsafe { reflect_component_ptr.as_reflect_ptr_mut(p) })
+            n.map_unchanged(|p| unsafe { reflect_component_ptr.as_reflect_mut(p) })
                 .value
         })
     }
