@@ -59,8 +59,6 @@ impl PartialEq for VolumeLevel {
     }
 }
 
-impl Eq for VolumeLevel {}
-
 impl PartialOrd for VolumeLevel {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         use VolumeLevel::{Amplitude, Decibels};
@@ -70,12 +68,6 @@ impl PartialOrd for VolumeLevel {
             (Decibels(a), Decibels(b)) => a.total_cmp(b),
             (a, b) => a.decibels().total_cmp(&b.decibels()),
         })
-    }
-}
-
-impl Ord for VolumeLevel {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap()
     }
 }
 
