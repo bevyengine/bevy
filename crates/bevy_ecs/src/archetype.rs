@@ -86,7 +86,7 @@ impl ArchetypeId {
     /// Create an `ArchetypeId` from a plain value.
     ///
     /// This is useful if you need to store the `ArchetypeId` as a plain value,
-    /// for example in a specialzed data structure such as a bitset.
+    /// for example in a specialized data structure such as a bitset.
     ///
     /// While it doesn't break any safety invariants, you should ensure the
     /// values comes from a pre-existing [`ArchetypeId::index`] in this world
@@ -98,8 +98,7 @@ impl ArchetypeId {
 
     /// The plain value of this `ArchetypeId`.
     ///
-    /// It is a low number. In bevy, this is mostly used to store archetype ids
-    /// in [`FixedBitSet`]s.
+    /// In bevy, this is mostly used to store archetype ids in [`FixedBitSet`]s.
     ///
     /// [`FixedBitSet`]: fixedbitset::FixedBitSet
     #[inline]
