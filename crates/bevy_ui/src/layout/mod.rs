@@ -761,29 +761,29 @@ mod tests {
         let bottom = 0.;
 
         let ui_entity = world
-            .spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Px(100.),
-                        height: Val::Px(100.),
-                        border: UiRect::px(left, right, top, bottom),
-                        ..Default::default()
-                    },
+            .spawn((NodeBundle {
+                style: Style {
+                    width: Val::Px(100.),
+                    height: Val::Px(100.),
+                    border: UiRect::px(left, right, top, bottom),
                     ..Default::default()
                 },
-            ))
+                ..Default::default()
+            },))
             .id();
-    
+
         ui_schedule.run(&mut world);
 
-        let computed_border = world.query::<&ComputedBorderThickness>().get(&world, ui_entity).unwrap();
+        let computed_border = world
+            .query::<&ComputedBorderThickness>()
+            .get(&world, ui_entity)
+            .unwrap();
         assert_eq!(computed_border.left(), left);
         assert_eq!(computed_border.right(), right);
         assert_eq!(computed_border.top(), top);
         assert_eq!(computed_border.bottom(), bottom);
     }
 
-    
     #[test]
     fn border_with_viewport_values_should_be_computed_correctly() {
         let (mut world, mut ui_schedule) = setup_ui_test_world();
@@ -794,27 +794,39 @@ mod tests {
         let bottom = Val::VMax(7.);
 
         let ui_entity = world
-            .spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Px(100.),
-                        height: Val::Px(100.),
-                        border: UiRect::new(left, right, top, bottom),
-                        ..Default::default()
-                    },
+            .spawn((NodeBundle {
+                style: Style {
+                    width: Val::Px(100.),
+                    height: Val::Px(100.),
+                    border: UiRect::new(left, right, top, bottom),
                     ..Default::default()
                 },
-            ))
+                ..Default::default()
+            },))
             .id();
-    
+
         ui_schedule.run(&mut world);
 
-        let computed_border = world.query::<&ComputedBorderThickness>().get(&world, ui_entity).unwrap();
+        let computed_border = world
+            .query::<&ComputedBorderThickness>()
+            .get(&world, ui_entity)
+            .unwrap();
         let viewport_size = vec2(WINDOW_WIDTH, WINDOW_HEIGHT);
-        assert_eq!(computed_border.left(), left.resolve(viewport_size.x, viewport_size).unwrap());
-        assert_eq!(computed_border.right(), right.resolve(viewport_size.x, viewport_size).unwrap());
-        assert_eq!(computed_border.top(), top.resolve(viewport_size.x, viewport_size).unwrap());
-        assert_eq!(computed_border.bottom(), bottom.resolve(viewport_size.x, viewport_size).unwrap());
+        assert_eq!(
+            computed_border.left(),
+            left.resolve(viewport_size.x, viewport_size).unwrap()
+        );
+        assert_eq!(
+            computed_border.right(),
+            right.resolve(viewport_size.x, viewport_size).unwrap()
+        );
+        assert_eq!(
+            computed_border.top(),
+            top.resolve(viewport_size.x, viewport_size).unwrap()
+        );
+        assert_eq!(
+            computed_border.bottom(),
+            bottom.resolve(viewport_size.x, viewport_size).unwrap()
+        );
     }
-
 }
