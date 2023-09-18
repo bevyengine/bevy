@@ -292,11 +292,13 @@ impl App {
         Main::startup(&mut app.world);
         Main::run_main(&mut app.world);
 
-        // Force plugins to finish their setup and advance by one frame to make sure everything is
-        // setup up. This is important to prevent black frames during the launch animation on iOS,
-        // but it seems to also solve a brief flicker during startup on Linux/Wayland.
-        app.finish();
-        app.update();
+        if app.ready() {
+            // Force plugins to finish their setup and advance by one frame to make sure everything is
+            // setup up. This is important to prevent black frames during the launch animation on iOS,
+            // but it seems to also solve a brief flicker during startup on Linux/Wayland.
+            app.finish();
+            app.update();
+        }
 
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
         (runner)(app);
