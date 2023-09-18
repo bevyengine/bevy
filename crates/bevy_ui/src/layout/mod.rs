@@ -274,6 +274,11 @@ pub fn ui_layout_system(
         }
     }
 
+    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
+    for entity in removed_content_sizes.read() {
+        ui_surface.try_remove_measure(entity);
+    }
+
     for (entity, mut content_size) in measure_query.iter_mut() {
         if let Some(measure_func) = content_size.measure_func.take() {
             ui_surface.update_measure(entity, measure_func);
@@ -281,18 +286,13 @@ pub fn ui_layout_system(
     }
 
     // clean up removed nodes
-    ui_surface.remove_entities(removed_nodes.iter());
-
-    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-    for entity in removed_content_sizes.iter() {
-        ui_surface.try_remove_measure(entity);
-    }
+    ui_surface.remove_entities(removed_nodes.read());
 
     // update window children (for now assuming all Nodes live in the primary window)
     ui_surface.set_window_children(primary_window_entity, root_node_query.iter());
 
     // update and remove children
-    for entity in removed_children.iter() {
+    for entity in removed_children.read() {
         ui_surface.try_remove_children(entity);
     }
     for (entity, children) in &children_query {

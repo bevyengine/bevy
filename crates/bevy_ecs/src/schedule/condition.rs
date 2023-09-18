@@ -943,7 +943,7 @@ pub mod common_conditions {
         // Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
         // due to Bevy having a specialized implementation for events.
-        move |mut removals: RemovedComponents<T>| removals.iter().count() != 0
+        move |mut removals: RemovedComponents<T>| removals.read().count() != 0
     }
 
     /// Generates a [`Condition`](super::Condition) that inverses the result of passed one.
