@@ -1147,13 +1147,13 @@ impl From<Color> for [f32; 3] {
 
 impl From<Color> for wgpu::Color {
     fn from(color: Color) -> Self {
-        let Color { r, g, b, a } = color;
+        let linear = color.as_rgba_linear();
 
         wgpu::Color {
-            r: r as f64,
-            g: g as f64,
-            b: b as f64,
-            a: a as f64,
+            r: linear.red as f64,
+            g: linear.green as f64,
+            b: linear.blue as f64,
+            a: linear.alpha as f64,
         }
     }
 }
