@@ -289,10 +289,10 @@ impl App {
         }
 
         if app.ready() {
-            // Force plugins to finish their setup and advance by one frame to make sure everything is
-            // setup up. This is important to prevent black frames during the launch animation on iOS,
-            // but it seems to also solve a brief flicker during startup on Linux/Wayland.
+            // If we're already ready, we finish up now and advance one frame.
+            // This prevents black frames during the launch transition on iOS.
             app.finish();
+            app.cleanup();
             app.update();
         }
 
