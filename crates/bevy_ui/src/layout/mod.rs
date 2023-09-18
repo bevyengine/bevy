@@ -195,7 +195,7 @@ without UI components as a child of an entity with UI components, results may be
                 window_resolution.physical_height() as f32
             ),
         };
-        for root_nodes in self.window_roots.get(&window).unwrap() {
+        for root_nodes in self.window_roots.entry(window).or_default() {
             self.taffy
                 .compute_layout(root_nodes.implicit_viewport_node, available_space)
                 .unwrap();
