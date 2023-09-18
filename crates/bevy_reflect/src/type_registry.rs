@@ -599,6 +599,13 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
     }
 }
 
+/// In order to implement the acquisition of the component's dyn object through [`ComponentId`].
+///
+/// This trait associates the dyn object corresponding to [`TypeData`] (because rust does not currently support `dyn T`. `T` is a generic parameter.),
+///
+/// This trait can be implemented automatically by the `#[reflect_trait]` macro,
+///
+/// If you implement [`TypeData`] for your component yourself, you should also implement this trait if you need to dynamically get the dyn object for that component by it's [`ComponentId`]
 pub trait ReflectFnsTypeData: TypeData {
     type Dyn: ?Sized;
     fn get<'a>(&self, reflect_value: &'a dyn Reflect) -> Option<&'a Self::Dyn>;
