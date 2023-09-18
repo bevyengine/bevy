@@ -4,9 +4,8 @@ use crate::component::ComponentId;
 use crate::entity::Entity;
 use crate::prelude::{AppTypeRegistry, World};
 
-
 impl World {
-    /// Retrieves an immutable `dyn T` reference to the given entity's Component of the given 'ComponentId'
+    /// Retrieves an immutable `dyn T` reference to the given entity's Component of the given [`ComponentId`]
     #[allow(dead_code)]
     fn get_dyn_by_id<T: ReflectFnsTypeData>(
         &self,
@@ -32,7 +31,8 @@ impl World {
             .and_then(|n| n.get(dyn_obj))
     }
 
-    /// Retrieves an mutable `dyn T` reference to the given entity's Component of the given 'ComponentId'
+    /// Retrieves an mutable `dyn T` reference to the given entity's Component of the given [`ComponentId`]
+    #[allow(dead_code)]
     fn get_dyn_mut_by_id<T: ReflectFnsTypeData>(
         &mut self,
         entity: Entity,
@@ -55,7 +55,8 @@ impl World {
             .and_then(|dyn_obj| type_data.get_mut(dyn_obj))
     }
 
-    /// Retrieves an immutable `dyn Reflect` reference to the given entity's Component of the given 'ComponentId'
+    /// Retrieves an immutable `dyn Reflect` reference to the given entity's Component of the given [`ComponentId`]
+    #[allow(dead_code)]
     fn get_dyn_reflect_by_id(
         &self,
         entity: Entity,
@@ -80,7 +81,7 @@ impl World {
             .map(|n| unsafe { n.as_reflect(component_ptr) })
     }
 
-    /// Retrieves an mutable `dyn Reflect` reference to the given entity's Component of the given 'ComponentId'
+    /// Retrieves an mutable `dyn Reflect` reference to the given entity's Component of the given [`ComponentId`]
     fn get_dyn_reflect_mut_by_id(
         &mut self,
         entity: Entity,
@@ -132,7 +133,7 @@ mod tests {
         }
 
         fn mut_do_thing(&mut self) {
-            self.0 = "value changed".to_string()
+            self.0 = "value changed".to_string();
         }
     }
 
