@@ -1,6 +1,5 @@
-* Radiance cascades for screen probes (https://drive.google.com/file/d/1L6v1_7HY2X-LV3Ofb6oyTIxgEaP4LOI6/view)
-    * More efficent merging/tracing routines
-    * Add comments
+* Consider the weighing functions used for merging/filtering/interpolating
+    * Plane distance used in interpolating seems to do nothing right now
 * World cache improvements
     * Tie world cache to camera, use a log scale for cell size
     * Short trace distance
@@ -13,6 +12,7 @@
     * Better reprojection
     * Spatial weights
     * Early return for denoise passes for sky pixels or 0 spatial denoising
+* More efficent screen probe cascade merging/tracing routines
 
 * Specular lighting
 * Cleanup, remaining TODOs, performance profiling, documentation, etc
