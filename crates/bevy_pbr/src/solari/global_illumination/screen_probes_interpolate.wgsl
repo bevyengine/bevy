@@ -23,10 +23,10 @@ fn interpolate_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>
     let bl_probe_id = min(tl_probe_id + vec2(0u, 1u), probe_count);
     let br_probe_id = min(tl_probe_id + vec2(1u, 1u), probe_count);
 
-    let tl_probe_sample = sample_probe(tl_probe_id, pixel_world_normal, probe_count);
-    let tr_probe_sample = sample_probe(tr_probe_id, pixel_world_normal, probe_count);
-    let bl_probe_sample = sample_probe(bl_probe_id, pixel_world_normal, probe_count);
-    let br_probe_sample = sample_probe(tr_probe_id, pixel_world_normal, probe_count);
+    let tl_probe_sample = get_probe_irradiance(tl_probe_id, pixel_world_normal, probe_count);
+    let tr_probe_sample = get_probe_irradiance(tr_probe_id, pixel_world_normal, probe_count);
+    let bl_probe_sample = get_probe_irradiance(bl_probe_id, pixel_world_normal, probe_count);
+    let br_probe_sample = get_probe_irradiance(tr_probe_id, pixel_world_normal, probe_count);
 
     let r = fract(probe_id_f);
     let tl_probe_weight = (1.0 - r.x) * (1.0 - r.y) * plane_distance_weight(tl_probe_id, pixel_world_position, pixel_world_normal);
@@ -41,7 +41,7 @@ fn interpolate_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>
     textureStore(diffuse_raw, global_id.xy, vec4(irradiance, 1.0));
 }
 
-fn sample_probe(probe_id: vec2<u32>, pixel_world_normal: vec3<f32>, probe_count: vec2<u32>) -> vec3<f32> {
+fn get_probe_irradiance(probe_id: vec2<u32>, pixel_world_normal: vec3<f32>, probe_count: vec2<u32>) -> vec3<f32> {
     let probe_sh_packed = screen_probes_spherical_harmonics[probe_id.x + probe_id.y * probe_count.x];
     var probe_sh: array<vec3<f32>, 9>;
     probe_sh[0] = probe_sh_packed.a.xyz;
