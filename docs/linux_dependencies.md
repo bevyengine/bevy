@@ -21,7 +21,7 @@ Depending on your graphics card, you may have to install one of the following:
 
 Compiling with clang is also possible - replace the `g++` package with `clang`.
 
-### Windows Subsystem for Linux (WSL 2)
+## Windows Subsystem for Linux (WSL 2)
 
 Up-to-date WSL Installs for Windows 10 & 11 include WSLg, which provides
 necessary servers for passing graphics and audio between Windows and the WSL instance.
