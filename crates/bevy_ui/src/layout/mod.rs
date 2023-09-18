@@ -15,7 +15,7 @@ use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowResolution, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::{prelude::Size, style_helpers::TaffyMaxContent, Taffy};
@@ -164,11 +164,25 @@ without UI components as a child of an entity with UI components, results may be
         parent_window: Entity,
         children: impl Iterator<Item = Entity>,
     ) {
-        let taffy_node = self.window_nodes.get(&parent_window).unwrap();
-        let child_nodes = children
+        let parent_node = *self.window_nodes.get(&parent_window).unwrap();
+
+        let new_window_children = children
             .map(|e| *self.entity_to_taffy.get(&e).unwrap())
-            .collect::<Vec<taffy::node::Node>>();
-        self.taffy.set_children(*taffy_node, &child_nodes).unwrap();
+            .collect::<Vec<_>>();
+
+        let window_children = if let Ok(mut window_children) = self.taffy.children(parent_node) {
+            let child_set = new_window_children.iter().copied().collect::<HashSet<_>>();
+            let mut unique = HashSet::new();
+            window_children.extend(new_window_children);
+            window_children.retain(|child| child_set.contains(child) && unique.insert(*child));
+            window_children
+        } else {
+            new_window_children
+        };
+
+        self.taffy
+            .set_children(parent_node, &window_children)
+            .unwrap();
     }
 
     /// Compute the layout for each window entity's corresponding root node in the layout.
