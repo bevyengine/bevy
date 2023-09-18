@@ -1230,13 +1230,13 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "dynamic_query"
-path = "examples/ecs/dynamic_query.rs"
+name = "dynamic"
+path = "examples/ecs/dynamic.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.dynamic_query]
-name = "Dynamic Query"
-description = "Query for and create dynamic components //TODO: Make better"
+[package.metadata.example.dynamic]
+name = "Dynamic ECS"
+description = "Dynamically create components, spawn entities with those components and query those components"
 category = "ECS (Entity Component System)"
 wasm = false
 

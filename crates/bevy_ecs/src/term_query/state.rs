@@ -595,8 +595,6 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     ///
     /// Panics if the number of query results is not exactly one. Use
     /// [`get_single_raw`](Self::get_single_raw) to return a `Result` instead of panicking.
-    ///
-    /// TODO: Better name? single_terms? single_dynamic?
     #[inline]
     pub fn single_raw<'w, 's>(
         &'s mut self,
