@@ -885,8 +885,8 @@ impl World {
     /// of detection to be recorded.
     ///
     /// When using `bevy_ecs` as part of the full Bevy engine, this method is added as a system to the
-    /// main app, to run during `CoreSet::Last`, so you don't need to call it manually. When using
-    /// `bevy_ecs` as a separate standalone crate however, you need to call this manually.
+    /// main app, to run during `Last`, so you don't need to call it manually. When using `bevy_ecs`
+    /// as a separate standalone crate however, you need to call this manually.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
