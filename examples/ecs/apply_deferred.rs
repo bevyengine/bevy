@@ -108,7 +108,7 @@ fn setup(mut commands: Commands) {
 // has finished during this tick, we spawn a new Apple and a new Orange.
 //
 // The commands that we have added here will normally be flushed by Bevy
-// as part of the `CoreSet::UpdateFlush` set, but because we have ordered
+// after all systems in the schedule have run, but because we have ordered
 // this system to run before `apply_deferred.in_set(CustomFlush)`,
 // these commands added here will be flushed during our custom flush.
 fn despawn_old_and_spawn_new_fruits(
