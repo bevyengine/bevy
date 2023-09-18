@@ -669,9 +669,7 @@ impl Term {
         // For groups recurse into our sub_terms building an or group
         } else {
             let mut iter = self.sub_terms.iter();
-            let Some(term) = iter.next() else {
-                return
-            };
+            let Some(term) = iter.next() else { return };
             let mut new_access = access.clone();
             term.update_component_access(&mut new_access);
             iter.for_each(|term| {

@@ -1,7 +1,7 @@
 use std::{alloc::Layout, io::Write, ptr::NonNull};
 
 use bevy::prelude::*;
-use bevy_internal::{
+use bevy::{
     ecs::{
         component::{ComponentDescriptor, ComponentId, StorageType},
         system::TermQuery,
