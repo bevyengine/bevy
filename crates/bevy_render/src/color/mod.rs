@@ -621,9 +621,9 @@ impl Color {
     /// # use bevy_render::color::Color;
     /// #
     /// let red = Color::RED;
-    /// # assert_eq!(red.r(), 1.0);
-    /// let transparent_red = red.with_r(0.5);
-    /// # assert_eq!(transparent_red.r(), 0.5);
+    /// # assert_eq!(red.a(), 1.0);
+    /// let transparent_red = red.with_a(0.5);
+    /// # assert_eq!(transparent_red.a(), 0.5);
     /// ```
     #[must_use]
     pub const fn with_a(self, a: f32) -> Self {
