@@ -586,13 +586,13 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
         ReflectFromPtr {
             type_id: std::any::TypeId::of::<T>(),
             from_ptr: |ptr| {
-                // SAFE: only called from `as_reflect`, where the `ptr` is guaranteed to be of type `T`,
-                // and `as_reflect_ptr`, where the caller promises to call it with type `T`
+                // SAFETY: `from_ptr_mut` is either called in `ReflectFromPtr::as_reflect`
+                // or returned by `ReflectFromPtr::from_ptr`, both lay out the invariants
+                // required by `deref`
                 unsafe { ptr.deref::<T>() as &dyn Reflect }
             },
             from_ptr_mut: |ptr| {
-                // SAFE: only called from `as_reflect_mut`, where the `ptr` is guaranteed to be of type `T`,
-                // and `as_reflect_ptr_mut`, where the caller promises to call it with type `T`
+                // SAFETY: same as above, but foor `as_reflect_mut`, `from_ptr_mut` and `deref_mut`.
                 unsafe { ptr.deref_mut::<T>() as &mut dyn Reflect }
             },
         }

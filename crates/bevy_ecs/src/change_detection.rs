@@ -829,7 +829,7 @@ impl<'a> MutUntyped<'a> {
     /// # let mut_untyped: MutUntyped = unimplemented!();
     /// # let reflect_from_ptr: bevy_reflect::ReflectFromPtr = unimplemented!();
     /// // SAFETY: from the context it is known that `ReflectFromPtr` was made for the type of the `MutUntyped`
-    /// mut_untyped.map_unchanged(|ptr| unsafe { reflect_from_ptr.as_reflect_ptr_mut(ptr) });
+    /// mut_untyped.map_unchanged(|ptr| unsafe { reflect_from_ptr.as_reflect_mut(ptr) });
     /// ```
     pub fn map_unchanged<T: ?Sized>(self, f: impl FnOnce(PtrMut<'a>) -> &'a mut T) -> Mut<'a, T> {
         Mut {
