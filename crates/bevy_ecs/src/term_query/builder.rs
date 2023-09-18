@@ -7,6 +7,17 @@ use super::{QueryTermGroup, Term, TermOperator, TermQueryState};
 /// Builder for [`TermQuery`](crate::system::TermQuery)
 ///
 /// ```
+/// use bevy_ecs::prelude::*;
+///
+/// #[derive(Component)]
+/// struct A(usize);
+///
+/// #[derive(Component)]
+/// struct B(usize);
+///
+/// #[derive(Component)]
+/// struct C(usize);
+///
 /// let mut world = World::new();
 /// let entity_a = world.spawn((A(0), B(0))).id();
 /// let entity_b = world.spawn((A(0), C(0))).id();
@@ -49,9 +60,10 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
 
     /// Sets `current_term` to `index`
     ///
-    /// This is primarily intended for use with [`Self::set_dynamic`] and [`Self::set_dynamic_by_id].
+    /// This is primarily intended for use with [`Self::set_dynamic`] and [`Self::set_dynamic_by_id`].
     ///
-    /// SAFETY: terms must not be modified such that they become incompatible with Q
+    /// # Safety
+    /// Caller must not modify terms such that they become incompatible with Q
     pub unsafe fn term_at(&mut self, index: usize) -> &mut Self {
         self.current_term = index;
         self
@@ -105,7 +117,7 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
 
     /// Takes a function over mutable access to a [`QueryBuilder`], calls that function
     /// on an empty builder and then adds all terms from that builder to self marked as
-    /// [`TermAccess::Optional`]
+    /// [`TermOperator::Optional`]
     pub fn optional(&mut self, f: impl Fn(&mut QueryBuilder)) -> &mut Self {
         let mut builder = QueryBuilder::new(self.world);
         f(&mut builder);
@@ -147,7 +159,7 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
 
     /// Set the [`ComponentId`] of the term indexed by `current_term` to the one associated with `T`
     ///
-    /// Intended to be used primarily with queries with [`Ptr`] terms
+    /// Intended to be used primarily with queries with [`Ptr`](bevy_ptr::Ptr) terms
     pub fn set_dynamic<T: Component>(&mut self) -> &mut Self {
         let id = self.world.init_component::<T>();
         self.set_dynamic_by_id(id);
@@ -156,7 +168,7 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
 
     /// Set the [`ComponentId`] of the term indexed by `current_term`
     ///
-    /// Intended to be used primarily with queries with [`Ptr`] terms
+    /// Intended to be used primarily with queries with [`Ptr`](bevy_ptr::Ptr) terms
     pub fn set_dynamic_by_id(&mut self, id: ComponentId) -> &mut Self {
         self.terms[self.current_term].component = Some(id);
         self
@@ -178,8 +190,9 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
     }
 
     /// Attempts to re-interpret this builder as [`QueryBuilder<NewQ>`]
-    pub fn try_transmute<NewQ: QueryTermGroup>(mut self) -> Option<QueryBuilder<'w, NewQ>> {
+    pub fn try_transmute<NewQ: QueryTermGroup>(&mut self) -> Option<&mut QueryBuilder<'w, NewQ>> {
         if self.interpretable_as::<NewQ>() {
+            // SAFETY: Just checked that NewQ is compatible with Q
             Some(unsafe { std::mem::transmute(self) })
         } else {
             None
@@ -188,7 +201,9 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
 
     /// Re-interprets this builder as [`QueryBuilder<NewQ>`]
     ///
-    /// SAFETY: Caller must ensure that [`Self::interpretable_as::<NewQ>()`] is true
+    /// # Safety
+    ///
+    /// Caller must ensure that [`Self::interpretable_as::<NewQ>()`] is true
     pub unsafe fn transmute<NewQ: QueryTermGroup>(self) -> QueryBuilder<'w, NewQ> {
         std::mem::transmute(self)
     }

@@ -54,7 +54,9 @@ pub mod prelude {
             ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemParamFunction,
             TermQuery,
         },
-        term_query::TermQueryState,
+        term_query::{
+            FetchedTerm, QueryBuilder, QueryTerm, QueryTermGroup, Term, TermAccess, TermQueryState,
+        },
         world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
     };
 }

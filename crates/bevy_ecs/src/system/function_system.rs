@@ -359,10 +359,10 @@ impl<Marker, F> FunctionSystem<Marker, F>
 where
     F: SystemParamFunction<Marker>,
 {
-    /// Retrieves this systems [SystemParam::State] mutably
+    /// Retrieves this systems [`SystemParam::State`] mutably
     ///
     /// # Safety
-    /// Mutable reference must not be used to put the [SystemParam::State]
+    /// Mutable reference must not be used to put the [`SystemParam::State`]
     /// in an invalid state for this [`FunctionSystem`]
     pub unsafe fn state_mut(&mut self) -> &mut <F::Param as SystemParam>::State {
         // Archetype generation reset so that new params will be updated with all archetypes

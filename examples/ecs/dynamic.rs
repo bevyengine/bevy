@@ -4,13 +4,12 @@ use bevy::prelude::*;
 use bevy_internal::{
     ecs::{
         component::{ComponentDescriptor, ComponentId, StorageType},
-        term_query::{FetchedTerm, QueryBuilder, QueryTerm, QueryTermGroup, Term, TermAccess},
         system::TermQuery,
+        term_query::{FetchedTerm, QueryBuilder, QueryTerm, QueryTermGroup, Term, TermAccess},
     },
     ptr::OwningPtr,
     utils::HashMap,
 };
-
 
 const PROMPT: &str = "
 Commands:
@@ -55,7 +54,9 @@ fn main() {
             return;
         };
 
-        if line.is_empty() { return };
+        if line.is_empty() {
+            return;
+        };
 
         let Some((first, rest)) = line.trim().split_once(|c: char| c.is_whitespace()) else {
             match &line.chars().next() {
@@ -63,13 +64,13 @@ fn main() {
                 Some('s') => println!("{}", ENTITY_PROMPT),
                 Some('q') => println!("{}", QUERY_PROMPT),
                 _ => println!("{}", PROMPT),
-            } 
+            }
             continue;
         };
 
         match &first[0..1] {
             "c" => {
-                rest.split(",").for_each(|component| {
+                rest.split(',').for_each(|component| {
                     let mut component = component.split_whitespace();
                     let Some(name) = component.next() else {
                         return;
@@ -93,7 +94,7 @@ fn main() {
             "s" => {
                 let mut to_insert_ids = Vec::new();
                 let mut to_insert_ptr = Vec::new();
-                rest.split(",").for_each(|component| {
+                rest.split(',').for_each(|component| {
                     let mut component = component.split_whitespace();
                     let Some(name) = component.next() else {
                         return;
@@ -104,9 +105,10 @@ fn main() {
                     };
                     let info = world.components().get_info(id).unwrap();
                     let len = info.layout().size() / std::mem::size_of::<u64>();
-                    let mut values: Vec<u64> = component.take(len).filter_map(|value| {
-                        value.parse::<u64>().ok()
-                    }).collect();
+                    let mut values: Vec<u64> = component
+                        .take(len)
+                        .filter_map(|value| value.parse::<u64>().ok())
+                        .collect();
 
                     unsafe {
                         let data = std::alloc::alloc_zeroed(info.layout()).cast::<u64>();
@@ -127,12 +129,11 @@ fn main() {
             }
             "q" => {
                 let mut builder = QueryBuilder::<Entity>::new(&mut world);
-                parse_query(&rest, &mut builder, &components);
+                parse_query(rest, &mut builder, &components);
                 let query = builder.build();
 
                 unsafe { system.state_mut().0 = query };
                 system.run((), &mut world);
-                
             }
             _ => continue,
         }
@@ -161,11 +162,9 @@ fn parse_term<Q: QueryTermGroup>(
                         matched = true;
                     }
                 };
-            } else {
-                if let Some(&id) = components.get(&first[1..]) {
-                    builder.ref_by_id(id);
-                    matched = true;
-                }
+            } else if let Some(&id) = components.get(&first[1..]) {
+                builder.ref_by_id(id);
+                matched = true;
             }
         }
         Some(_) => {
@@ -187,7 +186,7 @@ fn parse_query<Q: QueryTermGroup>(
     builder: &mut QueryBuilder<Q>,
     components: &HashMap<String, ComponentId>,
 ) {
-    let str = str.split(",");
+    let str = str.split(',');
     str.for_each(|term| {
         let sub_terms: Vec<_> = term.split("||").collect();
         if sub_terms.len() == 1 {
@@ -196,7 +195,7 @@ fn parse_query<Q: QueryTermGroup>(
             builder.any_of(|b| {
                 sub_terms
                     .iter()
-                    .for_each(|term| parse_term(term, b, components))
+                    .for_each(|term| parse_term(term, b, components));
             });
         }
     });
@@ -215,17 +214,16 @@ fn print_match(term: &Term, fetch: &FetchedTerm, world: &World) -> String {
                     std::slice::from_raw_parts_mut(ptr.assert_unique().as_ptr().cast::<u64>(), len)
                 };
                 if term.access == TermAccess::Write {
-                    for i in 0..len {
-                        data[i] += 1;
-                    }
+                    data.iter_mut().for_each(|data| {
+                        *data += 1;
+                    });
                 }
 
                 return format!("{}: {:?}", name, data[0..len].to_vec());
             }
-            return format!("{}", name);
-        } else {
-            return format!("None");
+            return name.to_string();
         }
+        return "None".to_string();
     }
 
     if let Some(sub_fetches) = fetch.sub_terms() {
@@ -252,5 +250,5 @@ fn query_system(mut query: TermQuery<Entity>, world: &World) {
             .join(", ");
 
         println!("{:?}: {}", entity, components);
-    })
+    });
 }

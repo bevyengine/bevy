@@ -105,13 +105,11 @@ mod tests {
         let mut query = QueryBuilder::<()>::new(&mut world)
             .term::<&A>()
             .with::<B>()
+            .try_transmute::<&A>()
+            .unwrap()
             .build();
-        unsafe {
-            query
-                .transmute_mut::<&A>()
-                .iter(&world)
-                .for_each(|a| assert_eq!(a.0, 1));
-        }
+
+        query.iter(&world).for_each(|a| assert_eq!(a.0, 1));
     }
 
     #[test]
@@ -121,6 +119,7 @@ mod tests {
 
         // Using term_at is currently unsafe as it allows you to edit the targets of arbitrary terms
         // possibly putting the terms in the iterator out of sync with the internal state
+        // SAFETY: We are only modifying dynamic terms
         let mut query = unsafe {
             QueryBuilder::<(Entity, Ptr, Ptr)>::new(&mut world)
                 .term_at(1)
@@ -134,11 +133,14 @@ mod tests {
 
         assert_eq!(e, entity);
 
-        let a = unsafe { a.deref::<A>() };
-        let b = unsafe { b.deref::<B>() };
+        // SAFETY: We set these pointers to point to these components
+        unsafe {
+            let a = a.deref::<A>();
+            let b = b.deref::<B>();
 
-        assert_eq!(0, a.0);
-        assert_eq!(1, b.0);
+            assert_eq!(0, a.0);
+            assert_eq!(1, b.0);
+        }
     }
 
     #[test]
@@ -150,6 +152,7 @@ mod tests {
 
         // Using term_at is currently unsafe as it allows you to edit the targets of arbitrary terms
         // possibly putting the terms in the iterator out of sync with the internal state
+        // SAFETY: We are only modifying dynamic terms
         let mut query = unsafe {
             QueryBuilder::<(Entity, Ptr, Ptr)>::new(&mut world)
                 .term_at(1)
@@ -163,11 +166,14 @@ mod tests {
 
         assert_eq!(e, entity);
 
-        let a = unsafe { a.deref::<A>() };
-        let b = unsafe { b.deref::<B>() };
+        // SAFETY: We set these pointers to point to these components
+        unsafe {
+            let a = a.deref::<A>();
+            let b = b.deref::<B>();
 
-        assert_eq!(0, a.0);
-        assert_eq!(1, b.0);
+            assert_eq!(0, a.0);
+            assert_eq!(1, b.0);
+        }
     }
 
     #[test]
@@ -178,7 +184,9 @@ mod tests {
 
         // Our result is completely untyped
         let (_, fetches) = query.single_raw(&mut world);
+
         // Consume our fetched terms to produce a set of term items
+        // SAFETY: We know the type signature associated with these fetches
         let (e, a, b) = unsafe { <(Entity, &A, &B)>::from_fetches(&mut fetches.iter()) };
 
         assert_eq!(e, entity);
@@ -188,9 +196,12 @@ mod tests {
         // Alternatively extract individual terms dynamically
         let (_, fetches) = query.single_raw(&mut world);
 
-        assert_eq!(0, unsafe { <&A>::from_fetch(&fetches[1]) }.0);
-        assert_eq!(e, unsafe { Entity::from_fetch(&fetches[0]) });
-        assert_eq!(1, unsafe { <&B>::from_fetch(&fetches[2]) }.0);
+        // SAFETY: We know the terms at these indices have compatible types
+        unsafe {
+            assert_eq!(0, <&A>::from_fetch(&fetches[1]).0);
+            assert_eq!(e, Entity::from_fetch(&fetches[0]));
+            assert_eq!(1, <&B>::from_fetch(&fetches[2]).0);
+        }
     }
 
     #[test]
@@ -206,7 +217,9 @@ mod tests {
         let mut iter = fetches.iter();
 
         // Seperately consume our two terms
+        // SAFETY: We know the first two terms match this signature
         let (e1, a) = unsafe { <(Entity, &A)>::from_fetches(&mut iter) };
+        // SAFETY: We know the second two terms match this signature
         let (e2, b) = unsafe { <(Entity, &B)>::from_fetches(&mut iter) };
 
         assert_eq!(e1, entity);
@@ -251,6 +264,8 @@ mod tests {
             .build();
         let mut system = IntoSystem::into_system(sys);
         system.initialize(&mut world);
+
+        // SAFETY: We know the system param we are modifying has a compatible type signature
         unsafe { system.state_mut().0 = query };
         system.run((), &mut world);
 
@@ -258,6 +273,8 @@ mod tests {
         let query = QueryBuilder::<(Entity, &A, &B)>::new(&mut world).build();
         let mut system = IntoSystem::into_system(sys);
         system.initialize(&mut world);
+
+        // SAFETY: We know the system param we are modifying has a compatible type signature
         unsafe { system.state_mut().0 = query.transmute() };
         system.run((), &mut world);
     }

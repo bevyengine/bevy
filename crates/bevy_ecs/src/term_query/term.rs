@@ -1,6 +1,7 @@
 use std::cell::UnsafeCell;
 
 use bevy_ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
+use bevy_utils::prelude::default;
 
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
@@ -11,16 +12,15 @@ use crate::{
     world::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell},
 };
 
-/// Defines whether a [`Term`] has mutable or immutable access to a [`Component`] or [`Entity`].
-/// TODO: rename to match mutable and immutable?
+/// Defines whether a [`Term`] has mutable or immutable access to a [`Component`](crate::prelude::Component) or [`Entity`].
 #[derive(Eq, PartialEq, Clone, Copy, Debug, Default, PartialOrd, Ord)]
 pub enum TermAccess {
-    /// This term doesn't access it's target at all i.e. With<T> or Entity
+    /// This term doesn't access it's target at all i.e. `With<T>` or `Entity`
     #[default]
     None = 0,
-    /// This term has immutable access to it's target i.e. &T or EntityRef
+    /// This term has immutable access to it's target i.e. `&T` or `EntityRef`
     Read,
-    /// This term has mutable access to it's target i.e. &mut T or EntityMut
+    /// This term has mutable access to it's target i.e. `&mut T` or `EntityMut`
     Write,
 }
 
@@ -54,36 +54,37 @@ pub enum TermOperator {
     Optional,
 }
 
-/// A single term in a [`TermQuery`], each valid [`QueryTerm`] generates a
-/// matching [`Term`] in [`QueryTerm::init_term`].
+/// A single term in a [`TermQuery`](crate::prelude::TermQuery), each valid [`QueryTerm`](crate::prelude::QueryTerm) generates a
+/// matching [`Term`] in [`QueryTerm::init_term`](crate::prelude::QueryTerm).
 ///
 /// The [`Term`] is used while resolving a query to determine how the
 /// resulting [`FetchedTerm`] is populated.
 #[derive(Clone, Default, Debug)]
 pub struct Term {
-    /// Whether or not this is an entity term i.e. [`Entity`], [`EntityRef`] or [`EntityMut`]
+    /// Whether or not this is an entity term i.e. [`Entity`], [`EntityRef`](crate::prelude::EntityRef) or [`EntityMut`](crate::prelude::EntityMut)
     pub entity: bool,
-    /// The [`Component`] this term targets if any, i.e. `&T`, `&mut T`
+    /// The [`Component`](crate::prelude::Component) this term targets if any, i.e. `&T`, `&mut T`
     pub component: Option<ComponentId>,
     /// Whether this Term reads/writes the component or entity
     pub access: TermAccess,
     /// The operator to use while resolving this term, see [`TermOperator`]
     pub operator: TermOperator,
-    /// Whether or not this term requires change detection information i.e. `&mut T` or [`Changed<T>`]
+    /// Whether or not this term requires change detection information i.e. `&mut T` or [`Changed<T>`](crate::prelude::Changed)
     pub change_detection: bool,
-    /// Sub terms if any, used for groups like [`Or`] or [`AnyOf`]
+    /// Sub terms if any, used for groups like [`Or`](crate::prelude::Or) or [`AnyOf`](crate::prelude::AnyOf)
     pub sub_terms: Vec<Term>,
 }
 
 impl Term {
-    /// Create a term representing [`Or`] with the given sub terms
+    /// Create a term representing [`Or`](crate::prelude::Or) with the given sub terms
     pub fn or_terms(sub_terms: Vec<Term>) -> Self {
-        let mut term = Self::default();
-        term.sub_terms = sub_terms;
-        term
+        Term {
+            sub_terms,
+            ..default()
+        }
     }
 
-    /// Create a term representing [`AnyOf`] with the given sub terms
+    /// Create a term representing [`AnyOf`](crate::prelude::AnyOf) with the given sub terms
     pub fn any_of_terms(sub_terms: Vec<Term>) -> Self {
         Self::or_terms(sub_terms).set_access(TermAccess::Read)
     }
@@ -108,18 +109,19 @@ impl Term {
 
     /// Creates a term representing [`Entity`]
     pub fn entity() -> Self {
-        let mut term = Self::default();
-        term.entity = true;
-        term
+        Term {
+            entity: true,
+            ..default()
+        }
     }
 
-    /// Creates a term representing [`With<T>`] where T is the [`Component`]
+    /// Creates a term representing [`With<T>`](crate::prelude::With) where T is the [`Component`](crate::prelude::Component)
     /// associated with id: `id`
     pub fn with_id(id: ComponentId) -> Self {
         Self::default().set_id(id)
     }
 
-    /// Creates a term representing [`Without<T>`] where T is the [`Component`]
+    /// Creates a term representing [`Without<T>`](crate::prelude::Without) where T is the [`Component`](crate::prelude::Component)
     /// associated with id: `id`
     pub fn without_id(id: ComponentId) -> Self {
         Self::default()
@@ -132,30 +134,30 @@ impl Term {
         Self::default().set_access(TermAccess::Read)
     }
 
-    /// Creates a term representing `&T` where T is the [`Component`]
+    /// Creates a term representing `&T` where T is the [`Component`](crate::prelude::Component)
     /// associated with id: `id`
     pub fn read_id(id: ComponentId) -> Self {
         Self::read().set_id(id)
     }
 
-    /// Creates a term representing [`PtrMut`]
+    /// Creates a term representing [`PtrMut`](bevy_ptr::PtrMut)
     pub fn write() -> Self {
         Self::default().set_access(TermAccess::Write)
     }
 
-    /// Creates a term representing `&mut T` where T is the [`Component`]
+    /// Creates a term representing `&mut T` where T is the [`Component`](crate::prelude::Component)
     /// associated with id: `id`
     pub fn write_id(id: ComponentId) -> Self {
         Self::write().set_id(id)
     }
 
-    /// Creates a term representing [`Added<T>`] where T is the [`Component`]
+    /// Creates a term representing [`Added<T>`](crate::prelude::Added) where T is the [`Component`](crate::prelude::Component)
     /// associated with id: `id`
     pub fn added_id(id: ComponentId) -> Self {
         Self::with_id(id).set_operator(TermOperator::Added)
     }
 
-    /// Creates a term representing [`Changed<T>`] where T is the [`Component`]
+    /// Creates a term representing [`Changed<T>`](crate::prelude::Changed) where T is the [`Component`](crate::prelude::Component)
     /// associated with id: `id`
     pub fn changed_id(id: ComponentId) -> Self {
         Self::with_id(id).set_operator(TermOperator::Changed)
@@ -167,7 +169,7 @@ impl Term {
         self
     }
 
-    /// Whether this term can be safely interpreted as `other` i.e. &T => With<T> or &mut T => &T
+    /// Whether this term can be safely interpreted as `other` i.e. `&T => With<T>` or `&mut T => &T`
     pub fn interpretable_as(&self, other: &Term) -> bool {
         self.entity == other.entity
             && self.operator == other.operator
@@ -223,11 +225,7 @@ impl TermState<'_> {
     // Returns true of this state can be densely iterated
     #[inline]
     pub fn dense(&self) -> bool {
-        if let TermStatePtr::SparseSet(_) = self.ptr {
-            false
-        } else {
-            true
-        }
+        !matches!(self.ptr, TermStatePtr::SparseSet(_))
     }
 }
 
@@ -255,14 +253,14 @@ pub enum FetchPtr<'w> {
         /// Change detection ticks
         change_ticks: Option<FetchedTicks<'w>>,
     },
-    /// Entity fetch, e.g. [`EntityRef`]
+    /// Entity fetch, e.g. [`EntityRef`](crate::prelude::EntityRef)
     Entity {
         /// The location of the entity
         location: EntityLocation,
         /// A world reference to construct [`UnsafeEntityCell`]
         world: UnsafeWorldCell<'w>,
     },
-    /// Group fetch e.g. [`AnyOf`]
+    /// Group fetch e.g. [`AnyOf`](crate::prelude::AnyOf)
     Group {
         /// A set of fetched sub terms
         sub_terms: Vec<FetchedTerm<'w>>,
@@ -271,7 +269,7 @@ pub enum FetchPtr<'w> {
     None,
 }
 
-/// Represents a [`Term`] that has been fetched from a [`TermQuery`]
+/// Represents a [`Term`] that has been fetched from a [`TermQuery`](crate::prelude::TermQuery)
 #[derive(Clone)]
 pub struct FetchedTerm<'w> {
     /// The [`Entity`] this [`Term`] was resolved with
@@ -398,7 +396,7 @@ impl Term {
     ///
     /// # Safety
     ///
-    /// - `archetype` and `tables` must be from the same [`World`] that [`Self::init_state`] was called on.
+    /// - `archetype` and `tables` must be from the same [`World`](crate::prelude::World) that [`Self::init_state`] was called on.
     /// - [`Self::update_archetype_component_access`] must have been previously called with `archetype`.
     /// - `table` must correspond to `archetype`.
     /// - `state` must be the must be the same [`TermState`] that was created in [`Self::init_state`].
@@ -411,12 +409,13 @@ impl Term {
     ) {
         state.matches = self.matches_component_set(&|id| archetype.contains(id));
         if let TermStatePtr::Group(sub_states) = &mut state.ptr {
-            self.sub_terms.iter().zip(sub_states.iter_mut()).for_each(
-                |(sub_term, mut sub_state)| {
-                    sub_term.set_archetype(&mut sub_state, archetype, table);
-                    state.matches |= sub_state.matches
-                },
-            );
+            self.sub_terms
+                .iter()
+                .zip(sub_states.iter_mut())
+                .for_each(|(sub_term, sub_state)| {
+                    sub_term.set_archetype(sub_state, archetype, table);
+                    state.matches |= sub_state.matches;
+                });
         }
         if state.matches {
             self.set_table_manual(state, table);
@@ -428,7 +427,7 @@ impl Term {
     ///
     /// # Safety
     ///
-    /// - `table` must be from the same [`World`] that [`Self::init_state`] was called on.
+    /// - `table` must be from the same [`World`](crate::prelude::World) that [`Self::init_state`] was called on.
     /// - `table` must belong to an archetype that was previously registered with
     ///   [`Self::update_archetype_component_access`].
     /// - `state` must be the same [`TermState`] that was created in [`Self::init_state`].
@@ -436,12 +435,13 @@ impl Term {
     pub(crate) unsafe fn set_table<'w>(&self, state: &mut TermState<'w>, table: &'w Table) {
         state.matches = self.matches_component_set(&|id| table.has_column(id));
         if let TermStatePtr::Group(sub_states) = &mut state.ptr {
-            self.sub_terms.iter().zip(sub_states.iter_mut()).for_each(
-                |(sub_term, mut sub_state)| {
-                    sub_term.set_table(&mut sub_state, table);
-                    state.matches |= sub_state.matches
-                },
-            );
+            self.sub_terms
+                .iter()
+                .zip(sub_states.iter_mut())
+                .for_each(|(sub_term, sub_state)| {
+                    sub_term.set_table(sub_state, table);
+                    state.matches |= sub_state.matches;
+                });
         }
         if state.matches {
             self.set_table_manual(state, table);
@@ -578,9 +578,9 @@ impl Term {
     /// Must always be called _after_ [`Self::set_table`]. `entity` and `table_row` must be
     /// in the range of the current table and archetype.
     #[inline(always)]
-    pub(crate) unsafe fn filter_fetch<'w>(
+    pub(crate) unsafe fn filter_fetch(
         &self,
-        state: &TermState<'w>,
+        state: &TermState<'_>,
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
@@ -592,10 +592,8 @@ impl Term {
             TermStatePtr::SparseSet(set) => {
                 // Determine whether the term matches based on the operator
                 match self.operator {
-                    TermOperator::Optional => true,
                     // These are checked in matches_component_set
-                    TermOperator::With => true,
-                    TermOperator::Without => true,
+                    TermOperator::Optional | TermOperator::With | TermOperator::Without => true,
                     TermOperator::Added => {
                         let cells = set.get_tick_cells(entity).debug_checked_unwrap();
                         cells
@@ -615,10 +613,8 @@ impl Term {
             TermStatePtr::Table(_) => {
                 // Determine whether the term matches based on the operator
                 match self.operator {
-                    TermOperator::Optional => true,
                     // These are checked in matches_component_set
-                    TermOperator::With => true,
-                    TermOperator::Without => true,
+                    TermOperator::Optional | TermOperator::With | TermOperator::Without => true,
                     TermOperator::Added => {
                         let (added, _) = state.ticks.ptrs.debug_checked_unwrap();
                         added
@@ -688,7 +684,7 @@ impl Term {
         }
     }
 
-    /// For the given `archetype`, adds any component accessed used by this [`WorldQuery`] to `access`.
+    /// For the given `archetype`, adds any component accessed used by this [`Term`] to `access`.
     #[inline]
     pub fn update_archetype_component_access(
         &self,
@@ -736,7 +732,7 @@ impl Term {
     #[inline]
     pub fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         if self.entity {
-            return true;
+            true
         } else if let Some(component_id) = self.component {
             match self.operator {
                 TermOperator::Without => !set_contains_id(component_id),

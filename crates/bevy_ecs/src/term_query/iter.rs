@@ -114,7 +114,7 @@ impl<'w, 's> TermQueryCursor<'w, 's> {
 
                 let entity = archetype_entity.entity();
                 let row = archetype_entity.table_row();
-                if query_state.filter_fetch(&mut self.term_state, entity, row) {
+                if query_state.filter_fetch(&self.term_state, entity, row) {
                     return Some(query_state.fetch(
                         &self.term_state,
                         entity,
@@ -162,6 +162,9 @@ impl<'w, 's> Iterator for TermQueryIterUntyped<'w, 's> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
+        // SAFETY:
+        // `tables` and `archetypes` belong to the same world that the cursor was initialized for.
+        // `query_state` is the state that was passed to `TermQueryCursor::new`.
         unsafe {
             self.cursor
                 .next(self.tables, self.archetypes, self.query_state)
@@ -210,14 +213,9 @@ impl<'w, 's, Q: QueryTermGroup> Iterator for TermQueryIter<'w, 's, Q> {
         // `tables` and `archetypes` belong to the same world that the cursor was initialized for.
         // `query_state` is the state that was passed to `QueryIterationCursor::init`.
         unsafe {
-            if let Some(fetches) = self
-                .cursor
+            self.cursor
                 .next(self.tables, self.archetypes, self.query_state)
-            {
-                Some(Q::from_fetches(&mut fetches.iter()))
-            } else {
-                None
-            }
+                .map(|fetches| Q::from_fetches(&mut fetches.iter()))
         }
     }
 }

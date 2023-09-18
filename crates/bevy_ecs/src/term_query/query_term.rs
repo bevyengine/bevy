@@ -12,15 +12,18 @@ use crate::{
 
 use super::{FetchedTerm, Term, TermAccess, TermOperator};
 
-/// Types that can be fetched from a [`World`] using a [`TermQuery`].
+/// Types that can be fetched from a [`World`] using a [`TermQuery`](crate::prelude::TermQuery).
 ///
-/// This is implemented for all the same types as [`WorldQuery`] as well
+/// This is implemented for all the same types as [`WorldQuery`](crate::query::WorldQuery) as well
 /// as additional types that for dynamic queries.
 ///
 /// Theses additional types are [`Ptr`] and [`PtrMut`] which are equivalent to
 /// &T and &mut T respectively but their component id is set at runtime.
 ///
 /// ```
+/// use bevy_ecs::prelude::*;
+/// use bevy_ptr::Ptr;
+///
 /// #[derive(Component)]
 /// struct MyComponent;
 ///
@@ -29,15 +32,15 @@ use super::{FetchedTerm, Term, TermAccess, TermOperator};
 ///
 /// let component_id = world.init_component::<MyComponent>();
 ///
-/// let query = unsafe {
+/// let mut query = unsafe {
 ///     QueryBuilder::<(Entity, Ptr)>::new(&mut world)
 ///         .term_at(1)
-///         .set_dynamic_by_id(component)
+///         .set_dynamic_by_id(component_id)
 ///         .build()
 /// };
 ///
 /// let (entity, component): (Entity, Ptr) = query.single(&world);
-/// let component_ref: &MyComponent = unsafe { a.cast::<MyComponent>() };
+/// let component_ref: &MyComponent = unsafe { component.deref::<MyComponent>() };
 /// ```
 ///
 /// # Safety
@@ -45,8 +48,8 @@ use super::{FetchedTerm, Term, TermAccess, TermOperator};
 /// Component access of `Self::ReadOnly` must be a subset of `Self`
 /// and `Self::ReadOnly` must match exactly the same archetypes/tables as `Self`
 ///
-/// Implementor must ensure that [`from_fetch_unchecked`] is safe to call on a [`FetchedTerm`]
-/// returned by a call to [`Term::fetch`] on the value returned from [`init_term`]
+/// Implementor must ensure that [`Self::from_fetch`] is safe to call on a [`FetchedTerm`]
+/// resolved from the value returned by [`Self::init_term`]
 pub trait QueryTerm {
     /// The item returned by this [`QueryTerm`]
     type Item<'w>;
@@ -57,6 +60,10 @@ pub trait QueryTerm {
     fn init_term(world: &mut World) -> Term;
 
     /// Creates an instance of [`Self::Item`] out of a fetched [`Term`]
+    ///
+    /// # Safety
+    ///
+    /// Caller must ensure that `fetch` is consumable as the implementing type
     unsafe fn from_fetch<'w>(fetch: &FetchedTerm<'w>) -> Self::Item<'w>;
 }
 
@@ -71,10 +78,14 @@ pub trait QueryTermGroup {
     /// The optional variant of this [`QueryTermGroup`]
     type Optional: QueryTermGroup;
 
-    /// Writes new [`Term`] instances to `terms`, satisfying the requirements for [`Self::from_fetch`]
+    /// Writes new [`Term`] instances to `terms`, satisfying the requirements for [`Self::from_fetches`]
     fn init_terms(world: &mut World, terms: &mut Vec<Term>);
 
     /// Creates an instance of [`Self::Item`] out of an iterator of fetched [`Term`]s
+    ///
+    /// # Safety
+    ///
+    /// Caller must ensure the `terms` is consumable as the implementing type
     unsafe fn from_fetches<'w: 'f, 'f>(
         terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
     ) -> Self::Item<'w>;
@@ -113,6 +124,7 @@ macro_rules! impl_query_term_tuple {
                 )*
             }
 
+            #[allow(clippy::unused_unit)]
             #[inline]
             unsafe fn from_fetches<'w: 'f, 'f>(_terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>) -> Self::Item<'w> {
                 ($(
