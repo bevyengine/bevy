@@ -6,7 +6,7 @@ use crate::{
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleId, HandleUntyped};
+use bevy_asset::{load_internal_asset, AssetId, Assets, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
     prepass::ViewPrepassTextures,
@@ -20,7 +20,6 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Affine3A, Mat4, Vec2, Vec3Swizzles, Vec4};
-use bevy_reflect::TypeUuid;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
@@ -37,7 +36,7 @@ use bevy_render::{
         BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImagesDepth,
         FallbackImagesMsaa, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
-    view::{ComputedVisibility, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
@@ -57,24 +56,15 @@ pub const MAX_JOINTS: usize = 256;
 const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
 pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
-pub const MESH_VERTEX_OUTPUT: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2645551199423808407);
-pub const MESH_VIEW_TYPES_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8140454348013264787);
-pub const MESH_VIEW_BINDINGS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9076678235888822571);
-pub const MESH_TYPES_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2506024101911992377);
-pub const MESH_BINDINGS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16831548636314682308);
-pub const MESH_FUNCTIONS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6300874327833745635);
-pub const MESH_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3252377289100772450);
-pub const SKINNING_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 13215291596265391738);
-pub const MORPH_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 970982813587607345);
+pub const MESH_VERTEX_OUTPUT: Handle<Shader> = Handle::weak_from_u128(2645551199423808407);
+pub const MESH_VIEW_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(8140454348013264787);
+pub const MESH_VIEW_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(9076678235888822571);
+pub const MESH_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(2506024101911992377);
+pub const MESH_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16831548636314682308);
+pub const MESH_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(6300874327833745635);
+pub const MESH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(3252377289100772450);
+pub const SKINNING_HANDLE: Handle<Shader> = Handle::weak_from_u128(13215291596265391738);
+pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(970982813587607345);
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
@@ -261,7 +251,7 @@ pub fn extract_meshes(
     meshes_query: Extract<
         Query<(
             Entity,
-            &ComputedVisibility,
+            &ViewVisibility,
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
@@ -272,7 +262,7 @@ pub fn extract_meshes(
 ) {
     let mut caster_commands = Vec::with_capacity(*prev_caster_commands_len);
     let mut not_caster_commands = Vec::with_capacity(*prev_not_caster_commands_len);
-    let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.is_visible());
+    let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.get());
 
     for (entity, _, transform, previous_transform, handle, not_receiver, not_caster) in
         visible_meshes
@@ -354,7 +344,7 @@ pub fn extract_skinned_meshes(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut uniform: ResMut<SkinnedMeshUniform>,
-    query: Extract<Query<(Entity, &ComputedVisibility, &SkinnedMesh)>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &SkinnedMesh)>>,
     inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
     joint_query: Extract<Query<&GlobalTransform>>,
 ) {
@@ -362,8 +352,8 @@ pub fn extract_skinned_meshes(
     let mut values = Vec::with_capacity(*previous_len);
     let mut last_start = 0;
 
-    for (entity, computed_visibility, skin) in &query {
-        if !computed_visibility.is_visible() {
+    for (entity, view_visibility, skin) in &query {
+        if !view_visibility.get() {
             continue;
         }
         // PERF: This can be expensive, can we move this to prepare?
@@ -1025,13 +1015,13 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: MESH_SHADER_HANDLE.typed::<Shader>(),
+                shader: MESH_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_buffer_layout],
             },
             fragment: Some(FragmentState {
-                shader: MESH_SHADER_HANDLE.typed::<Shader>(),
+                shader: MESH_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -1082,7 +1072,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
 pub struct MeshBindGroups {
     model_only: Option<BindGroup>,
     skinned: Option<BindGroup>,
-    morph_targets: HashMap<HandleId, BindGroup>,
+    morph_targets: HashMap<AssetId<Mesh>, BindGroup>,
 }
 impl MeshBindGroups {
     pub fn reset(&mut self) {
@@ -1091,7 +1081,12 @@ impl MeshBindGroups {
         self.morph_targets.clear();
     }
     /// Get the `BindGroup` for `GpuMesh` with given `handle_id`.
-    pub fn get(&self, handle_id: HandleId, is_skinned: bool, morph: bool) -> Option<&BindGroup> {
+    pub fn get(
+        &self,
+        handle_id: AssetId<Mesh>,
+        is_skinned: bool,
+        morph: bool,
+    ) -> Option<&BindGroup> {
         match (is_skinned, morph) {
             (_, true) => self.morph_targets.get(&handle_id),
             (true, false) => self.skinned.as_ref(),
@@ -1129,7 +1124,7 @@ pub fn prepare_mesh_bind_group(
                 } else {
                     layouts.morphed(&render_device, &model, weights, targets)
                 };
-                groups.morph_targets.insert(id.id(), group);
+                groups.morph_targets.insert(id, group);
             }
         }
     }

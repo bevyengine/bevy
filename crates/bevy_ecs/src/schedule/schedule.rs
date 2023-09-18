@@ -41,8 +41,8 @@ impl Schedules {
     ///
     /// If the map already had an entry for `label`, `schedule` is inserted,
     /// and the old schedule is returned. Otherwise, `None` is returned.
-    pub fn insert(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> Option<Schedule> {
-        let label = label.dyn_clone();
+    pub fn insert(&mut self, schedule: Schedule) -> Option<Schedule> {
+        let label = schedule.name.dyn_clone();
         self.inner.insert(label, schedule)
     }
 
@@ -158,22 +158,31 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 /// }
 /// ```
 pub struct Schedule {
+    name: BoxedScheduleLabel,
     graph: ScheduleGraph,
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
     executor_initialized: bool,
 }
 
+#[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
+struct DefaultSchedule;
+
 impl Default for Schedule {
+    /// Creates a schedule with a default label. Only use in situations where
+    /// you don't care about the [`ScheduleLabel`]. Inserting a default schedule
+    /// into the world risks overwriting another schedule. For most situations
+    /// you should use [`Schedule::new`].
     fn default() -> Self {
-        Self::new()
+        Self::new(DefaultSchedule)
     }
 }
 
 impl Schedule {
     /// Constructs an empty `Schedule`.
-    pub fn new() -> Self {
+    pub fn new(label: impl ScheduleLabel) -> Self {
         Self {
+            name: label.dyn_clone(),
             graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
             executor: make_executor(ExecutorKind::default()),
@@ -183,15 +192,15 @@ impl Schedule {
 
     /// Add a collection of systems to the schedule.
     pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.graph.add_systems_inner(systems.into_configs(), false);
+        self.graph.process_configs(systems.into_configs(), false);
         self
     }
 
     /// Configures a system set in this schedule, adding it if it does not exist.
+    #[deprecated(since = "0.12.0", note = "Please use `configure_sets` instead.")]
     #[track_caller]
-    pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
-        self.graph.configure_set(set);
-        self
+    pub fn configure_set(&mut self, set: impl IntoSystemSetConfigs) -> &mut Self {
+        self.configure_sets(set)
     }
 
     /// Configures a collection of system sets in this schedule, adding them if they does not exist.
@@ -237,8 +246,12 @@ impl Schedule {
 
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("schedule", name = ?self.name).entered();
+
         world.check_change_ticks();
-        self.initialize(world).unwrap_or_else(|e| panic!("{e}"));
+        self.initialize(world)
+            .unwrap_or_else(|e| panic!("Error when intializing schedule {:?}: {e}", self.name));
         self.executor.run(&mut self.executable, world);
     }
 
@@ -250,7 +263,7 @@ impl Schedule {
         if self.graph.changed {
             self.graph.initialize(world);
             self.graph
-                .update_schedule(&mut self.executable, world.components())?;
+                .update_schedule(&mut self.executable, world.components(), &self.name)?;
             self.graph.changed = false;
             self.executor_initialized = false;
         }
@@ -509,30 +522,36 @@ impl ScheduleGraph {
         &self.conflicting_systems
     }
 
-    /// Adds the systems to the graph. Returns a vector of all node ids contained the nested `SystemConfigs`
-    /// if `ancestor_chained` is true. Also returns true if "densely chained", meaning that all nested items
-    /// are linearly chained in the order they are defined
-    fn add_systems_inner(
+    /// Adds the config nodes to the graph.
+    ///
+    /// `collect_nodes` controls whether the `NodeId`s of the processed config nodes are stored in the returned [`ProcessConfigsResult`].
+    /// `process_config` is the function which processes each individual config node and returns a corresponding `NodeId`.
+    ///
+    /// The fields on the returned [`ProcessConfigsResult`] are:
+    /// - `nodes`: a vector of all node ids contained in the nested `NodeConfigs`
+    /// - `densely_chained`: a boolean that is true if all nested nodes are linearly chained (with successive `after` orderings) in the order they are defined
+    #[track_caller]
+    fn process_configs<T: ProcessNodeConfig>(
         &mut self,
-        configs: SystemConfigs,
-        ancestor_chained: bool,
-    ) -> AddSystemsInnerResult {
+        configs: NodeConfigs<T>,
+        collect_nodes: bool,
+    ) -> ProcessConfigsResult {
         match configs {
-            SystemConfigs::SystemConfig(config) => {
-                let node_id = self.add_system_inner(config).unwrap();
-                if ancestor_chained {
-                    AddSystemsInnerResult {
+            NodeConfigs::NodeConfig(config) => {
+                let node_id = T::process_config(self, config);
+                if collect_nodes {
+                    ProcessConfigsResult {
                         densely_chained: true,
                         nodes: vec![node_id],
                     }
                 } else {
-                    AddSystemsInnerResult {
+                    ProcessConfigsResult {
                         densely_chained: true,
                         nodes: Vec::new(),
                     }
                 }
             }
-            SystemConfigs::Configs {
+            NodeConfigs::Configs {
                 mut configs,
                 collective_conditions,
                 chained,
@@ -544,9 +563,9 @@ impl ScheduleGraph {
                         for config in &mut configs {
                             config.in_set_dyn(set.dyn_clone());
                         }
-                        let mut set_config = set.into_config();
+                        let mut set_config = SystemSetConfig::new(set.dyn_clone());
                         set_config.conditions.extend(collective_conditions);
-                        self.configure_set(set_config);
+                        self.configure_set_inner(set_config).unwrap();
                     } else {
                         for condition in collective_conditions {
                             configs[0].run_if_dyn(condition);
@@ -558,15 +577,15 @@ impl ScheduleGraph {
                 let mut densely_chained = true;
                 if chained {
                     let Some(prev) = config_iter.next() else {
-                        return AddSystemsInnerResult {
+                        return ProcessConfigsResult {
                             nodes: Vec::new(),
                             densely_chained: true,
                         };
                     };
-                    let mut previous_result = self.add_systems_inner(prev, true);
+                    let mut previous_result = self.process_configs(prev, true);
                     densely_chained = previous_result.densely_chained;
                     for current in config_iter {
-                        let current_result = self.add_systems_inner(current, true);
+                        let current_result = self.process_configs(current, true);
                         densely_chained = densely_chained && current_result.densely_chained;
                         match (
                             previous_result.densely_chained,
@@ -622,7 +641,7 @@ impl ScheduleGraph {
                             }
                         }
 
-                        if ancestor_chained {
+                        if collect_nodes {
                             nodes_in_scope.append(&mut previous_result.nodes);
                         }
 
@@ -630,14 +649,14 @@ impl ScheduleGraph {
                     }
 
                     // ensure the last config's nodes are added
-                    if ancestor_chained {
+                    if collect_nodes {
                         nodes_in_scope.append(&mut previous_result.nodes);
                     }
                 } else {
                     for config in config_iter {
-                        let result = self.add_systems_inner(config, ancestor_chained);
+                        let result = self.process_configs(config, collect_nodes);
                         densely_chained = densely_chained && result.densely_chained;
-                        if ancestor_chained {
+                        if collect_nodes {
                             nodes_in_scope.extend(result.nodes);
                         }
                     }
@@ -648,7 +667,7 @@ impl ScheduleGraph {
                     }
                 }
 
-                AddSystemsInnerResult {
+                ProcessConfigsResult {
                     nodes: nodes_in_scope,
                     densely_chained,
                 }
@@ -664,7 +683,7 @@ impl ScheduleGraph {
 
         // system init has to be deferred (need `&mut World`)
         self.uninit.push((id, 0));
-        self.systems.push(SystemNode::new(config.system));
+        self.systems.push(SystemNode::new(config.node));
         self.system_conditions.push(config.conditions);
 
         Ok(id)
@@ -672,46 +691,15 @@ impl ScheduleGraph {
 
     #[track_caller]
     fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) {
-        let SystemSetConfigs { sets, chained } = sets.into_configs();
-        let mut set_iter = sets.into_iter();
-        if chained {
-            let Some(prev) = set_iter.next() else { return };
-            let mut prev_id = self.configure_set_inner(prev).unwrap();
-            for next in set_iter {
-                let next_id = self.configure_set_inner(next).unwrap();
-                self.dependency.graph.add_edge(prev_id, next_id, ());
-                prev_id = next_id;
-            }
-        } else {
-            for set in set_iter {
-                if let Err(e) = self.configure_set_inner(set) {
-                    // using `unwrap_or_else(panic!)` led to the error being reported
-                    // from this line instead of in the user code
-                    panic!("{e}");
-                };
-            }
-        }
+        self.process_configs(sets.into_configs(), false);
     }
 
-    #[track_caller]
-    fn configure_set(&mut self, set: impl IntoSystemSetConfig) {
-        if let Err(e) = self.configure_set_inner(set) {
-            // using `unwrap_or_else(panic!)` led to the error being reported
-            // from this line instead of in the user code
-            panic!("{e}");
-        };
-    }
-
-    #[track_caller]
-    fn configure_set_inner(
-        &mut self,
-        set: impl IntoSystemSetConfig,
-    ) -> Result<NodeId, ScheduleBuildError> {
+    fn configure_set_inner(&mut self, set: SystemSetConfig) -> Result<NodeId, ScheduleBuildError> {
         let SystemSetConfig {
-            set,
+            node: set,
             graph_info,
             mut conditions,
-        } = set.into_config();
+        } = set;
 
         let id = match self.system_set_ids.get(&set) {
             Some(&id) => id,
@@ -882,13 +870,14 @@ impl ScheduleGraph {
     pub fn build_schedule(
         &mut self,
         components: &Components,
+        schedule_label: &BoxedScheduleLabel,
     ) -> Result<SystemSchedule, ScheduleBuildError> {
         // check hierarchy for cycles
         self.hierarchy.topsort =
             self.topsort_graph(&self.hierarchy.graph, ReportCycles::Hierarchy)?;
 
         let hier_results = check_graph(&self.hierarchy.graph, &self.hierarchy.topsort);
-        self.optionally_check_hierarchy_conflicts(&hier_results.transitive_edges)?;
+        self.optionally_check_hierarchy_conflicts(&hier_results.transitive_edges, schedule_label)?;
 
         // remove redundant edges
         self.hierarchy.graph = hier_results.transitive_reduction;
@@ -932,7 +921,7 @@ impl ScheduleGraph {
         // check for conflicts
         let conflicting_systems =
             self.get_conflicting_systems(&flat_results.disconnected, &ambiguous_with_flattened);
-        self.optionally_check_conflicts(&conflicting_systems, components)?;
+        self.optionally_check_conflicts(&conflicting_systems, components, schedule_label)?;
         self.conflicting_systems = conflicting_systems;
 
         // build the schedule
@@ -1182,6 +1171,7 @@ impl ScheduleGraph {
         &mut self,
         schedule: &mut SystemSchedule,
         components: &Components,
+        schedule_label: &BoxedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if !self.uninit.is_empty() {
             return Err(ScheduleBuildError::Uninitialized);
@@ -1206,7 +1196,7 @@ impl ScheduleGraph {
             self.system_set_conditions[id.index()] = conditions;
         }
 
-        *schedule = self.build_schedule(components)?;
+        *schedule = self.build_schedule(components, schedule_label)?;
 
         // move systems into new schedule
         for &id in &schedule.system_ids {
@@ -1225,12 +1215,33 @@ impl ScheduleGraph {
     }
 }
 
-/// Values returned by `ScheduleGraph::add_systems_inner`
-struct AddSystemsInnerResult {
-    /// All nodes contained inside this add_systems_inner call's SystemConfigs hierarchy
+/// Values returned by [`ScheduleGraph::process_configs`]
+struct ProcessConfigsResult {
+    /// All nodes contained inside this process_configs call's [`NodeConfigs`] hierarchy,
+    /// if `ancestor_chained` is true
     nodes: Vec<NodeId>,
-    /// True if and only if all nodes are "densely chained"
+    /// True if and only if all nodes are "densely chained", meaning that all nested nodes
+    /// are linearly chained (as if `after` system ordering had been applied between each node)
+    /// in the order they are defined
     densely_chained: bool,
+}
+
+/// Trait used by [`ScheduleGraph::process_configs`] to process a single [`NodeConfig`].
+trait ProcessNodeConfig: Sized {
+    /// Process a single [`NodeConfig`].
+    fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId;
+}
+
+impl ProcessNodeConfig for BoxedSystem {
+    fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId {
+        schedule_graph.add_system_inner(config).unwrap()
+    }
+}
+
+impl ProcessNodeConfig for BoxedSystemSet {
+    fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId {
+        schedule_graph.configure_set_inner(config).unwrap()
+    }
 }
 
 /// Used to select the appropriate reporting function.
@@ -1242,10 +1253,15 @@ enum ReportCycles {
 // methods for reporting errors
 impl ScheduleGraph {
     fn get_node_name(&self, id: &NodeId) -> String {
+        self.get_node_name_inner(id, self.settings.report_sets)
+    }
+
+    #[inline]
+    fn get_node_name_inner(&self, id: &NodeId, report_sets: bool) -> String {
         let mut name = match id {
             NodeId::System(_) => {
                 let name = self.systems[id.index()].get().unwrap().name().to_string();
-                if self.settings.report_sets {
+                if report_sets {
                     let sets = self.names_of_sets_containing_node(id);
                     if sets.is_empty() {
                         name
@@ -1279,7 +1295,8 @@ impl ScheduleGraph {
             self.hierarchy
                 .graph
                 .edges_directed(*id, Direction::Outgoing)
-                .map(|(_, member_id, _)| self.get_node_name(&member_id))
+                // never get the sets of the members or this will infinite recurse when the report_sets setting is on.
+                .map(|(_, member_id, _)| self.get_node_name_inner(&member_id, false))
                 .reduce(|a, b| format!("{a}, {b}"))
                 .unwrap_or_default()
         )
@@ -1297,6 +1314,7 @@ impl ScheduleGraph {
     fn optionally_check_hierarchy_conflicts(
         &self,
         transitive_edges: &[(NodeId, NodeId)],
+        schedule_label: &BoxedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if self.settings.hierarchy_detection == LogLevel::Ignore || transitive_edges.is_empty() {
             return Ok(());
@@ -1306,7 +1324,10 @@ impl ScheduleGraph {
         match self.settings.hierarchy_detection {
             LogLevel::Ignore => unreachable!(),
             LogLevel::Warn => {
-                error!("{}", message);
+                error!(
+                    "Schedule {schedule_label:?} has redundant edges:\n {}",
+                    message
+                );
                 Ok(())
             }
             LogLevel::Error => Err(ScheduleBuildError::HierarchyRedundancy(message)),
@@ -1505,6 +1526,7 @@ impl ScheduleGraph {
         &self,
         conflicts: &[(NodeId, NodeId, Vec<ComponentId>)],
         components: &Components,
+        schedule_label: &BoxedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if self.settings.ambiguity_detection == LogLevel::Ignore || conflicts.is_empty() {
             return Ok(());
@@ -1514,7 +1536,7 @@ impl ScheduleGraph {
         match self.settings.ambiguity_detection {
             LogLevel::Ignore => Ok(()),
             LogLevel::Warn => {
-                warn!("{}", message);
+                warn!("Schedule {schedule_label:?} has ambiguities.\n{}", message);
                 Ok(())
             }
             LogLevel::Error => Err(ScheduleBuildError::Ambiguity(message)),
@@ -1533,21 +1555,11 @@ impl ScheduleGraph {
             Consider adding `before`, `after`, or `ambiguous_with` relationships between these:\n",
         );
 
-        for (system_a, system_b, conflicts) in ambiguities {
-            let name_a = self.get_node_name(system_a);
-            let name_b = self.get_node_name(system_b);
-
-            debug_assert!(system_a.is_system(), "{name_a} is not a system.");
-            debug_assert!(system_b.is_system(), "{name_b} is not a system.");
-
+        for (name_a, name_b, conflicts) in self.conflicts_to_string(ambiguities, components) {
             writeln!(message, " -- {name_a} and {name_b}").unwrap();
-            if !conflicts.is_empty() {
-                let conflict_names: Vec<_> = conflicts
-                    .iter()
-                    .map(|id| components.get_name(*id).unwrap())
-                    .collect();
 
-                writeln!(message, "    conflict on: {conflict_names:?}").unwrap();
+            if !conflicts.is_empty() {
+                writeln!(message, "    conflict on: {conflicts:?}").unwrap();
             } else {
                 // one or both systems must be exclusive
                 let world = std::any::type_name::<World>();
@@ -1556,6 +1568,30 @@ impl ScheduleGraph {
         }
 
         message
+    }
+
+    /// convert conflics to human readable format
+    pub fn conflicts_to_string<'a>(
+        &'a self,
+        ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
+        components: &'a Components,
+    ) -> impl Iterator<Item = (String, String, Vec<&str>)> + 'a {
+        ambiguities
+            .iter()
+            .map(move |(system_a, system_b, conflicts)| {
+                let name_a = self.get_node_name(system_a);
+                let name_b = self.get_node_name(system_b);
+
+                debug_assert!(system_a.is_system(), "{name_a} is not a system.");
+                debug_assert!(system_b.is_system(), "{name_b} is not a system.");
+
+                let conflict_names: Vec<_> = conflicts
+                    .iter()
+                    .map(|id| components.get_name(*id).unwrap())
+                    .collect();
+
+                (name_a, name_b, conflict_names)
+            })
     }
 
     fn traverse_sets_containing_node(&self, id: NodeId, f: &mut impl FnMut(NodeId) -> bool) {
@@ -1678,7 +1714,7 @@ impl ScheduleBuildSettings {
 mod tests {
     use crate::{
         self as bevy_ecs,
-        schedule::{IntoSystemConfigs, IntoSystemSetConfig, Schedule, SystemSet},
+        schedule::{IntoSystemConfigs, IntoSystemSetConfigs, Schedule, SystemSet},
         world::World,
     };
 
@@ -1689,9 +1725,9 @@ mod tests {
         struct Set;
 
         let mut world = World::new();
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
-        schedule.configure_set(Set.run_if(|| false));
+        schedule.configure_sets(Set.run_if(|| false));
         schedule.add_systems(
             (|| panic!("This system must not run"))
                 .ambiguous_with(|| ())

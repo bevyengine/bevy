@@ -1,6 +1,7 @@
 //! Contains APIs for retrieving component data from the world.
 
 mod access;
+mod error;
 mod fetch;
 mod filter;
 mod iter;
@@ -8,6 +9,7 @@ mod par_iter;
 mod state;
 
 pub use access::*;
+pub use error::*;
 pub use fetch::*;
 pub use filter::*;
 pub use iter::*;
@@ -789,7 +791,7 @@ mod tests {
             }
         }
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         schedule.add_systems((propagate_system, modify_system).chain());
         schedule.run(&mut world);
         world.clear_trackers();

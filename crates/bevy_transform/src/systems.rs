@@ -34,7 +34,7 @@ pub fn sync_simple_transforms(
         });
     // Update orphaned entities.
     let mut query = query.p1();
-    let mut iter = query.iter_many_mut(orphaned.iter());
+    let mut iter = query.iter_many_mut(orphaned.read());
     while let Some((transform, mut global_transform)) = iter.fetch_next() {
         if !transform.is_changed() && !global_transform.is_added() {
             *global_transform = GlobalTransform::from(*transform);
@@ -57,7 +57,7 @@ pub fn propagate_transforms(
     mut orphaned_entities: Local<Vec<Entity>>,
 ) {
     orphaned_entities.clear();
-    orphaned_entities.extend(orphaned.iter());
+    orphaned_entities.extend(orphaned.read());
     orphaned_entities.sort_unstable();
     root_query.par_iter_mut().for_each(
         |(entity, children, transform, mut global_transform)| {
@@ -200,7 +200,7 @@ mod test {
         let offset_transform =
             |offset| TransformBundle::from_transform(Transform::from_xyz(offset, offset, offset));
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         schedule.add_systems((sync_simple_transforms, propagate_transforms));
 
         let mut command_queue = CommandQueue::default();
@@ -251,7 +251,7 @@ mod test {
         ComputeTaskPool::init(TaskPool::default);
         let mut world = World::default();
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         schedule.add_systems((sync_simple_transforms, propagate_transforms));
 
         // Root entity
@@ -289,7 +289,7 @@ mod test {
     fn did_propagate_command_buffer() {
         let mut world = World::default();
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         schedule.add_systems((sync_simple_transforms, propagate_transforms));
 
         // Root entity
@@ -329,7 +329,7 @@ mod test {
         ComputeTaskPool::init(TaskPool::default);
         let mut world = World::default();
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         schedule.add_systems((sync_simple_transforms, propagate_transforms));
 
         // Add parent entities

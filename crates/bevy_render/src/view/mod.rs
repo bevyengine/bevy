@@ -1,7 +1,7 @@
 pub mod visibility;
 pub mod window;
 
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 pub use visibility::*;
 pub use window::*;
 
@@ -19,7 +19,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec4, Vec3, Vec4, Vec4Swizzles};
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use std::sync::{
@@ -31,8 +31,7 @@ use wgpu::{
     TextureFormat, TextureUsages,
 };
 
-pub const VIEW_TYPE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 15421373904451797197);
+pub const VIEW_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(15421373904451797197);
 
 pub struct ViewPlugin;
 
@@ -40,8 +39,8 @@ impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, VIEW_TYPE_HANDLE, "view.wgsl", Shader::from_wgsl);
 
-        app.register_type::<ComputedVisibility>()
-            .register_type::<ComputedVisibilityFlags>()
+        app.register_type::<InheritedVisibility>()
+            .register_type::<ViewVisibility>()
             .register_type::<Msaa>()
             .register_type::<NoFrustumCulling>()
             .register_type::<RenderLayers>()

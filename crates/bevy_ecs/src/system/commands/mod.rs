@@ -5,7 +5,7 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
-    world::{EntityMut, FromWorld, World},
+    world::{EntityWorldMut, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
@@ -118,9 +118,7 @@ impl SystemBuffer for CommandQueue {
     #[inline]
     fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
         #[cfg(feature = "trace")]
-        let _system_span =
-            bevy_utils::tracing::info_span!("system_commands", name = _system_meta.name())
-                .entered();
+        let _span_guard = _system_meta.commands_span.enter();
         self.apply(world);
     }
 }
@@ -596,9 +594,9 @@ impl<'w, 's> Commands<'w, 's> {
 /// # let mut world = World::new();
 /// # world.init_resource::<Counter>();
 /// #
-/// # let mut setup_schedule = Schedule::new();
+/// # let mut setup_schedule = Schedule::default();
 /// # setup_schedule.add_systems(setup);
-/// # let mut assert_schedule = Schedule::new();
+/// # let mut assert_schedule = Schedule::default();
 /// # assert_schedule.add_systems(assert_names);
 /// #
 /// # setup_schedule.run(&mut world);
@@ -724,7 +722,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
     /// Removes a [`Bundle`] of components from the entity.
     ///
-    /// See [`EntityMut::remove`](crate::world::EntityMut::remove) for more
+    /// See [`EntityWorldMut::remove`](crate::world::EntityWorldMut::remove) for more
     /// details.
     ///
     /// # Example
@@ -805,12 +803,11 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::world::EntityMut;
     /// # fn my_system(mut commands: Commands) {
     /// commands
     ///     .spawn_empty()
     ///     // Closures with this signature implement `EntityCommand`.
-    ///     .add(|entity: EntityMut| {
+    ///     .add(|entity: EntityWorldMut| {
     ///         println!("Executed an EntityCommand for {:?}", entity.id());
     ///     });
     /// # }
@@ -849,7 +846,7 @@ where
 
 impl<F> EntityCommand for F
 where
-    F: FnOnce(EntityMut) + Send + 'static,
+    F: FnOnce(EntityWorldMut) + Send + 'static,
 {
     fn apply(self, id: Entity, world: &mut World) {
         self(world.entity_mut(id));
