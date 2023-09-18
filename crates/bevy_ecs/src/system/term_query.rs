@@ -54,7 +54,7 @@ impl<'w, 's, Q: QueryTermGroup, F: QueryTermGroup> TermQuery<'w, 's, Q, F> {
             state,
             last_run,
             this_run,
-            _marker: PhantomData::default(),
+            _marker: PhantomData,
         }
     }
 

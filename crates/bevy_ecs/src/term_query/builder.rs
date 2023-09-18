@@ -48,7 +48,7 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
             current_term: terms.len(),
             terms,
             world,
-            _marker: PhantomData::default(),
+            _marker: PhantomData,
         }
     }
 

@@ -116,7 +116,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
             component_access,
             matched_tables: FixedBitSet::default(),
             matched_archetypes: FixedBitSet::default(),
-            _marker: PhantomData::default(),
+            _marker: PhantomData,
         }
     }
 
