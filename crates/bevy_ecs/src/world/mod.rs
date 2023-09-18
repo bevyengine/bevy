@@ -740,7 +740,7 @@ impl World {
             let mut spawner = bundle_info.get_bundle_spawner(
                 &mut self.entities,
                 &mut self.archetypes,
-                &mut self.components,
+                &self.components,
                 &mut self.storages,
                 change_tick,
             );
@@ -885,8 +885,8 @@ impl World {
     /// of detection to be recorded.
     ///
     /// When using `bevy_ecs` as part of the full Bevy engine, this method is added as a system to the
-    /// main app, to run during `CoreSet::Last`, so you don't need to call it manually. When using
-    /// `bevy_ecs` as a separate standalone crate however, you need to call this manually.
+    /// main app, to run during `Last`, so you don't need to call it manually. When using `bevy_ecs`
+    /// as a separate standalone crate however, you need to call this manually.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -1448,7 +1448,7 @@ impl World {
         let mut spawn_or_insert = SpawnOrInsert::Spawn(bundle_info.get_bundle_spawner(
             &mut self.entities,
             &mut self.archetypes,
-            &mut self.components,
+            &self.components,
             &mut self.storages,
             change_tick,
         ));
@@ -1471,7 +1471,7 @@ impl World {
                             let mut inserter = bundle_info.get_bundle_inserter(
                                 &mut self.entities,
                                 &mut self.archetypes,
-                                &mut self.components,
+                                &self.components,
                                 &mut self.storages,
                                 location.archetype_id,
                                 change_tick,
@@ -1491,7 +1491,7 @@ impl World {
                         let mut spawner = bundle_info.get_bundle_spawner(
                             &mut self.entities,
                             &mut self.archetypes,
-                            &mut self.components,
+                            &self.components,
                             &mut self.storages,
                             change_tick,
                         );

@@ -1,19 +1,13 @@
-use crate::UiRect;
+use crate::{UiRect, Val};
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
-use bevy_render::{
-    color::Color,
-    texture::{Image, DEFAULT_IMAGE_HANDLE},
-};
+use bevy_render::{color::Color, texture::Image};
 use bevy_transform::prelude::GlobalTransform;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use std::{
-    num::{NonZeroI16, NonZeroU16},
-    ops::{Div, DivAssign, Mul, MulAssign},
-};
+use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
 
 /// Describes the size of a UI node
@@ -78,176 +72,6 @@ impl Node {
 impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
-    }
-}
-
-/// Represents the possible value types for layout properties.
-///
-/// This enum allows specifying values for various [`Style`] properties in different units,
-/// such as logical pixels, percentages, or automatically determined values.
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
-pub enum Val {
-    /// Automatically determine the value based on the context and other [`Style`] properties.
-    Auto,
-    /// Set this value in logical pixels.
-    Px(f32),
-    /// Set the value as a percentage of its parent node's length along a specific axis.
-    ///
-    /// If the UI node has no parent, the percentage is calculated based on the window's length
-    /// along the corresponding axis.
-    ///
-    /// The chosen axis depends on the `Style` field set:
-    /// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
-    /// * For `gap`, `min_size`, `size`, and `max_size`:
-    ///   - `width` is relative to the parent's width.
-    ///   - `height` is relative to the parent's height.
-    /// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent node's width.
-    /// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
-    Percent(f32),
-    /// Set this value in percent of the viewport width
-    Vw(f32),
-    /// Set this value in percent of the viewport height
-    Vh(f32),
-    /// Set this value in percent of the viewport's smaller dimension.
-    VMin(f32),
-    /// Set this value in percent of the viewport's larger dimension.
-    VMax(f32),
-}
-
-impl PartialEq for Val {
-    fn eq(&self, other: &Self) -> bool {
-        let same_unit = matches!(
-            (self, other),
-            (Self::Auto, Self::Auto)
-                | (Self::Px(_), Self::Px(_))
-                | (Self::Percent(_), Self::Percent(_))
-                | (Self::Vw(_), Self::Vw(_))
-                | (Self::Vh(_), Self::Vh(_))
-                | (Self::VMin(_), Self::VMin(_))
-                | (Self::VMax(_), Self::VMax(_))
-        );
-
-        let left = match self {
-            Self::Auto => None,
-            Self::Px(v)
-            | Self::Percent(v)
-            | Self::Vw(v)
-            | Self::Vh(v)
-            | Self::VMin(v)
-            | Self::VMax(v) => Some(v),
-        };
-
-        let right = match other {
-            Self::Auto => None,
-            Self::Px(v)
-            | Self::Percent(v)
-            | Self::Vw(v)
-            | Self::Vh(v)
-            | Self::VMin(v)
-            | Self::VMax(v) => Some(v),
-        };
-
-        match (same_unit, left, right) {
-            (true, a, b) => a == b,
-            // All zero-value variants are considered equal.
-            (false, Some(&a), Some(&b)) => a == 0. && b == 0.,
-            _ => false,
-        }
-    }
-}
-
-impl Val {
-    pub const DEFAULT: Self = Self::Auto;
-    pub const ZERO: Self = Self::Px(0.0);
-}
-
-impl Default for Val {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
-impl Mul<f32> for Val {
-    type Output = Val;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        match self {
-            Val::Auto => Val::Auto,
-            Val::Px(value) => Val::Px(value * rhs),
-            Val::Percent(value) => Val::Percent(value * rhs),
-            Val::Vw(value) => Val::Vw(value * rhs),
-            Val::Vh(value) => Val::Vh(value * rhs),
-            Val::VMin(value) => Val::VMin(value * rhs),
-            Val::VMax(value) => Val::VMax(value * rhs),
-        }
-    }
-}
-
-impl MulAssign<f32> for Val {
-    fn mul_assign(&mut self, rhs: f32) {
-        match self {
-            Val::Auto => {}
-            Val::Px(value)
-            | Val::Percent(value)
-            | Val::Vw(value)
-            | Val::Vh(value)
-            | Val::VMin(value)
-            | Val::VMax(value) => *value *= rhs,
-        }
-    }
-}
-
-impl Div<f32> for Val {
-    type Output = Val;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        match self {
-            Val::Auto => Val::Auto,
-            Val::Px(value) => Val::Px(value / rhs),
-            Val::Percent(value) => Val::Percent(value / rhs),
-            Val::Vw(value) => Val::Vw(value / rhs),
-            Val::Vh(value) => Val::Vh(value / rhs),
-            Val::VMin(value) => Val::VMin(value / rhs),
-            Val::VMax(value) => Val::VMax(value / rhs),
-        }
-    }
-}
-
-impl DivAssign<f32> for Val {
-    fn div_assign(&mut self, rhs: f32) {
-        match self {
-            Val::Auto => {}
-            Val::Px(value)
-            | Val::Percent(value)
-            | Val::Vw(value)
-            | Val::Vh(value)
-            | Val::VMin(value)
-            | Val::VMax(value) => *value /= rhs,
-        }
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
-pub enum ValArithmeticError {
-    #[error("the variants of the Vals don't match")]
-    NonIdenticalVariants,
-    #[error("the given variant of Val is not evaluateable (non-numeric)")]
-    NonEvaluateable,
-}
-
-impl Val {
-    /// A convenience function for simple evaluation of [`Val::Percent`] variant into a concrete [`Val::Px`] value.
-    /// Returns a [`ValArithmeticError::NonEvaluateable`] if the [`Val`] is impossible to evaluate into [`Val::Px`].
-    /// Otherwise it returns an [`f32`] containing the evaluated value in pixels.
-    ///
-    /// **Note:** If a [`Val::Px`] is evaluated, it's inner value returned unchanged.
-    pub fn evaluate(&self, size: f32) -> Result<f32, ValArithmeticError> {
-        match self {
-            Val::Percent(value) => Ok(size * value / 100.0),
-            Val::Px(value) => Ok(*value),
-            _ => Err(ValArithmeticError::NonEvaluateable),
-        }
     }
 }
 
@@ -363,7 +187,7 @@ pub struct Style {
     /// - For Flexbox containers, sets default cross-axis alignment of the child items.
     /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
     ///
-    /// This value is overridden [`JustifySelf`] on the child node is set.
+    /// This value is overridden if [`AlignSelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
     pub align_items: AlignItems,
@@ -371,7 +195,7 @@ pub struct Style {
     /// - For Flexbox containers, this property has no effect. See `justify_content` for main-axis alignment of flex items.
     /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
     ///
-    /// This value is overridden [`JustifySelf`] on the child node is set.
+    /// This value is overridden if [`JustifySelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
     pub justify_items: JustifyItems,
@@ -1625,7 +1449,7 @@ impl Default for BorderColor {
 }
 
 /// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct UiImage {
     /// Handle to the texture
@@ -1634,16 +1458,6 @@ pub struct UiImage {
     pub flip_x: bool,
     /// Whether the image should be flipped along its y-axis
     pub flip_y: bool,
-}
-
-impl Default for UiImage {
-    fn default() -> UiImage {
-        UiImage {
-            texture: DEFAULT_IMAGE_HANDLE.typed(),
-            flip_x: false,
-            flip_y: false,
-        }
-    }
 }
 
 impl UiImage {
@@ -1715,50 +1529,6 @@ impl Default for ZIndex {
 #[cfg(test)]
 mod tests {
     use crate::GridPlacement;
-    use crate::ValArithmeticError;
-
-    use super::Val;
-
-    #[test]
-    fn val_evaluate() {
-        let size = 250.;
-        let result = Val::Percent(80.).evaluate(size).unwrap();
-
-        assert_eq!(result, size * 0.8);
-    }
-
-    #[test]
-    fn val_evaluate_px() {
-        let size = 250.;
-        let result = Val::Px(10.).evaluate(size).unwrap();
-
-        assert_eq!(result, 10.);
-    }
-
-    #[test]
-    fn val_invalid_evaluation() {
-        let size = 250.;
-        let evaluate_auto = Val::Auto.evaluate(size);
-
-        assert_eq!(evaluate_auto, Err(ValArithmeticError::NonEvaluateable));
-    }
-
-    #[test]
-    fn val_arithmetic_error_messages() {
-        assert_eq!(
-            format!("{}", ValArithmeticError::NonIdenticalVariants),
-            "the variants of the Vals don't match"
-        );
-        assert_eq!(
-            format!("{}", ValArithmeticError::NonEvaluateable),
-            "the given variant of Val is not evaluateable (non-numeric)"
-        );
-    }
-
-    #[test]
-    fn default_val_equals_const_default_val() {
-        assert_eq!(Val::default(), Val::DEFAULT);
-    }
 
     #[test]
     fn invalid_grid_placement_values() {

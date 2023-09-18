@@ -92,18 +92,11 @@ fn somewhat_boring_display_transform(col: vec3<f32>) -> vec3<f32> {
 // By Tomasz Stachowiak
 // https://github.com/h3r2tic/tony-mc-mapface
 
-const TONY_MC_MAPFACE_LUT_EV_RANGE = vec2<f32>(-13.0, 8.0);
 const TONY_MC_MAPFACE_LUT_DIMS: f32 = 48.0;
 
-fn tony_mc_mapface_lut_range_encode(x: vec3<f32>) -> vec3<f32> {
-    return x / (x + 1.0);
-}
-
 fn sample_tony_mc_mapface_lut(stimulus: vec3<f32>) -> vec3<f32> {
-    let range = tony_mc_mapface_lut_range_encode(exp2(TONY_MC_MAPFACE_LUT_EV_RANGE.xyy)).xy;
-    let normalized = (tony_mc_mapface_lut_range_encode(stimulus) - range.x) / (range.y - range.x);
-    var uv = saturate(normalized * (f32(TONY_MC_MAPFACE_LUT_DIMS - 1.0) / f32(TONY_MC_MAPFACE_LUT_DIMS)) + 0.5 / f32(TONY_MC_MAPFACE_LUT_DIMS));
-    return sample_current_lut(uv).rgb;
+    var uv = (stimulus / (stimulus + 1.0)) * (f32(TONY_MC_MAPFACE_LUT_DIMS - 1.0) / f32(TONY_MC_MAPFACE_LUT_DIMS)) + 0.5 / f32(TONY_MC_MAPFACE_LUT_DIMS);
+    return sample_current_lut(saturate(uv)).rgb;
 }
 
 // ---------------------------------

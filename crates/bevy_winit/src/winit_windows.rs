@@ -21,7 +21,7 @@ use crate::{
     converters::{convert_enabled_buttons, convert_window_level, convert_window_theme},
 };
 
-/// A resource mapping window entities to their [`winit`]-backend [`Window`](winit::window::Window)
+/// A resource mapping window entities to their `winit`-backend [`Window`](winit::window::Window)
 /// states.
 #[derive(Debug, Default)]
 pub struct WinitWindows {
@@ -46,7 +46,7 @@ impl WinitWindows {
         window: &Window,
         adapters: &mut AccessKitAdapters,
         handlers: &mut WinitActionHandlers,
-        accessibility_requested: &mut AccessibilityRequested,
+        accessibility_requested: &AccessibilityRequested,
     ) -> &winit::window::Window {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 

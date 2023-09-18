@@ -94,7 +94,7 @@ impl Plugin for ScheduleRunnerPlugin {
                         if let Some(app_exit_events) =
                             app.world.get_resource_mut::<Events<AppExit>>()
                         {
-                            if let Some(exit) = app_exit_event_reader.iter(&app_exit_events).last()
+                            if let Some(exit) = app_exit_event_reader.read(&app_exit_events).last()
                             {
                                 return Err(exit.clone());
                             }
