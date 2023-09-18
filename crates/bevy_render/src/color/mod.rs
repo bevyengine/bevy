@@ -13,7 +13,7 @@ use palette::{convert::FromColorUnclamped, encoding, rgb::Rgb, Clamp, IntoColor,
 /// [`wgpu`], [`serde`], and [`bevy_reflect`].
 ///
 /// To perform color manipulation, it is recommended to treat [`Color`] as an at-rest type, and
-/// then use [`palette`] methods to enter and exit from a colorspace that best matches your
+/// then use [`palette`] methods to enter and exit from a color space that best matches your
 /// desired operations.
 #[derive(
     FromColorUnclamped, WithAlpha, Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect,
@@ -111,7 +111,7 @@ impl Color {
     /// <div style="background-color:rgb(60%, 80%, 20%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const YELLOW_GREEN: Color = Color::rgb(0.6, 0.8, 0.2);
 
-    /// New `Color` from sRGB colorspace.
+    /// New `Color` from sRGB color space.
     ///
     /// # Arguments
     ///
@@ -133,7 +133,7 @@ impl Color {
         self.in_space()
     }
 
-    /// New `Color` from sRGB colorspace.
+    /// New `Color` from sRGB color space.
     ///
     /// # Arguments
     ///
@@ -154,7 +154,7 @@ impl Color {
         self.in_space()
     }
 
-    /// New `Color` from linear RGB colorspace.
+    /// New `Color` from linear RGB color space.
     ///
     /// # Arguments
     ///
@@ -176,7 +176,7 @@ impl Color {
         self.in_space()
     }
 
-    /// New `Color` from linear RGB colorspace.
+    /// New `Color` from linear RGB color space.
     ///
     /// # Arguments
     ///
@@ -197,7 +197,7 @@ impl Color {
         self.in_space()
     }
 
-    /// New `Color` with HSL representation in sRGB colorspace.
+    /// New `Color` with HSL representation in sRGB color space.
     ///
     /// # Arguments
     ///
@@ -219,7 +219,7 @@ impl Color {
         self.in_space()
     }
 
-    /// New `Color` with HSL representation in sRGB colorspace.
+    /// New `Color` with HSL representation in sRGB color space.
     ///
     /// # Arguments
     ///
@@ -240,7 +240,7 @@ impl Color {
         self.in_space()
     }
 
-    /// New `Color` with HSV representation in sRGB colorspace.
+    /// New `Color` with HSV representation in sRGB color space.
     ///
     /// # Arguments
     ///
@@ -262,7 +262,7 @@ impl Color {
         self.in_space()
     }
 
-    /// New `Color` with HSV representation in sRGB colorspace.
+    /// New `Color` with HSV representation in sRGB color space.
     ///
     /// # Arguments
     ///
@@ -283,7 +283,7 @@ impl Color {
         self.in_space()
     }
 
-    /// New `Color` with LCH representation in sRGB colorspace.
+    /// New `Color` with LCH representation in sRGB color space.
     ///
     /// # Arguments
     ///
@@ -304,7 +304,7 @@ impl Color {
         self.in_space()
     }
 
-    /// New `Color` with LCH representation in sRGB colorspace.
+    /// New `Color` with LCH representation in sRGB color space.
     ///
     /// # Arguments
     ///
@@ -324,7 +324,7 @@ impl Color {
         self.in_space()
     }
 
-    /// New `Color` with Oklcha representation in sRGB colorspace.
+    /// New `Color` with Oklcha representation in sRGB color space.
     ///
     /// # Arguments
     ///
@@ -345,7 +345,7 @@ impl Color {
         self.in_space()
     }
 
-    /// New `Color` with Oklch representation in sRGB colorspace.
+    /// New `Color` with Oklch representation in sRGB color space.
     ///
     /// # Arguments
     ///
@@ -365,7 +365,7 @@ impl Color {
         self.in_space()
     }
 
-    /// New `Color` from sRGB colorspace.
+    /// New `Color` from sRGB color space.
     ///
     /// # Arguments
     ///
@@ -389,7 +389,7 @@ impl Color {
         palette::Srgba::from_color_unclamped(self).into_format()
     }
 
-    /// New `Color` from sRGB colorspace.
+    /// New `Color` from sRGB color space.
     ///
     /// # Arguments
     ///
@@ -410,7 +410,7 @@ impl Color {
         palette::Srgb::from_color_unclamped(self).into_format()
     }
 
-    /// Converts `Color` to a `u32` from sRGB colorspace.
+    /// Converts `Color` to a `u32` from sRGB color space.
     ///
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
     /// `A` will be the most significant byte and `R` the least significant.
@@ -426,7 +426,7 @@ impl Color {
         palette::rgb::PackedRgba::pack(palette::LinSrgba::from_color_unclamped(self).into_format())
     }
 
-    /// Converts `Color` to a `u32` from Linear sRGB colorspace.
+    /// Converts `Color` to a `u32` from Linear sRGB color space.
     ///
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
     /// `A` will be the most significant byte and `R` the least significant.
@@ -459,7 +459,7 @@ impl Color {
         self.as_rgb_linear().into()
     }
 
-    /// New `Color` from sRGB(A) colorspace.
+    /// New `Color` from sRGB(A) color space.
     ///
     /// # Examples
     ///
@@ -698,7 +698,7 @@ impl Color {
         self
     }
 
-    /// Convert this `Color` into a specific colorspace.
+    /// Convert this `Color` into a specific color space.
     ///
     /// # Examples
     ///
@@ -742,9 +742,9 @@ impl Color {
         color.into_color()
     }
 
-    /// Mix this `Color` with another at a certain ratio, within a specific colorspace.
+    /// Mix this `Color` with another at a certain ratio, within a specific color space.
     ///
-    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// If you intend on performing multiple operations in an alternate color space, you
     /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
     /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
     ///
@@ -775,9 +775,9 @@ impl Color {
             .into_color()
     }
 
-    /// Calculates the hue of this `Color` in the specified colorspace.
+    /// Calculates the hue of this `Color` in the specified color space.
     ///
-    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// If you intend on performing multiple operations in an alternate color space, you
     /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
     /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
     ///
@@ -802,9 +802,9 @@ impl Color {
         self.in_space::<C>().get_hue()
     }
 
-    /// Sets the hue of this `Color` to a provided value within the specified colorspace.
+    /// Sets the hue of this `Color` to a provided value within the specified color space.
     ///
-    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// If you intend on performing multiple operations in an alternate color space, you
     /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
     /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
     ///
@@ -832,9 +832,9 @@ impl Color {
         self.in_space::<C>().with_hue(hue).into_color()
     }
 
-    /// Shift the hue of this `Color` by a provided amount, within a specific colorspace.
+    /// Shift the hue of this `Color` by a provided amount, within a specific color space.
     ///
-    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// If you intend on performing multiple operations in an alternate color space, you
     /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
     /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
     ///
@@ -863,9 +863,9 @@ impl Color {
         self.in_space::<C>().shift_hue(amount).into_color()
     }
 
-    /// Saturate this `Color` by a provided amount, within a specific colorspace.
+    /// Saturate this `Color` by a provided amount, within a specific color space.
     ///
-    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// If you intend on performing multiple operations in an alternate color space, you
     /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
     /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
     ///
@@ -894,9 +894,9 @@ impl Color {
         self.in_space::<C>().saturate(amount).into_color()
     }
 
-    /// Desaturate this `Color` by a provided amount, within a specific colorspace.
+    /// Desaturate this `Color` by a provided amount, within a specific color space.
     ///
-    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// If you intend on performing multiple operations in an alternate color space, you
     /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
     /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
     ///
@@ -925,9 +925,9 @@ impl Color {
         self.in_space::<C>().desaturate(amount).into_color()
     }
 
-    /// Lighten this `Color` by a provided amount, within a specific colorspace.
+    /// Lighten this `Color` by a provided amount, within a specific color space.
     ///
-    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// If you intend on performing multiple operations in an alternate color space, you
     /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
     /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
     ///
@@ -956,9 +956,9 @@ impl Color {
         self.in_space::<C>().lighten(amount).into_color()
     }
 
-    /// Darken this `Color` by a provided amount, within a specific colorspace.
+    /// Darken this `Color` by a provided amount, within a specific color space.
     ///
-    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// If you intend on performing multiple operations in an alternate color space, you
     /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
     /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
     ///
@@ -987,10 +987,10 @@ impl Color {
         self.in_space::<C>().darken(amount).into_color()
     }
 
-    /// Compare this `Color` with another, within a specific colorspace, using the
+    /// Compare this `Color` with another, within a specific color space, using the
     /// CIEDE2000 color difference metric.
     ///
-    /// If you intend on performing multiple operations in an alternate colorspace, you
+    /// If you intend on performing multiple operations in an alternate color space, you
     /// should use [`in_space`](`Self::in_space`) to explicitly transform into that space first,
     /// perform your changes, then return back into this space using [`from_space`](`Self::from_space`).
     ///
