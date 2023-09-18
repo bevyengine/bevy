@@ -4,38 +4,10 @@ use crate::component::ComponentId;
 use crate::entity::Entity;
 use crate::prelude::{AppTypeRegistry, World};
 
-/// An extension trait for World for reflection related functions
-pub trait WorldExt {
-    /// Retrieves an immutable `dyn T` reference to the given entity's Component of the given ComponentId
-    fn get_dyn_by_id<T: ReflectFnsTypeData>(
-        &self,
-        entity: Entity,
-        component_id: ComponentId,
-    ) -> Option<&T::Dyn>;
 
-    /// Retrieves an mutable `dyn T` reference to the given entity's Component of the given ComponentId
-    fn get_dyn_mut_by_id<T: ReflectFnsTypeData>(
-        &mut self,
-        entity: Entity,
-        component_id: ComponentId,
-    ) -> Option<&mut T::Dyn>;
-
-    /// Retrieves an immutable `dyn Reflect` reference to the given entity's Component of the given ComponentId
-    fn get_dyn_reflect_by_id(
-        &self,
-        entity: Entity,
-        component_id: ComponentId,
-    ) -> Option<&dyn Reflect>;
-
-    /// Retrieves an mutable `dyn Reflect` reference to the given entity's Component of the given ComponentId
-    fn get_dyn_reflect_mut_by_id(
-        &mut self,
-        entity: Entity,
-        component_id: ComponentId,
-    ) -> Option<&mut dyn Reflect>;
-}
-
-impl WorldExt for World {
+impl World {
+    /// Retrieves an immutable `dyn T` reference to the given entity's Component of the given 'ComponentId'
+    #[allow(dead_code)]
     fn get_dyn_by_id<T: ReflectFnsTypeData>(
         &self,
         entity: Entity,
@@ -60,6 +32,7 @@ impl WorldExt for World {
             .and_then(|n| n.get(dyn_obj))
     }
 
+    /// Retrieves an mutable `dyn T` reference to the given entity's Component of the given 'ComponentId'
     fn get_dyn_mut_by_id<T: ReflectFnsTypeData>(
         &mut self,
         entity: Entity,
@@ -82,6 +55,7 @@ impl WorldExt for World {
             .and_then(|dyn_obj| type_data.get_mut(dyn_obj))
     }
 
+    /// Retrieves an immutable `dyn Reflect` reference to the given entity's Component of the given 'ComponentId'
     fn get_dyn_reflect_by_id(
         &self,
         entity: Entity,
@@ -102,9 +76,11 @@ impl WorldExt for World {
         let type_registry = type_registry.read();
         type_registry
             .get_type_data::<ReflectFromPtr>(type_id)
+            // SAFETY: type_id is correct
             .map(|n| unsafe { n.as_reflect(component_ptr) })
     }
 
+    /// Retrieves an mutable `dyn Reflect` reference to the given entity's Component of the given 'ComponentId'
     fn get_dyn_reflect_mut_by_id(
         &mut self,
         entity: Entity,
@@ -126,6 +102,7 @@ impl WorldExt for World {
         };
 
         self.get_mut_by_id(entity, component_id).map(|n| {
+            // SAFETY: type_id is correct
             n.map_unchanged(|p| unsafe { reflect_component_ptr.as_reflect_mut(p) })
                 .value
         })
@@ -137,7 +114,6 @@ mod tests {
     use bevy_reflect::{reflect_trait, Reflect};
 
     use crate::prelude::AppTypeRegistry;
-    use crate::reflect::WorldExt;
     use crate::{self as bevy_ecs, component::Component, world::World};
 
     #[reflect_trait]

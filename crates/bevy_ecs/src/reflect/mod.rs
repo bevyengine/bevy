@@ -18,7 +18,7 @@ pub use component::{ReflectComponent, ReflectComponentFns};
 pub use entity_commands::ReflectCommandExt;
 pub use map_entities::ReflectMapEntities;
 pub use resource::{ReflectResource, ReflectResourceFns};
-pub use world::WorldExt;
+// pub use world::WorldExt;
 
 /// A [`Resource`] storing [`TypeRegistry`](bevy_reflect::TypeRegistry) for
 /// type registrations relevant to a whole app.
