@@ -385,8 +385,8 @@ impl Color {
 
     /// Converts this `Color` into `sRGBA` u8
     #[must_use]
-    pub fn as_rgba_u8(self) -> palette::rgb::PackedRgba {
-        palette::rgb::PackedRgba::pack(palette::Srgba::from_color_unclamped(self).into_format())
+    pub fn as_rgba_u8(self) -> palette::Srgba<u8> {
+        palette::Srgba::from_color_unclamped(self).into_format()
     }
 
     /// New `Color` from sRGB colorspace.
@@ -406,8 +406,8 @@ impl Color {
 
     /// Converts this `Color` into RGB u8
     #[must_use]
-    pub fn as_rgb_u8(self) -> palette::rgb::PackedArgb {
-        palette::rgb::PackedArgb::pack(palette::Srgba::from_color_unclamped(self).with_alpha(0.).into_format())
+    pub fn as_rgb_u8(self) -> palette::Srgb<u8> {
+        palette::Srgb::from_color_unclamped(self).into_format()
     }
 
     /// Converts `Color` to a `u32` from sRGB colorspace.
@@ -416,7 +416,8 @@ impl Color {
     /// `A` will be the most significant byte and `R` the least significant.
     #[must_use]
     pub fn as_rgba_u32(self) -> u32 {
-        self.as_rgba_u8().into()
+        palette::rgb::PackedRgba::pack(palette::Srgba::from_color_unclamped(self).into_format())
+            .into()
     }
 
     /// Converts this `Color` into Linear RGB u8
