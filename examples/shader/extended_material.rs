@@ -68,6 +68,6 @@ struct MyExtendedMaterial {
 
 impl Material for MyExtendedMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/quantize_shader.wgsl".into()
+        "shaders/extended_material.wgsl".into()
     }
 }
