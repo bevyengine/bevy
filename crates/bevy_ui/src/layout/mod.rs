@@ -397,17 +397,16 @@ mod tests {
     use crate::layout::round_layout_coords;
     use crate::prelude::*;
     use crate::ui_layout_system;
+    use crate::ContentSize;
     use crate::UiSurface;
     use bevy_ecs::entity::Entity;
     use bevy_ecs::event::Events;
     use bevy_ecs::schedule::Schedule;
     use bevy_ecs::world::World;
+    use bevy_hierarchy::despawn_with_children_recursive;
     use bevy_hierarchy::BuildWorldChildren;
     use bevy_hierarchy::Children;
     use bevy_math::vec2;
-    use bevy_render::color::Color;
-    use crate::ContentSize;
-    use bevy_hierarchy::despawn_with_children_recursive;
     use bevy_math::Vec2;
     use bevy_utils::prelude::default;
     use bevy_utils::HashMap;
@@ -449,6 +448,7 @@ mod tests {
         (world, ui_schedule)
     }
 
+    #[test]
     fn ui_nodes_with_percent_100_dimensions_should_fill_their_parent() {
         let (mut world, mut ui_schedule) = setup_ui_test_world();
 
@@ -728,11 +728,10 @@ mod tests {
                     margin: UiRect::all(Val::Px(4.0)),
                     ..Default::default()
                 },
-                background_color: BackgroundColor(Color::PINK),
                 ..Default::default()
             })
             .with_children(|commands| {
-                for color in [Color::GRAY, Color::DARK_GRAY] {
+                for _ in 0..2 {
                     commands.spawn(NodeBundle {
                         style: Style {
                             display: Display::Grid,
@@ -740,7 +739,6 @@ mod tests {
                             height: Val::Px(160.),
                             ..Default::default()
                         },
-                        background_color: BackgroundColor(color),
                         ..Default::default()
                     });
                 }
@@ -771,5 +769,4 @@ mod tests {
             }
         }
     }
-    
 }
