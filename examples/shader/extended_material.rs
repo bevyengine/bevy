@@ -1,7 +1,7 @@
 //! Demonstrates using a custom extension to the `StandardMaterial` to modify the results of the builtin pbr shader.
 
 use bevy::{pbr::ExtendedMaterial, prelude::*, render::render_resource::*};
-use bevy_internal::reflect::TypePath;
+use bevy::reflect::TypePath;
 
 fn main() {
     App::new()
