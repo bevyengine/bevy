@@ -209,7 +209,7 @@ fn insert_reflect(
 pub struct InsertReflect {
     /// The entity on which the component will be inserted.
     pub entity: Entity,
-    /// The reflect [Component](crate::component::Component) that will be added to the entity.
+    /// The reflect [`Component`](crate::component::Component) that will be added to the entity.
     pub component: Box<dyn Reflect>,
 }
 
@@ -228,7 +228,7 @@ pub struct InsertReflectWithRegistry<T: Resource + AsRef<TypeRegistry>> {
     /// The entity on which the component will be inserted.
     pub entity: Entity,
     pub _t: PhantomData<T>,
-    /// The reflect [Component](crate::component::Component) that will be added to the entity.
+    /// The reflect [`Component`](crate::component::Component) that will be added to the entity.
     pub component: Box<dyn Reflect>,
 }
 
@@ -267,7 +267,7 @@ fn remove_reflect(
 pub struct RemoveReflect {
     /// The entity from which the component will be removed.
     pub entity: Entity,
-    /// The [Component](crate::component::Component) type name that will be used to remove a component
+    /// The [`Component`](crate::component::Component) type name that will be used to remove a component
     /// of the same type from the entity.
     pub component_type_name: Cow<'static, str>,
 }
@@ -292,7 +292,7 @@ pub struct RemoveReflectWithRegistry<T: Resource + AsRef<TypeRegistry>> {
     /// The entity from which the component will be removed.
     pub entity: Entity,
     pub _t: PhantomData<T>,
-    /// The [Component](crate::component::Component) type name that will be used to remove a component
+    /// The [`Component`](crate::component::Component) type name that will be used to remove a component
     /// of the same type from the entity.
     pub component_type_name: Cow<'static, str>,
 }
