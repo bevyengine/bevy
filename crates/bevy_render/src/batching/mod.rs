@@ -1,7 +1,7 @@
 use bevy_ecs::{
     component::Component,
     prelude::Res,
-    query::{ReadOnlyWorldQuery, WorldQuery},
+    query::{Has, ReadOnlyWorldQuery, WorldQuery},
     system::{Query, ResMut},
 };
 use nonmax::NonMaxU32;
@@ -65,7 +65,7 @@ pub trait GetBatchData {
 pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBatchData>(
     gpu_array_buffer: ResMut<GpuArrayBuffer<F::BufferData>>,
     mut views: Query<&mut RenderPhase<I>>,
-    query: Query<(Option<&NoAutomaticBatching>, F::Query)>,
+    query: Query<(Has<NoAutomaticBatching>, F::Query)>,
 ) {
     let gpu_array_buffer = gpu_array_buffer.into_inner();
 
@@ -80,7 +80,7 @@ pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBa
         *item.batch_range_mut() = buffer_index.index.get()..buffer_index.index.get() + 1;
         *item.dynamic_offset_mut() = buffer_index.dynamic_offset;
 
-        if no_batching.is_some() {
+        if no_batching {
             None
         } else {
             Some(BatchMeta {
