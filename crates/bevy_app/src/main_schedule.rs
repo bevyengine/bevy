@@ -1,7 +1,7 @@
 use crate::{App, Plugin};
 use bevy_ecs::{
     schedule::{ExecutorKind, Schedule, ScheduleLabel},
-    system::Resource,
+    system::{Local, Resource},
     world::{Mut, World},
 };
 
@@ -138,17 +138,15 @@ impl MainScheduleOrder {
 }
 
 impl Main {
-    /// Runs the startup phase.
-    ///
-    /// Must be called once before the main schedule is started.
-    pub fn startup(world: &mut World) {
-        let _ = world.try_run_schedule(PreStartup);
-        let _ = world.try_run_schedule(Startup);
-        let _ = world.try_run_schedule(PostStartup);
-    }
-
     /// A system that runs the "main schedule"
-    pub fn run_main(world: &mut World) {
+    pub fn run_main(world: &mut World, mut run_at_least_once: Local<bool>) {
+        if !*run_at_least_once {
+            let _ = world.try_run_schedule(PreStartup);
+            let _ = world.try_run_schedule(Startup);
+            let _ = world.try_run_schedule(PostStartup);
+            *run_at_least_once = true;
+        }
+
         world.resource_scope(|world, order: Mut<MainScheduleOrder>| {
             for label in &order.labels {
                 let _ = world.try_run_schedule(&**label);

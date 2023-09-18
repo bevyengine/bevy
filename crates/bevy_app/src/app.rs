@@ -288,10 +288,6 @@ impl App {
             panic!("App::run() was called from within Plugin::build(), which is not allowed.");
         }
 
-        // Finish the startup phase and run one clean pass of the main schedule.
-        Main::startup(&mut app.world);
-        Main::run_main(&mut app.world);
-
         if app.ready() {
             // Force plugins to finish their setup and advance by one frame to make sure everything is
             // setup up. This is important to prevent black frames during the launch animation on iOS,
