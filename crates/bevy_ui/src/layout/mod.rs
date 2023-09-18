@@ -275,7 +275,7 @@ pub fn ui_layout_system(
     }
 
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-    for entity in removed_content_sizes.iter() {
+    for entity in removed_content_sizes.read() {
         ui_surface.try_remove_measure(entity);
     }
 
