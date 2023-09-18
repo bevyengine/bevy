@@ -8,7 +8,7 @@ use crate::{
     Asset, AssetLoadError, AssetServer, Assets, Handle, UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
-use bevy_utils::{BoxedFuture, HashMap, HashSet};
+use bevy_utils::{BoxedFuture, CowArc, HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use futures_lite::AsyncReadExt;
 use ron::error::SpannedError;
@@ -143,7 +143,7 @@ pub struct LoadedAsset<A: Asset> {
     pub(crate) value: A,
     pub(crate) dependencies: HashSet<UntypedAssetId>,
     pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
-    pub(crate) labeled_assets: HashMap<String, LabeledAsset>,
+    pub(crate) labeled_assets: HashMap<CowArc<'static, str>, LabeledAsset>,
     pub(crate) meta: Option<Box<dyn AssetMetaDyn>>,
 }
 
@@ -175,7 +175,7 @@ pub struct ErasedLoadedAsset {
     pub(crate) value: Box<dyn AssetContainer>,
     pub(crate) dependencies: HashSet<UntypedAssetId>,
     pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
-    pub(crate) labeled_assets: HashMap<String, LabeledAsset>,
+    pub(crate) labeled_assets: HashMap<CowArc<'static, str>, LabeledAsset>,
     pub(crate) meta: Option<Box<dyn AssetMetaDyn>>,
 }
 
@@ -214,13 +214,16 @@ impl ErasedLoadedAsset {
     }
 
     /// Returns the [`ErasedLoadedAsset`] for the given label, if it exists.
-    pub fn get_labeled(&self, label: &str) -> Option<&ErasedLoadedAsset> {
-        self.labeled_assets.get(label).map(|a| &a.asset)
+    pub fn get_labeled(
+        &self,
+        label: impl Into<CowArc<'static, str>>,
+    ) -> Option<&ErasedLoadedAsset> {
+        self.labeled_assets.get(&label.into()).map(|a| &a.asset)
     }
 
     /// Iterate over all labels for "labeled assets" in the loaded asset
     pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
-        self.labeled_assets.keys().map(|s| s.as_str())
+        self.labeled_assets.keys().map(|s| &**s)
     }
 }
 
@@ -269,7 +272,7 @@ pub struct LoadContext<'a> {
     dependencies: HashSet<UntypedAssetId>,
     /// Direct dependencies used by this loader.
     loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
-    labeled_assets: HashMap<String, LabeledAsset>,
+    labeled_assets: HashMap<CowArc<'static, str>, LabeledAsset>,
 }
 
 impl<'a> LoadContext<'a> {
@@ -362,9 +365,10 @@ impl<'a> LoadContext<'a> {
     /// See [`AssetPath`] for more on labeled assets.
     pub fn add_loaded_labeled_asset<A: Asset>(
         &mut self,
-        label: String,
+        label: impl Into<CowArc<'static, str>>,
         loaded_asset: LoadedAsset<A>,
     ) -> Handle<A> {
+        let label = label.into();
         let loaded_asset: ErasedLoadedAsset = loaded_asset.into();
         let labeled_path = self.asset_path.with_label(label.clone());
         let handle = self
@@ -383,9 +387,9 @@ impl<'a> LoadContext<'a> {
     /// Returns `true` if an asset with the label `label` exists in this context.
     ///
     /// See [`AssetPath`] for more on labeled assets.
-    pub fn has_labeled_asset(&self, label: &str) -> bool {
-        let path = self.asset_path.with_label(label);
-        self.asset_server.get_handle_untyped(path).is_some()
+    pub fn has_labeled_asset<'b>(&self, label: impl Into<CowArc<'b, str>>) -> bool {
+        let path = self.asset_path.with_label(label.into());
+        self.asset_server.get_handle_untyped(&path).is_some()
     }
 
     /// "Finishes" this context by populating the final [`Asset`] value (and the erased [`AssetMeta`] value, if it exists).
@@ -406,7 +410,7 @@ impl<'a> LoadContext<'a> {
     }
 
     /// Gets the source asset path for this load context.
-    pub fn asset_path(&self) -> &AssetPath {
+    pub fn asset_path(&self) -> &AssetPath<'static> {
         &self.asset_path
     }
 
@@ -432,7 +436,7 @@ impl<'a> LoadContext<'a> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         self.loader_dependencies
-            .insert(AssetPath::new(path.to_owned(), None), hash);
+            .insert(AssetPath::from_path(path.to_owned()), hash);
         Ok(bytes)
     }
 
@@ -461,14 +465,12 @@ impl<'a> LoadContext<'a> {
         path: impl Into<AssetPath<'b>>,
         settings: impl Fn(&mut S) + Send + Sync + 'static,
     ) -> Handle<A> {
-        let path = path.into().to_owned();
+        let path = path.into();
         let handle = if self.should_load_dependencies {
             self.asset_server.load_with_settings(path.clone(), settings)
         } else {
-            self.asset_server.get_or_create_path_handle(
-                path.clone(),
-                Some(loader_settings_meta_transform(settings)),
-            )
+            self.asset_server
+                .get_or_create_path_handle(path, Some(loader_settings_meta_transform(settings)))
         };
         self.dependencies.insert(handle.id().untyped());
         handle
@@ -477,8 +479,11 @@ impl<'a> LoadContext<'a> {
     /// Returns a handle to an asset of type `A` with the label `label`. This [`LoadContext`] must produce an asset of the
     /// given type and the given label or the dependencies of this asset will never be considered "fully loaded". However you
     /// can call this method before _or_ after adding the labeled asset.
-    pub fn get_label_handle<A: Asset>(&mut self, label: &str) -> Handle<A> {
-        let path = self.asset_path.with_label(label).to_owned();
+    pub fn get_label_handle<'b, A: Asset>(
+        &mut self,
+        label: impl Into<CowArc<'b, str>>,
+    ) -> Handle<A> {
+        let path = self.asset_path.with_label(label);
         let handle = self.asset_server.get_or_create_path_handle::<A>(path, None);
         self.dependencies.insert(handle.id().untyped());
         handle
@@ -498,36 +503,37 @@ impl<'a> LoadContext<'a> {
         &mut self,
         path: impl Into<AssetPath<'b>>,
     ) -> Result<ErasedLoadedAsset, LoadDirectError> {
-        let path = path.into();
+        let path = path.into().into_owned();
         let to_error = |e: AssetLoadError| -> LoadDirectError {
             LoadDirectError {
-                dependency: path.to_owned(),
+                dependency: path.clone(),
                 error: e,
             }
         };
-        let (meta, loader, mut reader) = self
-            .asset_server
-            .get_meta_loader_and_reader(&path)
-            .await
-            .map_err(to_error)?;
-        let loaded_asset = self
-            .asset_server
-            .load_with_meta_loader_and_reader(
-                &path,
-                meta,
-                &*loader,
-                &mut *reader,
-                false,
-                self.populate_hashes,
-            )
-            .await
-            .map_err(to_error)?;
+        let loaded_asset = {
+            let (meta, loader, mut reader) = self
+                .asset_server
+                .get_meta_loader_and_reader(&path)
+                .await
+                .map_err(to_error)?;
+            self.asset_server
+                .load_with_meta_loader_and_reader(
+                    &path,
+                    meta,
+                    &*loader,
+                    &mut *reader,
+                    false,
+                    self.populate_hashes,
+                )
+                .await
+                .map_err(to_error)?
+        };
         let info = loaded_asset
             .meta
             .as_ref()
             .and_then(|m| m.processed_info().as_ref());
         let hash = info.map(|i| i.full_hash).unwrap_or(Default::default());
-        self.loader_dependencies.insert(path.to_owned(), hash);
+        self.loader_dependencies.insert(path, hash);
         Ok(loaded_asset)
     }
 }

@@ -34,6 +34,7 @@ pub use reflect::*;
 pub use server::*;
 
 pub use anyhow;
+pub use bevy_utils::BoxedFuture;
 
 use crate::{
     io::{processor_gated::ProcessorGatedReader, AssetProvider, AssetProviders},
@@ -533,7 +534,7 @@ mod tests {
         panic!("Ran out of loops to return `Some` from `predicate`");
     }
 
-    const LARGE_ITERATION_COUNT: usize = 50;
+    const LARGE_ITERATION_COUNT: usize = 10000;
 
     fn get<A: Asset>(world: &World, id: AssetId<A>) -> Option<&A> {
         world.resource::<Assets<A>>().get(id)

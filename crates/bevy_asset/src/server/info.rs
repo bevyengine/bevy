@@ -257,8 +257,9 @@ impl AssetInfos {
     }
 
     /// Returns `true` if this path has
-    pub(crate) fn is_path_alive(&self, path: &AssetPath) -> bool {
-        if let Some(id) = self.path_to_id.get(path) {
+    pub(crate) fn is_path_alive<'a>(&self, path: impl Into<AssetPath<'a>>) -> bool {
+        let path = path.into();
+        if let Some(id) = self.path_to_id.get(&path) {
             if let Some(info) = self.infos.get(id) {
                 return info.weak_handle.strong_count() > 0;
             }

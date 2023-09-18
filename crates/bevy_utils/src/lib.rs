@@ -18,11 +18,13 @@ pub use short_names::get_short_name;
 pub mod synccell;
 pub mod syncunsafecell;
 
+mod cow_arc;
 mod default;
 mod float_ord;
 
 pub use ahash::{AHasher, RandomState};
 pub use bevy_utils_proc_macros::*;
+pub use cow_arc::*;
 pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
