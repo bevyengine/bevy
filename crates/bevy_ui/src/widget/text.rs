@@ -127,7 +127,7 @@ pub fn measure_text_system(
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
         // scale factor unchanged, only create new measure funcs for modified text
-        for (text, content_size, text_flags) in text_query.iter_mut() {
+        for (text, content_size, text_flags) in &mut text_query {
             if text.is_changed() || text_flags.needs_new_measure_func {
                 create_text_measure(&fonts, scale_factor, text, content_size, text_flags);
             }
@@ -136,7 +136,7 @@ pub fn measure_text_system(
         // scale factor changed, create new measure funcs for all text
         *last_scale_factor = scale_factor;
 
-        for (text, content_size, text_flags) in text_query.iter_mut() {
+        for (text, content_size, text_flags) in &mut text_query {
             create_text_measure(&fonts, scale_factor, text, content_size, text_flags);
         }
     }
@@ -232,7 +232,7 @@ pub fn text_system(
     let inverse_scale_factor = scale_factor.recip();
     if *last_scale_factor == scale_factor {
         // Scale factor unchanged, only recompute text for modified text nodes
-        for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
+        for (node, text, text_layout_info, text_flags) in &mut text_query {
             if node.is_changed() || text_flags.needs_recompute {
                 queue_text(
                     &fonts,

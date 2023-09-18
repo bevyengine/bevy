@@ -274,7 +274,7 @@ pub fn ui_layout_system(
         }
     }
 
-    for (entity, mut content_size) in measure_query.iter_mut() {
+    for (entity, mut content_size) in &mut measure_query {
         if let Some(measure_func) = content_size.measure_func.take() {
             ui_surface.update_measure(entity, measure_func);
         }
