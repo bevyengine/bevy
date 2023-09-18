@@ -573,6 +573,16 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
     }
 }
 
+pub trait ReflectFnsTypeData: TypeData {
+    type Dyn: ?Sized;
+    fn get<'a>(&self, reflect_value: &'a dyn Reflect) -> Option<&'a Self::Dyn>;
+    fn get_mut<'a>(&self, reflect_value: &'a mut dyn Reflect) -> Option<&'a mut Self::Dyn>;
+    fn get_boxed(
+        &self,
+        reflect_value: Box<dyn Reflect>,
+    ) -> Result<Box<Self::Dyn>, Box<dyn Reflect>>;
+}
+
 #[cfg(test)]
 mod test {
     use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration};

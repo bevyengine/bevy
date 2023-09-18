@@ -53,24 +53,26 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
         #[doc = #struct_doc]
         #[derive(#FQClone)]
         #trait_vis struct #reflect_trait_ident {
-            get_func: fn(&dyn #bevy_reflect_path::Reflect) -> #FQOption<&dyn #trait_ident>,
-            get_mut_func: fn(&mut dyn #bevy_reflect_path::Reflect) -> #FQOption<&mut dyn #trait_ident>,
+            get_func: fn(&dyn #bevy_reflect_path::Reflect) -> #FQOption<&(dyn #trait_ident + 'static)>,
+            get_mut_func: fn(&mut dyn #bevy_reflect_path::Reflect) -> #FQOption<&mut (dyn #trait_ident + 'static)>,
             get_boxed_func: fn(#FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<#FQBox<dyn #trait_ident>, #FQBox<dyn #bevy_reflect_path::Reflect>>,
         }
 
-        impl #reflect_trait_ident {
+        impl #bevy_reflect_path::ReflectFnsTypeData for #reflect_trait_ident {
+            type Dyn = dyn #trait_ident;
+
             #[doc = #get_doc]
-            pub fn get<'a>(&self, reflect_value: &'a dyn #bevy_reflect_path::Reflect) -> #FQOption<&'a dyn #trait_ident> {
+            fn get<'a>(&self, reflect_value: &'a dyn #bevy_reflect_path::Reflect) -> #FQOption<&'a (dyn #trait_ident + 'static)> {
                 (self.get_func)(reflect_value)
             }
 
             #[doc = #get_mut_doc]
-            pub fn get_mut<'a>(&self, reflect_value: &'a mut dyn #bevy_reflect_path::Reflect) -> #FQOption<&'a mut dyn #trait_ident> {
+            fn get_mut<'a>(&self, reflect_value: &'a mut dyn #bevy_reflect_path::Reflect) -> #FQOption<&'a mut (dyn #trait_ident + 'static)> {
                 (self.get_mut_func)(reflect_value)
             }
 
             #[doc = #get_box_doc]
-            pub fn get_boxed(&self, reflect_value: #FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<#FQBox<dyn #trait_ident>, #FQBox<dyn #bevy_reflect_path::Reflect>> {
+            fn get_boxed(&self, reflect_value: #FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<#FQBox<dyn #trait_ident>, #FQBox<dyn #bevy_reflect_path::Reflect>> {
                 (self.get_boxed_func)(reflect_value)
             }
         }

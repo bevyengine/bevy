@@ -1,6 +1,7 @@
 //! Allows reflection with trait objects.
 
 use bevy::prelude::*;
+use bevy::reflect::ReflectFnsTypeData;
 
 fn main() {
     App::new()
