@@ -1,7 +1,7 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Style, UiScale};
+use crate::{ComputedBorderThickness, ContentSize, Node, Style, UiScale, Val};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -229,6 +229,7 @@ pub fn ui_layout_system(
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut node_transform_query: Query<(&mut Node, &mut Transform)>,
+    mut border_thickness_query: Query<(&mut ComputedBorderThickness, &Style)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
     // assume one window for time being...
@@ -310,10 +311,13 @@ pub fn ui_layout_system(
         entity: Entity,
         ui_surface: &UiSurface,
         node_transform_query: &mut Query<(&mut Node, &mut Transform)>,
+        border_thickness_query: &mut Query<(&mut ComputedBorderThickness, &Style)>,
         children_query: &Query<&Children>,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         mut absolute_location: Vec2,
+        parent_width: f32,
+        viewport_size: Vec2,
     ) {
         if let Ok((mut node, mut transform)) = node_transform_query.get_mut(entity) {
             let layout = ui_surface.get_layout(entity).unwrap();
@@ -336,31 +340,48 @@ pub fn ui_layout_system(
             if transform.translation.truncate() != new_position {
                 transform.translation = new_position.extend(0.);
             }
+            if let Ok((mut border_thickness, style)) = border_thickness_query.get_mut(entity) {
+                border_thickness.left =
+                    resolve_border_thickness(style.border.left, parent_width, viewport_size);
+                border_thickness.right =
+                    resolve_border_thickness(style.border.right, parent_width, viewport_size);
+                border_thickness.top =
+                    resolve_border_thickness(style.border.top, parent_width, viewport_size);
+                border_thickness.bottom =
+                    resolve_border_thickness(style.border.bottom, parent_width, viewport_size);
+            }
             if let Ok(children) = children_query.get(entity) {
                 for &child_uinode in children {
                     update_uinode_geometry_recursive(
                         child_uinode,
                         ui_surface,
                         node_transform_query,
+                        border_thickness_query,
                         children_query,
                         inverse_target_scale_factor,
                         new_size,
                         absolute_location,
+                        new_size.x,
+                        viewport_size,
                     );
                 }
             }
         }
     }
 
+    let logical_viewport_size = layout_context.physical_size * inverse_target_scale_factor as f32;
     for entity in root_node_query.iter() {
         update_uinode_geometry_recursive(
             entity,
             &ui_surface,
             &mut node_transform_query,
+            &mut border_thickness_query,
             &just_children_query,
             inverse_target_scale_factor as f32,
             Vec2::ZERO,
             Vec2::ZERO,
+            logical_viewport_size.x,
+            logical_viewport_size,
         );
     }
 }
@@ -390,6 +411,21 @@ fn round_layout_coords(value: Vec2) -> Vec2 {
     Vec2 {
         x: round_ties_up(value.x),
         y: round_ties_up(value.y),
+    }
+}
+
+/// Resolve the border thickness on a UI node's edge
+/// Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+fn resolve_border_thickness(edge_value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
+    match edge_value {
+        Val::Auto => 0.,
+        Val::Px(px) => px.max(0.),
+        Val::Percent(percent) => (parent_width * percent / 100.).max(0.),
+        Val::Vw(percent) => (viewport_size.x * percent / 100.).max(0.),
+        Val::Vh(percent) => (viewport_size.y * percent / 100.).max(0.),
+        Val::VMin(percent) => (viewport_size.min_element() * percent / 100.).max(0.),
+        Val::VMax(percent) => (viewport_size.max_element() * percent / 100.).max(0.),
     }
 }
 
@@ -713,5 +749,84 @@ mod tests {
         let layout = ui_surface.get_layout(ui_entity).unwrap();
         assert_eq!(layout.size.width, 0.);
         assert_eq!(layout.size.height, 0.);
+    }
+
+    #[test]
+    fn border_with_px_values_is_computed_correctly() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let left = 10.;
+        let right = 15.;
+        let top = 20.;
+        let bottom = 0.;
+
+        let ui_entity = world
+            .spawn((NodeBundle {
+                style: Style {
+                    width: Val::Px(100.),
+                    height: Val::Px(100.),
+                    border: UiRect::px(left, right, top, bottom),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },))
+            .id();
+
+        ui_schedule.run(&mut world);
+
+        let computed_border = world
+            .query::<&ComputedBorderThickness>()
+            .get(&world, ui_entity)
+            .unwrap();
+        assert_eq!(computed_border.left(), left);
+        assert_eq!(computed_border.right(), right);
+        assert_eq!(computed_border.top(), top);
+        assert_eq!(computed_border.bottom(), bottom);
+    }
+
+    #[test]
+    fn border_with_viewport_values_should_be_computed_correctly() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let left = Val::Vw(10.);
+        let right = Val::Vh(15.);
+        let top = Val::VMin(20.);
+        let bottom = Val::VMax(7.);
+
+        let ui_entity = world
+            .spawn((NodeBundle {
+                style: Style {
+                    width: Val::Px(100.),
+                    height: Val::Px(100.),
+                    border: UiRect::new(left, right, top, bottom),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },))
+            .id();
+
+        ui_schedule.run(&mut world);
+
+        let computed_border = world
+            .query::<&ComputedBorderThickness>()
+            .get(&world, ui_entity)
+            .unwrap();
+        let viewport_size = vec2(WINDOW_WIDTH, WINDOW_HEIGHT);
+        assert_eq!(
+            computed_border.left(),
+            left.resolve(viewport_size.x, viewport_size).unwrap()
+        );
+        assert_eq!(
+            computed_border.right(),
+            right.resolve(viewport_size.x, viewport_size).unwrap()
+        );
+        assert_eq!(
+            computed_border.top(),
+            top.resolve(viewport_size.x, viewport_size).unwrap()
+        );
+        assert_eq!(
+            computed_border.bottom(),
+            bottom.resolve(viewport_size.x, viewport_size).unwrap()
+        );
     }
 }

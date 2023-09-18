@@ -75,6 +75,40 @@ impl Default for Node {
     }
 }
 
+/// Thickness in logical pixels of the border on each edge of a UI node
+/// Automatically computed by `ui_layout_system`
+#[derive(Component, Copy, Clone, Debug, Default, Reflect)]
+#[reflect(Component, Default)]
+pub struct ComputedBorderThickness {
+    /// Thickness in logical pixels of the border on the left edge
+    pub(crate) left: f32,
+    /// Thickness in logical pixels of the border on the right edge
+    pub(crate) right: f32,
+    /// Thickness in logical pixels of the border on the top edge
+    pub(crate) top: f32,
+    /// Thickness in logical pixels of the border on the bottom edge
+    pub(crate) bottom: f32,
+}
+
+impl ComputedBorderThickness {
+    /// Thickness in logical pixels of the border on the left edge
+    pub fn left(&self) -> f32 {
+        self.left
+    }
+    /// Thickness in logical pixels of the border on the right edge
+    pub fn right(&self) -> f32 {
+        self.right
+    }
+    /// Thickness in logical pixels of the border on the top edge
+    pub fn top(&self) -> f32 {
+        self.top
+    }
+    /// Thickness in logical pixels of the border on the bottom edge
+    pub fn bottom(&self) -> f32 {
+        self.bottom
+    }
+}
+
 /// Describes the style of a UI container node
 ///
 /// Node's can be laid out using either Flexbox or CSS Grid Layout.<br />
