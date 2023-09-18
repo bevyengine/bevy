@@ -407,7 +407,7 @@ impl Color {
     /// Converts this `Color` into RGB u8
     #[must_use]
     pub fn as_rgb_u8(self) -> palette::rgb::PackedArgb {
-        palette::rgb::PackedArgb::pack(palette::Srgba::from_color_unclamped(self).into_format())
+        palette::rgb::PackedArgb::pack(palette::Srgba::from_color_unclamped(self).with_alpha(0.).into_format())
     }
 
     /// Converts `Color` to a `u32` from sRGB colorspace.
