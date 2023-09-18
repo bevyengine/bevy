@@ -424,6 +424,10 @@ impl Mesh {
                 VertexAttributeValues::Snorm8x4(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Uint8x4(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Unorm8x4(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float64(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float64x2(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float64x3(vec) => *vec = duplicate(vec, indices),
+                VertexAttributeValues::Float64x4(vec) => *vec = duplicate(vec, indices),
             }
         }
     }
@@ -678,7 +682,13 @@ impl VertexFormatSize for wgpu::VertexFormat {
 }
 
 /// Contains an array where each entry describes a property of a single vertex.
-/// Matches the [`VertexFormats`](VertexFormat).
+/// Matches the [`VertexFormats`](VertexFormat). 
+/// 
+/// Be aware that the [`Float64`](VertexAttributeValues::Float64),
+/// [`Float64x2`](VertexAttributeValues::Float64x2), [`Float64x3`](VertexAttributeValues::Float64x3) and 
+/// [`Float64x4`](VertexAttributeValues::Float64x4) need to be used with Caution, because they might cause
+/// Performance Problems due to [f64](std::primitive::f64) being between [considerably](https://groups.google.com/g/amgcl/c/Bz_X2B0UBWE) 
+/// slower than [f32](std::primitive::f32) on GPUs.
 #[derive(Clone, Debug, EnumVariantMeta)]
 pub enum VertexAttributeValues {
     Float32(Vec<f32>),
@@ -709,6 +719,10 @@ pub enum VertexAttributeValues {
     Snorm8x4(Vec<[i8; 4]>),
     Uint8x4(Vec<[u8; 4]>),
     Unorm8x4(Vec<[u8; 4]>),
+    Float64(Vec<f64>),
+    Float64x2(Vec<[f64; 2]>),
+    Float64x3(Vec<[f64; 3]>),
+    Float64x4(Vec<[f64; 4]>),
 }
 
 impl VertexAttributeValues {
@@ -745,6 +759,10 @@ impl VertexAttributeValues {
             VertexAttributeValues::Snorm8x4(values) => values.len(),
             VertexAttributeValues::Uint8x4(values) => values.len(),
             VertexAttributeValues::Unorm8x4(values) => values.len(),
+            VertexAttributeValues::Float64(values) => values.len(),
+            VertexAttributeValues::Float64x2(values) => values.len(),
+            VertexAttributeValues::Float64x3(values) => values.len(),
+            VertexAttributeValues::Float64x4(values) => values.len(),
         }
     }
 
@@ -795,6 +813,10 @@ impl VertexAttributeValues {
             VertexAttributeValues::Snorm8x4(values) => cast_slice(values),
             VertexAttributeValues::Uint8x4(values) => cast_slice(values),
             VertexAttributeValues::Unorm8x4(values) => cast_slice(values),
+            VertexAttributeValues::Float64(values) => cast_slice(values),
+            VertexAttributeValues::Float64x2(values) => cast_slice(values),
+            VertexAttributeValues::Float64x3(values) => cast_slice(values),
+            VertexAttributeValues::Float64x4(values) => cast_slice(values),
         }
     }
 }
@@ -830,6 +852,10 @@ impl From<&VertexAttributeValues> for VertexFormat {
             VertexAttributeValues::Snorm8x4(_) => VertexFormat::Snorm8x4,
             VertexAttributeValues::Uint8x4(_) => VertexFormat::Uint8x4,
             VertexAttributeValues::Unorm8x4(_) => VertexFormat::Unorm8x4,
+            VertexAttributeValues::Float64(_) => VertexFormat::Float64,
+            VertexAttributeValues::Float64x2(_) => VertexFormat::Float64x2,
+            VertexAttributeValues::Float64x3(_) => VertexFormat::Float64x3,
+            VertexAttributeValues::Float64x4(_) => VertexFormat::Float64x4,
         }
     }
 }
@@ -1109,13 +1135,23 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
 
 #[cfg(test)]
 mod tests {
+    use crate::mesh::MeshVertexAttribute;
+
     use super::Mesh;
-    use wgpu::PrimitiveTopology;
+    use wgpu::{PrimitiveTopology, VertexFormat};
 
     #[test]
     #[should_panic]
     fn panic_invalid_format() {
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
+    }
+
+    #[test]
+    fn test_64_bit_format() {
+        pub const TEST_UV: MeshVertexAttribute = MeshVertexAttribute::new("TEST_UV", 2000, VertexFormat::Float64x2);
+        
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        mesh.insert_attribute(TEST_UV, vec![[0.0f64, 0.0f64]]);
     }
 }
