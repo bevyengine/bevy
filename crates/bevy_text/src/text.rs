@@ -1,16 +1,31 @@
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_reflect::{prelude::*, FromReflect};
+use bevy_reflect::prelude::*;
 use bevy_render::color::Color;
+use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
 use crate::Font;
 
-#[derive(Component, Debug, Default, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Text {
     pub sections: Vec<TextSection>,
+    /// The text's internal alignment.
+    /// Should not affect its position within a container.
     pub alignment: TextAlignment,
+    /// How the text should linebreak when running out of the bounds determined by max_size
+    pub linebreak_behavior: BreakLineOn,
+}
+
+impl Default for Text {
+    fn default() -> Self {
+        Self {
+            sections: Default::default(),
+            alignment: TextAlignment::Left,
+            linebreak_behavior: BreakLineOn::WordBoundary,
+        }
+    }
 }
 
 impl Text {
@@ -19,7 +34,7 @@ impl Text {
     /// ```
     /// # use bevy_asset::Handle;
     /// # use bevy_render::color::Color;
-    /// # use bevy_text::{Font, Text, TextAlignment, TextStyle, HorizontalAlign, VerticalAlign};
+    /// # use bevy_text::{Font, Text, TextStyle, TextAlignment};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
@@ -42,12 +57,12 @@ impl Text {
     ///         color: Color::WHITE,
     ///     },
     /// ) // You can still add an alignment.
-    /// .with_alignment(TextAlignment::CENTER);
+    /// .with_alignment(TextAlignment::Center);
     /// ```
     pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
             sections: vec![TextSection::new(value, style)],
-            alignment: Default::default(),
+            ..default()
         }
     }
 
@@ -82,7 +97,7 @@ impl Text {
     pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
         Self {
             sections: sections.into_iter().collect(),
-            alignment: Default::default(),
+            ..default()
         }
     }
 
@@ -91,9 +106,16 @@ impl Text {
         self.alignment = alignment;
         self
     }
+
+    /// Returns this [`Text`] with soft wrapping disabled.
+    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
+    pub const fn with_no_wrap(mut self) -> Self {
+        self.linebreak_behavior = BreakLineOn::NoWrap;
+        self
+    }
 }
 
-#[derive(Debug, Default, Clone, FromReflect, Reflect)]
+#[derive(Debug, Default, Clone, Reflect)]
 pub struct TextSection {
     pub value: String,
     pub style: TextStyle,
@@ -117,80 +139,33 @@ impl TextSection {
     }
 }
 
-#[derive(Debug, Clone, Copy, Reflect)]
-pub struct TextAlignment {
-    pub vertical: VerticalAlign,
-    pub horizontal: HorizontalAlign,
+#[cfg(feature = "default_font")]
+impl From<&str> for TextSection {
+    fn from(value: &str) -> Self {
+        Self {
+            value: value.into(),
+            ..default()
+        }
+    }
 }
 
-impl TextAlignment {
-    /// A [`TextAlignment`] set to the top-left.
-    pub const TOP_LEFT: Self = TextAlignment {
-        vertical: VerticalAlign::Top,
-        horizontal: HorizontalAlign::Left,
-    };
-
-    /// A [`TextAlignment`] set to the top-center.
-    pub const TOP_CENTER: Self = TextAlignment {
-        vertical: VerticalAlign::Top,
-        horizontal: HorizontalAlign::Center,
-    };
-
-    /// A [`TextAlignment`] set to the top-right.
-    pub const TOP_RIGHT: Self = TextAlignment {
-        vertical: VerticalAlign::Top,
-        horizontal: HorizontalAlign::Right,
-    };
-
-    /// A [`TextAlignment`] set to center the center-left.
-    pub const CENTER_LEFT: Self = TextAlignment {
-        vertical: VerticalAlign::Center,
-        horizontal: HorizontalAlign::Left,
-    };
-
-    /// A [`TextAlignment`] set to center on both axes.
-    pub const CENTER: Self = TextAlignment {
-        vertical: VerticalAlign::Center,
-        horizontal: HorizontalAlign::Center,
-    };
-
-    /// A [`TextAlignment`] set to the center-right.
-    pub const CENTER_RIGHT: Self = TextAlignment {
-        vertical: VerticalAlign::Center,
-        horizontal: HorizontalAlign::Right,
-    };
-
-    /// A [`TextAlignment`] set to the bottom-left.
-    pub const BOTTOM_LEFT: Self = TextAlignment {
-        vertical: VerticalAlign::Bottom,
-        horizontal: HorizontalAlign::Left,
-    };
-
-    /// A [`TextAlignment`] set to the bottom-center.
-    pub const BOTTOM_CENTER: Self = TextAlignment {
-        vertical: VerticalAlign::Bottom,
-        horizontal: HorizontalAlign::Center,
-    };
-
-    /// A [`TextAlignment`] set to the bottom-right.
-    pub const BOTTOM_RIGHT: Self = TextAlignment {
-        vertical: VerticalAlign::Bottom,
-        horizontal: HorizontalAlign::Right,
-    };
-}
-
-impl Default for TextAlignment {
-    fn default() -> Self {
-        TextAlignment::TOP_LEFT
+#[cfg(feature = "default_font")]
+impl From<String> for TextSection {
+    fn from(value: String) -> Self {
+        Self {
+            value,
+            ..Default::default()
+        }
     }
 }
 
 /// Describes horizontal alignment preference for positioning & bounds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
-pub enum HorizontalAlign {
+pub enum TextAlignment {
     /// Leftmost character is immediately to the right of the render position.<br/>
     /// Bounds start from the render position and advance rightwards.
+    #[default]
     Left,
     /// Leftmost & rightmost characters are equidistant to the render position.<br/>
     /// Bounds start from the render position and advance equally left & right.
@@ -200,42 +175,26 @@ pub enum HorizontalAlign {
     Right,
 }
 
-impl From<HorizontalAlign> for glyph_brush_layout::HorizontalAlign {
-    fn from(val: HorizontalAlign) -> Self {
+impl From<TextAlignment> for glyph_brush_layout::HorizontalAlign {
+    fn from(val: TextAlignment) -> Self {
         match val {
-            HorizontalAlign::Left => glyph_brush_layout::HorizontalAlign::Left,
-            HorizontalAlign::Center => glyph_brush_layout::HorizontalAlign::Center,
-            HorizontalAlign::Right => glyph_brush_layout::HorizontalAlign::Right,
+            TextAlignment::Left => glyph_brush_layout::HorizontalAlign::Left,
+            TextAlignment::Center => glyph_brush_layout::HorizontalAlign::Center,
+            TextAlignment::Right => glyph_brush_layout::HorizontalAlign::Right,
         }
     }
 }
 
-/// Describes vertical alignment preference for positioning & bounds. Currently a placeholder
-/// for future functionality.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
-#[reflect(Serialize, Deserialize)]
-pub enum VerticalAlign {
-    /// Characters/bounds start underneath the render position and progress downwards.
-    Top,
-    /// Characters/bounds center at the render position and progress outward equally.
-    Center,
-    /// Characters/bounds start above the render position and progress upward.
-    Bottom,
-}
-
-impl From<VerticalAlign> for glyph_brush_layout::VerticalAlign {
-    fn from(val: VerticalAlign) -> Self {
-        match val {
-            VerticalAlign::Top => glyph_brush_layout::VerticalAlign::Top,
-            VerticalAlign::Center => glyph_brush_layout::VerticalAlign::Center,
-            VerticalAlign::Bottom => glyph_brush_layout::VerticalAlign::Bottom,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Reflect, FromReflect)]
+#[derive(Clone, Debug, Reflect)]
 pub struct TextStyle {
     pub font: Handle<Font>,
+    /// The vertical height of rasterized glyphs in the font atlas in pixels.
+    ///
+    /// This is multiplied by the window scale factor and `UiScale`, but not the text entity
+    /// transform or camera projection.
+    ///
+    /// A new font atlas is generated for every combination of font handle and scaled font size
+    /// which can have a strong performance impact.
     pub font_size: f32,
     pub color: Color,
 }
@@ -246,6 +205,36 @@ impl Default for TextStyle {
             font: Default::default(),
             font_size: 12.0,
             color: Color::WHITE,
+        }
+    }
+}
+
+/// Determines how lines will be broken when preventing text from running out of bounds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize)]
+pub enum BreakLineOn {
+    /// Uses the [Unicode Line Breaking Algorithm](https://www.unicode.org/reports/tr14/).
+    /// Lines will be broken up at the nearest suitable word boundary, usually a space.
+    /// This behavior suits most cases, as it keeps words intact across linebreaks.
+    WordBoundary,
+    /// Lines will be broken without discrimination on any character that would leave bounds.
+    /// This is closer to the behavior one might expect from text in a terminal.
+    /// However it may lead to words being broken up across linebreaks.
+    AnyCharacter,
+    /// No soft wrapping, where text is automatically broken up into separate lines when it overflows a boundary, will ever occur.
+    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, is still enabled.
+    NoWrap,
+}
+
+impl From<BreakLineOn> for glyph_brush_layout::BuiltInLineBreaker {
+    fn from(val: BreakLineOn) -> Self {
+        match val {
+            // If `NoWrap` is set the choice of `BuiltInLineBreaker` doesn't matter as the text is given unbounded width and soft wrapping will never occur.
+            // But `NoWrap` does not disable hard breaks where a [`Text`] contains a newline character.
+            BreakLineOn::WordBoundary | BreakLineOn::NoWrap => {
+                glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker
+            }
+            BreakLineOn::AnyCharacter => glyph_brush_layout::BuiltInLineBreaker::AnyCharLineBreaker,
         }
     }
 }

@@ -5,7 +5,7 @@ use bevy::{input::gamepad::GamepadButton, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_system(gamepad_system)
+        .add_systems(Update, gamepad_system)
         .run();
 }
 

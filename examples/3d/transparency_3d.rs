@@ -6,10 +6,10 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
+        .insert_resource(Msaa::default())
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(fade_transparency)
+        .add_systems(Startup, setup)
+        .add_systems(Update, fade_transparency)
         .run();
 }
 
@@ -20,7 +20,7 @@ fn setup(
 ) {
     // opaque plane, uses `alpha_mode: Opaque` by default
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 6.0 })),
+        mesh: meshes.add(shape::Plane::from_size(6.0).into()),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
@@ -107,10 +107,10 @@ fn setup(
 
 /// Fades the alpha channel of all materials between 0 and 1 over time.
 /// Each blend mode responds differently to this:
-/// - `Opaque`: Ignores alpha channel altogether, these materials stay completely opaque.
-/// - `Mask(f32)`: Object appears when the alpha value goes above the mask's threshold, disappears
+/// - [`Opaque`](AlphaMode::Opaque): Ignores alpha channel altogether, these materials stay completely opaque.
+/// - [`Mask(f32)`](AlphaMode::Mask): Object appears when the alpha value goes above the mask's threshold, disappears
 ///                when the alpha value goes back below the threshold.
-/// - `Blend`: Object fades in and out smoothly.
+/// - [`Blend`](AlphaMode::Blend): Object fades in and out smoothly.
 pub fn fade_transparency(time: Res<Time>, mut materials: ResMut<Assets<StandardMaterial>>) {
     let alpha = (time.elapsed_seconds().sin() / 2.0) + 0.5;
     for (_, material) in materials.iter_mut() {

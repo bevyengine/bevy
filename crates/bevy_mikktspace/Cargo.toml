@@ -1,6 +1,6 @@
 [package]
 name = "bevy_mikktspace"
-version = "0.9.0"
+version = "0.12.0-dev"
 edition = "2021"
 authors = ["Benjamin Wasty <benny.wasty@gmail.com>", "David Harvey-Macaulay <alteous@outlook.com>", "Layl Bongers <LaylConway@users.noreply.github.com>"]
 description = "Mikkelsen tangent space algorithm"
@@ -11,7 +11,7 @@ license = "Zlib AND (MIT OR Apache-2.0)"
 keywords = ["bevy", "3D", "graphics", "algorithm", "tangent"]
 
 [dependencies]
-glam = "0.22"
+glam = "0.24.1"
 
 [[example]]
 name = "generate"

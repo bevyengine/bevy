@@ -183,10 +183,11 @@ fn main() {
 
     App::new()
         .insert_resource(cfg)
-        .add_plugins(MinimalPlugins)
-        .add_plugin(TransformPlugin::default())
-        .add_startup_system(setup)
-        .add_system(update)
+        .add_plugins((MinimalPlugins, TransformPlugin))
+        .add_systems(Startup, setup)
+        // Updating transforms *must* be done before `PostUpdate`
+        // or the hierarchy will momentarily be in an invalid state.
+        .add_systems(Update, update)
         .run();
 }
 
@@ -240,10 +241,10 @@ struct UpdateFilter {
 
 /// update component with some per-component value
 #[derive(Component)]
-struct Update(f32);
+struct UpdateValue(f32);
 
 /// update positions system
-fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut Update)>) {
+fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut UpdateValue)>) {
     for (mut t, mut u) in &mut query {
         u.0 += time.delta_seconds() * 0.1;
         set_translation(&mut t.translation, u.0);
@@ -400,7 +401,7 @@ fn spawn_tree(
                 && (depth >= update_filter.min_depth && depth <= update_filter.max_depth);
 
             if update {
-                cmd.insert(Update(sep));
+                cmd.insert(UpdateValue(sep));
                 result.active_nodes += 1;
             }
 

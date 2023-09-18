@@ -33,14 +33,12 @@ pub fn basis_buffer_to_image(
     let basis_texture_format = transcoder.basis_texture_format(buffer);
     if !basis_texture_format.can_transcode_to_format(transcode_format) {
         return Err(TextureError::UnsupportedTextureFormat(format!(
-            "{:?} cannot be transcoded to {:?}",
-            basis_texture_format, transcode_format
+            "{basis_texture_format:?} cannot be transcoded to {transcode_format:?}",
         )));
     }
     transcoder.prepare_transcoding(buffer).map_err(|_| {
         TextureError::TranscodeError(format!(
-            "Failed to prepare for transcoding from {:?}",
-            basis_texture_format
+            "Failed to prepare for transcoding from {basis_texture_format:?}",
         ))
     })?;
     let mut transcoded = Vec::new();
@@ -49,8 +47,7 @@ pub fn basis_buffer_to_image(
     let texture_type = transcoder.basis_texture_type(buffer);
     if texture_type == BasisTextureType::TextureTypeCubemapArray && image_count % 6 != 0 {
         return Err(TextureError::InvalidData(format!(
-            "Basis file with cube map array texture with non-modulo 6 number of images: {}",
-            image_count,
+            "Basis file with cube map array texture with non-modulo 6 number of images: {image_count}",
         )));
     }
 
@@ -74,10 +71,7 @@ pub fn basis_buffer_to_image(
         let mip_level_count = transcoder.image_level_count(buffer, image_index);
         if mip_level_count != image0_mip_level_count {
             return Err(TextureError::InvalidData(format!(
-                "Array or volume texture has inconsistent number of mip levels. Image {} has {} but image 0 has {}",
-                image_index,
-                mip_level_count,
-                image0_mip_level_count,
+                "Array or volume texture has inconsistent number of mip levels. Image {image_index} has {mip_level_count} but image 0 has {image0_mip_level_count}",
             )));
         }
         for level_index in 0..mip_level_count {
@@ -94,8 +88,7 @@ pub fn basis_buffer_to_image(
                 )
                 .map_err(|error| {
                     TextureError::TranscodeError(format!(
-                        "Failed to transcode mip level {} from {:?} to {:?}: {:?}",
-                        level_index, basis_texture_format, transcode_format, error
+                        "Failed to transcode mip level {level_index} from {basis_texture_format:?} to {transcode_format:?}: {error:?}",
                     ))
                 })?;
             transcoded.append(&mut data);
@@ -108,7 +101,8 @@ pub fn basis_buffer_to_image(
         width: image0_info.m_orig_width,
         height: image0_info.m_orig_height,
         depth_or_array_layers: image_count,
-    };
+    }
+    .physical_size(texture_format);
     image.texture_descriptor.mip_level_count = image0_mip_level_count;
     image.texture_descriptor.format = texture_format;
     image.texture_descriptor.dimension = match texture_type {
@@ -118,8 +112,7 @@ pub fn basis_buffer_to_image(
         BasisTextureType::TextureTypeVolume => TextureDimension::D3,
         basis_texture_type => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
-                "{:?}",
-                basis_texture_type
+                "{basis_texture_type:?}",
             )))
         }
     };

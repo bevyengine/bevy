@@ -26,8 +26,6 @@ pub struct UiPassNode {
 }
 
 impl UiPassNode {
-    pub const IN_VIEW: &'static str = "view";
-
     pub fn new(world: &mut World) -> Self {
         Self {
             ui_view_query: world.query_filtered(),
@@ -37,10 +35,6 @@ impl UiPassNode {
 }
 
 impl Node for UiPassNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(UiPassNode::IN_VIEW, SlotType::Entity)]
-    }
-
     fn update(&mut self, world: &mut World) {
         self.ui_view_query.update_archetypes(world);
         self.default_camera_view_query.update_archetypes(world);
@@ -52,13 +46,13 @@ impl Node for UiPassNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let input_view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let input_view_entity = graph.view_entity();
 
         let Ok((transparent_phase, target, camera_ui)) =
-                self.ui_view_query.get_manual(world, input_view_entity)
-             else {
-                return Ok(());
-            };
+            self.ui_view_query.get_manual(world, input_view_entity)
+        else {
+            return Ok(());
+        };
         if transparent_phase.items.is_empty() {
             return Ok(());
         }
@@ -76,19 +70,14 @@ impl Node for UiPassNode {
         } else {
             input_view_entity
         };
-        let pass_descriptor = RenderPassDescriptor {
+        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("ui_pass"),
             color_attachments: &[Some(target.get_unsampled_color_attachment(Operations {
                 load: LoadOp::Load,
                 store: true,
             }))],
             depth_stencil_attachment: None,
-        };
-
-        let render_pass = render_context
-            .command_encoder
-            .begin_render_pass(&pass_descriptor);
-        let mut render_pass = TrackedRenderPass::new(render_pass);
+        });
 
         transparent_phase.render(&mut render_pass, world, view_entity);
 
@@ -101,6 +90,7 @@ pub struct TransparentUi {
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
+    pub batch_size: usize,
 }
 
 impl PhaseItem for TransparentUi {
@@ -119,6 +109,16 @@ impl PhaseItem for TransparentUi {
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        items.sort_by_key(|item| item.sort_key());
+    }
+
+    #[inline]
+    fn batch_size(&self) -> usize {
+        self.batch_size
     }
 }
 

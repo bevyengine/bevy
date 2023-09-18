@@ -1,18 +1,49 @@
 use crate::{FromType, Reflect};
 
-/// A trait for types which can be constructed from a reflected type.
+/// A trait that enables types to be dynamically constructed from reflected data.
 ///
-/// This trait can be derived on types which implement [`Reflect`]. Some complex
-/// types (such as `Vec<T>`) may only be reflected if their element types
+/// It's recommended to use the [derive macro] rather than manually implementing this trait.
+///
+/// `FromReflect` allows dynamic proxy types, like [`DynamicStruct`], to be used to generate
+/// their concrete counterparts.
+/// It can also be used to partially or fully clone a type (depending on whether it has
+/// ignored fields or not).
+///
+/// In some cases, this trait may even be required.
+/// Deriving [`Reflect`] on an enum requires all its fields to implement `FromReflect`.
+/// Additionally, some complex types like `Vec<T>` require that their element types
 /// implement this trait.
+/// The reason for such requirements is that some operations require new data to be constructed,
+/// such as swapping to a new variant or pushing data to a homogeneous list.
 ///
-/// For structs and tuple structs, fields marked with the `#[reflect(ignore)]`
-/// attribute will be constructed using the `Default` implementation of the
-/// field type, rather than the corresponding field value (if any) of the
-/// reflected value.
+/// See the [crate-level documentation] to see how this trait can be used.
+///
+/// [derive macro]: bevy_reflect_derive::FromReflect
+/// [`DynamicStruct`]: crate::DynamicStruct
+/// [crate-level documentation]: crate
 pub trait FromReflect: Reflect + Sized {
     /// Constructs a concrete instance of `Self` from a reflected value.
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self>;
+
+    /// Attempts to downcast the given value to `Self` using,
+    /// constructing the value using [`from_reflect`] if that fails.
+    ///
+    /// This method is more efficient than using [`from_reflect`] for cases where
+    /// the given value is likely a boxed instance of `Self` (i.e. `Box<Self>`)
+    /// rather than a boxed dynamic type (e.g. [`DynamicStruct`], [`DynamicList`], etc.).
+    ///
+    /// [`from_reflect`]: Self::from_reflect
+    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicList`]: crate::DynamicList
+    fn take_from_reflect(reflect: Box<dyn Reflect>) -> Result<Self, Box<dyn Reflect>> {
+        match reflect.take::<Self>() {
+            Ok(value) => Ok(value),
+            Err(value) => match Self::from_reflect(value.as_ref()) {
+                None => Err(value),
+                Some(value) => Ok(value),
+            },
+        }
+    }
 }
 
 /// Type data that represents the [`FromReflect`] trait and allows it to be used dynamically.
@@ -25,7 +56,7 @@ pub trait FromReflect: Reflect + Sized {
 ///
 /// ```
 /// # use bevy_reflect::{DynamicTupleStruct, FromReflect, Reflect};
-/// #[derive(Reflect, FromReflect, PartialEq, Eq, Debug)]
+/// #[derive(Reflect, PartialEq, Eq, Debug)]
 /// struct Foo(#[reflect(default = "default_value")] usize);
 ///
 /// fn default_value() -> usize { 123 }
@@ -44,16 +75,15 @@ pub trait FromReflect: Reflect + Sized {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{DynamicTupleStruct, FromReflect, Reflect, ReflectFromReflect, TypeRegistry};
-/// # #[derive(Reflect, FromReflect, PartialEq, Eq, Debug)]
-/// # #[reflect(FromReflect)]
+/// # use bevy_reflect::{DynamicTupleStruct, Reflect, ReflectFromReflect, Typed, TypeRegistry};
+/// # #[derive(Reflect, PartialEq, Eq, Debug)]
 /// # struct Foo(#[reflect(default = "default_value")] usize);
 /// # fn default_value() -> usize { 123 }
 /// # let mut registry = TypeRegistry::new();
 /// # registry.register::<Foo>();
 ///
 /// let mut reflected = DynamicTupleStruct::default();
-/// reflected.set_name(std::any::type_name::<Foo>().to_string());
+/// reflected.set_represented_type(Some(<Foo as Typed>::type_info()));
 ///
 /// let registration = registry.get_with_name(reflected.type_name()).unwrap();
 /// let rfr = registration.data::<ReflectFromReflect>().unwrap();

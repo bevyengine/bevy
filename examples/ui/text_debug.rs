@@ -1,23 +1,25 @@
 //! Shows various text layout options.
 
 use bevy::{
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    window::PresentMode,
+    window::{PresentMode, WindowPlugin},
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                present_mode: PresentMode::AutoNoVsync,
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    present_mode: PresentMode::AutoNoVsync,
+                    ..default()
+                }),
                 ..default()
-            },
-            ..default()
-        }))
-        .add_plugin(FrameTimeDiagnosticsPlugin)
-        .add_startup_system(infotext_system)
-        .add_system(change_text_system)
+            }),
+            FrameTimeDiagnosticsPlugin,
+        ))
+        .add_systems(Startup, infotext_system)
+        .add_systems(Update, change_text_system)
         .run();
 }
 
@@ -38,34 +40,25 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(5.0),
-                left: Val::Px(15.0),
-                ..default()
-            },
+            top: Val::Px(5.0),
+            left: Val::Px(15.0),
             ..default()
         }),
     );
     commands.spawn(TextBundle::from_section(
-            "This text is very long, has a limited width, is centred, is positioned in the top right and is also coloured pink.",
+            "This text is very long, has a limited width, is centered, is positioned in the top right and is also colored pink.",
             TextStyle {
                 font: font.clone(),
                 font_size: 50.0,
                 color: Color::rgb(0.8, 0.2, 0.7),
             },
         )
-        .with_text_alignment(TextAlignment::CENTER)
+        .with_text_alignment(TextAlignment::Center)
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(5.0),
-                right: Val::Px(15.0),
-                ..default()
-            },
-            max_size: Size {
-                width: Val::Px(400.),
-                height: Val::Undefined,
-            },
+            top: Val::Px(5.0),
+            right: Val::Px(15.0),
+            max_width: Val::Px(400.),
             ..default()
         })
     );
@@ -116,11 +109,8 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(5.0),
-                right: Val::Px(15.0),
-                ..default()
-            },
+            bottom: Val::Px(5.0),
+            right: Val::Px(15.0),
             ..default()
         }),
         TextChanges,
@@ -137,15 +127,9 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_style(Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(5.0),
-                left: Val::Px(15.0),
-                ..default()
-            },
-            size: Size {
-                width: Val::Px(200.0),
-                ..default()
-            },
+            bottom: Val::Px(5.0),
+            left: Val::Px(15.0),
+            width: Val::Px(200.0),
             ..default()
         }),
     );
@@ -153,7 +137,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn change_text_system(
     time: Res<Time>,
-    diagnostics: Res<Diagnostics>,
+    diagnostics: Res<DiagnosticsStore>,
     mut query: Query<&mut Text, With<TextChanges>>,
 ) {
     for mut text in &mut query {
@@ -173,8 +157,7 @@ fn change_text_system(
         }
 
         text.sections[0].value = format!(
-            "This text changes in the bottom right - {:.1} fps, {:.3} ms/frame",
-            fps, frame_time,
+            "This text changes in the bottom right - {fps:.1} fps, {frame_time:.3} ms/frame",
         );
 
         text.sections[2].value = format!("{fps:.1}");

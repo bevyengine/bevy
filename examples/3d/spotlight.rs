@@ -5,16 +5,17 @@ use bevy::{
     pbr::NotShadowCaster,
     prelude::*,
 };
-use rand::{thread_rng, Rng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_startup_system(setup)
-        .add_system(light_sway)
-        .add_system(movement)
+        .add_plugins((
+            DefaultPlugins,
+            FrameTimeDiagnosticsPlugin,
+            LogDiagnosticsPlugin::default(),
+        ))
+        .add_systems(Startup, setup)
+        .add_systems(Update, (light_sway, movement))
         .run();
 }
 
@@ -29,7 +30,7 @@ fn setup(
 ) {
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
+        mesh: meshes.add(shape::Plane::from_size(100.0).into()),
         material: materials.add(StandardMaterial {
             base_color: Color::GREEN,
             perceptual_roughness: 1.0,
@@ -39,18 +40,20 @@ fn setup(
     });
 
     // cubes
-    let mut rng = thread_rng();
-    for _ in 0..100 {
+    let mut rng = StdRng::seed_from_u64(19878367467713);
+    let cube_mesh = meshes.add(Mesh::from(shape::Cube { size: 0.5 }));
+    let blue = materials.add(StandardMaterial {
+        base_color: Color::BLUE,
+        ..default()
+    });
+    for _ in 0..40 {
         let x = rng.gen_range(-5.0..5.0);
-        let y = rng.gen_range(-5.0..5.0);
+        let y = rng.gen_range(0.0..3.0);
         let z = rng.gen_range(-5.0..5.0);
         commands.spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                material: materials.add(StandardMaterial {
-                    base_color: Color::BLUE,
-                    ..default()
-                }),
+                mesh: cube_mesh.clone(),
+                material: blue.clone(),
                 transform: Transform::from_xyz(x, y, z),
                 ..default()
             },
@@ -64,6 +67,24 @@ fn setup(
         brightness: 0.14,
     });
 
+    let sphere_mesh = meshes.add(Mesh::from(shape::UVSphere {
+        radius: 0.05,
+        ..default()
+    }));
+    let sphere_mesh_direction = meshes.add(Mesh::from(shape::UVSphere {
+        radius: 0.1,
+        ..default()
+    }));
+    let red_emissive = materials.add(StandardMaterial {
+        base_color: Color::RED,
+        emissive: Color::rgba_linear(1.0, 0.0, 0.0, 0.0),
+        ..default()
+    });
+    let maroon_emissive = materials.add(StandardMaterial {
+        base_color: Color::MAROON,
+        emissive: Color::rgba_linear(0.369, 0.0, 0.0, 0.0),
+        ..default()
+    });
     for x in 0..4 {
         for z in 0..4 {
             let x = x as f32 - 2.0;
@@ -85,29 +106,15 @@ fn setup(
                 })
                 .with_children(|builder| {
                     builder.spawn(PbrBundle {
-                        mesh: meshes.add(Mesh::from(shape::UVSphere {
-                            radius: 0.05,
-                            ..default()
-                        })),
-                        material: materials.add(StandardMaterial {
-                            base_color: Color::RED,
-                            emissive: Color::rgba_linear(1.0, 0.0, 0.0, 0.0),
-                            ..default()
-                        }),
+                        mesh: sphere_mesh.clone(),
+                        material: red_emissive.clone(),
                         ..default()
                     });
                     builder.spawn((
                         PbrBundle {
                             transform: Transform::from_translation(Vec3::Z * -0.1),
-                            mesh: meshes.add(Mesh::from(shape::UVSphere {
-                                radius: 0.1,
-                                ..default()
-                            })),
-                            material: materials.add(StandardMaterial {
-                                base_color: Color::MAROON,
-                                emissive: Color::rgba_linear(0.125, 0.0, 0.0, 0.0),
-                                ..default()
-                            }),
+                            mesh: sphere_mesh_direction.clone(),
+                            material: maroon_emissive.clone(),
                             ..default()
                         },
                         NotShadowCaster,

@@ -1,29 +1,46 @@
 # Profiling
 
-## Runtime Flame Graph: `tracing` spans
+## Table of Contents
+
+- [Runtime](#runtime)
+  - [Chrome tracing format](#chrome-tracing-format)
+  - [Tracy profiler](#tracy-profiler)
+  - [Adding your own spans](#adding-your-own-spans)
+  - [Perf flame graph](#perf-flame-graph)
+- [Compile time](#compile-time)
+
+## Runtime
 
 Bevy has built-in [tracing](https://github.com/tokio-rs/tracing) spans to make it cheap and easy to profile Bevy ECS systems, render logic, engine internals, and user app code. Enable the `trace` cargo feature to enable Bevy's built-in spans.
 
 If you also want to include `wgpu` tracing spans when profiling, they are emitted at the `tracing` `info` level so you will need to make sure they are not filtered out by the `LogSettings` resource's `filter` member which defaults to `wgpu=error`. You can do this by setting the `RUST_LOG=info` environment variable when running your application.
 
-You also need to select a `tracing` backend using the following cargo features:
+You also need to select a `tracing` backend using one of the following cargo features.
 
-### Backend: trace_chrome
+**⚠️ Note**: for users of [span](https://docs.rs/tracing/0.1.37/tracing/index.html) based profilers
+
+When your app is bottlenecked by the GPU, you may encounter frames that have multiple prepare-set systems all taking an unusually long time to complete, and all finishing at about the same time.
+
+Improvements are planned to resolve this issue, you can find more details in the doc comment for [`prepare_windows`](../crates/bevy_render/src/view/window/mod.rs).
+
+![prepare_windows span bug](https://github.com/bevyengine/bevy/assets/2771466/15c0819b-0e07-4665-aa1e-579caa24fece)
+
+### Chrome tracing format
 
 `cargo run --release --features bevy/trace_chrome`
 
-After running your app a `json` file in the "chrome tracing format" will be produced. You can open this file in your browser using <https://ui.perfetto.dev>. It will look something like this (make sure you expand `Process 1`):
+After running your app a `json` file in the "chrome tracing format" will be produced. You can open this file in your browser using <https://ui.perfetto.dev>. It will look something like this:
 
 ![image](https://user-images.githubusercontent.com/2694663/141657409-6f4a3ad3-59b6-4378-95ba-66c0dafecd8e.png)
 
-### Backend: trace_tracy
+### Tracy profiler
 
 The [Tracy profiling tool](https://github.com/wolfpld/tracy) is:
 > A real time, nanosecond resolution, remote telemetry, hybrid frame and sampling profiler for games and other applications.
 
 There are binaries available for Windows, and installation / build instructions for other operating systems can be found in the [Tracy documentation PDF](https://github.com/wolfpld/tracy/releases/latest/download/tracy.pdf).
 
-It has a command line capture tool that can record the execution of graphical applications, saving it as a profile file. Tracy has a GUI to inspect these profile files. The GUI app also supports live capture, showing you in real time the trace of your app.
+It has a command line capture tool that can record the execution of graphical applications, saving it as a profile file. Tracy has a GUI to inspect these profile files. The GUI app also supports live capture, showing you in real time the trace of your app. The version of tracy must be matched to the version of tracing-tracy used in bevy. A compatibility table can be found on [crates.io](https://crates.io/crates/tracing-tracy) and the version used can be found [here](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_log/Cargo.toml#L21).
 
 In one terminal, run:
 `./capture-release -o my_capture.tracy`
@@ -78,19 +95,19 @@ Search for `info_span!` in this repo for some real-world examples.
 
 For more details, check out the [tracing span docs](https://docs.rs/tracing/*/tracing/span/index.html).
 
-## `perf` Runtime Flame Graph
+### `perf` Flame Graph
 
 This approach requires no extra instrumentation and shows finer-grained flame graphs of actual code call trees. This is useful when you want to identify the specific function of a "hot spot". The downside is that it has higher overhead, so your app will run slower than it normally does.
 
 Install [cargo-flamegraph](https://github.com/flamegraph-rs/flamegraph), [enable debug symbols in your release build](https://github.com/flamegraph-rs/flamegraph#improving-output-when-running-with---release), then run your app using one of the following commands. Note that `cargo-flamegraph` forwards arguments to cargo. You should treat the `cargo-flamegraph` command as a replacement for `cargo run --release`. The commands below include `--example EXAMPLE_NAME` to illustrate, but you can remove those arguments in favor of whatever you use to run your app:
 
-* Graph-Like Flame Graph: `RUSTFLAGS='-C force-frame-pointers=y' cargo flamegraph -c "record -g" --example EXAMPLE_NAME`
-* Flat-ish Flame Graph: `RUSTFLAGS='-C force-frame-pointers=y' cargo flamegraph --example EXAMPLE_NAME`
+- Graph-Like Flame Graph: `RUSTFLAGS='-C force-frame-pointers=y' cargo flamegraph -c "record -g" --example EXAMPLE_NAME`
+- Flat-ish Flame Graph: `RUSTFLAGS='-C force-frame-pointers=y' cargo flamegraph --example EXAMPLE_NAME`
 
 After closing your app, an interactive `svg` file will be produced:
 ![image](https://user-images.githubusercontent.com/2694663/141657609-0089675d-fb6a-4dc4-9a59-871e95e31c8a.png)
 
-## Project Compile Times
+## Compile time
 
 Append `--timings` to your app's cargo command (ex: `cargo build --timings`).
 If you want a "full" profile, make sure you run `cargo clean` first (note: this will clear previously generated reports).

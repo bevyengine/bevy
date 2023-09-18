@@ -1,12 +1,9 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::{pbr::AmbientLight, prelude::*, time::FixedTimestep};
-use rand::{thread_rng, Rng};
+use bevy::{pbr::AmbientLight, prelude::*};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-struct FixedUpdateStage;
-
-const DELTA_TIME: f64 = 0.01;
+const DELTA_TIME: f32 = 0.01;
 
 fn main() {
     App::new()
@@ -15,17 +12,11 @@ fn main() {
             brightness: 0.03,
             ..default()
         })
-        .add_startup_system(generate_bodies)
-        .add_stage_after(
-            CoreStage::Update,
-            FixedUpdateStage,
-            SystemStage::parallel()
-                .with_run_criteria(FixedTimestep::step(DELTA_TIME))
-                .with_system(interact_bodies)
-                .with_system(integrate),
-        )
-        .add_system(look_at_star)
         .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(FixedTime::new_from_secs(DELTA_TIME))
+        .add_systems(Startup, generate_bodies)
+        .add_systems(FixedUpdate, (interact_bodies, integrate))
+        .add_systems(Update, look_at_star)
         .run();
 }
 
@@ -65,7 +56,7 @@ fn generate_bodies(
     let color_range = 0.5..1.0;
     let vel_range = -0.5..0.5;
 
-    let mut rng = thread_rng();
+    let mut rng = StdRng::seed_from_u64(19878367467713);
     for _ in 0..NUM_BODIES {
         let radius: f32 = rng.gen_range(0.1..0.7);
         let mass_value = radius.powi(3) * 10.;
@@ -105,7 +96,7 @@ fn generate_bodies(
                         rng.gen_range(vel_range.clone()),
                         rng.gen_range(vel_range.clone()),
                         rng.gen_range(vel_range.clone()),
-                    ) * DELTA_TIME as f32,
+                    ) * DELTA_TIME,
             ),
         });
     }
@@ -170,7 +161,7 @@ fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)
 }
 
 fn integrate(mut query: Query<(&mut Acceleration, &mut Transform, &mut LastPos)>) {
-    let dt_sq = (DELTA_TIME * DELTA_TIME) as f32;
+    let dt_sq = DELTA_TIME * DELTA_TIME;
     for (mut acceleration, mut transform, mut last_pos) in &mut query {
         // verlet integration
         // x(t+dt) = 2x(t) - x(t-dt) + a(t)dt^2 + O(dt^4)

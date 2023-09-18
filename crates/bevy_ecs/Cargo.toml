@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ecs"
-version = "0.9.0"
+version = "0.12.0-dev"
 edition = "2021"
 description = "Bevy Engine's entity component system"
 homepage = "https://bevyengine.org"
@@ -11,22 +11,24 @@ categories = ["game-engines", "data-structures"]
 
 [features]
 trace = []
+multi-threaded = ["bevy_tasks/multi-threaded"]
 default = ["bevy_reflect"]
 
 [dependencies]
-bevy_ptr = { path = "../bevy_ptr", version = "0.9.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.9.0", optional = true }
-bevy_tasks = { path = "../bevy_tasks", version = "0.9.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
-bevy_ecs_macros = { path = "macros", version = "0.9.0" }
+bevy_ptr = { path = "../bevy_ptr", version = "0.12.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.12.0-dev", optional = true }
+bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
+bevy_ecs_macros = { path = "macros", version = "0.12.0-dev" }
 
 async-channel = "1.4"
 event-listener = "2.5"
 thread_local = "1.1.4"
-fixedbitset = "0.4"
-fxhash = "0.2"
+fixedbitset = "0.4.2"
+rustc-hash = "1.1"
 downcast-rs = "1.2"
-serde = { version = "1", features = ["derive"] }
+serde = "1"
+thiserror = "1.0"
 
 [dev-dependencies]
 rand = "0.8"
@@ -42,7 +44,3 @@ path = "examples/resources.rs"
 [[example]]
 name = "change_detection"
 path = "examples/change_detection.rs"
-
-[[example]]
-name = "derive_label"
-path = "examples/derive_label.rs"

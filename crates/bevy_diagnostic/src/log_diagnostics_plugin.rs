@@ -1,6 +1,6 @@
-use super::{Diagnostic, DiagnosticId, Diagnostics};
+use super::{Diagnostic, DiagnosticId, DiagnosticsStore};
 use bevy_app::prelude::*;
-use bevy_ecs::system::{Res, ResMut, Resource};
+use bevy_ecs::prelude::*;
 use bevy_log::{debug, info};
 use bevy_time::{Time, Timer, TimerMode};
 use bevy_utils::Duration;
@@ -37,9 +37,9 @@ impl Plugin for LogDiagnosticsPlugin {
         });
 
         if self.debug {
-            app.add_system_to_stage(CoreStage::PostUpdate, Self::log_diagnostics_debug_system);
+            app.add_systems(PostUpdate, Self::log_diagnostics_debug_system);
         } else {
-            app.add_system_to_stage(CoreStage::PostUpdate, Self::log_diagnostics_system);
+            app.add_systems(PostUpdate, Self::log_diagnostics_system);
         }
     }
 }
@@ -83,7 +83,7 @@ impl LogDiagnosticsPlugin {
     fn log_diagnostics_system(
         mut state: ResMut<LogDiagnosticsState>,
         time: Res<Time>,
-        diagnostics: Res<Diagnostics>,
+        diagnostics: Res<DiagnosticsStore>,
     ) {
         if state.timer.tick(time.raw_delta()).finished() {
             if let Some(ref filter) = state.filter {
@@ -108,7 +108,7 @@ impl LogDiagnosticsPlugin {
     fn log_diagnostics_debug_system(
         mut state: ResMut<LogDiagnosticsState>,
         time: Res<Time>,
-        diagnostics: Res<Diagnostics>,
+        diagnostics: Res<DiagnosticsStore>,
     ) {
         if state.timer.tick(time.raw_delta()).finished() {
             if let Some(ref filter) = state.filter {

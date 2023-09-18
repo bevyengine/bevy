@@ -28,7 +28,7 @@ struct Foo {
 #[derive(Reflect)]
 struct Bar(String);
 
-#[derive(Reflect, FromReflect)]
+#[derive(Reflect)]
 struct Baz {
     value: f32,
 }
@@ -153,8 +153,8 @@ let my_trait: &dyn DoThing = reflect_do_thing.get(&*reflect_value).unwrap();
 println!("{}", my_trait.do_thing());
 
 // This works because the #[reflect(MyTrait)] we put on MyType informed the Reflect derive to insert a new instance
-// of ReflectDoThing into MyType's registration. The instance knows how to cast &dyn Reflect to &dyn MyType, because it
-// knows that &dyn Reflect should first be downcasted to &MyType, which can then be safely casted to &dyn MyType
+// of ReflectDoThing into MyType's registration. The instance knows how to cast &dyn Reflect to &dyn DoThing, because it
+// knows that &dyn Reflect should first be downcasted to &MyType, which can then be safely casted to &dyn DoThing
 ```
 
 ## Why make this?

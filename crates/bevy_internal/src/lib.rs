@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 //! This module is separated into its own crate to enable simple dynamic linking for Bevy, and should not be used directly
 
@@ -6,6 +7,11 @@ pub mod prelude;
 
 mod default_plugins;
 pub use default_plugins::*;
+
+pub mod a11y {
+    //! Integrate with platform accessibility APIs.
+    pub use bevy_a11y::*;
+}
 
 pub mod app {
     //! Build bevy apps, create plugins, and read events.
@@ -54,11 +60,8 @@ pub mod ptr {
 }
 
 pub mod reflect {
-    // TODO: remove these renames once TypeRegistryArc is no longer required
     //! Type reflection used for dynamically interacting with rust types.
-    pub use bevy_reflect::{
-        TypeRegistry as TypeRegistryInternal, TypeRegistryArc as TypeRegistry, *,
-    };
+    pub use bevy_reflect::*;
 }
 
 #[cfg(feature = "bevy_scene")]
@@ -167,11 +170,27 @@ pub mod winit {
     pub use bevy_winit::*;
 }
 
+#[cfg(feature = "bevy_gizmos")]
+pub mod gizmos {
+    //! Immediate mode drawing api for visual debugging.
+    //!
+    //! # Example
+    //! ```
+    //! # use bevy_gizmos::prelude::*;
+    //! # use bevy_render::prelude::*;
+    //! # use bevy_math::prelude::*;
+    //! fn system(mut gizmos: Gizmos) {
+    //!     gizmos.line(Vec3::ZERO, Vec3::X, Color::GREEN);
+    //! }
+    //! # bevy_ecs::system::assert_is_system(system);
+    //! ```
+    //!
+    //! See the documentation on [`Gizmos`](gizmos::Gizmos) for more examples.
+    pub use bevy_gizmos::*;
+}
+
 #[cfg(feature = "bevy_dynamic_plugin")]
 pub mod dynamic_plugin {
     //! Dynamic linking of plugins
     pub use bevy_dynamic_plugin::*;
 }
-
-#[cfg(target_os = "android")]
-pub use ndk_glue;

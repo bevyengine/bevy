@@ -14,7 +14,7 @@ fn main() {
 
     {
         let gotten: &A = e_mut.get::<A>().unwrap();
-        let gotten2: A = e_mut.remove::<A>().unwrap();
+        let gotten2: A = e_mut.take::<A>().unwrap();
         assert_eq!(gotten, &gotten2); // oops UB
     }
 
@@ -22,7 +22,7 @@ fn main() {
 
     {
         let mut gotten: Mut<A> = e_mut.get_mut::<A>().unwrap();
-        let mut gotten2: A = e_mut.remove::<A>().unwrap();
+        let mut gotten2: A = e_mut.take::<A>().unwrap();
         assert_eq!(&mut *gotten, &mut gotten2); // oops UB
     }
 

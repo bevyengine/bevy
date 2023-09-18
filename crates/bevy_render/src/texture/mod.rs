@@ -1,13 +1,17 @@
 #[cfg(feature = "basis-universal")]
 mod basis;
+#[cfg(feature = "basis-universal")]
+mod compressed_image_saver;
 #[cfg(feature = "dds")]
 mod dds;
+#[cfg(feature = "exr")]
+mod exr_texture_loader;
 mod fallback_image;
 #[cfg(feature = "hdr")]
 mod hdr_texture_loader;
 #[allow(clippy::module_inception)]
 mod image;
-mod image_texture_loader;
+mod image_loader;
 #[cfg(feature = "ktx2")]
 mod ktx2;
 mod texture_cache;
@@ -19,20 +23,23 @@ pub use self::image::*;
 pub use self::ktx2::*;
 #[cfg(feature = "dds")]
 pub use dds::*;
+#[cfg(feature = "exr")]
+pub use exr_texture_loader::*;
 #[cfg(feature = "hdr")]
 pub use hdr_texture_loader::*;
 
+#[cfg(feature = "basis-universal")]
+pub use compressed_image_saver::*;
 pub use fallback_image::*;
-pub use image_texture_loader::*;
+pub use image_loader::*;
 pub use texture_cache::*;
 
 use crate::{
-    render_asset::{PrepareAssetLabel, RenderAssetPlugin},
-    renderer::RenderDevice,
-    RenderApp, RenderStage,
+    render_asset::RenderAssetPlugin, renderer::RenderDevice, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{AddAsset, Assets};
+use bevy_asset::{AssetApp, Assets, Handle};
+use bevy_ecs::prelude::*;
 
 // TODO: replace Texture names with Image names?
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
@@ -65,6 +72,55 @@ impl ImagePlugin {
 
 impl Plugin for ImagePlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(feature = "exr")]
+        {
+            app.init_asset_loader::<ExrTextureLoader>();
+        }
+
+        #[cfg(feature = "hdr")]
+        {
+            app.init_asset_loader::<HdrTextureLoader>();
+        }
+
+        app.add_plugins(RenderAssetPlugin::<Image>::default())
+            .register_type::<Image>()
+            .init_asset::<Image>()
+            .register_asset_reflect::<Image>();
+        app.world
+            .resource_mut::<Assets<Image>>()
+            .insert(Handle::default(), Image::default());
+        #[cfg(feature = "basis-universal")]
+        if let Some(processor) = app
+            .world
+            .get_resource::<bevy_asset::processor::AssetProcessor>()
+        {
+            processor.register_processor::<bevy_asset::processor::LoadAndSave<ImageLoader, CompressedImageSaver>>(
+                CompressedImageSaver.into(),
+            );
+            processor
+                .set_default_processor::<bevy_asset::processor::LoadAndSave<ImageLoader, CompressedImageSaver>>("png");
+        }
+
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<TextureCache>().add_systems(
+                Render,
+                update_texture_cache_system.in_set(RenderSet::Cleanup),
+            );
+        }
+
+        #[cfg(any(
+            feature = "png",
+            feature = "dds",
+            feature = "tga",
+            feature = "jpeg",
+            feature = "bmp",
+            feature = "basis-universal",
+            feature = "ktx2",
+        ))]
+        app.preregister_asset_loader::<ImageLoader>(IMG_FILE_EXTENSIONS);
+    }
+
+    fn finish(&self, app: &mut App) {
         #[cfg(any(
             feature = "png",
             feature = "dds",
@@ -75,23 +131,8 @@ impl Plugin for ImagePlugin {
             feature = "ktx2",
         ))]
         {
-            app.init_asset_loader::<ImageTextureLoader>();
+            app.init_asset_loader::<ImageLoader>();
         }
-
-        #[cfg(feature = "hdr")]
-        {
-            app.init_asset_loader::<HdrTextureLoader>();
-        }
-
-        app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_label(
-            PrepareAssetLabel::PreAssetPrepare,
-        ))
-        .register_type::<Image>()
-        .add_asset::<Image>()
-        .register_asset_reflect::<Image>();
-        app.world
-            .resource_mut::<Assets<Image>>()
-            .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             let default_sampler = {
@@ -100,9 +141,11 @@ impl Plugin for ImagePlugin {
             };
             render_app
                 .insert_resource(DefaultImageSampler(default_sampler))
-                .init_resource::<TextureCache>()
                 .init_resource::<FallbackImage>()
-                .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system);
+                .init_resource::<FallbackImageZero>()
+                .init_resource::<FallbackImageCubemap>()
+                .init_resource::<FallbackImageMsaaCache>()
+                .init_resource::<FallbackImageDepthCache>();
         }
     }
 }

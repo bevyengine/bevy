@@ -6,7 +6,6 @@ unmaintained = "deny"
 yanked = "deny"
 notice = "deny"
 ignore = [
-    "RUSTSEC-2020-0056", # from cpal v0.14.1 - unmaintained - https://github.com/koute/stdweb/issues/403
 ]
 
 [licenses]
@@ -34,24 +33,28 @@ wildcards = "deny"
 highlight = "all"
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
-    { name = "ndk-sys", version = "0.3" },               # from rodio v0.16.0
-    { name = "ndk", version = "0.6" },                   # from rodio v0.16.0
-    { name = "raw-window-handle", version = "0.4" },     # from winit v0.27.4
-    { name = "nix", version = "0.23" },                  # from cpal v0.14.1
-    { name = "rustc_version", version = "0.2" },         # from postcard v1.0.2
-    { name = "semver", version = "0.9" },                # from postcard v1.0.2
-    { name = "windows_aarch64_msvc", version = "0.36" }, # from notify v5.0.0
-    { name = "windows_i686_gnu", version = "0.36" },     # from notify v5.0.0
-    { name = "windows_i686_msvc", version = "0.36" },    # from notify v5.0.0
-    { name = "windows_x86_64_gnu", version = "0.36" },   # from notify v5.0.0
-    { name = "windows_x86_64_msvc", version = "0.36" },  # from notify v5.0.0
-    { name = "windows-sys", version = "0.36" },          # from notify v5.0.0
-    { name = "windows", version = "0.37" },              # from rodio v0.16.0
-    { name = "windows_aarch64_msvc", version = "0.37" }, # from rodio v0.16.0
-    { name = "windows_i686_gnu", version = "0.37" },     # from rodio v0.16.0
-    { name = "windows_i686_msvc", version = "0.37" },    # from rodio v0.16.0
-    { name = "windows_x86_64_gnu", version = "0.37" },   # from rodio v0.16.0
-    { name = "windows_x86_64_msvc", version = "0.37" },  # from rodio v0.16.0
+    { name = "ahash", version = "0.7" },
+    { name = "bitflags", version = "1.3" },
+    { name = "core-foundation-sys", version = "0.6" },
+    { name = "jni", version = "0.19" },
+    { name = "hashbrown", version = "0.12"},
+    { name = "libloading", version = "0.7"},
+    { name = "miniz_oxide", version = "0.6"},
+    { name = "nix", version = "0.24" },
+    { name = "redox_syscall", version = "0.2" },
+    { name = "regex-syntax", version = "0.6"},
+    { name = "syn", version = "1.0"},
+    { name = "windows", version = "0.44"},
+    { name = "windows", version = "0.46"},
+    { name = "windows-sys", version = "0.45" },
+    { name = "windows-targets", version = "0.42"},
+    { name = "windows_aarch64_gnullvm", version = "0.42"},
+    { name = "windows_aarch64_msvc", version = "0.42"},
+    { name = "windows_i686_gnu", version = "0.42"},
+    { name = "windows_i686_msvc", version = "0.42"},
+    { name = "windows_x86_64_gnu", version = "0.42"},
+    { name = "windows_x86_64_gnullvm", version = "0.42"},
+    { name = "windows_x86_64_msvc", version = "0.42"},
 ]
 
 [sources]

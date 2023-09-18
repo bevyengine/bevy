@@ -43,27 +43,6 @@ fn get_serializable<'a, E: serde::ser::Error>(
     Ok(reflect_serialize.get_serializable(reflect_value))
 }
 
-/// Get the underlying [`TypeInfo`] of a given type.
-///
-/// If the given type is a [`TypeInfo::Dynamic`] then we need to try and look
-/// up the actual type in the registry.
-fn get_type_info<E: Error>(
-    type_info: &'static TypeInfo,
-    type_name: &str,
-    registry: &TypeRegistry,
-) -> Result<&'static TypeInfo, E> {
-    match type_info {
-        TypeInfo::Dynamic(..) => match registry.get_with_name(type_name) {
-            Some(registration) => Ok(registration.type_info()),
-            None => Err(Error::custom(format_args!(
-                "no registration found for dynamic type with name {}",
-                type_name
-            ))),
-        },
-        info => Ok(info),
-    }
-}
-
 /// A general purpose serializer for reflected types.
 ///
 /// The serialized data will take the form of a map containing the following entries:
@@ -187,18 +166,21 @@ impl<'a> Serialize for StructSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let type_info = get_type_info(
-            self.struct_value.get_type_info(),
-            self.struct_value.type_name(),
-            self.registry,
-        )?;
+        let type_info = self
+            .struct_value
+            .get_represented_type_info()
+            .ok_or_else(|| {
+                Error::custom(format_args!(
+                    "cannot get type info for {}",
+                    self.struct_value.type_name()
+                ))
+            })?;
 
         let struct_info = match type_info {
             TypeInfo::Struct(struct_info) => struct_info,
             info => {
                 return Err(Error::custom(format_args!(
-                    "expected struct type but received {:?}",
-                    info
+                    "expected struct type but received {info:?}"
                 )));
             }
         };
@@ -237,18 +219,21 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let type_info = get_type_info(
-            self.tuple_struct.get_type_info(),
-            self.tuple_struct.type_name(),
-            self.registry,
-        )?;
+        let type_info = self
+            .tuple_struct
+            .get_represented_type_info()
+            .ok_or_else(|| {
+                Error::custom(format_args!(
+                    "cannot get type info for {}",
+                    self.tuple_struct.type_name()
+                ))
+            })?;
 
         let tuple_struct_info = match type_info {
             TypeInfo::TupleStruct(tuple_struct_info) => tuple_struct_info,
             info => {
                 return Err(Error::custom(format_args!(
-                    "expected tuple struct type but received {:?}",
-                    info
+                    "expected tuple struct type but received {info:?}"
                 )));
             }
         };
@@ -286,18 +271,18 @@ impl<'a> Serialize for EnumSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let type_info = get_type_info(
-            self.enum_value.get_type_info(),
-            self.enum_value.type_name(),
-            self.registry,
-        )?;
+        let type_info = self.enum_value.get_represented_type_info().ok_or_else(|| {
+            Error::custom(format_args!(
+                "cannot get type info for {}",
+                self.enum_value.type_name()
+            ))
+        })?;
 
         let enum_info = match type_info {
             TypeInfo::Enum(enum_info) => enum_info,
             info => {
                 return Err(Error::custom(format_args!(
-                    "expected enum type but received {:?}",
-                    info
+                    "expected enum type but received {info:?}"
                 )));
             }
         };
@@ -308,8 +293,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
             .variant_at(variant_index as usize)
             .ok_or_else(|| {
                 Error::custom(format_args!(
-                    "variant at index `{}` does not exist",
-                    variant_index
+                    "variant at index `{variant_index}` does not exist",
                 ))
             })?;
         let variant_name = variant_info.name();
@@ -333,8 +317,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
                     VariantInfo::Struct(struct_info) => struct_info,
                     info => {
                         return Err(Error::custom(format_args!(
-                            "expected struct variant type but received {:?}",
-                            info
+                            "expected struct variant type but received {info:?}",
                         )));
                     }
                 };
@@ -470,7 +453,7 @@ impl<'a> Serialize for ArraySerializer<'a> {
 mod tests {
     use crate as bevy_reflect;
     use crate::serde::ReflectSerializer;
-    use crate::{FromReflect, Reflect, ReflectSerialize, TypeRegistry};
+    use crate::{Reflect, ReflectSerialize, TypeRegistry};
     use bevy_utils::HashMap;
     use ron::extensions::Extensions;
     use ron::ser::PrettyConfig;
@@ -500,7 +483,7 @@ mod tests {
         custom_serialize: CustomSerialize,
     }
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     struct SomeStruct {
         foo: i64,
     }
@@ -508,16 +491,16 @@ mod tests {
     #[derive(Reflect, Debug, PartialEq)]
     struct SomeTupleStruct(String);
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     struct SomeUnitStruct;
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     struct SomeIgnoredStruct {
         #[reflect(ignore)]
         ignored: i32,
     }
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     struct SomeIgnoredTupleStruct(#[reflect(ignore)] i32);
 
     #[derive(Reflect, Debug, PartialEq)]
@@ -528,7 +511,7 @@ mod tests {
         Struct { foo: String },
     }
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     enum SomeIgnoredEnum {
         Tuple(#[reflect(ignore)] f32, #[reflect(ignore)] f32),
         Struct {
@@ -661,7 +644,7 @@ mod tests {
 
     #[test]
     fn should_serialize_option() {
-        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        #[derive(Reflect, Debug, PartialEq)]
         struct OptionTest {
             none: Option<()>,
             simple: Option<String>,

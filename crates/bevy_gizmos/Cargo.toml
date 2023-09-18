@@ -1,0 +1,27 @@
+[package]
+name = "bevy_gizmos"
+version = "0.12.0-dev"
+edition = "2021"
+description = "Provides gizmos for Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[features]
+webgl = []
+
+[dependencies]
+# Bevy
+bevy_pbr = { path = "../bevy_pbr", version = "0.12.0-dev", optional = true }
+bevy_sprite = { path = "../bevy_sprite", version = "0.12.0-dev", optional = true }
+bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.12.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.12.0-dev" }
+bevy_render = { path = "../bevy_render", version = "0.12.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.12.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.12.0-dev" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.12.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.12.0-dev" }

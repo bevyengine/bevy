@@ -13,10 +13,10 @@ Bevy is a refreshingly simple data-driven game engine built in Rust. It is free 
 
 ## WARNING
 
-Bevy is still in the _very_ early stages of development. APIs can and will change (now is the time to make suggestions!). Important features are missing. Documentation is sparse. Please don't build any serious projects in Bevy unless you are prepared to be broken by API changes constantly.
+Bevy is still in the early stages of development. Important features are missing. Documentation is sparse. A new version of Bevy containing breaking changes to the API is released [approximately once every 3 months](https://bevyengine.org/news/bevy-0-6/#the-train-release-schedule). We provide [migration guides](https://bevyengine.org/learn/book/migration-guides/), but we can't guarantee migrations will always be easy. Use only if you are willing to work in this environment.
 
 **MSRV:** Bevy relies heavily on improvements in the Rust language and compiler.
-As a result, the Minimum Supported Rust Version (MSRV) is "the latest stable release" of Rust.
+As a result, the Minimum Supported Rust Version (MSRV) is generally close to "the latest stable release" of Rust.
 
 ## Design Goals
 
@@ -87,7 +87,7 @@ Bevy can be built just fine using default configuration on stable Rust. However 
 
 Bevy is only possible because of the hard work put into these foundational technologies:
 
-* [wgpu](https://wgpu.rs/): modern / low-level / cross-platform graphics library inspired by Vulkan
+* [wgpu](https://wgpu.rs/): modern / low-level / cross-platform graphics library based on the [WebGPU](https://gpuweb.github.io/gpuweb/) API.
 * [glam-rs](https://github.com/bitshifter/glam-rs): a simple and fast 3D math library for games and graphics
 * [winit](https://github.com/rust-windowing/winit): cross-platform window creation and management in Rust
 
@@ -106,6 +106,9 @@ Plugins are very welcome to extend Bevy's features. [Guidelines][plugin_guidelin
 ## Thanks and Alternatives
 
 Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/amethyst), [macroquad](https://github.com/not-fl3/macroquad), [coffee](https://github.com/hecrj/coffee), [ggez](https://github.com/ggez/ggez), [Fyrox](https://github.com/FyroxEngine/Fyrox), and [Piston](https://github.com/PistonDevelopers/piston) projects for providing solid examples of game engine development in Rust. If you are looking for a Rust game engine, it is worth considering all of your options. Each engine has different design goals, and some will likely resonate with you more than others.
+
+<!-- This next line need to stay exactly as is. It is required for BrowserStack sponsorship. -->
+This project is tested with BrowserStack.
 
 ## License
 

@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ptr"
-version = "0.9.0"
+version = "0.12.0-dev"
 edition = "2021"
 description = "Utilities for working with untyped pointers in a more safe way"
 homepage = "https://bevyengine.org"

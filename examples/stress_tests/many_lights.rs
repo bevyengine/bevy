@@ -8,29 +8,29 @@ use bevy::{
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
-    render::{camera::ScalingMode, Extract, RenderApp, RenderStage},
-    window::PresentMode,
+    render::{camera::ScalingMode, Render, RenderApp, RenderSet},
+    window::{PresentMode, WindowPlugin},
 };
 use rand::{thread_rng, Rng};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                width: 1024.0,
-                height: 768.0,
-                title: "many_lights".to_string(),
-                present_mode: PresentMode::AutoNoVsync,
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    resolution: (1024.0, 768.0).into(),
+                    title: "many_lights".into(),
+                    present_mode: PresentMode::AutoNoVsync,
+                    ..default()
+                }),
                 ..default()
-            },
-            ..default()
-        }))
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_startup_system(setup)
-        .add_system(move_camera)
-        .add_system(print_light_count)
-        .add_plugin(LogVisibleLights)
+            }),
+            FrameTimeDiagnosticsPlugin,
+            LogDiagnosticsPlugin::default(),
+            LogVisibleLights,
+        ))
+        .add_systems(Startup, setup)
+        .add_systems(Update, (move_camera, print_light_count))
         .run();
 }
 
@@ -144,7 +144,7 @@ fn print_light_count(time: Res<Time>, mut timer: Local<PrintingTimer>, lights: Q
     timer.0.tick(time.delta());
 
     if timer.0.just_finished() {
-        info!("Lights: {}", lights.iter().len(),);
+        info!("Lights: {}", lights.iter().len());
     }
 }
 
@@ -157,15 +157,13 @@ impl Plugin for LogVisibleLights {
             Err(_) => return,
         };
 
-        render_app
-            .add_system_to_stage(RenderStage::Extract, extract_time)
-            .add_system_to_stage(RenderStage::Prepare, print_visible_light_count);
+        render_app.add_systems(Render, print_visible_light_count.in_set(RenderSet::Prepare));
     }
 }
 
 // System for printing the number of meshes on every tick of the timer
 fn print_visible_light_count(
-    time: Res<ExtractedTime>,
+    time: Res<Time>,
     mut timer: Local<PrintingTimer>,
     visible: Query<&ExtractedPointLight>,
     global_light_meta: Res<GlobalLightMeta>,
@@ -179,13 +177,6 @@ fn print_visible_light_count(
             global_light_meta.entity_to_index.len()
         );
     }
-}
-
-#[derive(Resource, Deref, DerefMut)]
-pub struct ExtractedTime(Time);
-
-fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
-    commands.insert_resource(ExtractedTime(time.clone()));
 }
 
 struct PrintingTimer(Timer);

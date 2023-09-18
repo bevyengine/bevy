@@ -8,6 +8,8 @@ pub use render_device::*;
 
 use crate::{
     render_graph::RenderGraph,
+    render_phase::TrackedRenderPass,
+    render_resource::RenderPassDescriptor,
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
@@ -15,7 +17,9 @@ use bevy_ecs::prelude::*;
 use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
-use wgpu::{Adapter, AdapterInfo, CommandEncoder, Instance, Queue, RequestAdapterOptions};
+use wgpu::{
+    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Instance, Queue, RequestAdapterOptions,
+};
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -31,6 +35,9 @@ pub fn render_system(world: &mut World) {
         render_device.clone(), // TODO: is this clone really necessary?
         &render_queue.0,
         world,
+        |encoder| {
+            crate::view::screenshot::submit_screenshot_commands(world, encoder);
+        },
     ) {
         error!("Error running render graph:");
         {
@@ -62,8 +69,8 @@ pub fn render_system(world: &mut World) {
 
         let mut windows = world.resource_mut::<ExtractedWindows>();
         for window in windows.values_mut() {
-            if let Some(texture_view) = window.swap_chain_texture.take() {
-                if let Some(surface_texture) = texture_view.take_surface_texture() {
+            if let Some(wrapped_texture) = window.swap_chain_texture.take() {
+                if let Some(surface_texture) = wrapped_texture.try_unwrap() {
                     surface_texture.present();
                 }
             }
@@ -76,6 +83,8 @@ pub fn render_system(world: &mut World) {
             tracy.frame_mark = true
         );
     }
+
+    crate::view::screenshot::collect_screenshots(world);
 
     // update the time and send it to the app world
     let time_sender = world.resource::<TimeSender>();
@@ -98,7 +107,7 @@ pub struct RenderAdapter(pub Arc<Adapter>);
 #[derive(Resource, Deref, DerefMut)]
 pub struct RenderInstance(pub Instance);
 
-/// The `AdapterInfo` of the adapter in use by the renderer.
+/// The [`AdapterInfo`] of the adapter in use by the renderer.
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct RenderAdapterInfo(pub AdapterInfo);
 
@@ -247,6 +256,9 @@ pub async fn initialize_renderer(
             max_buffer_size: limits
                 .max_buffer_size
                 .min(constrained_limits.max_buffer_size),
+            max_bindings_per_bind_group: limits
+                .max_bindings_per_bind_group
+                .min(constrained_limits.max_bindings_per_bind_group),
         };
     }
 
@@ -276,6 +288,68 @@ pub async fn initialize_renderer(
 /// The [`RenderDevice`] is used to create render resources and the
 /// the [`CommandEncoder`] is used to record a series of GPU operations.
 pub struct RenderContext {
-    pub render_device: RenderDevice,
-    pub command_encoder: CommandEncoder,
+    render_device: RenderDevice,
+    command_encoder: Option<CommandEncoder>,
+    command_buffers: Vec<CommandBuffer>,
+}
+
+impl RenderContext {
+    /// Creates a new [`RenderContext`] from a [`RenderDevice`].
+    pub fn new(render_device: RenderDevice) -> Self {
+        Self {
+            render_device,
+            command_encoder: None,
+            command_buffers: Vec::new(),
+        }
+    }
+
+    /// Gets the underlying [`RenderDevice`].
+    pub fn render_device(&self) -> &RenderDevice {
+        &self.render_device
+    }
+
+    /// Gets the current [`CommandEncoder`].
+    pub fn command_encoder(&mut self) -> &mut CommandEncoder {
+        self.command_encoder.get_or_insert_with(|| {
+            self.render_device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
+        })
+    }
+
+    /// Creates a new [`TrackedRenderPass`] for the context,
+    /// configured using the provided `descriptor`.
+    pub fn begin_tracked_render_pass<'a>(
+        &'a mut self,
+        descriptor: RenderPassDescriptor<'a, '_>,
+    ) -> TrackedRenderPass<'a> {
+        // Cannot use command_encoder() as we need to split the borrow on self
+        let command_encoder = self.command_encoder.get_or_insert_with(|| {
+            self.render_device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
+        });
+        let render_pass = command_encoder.begin_render_pass(&descriptor);
+        TrackedRenderPass::new(&self.render_device, render_pass)
+    }
+
+    /// Append a [`CommandBuffer`] to the queue.
+    ///
+    /// If present, this will flush the currently unflushed [`CommandEncoder`]
+    /// into a [`CommandBuffer`] into the queue before append the provided
+    /// buffer.
+    pub fn add_command_buffer(&mut self, command_buffer: CommandBuffer) {
+        self.flush_encoder();
+        self.command_buffers.push(command_buffer);
+    }
+
+    /// Finalizes the queue and returns the queue of [`CommandBuffer`]s.
+    pub fn finish(mut self) -> Vec<CommandBuffer> {
+        self.flush_encoder();
+        self.command_buffers
+    }
+
+    fn flush_encoder(&mut self) {
+        if let Some(encoder) = self.command_encoder.take() {
+            self.command_buffers.push(encoder.finish());
+        }
+    }
 }

@@ -1,6 +1,6 @@
 //! Demonstrates rotating entities in 2D using quaternions.
 
-use bevy::{math::Vec3Swizzles, prelude::*, time::FixedTimestep};
+use bevy::prelude::*;
 
 const TIME_STEP: f32 = 1.0 / 60.0;
 const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
@@ -8,15 +8,17 @@ const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
-                .with_system(player_movement_system)
-                .with_system(snap_to_player_system)
-                .with_system(rotate_to_player_system),
+        .insert_resource(FixedTime::new_from_secs(TIME_STEP))
+        .add_systems(Startup, setup)
+        .add_systems(
+            FixedUpdate,
+            (
+                player_movement_system,
+                snap_to_player_system,
+                rotate_to_player_system,
+            ),
         )
-        .add_system(bevy::window::close_on_esc)
+        .add_systems(Update, bevy::window::close_on_esc)
         .run();
 }
 
@@ -67,7 +69,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         Player {
-            movement_speed: 500.0,                  // metres per second
+            movement_speed: 500.0,                  // meters per second
             rotation_speed: f32::to_radians(360.0), // degrees per second
         },
     ));

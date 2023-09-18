@@ -1,7 +1,14 @@
+//! The mouse input functionality.
+
 use crate::{ButtonState, Input};
-use bevy_ecs::{change_detection::DetectChanges, event::EventReader, system::ResMut};
+use bevy_ecs::entity::Entity;
+use bevy_ecs::{
+    change_detection::DetectChangesMut,
+    event::{Event, EventReader},
+    system::ResMut,
+};
 use bevy_math::Vec2;
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::Reflect;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -14,7 +21,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// The event is read inside of the [`mouse_button_input_system`](crate::mouse::mouse_button_input_system)
 /// to update the [`Input<MouseButton>`](crate::Input<MouseButton>) resource.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -26,6 +33,8 @@ pub struct MouseButtonInput {
     pub button: MouseButton,
     /// The pressed state of the button.
     pub state: ButtonState,
+    /// Window that received the input.
+    pub window: Entity,
 }
 
 /// A button on a mouse device.
@@ -38,7 +47,7 @@ pub struct MouseButtonInput {
 /// ## Updating
 ///
 /// The resource is updated inside of the [`mouse_button_input_system`](crate::mouse::mouse_button_input_system).
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -65,7 +74,7 @@ pub enum MouseButton {
 /// However, the event data does not make it possible to distinguish which device it is referring to.
 ///
 /// [`DeviceEvent::MouseMotion`]: https://docs.rs/winit/latest/winit/event/enum.DeviceEvent.html#variant.MouseMotion
-#[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -83,7 +92,7 @@ pub struct MouseMotion {
 ///
 /// The value of the event can either be interpreted as the amount of lines or the amount of pixels
 /// to scroll.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Reflect, FromReflect)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -106,7 +115,7 @@ pub enum MouseScrollUnit {
 /// A mouse wheel event.
 ///
 /// This event is the translated version of the `WindowEvent::MouseWheel` from the `winit` crate.
-#[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -120,6 +129,8 @@ pub struct MouseWheel {
     pub x: f32,
     /// The vertical scroll value.
     pub y: f32,
+    /// Window that received the input.
+    pub window: Entity,
 }
 
 /// Updates the [`Input<MouseButton>`] resource with the latest [`MouseButtonInput`] events.
@@ -133,7 +144,7 @@ pub fn mouse_button_input_system(
     mut mouse_button_input_events: EventReader<MouseButtonInput>,
 ) {
     mouse_button_input.bypass_change_detection().clear();
-    for event in mouse_button_input_events.iter() {
+    for event in mouse_button_input_events.read() {
         match event.state {
             ButtonState::Pressed => mouse_button_input.press(event.button),
             ButtonState::Released => mouse_button_input.release(event.button),

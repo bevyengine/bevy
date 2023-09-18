@@ -1,10 +1,13 @@
-use crate::{Audio, AudioSource, Decodable};
-use bevy_asset::{Asset, Assets};
-use bevy_ecs::system::{Res, ResMut, Resource};
-use bevy_reflect::TypeUuid;
+use crate::{
+    AudioSourceBundle, Decodable, GlobalVolume, PlaybackMode, PlaybackSettings, SpatialAudioSink,
+    SpatialAudioSourceBundle, SpatialSettings, Volume,
+};
+use bevy_asset::{Asset, Assets, Handle};
+use bevy_ecs::prelude::*;
 use bevy_utils::tracing::warn;
-use rodio::{OutputStream, OutputStreamHandle, Sink, Source};
-use std::marker::PhantomData;
+use rodio::{OutputStream, OutputStreamHandle, Sink, Source, SpatialSink};
+
+use crate::AudioSink;
 
 /// Used internally to play audio on the current "audio device"
 ///
@@ -19,198 +22,210 @@ use std::marker::PhantomData;
 /// since the memory cost will be the same.
 /// However, repeatedly inserting this resource into the app will **leak more memory**.
 #[derive(Resource)]
-pub struct AudioOutput<Source = AudioSource>
-where
-    Source: Decodable,
-{
+pub(crate) struct AudioOutput {
     stream_handle: Option<OutputStreamHandle>,
-    phantom: PhantomData<Source>,
 }
 
-impl<Source> Default for AudioOutput<Source>
-where
-    Source: Decodable,
-{
+impl Default for AudioOutput {
     fn default() -> Self {
         if let Ok((stream, stream_handle)) = OutputStream::try_default() {
             // We leak `OutputStream` to prevent the audio from stopping.
             std::mem::forget(stream);
             Self {
                 stream_handle: Some(stream_handle),
-                phantom: PhantomData,
             }
         } else {
             warn!("No audio device found.");
             Self {
                 stream_handle: None,
-                phantom: PhantomData,
             }
         }
     }
 }
 
-impl<Source> AudioOutput<Source>
-where
-    Source: Asset + Decodable,
+/// Marker for internal use, to despawn entities when playback finishes.
+#[derive(Component)]
+pub struct PlaybackDespawnMarker;
+
+/// Marker for internal use, to remove audio components when playback finishes.
+#[derive(Component)]
+pub struct PlaybackRemoveMarker;
+
+/// Plays "queued" audio through the [`AudioOutput`] resource.
+///
+/// "Queued" audio is any audio entity (with the components from
+/// [`AudioBundle`][crate::AudioBundle] or [`SpatialAudioBundle`][crate::SpatialAudioBundle])
+/// that does not have an [`AudioSink`]/[`SpatialAudioSink`] component.
+///
+/// This system detects such entities, checks if their source asset
+/// data is available, and creates/inserts the sink.
+pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
+    audio_output: Res<AudioOutput>,
+    audio_sources: Res<Assets<Source>>,
+    global_volume: Res<GlobalVolume>,
+    query_nonplaying: Query<
+        (
+            Entity,
+            &Handle<Source>,
+            &PlaybackSettings,
+            Option<&SpatialSettings>,
+        ),
+        (Without<AudioSink>, Without<SpatialAudioSink>),
+    >,
+    mut commands: Commands,
+) where
+    f32: rodio::cpal::FromSample<Source::DecoderItem>,
 {
-    fn play_source(&self, audio_source: &Source, repeat: bool) -> Option<Sink> {
-        self.stream_handle.as_ref().map(|stream_handle| {
-            let sink = Sink::try_new(stream_handle).unwrap();
-            if repeat {
-                sink.append(audio_source.decoder().repeat_infinite());
-            } else {
-                sink.append(audio_source.decoder());
-            }
-            sink
-        })
-    }
+    let Some(stream_handle) = audio_output.stream_handle.as_ref() else {
+        // audio output unavailable; cannot play sound
+        return;
+    };
 
-    fn try_play_queued(
-        &self,
-        audio_sources: &Assets<Source>,
-        audio: &mut Audio<Source>,
-        sinks: &mut Assets<AudioSink>,
-    ) {
-        let mut queue = audio.queue.write();
-        let len = queue.len();
-        let mut i = 0;
-        while i < len {
-            let config = queue.pop_front().unwrap();
-            if let Some(audio_source) = audio_sources.get(&config.source_handle) {
-                if let Some(sink) = self.play_source(audio_source, config.settings.repeat) {
-                    sink.set_speed(config.settings.speed);
-                    sink.set_volume(config.settings.volume);
-
-                    // don't keep the strong handle. there is no way to return it to the user here as it is async
-                    let _ = sinks.set(config.sink_handle, AudioSink { sink: Some(sink) });
+    for (entity, source_handle, settings, spatial) in &query_nonplaying {
+        if let Some(audio_source) = audio_sources.get(source_handle) {
+            // audio data is available (has loaded), begin playback and insert sink component
+            if let Some(spatial) = spatial {
+                match SpatialSink::try_new(
+                    stream_handle,
+                    spatial.emitter,
+                    spatial.left_ear,
+                    spatial.right_ear,
+                ) {
+                    Ok(sink) => {
+                        sink.set_speed(settings.speed);
+                        match settings.volume {
+                            Volume::Relative(vol) => {
+                                sink.set_volume(vol.0 * global_volume.volume.0);
+                            }
+                            Volume::Absolute(vol) => sink.set_volume(vol.0),
+                        }
+                        if settings.paused {
+                            sink.pause();
+                        }
+                        match settings.mode {
+                            PlaybackMode::Loop => {
+                                sink.append(audio_source.decoder().repeat_infinite());
+                                commands.entity(entity).insert(SpatialAudioSink { sink });
+                            }
+                            PlaybackMode::Once => {
+                                sink.append(audio_source.decoder());
+                                commands.entity(entity).insert(SpatialAudioSink { sink });
+                            }
+                            PlaybackMode::Despawn => {
+                                sink.append(audio_source.decoder());
+                                commands
+                                    .entity(entity)
+                                    // PERF: insert as bundle to reduce archetype moves
+                                    .insert((SpatialAudioSink { sink }, PlaybackDespawnMarker));
+                            }
+                            PlaybackMode::Remove => {
+                                sink.append(audio_source.decoder());
+                                commands
+                                    .entity(entity)
+                                    // PERF: insert as bundle to reduce archetype moves
+                                    .insert((SpatialAudioSink { sink }, PlaybackRemoveMarker));
+                            }
+                        };
+                    }
+                    Err(err) => {
+                        warn!("Error playing spatial sound: {err:?}");
+                    }
                 }
             } else {
-                // audio source hasn't loaded yet. add it back to the queue
-                queue.push_back(config);
+                match Sink::try_new(stream_handle) {
+                    Ok(sink) => {
+                        sink.set_speed(settings.speed);
+                        match settings.volume {
+                            Volume::Relative(vol) => {
+                                sink.set_volume(vol.0 * global_volume.volume.0);
+                            }
+                            Volume::Absolute(vol) => sink.set_volume(vol.0),
+                        }
+                        if settings.paused {
+                            sink.pause();
+                        }
+                        match settings.mode {
+                            PlaybackMode::Loop => {
+                                sink.append(audio_source.decoder().repeat_infinite());
+                                commands.entity(entity).insert(AudioSink { sink });
+                            }
+                            PlaybackMode::Once => {
+                                sink.append(audio_source.decoder());
+                                commands.entity(entity).insert(AudioSink { sink });
+                            }
+                            PlaybackMode::Despawn => {
+                                sink.append(audio_source.decoder());
+                                commands
+                                    .entity(entity)
+                                    // PERF: insert as bundle to reduce archetype moves
+                                    .insert((AudioSink { sink }, PlaybackDespawnMarker));
+                            }
+                            PlaybackMode::Remove => {
+                                sink.append(audio_source.decoder());
+                                commands
+                                    .entity(entity)
+                                    // PERF: insert as bundle to reduce archetype moves
+                                    .insert((AudioSink { sink }, PlaybackRemoveMarker));
+                            }
+                        };
+                    }
+                    Err(err) => {
+                        warn!("Error playing sound: {err:?}");
+                    }
+                }
             }
-            i += 1;
         }
     }
 }
 
-/// Plays audio currently queued in the [`Audio`] resource through the [`AudioOutput`] resource
-pub fn play_queued_audio_system<Source: Asset + Decodable>(
-    audio_output: Res<AudioOutput<Source>>,
-    audio_sources: Option<Res<Assets<Source>>>,
-    mut audio: ResMut<Audio<Source>>,
-    mut sinks: ResMut<Assets<AudioSink>>,
+pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
+    mut commands: Commands,
+    query_nonspatial_despawn: Query<
+        (Entity, &AudioSink),
+        (With<PlaybackDespawnMarker>, With<Handle<T>>),
+    >,
+    query_spatial_despawn: Query<
+        (Entity, &SpatialAudioSink),
+        (With<PlaybackDespawnMarker>, With<Handle<T>>),
+    >,
+    query_nonspatial_remove: Query<
+        (Entity, &AudioSink),
+        (With<PlaybackRemoveMarker>, With<Handle<T>>),
+    >,
+    query_spatial_remove: Query<
+        (Entity, &SpatialAudioSink),
+        (With<PlaybackRemoveMarker>, With<Handle<T>>),
+    >,
 ) {
-    if let Some(audio_sources) = audio_sources {
-        audio_output.try_play_queued(&*audio_sources, &mut *audio, &mut sinks);
-    };
-}
-
-/// Asset controlling the playback of a sound
-///
-/// ```
-/// # use bevy_ecs::system::{Local, Res};
-/// # use bevy_asset::{Assets, Handle};
-/// # use bevy_audio::AudioSink;
-/// // Execution of this system should be controlled by a state or input,
-/// // otherwise it would just toggle between play and pause every frame.
-/// fn pause(
-///     audio_sinks: Res<Assets<AudioSink>>,
-///     music_controller: Local<Handle<AudioSink>>,
-/// ) {
-///     if let Some(sink) = audio_sinks.get(&*music_controller) {
-///         if sink.is_paused() {
-///             sink.play()
-///         } else {
-///             sink.pause()
-///         }
-///     }
-/// }
-/// ```
-///
-#[derive(TypeUuid)]
-#[uuid = "8BEE570C-57C2-4FC0-8CFB-983A22F7D981"]
-pub struct AudioSink {
-    // This field is an Option in order to allow us to have a safe drop that will detach the sink.
-    // It will never be None during its life
-    sink: Option<Sink>,
-}
-
-impl Drop for AudioSink {
-    fn drop(&mut self) {
-        self.sink.take().unwrap().detach();
-    }
-}
-
-impl AudioSink {
-    /// Gets the volume of the sound.
-    ///
-    /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0`
-    /// will multiply each sample by this value.
-    pub fn volume(&self) -> f32 {
-        self.sink.as_ref().unwrap().volume()
-    }
-
-    /// Changes the volume of the sound.
-    ///
-    /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0`
-    /// will multiply each sample by this value.
-    pub fn set_volume(&self, volume: f32) {
-        self.sink.as_ref().unwrap().set_volume(volume);
-    }
-
-    /// Gets the speed of the sound.
-    ///
-    /// The value `1.0` is the "normal" speed (unfiltered input). Any value other than `1.0`
-    /// will change the play speed of the sound.
-    pub fn speed(&self) -> f32 {
-        self.sink.as_ref().unwrap().speed()
-    }
-
-    /// Changes the speed of the sound.
-    ///
-    /// The value `1.0` is the "normal" speed (unfiltered input). Any value other than `1.0`
-    /// will change the play speed of the sound.
-    pub fn set_speed(&self, speed: f32) {
-        self.sink.as_ref().unwrap().set_speed(speed);
-    }
-
-    /// Resumes playback of a paused sink.
-    ///
-    /// No effect if not paused.
-    pub fn play(&self) {
-        self.sink.as_ref().unwrap().play();
-    }
-
-    /// Pauses playback of this sink.
-    ///
-    /// No effect if already paused.
-    /// A paused sink can be resumed with [`play`](Self::play).
-    pub fn pause(&self) {
-        self.sink.as_ref().unwrap().pause();
-    }
-
-    /// Toggles the playback of this sink.
-    ///
-    /// Will pause if playing, and will be resumed if paused.
-    pub fn toggle(&self) {
-        if self.is_paused() {
-            self.play();
-        } else {
-            self.pause();
+    for (entity, sink) in &query_nonspatial_despawn {
+        if sink.sink.empty() {
+            commands.entity(entity).despawn();
         }
     }
-
-    /// Is this sink paused?
-    ///
-    /// Sinks can be paused and resumed using [`pause`](Self::pause), [`play`](Self::play), and [`toggle`](Self::toggle).
-    pub fn is_paused(&self) -> bool {
-        self.sink.as_ref().unwrap().is_paused()
+    for (entity, sink) in &query_spatial_despawn {
+        if sink.sink.empty() {
+            commands.entity(entity).despawn();
+        }
     }
-
-    /// Stops the sink.
-    ///
-    /// It won't be possible to restart it afterwards.
-    pub fn stop(&self) {
-        self.sink.as_ref().unwrap().stop();
+    for (entity, sink) in &query_nonspatial_remove {
+        if sink.sink.empty() {
+            commands
+                .entity(entity)
+                .remove::<(AudioSourceBundle<T>, AudioSink, PlaybackRemoveMarker)>();
+        }
     }
+    for (entity, sink) in &query_spatial_remove {
+        if sink.sink.empty() {
+            commands.entity(entity).remove::<(
+                SpatialAudioSourceBundle<T>,
+                SpatialAudioSink,
+                PlaybackRemoveMarker,
+            )>();
+        }
+    }
+}
+
+/// Run Condition to only play audio if the audio output is available
+pub(crate) fn audio_output_available(audio_output: Res<AudioOutput>) -> bool {
+    audio_output.stream_handle.is_some()
 }

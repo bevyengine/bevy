@@ -1,11 +1,15 @@
 use bevy_ecs::{reflect::ReflectResource, system::Resource};
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::{Duration, Instant};
 
 /// A clock that tracks how much it has advanced (and how much real time has elapsed) since
 /// its previous update and since its creation.
-#[derive(Resource, Reflect, FromReflect, Debug, Clone)]
-#[reflect(Resource)]
+///
+/// See [`TimeUpdateStrategy`], which allows you to customize the way that this is updated each frame.
+///
+/// [`TimeUpdateStrategy`]: crate::TimeUpdateStrategy
+#[derive(Resource, Reflect, Debug, Clone)]
+#[reflect(Resource, Default)]
 pub struct Time {
     startup: Instant,
     first_update: Option<Instant>,
@@ -120,8 +124,8 @@ impl Time {
     ///     world.insert_resource(time);
     ///     world.insert_resource(Health { health_value: 0.2 });
     ///
-    ///     let mut update_stage = SystemStage::parallel();
-    ///     update_stage.add_system(health_system);
+    ///     let mut schedule = Schedule::default();
+    ///     schedule.add_systems(health_system);
     ///
     ///     // Simulate that 30 ms have passed
     ///     let mut time = world.resource_mut::<Time>();
@@ -129,7 +133,7 @@ impl Time {
     ///     time.update_with_instant(last_update + Duration::from_millis(30));
     ///
     ///     // Run system
-    ///     update_stage.run(&mut world);
+    ///     schedule.run(&mut world);
     ///
     ///     // Check that 0.003 has been added to the health value
     ///     let expected_health_value = 0.2 + 0.1 * 0.03;
@@ -399,13 +403,13 @@ impl Time {
     #[inline]
     pub fn set_relative_speed_f64(&mut self, ratio: f64) {
         assert!(ratio.is_finite(), "tried to go infinitely fast");
-        assert!(ratio.is_sign_positive(), "tried to go back in time");
+        assert!(ratio >= 0.0, "tried to go back in time");
         self.relative_speed = ratio;
     }
 
     /// Stops the clock, preventing it from advancing until resumed.
     ///
-    /// **Note:** This does affect the `raw_*` measurements.
+    /// **Note:** This does not affect the `raw_*` measurements.
     #[inline]
     pub fn pause(&mut self) {
         self.paused = true;
@@ -442,9 +446,6 @@ mod tests {
     }
 
     #[test]
-    // Don't run on a m1 as they have a 41ns precision
-    // https://github.com/rust-lang/rust/issues/91417
-    #[cfg(not(all(target_arch = "aarch64", target_vendor = "apple")))]
     fn update_test() {
         let start_instant = Instant::now();
         let mut time = Time::new(start_instant);
@@ -483,7 +484,7 @@ mod tests {
         assert_eq!(time.raw_delta(), Duration::ZERO);
         assert_eq!(time.raw_delta_seconds(), 0.0);
         assert_eq!(time.raw_delta_seconds_f64(), 0.0);
-        assert_eq!(time.elapsed(), first_update_instant - start_instant,);
+        assert_eq!(time.elapsed(), first_update_instant - start_instant);
         assert_eq!(
             time.elapsed_seconds(),
             (first_update_instant - start_instant).as_secs_f32(),
@@ -492,7 +493,7 @@ mod tests {
             time.elapsed_seconds_f64(),
             (first_update_instant - start_instant).as_secs_f64(),
         );
-        assert_eq!(time.raw_elapsed(), first_update_instant - start_instant,);
+        assert_eq!(time.raw_elapsed(), first_update_instant - start_instant);
         assert_eq!(
             time.raw_elapsed_seconds(),
             (first_update_instant - start_instant).as_secs_f32(),
@@ -531,7 +532,7 @@ mod tests {
             time.raw_delta_seconds_f64(),
             (second_update_instant - first_update_instant).as_secs_f64(),
         );
-        assert_eq!(time.elapsed(), second_update_instant - start_instant,);
+        assert_eq!(time.elapsed(), second_update_instant - start_instant);
         assert_eq!(
             time.elapsed_seconds(),
             (second_update_instant - start_instant).as_secs_f32(),
@@ -540,7 +541,7 @@ mod tests {
             time.elapsed_seconds_f64(),
             (second_update_instant - start_instant).as_secs_f64(),
         );
-        assert_eq!(time.raw_elapsed(), second_update_instant - start_instant,);
+        assert_eq!(time.raw_elapsed(), second_update_instant - start_instant);
         assert_eq!(
             time.raw_elapsed_seconds(),
             (second_update_instant - start_instant).as_secs_f32(),
@@ -577,9 +578,6 @@ mod tests {
     }
 
     #[test]
-    // Don't run on a m1 as they have a 41ns precision
-    // https://github.com/rust-lang/rust/issues/91417
-    #[cfg(not(all(target_arch = "aarch64", target_vendor = "apple")))]
     fn relative_speed_test() {
         let start_instant = Instant::now();
         let mut time = Time::new(start_instant);
@@ -616,7 +614,7 @@ mod tests {
             time.raw_delta_seconds_f64(),
             (second_update_instant - first_update_instant).as_secs_f64(),
         );
-        assert_eq!(time.elapsed(), second_update_instant - start_instant,);
+        assert_eq!(time.elapsed(), second_update_instant - start_instant);
         assert_eq!(
             time.elapsed_seconds(),
             (second_update_instant - start_instant).as_secs_f32(),
@@ -625,7 +623,7 @@ mod tests {
             time.elapsed_seconds_f64(),
             (second_update_instant - start_instant).as_secs_f64(),
         );
-        assert_eq!(time.raw_elapsed(), second_update_instant - start_instant,);
+        assert_eq!(time.raw_elapsed(), second_update_instant - start_instant);
         assert_eq!(
             time.raw_elapsed_seconds(),
             (second_update_instant - start_instant).as_secs_f32(),
@@ -682,9 +680,6 @@ mod tests {
     }
 
     #[test]
-    // Don't run on a m1 as they have a 41ns precision
-    // https://github.com/rust-lang/rust/issues/91417
-    #[cfg(not(all(target_arch = "aarch64", target_vendor = "apple")))]
     fn pause_test() {
         let start_instant = Instant::now();
         let mut time = Time::new(start_instant);

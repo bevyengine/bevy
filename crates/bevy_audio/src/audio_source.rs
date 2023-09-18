@@ -1,12 +1,14 @@
-use anyhow::Result;
-use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
-use bevy_reflect::TypeUuid;
+use bevy_asset::{
+    anyhow::Error,
+    io::{AsyncReadExt, Reader},
+    Asset, AssetLoader, LoadContext,
+};
+use bevy_reflect::TypePath;
 use bevy_utils::BoxedFuture;
 use std::{io::Cursor, sync::Arc};
 
 /// A source of audio data
-#[derive(Debug, Clone, TypeUuid)]
-#[uuid = "7a14806a-672b-443b-8d16-4f18afefa463"]
+#[derive(Asset, Debug, Clone, TypePath)]
 pub struct AudioSource {
     /// Raw data of the audio source.
     ///
@@ -38,11 +40,22 @@ impl AsRef<[u8]> for AudioSource {
 pub struct AudioLoader;
 
 impl AssetLoader for AudioLoader {
-    fn load(&self, bytes: &[u8], load_context: &mut LoadContext) -> BoxedFuture<Result<()>> {
-        load_context.set_default_asset(LoadedAsset::new(AudioSource {
-            bytes: bytes.into(),
-        }));
-        Box::pin(async move { Ok(()) })
+    type Asset = AudioSource;
+    type Settings = ();
+
+    fn load<'a>(
+        &'a self,
+        reader: &'a mut Reader,
+        _settings: &'a Self::Settings,
+        _load_context: &'a mut LoadContext,
+    ) -> BoxedFuture<'a, Result<AudioSource, Error>> {
+        Box::pin(async move {
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            Ok(AudioSource {
+                bytes: bytes.into(),
+            })
+        })
     }
 
     fn extensions(&self) -> &[&str] {
@@ -63,14 +76,23 @@ impl AssetLoader for AudioLoader {
     }
 }
 
-/// A type implementing this trait can be decoded as a rodio source
+/// A type implementing this trait can be converted to a [`rodio::Source`] type.
+/// It must be [`Send`] and [`Sync`] in order to be registered.
+/// Types that implement this trait usually contain raw sound data that can be converted into an iterator of samples.
+/// This trait is implemented for [`AudioSource`].
+/// Check the example [`decodable`](https://github.com/bevyengine/bevy/blob/latest/examples/audio/decodable.rs) for how to implement this trait on a custom type.
 pub trait Decodable: Send + Sync + 'static {
-    /// The decoder that can decode the implementing type
-    type Decoder: rodio::Source + Send + Iterator<Item = Self::DecoderItem>;
-    /// A single value given by the decoder
+    /// The type of the audio samples.
+    /// Usually a [`u16`], [`i16`] or [`f32`], as those implement [`rodio::Sample`].
+    /// Other types can implement the [`rodio::Sample`] trait as well.
     type DecoderItem: rodio::Sample + Send + Sync;
 
-    /// Build and return a [`Self::Decoder`] for the implementing type
+    /// The type of the iterator of the audio samples,
+    /// which iterates over samples of type [`Self::DecoderItem`].
+    /// Must be a [`rodio::Source`] so that it can provide information on the audio it is iterating over.
+    type Decoder: rodio::Source + Send + Iterator<Item = Self::DecoderItem>;
+
+    /// Build and return a [`Self::Decoder`] of the implementing type
     fn decoder(&self) -> Self::Decoder;
 }
 
@@ -81,4 +103,19 @@ impl Decodable for AudioSource {
     fn decoder(&self) -> Self::Decoder {
         rodio::Decoder::new(Cursor::new(self.clone())).unwrap()
     }
+}
+
+/// A trait that allows adding a custom audio source to the object.
+/// This is implemented for [`App`][bevy_app::App] to allow registering custom [`Decodable`] types.
+pub trait AddAudioSource {
+    /// Registers an audio source.
+    /// The type must implement [`Decodable`],
+    /// so that it can be converted to a [`rodio::Source`] type,
+    /// and [`Asset`], so that it can be registered as an asset.
+    /// To use this method on [`App`][bevy_app::App],
+    /// the [audio][super::AudioPlugin] and [asset][bevy_asset::AssetPlugin] plugins must be added first.    
+    fn add_audio_source<T>(&mut self) -> &mut Self
+    where
+        T: Decodable + Asset,
+        f32: rodio::cpal::FromSample<T::DecoderItem>;
 }

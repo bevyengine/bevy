@@ -1,27 +1,35 @@
 use crate::{
     extract_resource::ExtractResource,
+    prelude::Shader,
     render_resource::{ShaderType, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
-    Extract, RenderApp, RenderStage,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_core::FrameCount;
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_time::Time;
 
+pub const GLOBALS_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(17924628719070609599);
+
 pub struct GlobalsPlugin;
 
 impl Plugin for GlobalsPlugin {
     fn build(&self, app: &mut App) {
+        load_internal_asset!(app, GLOBALS_TYPE_HANDLE, "globals.wgsl", Shader::from_wgsl);
         app.register_type::<GlobalsUniform>();
+
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<GlobalsBuffer>()
                 .init_resource::<Time>()
-                .add_system_to_stage(RenderStage::Extract, extract_frame_count)
-                .add_system_to_stage(RenderStage::Extract, extract_time)
-                .add_system_to_stage(RenderStage::Prepare, prepare_globals_buffer);
+                .add_systems(ExtractSchedule, (extract_frame_count, extract_time))
+                .add_systems(
+                    Render,
+                    prepare_globals_buffer.in_set(RenderSet::PrepareResources),
+                );
         }
     }
 }
@@ -48,7 +56,7 @@ pub struct GlobalsUniform {
     /// It wraps to zero when it reaches the maximum value of a u32.
     frame_count: u32,
     /// WebGL2 structs must be 16 byte aligned.
-    #[cfg(feature = "webgl")]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
     _wasm_padding: f32,
 }
 

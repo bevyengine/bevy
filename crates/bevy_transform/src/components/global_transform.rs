@@ -3,11 +3,13 @@ use std::ops::Mul;
 use super::Transform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat4, Quat, Vec3, Vec3A};
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// Describe the position of an entity relative to the reference frame.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
+/// * [`GlobalTransform`] is fully managed by bevy, you cannot mutate it, use
+///   [`Transform`] instead.
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
 ///   * You may use the [`TransformBundle`](crate::TransformBundle) to guarantee this.
@@ -19,19 +21,19 @@ use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
-/// [`GlobalTransform`] is updated from [`Transform`] in the systems labeled
+/// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
-/// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
-/// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
+/// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
+/// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 ///
 /// # Examples
 ///
-/// - [`global_vs_local_translation`]
+/// - [`transform`]
 ///
-/// [`global_vs_local_translation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
+/// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
+#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Component, Default, PartialEq)]
 pub struct GlobalTransform(Affine3A);
@@ -109,9 +111,9 @@ impl GlobalTransform {
     /// Returns the [`Transform`] `self` would have if it was a child of an entity
     /// with the `parent` [`GlobalTransform`].
     ///
-    /// This is useful if you want to "reparent" an `Entity`. Say you have an entity
-    /// `e1` that you want to turn into a child of `e2`, but you want `e1` to keep the
-    /// same global transform, even after re-partenting. You would use:
+    /// This is useful if you want to "reparent" an [`Entity`](bevy_ecs::entity::Entity).
+    /// Say you have an entity `e1` that you want to turn into a child of `e2`,
+    /// but you want `e1` to keep the same global transform, even after re-parenting. You would use:
     ///
     /// ```rust
     /// # use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -167,12 +169,6 @@ impl GlobalTransform {
     #[inline]
     pub fn translation(&self) -> Vec3 {
         self.0.translation.into()
-    }
-
-    /// Mutably access the internal translation.
-    #[inline]
-    pub fn translation_mut(&mut self) -> &mut Vec3A {
-        &mut self.0.translation
     }
 
     /// Get the translation as a [`Vec3A`].

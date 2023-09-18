@@ -1,6 +1,6 @@
 [package]
 name = "bevy_animation"
-version = "0.9.0"
+version = "0.12.0-dev"
 edition = "2021"
 description = "Provides animation functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -10,13 +10,14 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.9.0" }
-bevy_asset = { path = "../bevy_asset", version = "0.9.0" }
-bevy_core = { path = "../bevy_core", version = "0.9.0" }
-bevy_math = { path = "../bevy_math", version = "0.9.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.9.0", features = ["bevy"] }
-bevy_time = { path = "../bevy_time", version = "0.9.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.9.0" }
-bevy_transform = { path = "../bevy_transform", version = "0.9.0" }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.9.0" }
+bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.12.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.12.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.12.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.12.0-dev", features = ["bevy"] }
+bevy_render = { path = "../bevy_render", version = "0.12.0-dev" }
+bevy_time = { path = "../bevy_time", version = "0.12.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.12.0-dev" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.12.0-dev" }

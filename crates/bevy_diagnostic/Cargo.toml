@@ -1,6 +1,6 @@
 [package]
 name = "bevy_diagnostic"
-version = "0.9.0"
+version = "0.12.0-dev"
 edition = "2021"
 description = "Provides diagnostic functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -8,23 +8,26 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+[features]
+# Disables diagnostics that are unsupported when Bevy is dynamically linked
+dynamic_linking = []
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.9.0" }
-bevy_core = { path = "../bevy_core", version = "0.9.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.9.0" }
-bevy_log = { path = "../bevy_log", version = "0.9.0" }
-bevy_time = { path = "../bevy_time", version = "0.9.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
+bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.12.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.12.0-dev" }
+bevy_time = { path = "../bevy_time", version = "0.12.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 
 # MacOS
 [target.'cfg(all(target_os="macos"))'.dependencies]
 # Some features of sysinfo are not supported by apple. This will disable those features on apple devices
-sysinfo = { version = "0.27.1", default-features = false, features = [
+sysinfo = { version = "0.29.0", default-features = false, features = [
     "apple-app-store",
 ] }
 
 # Only include when not bevy_dynamic_plugin and on linux/windows/android
 [target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "android"))'.dependencies]
-sysinfo = { version = "0.27.1", default-features = false }
+sysinfo = { version = "0.29.0", default-features = false }

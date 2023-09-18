@@ -11,21 +11,20 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
 };
-use bevy_asset::HandleUntyped;
+use bevy_asset::Asset;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
-use bevy_reflect::{FromReflect, Reflect, TypeUuid};
+use bevy_reflect::Reflect;
+use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
 
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
-pub const DEFAULT_IMAGE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Image::TYPE_UUID, 13148262314052771789);
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum ImageFormat {
     Avif,
     Basis,
@@ -33,6 +32,7 @@ pub enum ImageFormat {
     Dds,
     Farbfeld,
     Gif,
+    OpenExr,
     Hdr,
     Ico,
     Jpeg,
@@ -52,6 +52,7 @@ impl ImageFormat {
             "image/jpeg" => ImageFormat::Jpeg,
             "image/ktx2" => ImageFormat::Ktx2,
             "image/png" => ImageFormat::Png,
+            "image/x-exr" => ImageFormat::OpenExr,
             "image/x-targa" | "image/x-tga" => ImageFormat::Tga,
             _ => return None,
         })
@@ -65,6 +66,7 @@ impl ImageFormat {
             "dds" => ImageFormat::Dds,
             "ff" | "farbfeld" => ImageFormat::Farbfeld,
             "gif" => ImageFormat::Gif,
+            "exr" => ImageFormat::OpenExr,
             "hdr" => ImageFormat::Hdr,
             "ico" => ImageFormat::Ico,
             "jpg" | "jpeg" => ImageFormat::Jpeg,
@@ -85,6 +87,7 @@ impl ImageFormat {
             ImageFormat::Dds => image::ImageFormat::Dds,
             ImageFormat::Farbfeld => image::ImageFormat::Farbfeld,
             ImageFormat::Gif => image::ImageFormat::Gif,
+            ImageFormat::OpenExr => image::ImageFormat::OpenExr,
             ImageFormat::Hdr => image::ImageFormat::Hdr,
             ImageFormat::Ico => image::ImageFormat::Ico,
             ImageFormat::Jpeg => image::ImageFormat::Jpeg,
@@ -98,8 +101,7 @@ impl ImageFormat {
     }
 }
 
-#[derive(Reflect, FromReflect, Debug, Clone, TypeUuid)]
-#[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
+#[derive(Asset, Reflect, Debug, Clone)]
 #[reflect_value]
 pub struct Image {
     pub data: Vec<u8>,
@@ -123,19 +125,19 @@ pub enum ImageSampler {
 }
 
 impl ImageSampler {
-    /// Returns an image sampler with `Linear` min and mag filters
+    /// Returns an image sampler with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
     #[inline]
     pub fn linear() -> ImageSampler {
         ImageSampler::Descriptor(Self::linear_descriptor())
     }
 
-    /// Returns an image sampler with `nearest` min and mag filters
+    /// Returns an image sampler with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
     #[inline]
     pub fn nearest() -> ImageSampler {
         ImageSampler::Descriptor(Self::nearest_descriptor())
     }
 
-    /// Returns a sampler descriptor with `Linear` min and mag filters
+    /// Returns a sampler descriptor with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
     #[inline]
     pub fn linear_descriptor() -> wgpu::SamplerDescriptor<'static> {
         wgpu::SamplerDescriptor {
@@ -146,7 +148,7 @@ impl ImageSampler {
         }
     }
 
-    /// Returns a sampler descriptor with `Nearest` min and mag filters
+    /// Returns a sampler descriptor with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
     #[inline]
     pub fn nearest_descriptor() -> wgpu::SamplerDescriptor<'static> {
         wgpu::SamplerDescriptor {
@@ -167,6 +169,7 @@ impl ImageSampler {
 pub struct DefaultImageSampler(pub(crate) Sampler);
 
 impl Default for Image {
+    /// default is a 1x1x1 all '1.0' texture
     fn default() -> Self {
         let format = wgpu::TextureFormat::bevy_default();
         let data = vec![255; format.pixel_size()];
@@ -184,6 +187,7 @@ impl Default for Image {
                 mip_level_count: 1,
                 sample_count: 1,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
             },
             sampler_descriptor: ImageSampler::Default,
             texture_view_descriptor: None,
@@ -223,7 +227,6 @@ impl Image {
     ///
     /// # Panics
     /// Panics if the size of the `format` is not a multiple of the length of the `pixel` data.
-    /// do not match.
     pub fn new_fill(
         size: Extent3d,
         dimension: TextureDimension,
@@ -380,15 +383,15 @@ impl Image {
 
     /// Whether the texture format is compressed or uncompressed
     pub fn is_compressed(&self) -> bool {
-        let format_description = self.texture_descriptor.format.describe();
+        let format_description = self.texture_descriptor.format;
         format_description
-            .required_features
-            .contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC_LDR)
+            .required_features()
+            .contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC)
             || format_description
-                .required_features
+                .required_features()
                 .contains(wgpu::Features::TEXTURE_COMPRESSION_BC)
             || format_description
-                .required_features
+                .required_features()
                 .contains(wgpu::Features::TEXTURE_COMPRESSION_ETC2)
     }
 }
@@ -405,9 +408,13 @@ pub enum DataFormat {
 #[derive(Clone, Copy, Debug)]
 pub enum TranscodeFormat {
     Etc1s,
+    Uastc(DataFormat),
+    // Has to be transcoded to R8Unorm for use with `wgpu`
+    R8UnormSrgb,
+    // Has to be transcoded to R8G8Unorm for use with `wgpu`
+    Rg8UnormSrgb,
     // Has to be transcoded to Rgba8 for use with `wgpu`
     Rgb8,
-    Uastc(DataFormat),
 }
 
 /// An error that occurs when loading a texture
@@ -434,11 +441,14 @@ pub enum TextureError {
 }
 
 /// The type of a raw image buffer.
+#[derive(Debug)]
 pub enum ImageType<'a> {
     /// The mime type of an image, for example `"image/png"`.
     MimeType(&'a str),
     /// The extension of an image file, for example `"png"`.
     Extension(&'a str),
+    /// The direct format of the image
+    Format(ImageFormat),
 }
 
 impl<'a> ImageType<'a> {
@@ -448,6 +458,7 @@ impl<'a> ImageType<'a> {
                 .ok_or_else(|| TextureError::InvalidImageMimeType(mime_type.to_string())),
             ImageType::Extension(extension) => ImageFormat::from_extension(extension)
                 .ok_or_else(|| TextureError::InvalidImageExtension(extension.to_string())),
+            ImageType::Format(format) => Ok(*format),
         }
     }
 }
@@ -472,9 +483,9 @@ pub trait TextureFormatPixelInfo {
 
 impl TextureFormatPixelInfo for TextureFormat {
     fn pixel_size(&self) -> usize {
-        let info = self.describe();
-        match info.block_dimensions {
-            (1, 1) => info.block_size.into(),
+        let info = self;
+        match info.block_dimensions() {
+            (1, 1) => info.block_size(None).unwrap() as usize,
             _ => panic!("Using pixel_size for compressed textures is invalid"),
         }
     }
@@ -489,6 +500,7 @@ pub struct GpuImage {
     pub texture_format: TextureFormat,
     pub sampler: Sampler,
     pub size: Vec2,
+    pub mip_level_count: u32,
 }
 
 impl RenderAsset for Image {
@@ -538,12 +550,13 @@ impl RenderAsset for Image {
             texture_format: image.texture_descriptor.format,
             sampler,
             size,
+            mip_level_count: image.texture_descriptor.mip_level_count,
         })
     }
 }
 
 bitflags::bitflags! {
-    #[derive(Default)]
+    #[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
     #[repr(transparent)]
     pub struct CompressedImageFormats: u32 {
         const NONE     = 0;
@@ -556,7 +569,7 @@ bitflags::bitflags! {
 impl CompressedImageFormats {
     pub fn from_features(features: wgpu::Features) -> Self {
         let mut supported_compressed_formats = Self::default();
-        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC_LDR) {
+        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC) {
             supported_compressed_formats |= Self::ASTC_LDR;
         }
         if features.contains(wgpu::Features::TEXTURE_COMPRESSION_BC) {
@@ -581,7 +594,7 @@ impl CompressedImageFormats {
             | TextureFormat::Bc5RgUnorm
             | TextureFormat::Bc5RgSnorm
             | TextureFormat::Bc6hRgbUfloat
-            | TextureFormat::Bc6hRgbSfloat
+            | TextureFormat::Bc6hRgbFloat
             | TextureFormat::Bc7RgbaUnorm
             | TextureFormat::Bc7RgbaUnormSrgb => self.contains(CompressedImageFormats::BC),
             TextureFormat::Etc2Rgb8Unorm

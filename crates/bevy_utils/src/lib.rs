@@ -1,7 +1,8 @@
 //! General utilities for first-party [Bevy] engine crates.
 //!
 //! [Bevy]: https://bevyengine.org/
-
+//!
+#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 
@@ -15,25 +16,31 @@ pub mod label;
 mod short_names;
 pub use short_names::get_short_name;
 pub mod synccell;
+pub mod syncunsafecell;
 
+mod cow_arc;
 mod default;
 mod float_ord;
 
-pub use ahash::AHasher;
+pub use ahash::{AHasher, RandomState};
+pub use bevy_utils_proc_macros::*;
+pub use cow_arc::*;
 pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
 pub use instant::{Duration, Instant};
+pub use petgraph;
+pub use thiserror;
 pub use tracing;
 pub use uuid::Uuid;
 
-use ahash::RandomState;
 use hashbrown::hash_map::RawEntryMut;
 use std::{
     fmt::Debug,
     future::Future,
-    hash::{BuildHasher, Hash, Hasher},
+    hash::{BuildHasher, BuildHasherDefault, Hash, Hasher},
     marker::PhantomData,
+    mem::ManuallyDrop,
     ops::Deref,
     pin::Pin,
 };
@@ -42,11 +49,12 @@ use std::{
 #[cfg(not(target_arch = "wasm32"))]
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
+#[allow(missing_docs)]
 #[cfg(target_arch = "wasm32")]
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 
 /// A shortcut alias for [`hashbrown::hash_map::Entry`].
-pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, RandomState>;
+pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, BuildHasherDefault<AHasher>>;
 
 /// A hasher builder that will create a fixed hasher.
 #[derive(Debug, Clone, Default)]
@@ -57,10 +65,13 @@ impl std::hash::BuildHasher for FixedState {
 
     #[inline]
     fn build_hasher(&self) -> AHasher {
-        AHasher::new_with_keys(
-            0b1001010111101110000001001100010000000011001001101011001001111000,
-            0b1100111101101011011110001011010100000100001111100011010011010101,
+        RandomState::with_seeds(
+            0b10010101111011100000010011000100,
+            0b00000011001001101011001001111000,
+            0b11001111011010110111100010110101,
+            0b00000100001111100011010011010101,
         )
+        .build_hasher()
     }
 }
 
@@ -68,7 +79,7 @@ impl std::hash::BuildHasher for FixedState {
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
-pub type HashMap<K, V> = hashbrown::HashMap<K, V, RandomState>;
+pub type HashMap<K, V> = hashbrown::HashMap<K, V, BuildHasherDefault<AHasher>>;
 
 /// A stable hash map implementing aHash, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
@@ -83,7 +94,7 @@ pub type StableHashMap<K, V> = hashbrown::HashMap<K, V, FixedState>;
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
-pub type HashSet<K> = hashbrown::HashSet<K, RandomState>;
+pub type HashSet<K> = hashbrown::HashSet<K, BuildHasherDefault<AHasher>>;
 
 /// A stable hash set implementing aHash, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
@@ -230,6 +241,95 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
                 let (_, value) = entry.insert_hashed_nocheck(key.hash(), key.clone(), func());
                 value
             }
+        }
+    }
+}
+
+/// A type which calls a function when dropped.
+/// This can be used to ensure that cleanup code is run even in case of a panic.
+///
+/// Note that this only works for panics that [unwind](https://doc.rust-lang.org/nomicon/unwinding.html)
+/// -- any code within `OnDrop` will be skipped if a panic does not unwind.
+/// In most cases, this will just work.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_utils::OnDrop;
+/// # fn test_panic(do_panic: bool, log: impl FnOnce(&str)) {
+/// // This will print a message when the variable `_catch` gets dropped,
+/// // even if a panic occurs before we reach the end of this scope.
+/// // This is similar to a `try ... catch` block in languages such as C++.
+/// let _catch = OnDrop::new(|| log("Oops, a panic occurred and this function didn't complete!"));
+///
+/// // Some code that may panic...
+/// // ...
+/// # if do_panic { panic!() }
+///
+/// // Make sure the message only gets printed if a panic occurs.
+/// // If we remove this line, then the message will be printed regardless of whether a panic occurs
+/// // -- similar to a `try ... finally` block.
+/// std::mem::forget(_catch);
+/// # }
+/// #
+/// # test_panic(false, |_| unreachable!());
+/// # let mut did_log = false;
+/// # std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+/// #   test_panic(true, |_| did_log = true);
+/// # }));
+/// # assert!(did_log);
+/// ```
+pub struct OnDrop<F: FnOnce()> {
+    callback: ManuallyDrop<F>,
+}
+
+impl<F: FnOnce()> OnDrop<F> {
+    /// Returns an object that will invoke the specified callback when dropped.
+    pub fn new(callback: F) -> Self {
+        Self {
+            callback: ManuallyDrop::new(callback),
+        }
+    }
+}
+
+impl<F: FnOnce()> Drop for OnDrop<F> {
+    fn drop(&mut self) {
+        // SAFETY: We may move out of `self`, since this instance can never be observed after it's dropped.
+        let callback = unsafe { ManuallyDrop::take(&mut self.callback) };
+        callback();
+    }
+}
+
+/// Calls the [`tracing::info!`] macro on a value.
+pub fn info<T: Debug>(data: T) {
+    tracing::info!("{:?}", data);
+}
+
+/// Calls the [`tracing::debug!`] macro on a value.
+pub fn dbg<T: Debug>(data: T) {
+    tracing::debug!("{:?}", data);
+}
+
+/// Processes a [`Result`] by calling the [`tracing::warn!`] macro in case of an [`Err`] value.
+pub fn warn<E: Debug>(result: Result<(), E>) {
+    if let Err(warn) = result {
+        tracing::warn!("{:?}", warn);
+    }
+}
+
+/// Processes a [`Result`] by calling the [`tracing::error!`] macro in case of an [`Err`] value.
+pub fn error<E: Debug>(result: Result<(), E>) {
+    if let Err(error) = result {
+        tracing::error!("{:?}", error);
+    }
+}
+
+/// Like [`tracing::trace`], but conditional on cargo feature `detailed_trace`.
+#[macro_export]
+macro_rules! detailed_trace {
+    ($($tts:tt)*) => {
+        if cfg!(detailed_trace) {
+            bevy_utils::tracing::trace!($($tts)*);
         }
     }
 }

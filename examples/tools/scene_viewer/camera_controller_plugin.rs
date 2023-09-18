@@ -1,7 +1,7 @@
 //! A freecam-style camera controller plugin.
 //! To use in your own application:
-//! - Copy the code for the `CameraControllerPlugin` and add the plugin to your App.
-//! - Attach the `CameraController` component to an entity with a `Camera3dBundle`.
+//! - Copy the code for the [`CameraControllerPlugin`] and add the plugin to your App.
+//! - Attach the [`CameraController`] component to an entity with a [`Camera3dBundle`].
 
 use bevy::window::CursorGrabMode;
 use bevy::{input::mouse::MouseMotion, prelude::*};
@@ -48,7 +48,7 @@ impl Default for CameraController {
             key_right: KeyCode::D,
             key_up: KeyCode::E,
             key_down: KeyCode::Q,
-            key_run: KeyCode::LShift,
+            key_run: KeyCode::ShiftLeft,
             mouse_key_enable_mouse: MouseButton::Left,
             keyboard_key_enable_mouse: KeyCode::M,
             walk_speed: 5.0,
@@ -91,20 +91,19 @@ pub struct CameraControllerPlugin;
 
 impl Plugin for CameraControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(camera_controller);
+        app.add_systems(Update, camera_controller);
     }
 }
 
 fn camera_controller(
     time: Res<Time>,
-    mut windows: ResMut<Windows>,
+    mut windows: Query<&mut Window>,
     mut mouse_events: EventReader<MouseMotion>,
     mouse_button_input: Res<Input<MouseButton>>,
     key_input: Res<Input<KeyCode>>,
     mut move_toggled: Local<bool>,
     mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
 ) {
-    let window = windows.primary_mut();
     let dt = time.delta_seconds();
 
     if let Ok((mut transform, mut options)) = query.get_single_mut() {
@@ -166,15 +165,24 @@ fn camera_controller(
         // Handle mouse input
         let mut mouse_delta = Vec2::ZERO;
         if mouse_button_input.pressed(options.mouse_key_enable_mouse) || *move_toggled {
-            window.set_cursor_grab_mode(CursorGrabMode::Locked);
-            window.set_cursor_visibility(false);
+            for mut window in &mut windows {
+                if !window.focused {
+                    continue;
+                }
 
-            for mouse_event in mouse_events.iter() {
+                window.cursor.grab_mode = CursorGrabMode::Locked;
+                window.cursor.visible = false;
+            }
+
+            for mouse_event in mouse_events.read() {
                 mouse_delta += mouse_event.delta;
             }
-        } else {
-            window.set_cursor_grab_mode(CursorGrabMode::None);
-            window.set_cursor_visibility(true);
+        }
+        if mouse_button_input.just_released(options.mouse_key_enable_mouse) {
+            for mut window in &mut windows {
+                window.cursor.grab_mode = CursorGrabMode::None;
+                window.cursor.visible = true;
+            }
         }
 
         if mouse_delta != Vec2::ZERO {

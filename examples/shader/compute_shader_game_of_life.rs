@@ -11,8 +11,9 @@ use bevy::{
         render_graph::{self, RenderGraph},
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
-        RenderApp, RenderStage,
+        Render, RenderApp, RenderSet,
     },
+    window::WindowPlugin,
 };
 use std::borrow::Cow;
 
@@ -22,16 +23,18 @@ const WORKGROUP_SIZE: u32 = 8;
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                // uncomment for unthrottled FPS
-                // present_mode: bevy::window::PresentMode::AutoNoVsync,
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    // uncomment for unthrottled FPS
+                    // present_mode: bevy::window::PresentMode::AutoNoVsync,
+                    ..default()
+                }),
                 ..default()
-            },
-            ..default()
-        }))
-        .add_plugin(GameOfLifeComputePlugin)
-        .add_startup_system(setup)
+            }),
+            GameOfLifeComputePlugin,
+        ))
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -69,11 +72,12 @@ impl Plugin for GameOfLifeComputePlugin {
     fn build(&self, app: &mut App) {
         // Extract the game of life image resource from the main world into the render world
         // for operation on by the compute shader and display on the sprite.
-        app.add_plugin(ExtractResourcePlugin::<GameOfLifeImage>::default());
+        app.add_plugins(ExtractResourcePlugin::<GameOfLifeImage>::default());
         let render_app = app.sub_app_mut(RenderApp);
-        render_app
-            .init_resource::<GameOfLifePipeline>()
-            .add_system_to_stage(RenderStage::Queue, queue_bind_group);
+        render_app.add_systems(
+            Render,
+            prepare_bind_group.in_set(RenderSet::PrepareBindGroups),
+        );
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
         render_graph.add_node("game_of_life", GameOfLifeNode::default());
@@ -81,6 +85,11 @@ impl Plugin for GameOfLifeComputePlugin {
             "game_of_life",
             bevy::render::main_graph::node::CAMERA_DRIVER,
         );
+    }
+
+    fn finish(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+        render_app.init_resource::<GameOfLifePipeline>();
     }
 }
 
@@ -90,14 +99,14 @@ struct GameOfLifeImage(Handle<Image>);
 #[derive(Resource)]
 struct GameOfLifeImageBindGroup(BindGroup);
 
-fn queue_bind_group(
+fn prepare_bind_group(
     mut commands: Commands,
     pipeline: Res<GameOfLifePipeline>,
     gpu_images: Res<RenderAssets<Image>>,
     game_of_life_image: Res<GameOfLifeImage>,
     render_device: Res<RenderDevice>,
 ) {
-    let view = &gpu_images[&game_of_life_image.0];
+    let view = gpu_images.get(&game_of_life_image.0).unwrap();
     let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
         label: None,
         layout: &pipeline.texture_bind_group_layout,
@@ -137,17 +146,19 @@ impl FromWorld for GameOfLifePipeline {
         let shader = world
             .resource::<AssetServer>()
             .load("shaders/game_of_life.wgsl");
-        let mut pipeline_cache = world.resource_mut::<PipelineCache>();
+        let pipeline_cache = world.resource::<PipelineCache>();
         let init_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: None,
-            layout: Some(vec![texture_bind_group_layout.clone()]),
+            layout: vec![texture_bind_group_layout.clone()],
+            push_constant_ranges: Vec::new(),
             shader: shader.clone(),
             shader_defs: vec![],
             entry_point: Cow::from("init"),
         });
         let update_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: None,
-            layout: Some(vec![texture_bind_group_layout.clone()]),
+            layout: vec![texture_bind_group_layout.clone()],
+            push_constant_ranges: Vec::new(),
             shader,
             shader_defs: vec![],
             entry_point: Cow::from("update"),
@@ -215,7 +226,7 @@ impl render_graph::Node for GameOfLifeNode {
         let pipeline = world.resource::<GameOfLifePipeline>();
 
         let mut pass = render_context
-            .command_encoder
+            .command_encoder()
             .begin_compute_pass(&ComputePassDescriptor::default());
 
         pass.set_bind_group(0, texture_bind_group, &[]);

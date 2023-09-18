@@ -82,6 +82,10 @@ impl Deref for BindGroup {
 ///     #[texture(1)]
 ///     #[sampler(2)]
 ///     color_texture: Handle<Image>,
+///     #[storage(3, read_only)]
+///     values: Vec<f32>,
+///     #[storage(4, read_only, buffer)]
+///     buffer: Buffer,
 /// }
 /// ```
 ///
@@ -94,6 +98,8 @@ impl Deref for BindGroup {
 /// var color_texture: texture_2d<f32>;
 /// @group(1) @binding(2)
 /// var color_sampler: sampler;
+/// @group(1) @binding(3)
+/// var<storage> values: array<f32>;
 /// ```
 /// Note that the "group" index is determined by the usage context. It is not defined in [`AsBindGroup`]. For example, in Bevy material bind groups
 /// are generally bound to group 1.
@@ -131,6 +137,15 @@ impl Deref for BindGroup {
 /// |------------------------|-------------------------------------------------------------------------|------------------------|
 /// | `sampler_type` = "..." | `"filtering"`, `"non_filtering"`, `"comparison"`.                       |  `"filtering"`         |
 /// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` |   `vertex`, `fragment` |
+///
+/// * `storage(BINDING_INDEX, arguments)`
+///     * The field will be converted to a shader-compatible type using the [`ShaderType`] trait, written to a [`Buffer`], and bound as a storage buffer.
+///     * It supports and optional `read_only` parameter. Defaults to false if not present.
+///
+/// | Arguments              | Values                                                                  | Default              |
+/// |------------------------|-------------------------------------------------------------------------|----------------------|
+/// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` | `vertex`, `fragment` |
+/// | `read_only`            | if present then value is true, otherwise false                          | `false`              |
 ///
 /// Note that fields without field-level binding attributes will be ignored.
 /// ```
@@ -317,5 +332,37 @@ where
     #[inline]
     fn as_bind_group_shader_type(&self, _images: &RenderAssets<Image>) -> U {
         self.into()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate as bevy_render;
+    use bevy_asset::Handle;
+
+    #[test]
+    fn texture_visibility() {
+        #[derive(AsBindGroup)]
+        pub struct TextureVisibilityTest {
+            #[texture(0, visibility(all))]
+            pub all: Handle<Image>,
+            #[texture(1, visibility(none))]
+            pub none: Handle<Image>,
+            #[texture(2, visibility(fragment))]
+            pub fragment: Handle<Image>,
+            #[texture(3, visibility(vertex))]
+            pub vertex: Handle<Image>,
+            #[texture(4, visibility(compute))]
+            pub compute: Handle<Image>,
+            #[texture(5, visibility(vertex, fragment))]
+            pub vertex_fragment: Handle<Image>,
+            #[texture(6, visibility(vertex, compute))]
+            pub vertex_compute: Handle<Image>,
+            #[texture(7, visibility(fragment, compute))]
+            pub fragment_compute: Handle<Image>,
+            #[texture(8, visibility(vertex, fragment, compute))]
+            pub vertex_fragment_compute: Handle<Image>,
+        }
     }
 }

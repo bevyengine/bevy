@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
-use bevy_app::{App, CoreStage, Plugin};
+use bevy_app::{App, Last, Plugin};
 use bevy_core::Name;
-use bevy_ecs::{prelude::*, schedule::ShouldRun};
+use bevy_ecs::prelude::*;
 use bevy_log::warn;
 use bevy_utils::{get_short_name, HashSet};
 
@@ -19,6 +19,23 @@ pub struct ReportHierarchyIssue<T> {
     pub enabled: bool,
     _comp: PhantomData<fn(T)>,
 }
+
+impl<T> ReportHierarchyIssue<T> {
+    /// Constructs a new object
+    pub fn new(enabled: bool) -> Self {
+        ReportHierarchyIssue {
+            enabled,
+            _comp: Default::default(),
+        }
+    }
+}
+
+impl<T> PartialEq for ReportHierarchyIssue<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.enabled == other.enabled
+    }
+}
+
 impl<T> Default for ReportHierarchyIssue<T> {
     fn default() -> Self {
         Self {
@@ -28,11 +45,11 @@ impl<T> Default for ReportHierarchyIssue<T> {
     }
 }
 
-/// System to print a warning for each `Entity` with a `T` component
+/// System to print a warning for each [`Entity`] with a `T` component
 /// which parent hasn't a `T` component.
 ///
 /// Hierarchy propagations are top-down, and limited only to entities
-/// with a specific component (such as `ComputedVisibility` and `GlobalTransform`).
+/// with a specific component (such as `InheritedVisibility` and `GlobalTransform`).
 /// This means that entities with one of those component
 /// and a parent without the same component is probably a programming error.
 /// (See B0004 explanation linked in warning message)
@@ -59,11 +76,11 @@ pub fn check_hierarchy_component_has_valid_parent<T: Component>(
 }
 
 /// Run criteria that only allows running when [`ReportHierarchyIssue<T>`] is enabled.
-pub fn on_hierarchy_reports_enabled<T>(report: Res<ReportHierarchyIssue<T>>) -> ShouldRun
+pub fn on_hierarchy_reports_enabled<T>(report: Res<ReportHierarchyIssue<T>>) -> bool
 where
     T: Component,
 {
-    report.enabled.into()
+    report.enabled
 }
 
 /// Print a warning for each `Entity` with a `T` component
@@ -79,11 +96,10 @@ impl<T: Component> Default for ValidParentCheckPlugin<T> {
 
 impl<T: Component> Plugin for ValidParentCheckPlugin<T> {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ReportHierarchyIssue<T>>()
-            .add_system_to_stage(
-                CoreStage::Last,
-                check_hierarchy_component_has_valid_parent::<T>
-                    .with_run_criteria(on_hierarchy_reports_enabled::<T>),
-            );
+        app.init_resource::<ReportHierarchyIssue<T>>().add_systems(
+            Last,
+            check_hierarchy_component_has_valid_parent::<T>
+                .run_if(resource_equals(ReportHierarchyIssue::<T>::new(true))),
+        );
     }
 }

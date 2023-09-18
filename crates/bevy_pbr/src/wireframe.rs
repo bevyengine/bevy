@@ -1,12 +1,13 @@
-use crate::MeshPipeline;
-use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
+use crate::{DrawMesh, MeshPipelineKey, SetMeshBindGroup, SetMeshViewBindGroup};
+use crate::{MeshPipeline, MeshTransforms};
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::{Reflect, TypeUuid};
-use bevy_render::Extract;
+use bevy_reflect::Reflect;
+use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
+use bevy_render::Render;
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -17,12 +18,11 @@ use bevy_render::{
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     view::{ExtractedView, Msaa, VisibleEntities},
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 use bevy_utils::tracing::error;
 
-pub const WIREFRAME_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 192598014480025766);
+pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
 
 #[derive(Debug, Default)]
 pub struct WireframePlugin;
@@ -39,27 +39,28 @@ impl Plugin for WireframePlugin {
         app.register_type::<Wireframe>()
             .register_type::<WireframeConfig>()
             .init_resource::<WireframeConfig>()
-            .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default());
+            .add_plugins((
+                ExtractResourcePlugin::<WireframeConfig>::default(),
+                ExtractComponentPlugin::<Wireframe>::default(),
+            ));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Opaque3d, DrawWireframes>()
-                .init_resource::<WireframePipeline>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
-                .add_system_to_stage(RenderStage::Extract, extract_wireframes)
-                .add_system_to_stage(RenderStage::Queue, queue_wireframes);
+                .add_systems(Render, queue_wireframes.in_set(RenderSet::QueueMeshes));
+        }
+    }
+
+    fn finish(&self, app: &mut bevy_app::App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<WireframePipeline>();
         }
     }
 }
 
-fn extract_wireframes(mut commands: Commands, query: Extract<Query<Entity, With<Wireframe>>>) {
-    for entity in &query {
-        commands.get_or_spawn(entity).insert(Wireframe);
-    }
-}
-
 /// Controls whether an entity should rendered in wireframe-mode if the [`WireframePlugin`] is enabled
-#[derive(Component, Debug, Clone, Default, Reflect)]
+#[derive(Component, Debug, Clone, Default, ExtractComponent, Reflect)]
 #[reflect(Component, Default)]
 pub struct Wireframe;
 
@@ -70,7 +71,7 @@ pub struct WireframeConfig {
     pub global: bool,
 }
 
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct WireframePipeline {
     mesh_pipeline: MeshPipeline,
     shader: Handle<Shader>,
@@ -79,7 +80,7 @@ impl FromWorld for WireframePipeline {
     fn from_world(render_world: &mut World) -> Self {
         WireframePipeline {
             mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            shader: WIREFRAME_SHADER_HANDLE.typed(),
+            shader: WIREFRAME_SHADER_HANDLE,
         }
     }
 }
@@ -94,6 +95,10 @@ impl SpecializedMeshPipeline for WireframePipeline {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
         descriptor.vertex.shader = self.shader.clone_weak();
+        descriptor
+            .vertex
+            .shader_defs
+            .push("MESH_BINDGROUP_1".into());
         descriptor.fragment.as_mut().unwrap().shader = self.shader.clone_weak();
         descriptor.primitive.polygon_mode = PolygonMode::Line;
         descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
@@ -108,27 +113,30 @@ fn queue_wireframes(
     wireframe_config: Res<WireframeConfig>,
     wireframe_pipeline: Res<WireframePipeline>,
     mut pipelines: ResMut<SpecializedMeshPipelines<WireframePipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     mut material_meshes: ParamSet<(
-        Query<(Entity, &Handle<Mesh>, &MeshUniform)>,
-        Query<(Entity, &Handle<Mesh>, &MeshUniform), With<Wireframe>>,
+        Query<(Entity, &Handle<Mesh>, &MeshTransforms)>,
+        Query<(Entity, &Handle<Mesh>, &MeshTransforms), With<Wireframe>>,
     )>,
     mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<Opaque3d>)>,
 ) {
     let draw_custom = opaque_3d_draw_functions.read().id::<DrawWireframes>();
-    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
     for (view, visible_entities, mut opaque_phase) in &mut views {
         let rangefinder = view.rangefinder3d();
 
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let add_render_phase =
-            |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
+            |(entity, mesh_handle, mesh_transforms): (Entity, &Handle<Mesh>, &MeshTransforms)| {
                 if let Some(mesh) = render_meshes.get(mesh_handle) {
-                    let key = view_key
+                    let mut key = view_key
                         | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    if mesh.morph_targets.is_some() {
+                        key |= MeshPipelineKey::MORPH_TARGETS;
+                    }
                     let pipeline_id = pipelines.specialize(
-                        &mut pipeline_cache,
+                        &pipeline_cache,
                         &wireframe_pipeline,
                         key,
                         &mesh.layout,
@@ -144,7 +152,9 @@ fn queue_wireframes(
                         entity,
                         pipeline: pipeline_id,
                         draw_function: draw_custom,
-                        distance: rangefinder.distance(&mesh_uniform.transform),
+                        distance: rangefinder
+                            .distance_translation(&mesh_transforms.transform.translation),
+                        batch_size: 1,
                     });
                 }
             };

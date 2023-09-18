@@ -2,11 +2,14 @@ use crate::{
     define_atomic_id,
     render_graph::{
         Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
-        RunSubGraphError, SlotInfo, SlotInfos, SlotType, SlotValue,
+        RunSubGraphError, SlotInfo, SlotInfos,
     },
     renderer::RenderContext,
 };
-use bevy_ecs::world::World;
+use bevy_ecs::{
+    query::{QueryItem, QueryState, ReadOnlyWorldQuery},
+    world::{FromWorld, World},
+};
 use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
 use thiserror::Error;
@@ -102,12 +105,7 @@ impl Edges {
 
     /// Removes an edge from the `input_edges` if it exists.
     pub(crate) fn remove_input_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
-        if let Some((index, _)) = self
-            .input_edges
-            .iter()
-            .enumerate()
-            .find(|(_i, e)| **e == edge)
-        {
+        if let Some(index) = self.input_edges.iter().position(|e| *e == edge) {
             self.input_edges.swap_remove(index);
             Ok(())
         } else {
@@ -126,12 +124,7 @@ impl Edges {
 
     /// Removes an edge from the `output_edges` if it exists.
     pub(crate) fn remove_output_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
-        if let Some((index, _)) = self
-            .output_edges
-            .iter()
-            .enumerate()
-            .find(|(_i, e)| **e == edge)
-        {
+        if let Some(index) = self.output_edges.iter().position(|e| *e == edge) {
             self.output_edges.swap_remove(index);
             Ok(())
         } else {
@@ -303,6 +296,7 @@ impl From<NodeId> for NodeLabel {
 /// A [`Node`] without any inputs, outputs and subgraphs, which does nothing when run.
 /// Used (as a label) to bundle multiple dependencies into one inside
 /// the [`RenderGraph`](super::RenderGraph).
+#[derive(Default)]
 pub struct EmptyNode;
 
 impl Node for EmptyNode {
@@ -316,14 +310,13 @@ impl Node for EmptyNode {
     }
 }
 
-/// A [`RenderGraph`](super::RenderGraph) [`Node`] that takes a view entity as input and runs the configured graph name once.
+/// A [`RenderGraph`](super::RenderGraph) [`Node`] that runs the configured graph name once.
 /// This makes it easier to insert sub-graph runs into a graph.
 pub struct RunGraphOnViewNode {
     graph_name: Cow<'static, str>,
 }
 
 impl RunGraphOnViewNode {
-    pub const IN_VIEW: &'static str = "view";
     pub fn new<T: Into<Cow<'static, str>>>(graph_name: T) -> Self {
         Self {
             graph_name: graph_name.into(),
@@ -332,20 +325,84 @@ impl RunGraphOnViewNode {
 }
 
 impl Node for RunGraphOnViewNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
-    }
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         _render_context: &mut RenderContext,
         _world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        graph.run_sub_graph(
-            self.graph_name.clone(),
-            vec![SlotValue::Entity(view_entity)],
-        )?;
+        graph.run_sub_graph(self.graph_name.clone(), vec![], Some(graph.view_entity()))?;
+        Ok(())
+    }
+}
+
+/// This trait should be used instead of the [`Node`] trait when making a render node that runs on a view.
+///
+/// It is intended to be used with [`ViewNodeRunner`]
+pub trait ViewNode {
+    /// The query that will be used on the view entity.
+    /// It is guaranteed to run on the view entity, so there's no need for a filter
+    type ViewQuery: ReadOnlyWorldQuery;
+
+    /// Updates internal node state using the current render [`World`] prior to the run method.
+    fn update(&mut self, _world: &mut World) {}
+
+    /// Runs the graph node logic, issues draw calls, updates the output slots and
+    /// optionally queues up subgraphs for execution. The graph data, input and output values are
+    /// passed via the [`RenderGraphContext`].
+    fn run(
+        &self,
+        graph: &mut RenderGraphContext,
+        render_context: &mut RenderContext,
+        view_query: QueryItem<Self::ViewQuery>,
+        world: &World,
+    ) -> Result<(), NodeRunError>;
+}
+
+/// This [`Node`] can be used to run any [`ViewNode`].
+/// It will take care of updating the view query in `update()` and running the query in `run()`.
+///
+/// This [`Node`] exists to help reduce boilerplate when making a render node that runs on a view.
+pub struct ViewNodeRunner<N: ViewNode> {
+    view_query: QueryState<N::ViewQuery>,
+    node: N,
+}
+
+impl<N: ViewNode> ViewNodeRunner<N> {
+    pub fn new(node: N, world: &mut World) -> Self {
+        Self {
+            view_query: world.query_filtered(),
+            node,
+        }
+    }
+}
+
+impl<N: ViewNode + FromWorld> FromWorld for ViewNodeRunner<N> {
+    fn from_world(world: &mut World) -> Self {
+        Self::new(N::from_world(world), world)
+    }
+}
+
+impl<T> Node for ViewNodeRunner<T>
+where
+    T: ViewNode + Send + Sync + 'static,
+{
+    fn update(&mut self, world: &mut World) {
+        self.view_query.update_archetypes(world);
+        self.node.update(world);
+    }
+
+    fn run(
+        &self,
+        graph: &mut RenderGraphContext,
+        render_context: &mut RenderContext,
+        world: &World,
+    ) -> Result<(), NodeRunError> {
+        let Ok(view) = self.view_query.get_manual(world, graph.view_entity()) else {
+            return Ok(());
+        };
+
+        ViewNode::run(&self.node, graph, render_context, view, world)?;
         Ok(())
     }
 }

@@ -3,7 +3,6 @@ use crate::{
     plugin::Plugin,
 };
 use bevy_ecs::event::{Events, ManualEventReader};
-use bevy_ecs::prelude::Resource;
 use bevy_utils::{Duration, Instant};
 
 #[cfg(target_arch = "wasm32")]
@@ -13,7 +12,7 @@ use wasm_bindgen::{prelude::*, JsCast};
 
 /// Determines the method used to run an [`App`]'s [`Schedule`](bevy_ecs::schedule::Schedule).
 ///
-/// It is used in the [`ScheduleRunnerSettings`].
+/// It is used in the [`ScheduleRunnerPlugin`].
 #[derive(Copy, Clone, Debug)]
 pub enum RunMode {
     /// Indicates that the [`App`]'s schedule should run repeatedly.
@@ -32,26 +31,35 @@ impl Default for RunMode {
     }
 }
 
-/// The configuration information for the [`ScheduleRunnerPlugin`].
+/// Configures an [`App`] to run its [`Schedule`](bevy_ecs::schedule::Schedule) according to a given
+/// [`RunMode`].
 ///
-/// It gets added as a [`Resource`](bevy_ecs::system::Resource) inside of the [`ScheduleRunnerPlugin`].
-#[derive(Copy, Clone, Default, Resource)]
-pub struct ScheduleRunnerSettings {
+/// [`ScheduleRunnerPlugin`] is included in the
+/// [`MinimalPlugins`](https://docs.rs/bevy/latest/bevy/struct.MinimalPlugins.html) plugin group.
+///
+/// [`ScheduleRunnerPlugin`] is *not* included in the
+/// [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group
+/// which assumes that the [`Schedule`](bevy_ecs::schedule::Schedule) will be executed by other means:
+/// typically, the `winit` event loop
+/// (see [`WinitPlugin`](https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html))
+/// executes the schedule making [`ScheduleRunnerPlugin`] unnecessary.
+#[derive(Default)]
+pub struct ScheduleRunnerPlugin {
     /// Determines whether the [`Schedule`](bevy_ecs::schedule::Schedule) is run once or repeatedly.
     pub run_mode: RunMode,
 }
 
-impl ScheduleRunnerSettings {
+impl ScheduleRunnerPlugin {
     /// See [`RunMode::Once`].
     pub fn run_once() -> Self {
-        ScheduleRunnerSettings {
+        ScheduleRunnerPlugin {
             run_mode: RunMode::Once,
         }
     }
 
     /// See [`RunMode::Loop`].
     pub fn run_loop(wait_duration: Duration) -> Self {
-        ScheduleRunnerSettings {
+        ScheduleRunnerPlugin {
             run_mode: RunMode::Loop {
                 wait: Some(wait_duration),
             },
@@ -59,20 +67,19 @@ impl ScheduleRunnerSettings {
     }
 }
 
-/// Configures an [`App`] to run its [`Schedule`](bevy_ecs::schedule::Schedule) according to a given
-/// [`RunMode`].
-#[derive(Default)]
-pub struct ScheduleRunnerPlugin;
-
 impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut App) {
-        let settings = app
-            .world
-            .get_resource_or_insert_with(ScheduleRunnerSettings::default)
-            .to_owned();
+        let run_mode = self.run_mode;
         app.set_runner(move |mut app: App| {
+            while !app.ready() {
+                #[cfg(not(target_arch = "wasm32"))]
+                bevy_tasks::tick_global_task_pools_on_main_thread();
+            }
+            app.finish();
+            app.cleanup();
+
             let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
-            match settings.run_mode {
+            match run_mode {
                 RunMode::Once => {
                     app.update();
                 }
@@ -82,21 +89,12 @@ impl Plugin for ScheduleRunnerPlugin {
                           -> Result<Option<Duration>, AppExit> {
                         let start_time = Instant::now();
 
-                        if let Some(app_exit_events) =
-                            app.world.get_resource_mut::<Events<AppExit>>()
-                        {
-                            if let Some(exit) = app_exit_event_reader.iter(&app_exit_events).last()
-                            {
-                                return Err(exit.clone());
-                            }
-                        }
-
                         app.update();
 
                         if let Some(app_exit_events) =
                             app.world.get_resource_mut::<Events<AppExit>>()
                         {
-                            if let Some(exit) = app_exit_event_reader.iter(&app_exit_events).last()
+                            if let Some(exit) = app_exit_event_reader.read(&app_exit_events).last()
                             {
                                 return Err(exit.clone());
                             }

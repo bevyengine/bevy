@@ -1,6 +1,13 @@
+//! The keyboard input functionality.
+
 use crate::{ButtonState, Input};
-use bevy_ecs::{change_detection::DetectChanges, event::EventReader, system::ResMut};
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_ecs::entity::Entity;
+use bevy_ecs::{
+    change_detection::DetectChangesMut,
+    event::{Event, EventReader},
+    system::ResMut,
+};
+use bevy_reflect::Reflect;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -14,7 +21,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// The event is consumed inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system)
 /// to update the [`Input<KeyCode>`](crate::Input<KeyCode>) resource.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -28,6 +35,8 @@ pub struct KeyboardInput {
     pub key_code: Option<KeyCode>,
     /// The press state of the key.
     pub state: ButtonState,
+    /// Window that received the input.
+    pub window: Entity,
 }
 
 /// Updates the [`Input<KeyCode>`] resource with the latest [`KeyboardInput`] events.
@@ -44,7 +53,7 @@ pub fn keyboard_input_system(
     // Avoid clearing if it's not empty to ensure change detection is not triggered.
     scan_input.bypass_change_detection().clear();
     key_input.bypass_change_detection().clear();
-    for event in keyboard_input_events.iter() {
+    for event in keyboard_input_events.read() {
         let KeyboardInput {
             scan_code, state, ..
         } = event;
@@ -71,7 +80,7 @@ pub fn keyboard_input_system(
 /// ## Updating
 ///
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
-#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -281,7 +290,7 @@ pub enum KeyCode {
     Apostrophe,
     /// The `Apps` key.
     Apps,
-    /// The `Asterik` / `*` key.
+    /// The `Asterisk` / `*` key.
     Asterisk,
     /// The `Plus` / `+` key.
     Plus,
@@ -314,16 +323,19 @@ pub enum KeyCode {
     /// The `Kanji` key.
     Kanji,
 
-    /// The `LAlt` / `Left Alt` key. Maps to `Left Option` on Mac.
-    LAlt,
-    /// The `LBracket` / `Left Bracket` key.
-    LBracket,
-    /// The `LControl` / `Left Control` key.
-    LControl,
-    /// The `LShift` / `Left Shift` key.
-    LShift,
-    /// The `LWin` / `Left Windows` key. Maps to `Left Command` on Mac.
-    LWin,
+    /// The `Left Alt` key. Maps to `Left Option` on Mac.
+    AltLeft,
+    /// The `Left Bracket` / `[` key.
+    BracketLeft,
+    /// The `Left Control` key.
+    ControlLeft,
+    /// The `Left Shift` key.
+    ShiftLeft,
+    /// The `Left Super` key.
+    /// Generic keyboards usually display this key with the *Microsoft Windows* logo.
+    /// Apple keyboards call this key the *Command Key* and display it using the ⌘ character.
+    #[doc(alias("LWin", "LMeta", "LLogo"))]
+    SuperLeft,
 
     /// The `Mail` key.
     Mail,
@@ -364,16 +376,19 @@ pub enum KeyCode {
     /// The `PrevTrack` key.
     PrevTrack,
 
-    /// The `RAlt` / `Right Alt` key. Maps to `Right Option` on Mac.
-    RAlt,
-    /// The `RBracket` / `Right Bracket` key.
-    RBracket,
-    /// The `RControl` / `Right Control` key.
-    RControl,
-    /// The `RShift` / `Right Shift` key.
-    RShift,
-    /// The `RWin` / `Right Windows` key. Maps to `Right Command` on Mac.
-    RWin,
+    /// The `Right Alt` key. Maps to `Right Option` on Mac.
+    AltRight,
+    /// The `Right Bracket` / `]` key.
+    BracketRight,
+    /// The `Right Control` key.
+    ControlRight,
+    /// The `Right Shift` key.
+    ShiftRight,
+    /// The `Right Super` key.
+    /// Generic keyboards usually display this key with the *Microsoft Windows* logo.
+    /// Apple keyboards call this key the *Command Key* and display it using the ⌘ character.
+    #[doc(alias("RWin", "RMeta", "RLogo"))]
+    SuperRight,
 
     /// The `Semicolon` / `;` key.
     Semicolon,
@@ -438,7 +453,7 @@ pub enum KeyCode {
 /// ## Updating
 ///
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
-#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
