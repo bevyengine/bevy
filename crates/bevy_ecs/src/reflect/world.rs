@@ -67,7 +67,7 @@ impl World {
 
     /// Retrieves an mutable `dyn Reflect` reference to the given entity's Component of the given [`ComponentId`]
     pub fn get_dyn_reflect_mut_by_id(
-        & mut self,
+        &mut self,
         entity: Entity,
         component_id: ComponentId,
     ) -> Option<Mut<dyn Reflect>> {
