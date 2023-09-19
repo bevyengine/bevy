@@ -1,8 +1,8 @@
 # Installing Linux dependencies
 
-This page lists the required dependencies to build a Bevy project on your Linux machine.
+This page lists the dependencies required to build a Bevy project on a variety of Linux distributions, along with brief instructions indicating how they may be installed.
 
-If you don't see your distro present in the list, feel free to add the instructions in this document.
+**Note:** [building under Microsoft's *Windows Subsystem for Linux* is discussed in a separate document](./windows_subsystem_for_linux.md).
 
 ## [Ubuntu](https://ubuntu.com/)
 
@@ -20,11 +20,6 @@ Depending on your graphics card, you may have to install one of the following:
 `vulkan-radeon`, `vulkan-intel`, or `mesa-vulkan-drivers`
 
 Compiling with clang is also possible - replace the `g++` package with `clang`.
-
-### Windows Subsystem for Linux (WSL 2)
-
-Graphics and audio need to be configured for them to work with WSL 2 backend.
-Please see the ubuntu [WSL documentation](https://wiki.ubuntu.com/WSL) on how to set up graphics and audio.
 
 ## [Fedora](https://getfedora.org/)
 
