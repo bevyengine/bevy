@@ -599,17 +599,24 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
     }
 }
 
-/// In order to dynamic get component's dyn object.
+/// Type data for transforming a `dyn Reflect` into a `dyn Trait` trait object.
 ///
-/// This trait associates the dyn object corresponding to [`TypeData`] (because rust does not currently support `dyn T`. `T` is a generic parameter.),
+/// This trait associates the `trait object` corresponding to [`TypeData`] (because Rust does not currently support `dyn T`, where `T` is a generic parameter).
 ///
-/// This trait can be implemented automatically by the `#[reflect_trait]` macro,
+/// This trait can be implemented automatically by the `#[reflect_trait]` macro.
 ///
-/// If you implement [`TypeData`] for your component yourself, you should also implement this trait if you need to dynamically get the dyn object
-pub trait ReflectFnsTypeData: TypeData {
+/// If you implement [`TypeData`] for your type yourself, you should also implement this trait if you need to dynamically get the `trait object`
+pub trait TraitTypeData: TypeData {
+    /// The corresponding trait object.
     type Dyn: ?Sized;
+
+    /// Downcast a `&dyn Reflect` type to `&Self::Dyn`.If the type cannot be downcast, `None` is returned.
     fn get<'a>(&self, reflect_value: &'a dyn Reflect) -> Option<&'a Self::Dyn>;
+
+    /// Downcast a `&mut dyn Reflect` type to `&mut Self::Dyn`.If the type cannot be downcast, `None` is returned.
     fn get_mut<'a>(&self, reflect_value: &'a mut dyn Reflect) -> Option<&'a mut Self::Dyn>;
+
+    /// Downcast a `Box<dyn Reflect>` type to `Box<dyn Self::Dyn>`.If the type cannot be downcast, this will return `Err(Box<dyn Reflect>)`.
     fn get_boxed(
         &self,
         reflect_value: Box<dyn Reflect>,

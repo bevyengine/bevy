@@ -1,9 +1,9 @@
-use bevy_reflect::{Reflect, ReflectFnsTypeData, ReflectFromPtr};
+use bevy_reflect::{Reflect, ReflectFromPtr, TraitTypeData};
 use std::any::TypeId;
 
 use crate::component::ComponentId;
 use crate::entity::Entity;
-use crate::prelude::{AppTypeRegistry, World};
+use crate::prelude::{AppTypeRegistry, Mut, World};
 
 impl World {
     /// Returns the [`TypeId`] of the underlying component type. Returns None if the component does not correspond to a Rust type.
@@ -14,7 +14,7 @@ impl World {
     }
 
     /// Retrieves an immutable `dyn T` reference to the given entity's Component of the given [`ComponentId`]
-    pub fn get_dyn_by_id<T: ReflectFnsTypeData>(
+    pub fn get_dyn_by_id<T: TraitTypeData>(
         &self,
         entity: Entity,
         component_id: ComponentId,
@@ -30,7 +30,7 @@ impl World {
     }
 
     /// Retrieves an mutable `dyn T` reference to the given entity's Component of the given [`ComponentId`]
-    pub fn get_dyn_mut_by_id<T: ReflectFnsTypeData>(
+    pub fn get_dyn_mut_by_id<T: TraitTypeData>(
         &mut self,
         entity: Entity,
         component_id: ComponentId,
@@ -45,7 +45,7 @@ impl World {
         .downcast::<T>()
         .ok()?;
         let dyn_obj = self.get_dyn_reflect_mut_by_id(entity, component_id)?;
-        type_data.get_mut(dyn_obj)
+        type_data.get_mut(dyn_obj.value)
     }
 
     /// Retrieves an immutable `dyn Reflect` reference to the given entity's Component of the given [`ComponentId`]
@@ -69,7 +69,7 @@ impl World {
         &mut self,
         entity: Entity,
         component_id: ComponentId,
-    ) -> Option<&mut dyn Reflect> {
+    ) -> Option<Mut<dyn Reflect>> {
         let type_id = self.component_type_id(component_id)?;
         let reflect_component_ptr = {
             let type_registry = self.get_resource::<AppTypeRegistry>()?;
@@ -80,14 +80,10 @@ impl World {
         };
 
         let mut_ptr = self.get_mut_by_id(entity, component_id)?;
-        Some(
-            mut_ptr
-                .map_unchanged(|p| {
-                    // SAFETY: type_id is correct
-                    unsafe { reflect_component_ptr.as_reflect_mut(p) }
-                })
-                .value,
-        )
+        Some(mut_ptr.map_unchanged(|p| {
+            // SAFETY: type_id is correct
+            unsafe { reflect_component_ptr.as_reflect_mut(p) }
+        }))
     }
 }
 
