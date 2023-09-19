@@ -35,13 +35,14 @@ spherical_harmonics
     * If visible last frame, reproject last frame's lighting
     * Think about hashing ray direction, instead of hit position
     * Variance driven world cache update rate, skipping very stable cells, and adapting to lighting changes faster
-* Consider 4x4 probes for the first cascade
-* More efficent/combined screen probe cascade reprojection/tracing/merging routines
+* Screen cache improvements
+    * Consider 4x4 probes for the first cascade
+    * More efficent/combined screen probe cascade reprojection/tracing/merging routines
+    * 1/4th probe update rate
 
 * Specular lighting
 * Cleanup, remaining TODOs, performance profiling, documentation, etc
     * "A Fast and Robust Method for Avoiding Self-Intersection"
-    * Cull or simplify BLAS/TLAS entries for far away meshes
 
 * SolariDirectIlluminationPlugin - ReSTIR for per-pixel direct light sampling
     * https://benedikt-bitterli.me/restir/bitterli20restir.pdf
