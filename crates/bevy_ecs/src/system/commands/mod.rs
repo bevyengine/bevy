@@ -5,6 +5,7 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
+    system::{RunSystem, SystemId},
     world::{EntityWorldMut, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
@@ -517,11 +518,19 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(RemoveResource::<R>::new());
     }
 
+    /// Runs the system corresponding to the given [`SystemId`].
+    /// Systems are ran in an exclusive and single threaded way.
+    /// Running slow systems can become a bottleneck.
+    ///
+    /// Calls [`World::run_system`](crate::system::World::run_system).
+    pub fn run_system(&mut self, id: SystemId) {
+        self.queue.push(RunSystem::new(id));
+    }
+
     /// Pushes a generic [`Command`] to the command queue.
     ///
     /// `command` can be a built-in command, custom struct that implements [`Command`] or a closure
     /// that takes [`&mut World`](World) as an argument.
-    ///
     /// # Example
     ///
     /// ```
