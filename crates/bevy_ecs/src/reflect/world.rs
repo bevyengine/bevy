@@ -66,11 +66,11 @@ impl World {
     }
 
     /// Retrieves an mutable `dyn Reflect` reference to the given entity's Component of the given [`ComponentId`]
-    pub fn get_dyn_reflect_mut_by_id<'a>(
-        &'a mut self,
+    pub fn get_dyn_reflect_mut_by_id(
+        & mut self,
         entity: Entity,
         component_id: ComponentId,
-    ) -> Option<Mut<'a, dyn Reflect>> {
+    ) -> Option<Mut<dyn Reflect>> {
         let type_id = self.component_type_id(component_id)?;
         let reflect_component_ptr = {
             let type_registry = self.get_resource::<AppTypeRegistry>()?;
