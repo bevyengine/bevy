@@ -101,8 +101,13 @@ mod tests {
         fn mut_do_thing(&mut self);
     }
 
+    #[reflect_trait]
+    trait OtherTrait {
+        fn do_thing(&self) -> String;
+    }
+
     #[derive(Component, Reflect)]
-    #[reflect(DoThing)]
+    #[reflect(DoThing,OtherTrait)]
     struct ComponentA(String);
 
     impl DoThing for ComponentA {
@@ -112,6 +117,12 @@ mod tests {
 
         fn mut_do_thing(&mut self) {
             self.0 = "value changed".to_string();
+        }
+    }
+
+    impl OtherTrait for ComponentA{
+        fn do_thing(&self) -> String {
+            format!("ComponentA {} other do_thing!", self.0)
         }
     }
 
@@ -141,5 +152,13 @@ mod tests {
         let do_thing = world.get_dyn_by_id::<ReflectDoThing>(entity, component_id);
         assert!(do_thing.is_some());
         do_thing.unwrap().do_thing();
+
+
+        let other_do_thing = world.get_dyn_mut_by_id::<ReflectOtherTrait>(entity, component_id);
+        assert!(other_do_thing.is_some());
+
+        let other_do_thing = world.get_dyn_by_id::<ReflectOtherTrait>(entity, component_id);
+        assert!(other_do_thing.is_some());
+        other_do_thing.unwrap().do_thing();
     }
 }
