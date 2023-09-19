@@ -686,9 +686,10 @@ impl VertexFormatSize for wgpu::VertexFormat {
 ///
 /// Be aware that the [`Float64`](VertexAttributeValues::Float64),
 /// [`Float64x2`](VertexAttributeValues::Float64x2), [`Float64x3`](VertexAttributeValues::Float64x3) and
-/// [`Float64x4`](VertexAttributeValues::Float64x4) need to be used with caution, because they might cause
-/// performance problems due to [f64](std::primitive::f64) being between [considerably](https://groups.google.com/g/amgcl/c/Bz_X2B0UBWE)
-/// slower than [f32](std::primitive::f32) on GPUs.
+/// [`Float64x4`](VertexAttributeValues::Float64x4) need to be used with caution, because they might not
+/// be available on your platform and/or hardware. If they are available, they might cause performance
+/// problems due to [`f64`](std::primitive::f64) being between [considerably](https://groups.google.com/g/amgcl/c/Bz_X2B0UBWE)
+/// slower than [`f32`](std::primitive::f32) on GPUs. The availability can be tested with [`WgpuFeatures::VERTEX_ATTRIBUTE_64BIT`](crate::render_resource::WgpuFeatures).
 #[derive(Clone, Debug, EnumVariantMeta)]
 pub enum VertexAttributeValues {
     Float32(Vec<f32>),
