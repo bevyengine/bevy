@@ -107,9 +107,9 @@ impl From<Box> for Mesh {
             ([sp.max_x, sp.min_y, sp.min_z], [0., -1.0, 0.], [0., 1.0]),
         ];
 
-        let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
-        let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
-        let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
+        let positions: Vec<[f32; 3]> = vertices.iter().map(|(p, _, _)| *p).collect();
+        let normals: Vec<[f32; 3]> = vertices.iter().map(|(_, n, _)| *n).collect();
+        let uvs: Vec<[f32; 2]> = vertices.iter().map(|(_, _, uv)| *uv).collect();
 
         let indices = Indices::U32(vec![
             0, 1, 2, 2, 3, 0, // front
@@ -169,9 +169,9 @@ impl From<Quad> for Mesh {
 
         let indices = Indices::U32(vec![0, 2, 1, 0, 3, 2]);
 
-        let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
-        let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
-        let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
+        let positions: Vec<[f32; 3]> = vertices.iter().map(|(p, _, _)| *p).collect();
+        let normals: Vec<[f32; 3]> = vertices.iter().map(|(_, n, _)| *n).collect();
+        let uvs: Vec<[f32; 2]> = vertices.iter().map(|(_, _, uv)| *uv).collect();
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
         mesh.set_indices(Some(indices));
