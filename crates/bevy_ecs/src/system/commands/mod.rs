@@ -719,6 +719,58 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         });
         self
     }
+    
+    
+    /// Tries to add a [`Bundle`] of components to the entity.
+    ///
+    /// This will overwrite any previous value(s) of the same component type.
+    ///
+    /// # Note
+    ///
+    /// The command will not panic if the associated entity does not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// #[derive(Component)]
+    /// struct Health(u32);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Defense(u32);
+    ///
+    /// #[derive(Bundle)]
+    /// struct CombatBundle {
+    ///     health: Health,
+    ///     strength: Strength,
+    /// }
+    ///
+    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     if let Some(cmd) = commands
+    ///         .entity(player.entity)
+    ///         // You can try_insert individual components:
+    ///         .try_insert(Defense(10))
+    ///     {
+    ///         // You can continue chaining other commands on `cmd`
+    ///         cmd.try_insert(CombatBundle {
+    ///             health: Health(100),
+    ///             strength: Strength(40),
+    ///         });
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
+    /// ```
+    pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {    
+        self.commands.add(TryInsert {
+            entity: self.entity,
+            bundle,
+        });
+        self
+    }  
+    
 
     /// Removes a [`Bundle`] of components from the entity.
     ///
@@ -953,6 +1005,27 @@ where
             entity.insert(self.bundle);
         } else {
             panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), self.entity);
+        }
+    }
+}
+
+/// A [`Command`] that attempts to add the components in a [`Bundle`] to an entity.
+pub struct TryInsert<T> {
+    /// The entity to which the components will be added.
+    pub entity: Entity,
+    /// The [`Bundle`] containing the components that will be added to the entity.
+    pub bundle: T,
+}
+
+impl<T> Command for TryInsert<T>
+where
+    T: Bundle + 'static,
+{
+    fn apply(self, world: &mut World) {
+        if let Some(mut entity) = world.get_entity_mut(self.entity) {
+            entity.insert(self.bundle);
+        } else { 
+            info!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), self.entity);
         }
     }
 }
