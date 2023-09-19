@@ -951,7 +951,9 @@ impl ScheduleGraph {
         let mut dependency_flattened = self.get_dependency_flattened(&set_systems);
 
         // modify graph with auto sync points
-        let dependency_flattened = self.insert_sync_points(&mut dependency_flattened)?;
+        if self.settings.auto_insert_sync_points {
+            dependency_flattened = self.insert_sync_points(&mut dependency_flattened)?;
+        }
 
         // topsort
         let mut dependency_flattened_dag = Dag {
@@ -1851,6 +1853,16 @@ pub struct ScheduleBuildSettings {
     ///
     /// Defaults to [`LogLevel::Warn`].
     pub hierarchy_detection: LogLevel,
+    /// Auto insert [`apply_deferred`] sync points after a system into the schedule,
+    /// when there are [`Deferred`](crate::prelude::Deferred)
+    /// in one system and there are ordering dependencies on that system. [`Commands`](crate::system::Commands) is one
+    /// such deferred buffer.
+    ///
+    /// You may want to disable this if you only want to sync deferred params at the end of the schedule,
+    /// or want to manually insert all your sync points.
+    ///
+    /// Defaults to `true`
+    pub auto_insert_sync_points: bool,
     /// If set to true, node names will be shortened instead of the fully qualified type path.
     ///
     /// Defaults to `true`.
@@ -1874,6 +1886,7 @@ impl ScheduleBuildSettings {
         Self {
             ambiguity_detection: LogLevel::Ignore,
             hierarchy_detection: LogLevel::Warn,
+            auto_insert_sync_points: true,
             use_shortnames: true,
             report_sets: true,
         }
@@ -1885,7 +1898,9 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         prelude::{Res, Resource},
-        schedule::{IntoSystemConfigs, IntoSystemSetConfigs, Schedule, SystemSet},
+        schedule::{
+            IntoSystemConfigs, IntoSystemSetConfigs, Schedule, ScheduleBuildSettings, SystemSet,
+        },
         system::Commands,
         world::World,
     };
@@ -1983,6 +1998,27 @@ mod tests {
         );
         schedule.run(&mut world);
 
+        assert_eq!(schedule.executable.systems.len(), 2);
+    }
+
+    #[test]
+    fn disable_auto_sync_points() {
+        let mut schedule = Schedule::default();
+        schedule.set_build_settings(ScheduleBuildSettings {
+            auto_insert_sync_points: false,
+            ..Default::default()
+        });
+        let mut world = World::default();
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |res: Option<Res<Resource1>>| assert!(res.is_none()),
+            )
+                .chain(),
+        );
+        schedule.run(&mut world);
+
+        // inserted a sync point
         assert_eq!(schedule.executable.systems.len(), 2);
     }
 }
