@@ -215,8 +215,7 @@ const COLORED_MESH2D_SHADER: &str = r"
 #import bevy_sprite::mesh2d_types as MeshTypes
 #import bevy_sprite::mesh2d_functions as MeshFunctions
 
-@group(1) @binding(0)
-var<uniform> mesh: MeshTypes::Mesh2d;
+@group(1) @binding(0) var<uniform> mesh: MeshTypes::Mesh2d;
 
 // The structure of the vertex buffer is as specified in `specialize()`
 struct Vertex {
