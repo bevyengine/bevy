@@ -62,13 +62,12 @@ impl ViewNode for SolariGlobalIlluminationNode {
             Some(compact_world_cache_write_active_cells_pipeline),
             Some(sample_for_world_cache_pipeline),
             Some(blend_new_world_cache_samples_pipeline),
+            Some(screen_probes_reproject),
             Some(screen_probes_trace_pipeline),
             Some(screen_probes_merge_cascades_pipeline),
             Some(screen_probes_filter_first_pass_pipeline),
             Some(screen_probes_filter_second_pass_pipeline),
             Some(screen_probes_interpolate_pipeline),
-            Some(denoise_diffuse_temporal_pipeline),
-            Some(denoise_diffuse_spatial_pipeline),
         ) = (
             pipeline_cache.get_compute_pipeline(pipeline_ids.decay_world_cache),
             pipeline_cache.get_compute_pipeline(pipeline_ids.compact_world_cache_single_block),
@@ -77,20 +76,19 @@ impl ViewNode for SolariGlobalIlluminationNode {
                 .get_compute_pipeline(pipeline_ids.compact_world_cache_write_active_cells),
             pipeline_cache.get_compute_pipeline(pipeline_ids.sample_for_world_cache),
             pipeline_cache.get_compute_pipeline(pipeline_ids.blend_new_world_cache_samples),
+            pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_reproject),
             pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_trace),
             pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_merge_cascades),
             pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_filter_first_pass),
             pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_filter_second_pass),
             pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_interpolate),
-            pipeline_cache.get_compute_pipeline(pipeline_ids.denoise_diffuse_temporal),
-            pipeline_cache.get_compute_pipeline(pipeline_ids.denoise_diffuse_spatial),
         )
         else {
             return Ok(());
         };
 
-        let width = (viewport_size.x + 7) / 8;
-        let height = (viewport_size.y + 7) / 8;
+        let dispatch_x = (viewport_size.x + 7) / 8;
+        let dispatch_y = (viewport_size.y + 7) / 8;
 
         let command_encoder = render_context.command_encoder();
         let mut solari_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
@@ -141,33 +139,30 @@ impl ViewNode for SolariGlobalIlluminationNode {
 
         solari_pass.push_debug_group("diffuse_global_illumination");
 
+        solari_pass.set_pipeline(screen_probes_reproject);
+        solari_pass.dispatch_workgroups(dispatch_x, dispatch_y, 4);
+
         solari_pass.set_pipeline(screen_probes_trace_pipeline);
-        solari_pass.dispatch_workgroups(width, height, 4);
+        solari_pass.dispatch_workgroups(dispatch_x, dispatch_y, 4);
 
         solari_pass.push_debug_group("merge_cascades");
         solari_pass.set_pipeline(screen_probes_merge_cascades_pipeline);
         for cascade in (0..3u32).rev() {
             solari_pass.set_push_constants(0, &cascade.to_le_bytes());
-            solari_pass.dispatch_workgroups(width, height, 1);
+            solari_pass.dispatch_workgroups(dispatch_x, dispatch_y, 1);
         }
         solari_pass.pop_debug_group();
 
         solari_pass.push_debug_group("filter_probes");
         solari_pass.set_pipeline(screen_probes_filter_first_pass_pipeline);
-        solari_pass.dispatch_workgroups(width, height, 1);
+        solari_pass.dispatch_workgroups(dispatch_x, dispatch_y, 1);
 
         solari_pass.set_pipeline(screen_probes_filter_second_pass_pipeline);
-        solari_pass.dispatch_workgroups(width, height, 1);
+        solari_pass.dispatch_workgroups(dispatch_x, dispatch_y, 1);
         solari_pass.pop_debug_group();
 
         solari_pass.set_pipeline(screen_probes_interpolate_pipeline);
-        solari_pass.dispatch_workgroups(width, height, 1);
-
-        solari_pass.set_pipeline(denoise_diffuse_temporal_pipeline);
-        solari_pass.dispatch_workgroups(width, height, 1);
-
-        solari_pass.set_pipeline(denoise_diffuse_spatial_pipeline);
-        solari_pass.dispatch_workgroups(width, height, 1);
+        solari_pass.dispatch_workgroups(dispatch_x, dispatch_y, 1);
 
         solari_pass.pop_debug_group();
 
@@ -177,19 +172,6 @@ impl ViewNode for SolariGlobalIlluminationNode {
         command_encoder.copy_texture_to_texture(
             depth_texture.texture.as_image_copy(),
             view_resources.previous_depth_buffer.texture.as_image_copy(),
-            prepass_textures.size,
-        );
-        command_encoder.copy_texture_to_texture(
-            prepass_textures
-                .normal
-                .as_ref()
-                .unwrap()
-                .texture
-                .as_image_copy(),
-            view_resources
-                .previous_normals_buffer
-                .texture
-                .as_image_copy(),
             prepass_textures.size,
         );
 

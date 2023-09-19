@@ -4,7 +4,6 @@ use super::{
 use bevy_core::FrameCount;
 use bevy_core_pipeline::prepass::{
     DepthPrepass, MotionVectorPrepass, NormalPrepass, ViewPrepassTextures, DEPTH_PREPASS_FORMAT,
-    NORMAL_PREPASS_FORMAT,
 };
 use bevy_ecs::{
     component::Component,
@@ -31,14 +30,11 @@ use std::num::NonZeroU64;
 #[derive(Component)]
 pub struct SolariGlobalIlluminationViewResources {
     pub previous_depth_buffer: CachedTexture,
-    pub previous_normals_buffer: CachedTexture,
+    previous_screen_probes: CachedTexture,
     screen_probes_a: CachedTexture,
     screen_probes_b: CachedTexture,
     screen_probes_spherical_harmonics: CachedBuffer,
-    diffuse_raw: CachedTexture,
-    diffuse_denoiser_temporal_history: CachedTexture,
-    diffuse_denoised_temporal: CachedTexture,
-    pub diffuse_denoised_spatiotemporal: CachedTexture,
+    pub diffuse_irradiance_output: CachedTexture,
     world_cache_checksums: CachedBuffer,
     world_cache_life: CachedBuffer,
     world_cache_irradiance: CachedBuffer,
@@ -81,20 +77,6 @@ pub fn prepare_resources(
         usage: TextureUsages::STORAGE_BINDING,
         view_formats: &[],
     };
-    let texture2 = |label, format, size: UVec2| TextureDescriptor {
-        label: Some(label),
-        size: Extent3d {
-            width: size.x,
-            height: size.y,
-            depth_or_array_layers: 1,
-        },
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: TextureDimension::D2,
-        format,
-        usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-        view_formats: &[],
-    };
     let buffer = |label, size| BufferDescriptor {
         label: Some(label),
         size,
@@ -111,23 +93,40 @@ pub fn prepare_resources(
         let size_8 = UVec2::new(width_8, height_8);
         let probe_count = (width_8 as u64 * height_8 as u64) / 64;
 
-        let previous_depth_buffer = texture2(
-            "solari_previous_depth_buffer",
-            DEPTH_PREPASS_FORMAT,
-            viewport_size,
-        );
-        let previous_normals_buffer = texture2(
-            "solari_previous_normals_buffer",
-            NORMAL_PREPASS_FORMAT,
-            viewport_size,
-        );
+        let previous_depth_buffer = TextureDescriptor {
+            label: Some("solari_previous_depth_buffer"),
+            size: Extent3d {
+                width: viewport_size.x,
+                height: viewport_size.y,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: DEPTH_PREPASS_FORMAT,
+            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            view_formats: &[],
+        };
 
-        let mut screen_probes_a = texture(
-            "solari_global_illumination_screen_probes_a",
-            TextureFormat::Rgba16Float,
-            size_8,
-        );
-        screen_probes_a.size.depth_or_array_layers = 4;
+        let (previous_screen_probes, screen_probes_a) = {
+            let mut t1 = texture(
+                "solari_global_illumination_diffuse_screen_probes_1",
+                TextureFormat::Rgba16Float,
+                size_8,
+            );
+            t1.usage |= TextureUsages::TEXTURE_BINDING;
+            t1.size.depth_or_array_layers = 4;
+
+            let t2 = TextureDescriptor {
+                label: Some("solari_global_illumination_diffuse_screen_probes_2"),
+                ..t1
+            };
+            if frame_count.0 % 2 == 0 {
+                (t1, t2)
+            } else {
+                (t2, t1)
+            }
+        };
         let screen_probes_b = texture(
             "solari_global_illumination_screen_probes_b",
             TextureFormat::Rgba16Float,
@@ -137,34 +136,13 @@ pub fn prepare_resources(
             "solari_global_illumination_screen_probes_spherical_harmonics",
             probe_count * 112,
         );
-        let diffuse_raw = texture(
-            "solari_global_illumination_diffuse_raw",
+        let mut diffuse_irradiance_output = texture(
+            "solari_global_illumination_diffuse_irradiance_output",
             TextureFormat::Rgba16Float,
             viewport_size,
         );
-        let (diffuse_denoiser_temporal_history, diffuse_denoised_temporal) = {
-            let mut t1 = texture(
-                "solari_global_illumination_diffuse_temporal_denoise_1",
-                TextureFormat::Rgba16Float,
-                viewport_size,
-            );
-            t1.usage |= TextureUsages::TEXTURE_BINDING;
-            let t2 = TextureDescriptor {
-                label: Some("solari_global_illumination_diffuse_temporal_denoise_2"),
-                ..t1
-            };
-            if frame_count.0 % 2 == 0 {
-                (t1, t2)
-            } else {
-                (t2, t1)
-            }
-        };
-        let mut diffuse_denoised_spatiotemporal = texture(
-            "solari_global_illumination_diffuse_denoised_spatiotemporal",
-            TextureFormat::Rgba16Float,
-            viewport_size,
-        );
-        diffuse_denoised_spatiotemporal.usage |= TextureUsages::TEXTURE_BINDING;
+        diffuse_irradiance_output.usage |= TextureUsages::TEXTURE_BINDING;
+
         let world_cache_checksums = buffer(
             "solari_global_illumination_world_cache_checksums",
             4 * WORLD_CACHE_SIZE,
@@ -209,18 +187,13 @@ pub fn prepare_resources(
             .entity(entity)
             .insert(SolariGlobalIlluminationViewResources {
                 previous_depth_buffer: texture_cache.get(&render_device, previous_depth_buffer),
-                previous_normals_buffer: texture_cache.get(&render_device, previous_normals_buffer),
+                previous_screen_probes: texture_cache.get(&render_device, previous_screen_probes),
                 screen_probes_a: texture_cache.get(&render_device, screen_probes_a),
                 screen_probes_b: texture_cache.get(&render_device, screen_probes_b),
                 screen_probes_spherical_harmonics: buffer_cache
                     .get(&render_device, screen_probes_spherical_harmonics),
-                diffuse_raw: texture_cache.get(&render_device, diffuse_raw),
-                diffuse_denoiser_temporal_history: texture_cache
-                    .get(&render_device, diffuse_denoiser_temporal_history),
-                diffuse_denoised_temporal: texture_cache
-                    .get(&render_device, diffuse_denoised_temporal),
-                diffuse_denoised_spatiotemporal: texture_cache
-                    .get(&render_device, diffuse_denoised_spatiotemporal),
+                diffuse_irradiance_output: texture_cache
+                    .get(&render_device, diffuse_irradiance_output),
                 world_cache_checksums: buffer_cache.get(&render_device, world_cache_checksums),
                 world_cache_life: buffer_cache.get(&render_device, world_cache_life),
                 world_cache_irradiance: buffer_cache.get(&render_device, world_cache_irradiance),
@@ -260,6 +233,12 @@ pub fn create_bind_group_layouts(
             has_dynamic_offset: true,
             min_binding_size: Some(ViewUniform::min_size()),
         }),
+        // Previous depth buffer
+        entry(BindingType::Texture {
+            sample_type: TextureSampleType::Depth,
+            view_dimension: TextureViewDimension::D2,
+            multisampled: false,
+        }),
         // Depth buffer
         entry(BindingType::Texture {
             sample_type: TextureSampleType::Depth,
@@ -278,16 +257,10 @@ pub fn create_bind_group_layouts(
             view_dimension: TextureViewDimension::D2,
             multisampled: false,
         }),
-        // Depth buffer (previous)
-        entry(BindingType::Texture {
-            sample_type: TextureSampleType::Depth,
-            view_dimension: TextureViewDimension::D2,
-            multisampled: false,
-        }),
-        // Normals buffer (previous)
+        // Previous screen probes
         entry(BindingType::Texture {
             sample_type: TextureSampleType::Float { filterable: false },
-            view_dimension: TextureViewDimension::D2,
+            view_dimension: TextureViewDimension::D2Array,
             multisampled: false,
         }),
         // Screen probes a
@@ -308,27 +281,9 @@ pub fn create_bind_group_layouts(
             has_dynamic_offset: false,
             min_binding_size: Some(unsafe { NonZeroU64::new_unchecked(112) }),
         }),
-        // Diffuse raw
+        // Diffuse irradiance output
         entry(BindingType::StorageTexture {
-            access: StorageTextureAccess::ReadWrite,
-            format: TextureFormat::Rgba16Float,
-            view_dimension: TextureViewDimension::D2,
-        }),
-        // Diffuse denoiser temporal history
-        entry(BindingType::Texture {
-            sample_type: TextureSampleType::Float { filterable: false },
-            view_dimension: TextureViewDimension::D2,
-            multisampled: false,
-        }),
-        // Diffuse denoised (temporal)
-        entry(BindingType::StorageTexture {
-            access: StorageTextureAccess::ReadWrite,
-            format: TextureFormat::Rgba16Float,
-            view_dimension: TextureViewDimension::D2,
-        }),
-        // Diffuse denoised (spatiotemporal)
-        entry(BindingType::StorageTexture {
-            access: StorageTextureAccess::ReadWrite,
+            access: StorageTextureAccess::WriteOnly,
             format: TextureFormat::Rgba16Float,
             view_dimension: TextureViewDimension::D2,
         }),
@@ -441,18 +396,15 @@ pub fn prepare_bind_groups(
 
         let entries = &[
             entry(view_uniforms.clone()),
+            entry(t(&solari_resources.previous_depth_buffer)),
             entry(t(prepass_textures.depth.as_ref().unwrap())),
             entry(t(prepass_textures.normal.as_ref().unwrap())),
             entry(t(prepass_textures.motion_vectors.as_ref().unwrap())),
-            entry(t(&solari_resources.previous_depth_buffer)),
-            entry(t(&solari_resources.previous_normals_buffer)),
+            entry(t(&solari_resources.previous_screen_probes)),
             entry(t(&solari_resources.screen_probes_a)),
             entry(t(&solari_resources.screen_probes_b)),
             entry(b(&solari_resources.screen_probes_spherical_harmonics)),
-            entry(t(&solari_resources.diffuse_raw)),
-            entry(t(&solari_resources.diffuse_denoiser_temporal_history)),
-            entry(t(&solari_resources.diffuse_denoised_temporal)),
-            entry(t(&solari_resources.diffuse_denoised_spatiotemporal)),
+            entry(t(&solari_resources.diffuse_irradiance_output)),
             entry(b(&solari_resources.world_cache_checksums)),
             entry(b(&solari_resources.world_cache_life)),
             entry(b(&solari_resources.world_cache_irradiance)),

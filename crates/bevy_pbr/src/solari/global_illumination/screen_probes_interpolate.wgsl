@@ -1,4 +1,4 @@
-#import bevy_solari::global_illumination::view_bindings view, depth_buffer, normals_buffer, screen_probes_spherical_harmonics, screen_probes_a, diffuse_raw
+#import bevy_solari::global_illumination::view_bindings view, depth_buffer, normals_buffer, screen_probes_spherical_harmonics, screen_probes_a, diffuse_irradiance_output
 #import bevy_solari::utils depth_to_world_position, get_spherical_harmonics_coefficents
 
 @compute @workgroup_size(8, 8, 1)
@@ -8,7 +8,7 @@ fn interpolate_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>
 
     let pixel_depth = view.projection[3][2] / textureLoad(depth_buffer, global_id.xy, 0i);
     if pixel_depth == 0.0 {
-        textureStore(diffuse_raw, global_id.xy, vec4(0.0, 0.0, 0.0, 1.0));
+        textureStore(diffuse_irradiance_output, global_id.xy, vec4(0.0, 0.0, 0.0, 1.0));
         return;
     }
     let pixel_uv = (vec2<f32>(global_id.xy) + 0.5) / view.viewport.zw;
@@ -38,7 +38,7 @@ fn interpolate_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>
     irradiance /= tl_probe_weight + tr_probe_weight + bl_probe_weight + br_probe_weight;
     irradiance = max(irradiance, vec3(0.0));
 
-    textureStore(diffuse_raw, global_id.xy, vec4(irradiance, 1.0));
+    textureStore(diffuse_irradiance_output, global_id.xy, vec4(irradiance, 1.0));
 }
 
 fn get_probe_irradiance(probe_id: vec2<u32>, pixel_world_normal: vec3<f32>, probe_count: vec2<u32>) -> vec3<f32> {

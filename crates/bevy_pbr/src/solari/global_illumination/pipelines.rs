@@ -1,7 +1,7 @@
 use super::{
     view_resources::create_bind_group_layouts, SolariGlobalIlluminationSettings,
-    SOLARI_DENOISE_DIFFUSE_SHADER, SOLARI_SCREEN_PROBES_FILTER_SHADER,
-    SOLARI_SCREEN_PROBES_INTEPOLATE_SHADER, SOLARI_SCREEN_PROBES_TRACE_SHADER,
+    SOLARI_SCREEN_PROBES_FILTER_SHADER, SOLARI_SCREEN_PROBES_INTEPOLATE_SHADER,
+    SOLARI_SCREEN_PROBES_REPROJECT_SHADER, SOLARI_SCREEN_PROBES_TRACE_SHADER,
     SOLARI_WORLD_CACHE_COMPACT_SHADER, SOLARI_WORLD_CACHE_UPDATE_SHADER,
 };
 use crate::solari::{
@@ -29,13 +29,12 @@ pub enum SolariGlobalIlluminationPass {
     CompactWorldWriteActiveCells,
     SampleForWorldCache,
     BlendNewWorldCacheSamples,
+    ScreenProbesReproject,
     ScreenProbesTrace,
     ScreenProbesMergeCascades,
     ScreenProbesFilterFirstPass,
     ScreenProbesFilterSecondPass,
     ScreenProbesInterpolate,
-    DenoiseDiffuseTemporal,
-    DenoiseDiffuseSpatial,
 }
 
 #[derive(Resource)]
@@ -113,6 +112,10 @@ impl SpecializedComputePipeline for SolariGlobalIlluminationPipelines {
             }
             SampleForWorldCache => ("sample_irradiance", SOLARI_WORLD_CACHE_UPDATE_SHADER),
             BlendNewWorldCacheSamples => ("blend_new_samples", SOLARI_WORLD_CACHE_UPDATE_SHADER),
+            ScreenProbesReproject => (
+                "reproject_screen_probes",
+                SOLARI_SCREEN_PROBES_REPROJECT_SHADER,
+            ),
             ScreenProbesTrace => ("trace_screen_probes", SOLARI_SCREEN_PROBES_TRACE_SHADER),
             ScreenProbesFilterFirstPass => {
                 shader_defs.push("FIRST_PASS".into());
@@ -135,8 +138,6 @@ impl SpecializedComputePipeline for SolariGlobalIlluminationPipelines {
                 "interpolate_screen_probes",
                 SOLARI_SCREEN_PROBES_INTEPOLATE_SHADER,
             ),
-            DenoiseDiffuseTemporal => ("denoise_diffuse_temporal", SOLARI_DENOISE_DIFFUSE_SHADER),
-            DenoiseDiffuseSpatial => ("denoise_diffuse_spatial", SOLARI_DENOISE_DIFFUSE_SHADER),
         };
 
         ComputePipelineDescriptor {
@@ -158,13 +159,12 @@ pub struct SolariGlobalIlluminationPipelineIds {
     pub compact_world_cache_write_active_cells: CachedComputePipelineId,
     pub sample_for_world_cache: CachedComputePipelineId,
     pub blend_new_world_cache_samples: CachedComputePipelineId,
+    pub screen_probes_reproject: CachedComputePipelineId,
     pub screen_probes_trace: CachedComputePipelineId,
     pub screen_probes_merge_cascades: CachedComputePipelineId,
     pub screen_probes_filter_first_pass: CachedComputePipelineId,
     pub screen_probes_filter_second_pass: CachedComputePipelineId,
     pub screen_probes_interpolate: CachedComputePipelineId,
-    pub denoise_diffuse_temporal: CachedComputePipelineId,
-    pub denoise_diffuse_spatial: CachedComputePipelineId,
 }
 
 pub fn prepare_pipelines(
@@ -198,13 +198,12 @@ pub fn prepare_pipelines(
                 ),
                 sample_for_world_cache: create_pipeline(SampleForWorldCache),
                 blend_new_world_cache_samples: create_pipeline(BlendNewWorldCacheSamples),
+                screen_probes_reproject: create_pipeline(ScreenProbesReproject),
                 screen_probes_trace: create_pipeline(ScreenProbesTrace),
                 screen_probes_merge_cascades: create_pipeline(ScreenProbesMergeCascades),
                 screen_probes_filter_first_pass: create_pipeline(ScreenProbesFilterFirstPass),
                 screen_probes_filter_second_pass: create_pipeline(ScreenProbesFilterSecondPass),
                 screen_probes_interpolate: create_pipeline(ScreenProbesInterpolate),
-                denoise_diffuse_temporal: create_pipeline(DenoiseDiffuseTemporal),
-                denoise_diffuse_spatial: create_pipeline(DenoiseDiffuseSpatial),
             });
     }
 }

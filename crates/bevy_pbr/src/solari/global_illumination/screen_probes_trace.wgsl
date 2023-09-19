@@ -43,6 +43,8 @@ fn trace_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
         color = vec4(hit_color, 0.0);
     }
 
-    // Store lighting and hit/no-hit in probe texel
-    textureStore(screen_probes_a, global_id.xy, global_id.z, color);
+    // Store blended lighting and hit/no-hit in probe texel
+    let old_color = textureLoad(screen_probes_a, global_id.xy, global_id.z);
+    let blended_color = mix(old_color, color, 0.1);
+    textureStore(screen_probes_a, global_id.xy, global_id.z, blended_color);
 }

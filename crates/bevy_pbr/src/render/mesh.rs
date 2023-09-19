@@ -1316,7 +1316,7 @@ pub fn prepare_mesh_view_bind_groups(
                     binding: 12,
                     resource: BindingResource::TextureView(
                         solari_gi_resources
-                            .map(|r| &r.diffuse_denoised_spatiotemporal.default_view)
+                            .map(|r| &r.diffuse_irradiance_output.default_view)
                             .unwrap_or(&fallback_ssao_gi),
                     ),
                 },

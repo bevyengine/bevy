@@ -29,11 +29,11 @@ fn merge_screen_probe_cascades(@builtin(global_invocation_id) global_id: vec3<u3
     let bl_probe_sample = sample_upper_probe((bl_probe_id * upper_probe_size) + upper_probe_offset);
     let br_probe_sample = sample_upper_probe((br_probe_id * upper_probe_size) + upper_probe_offset);
 
-    let tl_probe_depth = sample_probe_depth((tl_probe_id * upper_probe_size) - (lower_probe_size - 1u));
-    let tr_probe_depth = sample_probe_depth((tr_probe_id * upper_probe_size) - (lower_probe_size - 1u));
-    let bl_probe_depth = sample_probe_depth((bl_probe_id * upper_probe_size) - (lower_probe_size - 1u));
-    let br_probe_depth = sample_probe_depth((br_probe_id * upper_probe_size) - (lower_probe_size - 1u));
-    let lower_probe_depth = sample_probe_depth(((global_id.xy / lower_probe_size) * lower_probe_size) + (lower_probe_size / 2u - 1u));
+    let tl_probe_depth = get_probe_depth((tl_probe_id * upper_probe_size) - (lower_probe_size - 1u));
+    let tr_probe_depth = get_probe_depth((tr_probe_id * upper_probe_size) - (lower_probe_size - 1u));
+    let bl_probe_depth = get_probe_depth((bl_probe_id * upper_probe_size) - (lower_probe_size - 1u));
+    let br_probe_depth = get_probe_depth((br_probe_id * upper_probe_size) - (lower_probe_size - 1u));
+    let lower_probe_depth = get_probe_depth(((global_id.xy / lower_probe_size) * lower_probe_size) + (lower_probe_size / 2u - 1u));
 
     let tl_probe_depth_weight = pow(saturate(1.0 - abs(tl_probe_depth - lower_probe_depth) / lower_probe_depth), f32(lower_probe_size));
     let tr_probe_depth_weight = pow(saturate(1.0 - abs(tr_probe_depth - lower_probe_depth) / lower_probe_depth), f32(lower_probe_size));
@@ -65,7 +65,7 @@ fn sample_upper_probe(tl_cell_id: vec2<u32>) -> vec4<f32> {
     return (tl_direction_sample + tr_direction_sample + bl_direction_sample + br_direction_sample) / 4.0;
 }
 
-fn sample_probe_depth(pixel_id: vec2<u32>) -> f32 {
+fn get_probe_depth(pixel_id: vec2<u32>) -> f32 {
     let pixel_id_clamped = min(pixel_id, vec2<u32>(view.viewport.zw) - 1u);
     let depth = textureLoad(depth_buffer, pixel_id_clamped, 0i);
     return view.projection[3][2] / depth;

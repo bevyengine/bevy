@@ -1,6 +1,27 @@
+Update (reproject + trace):
+    History + Confidence per cascade -> A + Confidence
+Merge 1:
+    A3 + A2 -> B0
+Merge 2:
+    B0 + A1 -> B1
+Merge 3:
+    B1 + A0 -> spherical_harmonics
+
+History: 4 cascades
+A: Four cascades
+Confidence buffer_0: R8Uint, four cascades
+Confidence buffer_1: R8Uint, four cascades
+merge_0
+merge_1
+spherical_harmonics
+
+
+
+
+
+
 * Consider the weighing functions used for merging/filtering/interpolating
     * Plane distance used in interpolating seems to do nothing right now
-* Don't reproject final irradiance, reproject cascades instead
 * Try some jitter:
     * Jitter rays per-cell + time
     * Use spatiotemporal blue noise for ray jitter
@@ -15,7 +36,7 @@
     * Think about hashing ray direction, instead of hit position
     * Variance driven world cache update rate, skipping very stable cells, and adapting to lighting changes faster
 * Consider 4x4 probes for the first cascade
-* More efficent screen probe cascade merging/tracing routines
+* More efficent/combined screen probe cascade reprojection/tracing/merging routines
 
 * Specular lighting
 * Cleanup, remaining TODOs, performance profiling, documentation, etc
