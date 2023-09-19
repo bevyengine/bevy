@@ -150,7 +150,7 @@ impl RenderGraph {
             if let Some(node_state) = self.nodes.remove(&id) {
                 // Remove all edges from other nodes to this one. Note that as we're removing this
                 // node, we don't need to remove its input edges
-                for input_edge in node_state.edges.input_edges().iter() {
+                for input_edge in node_state.edges.input_edges() {
                     match input_edge {
                         Edge::SlotEdge { output_node, .. }
                         | Edge::NodeEdge {
@@ -165,7 +165,7 @@ impl RenderGraph {
                 }
                 // Remove all edges from this node to other nodes. Note that as we're removing this
                 // node, we don't need to remove its output edges
-                for output_edge in node_state.edges.output_edges().iter() {
+                for output_edge in node_state.edges.output_edges() {
                     match output_edge {
                         Edge::SlotEdge {
                             output_node: _,

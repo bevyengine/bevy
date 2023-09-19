@@ -43,7 +43,7 @@ fn derive_dependency_visitor_internal(
 ) -> Result<proc_macro2::TokenStream, syn::Error> {
     let mut field_visitors = Vec::new();
     if let Data::Struct(data_struct) = &ast.data {
-        for field in data_struct.fields.iter() {
+        for field in &data_struct.fields {
             if field
                 .attrs
                 .iter()

@@ -12,7 +12,7 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
         .iter()
         .map(|(entity, node)| (*node, *entity))
         .collect();
-    for (&entity, roots) in ui_surface.window_roots.iter() {
+    for (&entity, roots) in &ui_surface.window_roots {
         let mut out = String::new();
         for root in roots {
             print_node(
