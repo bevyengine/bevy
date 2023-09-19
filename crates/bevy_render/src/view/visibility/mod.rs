@@ -431,7 +431,7 @@ pub fn check_visibility(
             }
 
             // If we have an aabb and transform, do frustum culling
-            if no_frustum_culling {
+            if !no_frustum_culling {
                 let model = transform.affine();
                 let model_sphere = Sphere {
                     center: model.transform_point3a(model_aabb.center),
