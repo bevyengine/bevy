@@ -1,7 +1,6 @@
+use crate::entity::Entity;
 use crate::system::{BoxedSystem, Command, IntoSystem};
 use crate::world::World;
-// Needed for derive(Component) macro
-use crate::entity::Entity;
 use crate::{self as bevy_ecs};
 use bevy_ecs_macros::Component;
 
@@ -27,6 +26,7 @@ impl RemovedSystem {
     pub fn initialized(&self) -> bool {
         self.initialized
     }
+
     /// The system removed from the storage.
     pub fn system(self) -> BoxedSystem {
         self.system
@@ -44,6 +44,12 @@ impl World {
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
     ///
     /// It's possible to register the same systems more than once, they'll be stored seperately.
+    ///
+    /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
+    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
+    /// This allows for running systems in a pushed-based fashion, which is very flexible.
+    /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
+    /// due to its better performance and abillity to run non-conflicting systems simultaneously.
     pub fn register_system<M, S: IntoSystem<(), (), M> + 'static>(
         &mut self,
         system: S,
@@ -58,8 +64,10 @@ impl World {
     }
 
     /// Removes a registered system and returns the system, if it exists.
+    /// After removing a system, the [`SystemId`] becomes invalid and attempting to use it afterwards will result in errors.
+    /// Re-adding the removed system will register it on a new [`SystemId`].
     ///
-    /// If a system does not exist, this method returns an error.
+    /// If no system corresponds to the given [`SystemId`], this method returns an error.
     /// Systems are also not allowed to remove themselves, this returns an error too.
     pub fn remove_system(&mut self, id: SystemId) -> Result<RemovedSystem, RegisteredSystemError> {
         match self.get_entity_mut(id.0) {
@@ -166,6 +174,9 @@ impl World {
 }
 
 /// The [`Command`] type for [`World::run_system`].
+///
+/// This command runs systems in an exclusive and single threaded way.
+/// Running slow systems can become a bottleneck.
 #[derive(Debug, Clone)]
 pub struct RunSystem {
     system_id: SystemId,

@@ -521,6 +521,8 @@ impl<'w, 's> Commands<'w, 's> {
     }
 
     /// Runs the system corresponding to the given [`SystemId`].
+    /// Systems are ran in an exclusive and single threaded way.
+    /// Running slow systems can become a bottleneck.
     ///
     /// Calls [`World::run_system`](crate::system::World::run_system).
     pub fn run_system(&mut self, id: SystemId) {
