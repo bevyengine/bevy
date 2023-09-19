@@ -58,7 +58,7 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
             get_boxed_func: fn(#FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<#FQBox<dyn #trait_ident>, #FQBox<dyn #bevy_reflect_path::Reflect>>,
         }
 
-        impl #bevy_reflect_path::ReflectFnsTypeData for #reflect_trait_ident {
+        impl #bevy_reflect_path::TraitTypeData for #reflect_trait_ident {
             type Dyn = dyn #trait_ident;
 
             #[doc = #get_doc]
