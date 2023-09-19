@@ -150,7 +150,7 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
 }
 
 pub struct ExtractedUiNode {
-    pub stack_index: usize,
+    pub stack_index: u32,
     pub transform: Mat4,
     pub color: Color,
     pub rect: Rect,

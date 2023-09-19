@@ -16,7 +16,7 @@ use thiserror::Error;
 pub struct Node {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and recieve interactions before nodes with lower stack indices.
-    pub(crate) stack_index: usize,
+    pub(crate) stack_index: u32,
     /// The size of the node as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub(crate) calculated_size: Vec2,
@@ -29,7 +29,7 @@ impl Node {
         self.calculated_size
     }
 
-    pub const fn stack_index(&self) -> usize {
+    pub const fn stack_index(&self) -> u32 {
         self.stack_index
     }
 

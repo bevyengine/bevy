@@ -62,7 +62,7 @@ pub fn ui_stack_system(
             .get_mut(*entity)
             .unwrap()
             .bypass_change_detection()
-            .stack_index = i;
+            .stack_index = i as u32;
     }
 }
 
