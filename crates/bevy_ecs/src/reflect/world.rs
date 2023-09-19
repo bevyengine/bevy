@@ -66,11 +66,11 @@ impl World {
     }
 
     /// Retrieves an mutable `dyn Reflect` reference to the given entity's Component of the given [`ComponentId`]
-    pub fn get_dyn_reflect_mut_by_id(
-        &mut self,
+    pub fn get_dyn_reflect_mut_by_id<'a>(
+        &'a mut self,
         entity: Entity,
         component_id: ComponentId,
-    ) -> Option<Mut<dyn Reflect>> {
+    ) -> Option<Mut<'a, dyn Reflect>> {
         let type_id = self.component_type_id(component_id)?;
         let reflect_component_ptr = {
             let type_registry = self.get_resource::<AppTypeRegistry>()?;
@@ -91,18 +91,19 @@ impl World {
 #[cfg(test)]
 mod tests {
     use bevy_reflect::{reflect_trait, Reflect};
+    use std::ops::DerefMut;
 
     use crate::prelude::AppTypeRegistry;
     use crate::{self as bevy_ecs, component::Component, world::World};
 
     #[reflect_trait]
-    trait DoThing {
+    trait DoThing: Reflect {
         fn do_thing(&self) -> String;
         fn mut_do_thing(&mut self);
     }
 
     #[reflect_trait]
-    trait OtherTrait {
+    trait OtherTrait: Reflect {
         fn other_do_thing(&self) -> String;
     }
 
@@ -129,6 +130,7 @@ mod tests {
     #[test]
     fn dyn_reflect() {
         let mut world = World::new();
+        let world = &mut world;
 
         let type_registry = AppTypeRegistry::default();
         {
@@ -141,23 +143,52 @@ mod tests {
         let entity = world.spawn(ComponentA("value".to_string())).id();
 
         let component_id = world.component_id::<ComponentA>().unwrap();
-        assert!(world
-            .get_dyn_reflect_mut_by_id(entity, component_id)
-            .is_some());
-        assert!(world.get_dyn_reflect_by_id(entity, component_id).is_some());
-        let do_thing = world.get_dyn_mut_by_id::<ReflectDoThing>(entity, component_id);
-        assert!(do_thing.is_some());
-        do_thing.unwrap().mut_do_thing();
+        let component_type_id = world.component_type_id(component_id).unwrap();
 
-        let do_thing = world.get_dyn_by_id::<ReflectDoThing>(entity, component_id);
-        assert!(do_thing.is_some());
-        do_thing.unwrap().do_thing();
+        {
+            let do_thing = world.get_dyn_reflect_by_id(entity, component_id);
+            assert!(do_thing.is_some());
+            let do_thing = do_thing.unwrap();
+            assert_eq!(do_thing.type_id(), component_type_id);
+        }
 
-        let other_trait = world.get_dyn_mut_by_id::<ReflectOtherTrait>(entity, component_id);
-        assert!(other_trait.is_some());
+        {
+            let do_thing = world.get_dyn_reflect_mut_by_id(entity, component_id);
+            assert!(do_thing.is_some());
+            let mut do_thing = do_thing.unwrap();
+            let do_thing = do_thing.deref_mut();
+            assert_eq!(do_thing.type_id(), component_type_id);
+        }
 
-        let other_trait = world.get_dyn_by_id::<ReflectOtherTrait>(entity, component_id);
-        assert!(other_trait.is_some());
-        other_trait.unwrap().other_do_thing();
+        {
+            let do_thing = world.get_dyn_mut_by_id::<ReflectDoThing>(entity, component_id);
+            assert!(do_thing.is_some());
+            let mut do_thing = do_thing.unwrap();
+            let do_thing = do_thing.deref_mut();
+            do_thing.mut_do_thing();
+            assert_eq!(do_thing.type_id(), component_type_id);
+        }
+
+        {
+            let do_thing = world.get_dyn_by_id::<ReflectDoThing>(entity, component_id);
+            assert!(do_thing.is_some());
+            let do_thing = do_thing.unwrap();
+            do_thing.do_thing();
+            assert_eq!(do_thing.as_reflect().type_id(), component_type_id);
+        }
+
+        {
+            let other_trait = world.get_dyn_mut_by_id::<ReflectOtherTrait>(entity, component_id);
+            assert!(other_trait.is_some());
+            let other_trait = other_trait.unwrap();
+            assert_eq!(other_trait.as_reflect().type_id(), component_type_id);
+        }
+        {
+            let other_trait = world.get_dyn_by_id::<ReflectOtherTrait>(entity, component_id);
+            assert!(other_trait.is_some());
+            let other_trait = other_trait.unwrap();
+            other_trait.other_do_thing();
+            assert_eq!(other_trait.as_reflect().type_id(), component_type_id);
+        }
     }
 }
