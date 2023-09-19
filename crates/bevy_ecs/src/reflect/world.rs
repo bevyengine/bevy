@@ -1,5 +1,6 @@
-use bevy_reflect::{Reflect, ReflectFromPtr, TraitTypeData};
 use std::any::TypeId;
+
+use bevy_reflect::{Reflect, ReflectFromPtr, TraitTypeData};
 
 use crate::component::ComponentId;
 use crate::entity::Entity;
@@ -129,20 +130,16 @@ mod tests {
         let entity = world.spawn(ComponentA("value".to_string())).id();
 
         let component_id = world.component_id::<ComponentA>().unwrap();
-
-        let _do_thing = world
+        assert!(world
             .get_dyn_reflect_mut_by_id(entity, component_id)
-            .unwrap();
-        let _do_thing = world.get_dyn_reflect_by_id(entity, component_id).unwrap();
+            .is_some());
+        assert!(world.get_dyn_reflect_by_id(entity, component_id).is_some());
+        let do_thing = world.get_dyn_mut_by_id::<ReflectDoThing>(entity, component_id);
+        assert!(do_thing.is_some());
+        do_thing.unwrap().mut_do_thing();
 
-        let do_thing = world
-            .get_dyn_mut_by_id::<ReflectDoThing>(entity, component_id)
-            .unwrap();
-        do_thing.mut_do_thing();
-
-        let do_thing = world
-            .get_dyn_by_id::<ReflectDoThing>(entity, component_id)
-            .unwrap();
-        do_thing.do_thing();
+        let do_thing = world.get_dyn_by_id::<ReflectDoThing>(entity, component_id);
+        assert!(do_thing.is_some());
+        do_thing.unwrap().do_thing();
     }
 }
