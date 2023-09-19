@@ -719,8 +719,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         });
         self
     }
-    
-    
+
     /// Tries to add a [`Bundle`] of components to the entity.
     ///
     /// This will overwrite any previous value(s) of the same component type.
@@ -754,7 +753,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///         // You can try_insert individual components:
     ///         .try_insert(Defense(10))
     ///     
-    ///         // You can also insert tuples of components: 
+    ///         // You can also insert tuples of components:
     ///         .try_insert(CombatBundle {
     ///             health: Health(100),
     ///             strength: Strength(40),
@@ -763,14 +762,13 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
-    pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {    
+    pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
         self.commands.add(TryInsert {
             entity: self.entity,
             bundle,
         });
         self
-    }  
-    
+    }
 
     /// Removes a [`Bundle`] of components from the entity.
     ///
@@ -1024,7 +1022,7 @@ where
     fn apply(self, world: &mut World) {
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
             entity.insert(self.bundle);
-        } else { 
+        } else {
             info!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), self.entity);
         }
     }
