@@ -271,7 +271,7 @@ impl AssetLoader for ShaderLoader {
             };
 
             // collect file dependencies
-            for import in shader.imports.iter() {
+            for import in &shader.imports {
                 if let ShaderImport::AssetPath(asset_path) = import {
                     // TODO: should we just allow this handle to be dropped?
                     let _handle: Handle<Shader> = load_context.load(asset_path);

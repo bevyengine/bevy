@@ -268,6 +268,16 @@ impl TextBundle {
     }
 }
 
+#[cfg(feature = "bevy_text")]
+impl<I> From<I> for TextBundle
+where
+    I: Into<TextSection>,
+{
+    fn from(value: I) -> Self {
+        Self::from_sections(vec![value.into()])
+    }
+}
+
 /// A UI node that is a button
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {

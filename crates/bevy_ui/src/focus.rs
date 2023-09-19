@@ -155,7 +155,7 @@ pub fn ui_focus_system(
     let mouse_released =
         mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
     if mouse_released {
-        for node in node_query.iter_mut() {
+        for node in &mut node_query {
             if let Some(mut interaction) = node.interaction {
                 if *interaction == Interaction::Pressed {
                     *interaction = Interaction::None;

@@ -37,7 +37,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let mut field_kind = Vec::with_capacity(named_fields.len());
 
-    for field in named_fields.iter() {
+    for field in named_fields {
         for attr in field
             .attrs
             .iter()
