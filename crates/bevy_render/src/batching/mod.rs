@@ -85,13 +85,13 @@ pub fn batch_and_prepare_render_phase<I: CachedRenderPipelinePhaseItem, F: GetBa
             let batch_data = process_item(i);
             (i.batch_range_mut(), batch_data)
         });
-        items.reduce(|(mut start_range, old_batch_meta), (range, batch_meta)| {
-            if old_batch_meta == batch_meta && batch_meta.is_some() {
+        items.reduce(|(start_range, old_batch_meta), (range, batch_meta)| {
+            if batch_meta.is_some() && old_batch_meta == batch_meta {
                 start_range.end = range.end;
+                (start_range, old_batch_meta)
             } else {
-                start_range = range;
+                (range, batch_meta)
             }
-            (start_range, batch_meta)
         });
     }
 }
