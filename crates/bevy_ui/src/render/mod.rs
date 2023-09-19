@@ -187,69 +187,69 @@ pub fn extract_atlas_uinodes(
     >,
 ) {
     for (
-            entity,
-            uinode,
-            transform,
-            color,
-            view_visibility,
-            clip,
-            texture_atlas_handle,
-            atlas_image,
-        ) in uinode_query.iter()
-        {
-            // Skip invisible and completely transparent nodes
-            if !view_visibility.get() || color.0.a() == 0.0 {
-                continue;
-            }
-
-            let (mut atlas_rect, mut atlas_size, image) =
-                if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
-                    let atlas_rect = *texture_atlas
-                        .textures
-                        .get(atlas_image.index)
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "Atlas index {:?} does not exist for texture atlas handle {:?}.",
-                                atlas_image.index,
-                                texture_atlas_handle.id(),
-                            )
-                        });
-                    (
-                        atlas_rect,
-                        texture_atlas.size,
-                        texture_atlas.texture.clone(),
-                    )
-                } else {
-                    // Atlas not present in assets resource (should this warn the user?)
-                    continue;
-                };
-
-            // Skip loading images
-            if !images.contains(&image) {
-                continue;
-            }
-
-            let scale = uinode.size() / atlas_rect.size();
-            atlas_rect.min *= scale;
-            atlas_rect.max *= scale;
-            atlas_size *= scale;
-
-            extracted_uinodes.uinodes.insert(
-                entity,
-                ExtractedUiNode {
-                    stack_index: uinode.stack_index,
-                    transform: transform.compute_matrix(),
-                    color: color.0,
-                    rect: atlas_rect,
-                    clip: clip.map(|clip| clip.clip),
-                    image: image.id(),
-                    atlas_size: Some(atlas_size),
-                    flip_x: atlas_image.flip_x,
-                    flip_y: atlas_image.flip_y,
-                },
-            );
+        entity,
+        uinode,
+        transform,
+        color,
+        view_visibility,
+        clip,
+        texture_atlas_handle,
+        atlas_image,
+    ) in uinode_query.iter()
+    {
+        // Skip invisible and completely transparent nodes
+        if !view_visibility.get() || color.0.a() == 0.0 {
+            continue;
         }
+
+        let (mut atlas_rect, mut atlas_size, image) =
+            if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
+                let atlas_rect = *texture_atlas
+                    .textures
+                    .get(atlas_image.index)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Atlas index {:?} does not exist for texture atlas handle {:?}.",
+                            atlas_image.index,
+                            texture_atlas_handle.id(),
+                        )
+                    });
+                (
+                    atlas_rect,
+                    texture_atlas.size,
+                    texture_atlas.texture.clone(),
+                )
+            } else {
+                // Atlas not present in assets resource (should this warn the user?)
+                continue;
+            };
+
+        // Skip loading images
+        if !images.contains(&image) {
+            continue;
+        }
+
+        let scale = uinode.size() / atlas_rect.size();
+        atlas_rect.min *= scale;
+        atlas_rect.max *= scale;
+        atlas_size *= scale;
+
+        extracted_uinodes.uinodes.insert(
+            entity,
+            ExtractedUiNode {
+                stack_index: uinode.stack_index,
+                transform: transform.compute_matrix(),
+                color: color.0,
+                rect: atlas_rect,
+                clip: clip.map(|clip| clip.clip),
+                image: image.id(),
+                atlas_size: Some(atlas_size),
+                flip_x: atlas_image.flip_x,
+                flip_y: atlas_image.flip_y,
+            },
+        );
     }
+}
 
 fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
     match value {
@@ -268,7 +268,7 @@ pub fn extract_uinode_borders(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_scale: Extract<Res<UiScale>>,
-        uinode_query: Extract<
+    uinode_query: Extract<
         Query<
             (
                 &Node,
@@ -295,92 +295,92 @@ pub fn extract_uinode_borders(
         / ui_scale.0 as f32;
 
     for (node, global_transform, style, border_color, parent, view_visibility, clip) in
-            uinode_query.iter()
+        uinode_query.iter()
+    {
+        // Skip invisible borders
+        if !view_visibility.get()
+            || border_color.0.a() == 0.0
+            || node.size().x <= 0.
+            || node.size().y <= 0.
         {
-            // Skip invisible borders
-            if !view_visibility.get()
-                || border_color.0.a() == 0.0
-                || node.size().x <= 0.
-                || node.size().y <= 0.
-            {
-                continue;
-            }
+            continue;
+        }
 
-            // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
-            // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-            let parent_width = parent
-                .and_then(|parent| node_query.get(parent.get()).ok())
-                .map(|parent_node| parent_node.size().x)
-                .unwrap_or(ui_logical_viewport_size.x);
-            let left =
-                resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
-            let right =
+        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+        let parent_width = parent
+            .and_then(|parent| node_query.get(parent.get()).ok())
+            .map(|parent_node| parent_node.size().x)
+            .unwrap_or(ui_logical_viewport_size.x);
+        let left =
+            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
+        let right =
             resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size);
-            let top =
-                resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
-            let bottom =
+        let top =
+            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
+        let bottom =
             resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size);
 
-            // Calculate the border rects, ensuring no overlap.
-            // The border occupies the space between the node's bounding rect and the node's bounding rect inset in each direction by the node's corresponding border value.
-            let max = 0.5 * node.size();
-            let min = -max;
-            let inner_min = min + Vec2::new(left, top);
-            let inner_max = (max - Vec2::new(right, bottom)).max(inner_min);
-            let border_rects = [
-                // Left border
-                Rect {
-                    min,
-                    max: Vec2::new(inner_min.x, max.y),
-                },
-                // Right border
-                Rect {
-                    min: Vec2::new(inner_max.x, min.y),
-                    max,
-                },
-                // Top border
-                Rect {
-                    min: Vec2::new(inner_min.x, min.y),
-                    max: Vec2::new(inner_max.x, inner_min.y),
-                },
-                // Bottom border
-                Rect {
-                    min: Vec2::new(inner_min.x, inner_max.y),
-                    max: Vec2::new(inner_max.x, max.y),
-                },
-            ];
+        // Calculate the border rects, ensuring no overlap.
+        // The border occupies the space between the node's bounding rect and the node's bounding rect inset in each direction by the node's corresponding border value.
+        let max = 0.5 * node.size();
+        let min = -max;
+        let inner_min = min + Vec2::new(left, top);
+        let inner_max = (max - Vec2::new(right, bottom)).max(inner_min);
+        let border_rects = [
+            // Left border
+            Rect {
+                min,
+                max: Vec2::new(inner_min.x, max.y),
+            },
+            // Right border
+            Rect {
+                min: Vec2::new(inner_max.x, min.y),
+                max,
+            },
+            // Top border
+            Rect {
+                min: Vec2::new(inner_min.x, min.y),
+                max: Vec2::new(inner_max.x, inner_min.y),
+            },
+            // Bottom border
+            Rect {
+                min: Vec2::new(inner_min.x, inner_max.y),
+                max: Vec2::new(inner_max.x, max.y),
+            },
+        ];
 
-            let transform = global_transform.compute_matrix();
+        let transform = global_transform.compute_matrix();
 
-            for edge in border_rects {
-                if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
-                    extracted_uinodes.uinodes.insert(
-                        commands.spawn_empty().id(),
-                        ExtractedUiNode {
-                            stack_index: node.stack_index,
-                            // This translates the uinode's transform to the center of the current border rectangle
-                            transform: transform * Mat4::from_translation(edge.center().extend(0.)),
-                            color: border_color.0,
-                            rect: Rect {
-                                max: edge.size(),
-                                ..Default::default()
-                            },
-                            image,
-                            atlas_size: None,
-                            clip: clip.map(|clip| clip.clip),
-                            flip_x: false,
-                            flip_y: false,
+        for edge in border_rects {
+            if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
+                extracted_uinodes.uinodes.insert(
+                    commands.spawn_empty().id(),
+                    ExtractedUiNode {
+                        stack_index: node.stack_index,
+                        // This translates the uinode's transform to the center of the current border rectangle
+                        transform: transform * Mat4::from_translation(edge.center().extend(0.)),
+                        color: border_color.0,
+                        rect: Rect {
+                            max: edge.size(),
+                            ..Default::default()
                         },
-                    );
-                }
+                        image,
+                        atlas_size: None,
+                        clip: clip.map(|clip| clip.clip),
+                        flip_x: false,
+                        flip_y: false,
+                    },
+                );
             }
         }
     }
+}
 
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
-        uinode_query: Extract<
+    uinode_query: Extract<
         Query<
             (
                 Entity,
@@ -396,41 +396,41 @@ pub fn extract_uinodes(
     >,
 ) {
     for (entity, uinode, transform, color, maybe_image, view_visibility, clip) in
-            uinode_query.iter()
-        {
-            // Skip invisible and completely transparent nodes
-            if !view_visibility.get() || color.0.a() == 0.0 {
+        uinode_query.iter()
+    {
+        // Skip invisible and completely transparent nodes
+        if !view_visibility.get() || color.0.a() == 0.0 {
+            continue;
+        }
+
+        let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
+            // Skip loading images
+            if !images.contains(&image.texture) {
                 continue;
             }
+            (image.texture.id(), image.flip_x, image.flip_y)
+        } else {
+            (AssetId::default(), false, false)
+        };
 
-            let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
-                // Skip loading images
-                if !images.contains(&image.texture) {
-                    continue;
-                }
-                (image.texture.id(), image.flip_x, image.flip_y)
-            } else {
-                (AssetId::default(), false, false)
-            };
-
-            extracted_uinodes.uinodes.insert(
-                entity,
-                ExtractedUiNode {
-                    stack_index: uinode.stack_index,
-                    transform: transform.compute_matrix(),
-                    color: color.0,
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: uinode.calculated_size,
-                    },
-                    clip: clip.map(|clip| clip.clip),
-                    image,
-                    atlas_size: None,
-                    flip_x,
-                    flip_y,
+        extracted_uinodes.uinodes.insert(
+            entity,
+            ExtractedUiNode {
+                stack_index: uinode.stack_index,
+                transform: transform.compute_matrix(),
+                color: color.0,
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: uinode.calculated_size,
                 },
-            );
-            }
+                clip: clip.map(|clip| clip.clip),
+                image,
+                atlas_size: None,
+                flip_x,
+                flip_y,
+            },
+        );
+    }
 }
 
 /// The UI camera is "moved back" by this many units (plus the [`UI_CAMERA_TRANSFORM_OFFSET`]) and also has a view
@@ -512,7 +512,7 @@ pub fn extract_text_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
-        ui_scale: Extract<Res<UiScale>>,
+    ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -534,51 +534,51 @@ pub fn extract_text_uinodes(
     let inverse_scale_factor = (scale_factor as f32).recip();
 
     for (uinode, global_transform, text, text_layout_info, view_visibility, clip) in
-            uinode_query.iter()
+        uinode_query.iter()
+    {
+        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        if !view_visibility.get() || uinode.size().x == 0. || uinode.size().y == 0. {
+            continue;
+        }
+        let transform = global_transform.compute_matrix()
+            * Mat4::from_translation(-0.5 * uinode.size().extend(0.));
+
+        let mut color = Color::WHITE;
+        let mut current_section = usize::MAX;
+        for PositionedGlyph {
+            position,
+            atlas_info,
+            section_index,
+            ..
+        } in &text_layout_info.glyphs
         {
-            // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
-            if !view_visibility.get() || uinode.size().x == 0. || uinode.size().y == 0. {
-                continue;
+            if *section_index != current_section {
+                color = text.sections[*section_index].style.color.as_rgba_linear();
+                current_section = *section_index;
             }
-            let transform = global_transform.compute_matrix()
-                * Mat4::from_translation(-0.5 * uinode.size().extend(0.));
+            let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
-            let mut color = Color::WHITE;
-            let mut current_section = usize::MAX;
-            for PositionedGlyph {
-                position,
-                atlas_info,
-                section_index,
-                ..
-            } in &text_layout_info.glyphs
-            {
-                if *section_index != current_section {
-                    color = text.sections[*section_index].style.color.as_rgba_linear();
-                    current_section = *section_index;
-                }
-                let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
-
-                let mut rect = atlas.textures[atlas_info.glyph_index];
-                rect.min *= inverse_scale_factor;
-                rect.max *= inverse_scale_factor;
-                extracted_uinodes.uinodes.insert(
-                    commands.spawn_empty().id(),
-                    ExtractedUiNode {
-                        stack_index: uinode.stack_index,
-                        transform: transform
-                            * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
-                        color,
-                        rect,
-                        image: atlas.texture.id(),
-                        atlas_size: Some(atlas.size * inverse_scale_factor),
-                        clip: clip.map(|clip| clip.clip),
-                        flip_x: false,
-                        flip_y: false,
-                    },
-                );
-            }
+            let mut rect = atlas.textures[atlas_info.glyph_index];
+            rect.min *= inverse_scale_factor;
+            rect.max *= inverse_scale_factor;
+            extracted_uinodes.uinodes.insert(
+                commands.spawn_empty().id(),
+                ExtractedUiNode {
+                    stack_index: uinode.stack_index,
+                    transform: transform
+                        * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
+                    color,
+                    rect,
+                    image: atlas.texture.id(),
+                    atlas_size: Some(atlas.size * inverse_scale_factor),
+                    clip: clip.map(|clip| clip.clip),
+                    flip_x: false,
+                    flip_y: false,
+                },
+            );
         }
     }
+}
 
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]

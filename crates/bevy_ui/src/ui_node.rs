@@ -14,7 +14,7 @@ use thiserror::Error;
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
-    /// The order of the node in the UI layout. 
+    /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and recieve interactions before nodes with lower stack indices.
     pub(crate) stack_index: usize,
     /// The size of the node as width and height in logical pixels
