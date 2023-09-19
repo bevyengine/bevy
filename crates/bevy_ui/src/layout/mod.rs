@@ -274,6 +274,11 @@ pub fn ui_layout_system(
         }
     }
 
+    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
+    for entity in removed_content_sizes.read() {
+        ui_surface.try_remove_measure(entity);
+    }
+
     for (entity, mut content_size) in &mut measure_query {
         if let Some(measure_func) = content_size.measure_func.take() {
             ui_surface.update_measure(entity, measure_func);
@@ -282,11 +287,6 @@ pub fn ui_layout_system(
 
     // clean up removed nodes
     ui_surface.remove_entities(removed_nodes.read());
-
-    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-    for entity in removed_content_sizes.read() {
-        ui_surface.try_remove_measure(entity);
-    }
 
     // update window children (for now assuming all Nodes live in the primary window)
     ui_surface.set_window_children(primary_window_entity, root_node_query.iter());
@@ -317,24 +317,23 @@ pub fn ui_layout_system(
     ) {
         if let Ok((mut node, mut transform)) = node_transform_query.get_mut(entity) {
             let layout = ui_surface.get_layout(entity).unwrap();
-            let layout_size = Vec2::new(layout.size.width, layout.size.height);
-            let layout_location = Vec2::new(layout.location.x, layout.location.y);
+            let layout_size =
+                inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
+            let layout_location =
+                inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
 
             absolute_location += layout_location;
-            let rounded_location = round_layout_coords(layout_location);
             let rounded_size = round_layout_coords(absolute_location + layout_size)
                 - round_layout_coords(absolute_location);
-
-            let new_size = inverse_target_scale_factor * rounded_size;
-            let new_position =
-                inverse_target_scale_factor * rounded_location + 0.5 * (new_size - parent_size);
+            let rounded_location =
+                round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
 
             // only trigger change detection when the new values are different
-            if node.calculated_size != new_size {
-                node.calculated_size = new_size;
+            if node.calculated_size != rounded_size {
+                node.calculated_size = rounded_size;
             }
-            if transform.translation.truncate() != new_position {
-                transform.translation = new_position.extend(0.);
+            if transform.translation.truncate() != rounded_location {
+                transform.translation = rounded_location.extend(0.);
             }
             if let Ok(children) = children_query.get(entity) {
                 for &child_uinode in children {
@@ -344,7 +343,7 @@ pub fn ui_layout_system(
                         node_transform_query,
                         children_query,
                         inverse_target_scale_factor,
-                        new_size,
+                        rounded_size,
                         absolute_location,
                     );
                 }
@@ -400,11 +399,13 @@ mod tests {
     use crate::ui_layout_system;
     use crate::ContentSize;
     use crate::UiSurface;
+    use bevy_ecs::entity::Entity;
     use bevy_ecs::event::Events;
     use bevy_ecs::schedule::Schedule;
     use bevy_ecs::world::World;
     use bevy_hierarchy::despawn_with_children_recursive;
     use bevy_hierarchy::BuildWorldChildren;
+    use bevy_hierarchy::Children;
     use bevy_math::vec2;
     use bevy_math::Vec2;
     use bevy_utils::prelude::default;
@@ -713,5 +714,59 @@ mod tests {
         let layout = ui_surface.get_layout(ui_entity).unwrap();
         assert_eq!(layout.size.width, 0.);
         assert_eq!(layout.size.height, 0.);
+    }
+
+    #[test]
+    fn ui_rounding_test() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let parent = world
+            .spawn(NodeBundle {
+                style: Style {
+                    display: Display::Grid,
+                    grid_template_columns: RepeatedGridTrack::min_content(2),
+                    margin: UiRect::all(Val::Px(4.0)),
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .with_children(|commands| {
+                for _ in 0..2 {
+                    commands.spawn(NodeBundle {
+                        style: Style {
+                            display: Display::Grid,
+                            width: Val::Px(160.),
+                            height: Val::Px(160.),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    });
+                }
+            })
+            .id();
+
+        let children = world
+            .entity(parent)
+            .get::<Children>()
+            .unwrap()
+            .iter()
+            .copied()
+            .collect::<Vec<Entity>>();
+
+        for r in [2, 3, 5, 7, 11, 13, 17, 19, 21, 23, 29, 31].map(|n| (n as f64).recip()) {
+            let mut s = r;
+            while s <= 5. {
+                world.resource_mut::<UiScale>().0 = s;
+                ui_schedule.run(&mut world);
+                let width_sum: f32 = children
+                    .iter()
+                    .map(|child| world.get::<Node>(*child).unwrap().calculated_size.x)
+                    .sum();
+                let parent_width = world.get::<Node>(parent).unwrap().calculated_size.x;
+                assert!((width_sum - parent_width).abs() < 0.001);
+                assert!((width_sum - 320.).abs() <= 1.);
+                s += r;
+            }
+        }
     }
 }

@@ -67,7 +67,7 @@ pub struct Wireframe;
 #[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct WireframeConfig {
-    /// Whether to show wireframes for all meshes. If `false`, only meshes with a [Wireframe] component will be rendered.
+    /// Whether to show wireframes for all meshes. If `false`, only meshes with a [`Wireframe`] component will be rendered.
     pub global: bool,
 }
 

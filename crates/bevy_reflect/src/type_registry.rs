@@ -521,37 +521,63 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// let reflect_data = type_registry.get(std::any::TypeId::of::<Reflected>()).unwrap();
 /// let reflect_from_ptr = reflect_data.data::<ReflectFromPtr>().unwrap();
 /// // SAFE: `value` is of type `Reflected`, which the `ReflectFromPtr` was created for
-/// let value = unsafe { reflect_from_ptr.as_reflect_ptr(value) };
+/// let value = unsafe { reflect_from_ptr.as_reflect(value) };
 ///
 /// assert_eq!(value.downcast_ref::<Reflected>().unwrap().0, "Hello world!");
 /// ```
 #[derive(Clone)]
 pub struct ReflectFromPtr {
     type_id: TypeId,
-    to_reflect: for<'a> unsafe fn(Ptr<'a>) -> &'a dyn Reflect,
-    to_reflect_mut: for<'a> unsafe fn(PtrMut<'a>) -> &'a mut dyn Reflect,
+    from_ptr: unsafe fn(Ptr) -> &dyn Reflect,
+    from_ptr_mut: unsafe fn(PtrMut) -> &mut dyn Reflect,
 }
 
 impl ReflectFromPtr {
-    /// Returns the [`TypeId`] that the [`ReflectFromPtr`] was constructed for
+    /// Returns the [`TypeId`] that the [`ReflectFromPtr`] was constructed for.
     pub fn type_id(&self) -> TypeId {
         self.type_id
     }
 
+    /// Convert `Ptr` into `&dyn Reflect`.
+    ///
     /// # Safety
     ///
     /// `val` must be a pointer to value of the type that the [`ReflectFromPtr`] was constructed for.
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
-    pub unsafe fn as_reflect_ptr<'a>(&self, val: Ptr<'a>) -> &'a dyn Reflect {
-        (self.to_reflect)(val)
+    pub unsafe fn as_reflect<'a>(&self, val: Ptr<'a>) -> &'a dyn Reflect {
+        (self.from_ptr)(val)
     }
 
+    /// Convert `PtrMut` into `&mut dyn Reflect`.
+    ///
     /// # Safety
     ///
     /// `val` must be a pointer to a value of the type that the [`ReflectFromPtr`] was constructed for
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
-    pub unsafe fn as_reflect_ptr_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
-        (self.to_reflect_mut)(val)
+    pub unsafe fn as_reflect_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
+        (self.from_ptr_mut)(val)
+    }
+    /// Get a function pointer to turn a `Ptr` into `&dyn Reflect` for
+    /// the type this [`ReflectFromPtr`] was constructed for.
+    ///
+    /// # Safety
+    ///
+    /// When calling the unsafe function returned by this method you must ensure that:
+    /// - The input `Ptr` points to the `Reflect` type this `ReflectFromPtr`
+    ///   was constructed for.
+    pub fn from_ptr(&self) -> unsafe fn(Ptr) -> &dyn Reflect {
+        self.from_ptr
+    }
+    /// Get a function pointer to turn a `PtrMut` into `&mut dyn Reflect` for
+    /// the type this [`ReflectFromPtr`] was constructed for.
+    ///
+    /// # Safety
+    ///
+    /// When calling the unsafe function returned by this method you must ensure that:
+    /// - The input `PtrMut` points to the `Reflect` type this `ReflectFromPtr`
+    ///   was constructed for.
+    pub fn from_ptr_mut(&self) -> unsafe fn(PtrMut) -> &mut dyn Reflect {
+        self.from_ptr_mut
     }
 }
 
@@ -559,14 +585,14 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
     fn from_type() -> Self {
         ReflectFromPtr {
             type_id: std::any::TypeId::of::<T>(),
-            to_reflect: |ptr| {
-                // SAFE: only called from `as_reflect`, where the `ptr` is guaranteed to be of type `T`,
-                // and `as_reflect_ptr`, where the caller promises to call it with type `T`
+            from_ptr: |ptr| {
+                // SAFETY: `from_ptr_mut` is either called in `ReflectFromPtr::as_reflect`
+                // or returned by `ReflectFromPtr::from_ptr`, both lay out the invariants
+                // required by `deref`
                 unsafe { ptr.deref::<T>() as &dyn Reflect }
             },
-            to_reflect_mut: |ptr| {
-                // SAFE: only called from `as_reflect_mut`, where the `ptr` is guaranteed to be of type `T`,
-                // and `as_reflect_ptr_mut`, where the caller promises to call it with type `T`
+            from_ptr_mut: |ptr| {
+                // SAFETY: same as above, but foor `as_reflect_mut`, `from_ptr_mut` and `deref_mut`.
                 unsafe { ptr.deref_mut::<T>() as &mut dyn Reflect }
             },
         }
@@ -601,7 +627,7 @@ mod test {
         {
             let value = PtrMut::from(&mut value);
             // SAFETY: reflect_from_ptr was constructed for the correct type
-            let dyn_reflect = unsafe { reflect_from_ptr.as_reflect_ptr_mut(value) };
+            let dyn_reflect = unsafe { reflect_from_ptr.as_reflect_mut(value) };
             match dyn_reflect.reflect_mut() {
                 bevy_reflect::ReflectMut::Struct(strukt) => {
                     strukt.field_mut("a").unwrap().apply(&2.0f32);
@@ -612,7 +638,7 @@ mod test {
 
         {
             // SAFETY: reflect_from_ptr was constructed for the correct type
-            let dyn_reflect = unsafe { reflect_from_ptr.as_reflect_ptr(Ptr::from(&value)) };
+            let dyn_reflect = unsafe { reflect_from_ptr.as_reflect(Ptr::from(&value)) };
             match dyn_reflect.reflect_ref() {
                 bevy_reflect::ReflectRef::Struct(strukt) => {
                     let a = strukt.field("a").unwrap().downcast_ref::<f32>().unwrap();
