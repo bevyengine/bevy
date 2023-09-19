@@ -80,7 +80,7 @@ where
         load_internal_asset!(
             app,
             PREPASS_BINDINGS_SHADER_HANDLE,
-            "prepass_view_bindings.wgsl",
+            "prepass_bindings.wgsl",
             Shader::from_wgsl
         );
 
