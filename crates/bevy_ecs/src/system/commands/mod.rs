@@ -749,17 +749,17 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// }
     ///
     /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
-    ///     if let Some(cmd) = commands
-    ///         .entity(player.entity)
+    ///     
+    ///         commands.entity(player.entity)
     ///         // You can try_insert individual components:
     ///         .try_insert(Defense(10))
-    ///     {
-    ///         // You can continue chaining other commands on `cmd`
-    ///         cmd.try_insert(CombatBundle {
+    ///     
+    ///         // You can also insert tuples of components: 
+    ///         .try_insert(CombatBundle {
     ///             health: Health(100),
     ///             strength: Strength(40),
     ///         });
-    ///     }
+    ///     
     /// }
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
