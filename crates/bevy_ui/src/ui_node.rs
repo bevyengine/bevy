@@ -14,6 +14,7 @@ use thiserror::Error;
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
+    pub(crate) stack_index: usize,
     /// The size of the node as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub(crate) calculated_size: Vec2,
@@ -24,6 +25,10 @@ impl Node {
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub const fn size(&self) -> Vec2 {
         self.calculated_size
+    }
+
+    pub const fn stack_index(&self) -> usize {
+        self.stack_index
     }
 
     /// Returns the size of the node in physical pixels based on the given scale factor and `UiScale`.
@@ -65,6 +70,7 @@ impl Node {
 
 impl Node {
     pub const DEFAULT: Self = Self {
+        stack_index: 0,
         calculated_size: Vec2::ZERO,
     };
 }

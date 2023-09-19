@@ -170,7 +170,6 @@ pub fn extract_atlas_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
-    ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<
             (
@@ -187,8 +186,7 @@ pub fn extract_atlas_uinodes(
         >,
     >,
 ) {
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((
+    for (
             entity,
             uinode,
             transform,
@@ -197,7 +195,7 @@ pub fn extract_atlas_uinodes(
             clip,
             texture_atlas_handle,
             atlas_image,
-        )) = uinode_query.get(*entity)
+        ) in uinode_query.iter()
         {
             // Skip invisible and completely transparent nodes
             if !view_visibility.get() || color.0.a() == 0.0 {
@@ -239,7 +237,7 @@ pub fn extract_atlas_uinodes(
             extracted_uinodes.uinodes.insert(
                 entity,
                 ExtractedUiNode {
-                    stack_index,
+                    stack_index: uinode.stack_index,
                     transform: transform.compute_matrix(),
                     color: color.0,
                     rect: atlas_rect,
@@ -252,7 +250,6 @@ pub fn extract_atlas_uinodes(
             );
         }
     }
-}
 
 fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
     match value {
@@ -271,8 +268,7 @@ pub fn extract_uinode_borders(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_scale: Extract<Res<UiScale>>,
-    ui_stack: Extract<Res<UiStack>>,
-    uinode_query: Extract<
+        uinode_query: Extract<
         Query<
             (
                 &Node,
@@ -298,9 +294,8 @@ pub fn extract_uinode_borders(
         // so we have to divide by `UiScale` to get the size of the UI viewport.
         / ui_scale.0 as f32;
 
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((node, global_transform, style, border_color, parent, view_visibility, clip)) =
-            uinode_query.get(*entity)
+    for (node, global_transform, style, border_color, parent, view_visibility, clip) in
+            uinode_query.iter()
         {
             // Skip invisible borders
             if !view_visibility.get()
@@ -319,18 +314,12 @@ pub fn extract_uinode_borders(
                 .unwrap_or(ui_logical_viewport_size.x);
             let left =
                 resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
-            let right = resolve_border_thickness(
-                style.border.right,
-                parent_width,
-                ui_logical_viewport_size,
-            );
+            let right =
+            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size);
             let top =
                 resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
-            let bottom = resolve_border_thickness(
-                style.border.bottom,
-                parent_width,
-                ui_logical_viewport_size,
-            );
+            let bottom =
+            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size);
 
             // Calculate the border rects, ensuring no overlap.
             // The border occupies the space between the node's bounding rect and the node's bounding rect inset in each direction by the node's corresponding border value.
@@ -368,7 +357,7 @@ pub fn extract_uinode_borders(
                     extracted_uinodes.uinodes.insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            stack_index,
+                            stack_index: node.stack_index,
                             // This translates the uinode's transform to the center of the current border rectangle
                             transform: transform * Mat4::from_translation(edge.center().extend(0.)),
                             color: border_color.0,
@@ -387,13 +376,11 @@ pub fn extract_uinode_borders(
             }
         }
     }
-}
 
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
-    ui_stack: Extract<Res<UiStack>>,
-    uinode_query: Extract<
+        uinode_query: Extract<
         Query<
             (
                 Entity,
@@ -408,9 +395,8 @@ pub fn extract_uinodes(
         >,
     >,
 ) {
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((entity, uinode, transform, color, maybe_image, view_visibility, clip)) =
-            uinode_query.get(*entity)
+    for (entity, uinode, transform, color, maybe_image, view_visibility, clip) in
+            uinode_query.iter()
         {
             // Skip invisible and completely transparent nodes
             if !view_visibility.get() || color.0.a() == 0.0 {
@@ -430,7 +416,7 @@ pub fn extract_uinodes(
             extracted_uinodes.uinodes.insert(
                 entity,
                 ExtractedUiNode {
-                    stack_index,
+                    stack_index: uinode.stack_index,
                     transform: transform.compute_matrix(),
                     color: color.0,
                     rect: Rect {
@@ -444,8 +430,7 @@ pub fn extract_uinodes(
                     flip_y,
                 },
             );
-        };
-    }
+            }
 }
 
 /// The UI camera is "moved back" by this many units (plus the [`UI_CAMERA_TRANSFORM_OFFSET`]) and also has a view
@@ -527,8 +512,7 @@ pub fn extract_text_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
-    ui_stack: Extract<Res<UiStack>>,
-    ui_scale: Extract<Res<UiScale>>,
+        ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -549,9 +533,8 @@ pub fn extract_text_uinodes(
 
     let inverse_scale_factor = (scale_factor as f32).recip();
 
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, global_transform, text, text_layout_info, view_visibility, clip)) =
-            uinode_query.get(*entity)
+    for (uinode, global_transform, text, text_layout_info, view_visibility, clip) in
+            uinode_query.iter()
         {
             // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
             if !view_visibility.get() || uinode.size().x == 0. || uinode.size().y == 0. {
@@ -581,7 +564,7 @@ pub fn extract_text_uinodes(
                 extracted_uinodes.uinodes.insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        stack_index,
+                        stack_index: uinode.stack_index,
                         transform: transform
                             * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
                         color,
@@ -596,7 +579,6 @@ pub fn extract_text_uinodes(
             }
         }
     }
-}
 
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
