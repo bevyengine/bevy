@@ -161,7 +161,7 @@ impl VertexBufferLayout {
 
     /// Returns a [`VertexBufferLayout`] with the shader location of every attribute offset by
     /// `location`.
-    pub fn offset_locations(self, location: u32) -> Self {
+    pub fn offset_locations(mut self, location: u32) -> Self {
         self.attributes.iter_mut().for_each(|attr| {
             attr.shader_location += location;
         });
