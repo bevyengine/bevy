@@ -475,7 +475,7 @@ pub fn check_visibility(
             },
         );
 
-        for cell in thread_queues.iter_mut() {
+        for cell in &mut thread_queues {
             visible_entities.entities.append(cell.get_mut());
         }
     }
