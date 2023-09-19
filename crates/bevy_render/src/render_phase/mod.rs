@@ -39,7 +39,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
-use std::ops::Range;
+use std::{ops::Range, slice::SliceIndex};
 
 /// A collection of all rendering instructions, that will be executed by the GPU, for a
 /// single render phase for a single view.
@@ -87,22 +87,7 @@ impl<I: PhaseItem> RenderPhase<I> {
         world: &'w World,
         view: Entity,
     ) {
-        let draw_functions = world.resource::<DrawFunctions<I>>();
-        let mut draw_functions = draw_functions.write();
-        draw_functions.prepare(world);
-
-        let mut index = 0;
-        while index < self.items.len() {
-            let item = &self.items[index];
-            let batch_range = item.batch_range();
-            if batch_range.is_empty() {
-                index += 1;
-            } else {
-                let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
-                draw_function.draw(world, render_pass, view, item);
-                index += batch_range.len();
-            }
-        }
+        self.render_range(render_pass, world, view, ..);
     }
 
     /// Renders all [`PhaseItem`]s in the provided `range` (based on their index in `self.items`) using their corresponding draw functions.
@@ -111,16 +96,16 @@ impl<I: PhaseItem> RenderPhase<I> {
         render_pass: &mut TrackedRenderPass<'w>,
         world: &'w World,
         view: Entity,
-        range: Range<usize>,
+        range: impl SliceIndex<[I], Output = [I]>,
     ) {
-        let draw_functions = world.resource::<DrawFunctions<I>>();
-        let mut draw_functions = draw_functions.write();
-        draw_functions.prepare(world);
-
         let items = self
             .items
             .get(range)
             .expect("`Range` provided to `render_range()` is out of bounds");
+
+        let draw_functions = world.resource::<DrawFunctions<I>>();
+        let mut draw_functions = draw_functions.write();
+        draw_functions.prepare(world);
 
         let mut index = 0;
         while index < items.len() {

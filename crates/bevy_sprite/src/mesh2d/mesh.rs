@@ -4,7 +4,7 @@ use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{
     prelude::*,
-    query::{ROQueryItem, WorldQuery},
+    query::{QueryItem, ROQueryItem},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Vec2, Vec4};
@@ -334,9 +334,7 @@ impl GetBatchData for Mesh2dPipeline {
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
-        (material_bind_group_id, mesh_handle, mesh_transforms): <Self::Query as WorldQuery>::Item<
-            '_,
-        >,
+        (material_bind_group_id, mesh_handle, mesh_transforms): QueryItem<Self::Query>,
     ) -> (Self::CompareData, Self::BufferData) {
         (
             (material_bind_group_id.cloned(), mesh_handle.0.id()),

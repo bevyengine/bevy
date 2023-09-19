@@ -16,7 +16,7 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{
     prelude::*,
-    query::ROQueryItem,
+    query::{QueryItem, ROQueryItem},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Mat4, Vec2, Vec4};
@@ -649,7 +649,7 @@ impl GetBatchData for MeshPipeline {
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        (material_bind_group_id, mesh_handle, mesh_transforms): <Self::Query as bevy_ecs::query::WorldQuery>::Item<'_>,
+        (material_bind_group_id, mesh_handle, mesh_transforms): QueryItem<Self::Query>,
     ) -> (Self::CompareData, Self::BufferData) {
         (
             (material_bind_group_id.cloned(), mesh_handle.id()),
