@@ -1,9 +1,7 @@
 #import bevy_pbr::mesh_vertex_output MeshVertexOutput
 
-@group(1) @binding(0)
-var textures: binding_array<texture_2d<f32>>;
-@group(1) @binding(1)
-var nearest_sampler: sampler;
+@group(1) @binding(0) var textures: binding_array<texture_2d<f32>>;
+@group(1) @binding(1) var nearest_sampler: sampler;
 // We can also have array of samplers
 // var samplers: binding_array<sampler>;
 

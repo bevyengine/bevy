@@ -1,11 +1,8 @@
 #import bevy_render::view View
 
-@group(0) @binding(0)
-var skybox: texture_cube<f32>;
-@group(0) @binding(1)
-var skybox_sampler: sampler;
-@group(0) @binding(2)
-var<uniform> view: View;
+@group(0) @binding(0) var skybox: texture_cube<f32>;
+@group(0) @binding(1) var skybox_sampler: sampler;
+@group(0) @binding(2) var<uniform> view: View;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,

@@ -2,8 +2,7 @@
 
 const TEXTURED_QUAD: u32 = 0u;
 
-@group(0) @binding(0)
-var<uniform> view: View;
+@group(0) @binding(0) var<uniform> view: View;
 
 struct VertexOutput {
     @location(0) uv: vec2<f32>,
