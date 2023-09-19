@@ -12,7 +12,7 @@ pub use render_pass::*;
 
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
-    Style, UiImage, UiScale, UiStack, UiTextureAtlasImage, Val,
+    Style, UiImage, UiScale, UiTextureAtlasImage, Val,
 };
 
 use bevy_app::prelude::*;
