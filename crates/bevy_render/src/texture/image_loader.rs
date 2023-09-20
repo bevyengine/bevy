@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 /// `CompressedImageFormats::from_features(render_device.features())`
 /// and it is a bitfield of length 4.
 ///
-/// If in doubt, use CompressedImageFormats::NONE to only load uncompressed images.
+/// If in doubt, use `CompressedImageFormats::NONE` to only load uncompressed images.
 ///
 #[derive(Clone)]
 pub struct ImageLoader {
