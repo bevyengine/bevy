@@ -145,6 +145,12 @@ fn fragment(
         output_color = pbr_functions::alpha_discard(pbr_bindings::material, output_color);
     }
 
+    /// User clipping, everyting below the plane gets discarded if the length of 
+    /// the normal vector of the plane is non-zero
+    if dot(in.world_position.xyz, view.user_clip.xyz) < view.user_clip.w {
+        discard;
+    }
+
     // fog
     if (fog.mode != FOG_MODE_OFF && (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
         output_color = pbr_functions::apply_fog(fog, output_color, in.world_position.xyz, view.world_position.xyz);
@@ -165,5 +171,6 @@ fn fragment(
 #ifdef PREMULTIPLY_ALPHA
     output_color = pbr_functions::premultiply_alpha(pbr_bindings::material.flags, output_color);
 #endif
+
     return output_color;
 }

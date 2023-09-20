@@ -20,4 +20,5 @@ struct View {
     viewport: vec4<f32>,
     color_grading: ColorGrading,
     mip_bias: f32,
+    user_clip : vec4<f32>,
 };

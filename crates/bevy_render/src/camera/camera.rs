@@ -19,7 +19,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_log::warn;
-use bevy_math::{vec2, Mat4, Ray, Rect, URect, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{vec2, Mat4, Ray, Rect, URect, UVec2, UVec4, Vec2, Vec3, Vec4};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
@@ -113,6 +113,14 @@ pub struct Camera {
     /// "write their results on top" of previous camera results, and include them as a part of their render results. This is enabled by default to ensure
     /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.
     pub msaa_writeback: bool,
+
+    /// User defined clipping plane, this is usefull for makeing reflections, ie mirrors or water.
+    /// When enabled, every fragment under the plane with the normal xyz placed at a distance w form the
+    /// origing, is discarded. Note that there is very little performance to gain here, as the discard happens in the
+    /// fragment stage.
+    ///
+    /// This is disabled by default.
+    pub user_clip: Option<Vec4>,
 }
 
 impl Default for Camera {
@@ -126,6 +134,7 @@ impl Default for Camera {
             output_mode: Default::default(),
             hdr: false,
             msaa_writeback: true,
+            user_clip: None,
         }
     }
 }
@@ -709,6 +718,7 @@ pub fn extract_cameras(
                         viewport_size.y,
                     ),
                     color_grading,
+                    user_clip: camera.user_clip,
                 },
                 visible_entities.clone(),
             ));
