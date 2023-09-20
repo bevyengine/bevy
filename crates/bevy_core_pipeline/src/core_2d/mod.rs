@@ -106,7 +106,7 @@ impl PhaseItem for Transparent2d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        items.sort_by_key(|item| item.sort_key());
+        radsort::sort_by_key(items, |item| item.sort_key().0);
     }
 
     #[inline]
