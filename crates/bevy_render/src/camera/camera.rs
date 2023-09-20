@@ -114,9 +114,9 @@ pub struct Camera {
     /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.
     pub msaa_writeback: bool,
 
-    /// User defined clipping plane, this is usefull for makeing reflections, ie mirrors or water.
-    /// When enabled, every fragment under the plane with the normal xyz placed at a distance w form the
-    /// origing, is discarded. Note that there is very little performance to gain here, as the discard happens in the
+    /// User defined clipping plane, this is useful for making reflections, e.g. mirrors or water.
+    /// When enabled, every fragment under the plane with the normal xyz placed at a distance w from the
+    /// origin is discarded. Note that there is very little performance to gain here, as the discard happens in the
     /// fragment stage.
     ///
     /// This is disabled by default.
