@@ -1212,8 +1212,8 @@ pub fn prepare_mesh_view_bind_groups(
     ) {
         for (
             entity,
-            view_shadow_bindings,
-            view_cluster_bindings,
+            shadow_bindings,
+            cluster_bindings,
             ssao_textures,
             prepass_textures,
             environment_map,
@@ -1224,6 +1224,9 @@ pub fn prepare_mesh_view_bind_groups(
                 .image_for_samplecount(1)
                 .texture_view
                 .clone();
+            let ssao_view = ssao_textures
+                .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
+                .unwrap_or(&fallback_ssao);
 
             let layout = if msaa.samples() > 1 {
                 &mesh_pipeline.view_layout_multisampled
@@ -1231,49 +1234,45 @@ pub fn prepare_mesh_view_bind_groups(
                 &mesh_pipeline.view_layout
             };
 
-            let mut entries = DynamicBindGroupEntries::sequential((
-                // 0
-                view_binding.clone(),
-                light_binding.clone(),
-                &view_shadow_bindings.point_light_depth_texture_view,
-                &shadow_samplers.point_light_sampler,
-                &view_shadow_bindings.directional_light_depth_texture_view,
-                // 5
-                &shadow_samplers.directional_light_sampler,
-                point_light_binding.clone(),
-                view_cluster_bindings.light_index_lists_binding().unwrap(),
-                view_cluster_bindings.offsets_and_counts_binding().unwrap(),
-                globals.clone(),
-                // 10
-                fog_binding.clone(),
-                ssao_textures
-                    .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
-                    .unwrap_or(&fallback_ssao),
+            let mut entries = DynamicBindGroupEntries::new_with_indices((
+                (0, view_binding.clone()),
+                (1, light_binding.clone()),
+                (2, &shadow_bindings.point_light_depth_texture_view),
+                (3, &shadow_samplers.point_light_sampler),
+                (4, &shadow_bindings.directional_light_depth_texture_view),
+                (5, &shadow_samplers.directional_light_sampler),
+                (6, point_light_binding.clone()),
+                (7, cluster_bindings.light_index_lists_binding().unwrap()),
+                (8, cluster_bindings.offsets_and_counts_binding().unwrap()),
+                (9, globals.clone()),
+                (10, fog_binding.clone()),
+                (11, ssao_view),
             ));
 
-            // 12 - 14
-            entries = entries.extend_sequential(environment_map::get_bindings(
-                environment_map,
-                &images,
-                &fallback_cubemap,
+            let env_map_bindings =
+                environment_map::get_bindings(environment_map, &images, &fallback_cubemap);
+            entries = entries.extend_with_indices((
+                (12, env_map_bindings.0),
+                (13, env_map_bindings.1),
+                (14, env_map_bindings.2),
             ));
 
-            // 15 - 16
-            entries = entries.extend_sequential(get_lut_bindings(
-                &images,
-                &tonemapping_luts,
-                tonemapping,
-            ));
+            let lut_bindings = get_lut_bindings(&images, &tonemapping_luts, tonemapping);
+            entries = entries.extend_with_indices(((15, lut_bindings.0), (16, lut_bindings.1)));
 
             // When using WebGL, we can't have a depth texture with multisampling
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1
             {
-                // 17 - 19
-                entries = entries.extend_sequential(prepass::get_bindings(
+                let prepass_bindings = prepass::get_bindings(
                     prepass_textures,
                     &mut fallback_images,
                     &mut fallback_depths,
                     &msaa,
+                );
+                entries = entries.extend_with_indices((
+                    (17, prepass_bindings.0),
+                    (18, prepass_bindings.1),
+                    (19, prepass_bindings.2),
                 ));
             }
 
