@@ -158,7 +158,7 @@ impl FontAtlasSet {
         self.font_atlases.len()
     }
 
-    /// Returns `true` if the font atlas set contains no elements.
+    /// Returns `true` if the font atlas set contains no elements
     pub fn is_empty(&self) -> bool {
         self.font_atlases.is_empty()
     }
