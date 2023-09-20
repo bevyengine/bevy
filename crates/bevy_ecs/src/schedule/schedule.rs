@@ -1551,8 +1551,8 @@ impl ScheduleGraph {
                 let message = self.get_conflicts_error_message(conflicts, components);
                 Err(ScheduleBuildError::Ambiguity(message))
             }
-            AmbiguityDetection::Resolve => {
-                self.resolve_conflicts(dependency_flattened_dag, conflicts)?;
+            AmbiguityDetection::Resolve(resolve_by) => {
+                self.resolve_conflicts(dependency_flattened_dag, conflicts, resolve_by)?;
                 Ok(())
             }
         }
@@ -1563,12 +1563,17 @@ impl ScheduleGraph {
         &self,
         dependency_flattened_dag: &mut Dag,
         conflicts: &[(NodeId, NodeId, Vec<ComponentId>)],
+        resolve_by: ResolveBy,
     ) -> Result<(), ScheduleBuildError> {
         for (a, b, _) in conflicts {
-            if a.index() < b.index() {
-                dependency_flattened_dag.graph.add_edge(*a, *b, ());
-            } else {
-                dependency_flattened_dag.graph.add_edge(*b, *a, ());
+            // a and b cannot be equal
+            match (a.index() < b.index(), resolve_by) {
+                (true, ResolveBy::InsertionOrder) | (false, ResolveBy::ReverseInsertionOrder) => {
+                    dependency_flattened_dag.graph.add_edge(*a, *b, ());
+                }
+                (false, ResolveBy::InsertionOrder) | (true, ResolveBy::ReverseInsertionOrder) => {
+                    dependency_flattened_dag.graph.add_edge(*b, *a, ());
+                }
             }
         }
 
@@ -1691,7 +1696,7 @@ pub enum ScheduleBuildError {
 }
 
 /// Specifies how schedule construction should respond to detecting a certain kind of issue.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LogLevel {
     /// Occurrences are completely ignored.
     Ignore,
@@ -1702,7 +1707,7 @@ pub enum LogLevel {
 }
 
 /// Specifies how schedule construction should respond to ambiguities in the schedule.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum AmbiguityDetection {
     /// Occurrences are completely ignored.
     Ignore,
@@ -1711,7 +1716,19 @@ pub enum AmbiguityDetection {
     /// Occurrences are logged and result in errors.
     Error,
     /// Automatically resolve ambiguities. Systems that are scheduled earlier
-    Resolve,
+    Resolve(ResolveBy),
+}
+
+/// When [`AmbiguityDetection::Resolve`] is chosen, this specifies the resolution method
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ResolveBy {
+    /// systems that are added to the schedule earlier are run first
+    InsertionOrder,
+    /// Systems that are added to the schedule later are run first.
+    ///
+    /// Usually you should use `InsertionOrder`, but if you suspect bugs from
+    /// ordering ambiguities. Using this option may help diagnose things.
+    ReverseInsertionOrder,
 }
 
 /// Specifies miscellaneous settings for schedule construction.
@@ -1749,7 +1766,7 @@ impl ScheduleBuildSettings {
     /// See the field-level documentation for the default value of each field.
     pub const fn new() -> Self {
         Self {
-            ambiguity_detection: AmbiguityDetection::Resolve,
+            ambiguity_detection: AmbiguityDetection::Resolve(ResolveBy::InsertionOrder),
             hierarchy_detection: LogLevel::Warn,
             use_shortnames: true,
             report_sets: true,
@@ -1762,7 +1779,7 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         schedule::{
-            AmbiguityDetection, IntoSystemConfigs, IntoSystemSetConfigs, Schedule,
+            AmbiguityDetection, IntoSystemConfigs, IntoSystemSetConfigs, ResolveBy, Schedule,
             ScheduleBuildSettings, SystemSet,
         },
         system::{ResMut, Resource},
@@ -1800,7 +1817,7 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
         schedule.set_build_settings(ScheduleBuildSettings {
-            ambiguity_detection: AmbiguityDetection::Resolve,
+            ambiguity_detection: AmbiguityDetection::Resolve(ResolveBy::InsertionOrder),
             ..Default::default()
         });
 
