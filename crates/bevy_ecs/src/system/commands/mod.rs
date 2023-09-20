@@ -671,6 +671,8 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///
     /// The command will panic when applied if the associated entity does not exist.
     ///
+    /// To avoid a panic in this case, use the command [`Self::try_insert`] instead.
+    ///
     /// # Example
     ///
     /// ```
@@ -726,7 +728,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///
     /// # Note
     ///
-    /// The command will not panic if the associated entity does not exist.
+    /// Unlike [`Self::insert`], this will not panic if the associated entity does not exist.
     ///
     /// # Example
     ///
@@ -748,17 +750,22 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// }
     ///
     /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///   commands.entity(player.entity)
+    ///   // You can try_insert individual components:
+    ///   .try_insert(Defense(10))
     ///     
-    ///         commands.entity(player.entity)
-    ///         // You can try_insert individual components:
-    ///         .try_insert(Defense(10))
-    ///     
-    ///         // You can also insert tuples of components:
-    ///         .try_insert(CombatBundle {
-    ///             health: Health(100),
-    ///             strength: Strength(40),
-    ///         });
-    ///     
+    ///   // You can also insert tuples of components:
+    ///   .try_insert(CombatBundle {
+    ///       health: Health(100),
+    ///       strength: Strength(40),
+    ///    });
+    ///    
+    ///    // Suppose this happens in a parallel adjacent system or process
+    ///    commands.entity(player.entity).despawn();
+    ///
+    ///    commands.entity(player.entity)
+    ///    // This will not panic nor will it add the component
+    ///    .try_insert(Offense(5))
     /// }
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
@@ -1022,8 +1029,6 @@ where
     fn apply(self, world: &mut World) {
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
             entity.insert(self.bundle);
-        } else {
-            info!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), self.entity);
         }
     }
 }
