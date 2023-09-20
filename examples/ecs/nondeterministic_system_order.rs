@@ -13,7 +13,7 @@
 //! This example demonstrates how you might detect and resolve (or silence) these ambiguities.
 
 use bevy::{
-    ecs::schedule::{LogLevel, ScheduleBuildSettings},
+    ecs::schedule::{AmbiguityDetection, ScheduleBuildSettings},
     prelude::*,
 };
 
@@ -22,7 +22,7 @@ fn main() {
         // We can modify the reporting strategy for system execution order ambiguities on a per-schedule basis
         .edit_schedule(Main, |schedule| {
             schedule.set_build_settings(ScheduleBuildSettings {
-                ambiguity_detection: LogLevel::Warn,
+                ambiguity_detection: AmbiguityDetection::Warn,
                 ..default()
             });
         })

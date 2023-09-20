@@ -707,7 +707,7 @@ mod tests {
             let mut schedule = Schedule::default();
 
             schedule.set_build_settings(ScheduleBuildSettings {
-                ambiguity_detection: LogLevel::Error,
+                ambiguity_detection: AmbiguityDetection::Error,
                 ..Default::default()
             });
 

@@ -921,8 +921,15 @@ impl ScheduleGraph {
         // check for conflicts
         let conflicting_systems =
             self.get_conflicting_systems(&flat_results.disconnected, &ambiguous_with_flattened);
-        self.optionally_check_conflicts(&conflicting_systems, components, schedule_label)?;
+        self.check_conflicts(
+            &conflicting_systems,
+            components,
+            schedule_label,
+            &mut dependency_flattened_dag,
+        )?;
         self.conflicting_systems = conflicting_systems;
+
+        // TODO: should probably remove redundant edges again here
 
         // build the schedule
         Ok(self.build_schedule_inner(dependency_flattened_dag, hier_results.reachable))
@@ -1522,25 +1529,52 @@ impl ScheduleGraph {
     }
 
     /// if [`ScheduleBuildSettings::ambiguity_detection`] is [`LogLevel::Ignore`], this check is skipped
-    fn optionally_check_conflicts(
+    fn check_conflicts(
         &self,
         conflicts: &[(NodeId, NodeId, Vec<ComponentId>)],
         components: &Components,
         schedule_label: &BoxedScheduleLabel,
+        dependency_flattened_dag: &mut Dag,
     ) -> Result<(), ScheduleBuildError> {
-        if self.settings.ambiguity_detection == LogLevel::Ignore || conflicts.is_empty() {
+        if self.settings.ambiguity_detection == AmbiguityDetection::Ignore || conflicts.is_empty() {
             return Ok(());
         }
 
-        let message = self.get_conflicts_error_message(conflicts, components);
         match self.settings.ambiguity_detection {
-            LogLevel::Ignore => Ok(()),
-            LogLevel::Warn => {
+            AmbiguityDetection::Ignore => Ok(()),
+            AmbiguityDetection::Warn => {
+                let message = self.get_conflicts_error_message(conflicts, components);
                 warn!("Schedule {schedule_label:?} has ambiguities.\n{}", message);
                 Ok(())
             }
-            LogLevel::Error => Err(ScheduleBuildError::Ambiguity(message)),
+            AmbiguityDetection::Error => {
+                let message = self.get_conflicts_error_message(conflicts, components);
+                Err(ScheduleBuildError::Ambiguity(message))
+            }
+            AmbiguityDetection::Resolve => {
+                self.resolve_conflicts(dependency_flattened_dag, conflicts)?;
+                Ok(())
+            }
         }
+    }
+
+    /// resolve any conflicts by modifying the Dag
+    fn resolve_conflicts(
+        &self,
+        dependency_flattened_dag: &mut Dag,
+        conflicts: &[(NodeId, NodeId, Vec<ComponentId>)],
+    ) -> Result<(), ScheduleBuildError> {
+        for (a, b, _) in conflicts {
+            if a.index() < b.index() {
+                dependency_flattened_dag.graph.add_edge(*a, *b, ());
+            } else {
+                dependency_flattened_dag.graph.add_edge(*b, *a, ());
+            }
+        }
+
+        dependency_flattened_dag.topsort =
+            self.topsort_graph(&dependency_flattened_dag.graph, ReportCycles::Dependency)?;
+        Ok(())
     }
 
     fn get_conflicts_error_message(
@@ -1667,6 +1701,19 @@ pub enum LogLevel {
     Error,
 }
 
+/// Specifies how schedule construction should respond to ambiguities in the schedule.
+#[derive(Debug, Clone, PartialEq)]
+pub enum AmbiguityDetection {
+    /// Occurrences are completely ignored.
+    Ignore,
+    /// Occurrences are logged only.
+    Warn,
+    /// Occurrences are logged and result in errors.
+    Error,
+    /// Automatically resolve ambiguities. Systems that are scheduled earlier
+    Resolve,
+}
+
 /// Specifies miscellaneous settings for schedule construction.
 #[derive(Clone, Debug)]
 pub struct ScheduleBuildSettings {
@@ -1674,7 +1721,7 @@ pub struct ScheduleBuildSettings {
     /// is only logged or also results in an [`Ambiguity`](ScheduleBuildError::Ambiguity) error.
     ///
     /// Defaults to [`LogLevel::Ignore`].
-    pub ambiguity_detection: LogLevel,
+    pub ambiguity_detection: AmbiguityDetection,
     /// Determines whether the presence of redundant edges in the hierarchy of system sets is only
     /// logged or also results in a [`HierarchyRedundancy`](ScheduleBuildError::HierarchyRedundancy)
     /// error.
@@ -1702,7 +1749,7 @@ impl ScheduleBuildSettings {
     /// See the field-level documentation for the default value of each field.
     pub const fn new() -> Self {
         Self {
-            ambiguity_detection: LogLevel::Ignore,
+            ambiguity_detection: AmbiguityDetection::Resolve,
             hierarchy_detection: LogLevel::Warn,
             use_shortnames: true,
             report_sets: true,
@@ -1714,7 +1761,11 @@ impl ScheduleBuildSettings {
 mod tests {
     use crate::{
         self as bevy_ecs,
-        schedule::{IntoSystemConfigs, IntoSystemSetConfigs, Schedule, SystemSet},
+        schedule::{
+            AmbiguityDetection, IntoSystemConfigs, IntoSystemSetConfigs, Schedule,
+            ScheduleBuildSettings, SystemSet,
+        },
+        system::{ResMut, Resource},
         world::World,
     };
 
@@ -1734,5 +1785,38 @@ mod tests {
                 .in_set(Set),
         );
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn resolve_conflicts() {
+        #[derive(Resource)]
+        struct R;
+
+        fn mutable_1(_: Option<ResMut<R>>) {}
+        fn mutable_2(_: Option<ResMut<R>>) {}
+        fn non_conflicting() {}
+
+        // mut-mut
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.set_build_settings(ScheduleBuildSettings {
+            ambiguity_detection: AmbiguityDetection::Resolve,
+            ..Default::default()
+        });
+
+        schedule.add_systems((mutable_1, non_conflicting.before(mutable_2), mutable_2));
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            &schedule.executable.systems[0].name(),
+            &"bevy_ecs::schedule::schedule::tests::resolve_conflicts::mutable_1"
+        );
+        assert_eq!(
+            &schedule.executable.systems[2].name(),
+            &"bevy_ecs::schedule::schedule::tests::resolve_conflicts::mutable_2"
+        );
+        // first system has second system as dependent
+        assert_eq!(schedule.executable.system_dependents[0][0], 2);
     }
 }
