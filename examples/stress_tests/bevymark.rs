@@ -225,7 +225,7 @@ fn setup(
                 padding: UiRect::all(Val::Px(5.0)),
                 ..default()
             },
-            z_index: ZIndex::Global(i32::MAX),
+            z_index: ZIndex(i32::MAX),
             background_color: Color::BLACK.with_a(0.75).into(),
             ..default()
         })
