@@ -661,9 +661,16 @@ pub fn prepare_previous_view_projection_uniforms(
         With<MotionVectorPrepass>,
     >,
 ) {
-    view_uniforms.uniforms.clear();
-
-    for (entity, camera, maybe_previous_view_proj) in &views {
+    let views_iter = views.iter();
+    let view_count = views_iter.len();
+    let Some(mut writer) =
+        view_uniforms
+            .uniforms
+            .get_writer(view_count, &render_device, &render_queue)
+    else {
+        return;
+    };
+    for (entity, camera, maybe_previous_view_proj) in views_iter {
         let view_projection = match maybe_previous_view_proj {
             Some(previous_view) => previous_view.clone(),
             None => PreviousViewProjection {
@@ -673,13 +680,9 @@ pub fn prepare_previous_view_projection_uniforms(
         commands
             .entity(entity)
             .insert(PreviousViewProjectionUniformOffset {
-                offset: view_uniforms.uniforms.push(view_projection),
+                offset: writer.write(&view_projection),
             });
     }
-
-    view_uniforms
-        .uniforms
-        .write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Default, Resource)]

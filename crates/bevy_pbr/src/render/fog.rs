@@ -52,9 +52,15 @@ pub fn prepare_fog(
     mut fog_meta: ResMut<FogMeta>,
     views: Query<(Entity, Option<&FogSettings>), With<ExtractedView>>,
 ) {
-    fog_meta.gpu_fogs.clear();
-
-    for (entity, fog) in &views {
+    let views_iter = views.iter();
+    let view_count = views_iter.len();
+    let Some(mut writer) = fog_meta
+        .gpu_fogs
+        .get_writer(view_count, &render_device, &render_queue)
+    else {
+        return;
+    };
+    for (entity, fog) in views_iter {
         let gpu_fog = if let Some(fog) = fog {
             match &fog.falloff {
                 FogFalloff::Linear { start, end } => GpuFog {
@@ -103,13 +109,9 @@ pub fn prepare_fog(
 
         // This is later read by `SetMeshViewBindGroup<I>`
         commands.entity(entity).insert(ViewFogUniformOffset {
-            offset: fog_meta.gpu_fogs.push(gpu_fog),
+            offset: writer.write(&gpu_fog),
         });
     }
-
-    fog_meta
-        .gpu_fogs
-        .write_buffer(&render_device, &render_queue);
 }
 
 /// Inserted on each `Entity` with an `ExtractedView` to keep track of its offset

@@ -667,7 +667,15 @@ pub fn prepare_lights(
     point_lights: Query<(Entity, &ExtractedPointLight)>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
 ) {
-    light_meta.view_gpu_lights.clear();
+    let views_iter = views.iter();
+    let views_count = views_iter.len();
+    let Some(mut view_gpu_lights_writer) =
+        light_meta
+            .view_gpu_lights
+            .get_writer(views_count, &render_device, &render_queue)
+    else {
+        return;
+    };
 
     // Pre-calculate for PointLights
     let cube_face_projection =
@@ -1198,14 +1206,10 @@ pub fn prepare_lights(
                 lights: view_lights,
             },
             ViewLightsUniformOffset {
-                offset: light_meta.view_gpu_lights.push(gpu_lights),
+                offset: view_gpu_lights_writer.write(&gpu_lights),
             },
         ));
     }
-
-    light_meta
-        .view_gpu_lights
-        .write_buffer(&render_device, &render_queue);
 }
 
 // this must match CLUSTER_COUNT_SIZE in pbr.wgsl
