@@ -55,7 +55,7 @@ pub fn ui_stack_system(
                 .collect();
             z_children.sort_by_key(|k| k.1);
             for (child_id, _) in z_children {
-                update_uistack_recursively(child_id, uinodes, node_query, zindex_query)
+                update_uistack_recursively(child_id, uinodes, node_query, zindex_query);
             }
         }
     }
