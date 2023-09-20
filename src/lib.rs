@@ -1,4 +1,5 @@
 #![allow(clippy::single_component_path_imports)]
+#![forbid(unsafe_op_in_unsafe_fn)]
 
 //! [![](https://bevyengine.org/assets/bevy_logo_docs.svg)](https://bevyengine.org)
 //!

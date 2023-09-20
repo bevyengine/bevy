@@ -194,7 +194,7 @@ unsafe impl<C: Component> Bundle for C {
         Self: Sized,
     {
         // Safety: The id given in `component_ids` is for `Self`
-        func(ctx).read()
+        unsafe { func(ctx).read() }
     }
 }
 
@@ -227,7 +227,10 @@ macro_rules! tuple_impl {
             {
                 // Rust guarantees that tuple calls are evaluated 'left to right'.
                 // https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands
-                ($(<$name as Bundle>::from_components(ctx, func),)*)
+                ($(
+                    // SAFETY: It is the caller's responsibility to uphold the invariants of `from_components`
+                    unsafe { <$name as Bundle>::from_components(ctx, func) },
+                )*)
             }
         }
 
@@ -459,7 +462,9 @@ impl BundleInfo {
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
         bundle.get_components(&mut |storage_type, component_ptr| {
-            let component_id = *self.component_ids.get_unchecked(bundle_component);
+            let component_id =
+                // SAFETY: It is the caller's responsibility to uphold the invariants of `get_unchecked`
+                unsafe { *self.component_ids.get_unchecked(bundle_component) };
             match storage_type {
                 StorageType::Table => {
                     let column =
@@ -467,12 +472,14 @@ impl BundleInfo {
                         // the target table contains the component.
                         unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
                     // SAFETY: bundle_component is a valid index for this bundle
-                    match bundle_component_status.get_status(bundle_component) {
-                        ComponentStatus::Added => {
-                            column.initialize(table_row, component_ptr, change_tick);
-                        }
-                        ComponentStatus::Mutated => {
-                            column.replace(table_row, component_ptr, change_tick);
+                    unsafe {
+                        match bundle_component_status.get_status(bundle_component) {
+                            ComponentStatus::Added => {
+                                column.initialize(table_row, component_ptr, change_tick);
+                            }
+                            ComponentStatus::Mutated => {
+                                column.replace(table_row, component_ptr, change_tick);
+                            }
                         }
                     }
                 }
@@ -481,7 +488,10 @@ impl BundleInfo {
                         // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
                         // a sparse set exists for the component.
                         unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
-                    sparse_set.insert(entity, component_ptr, change_tick);
+                    // SAFETY: bundle_component is a valid index for this bundle
+                    unsafe {
+                        sparse_set.insert(entity, component_ptr, change_tick);
+                    }
                 }
             }
             bundle_component += 1;
@@ -615,35 +625,44 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                         .get_add_bundle_internal(self.bundle_info.id)
                         .debug_checked_unwrap()
                 };
-                self.bundle_info.write_components(
-                    self.table,
-                    self.sparse_sets,
-                    add_bundle,
-                    entity,
-                    location.table_row,
-                    self.change_tick,
-                    bundle,
-                );
+                // SAFETY: It is the caller's responsiblilty to uphold the invariants of `write_components`
+                unsafe {
+                    self.bundle_info.write_components(
+                        self.table,
+                        self.sparse_sets,
+                        add_bundle,
+                        entity,
+                        location.table_row,
+                        self.change_tick,
+                        bundle,
+                    );
+                }
                 location
             }
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
                 let result = self.archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    let swapped_location =
-                        // SAFETY: If the swap was successful, swapped_entity must be valid.
-                        unsafe { self.entities.get(swapped_entity).debug_checked_unwrap() };
-                    self.entities.set(
-                        swapped_entity.index(),
-                        EntityLocation {
-                            archetype_id: swapped_location.archetype_id,
-                            archetype_row: location.archetype_row,
-                            table_id: swapped_location.table_id,
-                            table_row: swapped_location.table_row,
-                        },
-                    );
+                    // SAFETY: If the swap was successful, swapped_entity must be valid.
+                    unsafe {
+                        let swapped_location =
+                            self.entities.get(swapped_entity).debug_checked_unwrap();
+                        self.entities.set(
+                            swapped_entity.index(),
+                            EntityLocation {
+                                archetype_id: swapped_location.archetype_id,
+                                archetype_row: location.archetype_row,
+                                table_id: swapped_location.table_id,
+                                table_row: swapped_location.table_row,
+                            },
+                        );
+                    }
                 }
-                let new_location = new_archetype.allocate(entity, result.table_row);
-                self.entities.set(entity.index(), new_location);
+                // SAFETY: The allocation is immediately written to with a valid entity
+                let new_location = unsafe {
+                    let new_location = new_archetype.allocate(entity, result.table_row);
+                    self.entities.set(entity.index(), new_location);
+                    new_location
+                };
 
                 // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
                 // SAFETY: The edge is assured to be initialized when creating the BundleInserter
@@ -653,15 +672,18 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                         .get_add_bundle_internal(self.bundle_info.id)
                         .debug_checked_unwrap()
                 };
-                self.bundle_info.write_components(
-                    self.table,
-                    self.sparse_sets,
-                    add_bundle,
-                    entity,
-                    result.table_row,
-                    self.change_tick,
-                    bundle,
-                );
+                // SAFETY: The bundle component status is assured to be correct as from above.
+                unsafe {
+                    self.bundle_info.write_components(
+                        self.table,
+                        self.sparse_sets,
+                        add_bundle,
+                        entity,
+                        result.table_row,
+                        self.change_tick,
+                        bundle,
+                    );
+                }
                 new_location
             }
             InsertBundleResult::NewArchetypeNewTable {
@@ -670,26 +692,32 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
             } => {
                 let result = self.archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    let swapped_location =
-                        // SAFETY: If the swap was successful, swapped_entity must be valid.
-                        unsafe { self.entities.get(swapped_entity).debug_checked_unwrap() };
-                    self.entities.set(
-                        swapped_entity.index(),
-                        EntityLocation {
-                            archetype_id: swapped_location.archetype_id,
-                            archetype_row: location.archetype_row,
-                            table_id: swapped_location.table_id,
-                            table_row: swapped_location.table_row,
-                        },
-                    );
+                    // SAFETY: If the swap was successful, swapped_entity must be valid.
+                    unsafe {
+                        let swapped_location =
+                            self.entities.get(swapped_entity).debug_checked_unwrap();
+                        self.entities.set(
+                            swapped_entity.index(),
+                            EntityLocation {
+                                archetype_id: swapped_location.archetype_id,
+                                archetype_row: location.archetype_row,
+                                table_id: swapped_location.table_id,
+                                table_row: swapped_location.table_row,
+                            },
+                        );
+                    }
                 }
                 // PERF: store "non bundle" components in edge, then just move those to avoid
                 // redundant copies
-                let move_result = self
-                    .table
-                    .move_to_superset_unchecked(result.table_row, new_table);
-                let new_location = new_archetype.allocate(entity, move_result.new_row);
-                self.entities.set(entity.index(), new_location);
+                // SAFETY: Allocation is immediately initialized.
+                let (move_result, new_location) = unsafe {
+                    let move_result = self
+                        .table
+                        .move_to_superset_unchecked(result.table_row, new_table);
+                    let new_location = new_archetype.allocate(entity, move_result.new_row);
+                    self.entities.set(entity.index(), new_location);
+                    (move_result, new_location)
+                };
 
                 // if an entity was moved into this entity's table spot, update its table row
                 if let Some(swapped_entity) = move_result.swapped_entity {
@@ -703,20 +731,25 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                         new_archetype
                     } else {
                         // SAFETY: the only two borrowed archetypes are above and we just did collision checks
-                        &mut *self
-                            .archetypes_ptr
-                            .add(swapped_location.archetype_id.index())
+                        unsafe {
+                            &mut *self
+                                .archetypes_ptr
+                                .add(swapped_location.archetype_id.index())
+                        }
                     };
 
-                    self.entities.set(
-                        swapped_entity.index(),
-                        EntityLocation {
-                            archetype_id: swapped_location.archetype_id,
-                            archetype_row: swapped_location.archetype_row,
-                            table_id: swapped_location.table_id,
-                            table_row: result.table_row,
-                        },
-                    );
+                    // SAFETY: The above ensures the entity and location are valid
+                    unsafe {
+                        self.entities.set(
+                            swapped_entity.index(),
+                            EntityLocation {
+                                archetype_id: swapped_location.archetype_id,
+                                archetype_row: swapped_location.archetype_row,
+                                table_id: swapped_location.table_id,
+                                table_row: result.table_row,
+                            },
+                        );
+                    }
                     swapped_archetype
                         .set_entity_table_row(swapped_location.archetype_row, result.table_row);
                 }
@@ -729,15 +762,18 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                         .get_add_bundle_internal(self.bundle_info.id)
                         .debug_checked_unwrap()
                 };
-                self.bundle_info.write_components(
-                    new_table,
-                    self.sparse_sets,
-                    add_bundle,
-                    entity,
-                    move_result.new_row,
-                    self.change_tick,
-                    bundle,
-                );
+                // SAFETY: The above ensures bundle_component_status is correct.
+                unsafe {
+                    self.bundle_info.write_components(
+                        new_table,
+                        self.sparse_sets,
+                        add_bundle,
+                        entity,
+                        move_result.new_row,
+                        self.change_tick,
+                        bundle,
+                    );
+                }
                 new_location
             }
         }
@@ -766,20 +802,23 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
         entity: Entity,
         bundle: T,
     ) -> EntityLocation {
-        let table_row = self.table.allocate(entity);
-        let location = self.archetype.allocate(entity, table_row);
-        self.bundle_info.write_components(
-            self.table,
-            self.sparse_sets,
-            &SpawnBundleStatus,
-            entity,
-            table_row,
-            self.change_tick,
-            bundle,
-        );
-        self.entities.set(entity.index(), location);
-
-        location
+        // SAFETY: It is the caller's responsibility to ensure that entity is allocated,
+        // non-existent, and that T matches this type.
+        unsafe {
+            let table_row = self.table.allocate(entity);
+            let location = self.archetype.allocate(entity, table_row);
+            self.bundle_info.write_components(
+                self.table,
+                self.sparse_sets,
+                &SpawnBundleStatus,
+                entity,
+                table_row,
+                self.change_tick,
+                bundle,
+            );
+            self.entities.set(entity.index(), location);
+            location
+        }
     }
 
     /// # Safety
@@ -788,7 +827,9 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
     pub unsafe fn spawn<T: Bundle>(&mut self, bundle: T) -> Entity {
         let entity = self.entities.alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
-        self.spawn_non_existent(entity, bundle);
+        unsafe {
+            self.spawn_non_existent(entity, bundle);
+        }
         entity
     }
 }

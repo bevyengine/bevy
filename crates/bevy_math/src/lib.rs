@@ -6,6 +6,7 @@
 
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
+#![forbid(unsafe_op_in_unsafe_fn)]
 
 mod affine3;
 pub mod cubic_splines;

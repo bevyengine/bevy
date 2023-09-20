@@ -1,6 +1,7 @@
 #![warn(missing_docs)]
 #![allow(clippy::type_complexity)]
 #![doc = include_str!("../README.md")]
+#![forbid(unsafe_op_in_unsafe_fn)]
 
 mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};

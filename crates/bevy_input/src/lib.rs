@@ -1,5 +1,6 @@
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
+#![forbid(unsafe_op_in_unsafe_fn)]
 
 //! Input functionality for the [Bevy game engine](https://bevyengine.org/).
 //!

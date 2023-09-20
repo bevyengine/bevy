@@ -658,8 +658,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The caller ensures that this operation will not result in any aliased mutable accesses.
-        self.state
-            .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+        unsafe {
+            self.state
+                .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+        }
     }
 
     /// Iterates over all possible combinations of `K` query items without repetition.
@@ -679,8 +681,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The caller ensures that this operation will not result in any aliased mutable accesses.
-        self.state
-            .iter_combinations_unchecked_manual(self.world, self.last_run, self.this_run)
+        unsafe {
+            self.state
+                .iter_combinations_unchecked_manual(self.world, self.last_run, self.this_run)
+        }
     }
 
     /// Returns an [`Iterator`] over the query items generated from an [`Entity`] list.
@@ -704,8 +708,14 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The caller ensures that this operation will not result in any aliased mutable accesses.
-        self.state
-            .iter_many_unchecked_manual(entities, self.world, self.last_run, self.this_run)
+        unsafe {
+            self.state.iter_many_unchecked_manual(
+                entities,
+                self.world,
+                self.last_run,
+                self.this_run,
+            )
+        }
     }
 
     /// Runs `f` on each read-only query item.
@@ -1064,8 +1074,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub unsafe fn get_unchecked(&self, entity: Entity) -> Result<Q::Item<'_>, QueryEntityError> {
         // SEMI-SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
-        self.state
-            .get_unchecked_manual(self.world, entity, self.last_run, self.this_run)
+        unsafe {
+            self.state
+                .get_unchecked_manual(self.world, entity, self.last_run, self.this_run)
+        }
     }
 
     /// Returns a shared reference to the component `T` of the given [`Entity`].

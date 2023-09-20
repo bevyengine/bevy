@@ -1,4 +1,5 @@
 #![allow(clippy::type_complexity)]
+#![forbid(unsafe_op_in_unsafe_fn)]
 
 mod bundle;
 mod dynamic_texture_atlas_builder;

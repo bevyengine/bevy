@@ -141,9 +141,12 @@ impl Column {
     #[inline]
     pub(crate) unsafe fn initialize(&mut self, row: TableRow, data: OwningPtr<'_>, tick: Tick) {
         debug_assert!(row.index() < self.len());
-        self.data.initialize_unchecked(row.index(), data);
-        *self.added_ticks.get_unchecked_mut(row.index()).get_mut() = tick;
-        *self.changed_ticks.get_unchecked_mut(row.index()).get_mut() = tick;
+        // SAFETY: It is the caller's responsibility to ensure this row is properly allocated
+        unsafe {
+            self.data.initialize_unchecked(row.index(), data);
+            *self.added_ticks.get_unchecked_mut(row.index()).get_mut() = tick;
+            *self.changed_ticks.get_unchecked_mut(row.index()).get_mut() = tick;
+        }
     }
 
     /// Writes component data to the column at given row.
@@ -154,8 +157,11 @@ impl Column {
     #[inline]
     pub(crate) unsafe fn replace(&mut self, row: TableRow, data: OwningPtr<'_>, change_tick: Tick) {
         debug_assert!(row.index() < self.len());
-        self.data.replace_unchecked(row.index(), data);
-        *self.changed_ticks.get_unchecked_mut(row.index()).get_mut() = change_tick;
+        // SAFETY: It is the caller's responsibility to ensure this row is properly allocated
+        unsafe {
+            self.data.replace_unchecked(row.index(), data);
+            *self.changed_ticks.get_unchecked_mut(row.index()).get_mut() = change_tick;
+        }
     }
 
     /// Writes component data to the column at given row.
@@ -167,7 +173,10 @@ impl Column {
     #[inline]
     pub(crate) unsafe fn replace_untracked(&mut self, row: TableRow, data: OwningPtr<'_>) {
         debug_assert!(row.index() < self.len());
-        self.data.replace_unchecked(row.index(), data);
+        // SAFETY: It is the caller's responsibility to ensure this row is properly allocated
+        unsafe {
+            self.data.replace_unchecked(row.index(), data);
+        }
     }
 
     /// Gets the current number of elements stored in the column.
@@ -195,7 +204,10 @@ impl Column {
     /// [`Drop`]: std::ops::Drop
     #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) {
-        self.data.swap_remove_and_drop_unchecked(row.index());
+        // SAFETY: It is the caller's responsibilty to ensure the row is valid
+        unsafe {
+            self.data.swap_remove_and_drop_unchecked(row.index());
+        }
         self.added_ticks.swap_remove(row.index());
         self.changed_ticks.swap_remove(row.index());
     }
@@ -243,7 +255,8 @@ impl Column {
         &mut self,
         row: TableRow,
     ) -> (OwningPtr<'_>, ComponentTicks) {
-        let data = self.data.swap_remove_and_forget_unchecked(row.index());
+        // SAFETY: It is the caller's responsibilty to ensure the row is valid
+        let data = unsafe { self.data.swap_remove_and_forget_unchecked(row.index()) };
         let added = self.added_ticks.swap_remove(row.index()).into_inner();
         let changed = self.changed_ticks.swap_remove(row.index()).into_inner();
         (data, ComponentTicks { added, changed })
@@ -268,12 +281,15 @@ impl Column {
         dst_row: TableRow,
     ) {
         debug_assert!(self.data.layout() == other.data.layout());
-        let ptr = self.data.get_unchecked_mut(dst_row.index());
-        other.data.swap_remove_unchecked(src_row.index(), ptr);
-        *self.added_ticks.get_unchecked_mut(dst_row.index()) =
-            other.added_ticks.swap_remove(src_row.index());
-        *self.changed_ticks.get_unchecked_mut(dst_row.index()) =
-            other.changed_ticks.swap_remove(src_row.index());
+        // SAFETY: See [`# Safety`]
+        unsafe {
+            let ptr = self.data.get_unchecked_mut(dst_row.index());
+            other.data.swap_remove_unchecked(src_row.index(), ptr);
+            *self.added_ticks.get_unchecked_mut(dst_row.index()) =
+                other.added_ticks.swap_remove(src_row.index());
+            *self.changed_ticks.get_unchecked_mut(dst_row.index()) =
+                other.changed_ticks.swap_remove(src_row.index());
+        }
     }
 
     /// Pushes a new value onto the end of the [`Column`].
@@ -281,7 +297,10 @@ impl Column {
     /// # Safety
     /// `ptr` must point to valid data of this column's component type
     pub(crate) unsafe fn push(&mut self, ptr: OwningPtr<'_>, ticks: ComponentTicks) {
-        self.data.push(ptr);
+        // SAFETY: It is the caller's responsibility to ensure the pointer is valid.
+        unsafe {
+            self.data.push(ptr);
+        }
         self.added_ticks.push(UnsafeCell::new(ticks.added));
         self.changed_ticks.push(UnsafeCell::new(ticks.changed));
     }
@@ -314,7 +333,8 @@ impl Column {
     ///
     /// [`UnsafeCell`]: std::cell::UnsafeCell
     pub unsafe fn get_data_slice<T>(&self) -> &[UnsafeCell<T>] {
-        self.data.get_slice()
+        // SAFETY: It is the caller's responsibility to ensure T is an appropriate type
+        unsafe { self.data.get_slice() }
     }
 
     /// Fetches the slice to the [`Column`]'s "added" change detection ticks.
@@ -379,7 +399,8 @@ impl Column {
     #[inline]
     pub unsafe fn get_data_unchecked(&self, row: TableRow) -> Ptr<'_> {
         debug_assert!(row.index() < self.data.len());
-        self.data.get_unchecked(row.index())
+        // SAFETY: It is the caller's responsibility to ensure row is valid an uniquely accessed
+        unsafe { self.data.get_unchecked(row.index()) }
     }
 
     /// Fetches a mutable reference to the data at `row`.
@@ -401,7 +422,8 @@ impl Column {
     #[inline]
     pub(crate) unsafe fn get_data_unchecked_mut(&mut self, row: TableRow) -> PtrMut<'_> {
         debug_assert!(row.index() < self.data.len());
-        self.data.get_unchecked_mut(row.index())
+        // SAFETY: The caller ensures the index is in bounds and no other references exist
+        unsafe { self.data.get_unchecked_mut(row.index()) }
     }
 
     /// Fetches the "added" change detection tick for the value at `row`.
@@ -453,7 +475,8 @@ impl Column {
     #[inline]
     pub unsafe fn get_added_tick_unchecked(&self, row: TableRow) -> &UnsafeCell<Tick> {
         debug_assert!(row.index() < self.added_ticks.len());
-        self.added_ticks.get_unchecked(row.index())
+        // SAFETY: The caller ensures row is valid
+        unsafe { self.added_ticks.get_unchecked(row.index()) }
     }
 
     /// Fetches the "changed" change detection tick for the value at `row`. Unlike [`Column::get_changed_tick`]
@@ -464,7 +487,8 @@ impl Column {
     #[inline]
     pub unsafe fn get_changed_tick_unchecked(&self, row: TableRow) -> &UnsafeCell<Tick> {
         debug_assert!(row.index() < self.changed_ticks.len());
-        self.changed_ticks.get_unchecked(row.index())
+        // SAFETY: The caller ensures row is valid
+        unsafe { self.changed_ticks.get_unchecked(row.index()) }
     }
 
     /// Fetches the change detection ticks for the value at `row`. Unlike [`Column::get_ticks`]
@@ -476,9 +500,12 @@ impl Column {
     pub unsafe fn get_ticks_unchecked(&self, row: TableRow) -> ComponentTicks {
         debug_assert!(row.index() < self.added_ticks.len());
         debug_assert!(row.index() < self.changed_ticks.len());
-        ComponentTicks {
-            added: self.added_ticks.get_unchecked(row.index()).read(),
-            changed: self.changed_ticks.get_unchecked(row.index()).read(),
+        // SAFETY: The caller ensures row is valid
+        unsafe {
+            ComponentTicks {
+                added: self.added_ticks.get_unchecked(row.index()).read(),
+                changed: self.changed_ticks.get_unchecked(row.index()).read(),
+            }
         }
     }
 
@@ -572,7 +599,10 @@ impl Table {
     /// `row` must be in-bounds
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) -> Option<Entity> {
         for column in self.columns.values_mut() {
-            column.swap_remove_unchecked(row);
+            // SAFETY: The caller ensures row is valid
+            unsafe {
+                column.swap_remove_unchecked(row);
+            }
         }
         let is_last = row.index() == self.entities.len() - 1;
         self.entities.swap_remove(row.index());
@@ -598,13 +628,19 @@ impl Table {
     ) -> TableMoveResult {
         debug_assert!(row.index() < self.entity_count());
         let is_last = row.index() == self.entities.len() - 1;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.index()));
+        // SAFETY: The caller ensures the row is valid
+        let new_row = unsafe { new_table.allocate(self.entities.swap_remove(row.index())) };
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
-                new_column.initialize_from_unchecked(column, row, new_row);
+                // SAFETY: The location is valid for this row and colum
+                unsafe {
+                    new_column.initialize_from_unchecked(column, row, new_row);
+                }
             } else {
-                // It's the caller's responsibility to drop these cases.
-                let (_, _) = column.swap_remove_and_forget_unchecked(row);
+                // SAFETY: It's the caller's responsibility to drop these cases.
+                unsafe {
+                    let (_, _) = column.swap_remove_and_forget_unchecked(row);
+                }
             }
         }
         TableMoveResult {
@@ -630,12 +666,17 @@ impl Table {
     ) -> TableMoveResult {
         debug_assert!(row.index() < self.entity_count());
         let is_last = row.index() == self.entities.len() - 1;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.index()));
+        // SAFETY: The caller ensures the row is valid
+        let new_row = unsafe { new_table.allocate(self.entities.swap_remove(row.index())) };
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
-                new_column.initialize_from_unchecked(column, row, new_row);
+                // SAFETY: The location is valid for this row and colum
+                unsafe {
+                    new_column.initialize_from_unchecked(column, row, new_row);
+                }
             } else {
-                column.swap_remove_unchecked(row);
+                // SAFETY: The caller ensures the row is valid
+                unsafe { column.swap_remove_unchecked(row) };
             }
         }
         TableMoveResult {
@@ -661,12 +702,16 @@ impl Table {
     ) -> TableMoveResult {
         debug_assert!(row.index() < self.entity_count());
         let is_last = row.index() == self.entities.len() - 1;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.index()));
+        // SAFETY: The caller ensures the row is valid
+        let new_row = unsafe { new_table.allocate(self.entities.swap_remove(row.index())) };
         for (component_id, column) in self.columns.iter_mut() {
-            new_table
-                .get_column_mut(*component_id)
-                .debug_checked_unwrap()
-                .initialize_from_unchecked(column, row, new_row);
+            // SAFETY: The location is valid for this row and colum
+            unsafe {
+                new_table
+                    .get_column_mut(*component_id)
+                    .debug_checked_unwrap()
+                    .initialize_from_unchecked(column, row, new_row);
+            }
         }
         TableMoveResult {
             new_row,
@@ -733,7 +778,10 @@ impl Table {
         let index = self.entities.len();
         self.entities.push(entity);
         for column in self.columns.values_mut() {
-            column.data.set_len(self.entities.len());
+            // SAFETY: The caller ensures they will initialize this memory
+            unsafe {
+                column.data.set_len(self.entities.len());
+            }
             column.added_ticks.push(UnsafeCell::new(Tick::new(0)));
             column.changed_ticks.push(UnsafeCell::new(Tick::new(0)));
         }
@@ -865,7 +913,10 @@ impl Tables {
             .or_insert_with(|| {
                 let mut table = TableBuilder::with_capacity(0, component_ids.len());
                 for component_id in component_ids {
-                    table.add_column(components.get_info_unchecked(*component_id));
+                    table.add_column(
+                        // SAFETY: The caller ensures the component ID is valid
+                        unsafe { components.get_info_unchecked(*component_id) },
+                    );
                 }
                 tables.push(table.build());
                 (component_ids.to_vec(), TableId::new(tables.len() - 1))

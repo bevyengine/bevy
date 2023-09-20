@@ -91,7 +91,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     >(
         &self,
     ) -> &QueryState<NewQ, NewF> {
-        &*(self as *const QueryState<Q, F> as *const QueryState<NewQ, NewF>)
+        // SAFETY: See [`# Safety`]
+        unsafe { &*(self as *const QueryState<Q, F> as *const QueryState<NewQ, NewF>) }
     }
 }
 
@@ -458,7 +459,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         entity: Entity,
     ) -> Result<Q::Item<'w>, QueryEntityError> {
         self.update_archetypes_unsafe_world_cell(world);
-        self.get_unchecked_manual(world, entity, world.last_change_tick(), world.change_tick())
+        // SAFETY: It is the caller's responsibility to uphold the invariants of `get_unchecked_manual`
+        unsafe {
+            self.get_unchecked_manual(world, entity, world.last_change_tick(), world.change_tick())
+        }
     }
 
     /// Gets the query result for the given [`World`] and [`Entity`], where the last change and
@@ -488,25 +492,29 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         {
             return Err(QueryEntityError::QueryDoesNotMatch(entity));
         }
-        let archetype = world
-            .archetypes()
-            .get(location.archetype_id)
-            .debug_checked_unwrap();
-        let mut fetch = Q::init_fetch(world, &self.fetch_state, last_run, this_run);
-        let mut filter = F::init_fetch(world, &self.filter_state, last_run, this_run);
 
-        let table = world
-            .storages()
-            .tables
-            .get(location.table_id)
-            .debug_checked_unwrap();
-        Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
-        F::set_archetype(&mut filter, &self.filter_state, archetype, table);
+        // SAFETY: See [`# Safety`]
+        unsafe {
+            let archetype = world
+                .archetypes()
+                .get(location.archetype_id)
+                .debug_checked_unwrap();
+            let mut fetch = Q::init_fetch(world, &self.fetch_state, last_run, this_run);
+            let mut filter = F::init_fetch(world, &self.filter_state, last_run, this_run);
 
-        if F::filter_fetch(&mut filter, entity, location.table_row) {
-            Ok(Q::fetch(&mut fetch, entity, location.table_row))
-        } else {
-            Err(QueryEntityError::QueryDoesNotMatch(entity))
+            let table = world
+                .storages()
+                .tables
+                .get(location.table_id)
+                .debug_checked_unwrap();
+            Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
+            F::set_archetype(&mut filter, &self.filter_state, archetype, table);
+
+            if F::filter_fetch(&mut filter, entity, location.table_row) {
+                Ok(Q::fetch(&mut fetch, entity, location.table_row))
+            } else {
+                Err(QueryEntityError::QueryDoesNotMatch(entity))
+            }
         }
     }
 
@@ -633,17 +641,19 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         for (value, entity) in std::iter::zip(&mut values, entities) {
             // SAFETY: fetch is read-only
             // and world must be validated
-            let item = self.as_readonly().get_unchecked_manual(
-                world.as_unsafe_world_cell_readonly(),
-                entity,
-                last_run,
-                this_run,
-            )?;
-            *value = MaybeUninit::new(item);
+            unsafe {
+                let item = self.as_readonly().get_unchecked_manual(
+                    world.as_unsafe_world_cell_readonly(),
+                    entity,
+                    last_run,
+                    this_run,
+                )?;
+                *value = MaybeUninit::new(item);
+            }
         }
 
         // SAFETY: Each value has been fully initialized.
-        Ok(values.map(|x| x.assume_init()))
+        unsafe { Ok(values.map(|x| x.assume_init())) }
     }
 
     /// Gets the query results for the given [`World`] and array of [`Entity`], where the last change and
@@ -675,12 +685,15 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
         for (value, entity) in std::iter::zip(&mut values, entities) {
-            let item = self.get_unchecked_manual(world, entity, last_run, this_run)?;
-            *value = MaybeUninit::new(item);
+            // SAFETY: It is the caller's responsibility to uphold the invariants of `get_unchecked_manual`
+            unsafe {
+                let item = self.get_unchecked_manual(world, entity, last_run, this_run)?;
+                *value = MaybeUninit::new(item);
+            }
         }
 
         // SAFETY: Each value has been fully initialized.
-        Ok(values.map(|x| x.assume_init()))
+        unsafe { Ok(values.map(|x| x.assume_init())) }
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
@@ -909,7 +922,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         world: UnsafeWorldCell<'w>,
     ) -> QueryIter<'w, 's, Q, F> {
         self.update_archetypes_unsafe_world_cell(world);
-        self.iter_unchecked_manual(world, world.last_change_tick(), world.change_tick())
+        // SAFETY: It is the caller's responsibility to uphold the invariants of `iter_unchecked_manual`
+        unsafe { self.iter_unchecked_manual(world, world.last_change_tick(), world.change_tick()) }
     }
 
     /// Returns an [`Iterator`] over all possible combinations of `K` query results for the
@@ -926,11 +940,14 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         world: UnsafeWorldCell<'w>,
     ) -> QueryCombinationIter<'w, 's, Q, F, K> {
         self.update_archetypes_unsafe_world_cell(world);
-        self.iter_combinations_unchecked_manual(
-            world,
-            world.last_change_tick(),
-            world.change_tick(),
-        )
+        // SAFETY: It is the caller's responsibility to uphold the invariants of `iter_combinations_unchecked_manual`
+        unsafe {
+            self.iter_combinations_unchecked_manual(
+                world,
+                world.last_change_tick(),
+                world.change_tick(),
+            )
+        }
     }
 
     /// Returns an [`Iterator`] for the given [`World`], where the last change and
@@ -949,7 +966,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         last_run: Tick,
         this_run: Tick,
     ) -> QueryIter<'w, 's, Q, F> {
-        QueryIter::new(world, self, last_run, this_run)
+        // SAFETY: It is the caller's responsibility to uphold the invariants of `new`
+        unsafe { QueryIter::new(world, self, last_run, this_run) }
     }
 
     /// Returns an [`Iterator`] for the given [`World`] and list of [`Entity`]'s, where the last change and
@@ -973,7 +991,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     where
         EntityList::Item: Borrow<Entity>,
     {
-        QueryManyIter::new(world, self, entities, last_run, this_run)
+        // SAFETY: It is the caller's responsibility to uphold the invariants of `new`
+        unsafe { QueryManyIter::new(world, self, entities, last_run, this_run) }
     }
 
     /// Returns an [`Iterator`] over all possible combinations of `K` query results for the
@@ -993,7 +1012,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         last_run: Tick,
         this_run: Tick,
     ) -> QueryCombinationIter<'w, 's, Q, F, K> {
-        QueryCombinationIter::new(world, self, last_run, this_run)
+        // SAFETY: It is the caller's responsibility to uphold the invariants of `new`
+        unsafe { QueryCombinationIter::new(world, self, last_run, this_run) }
     }
 
     /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
@@ -1046,7 +1066,15 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         func: FN,
     ) {
         self.update_archetypes_unsafe_world_cell(world);
-        self.for_each_unchecked_manual(world, func, world.last_change_tick(), world.change_tick());
+        // SAFETY: It is the caller's responsibility to uphold the invariants of `for_each_unchecked_manual`
+        unsafe {
+            self.for_each_unchecked_manual(
+                world,
+                func,
+                world.last_change_tick(),
+                world.change_tick(),
+            );
+        }
     }
 
     /// Returns a parallel iterator over the query results for the given [`World`].
@@ -1105,51 +1133,54 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         last_run: Tick,
         this_run: Tick,
     ) {
-        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-        let mut fetch = Q::init_fetch(world, &self.fetch_state, last_run, this_run);
-        let mut filter = F::init_fetch(world, &self.filter_state, last_run, this_run);
+        // SAFETY: See [`# Safety`]
+        unsafe {
+            // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
+            // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+            let mut fetch = Q::init_fetch(world, &self.fetch_state, last_run, this_run);
+            let mut filter = F::init_fetch(world, &self.filter_state, last_run, this_run);
 
-        let tables = &world.storages().tables;
-        if Q::IS_DENSE && F::IS_DENSE {
-            for table_id in &self.matched_table_ids {
-                let table = tables.get(*table_id).debug_checked_unwrap();
-                Q::set_table(&mut fetch, &self.fetch_state, table);
-                F::set_table(&mut filter, &self.filter_state, table);
+            let tables = &world.storages().tables;
+            if Q::IS_DENSE && F::IS_DENSE {
+                for table_id in &self.matched_table_ids {
+                    let table = tables.get(*table_id).debug_checked_unwrap();
+                    Q::set_table(&mut fetch, &self.fetch_state, table);
+                    F::set_table(&mut filter, &self.filter_state, table);
 
-                let entities = table.entities();
-                for row in 0..table.entity_count() {
-                    let entity = entities.get_unchecked(row);
-                    let row = TableRow::new(row);
-                    if !F::filter_fetch(&mut filter, *entity, row) {
-                        continue;
+                    let entities = table.entities();
+                    for row in 0..table.entity_count() {
+                        let entity = entities.get_unchecked(row);
+                        let row = TableRow::new(row);
+                        if !F::filter_fetch(&mut filter, *entity, row) {
+                            continue;
+                        }
+                        func(Q::fetch(&mut fetch, *entity, row));
                     }
-                    func(Q::fetch(&mut fetch, *entity, row));
                 }
-            }
-        } else {
-            let archetypes = world.archetypes();
-            for archetype_id in &self.matched_archetype_ids {
-                let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();
-                let table = tables.get(archetype.table_id()).debug_checked_unwrap();
-                Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
-                F::set_archetype(&mut filter, &self.filter_state, archetype, table);
+            } else {
+                let archetypes = world.archetypes();
+                for archetype_id in &self.matched_archetype_ids {
+                    let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();
+                    let table = tables.get(archetype.table_id()).debug_checked_unwrap();
+                    Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
+                    F::set_archetype(&mut filter, &self.filter_state, archetype, table);
 
-                let entities = archetype.entities();
-                for idx in 0..archetype.len() {
-                    let archetype_entity = entities.get_unchecked(idx);
-                    if !F::filter_fetch(
-                        &mut filter,
-                        archetype_entity.entity(),
-                        archetype_entity.table_row(),
-                    ) {
-                        continue;
+                    let entities = archetype.entities();
+                    for idx in 0..archetype.len() {
+                        let archetype_entity = entities.get_unchecked(idx);
+                        if !F::filter_fetch(
+                            &mut filter,
+                            archetype_entity.entity(),
+                            archetype_entity.table_row(),
+                        ) {
+                            continue;
+                        }
+                        func(Q::fetch(
+                            &mut fetch,
+                            archetype_entity.entity(),
+                            archetype_entity.table_row(),
+                        ));
                     }
-                    func(Q::fetch(
-                        &mut fetch,
-                        archetype_entity.entity(),
-                        archetype_entity.table_row(),
-                    ));
                 }
             }
         }
@@ -1186,105 +1217,108 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
-            if Q::IS_DENSE && F::IS_DENSE {
-                // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
-                let tables = &world.storages().tables;
-                for table_id in &self.matched_table_ids {
-                    let table = &tables[*table_id];
-                    if table.is_empty() {
-                        continue;
-                    }
+            // SAFETY: See [`# Safety`]
+            unsafe {
+                if Q::IS_DENSE && F::IS_DENSE {
+                    // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
+                    let tables = &world.storages().tables;
+                    for table_id in &self.matched_table_ids {
+                        let table = &tables[*table_id];
+                        if table.is_empty() {
+                            continue;
+                        }
 
-                    let mut offset = 0;
-                    while offset < table.entity_count() {
-                        let func = func.clone();
-                        let len = batch_size.min(table.entity_count() - offset);
-                        let task = async move {
-                            let mut fetch =
-                                Q::init_fetch(world, &self.fetch_state, last_run, this_run);
-                            let mut filter =
-                                F::init_fetch(world, &self.filter_state, last_run, this_run);
-                            let tables = &world.storages().tables;
-                            let table = tables.get(*table_id).debug_checked_unwrap();
-                            let entities = table.entities();
-                            Q::set_table(&mut fetch, &self.fetch_state, table);
-                            F::set_table(&mut filter, &self.filter_state, table);
-                            for row in offset..offset + len {
-                                let entity = entities.get_unchecked(row);
-                                let row = TableRow::new(row);
-                                if !F::filter_fetch(&mut filter, *entity, row) {
-                                    continue;
+                        let mut offset = 0;
+                        while offset < table.entity_count() {
+                            let func = func.clone();
+                            let len = batch_size.min(table.entity_count() - offset);
+                            let task = async move {
+                                let mut fetch =
+                                    Q::init_fetch(world, &self.fetch_state, last_run, this_run);
+                                let mut filter =
+                                    F::init_fetch(world, &self.filter_state, last_run, this_run);
+                                let tables = &world.storages().tables;
+                                let table = tables.get(*table_id).debug_checked_unwrap();
+                                let entities = table.entities();
+                                Q::set_table(&mut fetch, &self.fetch_state, table);
+                                F::set_table(&mut filter, &self.filter_state, table);
+                                for row in offset..offset + len {
+                                    let entity = entities.get_unchecked(row);
+                                    let row = TableRow::new(row);
+                                    if !F::filter_fetch(&mut filter, *entity, row) {
+                                        continue;
+                                    }
+                                    func(Q::fetch(&mut fetch, *entity, row));
                                 }
-                                func(Q::fetch(&mut fetch, *entity, row));
-                            }
-                        };
-                        #[cfg(feature = "trace")]
-                        let span = bevy_utils::tracing::info_span!(
-                            "par_for_each",
-                            query = std::any::type_name::<Q>(),
-                            filter = std::any::type_name::<F>(),
-                            count = len,
-                        );
-                        #[cfg(feature = "trace")]
-                        let task = task.instrument(span);
-                        scope.spawn(task);
-                        offset += batch_size;
+                            };
+                            #[cfg(feature = "trace")]
+                            let span = bevy_utils::tracing::info_span!(
+                                "par_for_each",
+                                query = std::any::type_name::<Q>(),
+                                filter = std::any::type_name::<F>(),
+                                count = len,
+                            );
+                            #[cfg(feature = "trace")]
+                            let task = task.instrument(span);
+                            scope.spawn(task);
+                            offset += batch_size;
+                        }
                     }
-                }
-            } else {
-                let archetypes = world.archetypes();
-                for archetype_id in &self.matched_archetype_ids {
-                    let mut offset = 0;
-                    let archetype = &archetypes[*archetype_id];
-                    if archetype.is_empty() {
-                        continue;
-                    }
+                } else {
+                    let archetypes = world.archetypes();
+                    for archetype_id in &self.matched_archetype_ids {
+                        let mut offset = 0;
+                        let archetype = &archetypes[*archetype_id];
+                        if archetype.is_empty() {
+                            continue;
+                        }
 
-                    while offset < archetype.len() {
-                        let func = func.clone();
-                        let len = batch_size.min(archetype.len() - offset);
-                        let task = async move {
-                            let mut fetch =
-                                Q::init_fetch(world, &self.fetch_state, last_run, this_run);
-                            let mut filter =
-                                F::init_fetch(world, &self.filter_state, last_run, this_run);
-                            let tables = &world.storages().tables;
-                            let archetype =
-                                world.archetypes().get(*archetype_id).debug_checked_unwrap();
-                            let table = tables.get(archetype.table_id()).debug_checked_unwrap();
-                            Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
-                            F::set_archetype(&mut filter, &self.filter_state, archetype, table);
+                        while offset < archetype.len() {
+                            let func = func.clone();
+                            let len = batch_size.min(archetype.len() - offset);
+                            let task = async move {
+                                let mut fetch =
+                                    Q::init_fetch(world, &self.fetch_state, last_run, this_run);
+                                let mut filter =
+                                    F::init_fetch(world, &self.filter_state, last_run, this_run);
+                                let tables = &world.storages().tables;
+                                let archetype =
+                                    world.archetypes().get(*archetype_id).debug_checked_unwrap();
+                                let table = tables.get(archetype.table_id()).debug_checked_unwrap();
+                                Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
+                                F::set_archetype(&mut filter, &self.filter_state, archetype, table);
 
-                            let entities = archetype.entities();
-                            for archetype_row in offset..offset + len {
-                                let archetype_entity = entities.get_unchecked(archetype_row);
-                                if !F::filter_fetch(
-                                    &mut filter,
-                                    archetype_entity.entity(),
-                                    archetype_entity.table_row(),
-                                ) {
-                                    continue;
+                                let entities = archetype.entities();
+                                for archetype_row in offset..offset + len {
+                                    let archetype_entity = entities.get_unchecked(archetype_row);
+                                    if !F::filter_fetch(
+                                        &mut filter,
+                                        archetype_entity.entity(),
+                                        archetype_entity.table_row(),
+                                    ) {
+                                        continue;
+                                    }
+                                    func(Q::fetch(
+                                        &mut fetch,
+                                        archetype_entity.entity(),
+                                        archetype_entity.table_row(),
+                                    ));
                                 }
-                                func(Q::fetch(
-                                    &mut fetch,
-                                    archetype_entity.entity(),
-                                    archetype_entity.table_row(),
-                                ));
-                            }
-                        };
+                            };
 
-                        #[cfg(feature = "trace")]
-                        let span = bevy_utils::tracing::info_span!(
-                            "par_for_each",
-                            query = std::any::type_name::<Q>(),
-                            filter = std::any::type_name::<F>(),
-                            count = len,
-                        );
-                        #[cfg(feature = "trace")]
-                        let task = task.instrument(span);
+                            #[cfg(feature = "trace")]
+                            let span = bevy_utils::tracing::info_span!(
+                                "par_for_each",
+                                query = std::any::type_name::<Q>(),
+                                filter = std::any::type_name::<F>(),
+                                count = len,
+                            );
+                            #[cfg(feature = "trace")]
+                            let task = task.instrument(span);
 
-                        scope.spawn(task);
-                        offset += batch_size;
+                            scope.spawn(task);
+                            offset += batch_size;
+                        }
                     }
                 }
             }
@@ -1391,7 +1425,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         world: UnsafeWorldCell<'w>,
     ) -> Result<Q::Item<'w>, QuerySingleError> {
         self.update_archetypes_unsafe_world_cell(world);
-        self.get_single_unchecked_manual(world, world.last_change_tick(), world.change_tick())
+        // SAFETY: It is the caller's responsibility to uphold the invariants of `get_single_unchecked_manual`
+        unsafe {
+            self.get_single_unchecked_manual(world, world.last_change_tick(), world.change_tick())
+        }
     }
 
     /// Returns a query result when there is exactly one entity matching the query,
@@ -1411,7 +1448,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         last_run: Tick,
         this_run: Tick,
     ) -> Result<Q::Item<'w>, QuerySingleError> {
-        let mut query = self.iter_unchecked_manual(world, last_run, this_run);
+        // SAFETY: It is the caller's responsibility to uphold the invariants of `iter_unchecked_manual`
+        let mut query = unsafe { self.iter_unchecked_manual(world, last_run, this_run) };
         let first = query.next();
         let extra = query.next().is_some();
 

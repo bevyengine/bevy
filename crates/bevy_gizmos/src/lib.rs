@@ -1,5 +1,6 @@
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
+#![forbid(unsafe_op_in_unsafe_fn)]
 
 //! This crate adds an immediate mode drawing api to Bevy for visual debugging.
 //!

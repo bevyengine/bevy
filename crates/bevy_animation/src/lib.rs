@@ -2,6 +2,7 @@
 
 #![warn(missing_docs)]
 #![allow(clippy::type_complexity)]
+#![forbid(unsafe_op_in_unsafe_fn)]
 
 use std::ops::Deref;
 use std::time::Duration;

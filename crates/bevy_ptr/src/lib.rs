@@ -2,6 +2,7 @@
 #![no_std]
 #![warn(missing_docs)]
 #![allow(clippy::type_complexity)]
+#![forbid(unsafe_op_in_unsafe_fn)]
 
 use core::fmt::{self, Formatter, Pointer};
 use core::{

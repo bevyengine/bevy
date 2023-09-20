@@ -1,5 +1,6 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::all)]
+#![deny(unsafe_op_in_unsafe_fn)]
 
 use glam::{Vec2, Vec3};
 

@@ -1,3 +1,5 @@
+#![forbid(unsafe_op_in_unsafe_fn)]
+
 pub mod io;
 pub mod meta;
 pub mod processor;

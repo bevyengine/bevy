@@ -162,17 +162,19 @@ where
     }
 
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
-        Func::combine(
-            input,
-            // SAFETY: The world accesses for both underlying systems have been registered,
-            // so the caller will guarantee that no other systems will conflict with `a` or `b`.
-            // Since these closures are `!Send + !Sync + !'static`, they can never be called
-            // in parallel, so their world accesses will not conflict with each other.
-            // Additionally, `update_archetype_component_access` has been called,
-            // which forwards to the implementations for `self.a` and `self.b`.
-            |input| self.a.run_unsafe(input, world),
-            |input| self.b.run_unsafe(input, world),
-        )
+        // SAFETY: The world accesses for both underlying systems have been registered,
+        // so the caller will guarantee that no other systems will conflict with `a` or `b`.
+        // Since these closures are `!Send + !Sync + !'static`, they can never be called
+        // in parallel, so their world accesses will not conflict with each other.
+        // Additionally, `update_archetype_component_access` has been called,
+        // which forwards to the implementations for `self.a` and `self.b`.
+        unsafe {
+            Func::combine(
+                input,
+                |input| self.a.run_unsafe(input, world),
+                |input| self.b.run_unsafe(input, world),
+            )
+        }
     }
 
     fn run<'w>(&mut self, input: Self::In, world: &'w mut World) -> Self::Out {
