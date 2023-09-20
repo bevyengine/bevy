@@ -24,7 +24,7 @@ impl Parent {
         self.0
     }
 
-    /// Get parent as a slice.
+    /// Gets the parent [`Entity`] as a slice of length 1.
     ///
     /// Useful for making APIs that require a type or homogenous storage
     /// for both [`Children`] & [`Parent`] that is agnostic to edge direction.
