@@ -26,8 +26,10 @@ impl Parent {
 
     /// Get parent as a slice.
     ///
-    /// This is useful for making APIs that require a type or homogenous storage
+    /// Useful for making APIs that require a type or homogenous storage
     /// for both [`Children`] & [`Parent`] that is agnostic to edge direction.
+    ///
+    /// [`Children`]: super::children::Children
     pub fn get_slice(&self) -> &[Entity] {
         std::slice::from_ref(&self.0)
     }
