@@ -12,6 +12,13 @@ use super::CompressedImageFormats;
 use serde::{Deserialize, Serialize};
 
 /// Loader for images that can be read by the `image` crate.
+///
+/// It contains a public variable `supported_compressed_formats` which specifies the
+/// compressed image formats this loader can handle.
+///
+/// Typically, information about `supported_compressed_formats` is provided by
+/// world.get_resource::<RenderDevice>() and it is a bitfield of length 4.
+///
 #[derive(Clone)]
 pub struct ImageLoader {
     pub supported_compressed_formats: CompressedImageFormats,
