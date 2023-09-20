@@ -365,7 +365,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
     }
 }
 
-fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
+const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
     match alpha_mode {
         // Premultiplied and Add share the same pipeline key
         // They're made distinct in the PBR shader, via `premultiply_alpha()`
@@ -377,7 +377,7 @@ fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
     }
 }
 
-fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
+const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
     match tonemapping {
         Tonemapping::None => MeshPipelineKey::TONEMAP_METHOD_NONE,
         Tonemapping::Reinhard => MeshPipelineKey::TONEMAP_METHOD_REINHARD,
