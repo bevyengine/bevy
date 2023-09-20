@@ -105,7 +105,8 @@ macro_rules! impl_ptr {
             #[inline]
             pub unsafe fn byte_offset(self, count: isize) -> Self {
                 Self(
-                    NonNull::new_unchecked(self.as_ptr().offset(count)),
+                    // SAFETY: the caller must uphold the safety contract for `offset`.
+                    unsafe { NonNull::new_unchecked(self.as_ptr().offset(count)) },
                     PhantomData,
                 )
             }
@@ -125,7 +126,8 @@ macro_rules! impl_ptr {
             #[inline]
             pub unsafe fn byte_add(self, count: usize) -> Self {
                 Self(
-                    NonNull::new_unchecked(self.as_ptr().add(count)),
+                    // SAFETY: the caller must uphold the safety contract for `add`.
+                    unsafe { NonNull::new_unchecked(self.as_ptr().add(count)) },
                     PhantomData,
                 )
             }
@@ -175,7 +177,10 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
-        &*self.as_ptr().cast::<T>().debug_ensure_aligned()
+        let pointer = self.as_ptr().cast::<T>().debug_ensure_aligned();
+
+        // SAFETY: the caller must uphold the safety contract for `deref`.
+        unsafe { &*pointer }
     }
 
     /// Gets the underlying pointer, erasing the associated lifetime.
@@ -229,7 +234,10 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
-        &mut *self.as_ptr().cast::<T>().debug_ensure_aligned()
+        let pointer = self.as_ptr().cast::<T>().debug_ensure_aligned();
+
+        // SAFETY: the caller must uphold the safety contract for `deref`.
+        unsafe { &mut *pointer }
     }
 
     /// Gets the underlying pointer, erasing the associated lifetime.
@@ -298,7 +306,10 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn read<T>(self) -> T {
-        self.as_ptr().cast::<T>().debug_ensure_aligned().read()
+        let pointer = self.as_ptr().cast::<T>().debug_ensure_aligned();
+
+        // SAFETY: the caller must uphold the safety contract for `read`.
+        unsafe { pointer.read() }
     }
 
     /// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
@@ -309,10 +320,12 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
-        self.as_ptr()
-            .cast::<T>()
-            .debug_ensure_aligned()
-            .drop_in_place();
+        let pointer = self.as_ptr().cast::<T>().debug_ensure_aligned();
+
+        // SAFETY: the caller must uphold the safety contract for `drop_in_place`.
+        unsafe {
+            pointer.drop_in_place();
+        }
     }
 
     /// Gets the underlying pointer, erasing the associated lifetime.
@@ -345,7 +358,8 @@ impl<'a> OwningPtr<'a, Unaligned> {
     /// # Safety
     /// - `T` must be the erased pointee type for this [`OwningPtr`].
     pub unsafe fn read_unaligned<T>(self) -> T {
-        self.as_ptr().cast::<T>().read_unaligned()
+        // SAFETY: It is the responsibility of the caller to ensure T is the erased pointee type for this.
+        unsafe { self.as_ptr().cast::<T>().read_unaligned() }
     }
 }
 
@@ -367,7 +381,10 @@ impl<'a, T> ThinSlicePtr<'a, T> {
         #[cfg(debug_assertions)]
         debug_assert!(index < self.len);
 
-        &*self.ptr.as_ptr().add(index)
+        // SAFETY: The caller assures that index is within range, and interior
+        // mutability ensures we have permission to hand out a read-only
+        // reference.
+        unsafe { &*self.ptr.as_ptr().add(index) }
     }
 }
 
@@ -434,11 +451,15 @@ pub trait UnsafeCellDeref<'a, T>: private::SealedUnsafeCell {
 impl<'a, T> UnsafeCellDeref<'a, T> for &'a UnsafeCell<T> {
     #[inline]
     unsafe fn deref_mut(self) -> &'a mut T {
-        &mut *self.get()
+        // SAFETY: It is the responsibility of the caller to ensure it is safe
+        // to deref the contents of this cell and obtain a mutable reference.
+        unsafe { &mut *self.get() }
     }
     #[inline]
     unsafe fn deref(self) -> &'a T {
-        &*self.get()
+        // SAFETY: It is the responsibility of the caller to ensure it is safe
+        // to deref the contents of this cell and obtain a reference.
+        unsafe { &*self.get() }
     }
 
     #[inline]
@@ -446,7 +467,9 @@ impl<'a, T> UnsafeCellDeref<'a, T> for &'a UnsafeCell<T> {
     where
         T: Copy,
     {
-        self.get().read()
+        // SAFETY: It is the responsibility of the caller to ensure it is safe
+        // to read the contents of this cell.
+        unsafe { self.get().read() }
     }
 }
 
