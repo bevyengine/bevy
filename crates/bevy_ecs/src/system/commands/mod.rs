@@ -751,21 +751,22 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///
     /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
     ///   commands.entity(player.entity)
-    ///   // You can try_insert individual components:
-    ///   .try_insert(Defense(10))
+    ///    // You can try_insert individual components:
+    ///     .try_insert(Defense(10))
     ///     
-    ///   // You can also insert tuples of components:
-    ///   .try_insert(CombatBundle {
-    ///       health: Health(100),
-    ///       strength: Strength(40),
-    ///    });
+    ///    // You can also insert tuples of components:
+    ///     .try_insert(CombatBundle {
+    ///         health: Health(100),
+    ///         strength: Strength(40),
+    ///     });
     ///    
-    ///    // Suppose this happens in a parallel adjacent system or process
-    ///    commands.entity(player.entity).despawn();
+    ///    // Suppose this occurs in a parallel adjacent system or process
+    ///    commands.entity(player.entity)
+    ///      .despawn();
     ///
     ///    commands.entity(player.entity)
     ///    // This will not panic nor will it add the component
-    ///    .try_insert(Defense(5));
+    ///      .try_insert(Defense(5));
     /// }
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
