@@ -60,7 +60,10 @@ pub fn ui_stack_system(
         }
     }
 
-    for entity in &root_node_query {
+    let mut root_nodes: Vec<_> = root_node_query.iter().collect();
+    root_nodes.sort_by_cached_key(|entity| zindex_query.get(*entity).map(|zindex| zindex.0).unwrap_or(0));
+
+    for entity in root_nodes {
         update_uistack_recursively(entity, uinodes, &node_query, &zindex_query);
     }
 }
