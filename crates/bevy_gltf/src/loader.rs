@@ -967,18 +967,11 @@ fn load_node(
         }
     });
 
-    if let Some(mesh) = gltf_node.mesh() {
-        if let Some(weights) = morph_weights {
-            let first_mesh = if let Some(primitive) = mesh.primitives().next() {
-                let primitive_label = primitive_label(&mesh, &primitive);
-                let handle: Handle<Mesh> = load_context.get_label_handle(&primitive_label);
-                Some(handle)
-            } else {
-                None
-            };
-            node.insert(MorphWeights::new(weights, first_mesh)?);
-        }
-    };
+    if let (Some(mesh), Some(weights)) = (gltf_node.mesh(), morph_weights) {
+        let primitive_label = mesh.primitives().next().map(|p| primitive_label(&mesh, &p));
+        let first_mesh = primitive_label.map(|label| load_context.get_label_handle(label));
+        node.insert(MorphWeights::new(weights, first_mesh)?);
+    }
 
     if let Some(err) = gltf_error {
         Err(err)
