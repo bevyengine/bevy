@@ -1470,6 +1470,16 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             dynamic_offsets[index_count] = morph_index.index;
             index_count += 1;
         }
+        if is_mv {
+            if let Some(skin_index) = skin_index {
+                dynamic_offsets[index_count] = skin_index.index;
+                index_count += 1;
+            }
+            if let Some(morph_index) = morph_index {
+                dynamic_offsets[index_count] = morph_index.index;
+                index_count += 1;
+            }
+        }
         pass.set_bind_group(I, bind_group, &dynamic_offsets[..index_count]);
 
         RenderCommandResult::Success

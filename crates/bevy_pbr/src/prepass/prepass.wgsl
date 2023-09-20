@@ -149,7 +149,7 @@ fn vertex(
 #endif // MORPH_TARGETS
 #ifdef SKINNED
     // Replace the model with the one computed from old skinning weights
-    model = last_skin_model(vertex.joint_indices, vertex.joint_weights);
+    model = bevy_pbr::skinning::last_skin_model(vertex.joint_indices, vertex.joint_weights);
 #endif // SKINNED
 
     out.world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));

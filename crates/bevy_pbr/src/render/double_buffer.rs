@@ -58,7 +58,9 @@ impl<T: Pod> DoubleBufferVec<T> {
             Side::A => &self.b,
             Side::B => &self.a,
         };
-        old_buffer.buffer()
+        old_buffer
+            .buffer()
+            .or_else(|| self.current_buffer().buffer())
     }
     pub fn is_empty(&self) -> bool {
         self.current_buffer().is_empty()
