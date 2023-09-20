@@ -765,7 +765,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///
     ///    commands.entity(player.entity)
     ///    // This will not panic nor will it add the component
-    ///    .try_insert(Offense(5))
+    ///    .try_insert(Defense(5));
     /// }
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
