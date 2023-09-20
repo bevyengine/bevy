@@ -145,7 +145,7 @@ fn fragment(
         output_color = pbr_functions::alpha_discard(pbr_bindings::material, output_color);
     }
 
-    /// User clipping, everyting below the plane gets discarded if the length of 
+    /// User clipping: everything below the plane gets discarded if the length of 
     /// the normal vector of the plane is non-zero
     if dot(in.world_position.xyz, view.user_clip.xyz) < view.user_clip.w {
         discard;
