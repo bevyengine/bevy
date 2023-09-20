@@ -30,9 +30,11 @@ use std::num::NonZeroU64;
 #[derive(Component)]
 pub struct SolariGlobalIlluminationViewResources {
     pub previous_depth_buffer: CachedTexture,
-    previous_screen_probes: CachedTexture,
-    screen_probes_a: CachedTexture,
-    screen_probes_b: CachedTexture,
+    screen_probes_history: CachedTexture,
+    screen_probes: CachedTexture,
+    screen_probes_confidence_history: CachedTexture,
+    screen_probes_confidence: CachedTexture,
+    screen_probes_merge_buffer: CachedTexture,
     screen_probes_spherical_harmonics: CachedBuffer,
     pub diffuse_irradiance_output: CachedTexture,
     world_cache_checksums: CachedBuffer,
@@ -108,9 +110,9 @@ pub fn prepare_resources(
             view_formats: &[],
         };
 
-        let (previous_screen_probes, screen_probes_a) = {
+        let (screen_probes_history, screen_probes) = {
             let mut t1 = texture(
-                "solari_global_illumination_diffuse_screen_probes_1",
+                "solari_global_illumination_screen_probes_1",
                 TextureFormat::Rgba16Float,
                 size_8,
             );
@@ -118,7 +120,7 @@ pub fn prepare_resources(
             t1.size.depth_or_array_layers = 4;
 
             let t2 = TextureDescriptor {
-                label: Some("solari_global_illumination_diffuse_screen_probes_2"),
+                label: Some("solari_global_illumination_screen_probes_2"),
                 ..t1
             };
             if frame_count.0 % 2 == 0 {
@@ -127,8 +129,27 @@ pub fn prepare_resources(
                 (t2, t1)
             }
         };
-        let screen_probes_b = texture(
-            "solari_global_illumination_screen_probes_b",
+        let (screen_probes_confidence_history, screen_probes_confidence) = {
+            let mut t1 = texture(
+                "solari_global_illumination_screen_probes_confidence_1",
+                TextureFormat::R8Uint,
+                size_8,
+            );
+            t1.usage |= TextureUsages::TEXTURE_BINDING;
+            t1.size.depth_or_array_layers = 4;
+
+            let t2 = TextureDescriptor {
+                label: Some("solari_global_illumination_screen_probes_confidence_2"),
+                ..t1
+            };
+            if frame_count.0 % 2 == 0 {
+                (t1, t2)
+            } else {
+                (t2, t1)
+            }
+        };
+        let screen_probes_merge_buffer = texture(
+            "solari_global_illumination_screen_probes_merge_buffer",
             TextureFormat::Rgba16Float,
             size_8,
         );
@@ -187,9 +208,14 @@ pub fn prepare_resources(
             .entity(entity)
             .insert(SolariGlobalIlluminationViewResources {
                 previous_depth_buffer: texture_cache.get(&render_device, previous_depth_buffer),
-                previous_screen_probes: texture_cache.get(&render_device, previous_screen_probes),
-                screen_probes_a: texture_cache.get(&render_device, screen_probes_a),
-                screen_probes_b: texture_cache.get(&render_device, screen_probes_b),
+                screen_probes_history: texture_cache.get(&render_device, screen_probes_history),
+                screen_probes: texture_cache.get(&render_device, screen_probes),
+                screen_probes_confidence_history: texture_cache
+                    .get(&render_device, screen_probes_confidence_history),
+                screen_probes_confidence: texture_cache
+                    .get(&render_device, screen_probes_confidence),
+                screen_probes_merge_buffer: texture_cache
+                    .get(&render_device, screen_probes_merge_buffer),
                 screen_probes_spherical_harmonics: buffer_cache
                     .get(&render_device, screen_probes_spherical_harmonics),
                 diffuse_irradiance_output: texture_cache
@@ -257,19 +283,31 @@ pub fn create_bind_group_layouts(
             view_dimension: TextureViewDimension::D2,
             multisampled: false,
         }),
-        // Previous screen probes
+        // Screen probes history
         entry(BindingType::Texture {
             sample_type: TextureSampleType::Float { filterable: false },
             view_dimension: TextureViewDimension::D2Array,
             multisampled: false,
         }),
-        // Screen probes a
+        // Screen probes
         entry(BindingType::StorageTexture {
             access: StorageTextureAccess::ReadWrite,
             format: TextureFormat::Rgba16Float,
             view_dimension: TextureViewDimension::D2Array,
         }),
-        // Screen probes b
+        // Screen probes confidence history
+        entry(BindingType::Texture {
+            sample_type: TextureSampleType::Uint,
+            view_dimension: TextureViewDimension::D2Array,
+            multisampled: false,
+        }),
+        // Screen probes confidence
+        entry(BindingType::StorageTexture {
+            access: StorageTextureAccess::WriteOnly,
+            format: TextureFormat::R8Uint,
+            view_dimension: TextureViewDimension::D2Array,
+        }),
+        // Screen probes merge buffer
         entry(BindingType::StorageTexture {
             access: StorageTextureAccess::ReadWrite,
             format: TextureFormat::Rgba16Float,
@@ -400,9 +438,11 @@ pub fn prepare_bind_groups(
             entry(t(prepass_textures.depth.as_ref().unwrap())),
             entry(t(prepass_textures.normal.as_ref().unwrap())),
             entry(t(prepass_textures.motion_vectors.as_ref().unwrap())),
-            entry(t(&solari_resources.previous_screen_probes)),
-            entry(t(&solari_resources.screen_probes_a)),
-            entry(t(&solari_resources.screen_probes_b)),
+            entry(t(&solari_resources.screen_probes_history)),
+            entry(t(&solari_resources.screen_probes)),
+            entry(t(&solari_resources.screen_probes_confidence_history)),
+            entry(t(&solari_resources.screen_probes_confidence)),
+            entry(t(&solari_resources.screen_probes_merge_buffer)),
             entry(b(&solari_resources.screen_probes_spherical_harmonics)),
             entry(t(&solari_resources.diffuse_irradiance_output)),
             entry(b(&solari_resources.world_cache_checksums)),

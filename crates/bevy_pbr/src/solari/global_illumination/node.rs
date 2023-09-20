@@ -62,11 +62,8 @@ impl ViewNode for SolariGlobalIlluminationNode {
             Some(compact_world_cache_write_active_cells_pipeline),
             Some(sample_for_world_cache_pipeline),
             Some(blend_new_world_cache_samples_pipeline),
-            Some(screen_probes_reproject),
-            Some(screen_probes_trace_pipeline),
+            Some(screen_probes_update_pipeline),
             Some(screen_probes_merge_cascades_pipeline),
-            Some(screen_probes_filter_first_pass_pipeline),
-            Some(screen_probes_filter_second_pass_pipeline),
             Some(screen_probes_interpolate_pipeline),
         ) = (
             pipeline_cache.get_compute_pipeline(pipeline_ids.decay_world_cache),
@@ -76,11 +73,8 @@ impl ViewNode for SolariGlobalIlluminationNode {
                 .get_compute_pipeline(pipeline_ids.compact_world_cache_write_active_cells),
             pipeline_cache.get_compute_pipeline(pipeline_ids.sample_for_world_cache),
             pipeline_cache.get_compute_pipeline(pipeline_ids.blend_new_world_cache_samples),
-            pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_reproject),
-            pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_trace),
+            pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_update),
             pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_merge_cascades),
-            pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_filter_first_pass),
-            pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_filter_second_pass),
             pipeline_cache.get_compute_pipeline(pipeline_ids.screen_probes_interpolate),
         )
         else {
@@ -139,10 +133,7 @@ impl ViewNode for SolariGlobalIlluminationNode {
 
         solari_pass.push_debug_group("diffuse_global_illumination");
 
-        solari_pass.set_pipeline(screen_probes_reproject);
-        solari_pass.dispatch_workgroups(dispatch_x, dispatch_y, 4);
-
-        solari_pass.set_pipeline(screen_probes_trace_pipeline);
+        solari_pass.set_pipeline(screen_probes_update_pipeline);
         solari_pass.dispatch_workgroups(dispatch_x, dispatch_y, 4);
 
         solari_pass.push_debug_group("merge_cascades");
@@ -151,14 +142,6 @@ impl ViewNode for SolariGlobalIlluminationNode {
             solari_pass.set_push_constants(0, &cascade.to_le_bytes());
             solari_pass.dispatch_workgroups(dispatch_x, dispatch_y, 1);
         }
-        solari_pass.pop_debug_group();
-
-        solari_pass.push_debug_group("filter_probes");
-        solari_pass.set_pipeline(screen_probes_filter_first_pass_pipeline);
-        solari_pass.dispatch_workgroups(dispatch_x, dispatch_y, 1);
-
-        solari_pass.set_pipeline(screen_probes_filter_second_pass_pipeline);
-        solari_pass.dispatch_workgroups(dispatch_x, dispatch_y, 1);
         solari_pass.pop_debug_group();
 
         solari_pass.set_pipeline(screen_probes_interpolate_pipeline);

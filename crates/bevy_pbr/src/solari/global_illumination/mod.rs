@@ -31,18 +31,14 @@ const SOLARI_WORLD_CACHE_COMPACT_SHADER: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2717171717171755);
 const SOLARI_WORLD_CACHE_UPDATE_SHADER: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3717171717171755);
-const SOLARI_SCREEN_PROBES_REPROJECT_SHADER: HandleUntyped =
+const SOLARI_SCREEN_PROBES_UPDATE_SHADER: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4717171717171755);
-const SOLARI_SCREEN_PROBES_TRACE_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5717171717171755);
 const SOLARI_SCREEN_PROBES_MERGE_CASCADES_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6717171717171755);
-const SOLARI_SCREEN_PROBES_FILTER_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7717171717171755);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5717171717171755);
 const SOLARI_SCREEN_PROBES_INTEPOLATE_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8717171717171755);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6717171717171755);
 const SOLARI_UTILS_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9717171717171755);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7717171717171755);
 
 pub struct SolariGlobalIlluminationPlugin;
 
@@ -74,26 +70,14 @@ impl Plugin for SolariGlobalIlluminationPlugin {
         );
         load_internal_asset!(
             app,
-            SOLARI_SCREEN_PROBES_REPROJECT_SHADER,
-            "screen_probes_reproject.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            SOLARI_SCREEN_PROBES_TRACE_SHADER,
-            "screen_probes_trace.wgsl",
+            SOLARI_SCREEN_PROBES_UPDATE_SHADER,
+            "screen_probes_update.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             SOLARI_SCREEN_PROBES_MERGE_CASCADES_SHADER,
             "screen_probes_merge_casades.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            SOLARI_SCREEN_PROBES_FILTER_SHADER,
-            "screen_probes_filter.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(

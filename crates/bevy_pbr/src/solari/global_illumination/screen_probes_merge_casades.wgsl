@@ -2,6 +2,7 @@
 
 var<push_constant> lower_cascade: u32;
 
+// TODO: Adjust to use the new set of resources
 @compute @workgroup_size(8, 8, 1)
 fn merge_screen_probe_cascades(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let lower_cascade_sample = textureLoad(screen_probes_a, global_id.xy, lower_cascade);

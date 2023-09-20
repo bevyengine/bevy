@@ -1,7 +1,6 @@
 use super::{
     view_resources::create_bind_group_layouts, SolariGlobalIlluminationSettings,
-    SOLARI_SCREEN_PROBES_FILTER_SHADER, SOLARI_SCREEN_PROBES_INTEPOLATE_SHADER,
-    SOLARI_SCREEN_PROBES_REPROJECT_SHADER, SOLARI_SCREEN_PROBES_TRACE_SHADER,
+    SOLARI_SCREEN_PROBES_INTEPOLATE_SHADER, SOLARI_SCREEN_PROBES_UPDATE_SHADER,
     SOLARI_WORLD_CACHE_COMPACT_SHADER, SOLARI_WORLD_CACHE_UPDATE_SHADER,
 };
 use crate::solari::{
@@ -29,11 +28,8 @@ pub enum SolariGlobalIlluminationPass {
     CompactWorldWriteActiveCells,
     SampleForWorldCache,
     BlendNewWorldCacheSamples,
-    ScreenProbesReproject,
-    ScreenProbesTrace,
+    ScreenProbesUpdate,
     ScreenProbesMergeCascades,
-    ScreenProbesFilterFirstPass,
-    ScreenProbesFilterSecondPass,
     ScreenProbesInterpolate,
 }
 
@@ -112,18 +108,7 @@ impl SpecializedComputePipeline for SolariGlobalIlluminationPipelines {
             }
             SampleForWorldCache => ("sample_irradiance", SOLARI_WORLD_CACHE_UPDATE_SHADER),
             BlendNewWorldCacheSamples => ("blend_new_samples", SOLARI_WORLD_CACHE_UPDATE_SHADER),
-            ScreenProbesReproject => (
-                "reproject_screen_probes",
-                SOLARI_SCREEN_PROBES_REPROJECT_SHADER,
-            ),
-            ScreenProbesTrace => ("trace_screen_probes", SOLARI_SCREEN_PROBES_TRACE_SHADER),
-            ScreenProbesFilterFirstPass => {
-                shader_defs.push("FIRST_PASS".into());
-                ("filter_screen_probes", SOLARI_SCREEN_PROBES_FILTER_SHADER)
-            }
-            ScreenProbesFilterSecondPass => {
-                ("filter_screen_probes", SOLARI_SCREEN_PROBES_FILTER_SHADER)
-            }
+            ScreenProbesUpdate => ("update_screen_probes", SOLARI_SCREEN_PROBES_UPDATE_SHADER),
             ScreenProbesMergeCascades => {
                 push_constant_ranges.push(PushConstantRange {
                     stages: ShaderStages::COMPUTE,
@@ -159,11 +144,8 @@ pub struct SolariGlobalIlluminationPipelineIds {
     pub compact_world_cache_write_active_cells: CachedComputePipelineId,
     pub sample_for_world_cache: CachedComputePipelineId,
     pub blend_new_world_cache_samples: CachedComputePipelineId,
-    pub screen_probes_reproject: CachedComputePipelineId,
-    pub screen_probes_trace: CachedComputePipelineId,
+    pub screen_probes_update: CachedComputePipelineId,
     pub screen_probes_merge_cascades: CachedComputePipelineId,
-    pub screen_probes_filter_first_pass: CachedComputePipelineId,
-    pub screen_probes_filter_second_pass: CachedComputePipelineId,
     pub screen_probes_interpolate: CachedComputePipelineId,
 }
 
@@ -198,11 +180,8 @@ pub fn prepare_pipelines(
                 ),
                 sample_for_world_cache: create_pipeline(SampleForWorldCache),
                 blend_new_world_cache_samples: create_pipeline(BlendNewWorldCacheSamples),
-                screen_probes_reproject: create_pipeline(ScreenProbesReproject),
-                screen_probes_trace: create_pipeline(ScreenProbesTrace),
+                screen_probes_update: create_pipeline(ScreenProbesUpdate),
                 screen_probes_merge_cascades: create_pipeline(ScreenProbesMergeCascades),
-                screen_probes_filter_first_pass: create_pipeline(ScreenProbesFilterFirstPass),
-                screen_probes_filter_second_pass: create_pipeline(ScreenProbesFilterSecondPass),
                 screen_probes_interpolate: create_pipeline(ScreenProbesInterpolate),
             });
     }
