@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 /// Loader for images that can be read by the `image` crate.
 #[derive(Clone)]
 pub struct ImageLoader {
-    supported_compressed_formats: CompressedImageFormats,
+    pub supported_compressed_formats: CompressedImageFormats,
 }
 
 pub(crate) const IMG_FILE_EXTENSIONS: &[&str] = &[
