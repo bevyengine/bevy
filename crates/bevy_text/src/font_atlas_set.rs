@@ -153,7 +153,8 @@ impl FontAtlasSet {
             })
     }
 
-    pub fn num_font_atlases(&self) -> usize {
+    /// Returns the number of font atlases in this set
+    pub fn len(&self) -> usize {
         self.font_atlases.len()
     }
 }
