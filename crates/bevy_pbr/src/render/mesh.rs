@@ -825,7 +825,9 @@ pub fn setup_morph_and_skinning_defs(
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
     };
 
-    let mesh_layouts = if key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
+    let is_mv = key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS);
+    let mv = if is_mv { "mv " } else { "" };
+    let mesh_layouts = if is_mv {
         &mesh_layouts.mv
     } else {
         &mesh_layouts.no_mv
@@ -833,19 +835,25 @@ pub fn setup_morph_and_skinning_defs(
     let is_morphed = key.contains(MeshPipelineKey::MORPH_TARGETS);
     match (is_skinned(layout), is_morphed) {
         (true, false) => {
+            println!("** > {mv}skin");
             add_skin_data();
             mesh_layouts.skinned.clone()
         }
         (true, true) => {
+            println!("** > {mv}skin morph");
             add_skin_data();
             shader_defs.push("MORPH_TARGETS".into());
             mesh_layouts.morphed_skinned.clone()
         }
         (false, true) => {
+            println!("** > {mv}morph");
             shader_defs.push("MORPH_TARGETS".into());
             mesh_layouts.morphed.clone()
         }
-        (false, false) => mesh_layouts.model_only.clone(),
+        (false, false) => {
+            println!("** > {mv}model_only");
+            mesh_layouts.model_only.clone()
+        }
     }
 }
 
@@ -1436,7 +1444,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         let is_morphed = morph_index.is_some();
 
         let Some(bind_group) = bind_groups.get(mesh.id(), is_skinned, is_morphed, is_mv) else {
-            let x = (mesh.id(), is_skinned, is_morphed, is_mv);
+            let is_s = if is_skinned { "skin " } else { "" };
+            let is_mv = if is_mv { "mv " } else { "" };
+            let is_m = if is_morphed { "morph " } else { "" };
+            let x = (mesh.id(), format!("{is_mv}{is_s}{is_m}"));
             panic!(
                 "The MeshBindGroups resource for {x:?} wasn't set in the render phase. \
                 It should be set by the prepare_mesh_bind_group system.\n\
