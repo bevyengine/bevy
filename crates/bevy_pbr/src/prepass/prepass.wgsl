@@ -1,4 +1,4 @@
-#import bevy_pbr::prepass_view_bindings
+#import bevy_pbr::prepass_bindings
 #import bevy_pbr::mesh_functions
 #import bevy_pbr::skinning
 #import bevy_pbr::morph
@@ -75,11 +75,12 @@ fn morph_vertex(vertex_in: Vertex) -> Vertex {
     }
     return vertex;
 }
-fn morph_old_position(vertex: Vertex) -> vec3 {
+#ifdef MOTION_VECTOR_PREPASS
+fn morph_last_position(vertex: Vertex) -> vec3<f32> {
     var vertex_position = vertex.position;
     let weight_count = bevy_pbr::morph::layer_count();
     for (var i: u32 = 0u; i < weight_count; i ++) {
-        let weight = bevy_pbr::morph::weight_at(i);
+        let weight = bevy_pbr::morph::last_weight_at(i);
         if weight == 0.0 {
             continue;
         }
@@ -87,6 +88,7 @@ fn morph_old_position(vertex: Vertex) -> vec3 {
     }
     return vertex_position;
 }
+#endif // MOTION_VECTOR_PREPASS
 #endif
 
 @vertex
@@ -142,11 +144,13 @@ fn vertex(
 #ifdef MOTION_VECTOR_PREPASS
 
 #ifdef MORPH_TARGETS
-    var old_vertex_position = morph_old_position(vertex_no_morph);
+    // Replace the vertex position with the old one
+    vertex.position = morph_last_position(vertex_no_morph);
 #endif // MORPH_TARGETS
 #ifdef SKINNED
-    var old_model = skin_old_weights(vertex.joint_indices, vertex.joint_weights);
-#else // SKINNED
+    // Replace the model with the one computed from old skinning weights
+    model = last_skin_model(vertex.joint_indices, vertex.joint_weights);
+#endif // SKINNED
 
     out.world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
     // Use instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
@@ -207,9 +211,9 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 #endif // DEPTH_CLAMP_ORTHO
 
 #ifdef MOTION_VECTOR_PREPASS
-    let clip_position_t = bevy_pbr::prepass_view_bindings::view.unjittered_view_proj * in.world_position;
+    let clip_position_t = bevy_pbr::prepass_bindings::view.unjittered_view_proj * in.world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
-    let previous_clip_position_t = bevy_pbr::prepass_view_bindings::previous_view_proj * in.previous_world_position;
+    let previous_clip_position_t = bevy_pbr::prepass_bindings::previous_view_proj * in.previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
     // These motion vectors are used as offsets to UV positions and are stored
     // in the range -1,1 to allow offsetting from the one corner to the

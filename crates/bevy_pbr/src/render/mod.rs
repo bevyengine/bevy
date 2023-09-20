@@ -8,4 +8,4 @@ mod morph;
 pub use fog::*;
 pub use light::*;
 pub use mesh::*;
-pub use mesh_bindings::{MeshLayouts, PrepassLayouts};
+pub use mesh_bindings::{MeshLayouts, MotionVectorsPrepassLayouts};

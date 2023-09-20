@@ -1,4 +1,4 @@
-#import bevy_pbr::prepass_view_bindings
+#import bevy_pbr::prepass_bindings
 #import bevy_pbr::pbr_bindings
 #import bevy_pbr::pbr_types
 #ifdef NORMAL_PREPASS
@@ -40,7 +40,7 @@ fn prepass_alpha_discard(in: FragmentInput) {
 
 #ifdef VERTEX_UVS
     if (bevy_pbr::pbr_bindings::material.flags & bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
-        output_color = output_color * textureSampleBias(bevy_pbr::pbr_bindings::base_color_texture, bevy_pbr::pbr_bindings::base_color_sampler, in.uv, bevy_pbr::prepass_view_bindings::view.mip_bias);
+        output_color = output_color * textureSampleBias(bevy_pbr::pbr_bindings::base_color_texture, bevy_pbr::pbr_bindings::base_color_sampler, in.uv, bevy_pbr::prepass_bindings::view.mip_bias);
     }
 #endif // VERTEX_UVS
 
@@ -107,7 +107,7 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 #ifdef VERTEX_UVS
             in.uv,
 #endif // VERTEX_UVS
-            bevy_pbr::prepass_view_bindings::view.mip_bias,
+            bevy_pbr::prepass_bindings::view.mip_bias,
         );
 
         out.normal = vec4(normal * 0.5 + vec3(0.5), 1.0);
@@ -117,9 +117,9 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 #endif // NORMAL_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
-    let clip_position_t = bevy_pbr::prepass_view_bindings::view.unjittered_view_proj * in.world_position;
+    let clip_position_t = bevy_pbr::prepass_bindings::view.unjittered_view_proj * in.world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
-    let previous_clip_position_t = bevy_pbr::prepass_view_bindings::previous_view_proj * in.previous_world_position;
+    let previous_clip_position_t = bevy_pbr::prepass_bindings::previous_view_proj * in.previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
     // These motion vectors are used as offsets to UV positions and are stored
     // in the range -1,1 to allow offsetting from the one corner to the

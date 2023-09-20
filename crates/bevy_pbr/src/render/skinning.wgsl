@@ -9,10 +9,18 @@
     @group(1) @binding(1)
     var<uniform> joint_matrices: SkinnedMesh;
 
+#ifdef MOTION_VECTOR_PREPASS
+    @group(1) @binding(4) var<uniform> last_joint_matrices: SkinnedMesh;
+#endif
+
 #else 
 
     @group(2) @binding(1)
     var<uniform> joint_matrices: SkinnedMesh;
+
+#ifdef MOTION_VECTOR_PREPASS
+    @group(2) @binding(4) var<uniform> last_joint_matrices: SkinnedMesh;
+#endif
 
 #endif
 
@@ -54,4 +62,15 @@ fn skin_normals(
     );
 }
 
+#ifdef MOTION_VECTOR_PREPASS
+fn last_skin_model(
+    indexes: vec4<u32>,
+    weights: vec4<f32>,
+) -> mat4x4<f32> {
+    return weights.x * last_joint_matrices.data[indexes.x]
+        + weights.y * last_joint_matrices.data[indexes.y]
+        + weights.z * last_joint_matrices.data[indexes.z]
+        + weights.w * last_joint_matrices.data[indexes.w];
+}
+#endif
 #endif

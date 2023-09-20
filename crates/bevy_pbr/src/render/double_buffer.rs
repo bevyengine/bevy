@@ -53,6 +53,13 @@ impl<T: Pod> DoubleBufferVec<T> {
     pub fn buffer(&self) -> Option<&Buffer> {
         self.current_buffer().buffer()
     }
+    pub fn old_buffer(&self) -> Option<&Buffer> {
+        let old_buffer = match self.current {
+            Side::A => &self.b,
+            Side::B => &self.a,
+        };
+        old_buffer.buffer()
+    }
     pub fn is_empty(&self) -> bool {
         self.current_buffer().is_empty()
     }
@@ -60,6 +67,7 @@ impl<T: Pod> DoubleBufferVec<T> {
         self.current_buffer().len()
     }
     pub fn clear(&mut self) {
+        self.current.toggle();
         self.current_buffer_mut().clear();
     }
     pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
@@ -67,9 +75,5 @@ impl<T: Pod> DoubleBufferVec<T> {
     }
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         self.current_buffer_mut().write_buffer(device, queue);
-    }
-    pub fn flip(&mut self) {
-        self.current.toggle();
-        mem::swap(&mut self.a, &mut self.b);
     }
 }

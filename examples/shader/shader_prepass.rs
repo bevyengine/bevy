@@ -9,17 +9,31 @@ use bevy::{
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
+use bevy_internal::log::LogPlugin;
 
+fn bevy_log_plugin() -> LogPlugin {
+    LogPlugin {
+        level: bevy::log::Level::TRACE,
+        filter: "\
+          gilrs_core=info,gilrs=info,\
+          naga=info,wgpu=warn,wgpu_hal=warn,\
+          bevy_app=info,bevy_render::render_resource::pipeline_cache=debug,\
+          bevy_render::view::window=debug,bevy_ecs::world::entity_ref=info"
+            .to_string(),
+    }
+}
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins.set(PbrPlugin {
-                // The prepass is enabled by default on the StandardMaterial,
-                // but you can disable it if you need to.
-                //
-                // prepass_enabled: false,
-                ..default()
-            }),
+            DefaultPlugins
+                .set(PbrPlugin {
+                    // The prepass is enabled by default on the StandardMaterial,
+                    // but you can disable it if you need to.
+                    //
+                    // prepass_enabled: false,
+                    ..default()
+                })
+                .set(bevy_log_plugin()),
             MaterialPlugin::<CustomMaterial>::default(),
             MaterialPlugin::<PrepassOutputMaterial> {
                 // This material only needs to read the prepass textures,
@@ -29,10 +43,34 @@ fn main() {
             },
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (rotate, toggle_prepass_view))
+        .add_systems(Update, (rotate, toggle_prepass_view, setup_animations))
         // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
         .insert_resource(Msaa::Off)
         .run();
+}
+
+#[derive(Resource)]
+struct MorphData {
+    the_wave: Handle<AnimationClip>,
+    mesh: Handle<Mesh>,
+}
+/// Plays an [`AnimationClip`] from the loaded [`Gltf`] on the [`AnimationPlayer`] created by the spawned scene.
+fn setup_animations(
+    mut has_setup: Local<bool>,
+    mut players: Query<(&Name, &mut AnimationPlayer)>,
+    morph_data: Res<MorphData>,
+) {
+    if *has_setup {
+        return;
+    }
+    for (name, mut player) in &mut players {
+        // The name of the entity in the GLTF scene containing the AnimationPlayer for our morph targets is "Main"
+        if name.as_str() != "Main" {
+            continue;
+        }
+        player.play(morph_data.the_wave.clone()).repeat();
+        *has_setup = true;
+    }
 }
 
 /// set up a simple 3D scene
@@ -58,11 +96,19 @@ fn setup(
         // This will generate a texture containing screen space pixel motion vectors
         MotionVectorPrepass,
     ));
+    // Fox
+    commands.spawn(SceneBundle {
+        scene: asset_server.load("models/animated/Fox.glb#Scene0"),
+        ..default()
+    });
 
-    // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: std_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+    // morph targets
+    commands.insert_resource(MorphData {
+        the_wave: asset_server.load("models/animated/MorphStressTest.gltf#Animation2"),
+        mesh: asset_server.load("models/animated/MorphStressTest.gltf#Mesh0/Primitive0"),
+    });
+    commands.spawn(SceneBundle {
+        scene: asset_server.load("models/animated/MorphStressTest.gltf#Scene0"),
         ..default()
     });
 
@@ -96,31 +142,6 @@ fn setup(
         },
         Rotates,
     ));
-
-    // Cube with alpha mask
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: std_materials.add(StandardMaterial {
-            alpha_mode: AlphaMode::Mask(1.0),
-            base_color_texture: Some(asset_server.load("branding/icon.png")),
-            ..default()
-        }),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
-
-    // Cube with alpha blending.
-    // Transparent materials are ignored by the prepass
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(CustomMaterial {
-            color: Color::WHITE,
-            color_texture: Some(asset_server.load("branding/icon.png")),
-            alpha_mode: AlphaMode::Blend,
-        }),
-        transform: Transform::from_xyz(1.0, 0.5, 0.0),
-        ..default()
-    });
 
     // light
     commands.spawn(PointLightBundle {
