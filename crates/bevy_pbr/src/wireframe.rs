@@ -127,37 +127,34 @@ fn queue_wireframes(
         let rangefinder = view.rangefinder3d();
 
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
-        let add_render_phase =
-            |(entity, mesh_handle, mesh_transforms): (Entity, &Handle<Mesh>, &MeshTransforms)| {
-                if let Some(mesh) = render_meshes.get(mesh_handle) {
-                    let mut key = view_key
-                        | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                    if mesh.morph_targets.is_some() {
-                        key |= MeshPipelineKey::MORPH_TARGETS;
-                    }
-                    let pipeline_id = pipelines.specialize(
-                        &pipeline_cache,
-                        &wireframe_pipeline,
-                        key,
-                        &mesh.layout,
-                    );
-                    let pipeline_id = match pipeline_id {
-                        Ok(id) => id,
-                        Err(err) => {
-                            error!("{}", err);
-                            return;
-                        }
-                    };
-                    opaque_phase.add(Opaque3d {
-                        entity,
-                        pipeline: pipeline_id,
-                        draw_function: draw_custom,
-                        distance: rangefinder
-                            .distance_translation(&mesh_transforms.transform.translation),
-                        batch_size: 1,
-                    });
+        let add_render_phase = |phase_item: (Entity, &Handle<Mesh>, &MeshTransforms)| {
+            let (entity, mesh_handle, mesh_transforms) = phase_item;
+
+            let Some(mesh) = render_meshes.get(mesh_handle) else {
+                return;
+            };
+            let mut key =
+                view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+            if mesh.morph_targets.is_some() {
+                key |= MeshPipelineKey::MORPH_TARGETS;
+            }
+            let pipeline_id =
+                pipelines.specialize(&pipeline_cache, &wireframe_pipeline, key, &mesh.layout);
+            let pipeline_id = match pipeline_id {
+                Ok(id) => id,
+                Err(err) => {
+                    error!("{}", err);
+                    return;
                 }
             };
+            opaque_phase.add(Opaque3d {
+                entity,
+                pipeline: pipeline_id,
+                draw_function: draw_custom,
+                distance: rangefinder.distance_translation(&mesh_transforms.transform.translation),
+                batch_size: 1,
+            });
+        };
 
         if wireframe_config.global {
             let query = material_meshes.p0();

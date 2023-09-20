@@ -179,7 +179,7 @@ macro_rules! define_label {
         }
 
         $(#[$label_attr])*
-        pub trait $label_name: 'static {
+        pub trait $label_name: Send + Sync + 'static {
             /// Converts this type into an opaque, strongly-typed label.
             fn as_label(&self) -> $id_name {
                 let id = self.type_id();

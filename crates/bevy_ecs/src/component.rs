@@ -202,7 +202,7 @@ pub enum StorageType {
 }
 
 /// Stores metadata for a type of component or resource stored in a specific [`World`].
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ComponentInfo {
     id: ComponentId,
     descriptor: ComponentDescriptor,
@@ -319,6 +319,7 @@ impl SparseSetIndex for ComponentId {
 }
 
 /// A value describing a component or resource, which may or may not correspond to a Rust type.
+#[derive(Clone)]
 pub struct ComponentDescriptor {
     name: Cow<'static, str>,
     // SAFETY: This must remain private. It must match the statically known StorageType of the

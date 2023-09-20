@@ -810,18 +810,7 @@ fn load_node(
     // Map node index to entity
     node_index_to_entity_map.insert(gltf_node.index(), node.id());
 
-    if let Some(mesh) = gltf_node.mesh() {
-        if let Some(weights) = mesh.weights() {
-            let first_mesh = if let Some(primitive) = mesh.primitives().next() {
-                let primitive_label = primitive_label(&mesh, &primitive);
-                let handle: Handle<Mesh> = load_context.get_label_handle(&primitive_label);
-                Some(handle)
-            } else {
-                None
-            };
-            node.insert(MorphWeights::new(weights.to_vec(), first_mesh)?);
-        }
-    };
+    let mut morph_weights = None;
 
     node.with_children(|parent| {
         if let Some(mesh) = gltf_node.mesh() {
@@ -853,6 +842,11 @@ fn load_node(
                         Some(weights) => weights.to_vec(),
                         None => vec![0.0; target_count],
                     };
+
+                    if morph_weights.is_none() {
+                        morph_weights = Some(weights.clone());
+                    }
+
                     // unwrap: the parent's call to `MeshMorphWeights::new`
                     // means this code doesn't run if it returns an `Err`.
                     // According to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#morph-targets
@@ -972,6 +966,13 @@ fn load_node(
             }
         }
     });
+
+    if let (Some(mesh), Some(weights)) = (gltf_node.mesh(), morph_weights) {
+        let primitive_label = mesh.primitives().next().map(|p| primitive_label(&mesh, &p));
+        let first_mesh = primitive_label.map(|label| load_context.get_label_handle(label));
+        node.insert(MorphWeights::new(weights, first_mesh)?);
+    }
+
     if let Some(err) = gltf_error {
         Err(err)
     } else {
