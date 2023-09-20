@@ -61,6 +61,6 @@ pub fn ui_stack_system(
     }
 
     for entity in &root_node_query {
-        update_uistack_recursively(entity, uinodes, &node_query, &zindex_query)
+        update_uistack_recursively(entity, uinodes, &node_query, &zindex_query);
     }
 }

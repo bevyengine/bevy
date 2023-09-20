@@ -1506,15 +1506,9 @@ pub struct CalculatedClip {
 /// will appear in front of this parent's other children.
 ///
 /// Nodes without this component will be treated as if they had a value of [`ZIndex(0)`].
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct ZIndex(pub i32);
-
-impl Default for ZIndex {
-    fn default() -> Self {
-        Self(0)
-    }
-}
 
 #[cfg(test)]
 mod tests {
