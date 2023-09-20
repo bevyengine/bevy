@@ -17,8 +17,10 @@ use serde::{Deserialize, Serialize};
 /// compressed image formats this loader can handle.
 ///
 /// Typically, information about `supported_compressed_formats` is provided by
-/// CompressedImageFormats::from_features(render_device.features())
+/// `CompressedImageFormats::from_features(render_device.features())`
 /// and it is a bitfield of length 4.
+///
+/// If in doubt, use CompressedImageFormats::NONE to only load uncompressed images.
 ///
 #[derive(Clone)]
 pub struct ImageLoader {
