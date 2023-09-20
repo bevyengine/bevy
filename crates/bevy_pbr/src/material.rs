@@ -22,6 +22,7 @@ use bevy_ecs::{
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
+    picking::{ExtractedGpuPickingCamera, GpuPickingMesh},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -376,7 +377,12 @@ pub fn queue_material_meshes<M: Material>(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
-    material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshTransforms)>,
+    material_meshes: Query<(
+        &Handle<M>,
+        &Handle<Mesh>,
+        &MeshTransforms,
+        Option<&GpuPickingMesh>,
+    )>,
     images: Res<RenderAssets<Image>>,
     mut views: Query<(
         &ExtractedView,
@@ -386,6 +392,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&EnvironmentMapLight>,
         Option<&ScreenSpaceAmbientOcclusionSettings>,
         Option<&NormalPrepass>,
+        Option<&ExtractedGpuPickingCamera>,
         Option<&TemporalAntiAliasSettings>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
@@ -402,6 +409,7 @@ pub fn queue_material_meshes<M: Material>(
         environment_map,
         ssao,
         normal_prepass,
+        gpu_picking_camera,
         taa_settings,
         mut opaque_phase,
         mut alpha_mask_phase,
@@ -460,7 +468,7 @@ pub fn queue_material_meshes<M: Material>(
 
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
-            if let Ok((material_handle, mesh_handle, mesh_transforms)) =
+            if let Ok((material_handle, mesh_handle, mesh_transforms, gpu_picking_mesh)) =
                 material_meshes.get(*visible_entity)
             {
                 if let (Some(mesh), Some(material)) = (
@@ -489,6 +497,14 @@ pub fn queue_material_meshes<M: Material>(
                             mesh_key |= MeshPipelineKey::MAY_DISCARD;
                         }
                         _ => (),
+                    }
+
+                    if gpu_picking_camera.is_some() {
+                        // This is to indicate that the mesh pipeline needs to have the target
+                        mesh_key |= MeshPipelineKey::MESH_ID_TEXTURE_TARGET;
+                        if gpu_picking_mesh.is_some() {
+                            mesh_key |= MeshPipelineKey::GPU_PICKING;
+                        }
                     }
 
                     let pipeline_id = pipelines.specialize(
