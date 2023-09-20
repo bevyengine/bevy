@@ -193,6 +193,7 @@ where
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
+                .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
                 .add_systems(ExtractSchedule, extract_materials::<M>)
@@ -597,12 +598,13 @@ impl<T: Material> Default for RenderMaterials<T> {
 /// This system extracts all created or modified assets of the corresponding [`Material`] type
 /// into the "render world".
 pub fn extract_materials<M: Material>(
-    mut commands: Commands,
     mut events: Extract<EventReader<AssetEvent<M>>>,
     assets: Extract<Res<Assets<M>>>,
+    mut extraced_materials: ResMut<ExtractedMaterials<M>>,
 ) {
     let mut changed_assets = HashSet::default();
-    let mut removed = Vec::new();
+    extraced_materials.removed.clear();
+    extraced_materials.extracted.clear();
     for event in events.read() {
         match event {
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
@@ -610,7 +612,7 @@ pub fn extract_materials<M: Material>(
             }
             AssetEvent::Removed { id } => {
                 changed_assets.remove(id);
-                removed.push(*id);
+                extraced_materials.removed.push(*id);
             }
             AssetEvent::LoadedWithDependencies { .. } => {
                 // TODO: handle this
@@ -618,17 +620,11 @@ pub fn extract_materials<M: Material>(
         }
     }
 
-    let mut extracted_assets = Vec::new();
     for id in changed_assets.drain() {
         if let Some(asset) = assets.get(id) {
-            extracted_assets.push((id, asset.clone()));
+            extraced_materials.extracted.push((id, asset.clone()));
         }
     }
-
-    commands.insert_resource(ExtractedMaterials {
-        extracted: extracted_assets,
-        removed,
-    });
 }
 
 /// All [`Material`] values of a given type that should be prepared next frame.
