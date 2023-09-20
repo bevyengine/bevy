@@ -319,6 +319,21 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
     }
 }
 
+const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelineKey {
+    match tonemapping {
+        Tonemapping::None => Mesh2dPipelineKey::TONEMAP_METHOD_NONE,
+        Tonemapping::Reinhard => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD,
+        Tonemapping::ReinhardLuminance => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE,
+        Tonemapping::AcesFitted => Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED,
+        Tonemapping::AgX => Mesh2dPipelineKey::TONEMAP_METHOD_AGX,
+        Tonemapping::SomewhatBoringDisplayTransform => {
+            Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+        }
+        Tonemapping::TonyMcMapface => Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
+        Tonemapping::BlenderFilmic => Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material2d_meshes<M: Material2d>(
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
@@ -352,69 +367,58 @@ pub fn queue_material2d_meshes<M: Material2d>(
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= match tonemapping {
-                    Tonemapping::None => Mesh2dPipelineKey::TONEMAP_METHOD_NONE,
-                    Tonemapping::Reinhard => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD,
-                    Tonemapping::ReinhardLuminance => {
-                        Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
-                    }
-                    Tonemapping::AcesFitted => Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED,
-                    Tonemapping::AgX => Mesh2dPipelineKey::TONEMAP_METHOD_AGX,
-                    Tonemapping::SomewhatBoringDisplayTransform => {
-                        Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
-                    }
-                    Tonemapping::TonyMcMapface => Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
-                    Tonemapping::BlenderFilmic => Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
-                };
+                view_key |= tonemapping_pipeline_key(*tonemapping);
             }
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
             }
         }
-
         for visible_entity in &visible_entities.entities {
-            if let Ok((material2d_handle, mesh2d_handle, mesh2d_uniform)) =
+            let Ok((material2d_handle, mesh2d_handle, mesh2d_uniform)) =
                 material2d_meshes.get(*visible_entity)
-            {
-                if let Some(material2d) = render_materials.get(&material2d_handle.id()) {
-                    if let Some(mesh) = render_meshes.get(&mesh2d_handle.0) {
-                        let mesh_key = view_key
-                            | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
+            else {
+                continue;
+            };
+            let Some(material2d) = render_materials.get(&material2d_handle.id()) else {
+                continue;
+            };
+            let Some(mesh) = render_meshes.get(&mesh2d_handle.0) else {
+                continue;
+            };
+            let mesh_key =
+                view_key | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
 
-                        let pipeline_id = pipelines.specialize(
-                            &pipeline_cache,
-                            &material2d_pipeline,
-                            Material2dKey {
-                                mesh_key,
-                                bind_group_data: material2d.key.clone(),
-                            },
-                            &mesh.layout,
-                        );
+            let pipeline_id = pipelines.specialize(
+                &pipeline_cache,
+                &material2d_pipeline,
+                Material2dKey {
+                    mesh_key,
+                    bind_group_data: material2d.key.clone(),
+                },
+                &mesh.layout,
+            );
 
-                        let pipeline_id = match pipeline_id {
-                            Ok(id) => id,
-                            Err(err) => {
-                                error!("{}", err);
-                                continue;
-                            }
-                        };
-
-                        let mesh_z = mesh2d_uniform.transform.w_axis.z;
-                        transparent_phase.add(Transparent2d {
-                            entity: *visible_entity,
-                            draw_function: draw_transparent_pbr,
-                            pipeline: pipeline_id,
-                            // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
-                            // lowest sort key and getting closer should increase. As we have
-                            // -z in front of the camera, the largest distance is -far with values increasing toward the
-                            // camera. As such we can just use mesh_z as the distance
-                            sort_key: FloatOrd(mesh_z),
-                            // This material is not batched
-                            batch_size: 1,
-                        });
-                    }
+            let pipeline_id = match pipeline_id {
+                Ok(id) => id,
+                Err(err) => {
+                    error!("{}", err);
+                    continue;
                 }
-            }
+            };
+
+            let mesh_z = mesh2d_uniform.transform.w_axis.z;
+            transparent_phase.add(Transparent2d {
+                entity: *visible_entity,
+                draw_function: draw_transparent_pbr,
+                pipeline: pipeline_id,
+                // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
+                // lowest sort key and getting closer should increase. As we have
+                // -z in front of the camera, the largest distance is -far with values increasing toward the
+                // camera. As such we can just use mesh_z as the distance
+                sort_key: FloatOrd(mesh_z),
+                // This material is not batched
+                batch_size: 1,
+            });
         }
     }
 }
