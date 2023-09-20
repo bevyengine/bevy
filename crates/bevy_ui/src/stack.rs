@@ -16,9 +16,6 @@ pub struct UiStack {
 }
 
 /// Generates the render stack for UI nodes.
-///
-/// First generate a UI node tree (`StackingContext`) based on z-index.
-/// Then flatten that tree into back-to-front ordered `UiStack`.
 pub fn ui_stack_system(
     mut ui_stack: ResMut<UiStack>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
@@ -61,7 +58,12 @@ pub fn ui_stack_system(
     }
 
     let mut root_nodes: Vec<_> = root_node_query.iter().collect();
-    root_nodes.sort_by_cached_key(|entity| zindex_query.get(*entity).map(|zindex| zindex.0).unwrap_or(0));
+    root_nodes.sort_by_cached_key(|entity| {
+        zindex_query
+            .get(*entity)
+            .map(|zindex| zindex.0)
+            .unwrap_or(0)
+    });
 
     for entity in root_nodes {
         update_uistack_recursively(entity, uinodes, &node_query, &zindex_query);
