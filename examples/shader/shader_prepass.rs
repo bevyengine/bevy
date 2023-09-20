@@ -16,8 +16,8 @@ fn bevy_log_plugin() -> LogPlugin {
         level: bevy::log::Level::TRACE,
         filter: "\
           gilrs_core=info,gilrs=info,\
-          naga=info,wgpu=warn,wgpu_hal=warn,\
-          bevy_app=info,bevy_render::render_resource::pipeline_cache=debug,\
+          naga=info,wgpu=debug,wgpu_hal=debug,\
+          bevy_app=info,bevy_render::render_resource::pipeline_cache=trace,\
           bevy_render::view::window=debug,bevy_ecs::world::entity_ref=info"
             .to_string(),
     }
