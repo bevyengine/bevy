@@ -1505,24 +1505,14 @@ pub struct CalculatedClip {
 /// appear in the UI hierarchy. In such a case, the last node to be added to its parent
 /// will appear in front of this parent's other children.
 ///
-/// Internally, nodes with a global z-index share the stacking context of root UI nodes
-/// (nodes that have no parent). Because of this, there is no difference between using
-/// [`ZIndex::Local(n)`] and [`ZIndex::Global(n)`] for root nodes.
-///
-/// Nodes without this component will be treated as if they had a value of [`ZIndex::Local(0)`].
+/// Nodes without this component will be treated as if they had a value of [`ZIndex(0)`].
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]
-pub enum ZIndex {
-    /// Indicates the order in which this node should be rendered relative to its siblings.
-    Local(i32),
-    /// Indicates the order in which this node should be rendered relative to root nodes and
-    /// all other nodes that have a global z-index.
-    Global(i32),
-}
+pub struct ZIndex(pub i32);
 
 impl Default for ZIndex {
     fn default() -> Self {
-        Self::Local(0)
+        Self(0)
     }
 }
 
