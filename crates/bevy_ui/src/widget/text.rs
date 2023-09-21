@@ -12,8 +12,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
-    BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo,
-    TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
+    scale_value, BreakLineOn, Font, FontAtlasSets, FontAtlasWarning, Text, TextError,
+    TextLayoutInfo, TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
 };
 use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
@@ -53,20 +53,17 @@ impl Measure for TextMeasure {
         _available_height: AvailableSpace,
     ) -> Vec2 {
         let x = width.unwrap_or_else(|| match available_width {
-            AvailableSpace::Definite(x) => x.clamp(
-                self.info.min_width_content_size.x,
-                self.info.max_width_content_size.x,
-            ),
-            AvailableSpace::MinContent => self.info.min_width_content_size.x,
-            AvailableSpace::MaxContent => self.info.max_width_content_size.x,
+            AvailableSpace::Definite(x) => x.clamp(self.info.min.x, self.info.max.x),
+            AvailableSpace::MinContent => self.info.min.x,
+            AvailableSpace::MaxContent => self.info.max.x,
         });
 
         height
             .map_or_else(
                 || match available_width {
                     AvailableSpace::Definite(_) => self.info.compute_size(Vec2::new(x, f32::MAX)),
-                    AvailableSpace::MinContent => Vec2::new(x, self.info.min_width_content_size.y),
-                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max_width_content_size.y),
+                    AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
+                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
                 },
                 |y| Vec2::new(x, y),
             )
@@ -77,24 +74,15 @@ impl Measure for TextMeasure {
 #[inline]
 fn create_text_measure(
     fonts: &Assets<Font>,
-    text_pipeline: &mut TextPipeline,
     scale_factor: f64,
     text: Ref<Text>,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextFlags>,
 ) {
-    match text_pipeline.create_text_measure(
-        fonts,
-        &text.sections,
-        scale_factor,
-        text.alignment,
-        text.linebreak_behavior,
-    ) {
+    match TextMeasureInfo::from_text(&text, fonts, scale_factor) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
-                content_size.set(FixedMeasure {
-                    size: measure.max_width_content_size,
-                });
+                content_size.set(FixedMeasure { size: measure.max });
             } else {
                 content_size.set(TextMeasure { info: measure });
             }
@@ -113,14 +101,20 @@ fn create_text_measure(
     };
 }
 
-/// Creates a `Measure` for text nodes that allows the UI to determine the appropriate amount of space
+/// Generates a new [`Measure`] for a text node on changes to its [`Text`] component.
+/// A `Measure` is used by the UI's layout algorithm to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
+///
+/// * All measures are regenerated if the primary window's scale factor or [`UiScale`] is changed.
+/// * Changes that only modify the colors of a `Text` do not require a new `Measure`. This system
+/// is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
+/// color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
+/// method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
     mut last_scale_factor: Local<f64>,
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
-    mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(Ref<Text>, &mut ContentSize, &mut TextFlags), With<Node>>,
 ) {
     let window_scale_factor = windows
@@ -128,36 +122,22 @@ pub fn measure_text_system(
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.);
 
-    let scale_factor = ui_scale.scale * window_scale_factor;
+    let scale_factor = ui_scale.0 * window_scale_factor;
 
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
         // scale factor unchanged, only create new measure funcs for modified text
-        for (text, content_size, text_flags) in text_query.iter_mut() {
-            if text.is_changed() || text_flags.needs_new_measure_func {
-                create_text_measure(
-                    &fonts,
-                    &mut text_pipeline,
-                    scale_factor,
-                    text,
-                    content_size,
-                    text_flags,
-                );
+        for (text, content_size, text_flags) in &mut text_query {
+            if text.is_changed() || text_flags.needs_new_measure_func || content_size.is_added() {
+                create_text_measure(&fonts, scale_factor, text, content_size, text_flags);
             }
         }
     } else {
         // scale factor changed, create new measure funcs for all text
         *last_scale_factor = scale_factor;
 
-        for (text, content_size, text_flags) in text_query.iter_mut() {
-            create_text_measure(
-                &fonts,
-                &mut text_pipeline,
-                scale_factor,
-                text,
-                content_size,
-                text_flags,
-            );
+        for (text, content_size, text_flags) in &mut text_query {
+            create_text_measure(&fonts, scale_factor, text, content_size, text_flags);
         }
     }
 }
@@ -168,11 +148,12 @@ fn queue_text(
     fonts: &Assets<Font>,
     text_pipeline: &mut TextPipeline,
     font_atlas_warning: &mut FontAtlasWarning,
-    font_atlas_set_storage: &mut Assets<FontAtlasSet>,
+    font_atlas_sets: &mut FontAtlasSets,
     texture_atlases: &mut Assets<TextureAtlas>,
     textures: &mut Assets<Image>,
     text_settings: &TextSettings,
     scale_factor: f64,
+    inverse_scale_factor: f64,
     text: &Text,
     node: Ref<Node>,
     mut text_flags: Mut<TextFlags>,
@@ -195,7 +176,7 @@ fn queue_text(
             text.alignment,
             text.linebreak_behavior,
             physical_node_size,
-            font_atlas_set_storage,
+            font_atlas_sets,
             texture_atlases,
             textures,
             text_settings,
@@ -209,7 +190,9 @@ fn queue_text(
             Err(e @ TextError::FailedToAddGlyph(_)) => {
                 panic!("Fatal error when processing text: {e}.");
             }
-            Ok(info) => {
+            Ok(mut info) => {
+                info.logical_size.x = scale_value(info.logical_size.x, inverse_scale_factor);
+                info.logical_size.y = scale_value(info.logical_size.y, inverse_scale_factor);
                 *text_layout_info = info;
                 text_flags.needs_recompute = false;
             }
@@ -217,8 +200,9 @@ fn queue_text(
     }
 }
 
-/// Updates the layout and size information whenever the text or style is changed.
-/// This information is computed by the `TextPipeline` on insertion, then stored.
+/// Updates the layout and size information for a UI text node on changes to the size value of its [`Node`] component,
+/// or when the `needs_recompute` field of [`TextFlags`] is set to true.
+/// This information is computed by the [`TextPipeline`] and then stored in [`TextLayoutInfo`].
 ///
 /// ## World Resources
 ///
@@ -234,7 +218,7 @@ pub fn text_system(
     mut font_atlas_warning: ResMut<FontAtlasWarning>,
     ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-    mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
+    mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(Ref<Node>, &Text, &mut TextLayoutInfo, &mut TextFlags)>,
 ) {
@@ -244,21 +228,22 @@ pub fn text_system(
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.);
 
-    let scale_factor = ui_scale.scale * window_scale_factor;
-
+    let scale_factor = ui_scale.0 * window_scale_factor;
+    let inverse_scale_factor = scale_factor.recip();
     if *last_scale_factor == scale_factor {
         // Scale factor unchanged, only recompute text for modified text nodes
-        for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
+        for (node, text, text_layout_info, text_flags) in &mut text_query {
             if node.is_changed() || text_flags.needs_recompute {
                 queue_text(
                     &fonts,
                     &mut text_pipeline,
                     &mut font_atlas_warning,
-                    &mut font_atlas_set_storage,
+                    &mut font_atlas_sets,
                     &mut texture_atlases,
                     &mut textures,
                     &text_settings,
                     scale_factor,
+                    inverse_scale_factor,
                     text,
                     node,
                     text_flags,
@@ -270,16 +255,17 @@ pub fn text_system(
         // Scale factor changed, recompute text for all text nodes
         *last_scale_factor = scale_factor;
 
-        for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
+        for (node, text, text_layout_info, text_flags) in &mut text_query {
             queue_text(
                 &fonts,
                 &mut text_pipeline,
                 &mut font_atlas_warning,
-                &mut font_atlas_set_storage,
+                &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
                 &text_settings,
                 scale_factor,
+                inverse_scale_factor,
                 text,
                 node,
                 text_flags,

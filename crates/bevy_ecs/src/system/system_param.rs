@@ -353,7 +353,7 @@ impl_param_set!();
 ///
 /// ```
 /// # let mut world = World::default();
-/// # let mut schedule = Schedule::new();
+/// # let mut schedule = Schedule::default();
 /// # use bevy_ecs::prelude::*;
 /// #[derive(Resource)]
 /// struct MyResource { value: u32 }
@@ -679,21 +679,13 @@ unsafe impl SystemParam for &'_ World {
 /// // .add_systems(reset_to_system(my_config))
 /// # assert_is_system(reset_to_system(Config(10)));
 /// ```
+#[derive(Debug)]
 pub struct Local<'s, T: FromWorld + Send + 'static>(pub(crate) &'s mut T);
 
 // SAFETY: Local only accesses internal state
 unsafe impl<'s, T: FromWorld + Send + 'static> ReadOnlySystemParam for Local<'s, T> {}
 
-impl<'s, T: FromWorld + Send + Sync + 'static> Debug for Local<'s, T>
-where
-    T: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("Local").field(&self.0).finish()
-    }
-}
-
-impl<'s, T: FromWorld + Send + Sync + 'static> Deref for Local<'s, T> {
+impl<'s, T: FromWorld + Send + 'static> Deref for Local<'s, T> {
     type Target = T;
 
     #[inline]
@@ -702,7 +694,7 @@ impl<'s, T: FromWorld + Send + Sync + 'static> Deref for Local<'s, T> {
     }
 }
 
-impl<'s, T: FromWorld + Send + Sync + 'static> DerefMut for Local<'s, T> {
+impl<'s, T: FromWorld + Send + 'static> DerefMut for Local<'s, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
@@ -862,7 +854,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///     // ...
 /// });
 ///
-/// let mut schedule = Schedule::new();
+/// let mut schedule = Schedule::default();
 /// // These two systems have no conflicts and will run in parallel.
 /// schedule.add_systems((alert_criminal, alert_monster));
 ///
@@ -1300,14 +1292,13 @@ unsafe impl SystemParam for SystemChangeTick {
 ///
 /// This is not a reliable identifier, it is more so useful for debugging
 /// purposes of finding where a system parameter is being used incorrectly.
-pub struct SystemName<'s> {
-    name: &'s str,
-}
+#[derive(Debug)]
+pub struct SystemName<'s>(&'s str);
 
 impl<'s> SystemName<'s> {
     /// Gets the name of the system.
     pub fn name(&self) -> &str {
-        self.name
+        self.0
     }
 }
 
@@ -1326,14 +1317,7 @@ impl<'s> AsRef<str> for SystemName<'s> {
 
 impl<'s> From<SystemName<'s>> for &'s str {
     fn from(name: SystemName<'s>) -> &'s str {
-        name.name
-    }
-}
-
-impl<'s> std::fmt::Debug for SystemName<'s> {
-    #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_tuple("SystemName").field(&self.name()).finish()
+        name.0
     }
 }
 
@@ -1360,7 +1344,7 @@ unsafe impl SystemParam for SystemName<'_> {
         _world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        SystemName { name }
+        SystemName(name)
     }
 }
 
@@ -1413,8 +1397,15 @@ macro_rules! impl_system_param_tuple {
 all_tuples!(impl_system_param_tuple, 0, 16, P);
 
 /// Contains type aliases for built-in [`SystemParam`]s with `'static` lifetimes.
-/// This can make it more convenient to refer to these types in contexts where
+/// This makes it more convenient to refer to these types in contexts where
 /// explicit lifetime annotations are required.
+///
+/// Note that this is entirely safe and tracks lifetimes correctly.
+/// This purely exists for convenience.
+///
+/// You can't instantiate a static `SystemParam`, you'll always end up with
+/// `Res<'w, T>`, `ResMut<'w, T>` or `&'w T` bound to the lifetime of the provided
+/// `&'w World`.
 ///
 /// [`SystemParam`]: super::SystemParam
 pub mod lifetimeless {
@@ -1569,7 +1560,7 @@ mod tests {
         query::{ReadOnlyWorldQuery, WorldQuery},
         system::{assert_is_system, Query},
     };
-    use std::marker::PhantomData;
+    use std::{cell::RefCell, marker::PhantomData};
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
     #[test]
@@ -1734,5 +1725,18 @@ mod tests {
 
         fn my_system(_: InvariantParam) {}
         assert_is_system(my_system);
+    }
+
+    // Compile test for https://github.com/bevyengine/bevy/pull/9589.
+    #[test]
+    fn non_sync_local() {
+        fn non_sync_system(cell: Local<RefCell<u8>>) {
+            assert_eq!(*cell.borrow(), 0);
+        }
+
+        let mut world = World::new();
+        let mut schedule = crate::schedule::Schedule::default();
+        schedule.add_systems(non_sync_system);
+        schedule.run(&mut world);
     }
 }

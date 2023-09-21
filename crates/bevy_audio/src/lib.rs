@@ -27,6 +27,7 @@
 mod audio;
 mod audio_output;
 mod audio_source;
+mod pitch;
 mod sinks;
 
 #[allow(missing_docs)]
@@ -34,13 +35,14 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         AudioBundle, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle, Decodable,
-        GlobalVolume, PlaybackSettings, SpatialAudioBundle, SpatialAudioSink,
-        SpatialAudioSourceBundle, SpatialSettings,
+        GlobalVolume, Pitch, PitchBundle, PlaybackSettings, SpatialAudioBundle, SpatialAudioSink,
+        SpatialAudioSourceBundle, SpatialPitchBundle, SpatialSettings,
     };
 }
 
 pub use audio::*;
 pub use audio_source::*;
+pub use pitch::*;
 
 pub use rodio::cpal::Sample as CpalSample;
 pub use rodio::source::Source;
@@ -48,7 +50,7 @@ pub use rodio::Sample;
 pub use sinks::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{AddAsset, Asset};
+use bevy_asset::{Asset, AssetApp};
 use bevy_ecs::prelude::*;
 
 use audio_output::*;
@@ -69,7 +71,7 @@ pub struct AudioPlugin {
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(self.global_volume)
-            .configure_set(PostUpdate, AudioPlaySet.run_if(audio_output_available))
+            .configure_sets(PostUpdate, AudioPlaySet.run_if(audio_output_available))
             .init_resource::<AudioOutput>();
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]
@@ -77,6 +79,8 @@ impl Plugin for AudioPlugin {
             app.add_audio_source::<AudioSource>();
             app.init_asset_loader::<AudioLoader>();
         }
+
+        app.add_audio_source::<Pitch>();
     }
 }
 
@@ -86,7 +90,7 @@ impl AddAudioSource for App {
         T: Decodable + Asset,
         f32: rodio::cpal::FromSample<T::DecoderItem>,
     {
-        self.add_asset::<T>().add_systems(
+        self.init_asset::<T>().add_systems(
             PostUpdate,
             play_queued_audio_system::<T>.in_set(AudioPlaySet),
         );

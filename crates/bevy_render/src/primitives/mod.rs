@@ -1,10 +1,37 @@
+use std::borrow::Borrow;
+
 use bevy_ecs::{component::Component, prelude::Entity, reflect::ReflectComponent};
-use bevy_math::{Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
+use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
 use bevy_reflect::Reflect;
 use bevy_utils::HashMap;
 
-/// An axis-aligned bounding box.
-#[derive(Component, Clone, Copy, Debug, Default, Reflect)]
+/// An axis-aligned bounding box, defined by:
+/// - a center,
+/// - the distances from the center to each faces along the axis,
+/// the faces are orthogonal to the axis.
+///
+/// It is typically used as a component on an entity to represent the local space
+/// occupied by this entity, with faces orthogonal to its local axis.
+///
+/// This component is notably used during "frustum culling", a process to determine
+/// if an entity should be rendered by a [`Camera`] if its bounding box intersects
+/// with the camera's [`Frustum`].
+///
+/// It will be added automatically by the systems in [`CalculateBounds`] to entities that:
+/// - could be subject to frustum culling, for example with a [`Handle<Mesh>`]
+/// or `Sprite` component,
+/// - don't have the [`NoFrustumCulling`] component.
+///
+/// It won't be updated automatically if the space occupied by the entity changes,
+/// for example if the vertex positions of a [`Mesh`] inside a `Handle<Mesh>` are
+/// updated.
+///
+/// [`Camera`]: crate::camera::Camera
+/// [`NoFrustumCulling`]: crate::view::visibility::NoFrustumCulling
+/// [`CalculateBounds`]: crate::view::visibility::VisibilitySystems::CalculateBounds
+/// [`Mesh`]: crate::mesh::Mesh
+/// [`Handle<Mesh>`]: crate::mesh::Mesh
+#[derive(Component, Clone, Copy, Debug, Default, Reflect, PartialEq)]
 #[reflect(Component)]
 pub struct Aabb {
     pub center: Vec3A,
@@ -24,15 +51,39 @@ impl Aabb {
         }
     }
 
+    /// Returns a bounding box enclosing the specified set of points.
+    ///
+    /// Returns `None` if the iterator is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_math::{Vec3, Vec3A};
+    /// # use bevy_render::primitives::Aabb;
+    /// let bb = Aabb::enclosing([Vec3::X, Vec3::Z * 2.0, Vec3::Y * -0.5]).unwrap();
+    /// assert_eq!(bb.min(), Vec3A::new(0.0, -0.5, 0.0));
+    /// assert_eq!(bb.max(), Vec3A::new(1.0, 0.0, 2.0));
+    /// ```
+    pub fn enclosing<T: Borrow<Vec3>>(iter: impl IntoIterator<Item = T>) -> Option<Self> {
+        let mut iter = iter.into_iter().map(|p| *p.borrow());
+        let mut min = iter.next()?;
+        let mut max = min;
+        for v in iter {
+            min = Vec3::min(min, v);
+            max = Vec3::max(max, v);
+        }
+        Some(Self::from_min_max(min, max))
+    }
+
     /// Calculate the relative radius of the AABB with respect to a plane
     #[inline]
-    pub fn relative_radius(&self, p_normal: &Vec3A, axes: &[Vec3A]) -> f32 {
+    pub fn relative_radius(&self, p_normal: &Vec3A, model: &Mat3A) -> f32 {
         // NOTE: dot products on Vec3A use SIMD and even with the overhead of conversion are net faster than Vec3
         let half_extents = self.half_extents;
         Vec3A::new(
-            p_normal.dot(axes[0]),
-            p_normal.dot(axes[1]),
-            p_normal.dot(axes[2]),
+            p_normal.dot(model.x_axis),
+            p_normal.dot(model.y_axis),
+            p_normal.dot(model.z_axis),
         )
         .abs()
         .dot(half_extents)
@@ -67,25 +118,37 @@ pub struct Sphere {
 
 impl Sphere {
     #[inline]
-    pub fn intersects_obb(&self, aabb: &Aabb, local_to_world: &Mat4) -> bool {
-        let aabb_center_world = *local_to_world * aabb.center.extend(1.0);
-        let axes = [
-            Vec3A::from(local_to_world.x_axis),
-            Vec3A::from(local_to_world.y_axis),
-            Vec3A::from(local_to_world.z_axis),
-        ];
-        let v = Vec3A::from(aabb_center_world) - self.center;
+    pub fn intersects_obb(&self, aabb: &Aabb, local_to_world: &Affine3A) -> bool {
+        let aabb_center_world = local_to_world.transform_point3a(aabb.center);
+        let v = aabb_center_world - self.center;
         let d = v.length();
-        let relative_radius = aabb.relative_radius(&(v / d), &axes);
+        let relative_radius = aabb.relative_radius(&(v / d), &local_to_world.matrix3);
         d < self.radius + relative_radius
     }
 }
 
-/// A bisecting plane that partitions 3D space into two regions.
+/// A region of 3D space, specifically an open set whose border is a bisecting 2D plane.
+/// This bisecting plane partitions 3D space into two infinite regions,
+/// the half-space is one of those regions and excludes the bisecting plane.
 ///
-/// Each instance of this type is characterized by the bisecting plane's unit normal and distance from the origin along the normal.
-/// Any point `p` is considered to be within the `HalfSpace` when the distance is positive,
-/// meaning: if the equation `n.p + d > 0` is satisfied.
+/// Each instance of this type is characterized by:
+/// - the bisecting plane's unit normal, normalized and pointing "inside" the half-space,
+/// - the signed distance along the normal from the bisecting plane to the origin of 3D space.
+///
+/// The distance can also be seen as:
+/// - the distance along the inverse of the normal from the origin of 3D space to the bisecting plane,
+/// - the opposite of the distance along the normal from the origin of 3D space to the bisecting plane.
+///
+/// Any point `p` is considered to be within the `HalfSpace` when the length of the projection
+/// of p on the normal is greater or equal than the opposite of the distance,
+/// meaning: if the equation `normal.dot(p) + distance > 0.` is satisfied.
+///
+/// For example, the half-space containing all the points with a z-coordinate lesser
+/// or equal than `8.0` would be defined by: `HalfSpace::new(Vec3::NEG_Z.extend(-8.0))`.
+/// It includes all the points from the bisecting plane towards `NEG_Z`, and the distance
+/// from the plane to the origin is `-8.0` along `NEG_Z`.
+///
+/// It is used to define a [`Frustum`], but is also a useful mathematical primitive for rendering tasks such as  light computation.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct HalfSpace {
     normal_d: Vec4,
@@ -93,8 +156,8 @@ pub struct HalfSpace {
 
 impl HalfSpace {
     /// Constructs a `HalfSpace` from a 4D vector whose first 3 components
-    /// represent the bisecting plane's unit normal, and the last component signifies
-    /// the distance from the origin to the plane along the normal.
+    /// represent the bisecting plane's unit normal, and the last component is
+    /// the signed distance along the normal from the plane to the origin.
     /// The constructor ensures the normal vector is normalized and the distance is appropriately scaled.
     #[inline]
     pub fn new(normal_d: Vec4) -> Self {
@@ -109,23 +172,46 @@ impl HalfSpace {
         Vec3A::from(self.normal_d)
     }
 
-    /// Returns the distance from the origin to the bisecting plane along the plane's unit normal vector.
-    /// This distance helps determine the position of a point `p` on the bisecting plane, as per the equation `n.p + d = 0`.
+    /// Returns the signed distance from the bisecting plane to the origin along
+    /// the plane's unit normal vector.
     #[inline]
     pub fn d(&self) -> f32 {
         self.normal_d.w
     }
 
-    /// Returns the bisecting plane's unit normal vector and the distance from the origin to the plane.
+    /// Returns the bisecting plane's unit normal vector and the signed distance
+    /// from the plane to the origin.
     #[inline]
     pub fn normal_d(&self) -> Vec4 {
         self.normal_d
     }
 }
 
-/// A frustum made up of the 6 defining half spaces.
-/// Half spaces are ordered left, right, top, bottom, near, far.
-/// The normal vectors of the half spaces point towards the interior of the frustum.
+/// A region of 3D space defined by the intersection of 6 [`HalfSpace`]s.
+///
+/// Frustums are typically an apex-truncated square pyramid (a pyramid without the top) or a cuboid.
+///
+/// Half spaces are ordered left, right, top, bottom, near, far. The normal vectors
+/// of the half-spaces point towards the interior of the frustum.
+///
+/// A frustum component is used on an entity with a [`Camera`] component to
+/// determine which entities will be considered for rendering by this camera.
+/// All entities with an [`Aabb`] component that are not contained by (or crossing
+/// the boundary of) the frustum will not be rendered, and not be used in rendering computations.
+///
+/// This process is called frustum culling, and entities can opt out of it using
+/// the [`NoFrustumCulling`] component.
+///
+/// The frustum component is typically added from a bundle, either the `Camera2dBundle`
+/// or the `Camera3dBundle`.
+/// It is usually updated automatically by [`update_frusta`] from the
+/// [`CameraProjection`] component and [`GlobalTransform`] of the camera entity.
+///
+/// [`Camera`]: crate::camera::Camera
+/// [`NoFrustumCulling`]: crate::view::visibility::NoFrustumCulling
+/// [`update_frusta`]: crate::view::visibility::update_frusta
+/// [`CameraProjection`]: crate::camera::CameraProjection
+/// [`GlobalTransform`]: bevy_transform::components::GlobalTransform
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct Frustum {
@@ -195,17 +281,11 @@ impl Frustum {
     pub fn intersects_obb(
         &self,
         aabb: &Aabb,
-        model_to_world: &Mat4,
+        model_to_world: &Affine3A,
         intersect_near: bool,
         intersect_far: bool,
     ) -> bool {
         let aabb_center_world = model_to_world.transform_point3a(aabb.center).extend(1.0);
-        let axes = [
-            Vec3A::from(model_to_world.x_axis),
-            Vec3A::from(model_to_world.y_axis),
-            Vec3A::from(model_to_world.z_axis),
-        ];
-
         for (idx, half_space) in self.half_spaces.into_iter().enumerate() {
             if idx == 4 && !intersect_near {
                 continue;
@@ -214,7 +294,7 @@ impl Frustum {
                 continue;
             }
             let p_normal = half_space.normal();
-            let relative_radius = aabb.relative_radius(&p_normal, &axes);
+            let relative_radius = aabb.relative_radius(&p_normal, &model_to_world.matrix3);
             if half_space.normal_d().dot(aabb_center_world) + relative_radius <= 0.0 {
                 return false;
             }
@@ -400,5 +480,29 @@ mod tests {
             radius: 4.4094,
         };
         assert!(frustum.intersects_sphere(&sphere, true));
+    }
+
+    #[test]
+    fn aabb_enclosing() {
+        assert_eq!(Aabb::enclosing(<[Vec3; 0]>::default()), None);
+        assert_eq!(
+            Aabb::enclosing(vec![Vec3::ONE]).unwrap(),
+            Aabb::from_min_max(Vec3::ONE, Vec3::ONE)
+        );
+        assert_eq!(
+            Aabb::enclosing(&[Vec3::Y, Vec3::X, Vec3::Z][..]).unwrap(),
+            Aabb::from_min_max(Vec3::ZERO, Vec3::ONE)
+        );
+        assert_eq!(
+            Aabb::enclosing([
+                Vec3::NEG_X,
+                Vec3::X * 2.0,
+                Vec3::NEG_Y * 5.0,
+                Vec3::Z,
+                Vec3::ZERO
+            ])
+            .unwrap(),
+            Aabb::from_min_max(Vec3::new(-1.0, -5.0, 0.0), Vec3::new(2.0, 0.0, 1.0))
+        );
     }
 }

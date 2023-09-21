@@ -31,18 +31,18 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 
 # other
-gltf = { version = "1.0.0", default-features = false, features = [
+gltf = { version = "1.3.0", default-features = false, features = [
     "KHR_lights_punctual",
     "KHR_materials_transmission",
     "KHR_materials_ior",
     "KHR_materials_volume",
     "KHR_materials_unlit",
+    "KHR_materials_emissive_strength",
     "extras",
     "names",
     "utils",
 ] }
 thiserror = "1.0"
-anyhow = "1.0.4"
 base64 = "0.13.0"
 percent-encoding = "2.1"
 serde = { version = "1.0", features = ["derive"] }

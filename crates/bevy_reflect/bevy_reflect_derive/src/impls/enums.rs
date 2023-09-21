@@ -348,7 +348,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
         ) -> Vec<proc_macro2::TokenStream> {
             let mut constructor_argument = Vec::new();
             let mut reflect_idx = 0;
-            for field in fields.iter() {
+            for field in fields {
                 if field.attrs.ignore.is_ignored() {
                     // Ignored field
                     continue;

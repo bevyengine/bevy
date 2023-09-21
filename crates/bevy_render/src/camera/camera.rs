@@ -7,7 +7,7 @@ use crate::{
     view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
     Extract,
 };
-use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -19,7 +19,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_log::warn;
-use bevy_math::{Mat4, Ray, Rect, URect, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{vec2, Mat4, Ray, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
@@ -169,6 +169,14 @@ impl Camera {
     /// of the current [`RenderTarget`].
     ///  For logic that requires the full logical size of the
     /// [`RenderTarget`], prefer [`Camera::logical_target_size`].
+    ///
+    /// Returns `None` if either:
+    /// - the function is called just after the `Camera` is created, before `camera_system` is executed,
+    /// - the [`RenderTarget`] isn't correctly set:
+    ///   - it references the [`PrimaryWindow`](RenderTarget::Window) when there is none,
+    ///   - it references a [`Window`](RenderTarget::Window) entity that doesn't exist or doesn't actually have a `Window` component,
+    ///   - it references an [`Image`](RenderTarget::Image) that doesn't exist (invalid handle),
+    ///   - it references a [`TextureView`](RenderTarget::TextureView) that doesn't exist (invalid handle).
     #[inline]
     pub fn logical_viewport_size(&self) -> Option<Vec2> {
         self.viewport
@@ -218,6 +226,12 @@ impl Camera {
     ///
     /// To get the coordinates in Normalized Device Coordinates, you should use
     /// [`world_to_ndc`](Self::world_to_ndc).
+    ///
+    /// Returns `None` if any of these conditions occur:
+    /// - The computed coordinates are beyond the near or far plane
+    /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
+    /// - The world coordinates cannot be mapped to the Normalized Device Coordinates. See [`world_to_ndc`](Camera::world_to_ndc)
+    /// May also panic if `glam_assert` is enabled. See [`world_to_ndc`](Camera::world_to_ndc).
     #[doc(alias = "world_to_screen")]
     pub fn world_to_viewport(
         &self,
@@ -226,7 +240,7 @@ impl Camera {
     ) -> Option<Vec2> {
         let target_size = self.logical_viewport_size()?;
         let ndc_space_coords = self.world_to_ndc(camera_transform, world_position)?;
-        // NDC z-values outside of 0 < z < 1 are outside the camera frustum and are thus not in viewport-space
+        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
         if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
             return None;
         }
@@ -246,6 +260,11 @@ impl Camera {
     ///
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
+    ///
+    /// Returns `None` if any of these conditions occur:
+    /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
+    /// - The near or far plane cannot be computed. This can happen if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
+    /// Panics if the projection matrix is null and `glam_assert` is enabled.
     pub fn viewport_to_world(
         &self,
         camera_transform: &GlobalTransform,
@@ -274,6 +293,11 @@ impl Camera {
     ///
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
+    ///
+    /// Returns `None` if any of these conditions occur:
+    /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
+    /// - The viewport position cannot be mapped to the world. See [`ndc_to_world`](Camera::ndc_to_world)
+    /// May panic. See [`ndc_to_world`](Camera::ndc_to_world).
     pub fn viewport_to_world_2d(
         &self,
         camera_transform: &GlobalTransform,
@@ -295,6 +319,9 @@ impl Camera {
     /// and between 0.0 and 1.0 on the Z axis.
     /// To get the coordinates in the render target's viewport dimensions, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
+    ///
+    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
+    /// Panics if the `camera_transform` contains `NAN` and the `glam_assert` feature is enabled.
     pub fn world_to_ndc(
         &self,
         camera_transform: &GlobalTransform,
@@ -315,6 +342,9 @@ impl Camera {
     /// and between 0.0 and 1.0 on the Z axis.
     /// To get the world space coordinates with the viewport position, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
+    ///
+    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
+    /// Panics if the projection matrix is null and `glam_assert` is enabled.
     pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
         // Build a transformation matrix to convert from NDC to world space using camera data
         let ndc_to_world =
@@ -498,14 +528,14 @@ impl NormalizedRenderTarget {
     fn is_changed(
         &self,
         changed_window_ids: &HashSet<Entity>,
-        changed_image_handles: &HashSet<&Handle<Image>>,
+        changed_image_handles: &HashSet<&AssetId<Image>>,
     ) -> bool {
         match self {
             NormalizedRenderTarget::Window(window_ref) => {
                 changed_window_ids.contains(&window_ref.entity())
             }
             NormalizedRenderTarget::Image(image_handle) => {
-                changed_image_handles.contains(&image_handle)
+                changed_image_handles.contains(&image_handle.id())
             }
             NormalizedRenderTarget::TextureView(_) => true,
         }
@@ -545,14 +575,14 @@ pub fn camera_system<T: CameraProjection + Component>(
     let primary_window = primary_window.iter().next();
 
     let mut changed_window_ids = HashSet::new();
-    changed_window_ids.extend(window_created_events.iter().map(|event| event.window));
-    changed_window_ids.extend(window_resized_events.iter().map(|event| event.window));
+    changed_window_ids.extend(window_created_events.read().map(|event| event.window));
+    changed_window_ids.extend(window_resized_events.read().map(|event| event.window));
 
-    let changed_image_handles: HashSet<&Handle<Image>> = image_asset_events
-        .iter()
+    let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_events
+        .read()
         .filter_map(|event| {
-            if let AssetEvent::Modified { handle } = event {
-                Some(handle)
+            if let AssetEvent::Modified { id } = event {
+                Some(id)
             } else {
                 None
             }
@@ -776,7 +806,8 @@ impl TemporalJitter {
             return;
         }
 
-        let jitter = self.offset / view_size;
+        // https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/docs/techniques/media/super-resolution-temporal/jitter-space.svg
+        let jitter = (self.offset * vec2(2.0, -2.0)) / view_size;
 
         projection.z_axis.x += jitter.x;
         projection.z_axis.y += jitter.y;

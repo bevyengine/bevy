@@ -79,6 +79,11 @@ pub struct FixedUpdate;
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Update;
 
+/// The schedule that contains scene spawning.
+/// This is run by the [`Main`] schedule.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct SpawnScene;
+
 /// The schedule that contains logic that must run after [`Update`]. For example, synchronizing "local transforms" in a hierarchy
 /// to "global" absolute transforms. This enables the [`PostUpdate`] transform-sync system to react to "local transform" changes in
 /// [`Update`] without the [`Update`] systems needing to know about (or add scheduler dependencies for) the "global transform sync system".
@@ -112,6 +117,7 @@ impl Default for MainScheduleOrder {
                 Box::new(StateTransition),
                 Box::new(RunFixedUpdateLoop),
                 Box::new(Update),
+                Box::new(SpawnScene),
                 Box::new(PostUpdate),
                 Box::new(Last),
             ],
@@ -155,13 +161,13 @@ pub struct MainSchedulePlugin;
 impl Plugin for MainSchedulePlugin {
     fn build(&self, app: &mut App) {
         // simple "facilitator" schedules benefit from simpler single threaded scheduling
-        let mut main_schedule = Schedule::new();
+        let mut main_schedule = Schedule::new(Main);
         main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
-        let mut fixed_update_loop_schedule = Schedule::new();
+        let mut fixed_update_loop_schedule = Schedule::new(RunFixedUpdateLoop);
         fixed_update_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
 
-        app.add_schedule(Main, main_schedule)
-            .add_schedule(RunFixedUpdateLoop, fixed_update_loop_schedule)
+        app.add_schedule(main_schedule)
+            .add_schedule(fixed_update_loop_schedule)
             .init_resource::<MainScheduleOrder>()
             .add_systems(Main, Main::run_main);
     }

@@ -24,10 +24,6 @@ pub mod settings;
 mod spatial_bundle;
 pub mod texture;
 pub mod view;
-
-use bevy_hierarchy::ValidParentCheckPlugin;
-pub use extract_param::Extract;
-
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -37,11 +33,14 @@ pub mod prelude {
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
-        view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
+        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
         ExtractSchedule,
     };
 }
 
+pub use extract_param::Extract;
+
+use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
@@ -49,14 +48,15 @@ use wgpu::Instance;
 
 use crate::{
     camera::CameraPlugin,
-    mesh::{morph::MorphPlugin, MeshPlugin},
+    mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
+    render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     settings::WgpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin, SubApp};
-use bevy_asset::{AddAsset, AssetServer};
+use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
 use std::{
@@ -82,21 +82,31 @@ pub enum RenderSet {
     /// The copy of [`apply_deferred`] that runs at the beginning of this schedule.
     /// This is used for applying the commands from the [`ExtractSchedule`]
     ExtractCommands,
-    /// Prepare render resources from the extracted data for the GPU.
-    Prepare,
-    /// The copy of [`apply_deferred`] that runs immediately after [`Prepare`](RenderSet::Prepare).
-    PrepareFlush,
-    /// Create [`BindGroups`](render_resource::BindGroup) that depend on
-    /// [`Prepare`](RenderSet::Prepare) data and queue up draw calls to run during the
-    /// [`Render`](RenderSet::Render) step.
+    /// Prepare assets that have been created/modified/removed this frame.
+    PrepareAssets,
+    /// Create any additional views such as those used for shadow mapping.
+    ManageViews,
+    /// The copy of [`apply_deferred`] that runs immediately after [`ManageViews`](RenderSet::ManageViews).
+    ManageViewsFlush,
+    /// Queue drawable entities as phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
+    /// ready for sorting
     Queue,
-    /// The copy of [`apply_deferred`] that runs immediately after [`Queue`](RenderSet::Queue).
-    QueueFlush,
+    /// A sub-set within Queue where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
+    QueueMeshes,
     // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
     /// Sort the [`RenderPhases`](render_phase::RenderPhase) here.
     PhaseSort,
-    /// The copy of [`apply_deferred`] that runs immediately after [`PhaseSort`](RenderSet::PhaseSort).
-    PhaseSortFlush,
+    /// Prepare render resources from extracted data for the GPU based on their sorted order.
+    /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on those data.
+    Prepare,
+    /// A sub-set within Prepare for initializing buffers, textures and uniforms for use in bind groups.
+    PrepareResources,
+    /// The copy of [`apply_deferred`] that runs between [`PrepareResources`](RenderSet::PrepareResources) and ['PrepareBindGroups'](RenderSet::PrepareBindGroups).
+    PrepareResourcesFlush,
+    /// A sub-set within Prepare for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
+    PrepareBindGroups,
+    /// The copy of [`apply_deferred`] that runs immediately after [`Prepare`](RenderSet::Prepare).
+    PrepareFlush,
     /// Actual rendering happens here.
     /// In most cases, only the render backend should insert resources here.
     Render,
@@ -120,32 +130,44 @@ impl Render {
     pub fn base_schedule() -> Schedule {
         use RenderSet::*;
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::new(Self);
 
         // Create "stage-like" structure using buffer flushes + ordering
         schedule.add_systems((
-            apply_deferred.in_set(PrepareFlush),
-            apply_deferred.in_set(QueueFlush),
-            apply_deferred.in_set(PhaseSortFlush),
+            apply_deferred.in_set(ManageViewsFlush),
+            apply_deferred.in_set(PrepareResourcesFlush),
             apply_deferred.in_set(RenderFlush),
+            apply_deferred.in_set(PrepareFlush),
             apply_deferred.in_set(CleanupFlush),
         ));
 
         schedule.configure_sets(
             (
                 ExtractCommands,
+                ManageViews,
+                ManageViewsFlush,
+                Queue,
+                PhaseSort,
                 Prepare,
                 PrepareFlush,
-                Queue,
-                QueueFlush,
-                PhaseSort,
-                PhaseSortFlush,
                 Render,
                 RenderFlush,
                 Cleanup,
                 CleanupFlush,
             )
                 .chain(),
+        );
+
+        schedule.configure_sets((ExtractCommands, PrepareAssets, Prepare).chain());
+        schedule.configure_sets(
+            QueueMeshes
+                .in_set(RenderSet::Queue)
+                .after(prepare_assets::<Mesh>),
+        );
+        schedule.configure_sets(
+            (PrepareResources, PrepareResourcesFlush, PrepareBindGroups)
+                .chain()
+                .in_set(Prepare),
         );
 
         schedule
@@ -208,13 +230,15 @@ struct FutureRendererResources(
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
 
+pub const INSTANCE_INDEX_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(10313207077636615845);
+pub const MATHS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10665356303104593376);
+
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`](RenderSet) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        app.add_asset::<Shader>()
-            .add_debug_asset::<Shader>()
-            .init_asset_loader::<ShaderLoader>()
-            .init_debug_asset_loader::<ShaderLoader>();
+        app.init_asset::<Shader>()
+            .init_asset_loader::<ShaderLoader>();
 
         if let Some(backends) = self.wgpu_settings.backends {
             let future_renderer_resources_wrapper = Arc::new(Mutex::new(None));
@@ -227,53 +251,55 @@ impl Plugin for RenderPlugin {
             let primary_window = system_state.get(&app.world).get_single().ok().cloned();
 
             let settings = self.wgpu_settings.clone();
-            bevy_tasks::IoTaskPool::get()
-                .spawn_local(async move {
-                    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-                        backends,
-                        dx12_shader_compiler: settings.dx12_shader_compiler.clone(),
-                    });
-                    let surface = primary_window.map(|wrapper| unsafe {
-                        // SAFETY: Plugins should be set up on the main thread.
-                        let handle = wrapper.get_handle();
-                        instance
-                            .create_surface(&handle)
-                            .expect("Failed to create wgpu surface")
-                    });
+            let async_renderer = async move {
+                let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+                    backends,
+                    dx12_shader_compiler: settings.dx12_shader_compiler.clone(),
+                });
+                let surface = primary_window.map(|wrapper| unsafe {
+                    // SAFETY: Plugins should be set up on the main thread.
+                    let handle = wrapper.get_handle();
+                    instance
+                        .create_surface(&handle)
+                        .expect("Failed to create wgpu surface")
+                });
 
-                    let request_adapter_options = wgpu::RequestAdapterOptions {
-                        power_preference: settings.power_preference,
-                        compatible_surface: surface.as_ref(),
-                        ..Default::default()
-                    };
+                let request_adapter_options = wgpu::RequestAdapterOptions {
+                    power_preference: settings.power_preference,
+                    compatible_surface: surface.as_ref(),
+                    ..Default::default()
+                };
 
-                    let (device, queue, adapter_info, render_adapter) =
-                        renderer::initialize_renderer(
-                            &instance,
-                            &settings,
-                            &request_adapter_options,
-                        )
+                let (device, queue, adapter_info, render_adapter) =
+                    renderer::initialize_renderer(&instance, &settings, &request_adapter_options)
                         .await;
-                    debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
-                    debug!("Configured wgpu adapter Features: {:#?}", device.features());
-                    let mut future_renderer_resources_inner =
-                        future_renderer_resources_wrapper.lock().unwrap();
-                    *future_renderer_resources_inner =
-                        Some((device, queue, adapter_info, render_adapter, instance));
-                })
+                debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
+                debug!("Configured wgpu adapter Features: {:#?}", device.features());
+                let mut future_renderer_resources_inner =
+                    future_renderer_resources_wrapper.lock().unwrap();
+                *future_renderer_resources_inner =
+                    Some((device, queue, adapter_info, render_adapter, instance));
+            };
+            // In wasm, spawn a task and detach it for execution
+            #[cfg(target_arch = "wasm32")]
+            bevy_tasks::IoTaskPool::get()
+                .spawn_local(async_renderer)
                 .detach();
+            // Otherwise, just block for it to complete
+            #[cfg(not(target_arch = "wasm32"))]
+            futures_lite::future::block_on(async_renderer);
 
             app.init_resource::<ScratchMainWorld>();
 
             let mut render_app = App::empty();
             render_app.main_schedule_label = Box::new(Render);
 
-            let mut extract_schedule = Schedule::new();
+            let mut extract_schedule = Schedule::new(ExtractSchedule);
             extract_schedule.set_apply_final_deferred(false);
 
             render_app
-                .add_schedule(ExtractSchedule, extract_schedule)
-                .add_schedule(Render, Render::base_schedule())
+                .add_schedule(extract_schedule)
+                .add_schedule(Render::base_schedule())
                 .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(app.world.resource::<AssetServer>().clone())
                 .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
@@ -330,7 +356,7 @@ impl Plugin for RenderPlugin {
         }
 
         app.add_plugins((
-            ValidParentCheckPlugin::<view::ComputedVisibility>::default(),
+            ValidParentCheckPlugin::<view::InheritedVisibility>::default(),
             WindowRenderPlugin,
             CameraPlugin,
             ViewPlugin,
@@ -354,6 +380,17 @@ impl Plugin for RenderPlugin {
     }
 
     fn finish(&self, app: &mut App) {
+        load_internal_asset!(
+            app,
+            INSTANCE_INDEX_SHADER_HANDLE,
+            "instance_index.wgsl",
+            Shader::from_wgsl_with_defs,
+            vec![
+                #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+                "BASE_INSTANCE_WORKAROUND".into()
+            ]
+        );
+        load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
         if let Some(future_renderer_resources) =
             app.world.remove_resource::<FutureRendererResources>()
         {

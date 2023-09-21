@@ -1,7 +1,7 @@
 //! This example illustrates how `FontAtlas`'s are populated.
 //! Bevy uses `FontAtlas`'s under the hood to optimize text rendering.
 
-use bevy::{prelude::*, text::FontAtlasSet};
+use bevy::{prelude::*, text::FontAtlasSets};
 
 fn main() {
     App::new()
@@ -33,10 +33,10 @@ impl Default for State {
 fn atlas_render_system(
     mut commands: Commands,
     mut state: ResMut<State>,
-    font_atlas_sets: Res<Assets<FontAtlasSet>>,
+    font_atlas_sets: Res<FontAtlasSets>,
     texture_atlases: Res<Assets<TextureAtlas>>,
 ) {
-    if let Some(set) = font_atlas_sets.get(&state.handle.cast_weak::<FontAtlasSet>()) {
+    if let Some(set) = font_atlas_sets.get(&state.handle) {
         if let Some((_size, font_atlas)) = set.iter().next() {
             let x_offset = state.atlas_count as f32;
             if state.atlas_count == font_atlas.len() as u32 {
@@ -50,7 +50,7 @@ fn atlas_render_system(
                 image: texture_atlas.texture.clone().into(),
                 style: Style {
                     position_type: PositionType::Absolute,
-                    top: Val::Px(0.0),
+                    top: Val::ZERO,
                     left: Val::Px(512.0 * x_offset),
                     ..default()
                 },
@@ -83,7 +83,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
             background_color: Color::NONE.into(),
             style: Style {
                 position_type: PositionType::Absolute,
-                bottom: Val::Px(0.0),
+                bottom: Val::ZERO,
                 ..default()
             },
             ..default()

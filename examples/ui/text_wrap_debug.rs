@@ -24,8 +24,9 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     let root = commands
         .spawn(NodeBundle {
             style: Style {
-                flex_direction: FlexDirection::Column,
                 width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                flex_direction: FlexDirection::Column,
                 ..Default::default()
             },
             background_color: Color::BLACK.into(),
