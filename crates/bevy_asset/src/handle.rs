@@ -362,6 +362,12 @@ impl Hash for UntypedHandle {
     }
 }
 
+impl Default for UntypedHandle {
+    fn default() -> Self {
+        Self::Weak(UntypedAssetId::default())
+    }
+}
+
 impl std::fmt::Debug for UntypedHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

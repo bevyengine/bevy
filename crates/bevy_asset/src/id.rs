@@ -224,6 +224,15 @@ pub enum UntypedAssetId {
     Uuid { type_id: TypeId, uuid: Uuid },
 }
 
+impl Default for UntypedAssetId {
+    fn default() -> Self {
+        Self::Uuid {
+            type_id: TypeId::of::<()>(),
+            uuid: AssetId::<()>::DEFAULT_UUID,
+        }
+    }
+}
+
 impl UntypedAssetId {
     /// Converts this to a "typed" [`AssetId`] without checking the stored type to see if it matches the target `A` [`Asset`] type.
     /// This should only be called if you are _absolutely certain_ the asset type matches the stored type. And even then, you should
