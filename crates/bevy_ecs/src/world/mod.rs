@@ -20,7 +20,7 @@ use crate::{
     event::{Event, Events},
     query::{DebugCheckedUnwrap, QueryEntityError, QueryState, ReadOnlyWorldQuery, WorldQuery},
     removal_detection::RemovedComponentEvents,
-    schedule::{Schedule, ScheduleLabel, Schedules},
+    schedule::{IgnoreSchedulingAmbiguities, Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::Resource,
     world::error::TryRunScheduleError,
@@ -2086,6 +2086,22 @@ impl World {
     /// If the requested schedule does not exist.
     pub fn run_schedule(&mut self, label: impl AsRef<dyn ScheduleLabel>) {
         self.schedule_scope(label, |world, sched| sched.run(world));
+    }
+
+    pub fn allow_ambiguous_component<T: Component>(&mut self) {
+        let mut ignore_ambiguities = self
+            .remove_resource::<IgnoreSchedulingAmbiguities>()
+            .unwrap_or_default();
+        ignore_ambiguities.allow_ambiguous_component::<T>(self);
+        self.insert_resource(ignore_ambiguities);
+    }
+
+    pub fn allow_ambiguous_resource<T: Resource>(&mut self) {
+        let mut ignore_ambiguities = self
+            .remove_resource::<IgnoreSchedulingAmbiguities>()
+            .unwrap_or_default();
+        ignore_ambiguities.allow_ambiguous_resource::<T>(self);
+        self.insert_resource(ignore_ambiguities);
     }
 }
 

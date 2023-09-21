@@ -721,7 +721,6 @@ mod tests {
         use super::*;
         // Required to make the derive macro behave
         use crate as bevy_ecs;
-        use crate::component::ComponentId;
         use crate::event::Events;
         use crate::prelude::*;
 
@@ -1056,6 +1055,7 @@ mod tests {
             schedule.add_systems((resmut_system, resmut_system).run_if(|| true));
 
             let mut world = World::new();
+
             schedule.graph_mut().initialize(&mut world);
             let _ = schedule.graph_mut().build_schedule(
                 world.components(),
@@ -1078,58 +1078,43 @@ mod tests {
             );
         }
 
-        // helper function for testing ambiguities
-        fn assert_ambiguities_empty(
-            schedule: &mut Schedule,
-            world: &mut World,
-            ignored_ambiguities: Vec<ComponentId>,
-        ) {
-            schedule.graph_mut().initialize(world);
-            let _ = schedule.graph_mut().build_schedule(
-                world.components(),
-                &TestSchedule.dyn_clone(),
-                &ignored_ambiguities,
-            );
-
-            let ambiguities: Vec<_> = schedule
-                .graph()
-                .conflicts_to_string(schedule.graph().conflicting_systems(), world.components())
-                .collect();
-
-            assert!(ambiguities.is_empty());
-        }
-
         #[test]
         fn ignore_component_resource_ambiguities() {
-            fn system_a(_res: ResMut<R>) {}
-            fn system_b(_res: ResMut<R>) {}
-
             let mut world = World::new();
             world.insert_resource(R);
-
-            let resource_id = world.components.resource_id::<R>().unwrap();
-
+            world.allow_ambiguous_resource::<R>();
             let mut schedule = Schedule::new(TestSchedule);
-            schedule.add_systems((system_a, system_b));
 
-            assert_ambiguities_empty(&mut schedule, &mut world, vec![resource_id]);
+            //check resource
+            schedule.add_systems((resmut_system, res_system));
+            schedule.initialize(&mut world).unwrap();
+            assert!(schedule.graph().conflicting_systems().is_empty());
+
+            // check components
+            world.allow_ambiguous_component::<A>();
+            schedule.add_systems((write_component_system, read_component_system));
+            schedule.initialize(&mut world).unwrap();
+            assert!(schedule.graph().conflicting_systems().is_empty());
         }
 
         #[test]
         fn ignore_before_add() {
-            todo!();
-            fn system_a(_res: ResMut<R>) {}
-            fn system_b(_res: ResMut<R>) {}
-
             let mut world = World::new();
+            world.allow_ambiguous_resource::<R>();
             world.insert_resource(R);
-
-            let resource_id = world.components.resource_id::<R>().unwrap();
-
             let mut schedule = Schedule::new(TestSchedule);
-            schedule.add_systems((system_a, system_b));
 
-            assert_ambiguities_empty(&mut schedule, &mut world, vec![resource_id]);
+            //check resource
+            schedule.add_systems((resmut_system, res_system));
+            schedule.initialize(&mut world).unwrap();
+            assert!(schedule.graph().conflicting_systems().is_empty());
+
+            // check components
+            world.init_component::<A>();
+            world.allow_ambiguous_component::<A>();
+            schedule.add_systems((write_component_system, read_component_system));
+            schedule.initialize(&mut world).unwrap();
+            assert!(schedule.graph().conflicting_systems().is_empty());
         }
     }
 }

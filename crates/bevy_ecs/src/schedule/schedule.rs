@@ -17,7 +17,6 @@ use fixedbitset::FixedBitSet;
 
 use crate::{
     self as bevy_ecs,
-    change_detection::Mut,
     component::{ComponentDescriptor, ComponentId, Components, Tick},
     prelude::Component,
     schedule::*,
@@ -29,8 +28,6 @@ use crate::{
 #[derive(Default, Resource)]
 pub struct Schedules {
     inner: HashMap<BoxedScheduleLabel, Schedule>,
-    /// list of [`ComponentId`]'s to ignore when reporting ambiguity conflicts between systems
-    ambiguous_components: Vec<ComponentId>,
 }
 
 impl Schedules {
@@ -38,7 +35,6 @@ impl Schedules {
     pub fn new() -> Self {
         Self {
             inner: HashMap::new(),
-            ambiguous_components: Vec::new(),
         }
     }
 
@@ -114,27 +110,6 @@ impl Schedules {
         for (_, schedule) in &mut self.inner {
             schedule.set_build_settings(schedule_build_settings.clone());
         }
-    }
-
-    /// Ignore ambiguities in component T.
-    ///
-    /// [`Components`] should be from the same world that Schedules belongs to
-    pub fn allow_ambiguous_component<T: Component>(&mut self, world: &mut World) {
-        self.ambiguous_components.push(world.init_component::<T>());
-    }
-
-    /// Ignore ambiguities in resource T.
-    ///
-    /// [`Components`] should be from the same world that Schedules belongs to
-    pub fn allow_ambiguous_resource<T: Resource>(&mut self, world: &mut World) {
-        // TODO: think about moving this to World or Components
-        let resource_id = world.components.resource_id::<T>().unwrap_or_else(|| {
-            world.components.init_component_with_descriptor(
-                &mut world.storages,
-                ComponentDescriptor::new_resource::<T>(),
-            )
-        });
-        self.ambiguous_components.push(resource_id);
     }
 }
 
@@ -288,14 +263,16 @@ impl Schedule {
     pub fn initialize(&mut self, world: &mut World) -> Result<(), ScheduleBuildError> {
         if self.graph.changed {
             self.graph.initialize(world);
-            world.resource_scope(|world, schedules: Mut<Schedules>| {
-                self.graph.update_schedule(
-                    &mut self.executable,
-                    world.components(),
-                    &schedules.ambiguous_components,
-                    &self.name,
-                )
-            })?;
+            let ignore_ambiguities = world
+                .get_resource::<IgnoreSchedulingAmbiguities>()
+                .cloned()
+                .unwrap_or_default();
+            self.graph.update_schedule(
+                &mut self.executable,
+                world.components(),
+                &ignore_ambiguities.0,
+                &self.name,
+            )?;
             self.graph.changed = false;
             self.executor_initialized = false;
         }
@@ -1098,7 +1075,7 @@ impl ScheduleGraph {
                     let conflicts: Vec<_> = access_a
                         .get_conflicts(access_b)
                         .into_iter()
-                        .filter(|id| ignored_ambiguities.contains(id))
+                        .filter(|id| !ignored_ambiguities.contains(id))
                         .collect();
 
                     if !conflicts.is_empty() {
@@ -1752,6 +1729,33 @@ impl ScheduleBuildSettings {
             use_shortnames: true,
             report_sets: true,
         }
+    }
+}
+
+/// list of [`ComponentId`]'s to ignore when reporting ambiguity conflicts between systems
+#[derive(Resource, Default, Clone)]
+pub struct IgnoreSchedulingAmbiguities(Vec<ComponentId>);
+
+impl IgnoreSchedulingAmbiguities {
+    /// Ignore ambiguities in component T.
+    ///
+    /// [`Components`] should be from the same world that Schedules belongs to
+    pub fn allow_ambiguous_component<T: Component>(&mut self, world: &mut World) {
+        self.0.push(world.init_component::<T>());
+    }
+
+    /// Ignore ambiguities in resource T.
+    ///
+    /// [`Components`] should be from the same world that Schedules belongs to
+    pub fn allow_ambiguous_resource<T: Resource>(&mut self, world: &mut World) {
+        // TODO: think about moving this to World or Components
+        let resource_id = world.components.resource_id::<T>().unwrap_or_else(|| {
+            world.components.init_component_with_descriptor(
+                &mut world.storages,
+                ComponentDescriptor::new_resource::<T>(),
+            )
+        });
+        self.0.push(resource_id);
     }
 }
 
