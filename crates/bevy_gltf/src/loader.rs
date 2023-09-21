@@ -710,11 +710,11 @@ fn load_material(
         #[cfg(feature = "pbr_transmission_textures")]
         let (transmission, transmission_texture) =
             material.transmission().map_or((0.0, None), |transmission| {
-                let transmission_texture: Option<Handle<Image>> =
-                    transmission.transmission_texture().map(|info| {
-                        let label = texture_label(&info.texture());
-                        let path = AssetPath::new_ref(load_context.path(), Some(&label));
-                        load_context.get_handle(path)
+                let transmission_texture: Option<Handle<Image>> = transmission
+                    .transmission_texture()
+                    .map(|transmission_texture| {
+                        // TODO: handle transmission_texture.tex_coord() (the *set* index for the right texcoords)
+                        texture_handle(load_context, &transmission_texture.texture())
                     });
 
                 (transmission.transmission_factor(), transmission_texture)
@@ -730,10 +730,9 @@ fn load_material(
             .volume()
             .map_or((0.0, None, f32::INFINITY, [1.0, 1.0, 1.0]), |volume| {
                 let thickness_texture: Option<Handle<Image>> =
-                    volume.thickness_texture().map(|info| {
-                        let label = texture_label(&info.texture());
-                        let path = AssetPath::new_ref(load_context.path(), Some(&label));
-                        load_context.get_handle(path)
+                    volume.thickness_texture().map(|thickness_texture| {
+                        // TODO: handle thickness_texture.tex_coord() (the *set* index for the right texcoords)
+                        texture_handle(load_context, &thickness_texture.texture())
                     });
 
                 (
