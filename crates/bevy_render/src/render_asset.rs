@@ -104,6 +104,7 @@ impl<A: RenderAsset> RenderAssetDependency for A {
 pub struct ExtractedAssets<A: RenderAsset> {
     extracted: Vec<(AssetId<A>, A::ExtractedAsset)>,
     removed: Vec<AssetId<A>>,
+    extracted_overflow: Vec<(AssetId<A>, A::ExtractedAsset)>,
 }
 
 impl<A: RenderAsset> Default for ExtractedAssets<A> {
@@ -111,6 +112,7 @@ impl<A: RenderAsset> Default for ExtractedAssets<A> {
         Self {
             extracted: Default::default(),
             removed: Default::default(),
+            extracted_overflow: Default::default(),
         }
     }
 }
@@ -162,6 +164,7 @@ fn extract_render_asset<A: RenderAsset>(
     mut commands: Commands,
     mut events: Extract<EventReader<AssetEvent<A>>>,
     assets: Extract<Res<Assets<A>>>,
+    mut extracted_assets: ResMut<ExtractedAssets<A>>,
 ) {
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
@@ -180,16 +183,23 @@ fn extract_render_asset<A: RenderAsset>(
         }
     }
 
-    let mut extracted_assets = Vec::new();
+    let mut extracted_assets = std::mem::take(&mut extracted_assets.extracted_overflow);
     for id in changed_assets.drain() {
         if let Some(asset) = assets.get(id) {
             extracted_assets.push((id, asset.extract_asset()));
         }
     }
 
+    let extracted_overflow = if extracted_assets.len() > 5000 {
+        extracted_assets.split_off(5000)
+    } else {
+        vec![]
+    };
+
     commands.insert_resource(ExtractedAssets {
         extracted: extracted_assets,
         removed,
+        extracted_overflow,
     });
 }
 
