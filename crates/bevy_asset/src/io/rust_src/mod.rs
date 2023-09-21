@@ -6,7 +6,7 @@ pub use rust_src_watcher::*;
 
 use crate::io::{
     memory::{Dir, MemoryAssetReader, Value},
-    AssetProvider, AssetProviderBuilders,
+    AssetSource, AssetSourceBuilders,
 };
 use bevy_ecs::system::Resource;
 use std::path::{Path, PathBuf};
@@ -28,7 +28,7 @@ pub struct RustSrcRegistry {
 impl RustSrcRegistry {
     /// Inserts a new asset. `full_path` is the full path (as [`file`] would return for that file, if it was capable of
     /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `rust_src`
-    /// asset provider. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
+    /// [`AssetSource`]. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
     /// or a [`Vec<u8>`].
     #[allow(unused)]
     pub fn insert_asset(&self, full_path: PathBuf, asset_path: &Path, value: impl Into<Value>) {
@@ -41,7 +41,7 @@ impl RustSrcRegistry {
 
     /// Inserts new asset metadata. `full_path` is the full path (as [`file`] would return for that file, if it was capable of
     /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `rust_src`
-    /// asset provider. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
+    /// [`AssetSource`]. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
     /// or a [`Vec<u8>`].
     #[allow(unused)]
     pub fn insert_meta(&self, full_path: &Path, asset_path: &Path, value: impl Into<Value>) {
@@ -52,13 +52,13 @@ impl RustSrcRegistry {
         self.dir.insert_meta(asset_path, value);
     }
 
-    /// Registers a `rust_src` [`AssetProvider`] that uses this [`RustSrcRegistry`].
-    // NOTE: unused_mut because rust_src_watcher feature is the only mutable consumer of `let mut provider`
+    /// Registers a `rust_src` [`AssetSource`] that uses this [`RustSrcRegistry`].
+    // NOTE: unused_mut because rust_src_watcher feature is the only mutable consumer of `let mut source`
     #[allow(unused_mut)]
-    pub fn register_provider(&self, providers: &mut AssetProviderBuilders) {
+    pub fn register_source(&self, sources: &mut AssetSourceBuilders) {
         let dir = self.dir.clone();
         let processed_dir = self.dir.clone();
-        let mut provider = AssetProvider::build()
+        let mut source = AssetSource::build()
             .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() }))
             .with_processed_reader(move || {
                 Box::new(MemoryAssetReader {
@@ -72,7 +72,7 @@ impl RustSrcRegistry {
             let dir = self.dir.clone();
             let processed_root_paths = self.root_paths.clone();
             let processd_dir = self.dir.clone();
-            provider = provider
+            source = source
                 .with_watcher(move |sender| {
                     Some(Box::new(RustSrcWatcher::new(
                         dir.clone(),
@@ -90,7 +90,7 @@ impl RustSrcRegistry {
                     )))
                 });
         }
-        providers.insert(RUST_SRC, provider);
+        sources.insert(RUST_SRC, source);
     }
 }
 
@@ -115,7 +115,7 @@ macro_rules! rust_src_path {
 }
 
 /// Creates a new `rust_src` asset by embedding the bytes of the given path into the current binary
-/// and registering those bytes with the `rust_src` [`AssetProvider`].
+/// and registering those bytes with the `rust_src` [`AssetSource`].
 ///
 /// This accepts the current [`App`](bevy_app::App) as the first parameter and a path `&str` (relative to the current file) as the second.
 ///
@@ -152,7 +152,7 @@ macro_rules! rust_src_path {
 /// ```
 ///
 /// Some things to note in the path:
-/// 1. The non-default `rust_src:://` [`AssetProvider`]
+/// 1. The non-default `rust_src:://` [`AssetSource`]
 /// 2. `src` is trimmed from the path
 ///
 /// The default behavior also works for cargo workspaces. Pretend the `bevy_rock` crate now exists in a larger workspace in

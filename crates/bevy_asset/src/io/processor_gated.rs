@@ -1,5 +1,5 @@
 use crate::{
-    io::{AssetProviderId, AssetReader, AssetReaderError, PathStream, Reader},
+    io::{AssetReader, AssetReaderError, AssetSourceId, PathStream, Reader},
     processor::{AssetProcessorData, ProcessStatus},
     AssetPath,
 };
@@ -16,19 +16,19 @@ use std::{path::Path, pin::Pin, sync::Arc};
 /// [`AssetProcessor`]: crate::processor::AssetProcessor   
 pub struct ProcessorGatedReader {
     reader: Box<dyn AssetReader>,
-    provider: AssetProviderId<'static>,
+    source: AssetSourceId<'static>,
     processor_data: Arc<AssetProcessorData>,
 }
 
 impl ProcessorGatedReader {
     /// Creates a new [`ProcessorGatedReader`].
     pub fn new(
-        provider: AssetProviderId<'static>,
+        source: AssetSourceId<'static>,
         reader: Box<dyn AssetReader>,
         processor_data: Arc<AssetProcessorData>,
     ) -> Self {
         Self {
-            provider,
+            source,
             processor_data,
             reader,
         }
@@ -54,8 +54,7 @@ impl AssetReader for ProcessorGatedReader {
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
         Box::pin(async move {
-            let asset_path =
-                AssetPath::from(path.to_path_buf()).with_provider(self.provider.clone());
+            let asset_path = AssetPath::from(path.to_path_buf()).with_source(self.source.clone());
             trace!("Waiting for processing to finish before reading {asset_path}");
             let process_result = self
                 .processor_data
@@ -81,8 +80,7 @@ impl AssetReader for ProcessorGatedReader {
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
         Box::pin(async move {
-            let asset_path =
-                AssetPath::from(path.to_path_buf()).with_provider(self.provider.clone());
+            let asset_path = AssetPath::from(path.to_path_buf()).with_source(self.source.clone());
             trace!("Waiting for processing to finish before reading meta for {asset_path}",);
             let process_result = self
                 .processor_data

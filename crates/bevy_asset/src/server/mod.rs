@@ -3,8 +3,8 @@ mod info;
 use crate::{
     folder::LoadedFolder,
     io::{
-        AssetProvider, AssetProviderEvent, AssetProviderId, AssetProviders, AssetReader,
-        AssetReaderError, MissingAssetProviderError, MissingProcessedAssetReaderError, Reader,
+        AssetReader, AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
+        MissingAssetSourceError, MissingProcessedAssetReaderError, Reader,
     },
     loader::{AssetLoader, AssetLoaderError, ErasedAssetLoader, LoadContext, LoadedAsset},
     meta::{
@@ -51,7 +51,7 @@ pub(crate) struct AssetServerData {
     pub(crate) loaders: Arc<RwLock<AssetLoaders>>,
     asset_event_sender: Sender<InternalAssetEvent>,
     asset_event_receiver: Receiver<InternalAssetEvent>,
-    providers: AssetProviders,
+    sources: AssetSources,
     mode: AssetServerMode,
 }
 
@@ -67,16 +67,12 @@ pub enum AssetServerMode {
 impl AssetServer {
     /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`] storage will watch for changes to
     /// asset sources and hot-reload them.
-    pub fn new(
-        providers: AssetProviders,
-        mode: AssetServerMode,
-        watching_for_changes: bool,
-    ) -> Self {
-        Self::new_with_loaders(providers, Default::default(), mode, watching_for_changes)
+    pub fn new(sources: AssetSources, mode: AssetServerMode, watching_for_changes: bool) -> Self {
+        Self::new_with_loaders(sources, Default::default(), mode, watching_for_changes)
     }
 
     pub(crate) fn new_with_loaders(
-        providers: AssetProviders,
+        sources: AssetSources,
         loaders: Arc<RwLock<AssetLoaders>>,
         mode: AssetServerMode,
         watching_for_changes: bool,
@@ -86,7 +82,7 @@ impl AssetServer {
         infos.watching_for_changes = watching_for_changes;
         Self {
             data: Arc::new(AssetServerData {
-                providers,
+                sources,
                 mode,
                 asset_event_sender,
                 asset_event_receiver,
@@ -96,12 +92,12 @@ impl AssetServer {
         }
     }
 
-    /// Retrieves the [`AssetReader`] for the given `provider`.
-    pub fn get_provider<'a>(
+    /// Retrieves the [`AssetReader`] for the given `source`.
+    pub fn get_source<'a>(
         &'a self,
-        provider: impl Into<AssetProviderId<'a>>,
-    ) -> Result<&'a AssetProvider, MissingAssetProviderError> {
-        self.data.providers.get(provider.into())
+        source: impl Into<AssetSourceId<'a>>,
+    ) -> Result<&'a AssetSource, MissingAssetSourceError> {
+        self.data.sources.get(source.into())
     }
 
     /// Registers a new [`AssetLoader`]. [`AssetLoader`]s must be registered before they can be used.
@@ -500,22 +496,22 @@ impl AssetServer {
         let server = self.clone();
         IoTaskPool::get()
             .spawn(async move {
-                let Ok(provider) = server.get_provider(path.provider()) else {
+                let Ok(source) = server.get_source(path.source()) else {
                     error!(
-                        "Failed to load {path}. AssetProvider {:?} does not exist",
-                        path.provider()
+                        "Failed to load {path}. AssetSource {:?} does not exist",
+                        path.source()
                     );
                     return;
                 };
 
                 let asset_reader = match server.data.mode {
-                    AssetServerMode::Unprocessed { .. } => provider.reader(),
-                    AssetServerMode::Processed { .. } => match provider.processed_reader() {
+                    AssetServerMode::Unprocessed { .. } => source.reader(),
+                    AssetServerMode::Processed { .. } => match source.processed_reader() {
                         Ok(reader) => reader,
                         Err(_) => {
                             error!(
-                                "Failed to load {path}. AssetProvider {:?} does not have a processed AssetReader",
-                                path.provider()
+                                "Failed to load {path}. AssetSource {:?} does not have a processed AssetReader",
+                                path.source()
                             );
                             return;
                         }
@@ -677,14 +673,14 @@ impl AssetServer {
         ),
         AssetLoadError,
     > {
-        let provider = self.get_provider(asset_path.provider())?;
+        let source = self.get_source(asset_path.source())?;
         // NOTE: We grab the asset byte reader first to ensure this is transactional for AssetReaders like ProcessorGatedReader
         // The asset byte reader will "lock" the processed asset, preventing writes for the duration of the lock.
         // Then the meta reader, if meta exists, will correspond to the meta for the current "version" of the asset.
         // See ProcessedAssetInfo::file_transaction_lock for more context
         let asset_reader = match self.data.mode {
-            AssetServerMode::Unprocessed { .. } => provider.reader(),
-            AssetServerMode::Processed { .. } => provider.processed_reader()?,
+            AssetServerMode::Unprocessed { .. } => source.reader(),
+            AssetServerMode::Processed { .. } => source.processed_reader()?,
         };
         let reader = asset_reader.read(asset_path.path()).await?;
         match asset_reader.read_meta_bytes(asset_path.path()).await {
@@ -788,13 +784,12 @@ pub fn handle_internal_asset_events(world: &mut World) {
         }
 
         let mut paths_to_reload = HashSet::new();
-        let mut handle_event = |provider: AssetProviderId<'static>, event: AssetProviderEvent| {
+        let mut handle_event = |source: AssetSourceId<'static>, event: AssetSourceEvent| {
             match event {
                 // TODO: if the asset was processed and the processed file was changed, the first modified event
                 // should be skipped?
-                AssetProviderEvent::ModifiedAsset(path)
-                | AssetProviderEvent::ModifiedMeta(path) => {
-                    let path = AssetPath::from(path).with_provider(provider);
+                AssetSourceEvent::ModifiedAsset(path) | AssetSourceEvent::ModifiedMeta(path) => {
+                    let path = AssetPath::from(path).with_source(source);
                     queue_ancestors(&path, &infos, &mut paths_to_reload);
                     paths_to_reload.insert(path);
                 }
@@ -802,19 +797,19 @@ pub fn handle_internal_asset_events(world: &mut World) {
             }
         };
 
-        for provider in server.data.providers.iter() {
+        for source in server.data.sources.iter() {
             match server.data.mode {
                 AssetServerMode::Unprocessed { .. } => {
-                    if let Some(receiver) = provider.event_receiver() {
+                    if let Some(receiver) = source.event_receiver() {
                         for event in receiver.try_iter() {
-                            handle_event(provider.id(), event);
+                            handle_event(source.id(), event);
                         }
                     }
                 }
                 AssetServerMode::Processed { .. } => {
-                    if let Some(receiver) = provider.processed_event_receiver() {
+                    if let Some(receiver) = source.processed_event_receiver() {
                         for event in receiver.try_iter() {
-                            handle_event(provider.id(), event);
+                            handle_event(source.id(), event);
                         }
                     }
                 }
@@ -915,7 +910,7 @@ pub enum AssetLoadError {
     #[error(transparent)]
     AssetReaderError(#[from] AssetReaderError),
     #[error(transparent)]
-    MissingAssetProviderError(#[from] MissingAssetProviderError),
+    MissingAssetSourceError(#[from] MissingAssetSourceError),
     #[error(transparent)]
     MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
     #[error("Encountered an error while reading asset metadata bytes")]

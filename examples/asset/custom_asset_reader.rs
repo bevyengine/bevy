@@ -4,7 +4,7 @@
 
 use bevy::{
     asset::io::{
-        file::FileAssetReader, AssetProvider, AssetProviderId, AssetReader, AssetReaderError,
+        file::FileAssetReader, AssetReader, AssetReaderError, AssetSource, AssetSourceId,
         PathStream, Reader,
     },
     prelude::*,
@@ -50,9 +50,9 @@ struct CustomAssetReaderPlugin;
 
 impl Plugin for CustomAssetReaderPlugin {
     fn build(&self, app: &mut App) {
-        app.register_asset_provider(
-            AssetProviderId::Default,
-            AssetProvider::build()
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build()
                 .with_reader(|| Box::new(CustomAssetReader(FileAssetReader::new("assets")))),
         );
     }

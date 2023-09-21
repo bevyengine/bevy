@@ -9,10 +9,10 @@ pub mod rust_src;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
 
-mod provider;
+mod source;
 
 pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
-pub use provider::*;
+pub use source::*;
 
 use bevy_utils::BoxedFuture;
 use futures_io::{AsyncRead, AsyncWrite};
@@ -173,7 +173,7 @@ pub trait AssetWriter: Send + Sync + 'static {
 
 /// An "asset source change event" that occurs whenever asset (or asset metadata) is created/added/removed
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum AssetProviderEvent {
+pub enum AssetSourceEvent {
     /// An asset at this path was added.
     AddedAsset(PathBuf),
     /// An asset at this path was modified.
@@ -209,7 +209,7 @@ pub enum AssetProviderEvent {
     },
 }
 
-/// A handle to an "asset watcher" process, that will listen for and emit [`AssetProviderEvent`] values for as long as
+/// A handle to an "asset watcher" process, that will listen for and emit [`AssetSourceEvent`] values for as long as
 /// [`AssetWatcher`] has not been dropped.
 ///
 /// See [`AssetReader::watch_for_changes`].

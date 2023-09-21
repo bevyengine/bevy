@@ -1,6 +1,6 @@
 use crate::{
     io::{
-        processor_gated::ProcessorGatedReader, AssetProviderEvent, AssetReader, AssetWatcher,
+        processor_gated::ProcessorGatedReader, AssetReader, AssetSourceEvent, AssetWatcher,
         AssetWriter,
     },
     processor::AssetProcessorData,
@@ -11,112 +11,110 @@ use bevy_utils::{CowArc, Duration, HashMap};
 use std::{fmt::Display, hash::Hash, sync::Arc};
 use thiserror::Error;
 
-/// A reference to an "asset provider", which maps to an [`AssetReader`] and/or [`AssetWriter`].
+/// A reference to an "asset source", which maps to an [`AssetReader`] and/or [`AssetWriter`].
 ///
-/// * [`AssetProviderId::Default`] corresponds to "default asset paths" that don't specify a provider: `/path/to/asset.png`
-/// * [`AssetProviderId::Name`] corresponds to asset paths that _do_ specify a provider: `remote://path/to/asset.png`, where `remote` is the name.
+/// * [`AssetSourceId::Default`] corresponds to "default asset paths" that don't specify a source: `/path/to/asset.png`
+/// * [`AssetSourceId::Name`] corresponds to asset paths that _do_ specify a source: `remote://path/to/asset.png`, where `remote` is the name.
 #[derive(Default, Clone, Debug, Eq)]
-pub enum AssetProviderId<'a> {
-    /// The default asset provider.
+pub enum AssetSourceId<'a> {
+    /// The default asset source.
     #[default]
     Default,
-    /// A non-default named asset provider.
+    /// A non-default named asset source.
     Name(CowArc<'a, str>),
 }
 
-impl<'a> Display for AssetProviderId<'a> {
+impl<'a> Display for AssetSourceId<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.as_str() {
-            None => write!(f, "AssetProviderId::Default"),
-            Some(v) => write!(f, "AssetProviderId::Name({v})"),
+            None => write!(f, "AssetSourceId::Default"),
+            Some(v) => write!(f, "AssetSourceId::Name({v})"),
         }
     }
 }
 
-impl<'a> AssetProviderId<'a> {
-    /// Creates a new [`AssetProviderId`]
-    pub fn new(provider: Option<impl Into<CowArc<'a, str>>>) -> AssetProviderId<'a> {
-        match provider {
-            Some(provider) => AssetProviderId::Name(provider.into()),
-            None => AssetProviderId::Default,
+impl<'a> AssetSourceId<'a> {
+    /// Creates a new [`AssetSourceId`]
+    pub fn new(source: Option<impl Into<CowArc<'a, str>>>) -> AssetSourceId<'a> {
+        match source {
+            Some(source) => AssetSourceId::Name(source.into()),
+            None => AssetSourceId::Default,
         }
     }
 
-    /// Returns [`None`] if this is [`AssetProviderId::Default`] and [`Some`] containing the
-    /// the name if this is [`AssetProviderId::Name`].  
+    /// Returns [`None`] if this is [`AssetSourceId::Default`] and [`Some`] containing the
+    /// the name if this is [`AssetSourceId::Name`].  
     pub fn as_str(&self) -> Option<&str> {
         match self {
-            AssetProviderId::Default => None,
-            AssetProviderId::Name(v) => Some(v),
+            AssetSourceId::Default => None,
+            AssetSourceId::Name(v) => Some(v),
         }
     }
 
     /// If this is not already an owned / static id, create one. Otherwise, it will return itself (with a static lifetime).
-    pub fn into_owned(self) -> AssetProviderId<'static> {
+    pub fn into_owned(self) -> AssetSourceId<'static> {
         match self {
-            AssetProviderId::Default => AssetProviderId::Default,
-            AssetProviderId::Name(v) => AssetProviderId::Name(v.into_owned()),
+            AssetSourceId::Default => AssetSourceId::Default,
+            AssetSourceId::Name(v) => AssetSourceId::Name(v.into_owned()),
         }
     }
 
-    /// Clones into an owned [`AssetProviderId<'static>`].
+    /// Clones into an owned [`AssetSourceId<'static>`].
     /// This is equivalent to `.clone().into_owned()`.
     #[inline]
-    pub fn clone_owned(&self) -> AssetProviderId<'static> {
+    pub fn clone_owned(&self) -> AssetSourceId<'static> {
         self.clone().into_owned()
     }
 }
 
-impl From<&'static str> for AssetProviderId<'static> {
+impl From<&'static str> for AssetSourceId<'static> {
     fn from(value: &'static str) -> Self {
-        AssetProviderId::Name(value.into())
+        AssetSourceId::Name(value.into())
     }
 }
 
-impl<'a, 'b> From<&'a AssetProviderId<'b>> for AssetProviderId<'b> {
-    fn from(value: &'a AssetProviderId<'b>) -> Self {
+impl<'a, 'b> From<&'a AssetSourceId<'b>> for AssetSourceId<'b> {
+    fn from(value: &'a AssetSourceId<'b>) -> Self {
         value.clone()
     }
 }
 
-impl From<Option<&'static str>> for AssetProviderId<'static> {
+impl From<Option<&'static str>> for AssetSourceId<'static> {
     fn from(value: Option<&'static str>) -> Self {
         match value {
-            Some(value) => AssetProviderId::Name(value.into()),
-            None => AssetProviderId::Default,
+            Some(value) => AssetSourceId::Name(value.into()),
+            None => AssetSourceId::Default,
         }
     }
 }
 
-impl From<String> for AssetProviderId<'static> {
+impl From<String> for AssetSourceId<'static> {
     fn from(value: String) -> Self {
-        AssetProviderId::Name(value.into())
+        AssetSourceId::Name(value.into())
     }
 }
 
-impl<'a> Hash for AssetProviderId<'a> {
+impl<'a> Hash for AssetSourceId<'a> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.as_str().hash(state);
     }
 }
 
-impl<'a> PartialEq for AssetProviderId<'a> {
+impl<'a> PartialEq for AssetSourceId<'a> {
     fn eq(&self, other: &Self) -> bool {
         self.as_str().eq(&other.as_str())
     }
 }
 
-/// Metadata about an "asset provider", such as how to construct the [`AssetReader`] and [`AssetWriter`] for the provider,
-/// and whether or not the provider is processed.
+/// Metadata about an "asset source", such as how to construct the [`AssetReader`] and [`AssetWriter`] for the source,
+/// and whether or not the source is processed.
 #[derive(Default)]
-pub struct AssetProviderBuilder {
+pub struct AssetSourceBuilder {
     pub reader: Option<Box<dyn FnMut() -> Box<dyn AssetReader> + Send + Sync>>,
     pub writer: Option<Box<dyn FnMut() -> Option<Box<dyn AssetWriter>> + Send + Sync>>,
     pub watcher: Option<
         Box<
-            dyn FnMut(
-                    crossbeam_channel::Sender<AssetProviderEvent>,
-                ) -> Option<Box<dyn AssetWatcher>>
+            dyn FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
                 + Send
                 + Sync,
         >,
@@ -125,24 +123,22 @@ pub struct AssetProviderBuilder {
     pub processed_writer: Option<Box<dyn FnMut() -> Option<Box<dyn AssetWriter>> + Send + Sync>>,
     pub processed_watcher: Option<
         Box<
-            dyn FnMut(
-                    crossbeam_channel::Sender<AssetProviderEvent>,
-                ) -> Option<Box<dyn AssetWatcher>>
+            dyn FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
                 + Send
                 + Sync,
         >,
     >,
 }
 
-impl AssetProviderBuilder {
-    /// Builds a new [`AssetProvider`] with the given `id`. If `watch` is true, the unprocessed provider will watch for changes.
-    /// If `watch_processed` is true, the processed provider will watch for changes.
+impl AssetSourceBuilder {
+    /// Builds a new [`AssetSource`] with the given `id`. If `watch` is true, the unprocessed source will watch for changes.
+    /// If `watch_processed` is true, the processed source will watch for changes.
     pub fn build(
         &mut self,
-        id: AssetProviderId<'static>,
+        id: AssetSourceId<'static>,
         watch: bool,
         watch_processed: bool,
-    ) -> Option<AssetProvider> {
+    ) -> Option<AssetSource> {
         let reader = (self.reader.as_mut()?)();
         let writer = self.writer.as_mut().map(|w| match (w)() {
             Some(w) => w,
@@ -152,7 +148,7 @@ impl AssetProviderBuilder {
             Some(w) => w,
             None => panic!("{} does not have a processed AssetWriter configured. Note that Web and Android do not currently support writing assets.", id),
         });
-        let mut provider = AssetProvider {
+        let mut source = AssetSource {
             id: id.clone(),
             reader,
             writer,
@@ -168,8 +164,8 @@ impl AssetProviderBuilder {
             let (sender, receiver) = crossbeam_channel::unbounded();
             match self.watcher.as_mut().and_then(|w|(w)(sender)) {
                 Some(w) => {
-                    provider.watcher = Some(w);
-                    provider.event_receiver = Some(receiver);
+                    source.watcher = Some(w);
+                    source.event_receiver = Some(receiver);
                 },
                 None => warn!("{id} does not have an AssetWatcher configured. Consider enabling the `file_watcher` feature. Note that Web and Android do not currently support watching assets."),
             }
@@ -179,13 +175,13 @@ impl AssetProviderBuilder {
             let (sender, receiver) = crossbeam_channel::unbounded();
             match self.processed_watcher.as_mut().and_then(|w|(w)(sender)) {
                 Some(w) => {
-                    provider.processed_watcher = Some(w);
-                    provider.processed_event_receiver = Some(receiver);
+                    source.processed_watcher = Some(w);
+                    source.processed_event_receiver = Some(receiver);
                 },
                 None => warn!("{id} does not have a processed AssetWatcher configured. Consider enabling the `file_watcher` feature. Note that Web and Android do not currently support watching assets."),
             }
         }
-        Some(provider)
+        Some(source)
     }
 
     /// Will use the given `reader` function to construct unprocessed [`AssetReader`] instances.
@@ -209,7 +205,7 @@ impl AssetProviderBuilder {
     /// Will use the given `watcher` function to construct unprocessed [`AssetWatcher`] instances.
     pub fn with_watcher(
         mut self,
-        watcher: impl FnMut(crossbeam_channel::Sender<AssetProviderEvent>) -> Option<Box<dyn AssetWatcher>>
+        watcher: impl FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
             + Send
             + Sync
             + 'static,
@@ -239,7 +235,7 @@ impl AssetProviderBuilder {
     /// Will use the given `watcher` function to construct processed [`AssetWatcher`] instances.
     pub fn with_processed_watcher(
         mut self,
-        watcher: impl FnMut(crossbeam_channel::Sender<AssetProviderEvent>) -> Option<Box<dyn AssetWatcher>>
+        watcher: impl FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
             + Send
             + Sync
             + 'static,
@@ -250,26 +246,22 @@ impl AssetProviderBuilder {
 }
 
 /// A [`Resource`] that hold (repeatable) functions capable of producing new [`AssetReader`] and [`AssetWriter`] instances
-/// for a given asset provider.
+/// for a given asset source.
 #[derive(Resource, Default)]
-pub struct AssetProviderBuilders {
-    providers: HashMap<CowArc<'static, str>, AssetProviderBuilder>,
-    default: Option<AssetProviderBuilder>,
+pub struct AssetSourceBuilders {
+    sources: HashMap<CowArc<'static, str>, AssetSourceBuilder>,
+    default: Option<AssetSourceBuilder>,
 }
 
-impl AssetProviderBuilders {
+impl AssetSourceBuilders {
     /// Inserts a new builder with the given `id`
-    pub fn insert(
-        &mut self,
-        id: impl Into<AssetProviderId<'static>>,
-        provider: AssetProviderBuilder,
-    ) {
+    pub fn insert(&mut self, id: impl Into<AssetSourceId<'static>>, source: AssetSourceBuilder) {
         match id.into() {
-            AssetProviderId::Default => {
-                self.default = Some(provider);
+            AssetSourceId::Default => {
+                self.default = Some(source);
             }
-            AssetProviderId::Name(name) => {
-                self.providers.insert(name, provider);
+            AssetSourceId::Name(name) => {
+                self.sources.insert(name, source);
             }
         }
     }
@@ -277,55 +269,51 @@ impl AssetProviderBuilders {
     /// Gets a mutable builder with the given `id`, if it exists.
     pub fn get_mut<'a, 'b>(
         &'a mut self,
-        id: impl Into<AssetProviderId<'b>>,
-    ) -> Option<&'a mut AssetProviderBuilder> {
+        id: impl Into<AssetSourceId<'b>>,
+    ) -> Option<&'a mut AssetSourceBuilder> {
         match id.into() {
-            AssetProviderId::Default => self.default.as_mut(),
-            AssetProviderId::Name(name) => self.providers.get_mut(&name.into_owned()),
+            AssetSourceId::Default => self.default.as_mut(),
+            AssetSourceId::Name(name) => self.sources.get_mut(&name.into_owned()),
         }
     }
 
-    /// Builds an new [`AssetProviders`] collection. If `watch` is true, the unprocessed providers will watch for changes.
-    /// If `watch_processed` is true, the processed providers will watch for changes.
-    pub fn build_providers(&mut self, watch: bool, watch_processed: bool) -> AssetProviders {
-        let mut providers = HashMap::new();
-        for (id, provider) in &mut self.providers {
-            if let Some(data) = provider.build(
-                AssetProviderId::Name(id.clone_owned()),
+    /// Builds an new [`AssetSources`] collection. If `watch` is true, the unprocessed sources will watch for changes.
+    /// If `watch_processed` is true, the processed sources will watch for changes.
+    pub fn build_sources(&mut self, watch: bool, watch_processed: bool) -> AssetSources {
+        let mut sources = HashMap::new();
+        for (id, source) in &mut self.sources {
+            if let Some(data) = source.build(
+                AssetSourceId::Name(id.clone_owned()),
                 watch,
                 watch_processed,
             ) {
-                providers.insert(id.clone_owned(), data);
+                sources.insert(id.clone_owned(), data);
             }
         }
 
-        AssetProviders {
-            providers,
+        AssetSources {
+            sources,
             default: self
                 .default
                 .as_mut()
-                .and_then(|p| p.build(AssetProviderId::Default, watch, watch_processed))
-                .expect(MISSING_DEFAULT_PROVIDER),
+                .and_then(|p| p.build(AssetSourceId::Default, watch, watch_processed))
+                .expect(MISSING_DEFAULT_SOURCE),
         }
     }
 
-    /// Initializes the default [`AssetProviderBuilder`] if it has not already been set.
-    pub fn init_default_providers(&mut self, path: &str, processed_path: &str) {
+    /// Initializes the default [`AssetSourceBuilder`] if it has not already been set.
+    pub fn init_default_sources(&mut self, path: &str, processed_path: &str) {
         self.default.get_or_insert_with(|| {
-            AssetProviderBuilder::default()
-                .with_reader(AssetProvider::get_default_reader(path.to_string()))
-                .with_writer(AssetProvider::get_default_writer(path.to_string()))
-                .with_watcher(AssetProvider::get_default_watcher(
+            AssetSourceBuilder::default()
+                .with_reader(AssetSource::get_default_reader(path.to_string()))
+                .with_writer(AssetSource::get_default_writer(path.to_string()))
+                .with_watcher(AssetSource::get_default_watcher(
                     path.to_string(),
                     Duration::from_millis(300),
                 ))
-                .with_processed_reader(AssetProvider::get_default_reader(
-                    processed_path.to_string(),
-                ))
-                .with_processed_writer(AssetProvider::get_default_writer(
-                    processed_path.to_string(),
-                ))
-                .with_processed_watcher(AssetProvider::get_default_watcher(
+                .with_processed_reader(AssetSource::get_default_reader(processed_path.to_string()))
+                .with_processed_writer(AssetSource::get_default_writer(processed_path.to_string()))
+                .with_processed_watcher(AssetSource::get_default_watcher(
                     processed_path.to_string(),
                     Duration::from_millis(300),
                 ))
@@ -334,38 +322,38 @@ impl AssetProviderBuilders {
 }
 
 /// A collection of unprocessed and processed [`AssetReader`], [`AssetWriter`], and [`AssetWatcher`] instances
-/// for a specific asset provider, identified by an [`AssetProviderId`].
-pub struct AssetProvider {
-    id: AssetProviderId<'static>,
+/// for a specific asset source, identified by an [`AssetSourceId`].
+pub struct AssetSource {
+    id: AssetSourceId<'static>,
     reader: Box<dyn AssetReader>,
     writer: Option<Box<dyn AssetWriter>>,
     processed_reader: Option<Box<dyn AssetReader>>,
     processed_writer: Option<Box<dyn AssetWriter>>,
     watcher: Option<Box<dyn AssetWatcher>>,
     processed_watcher: Option<Box<dyn AssetWatcher>>,
-    event_receiver: Option<crossbeam_channel::Receiver<AssetProviderEvent>>,
-    processed_event_receiver: Option<crossbeam_channel::Receiver<AssetProviderEvent>>,
+    event_receiver: Option<crossbeam_channel::Receiver<AssetSourceEvent>>,
+    processed_event_receiver: Option<crossbeam_channel::Receiver<AssetSourceEvent>>,
 }
 
-impl AssetProvider {
-    /// Starts building a new [`AssetProvider`].
-    pub fn build() -> AssetProviderBuilder {
-        AssetProviderBuilder::default()
+impl AssetSource {
+    /// Starts building a new [`AssetSource`].
+    pub fn build() -> AssetSourceBuilder {
+        AssetSourceBuilder::default()
     }
 
-    /// Returns this provider's id.
+    /// Returns this source's id.
     #[inline]
-    pub fn id(&self) -> AssetProviderId<'static> {
+    pub fn id(&self) -> AssetSourceId<'static> {
         self.id.clone()
     }
 
-    /// Return's this provider's unprocessed [`AssetReader`].
+    /// Return's this source's unprocessed [`AssetReader`].
     #[inline]
     pub fn reader(&self) -> &dyn AssetReader {
         &*self.reader
     }
 
-    /// Return's this provider's unprocessed [`AssetWriter`], if it exists.
+    /// Return's this source's unprocessed [`AssetWriter`], if it exists.
     #[inline]
     pub fn writer(&self) -> Result<&dyn AssetWriter, MissingAssetWriterError> {
         self.writer
@@ -373,7 +361,7 @@ impl AssetProvider {
             .ok_or_else(|| MissingAssetWriterError(self.id.clone_owned()))
     }
 
-    /// Return's this provider's processed [`AssetReader`], if it exists.
+    /// Return's this source's processed [`AssetReader`], if it exists.
     #[inline]
     pub fn processed_reader(&self) -> Result<&dyn AssetReader, MissingProcessedAssetReaderError> {
         self.processed_reader
@@ -381,7 +369,7 @@ impl AssetProvider {
             .ok_or_else(|| MissingProcessedAssetReaderError(self.id.clone_owned()))
     }
 
-    /// Return's this provider's processed [`AssetWriter`], if it exists.
+    /// Return's this source's processed [`AssetWriter`], if it exists.
     #[inline]
     pub fn processed_writer(&self) -> Result<&dyn AssetWriter, MissingProcessedAssetWriterError> {
         self.processed_writer
@@ -389,21 +377,21 @@ impl AssetProvider {
             .ok_or_else(|| MissingProcessedAssetWriterError(self.id.clone_owned()))
     }
 
-    /// Return's this provider's unprocessed event receiver, if the provider is currently watching for changes.
+    /// Return's this source's unprocessed event receiver, if the source is currently watching for changes.
     #[inline]
-    pub fn event_receiver(&self) -> Option<&crossbeam_channel::Receiver<AssetProviderEvent>> {
+    pub fn event_receiver(&self) -> Option<&crossbeam_channel::Receiver<AssetSourceEvent>> {
         self.event_receiver.as_ref()
     }
 
-    /// Return's this provider's processed event receiver, if the provider is currently watching for changes.
+    /// Return's this source's processed event receiver, if the source is currently watching for changes.
     #[inline]
     pub fn processed_event_receiver(
         &self,
-    ) -> Option<&crossbeam_channel::Receiver<AssetProviderEvent>> {
+    ) -> Option<&crossbeam_channel::Receiver<AssetSourceEvent>> {
         self.processed_event_receiver.as_ref()
     }
 
-    /// Returns true if the assets in this provider should be processed.
+    /// Returns true if the assets in this source should be processed.
     #[inline]
     pub fn should_process(&self) -> bool {
         self.processed_writer.is_some()
@@ -444,10 +432,10 @@ impl AssetProvider {
     pub fn get_default_watcher(
         path: String,
         file_debounce_wait_time: Duration,
-    ) -> impl FnMut(crossbeam_channel::Sender<AssetProviderEvent>) -> Option<Box<dyn AssetWatcher>>
+    ) -> impl FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
            + Send
            + Sync {
-        move |sender: crossbeam_channel::Sender<AssetProviderEvent>| {
+        move |sender: crossbeam_channel::Sender<AssetSourceEvent>| {
             #[cfg(all(
                 feature = "file_watcher",
                 not(target_arch = "wasm32"),
@@ -483,83 +471,83 @@ impl AssetProvider {
     }
 }
 
-/// A collection of [`AssetProviders`].
-pub struct AssetProviders {
-    providers: HashMap<CowArc<'static, str>, AssetProvider>,
-    default: AssetProvider,
+/// A collection of [`AssetSources`].
+pub struct AssetSources {
+    sources: HashMap<CowArc<'static, str>, AssetSource>,
+    default: AssetSource,
 }
 
-impl AssetProviders {
-    /// Gets the [`AssetProvider`] with the given `id`, if it exists.
+impl AssetSources {
+    /// Gets the [`AssetSource`] with the given `id`, if it exists.
     pub fn get<'a, 'b>(
         &'a self,
-        id: impl Into<AssetProviderId<'b>>,
-    ) -> Result<&'a AssetProvider, MissingAssetProviderError> {
+        id: impl Into<AssetSourceId<'b>>,
+    ) -> Result<&'a AssetSource, MissingAssetSourceError> {
         match id.into().into_owned() {
-            AssetProviderId::Default => Ok(&self.default),
-            AssetProviderId::Name(name) => self
-                .providers
+            AssetSourceId::Default => Ok(&self.default),
+            AssetSourceId::Name(name) => self
+                .sources
                 .get(&name)
-                .ok_or_else(|| MissingAssetProviderError(AssetProviderId::Name(name))),
+                .ok_or_else(|| MissingAssetSourceError(AssetSourceId::Name(name))),
         }
     }
 
-    /// Iterates all asset providers in the collection (including the default provider).
-    pub fn iter(&self) -> impl Iterator<Item = &AssetProvider> {
-        self.providers.values().chain(Some(&self.default))
+    /// Iterates all asset sources in the collection (including the default source).
+    pub fn iter(&self) -> impl Iterator<Item = &AssetSource> {
+        self.sources.values().chain(Some(&self.default))
     }
 
-    /// Mutably iterates all asset providers in the collection (including the default provider).
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut AssetProvider> {
-        self.providers.values_mut().chain(Some(&mut self.default))
+    /// Mutably iterates all asset sources in the collection (including the default source).
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut AssetSource> {
+        self.sources.values_mut().chain(Some(&mut self.default))
     }
 
-    /// Iterates all processed asset providers in the collection (including the default provider).
-    pub fn iter_processed(&self) -> impl Iterator<Item = &AssetProvider> {
+    /// Iterates all processed asset sources in the collection (including the default source).
+    pub fn iter_processed(&self) -> impl Iterator<Item = &AssetSource> {
         self.iter().filter(|p| p.should_process())
     }
 
-    /// Mutably iterates all processed asset providers in the collection (including the default provider).
-    pub fn iter_processed_mut(&mut self) -> impl Iterator<Item = &mut AssetProvider> {
+    /// Mutably iterates all processed asset sources in the collection (including the default source).
+    pub fn iter_processed_mut(&mut self) -> impl Iterator<Item = &mut AssetSource> {
         self.iter_mut().filter(|p| p.should_process())
     }
 
-    /// Iterates over the [`AssetProviderId`] of every [`AssetProvider`] in the collection (including the default provider).
-    pub fn provider_ids(&self) -> impl Iterator<Item = AssetProviderId<'static>> + '_ {
-        self.providers
+    /// Iterates over the [`AssetSourceId`] of every [`AssetSource`] in the collection (including the default source).
+    pub fn ids(&self) -> impl Iterator<Item = AssetSourceId<'static>> + '_ {
+        self.sources
             .keys()
-            .map(|k| AssetProviderId::Name(k.clone_owned()))
-            .chain(Some(AssetProviderId::Default))
+            .map(|k| AssetSourceId::Name(k.clone_owned()))
+            .chain(Some(AssetSourceId::Default))
     }
 
     /// This will cause processed [`AssetReader`] futures (such as [`AssetReader::read`]) to wait until
     /// the [`AssetProcessor`](crate::AssetProcessor) has finished processing the requested asset.
     pub fn gate_on_processor(&mut self, processor_data: Arc<AssetProcessorData>) {
-        for provider in self.iter_processed_mut() {
-            provider.gate_on_processor(processor_data.clone());
+        for source in self.iter_processed_mut() {
+            source.gate_on_processor(processor_data.clone());
         }
     }
 }
 
-/// An error returned when an [`AssetProvider`] does not exist for a given id.
+/// An error returned when an [`AssetSource`] does not exist for a given id.
 #[derive(Error, Debug)]
-#[error("Asset Provider '{0}' does not exist")]
-pub struct MissingAssetProviderError(AssetProviderId<'static>);
+#[error("Asset Source '{0}' does not exist")]
+pub struct MissingAssetSourceError(AssetSourceId<'static>);
 
 /// An error returned when an [`AssetWriter`] does not exist for a given id.
 #[derive(Error, Debug)]
-#[error("Asset Provider '{0}' does not have an AssetWriter.")]
-pub struct MissingAssetWriterError(AssetProviderId<'static>);
+#[error("Asset Source '{0}' does not have an AssetWriter.")]
+pub struct MissingAssetWriterError(AssetSourceId<'static>);
 
 /// An error returned when a processed [`AssetReader`] does not exist for a given id.
 #[derive(Error, Debug)]
-#[error("Asset Provider '{0}' does not have a processed AssetReader.")]
-pub struct MissingProcessedAssetReaderError(AssetProviderId<'static>);
+#[error("Asset Source '{0}' does not have a processed AssetReader.")]
+pub struct MissingProcessedAssetReaderError(AssetSourceId<'static>);
 
 /// An error returned when a processed [`AssetWriter`] does not exist for a given id.
 #[derive(Error, Debug)]
-#[error("Asset Provider '{0}' does not have a processed AssetWriter.")]
-pub struct MissingProcessedAssetWriterError(AssetProviderId<'static>);
+#[error("Asset Source '{0}' does not have a processed AssetWriter.")]
+pub struct MissingProcessedAssetWriterError(AssetSourceId<'static>);
 
-const MISSING_DEFAULT_PROVIDER: &str =
-    "A default AssetProvider is required. Add one to `AssetProviderBuilders`";
+const MISSING_DEFAULT_SOURCE: &str =
+    "A default AssetSource is required. Add one to `AssetSourceBuilders`";

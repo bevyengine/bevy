@@ -1,7 +1,7 @@
 use crate::io::{
     file::{get_asset_path, get_base_path, new_asset_event_debouncer, FilesystemEventHandler},
     memory::Dir,
-    AssetProviderEvent, AssetWatcher,
+    AssetSourceEvent, AssetWatcher,
 };
 use bevy_log::warn;
 use bevy_utils::{Duration, HashMap};
@@ -22,7 +22,7 @@ impl RustSrcWatcher {
     pub fn new(
         dir: Dir,
         root_paths: Arc<RwLock<HashMap<PathBuf, PathBuf>>>,
-        sender: crossbeam_channel::Sender<AssetProviderEvent>,
+        sender: crossbeam_channel::Sender<AssetSourceEvent>,
         debounce_wait_time: Duration,
     ) -> Self {
         let root = get_base_path();
@@ -44,11 +44,11 @@ impl AssetWatcher for RustSrcWatcher {}
 /// binary-embedded Rust source files. This will read the contents of changed files from the file system and overwrite
 /// the initial static bytes from the file embedded in the binary.
 pub(crate) struct RustSrcEventHandler {
-    sender: crossbeam_channel::Sender<AssetProviderEvent>,
+    sender: crossbeam_channel::Sender<AssetSourceEvent>,
     root_paths: Arc<RwLock<HashMap<PathBuf, PathBuf>>>,
     root: PathBuf,
     dir: Dir,
-    last_event: Option<AssetProviderEvent>,
+    last_event: Option<AssetSourceEvent>,
 }
 impl FilesystemEventHandler for RustSrcEventHandler {
     fn begin(&mut self) {
@@ -63,9 +63,9 @@ impl FilesystemEventHandler for RustSrcEventHandler {
         Some((final_path, false))
     }
 
-    fn handle(&mut self, absolute_paths: &[PathBuf], event: AssetProviderEvent) {
+    fn handle(&mut self, absolute_paths: &[PathBuf], event: AssetSourceEvent) {
         if self.last_event.as_ref() != Some(&event) {
-            if let AssetProviderEvent::ModifiedAsset(path) = &event {
+            if let AssetSourceEvent::ModifiedAsset(path) = &event {
                 if let Ok(file) = File::open(&absolute_paths[0]) {
                     let mut reader = BufReader::new(file);
                     let mut buffer = Vec::new();

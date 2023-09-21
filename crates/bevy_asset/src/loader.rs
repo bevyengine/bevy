@@ -1,5 +1,5 @@
 use crate::{
-    io::{AssetReaderError, MissingAssetProviderError, MissingProcessedAssetReaderError, Reader},
+    io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
     meta::{
         loader_settings_meta_transform, AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal,
         Settings,
@@ -421,10 +421,10 @@ impl<'a> LoadContext<'a> {
         path: impl Into<AssetPath<'c>>,
     ) -> Result<Vec<u8>, ReadAssetBytesError> {
         let path = path.into();
-        let provider = self.asset_server.get_provider(path.provider())?;
+        let source = self.asset_server.get_source(path.source())?;
         let asset_reader = match self.asset_server.mode() {
-            AssetServerMode::Unprocessed { .. } => provider.reader(),
-            AssetServerMode::Processed { .. } => provider.processed_reader()?,
+            AssetServerMode::Unprocessed { .. } => source.reader(),
+            AssetServerMode::Processed { .. } => source.processed_reader()?,
         };
         let mut reader = asset_reader.read(path.path()).await?;
         let hash = if self.populate_hashes {
@@ -552,7 +552,7 @@ pub enum ReadAssetBytesError {
     #[error(transparent)]
     AssetReaderError(#[from] AssetReaderError),
     #[error(transparent)]
-    MissingAssetProviderError(#[from] MissingAssetProviderError),
+    MissingAssetSourceError(#[from] MissingAssetSourceError),
     #[error(transparent)]
     MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
     /// Encountered an I/O error while loading an asset.

@@ -1,4 +1,4 @@
-use crate::io::AssetProviderId;
+use crate::io::AssetSourceId;
 use bevy_reflect::{
     std_traits::ReflectDefault, utility::NonGenericTypeInfoCell, FromReflect, FromType,
     GetTypeRegistration, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect,
@@ -18,8 +18,8 @@ use thiserror::Error;
 /// Represents a path to an asset in a "virtual filesystem".
 ///
 /// Asset paths consist of three main parts:
-/// * [`AssetPath::provider`]: The name of the [`AssetProvider`](crate::io::AssetProvider) to load the asset from.
-///     This is optional. If one is not set the default provider will be used (which is the `assets` folder by default).
+/// * [`AssetPath::source`]: The name of the [`AssetSource`](crate::io::AssetSource) to load the asset from.
+///     This is optional. If one is not set the default source will be used (which is the `assets` folder by default).
 /// * [`AssetPath::path`]: The "virtual filesystem path" pointing to an asset source file.
 /// * [`AssetPath::label`]: An optional "named sub asset". When assets are loaded, they are
 /// allowed to load "sub assets" of any type, which are identified by a named "label".
@@ -37,13 +37,13 @@ use thiserror::Error;
 /// # struct Scene;
 /// #
 /// # let asset_server: AssetServer = panic!();
-/// // This loads the `my_scene.scn` base asset from the default asset provider.
+/// // This loads the `my_scene.scn` base asset from the default asset source.
 /// let scene: Handle<Scene> = asset_server.load("my_scene.scn");
 ///
-/// // This loads the `PlayerMesh` labeled asset from the `my_scene.scn` base asset in the default asset provider.
+/// // This loads the `PlayerMesh` labeled asset from the `my_scene.scn` base asset in the default asset source.
 /// let mesh: Handle<Mesh> = asset_server.load("my_scene.scn#PlayerMesh");
 ///
-/// // This loads the `my_scene.scn` base asset from a custom 'remote' asset provider.
+/// // This loads the `my_scene.scn` base asset from a custom 'remote' asset source.
 /// let scene: Handle<Scene> = asset_server.load("remote://my_scene.scn");
 /// ```
 ///
@@ -54,7 +54,7 @@ use thiserror::Error;
 /// This also means that you should use [`AssetPath::new`] in cases where `&str` is the explicit type.
 #[derive(Eq, PartialEq, Hash, Clone, Default)]
 pub struct AssetPath<'a> {
-    provider: AssetProviderId<'a>,
+    source: AssetSourceId<'a>,
     path: CowArc<'a, Path>,
     label: Option<CowArc<'a, str>>,
 }
@@ -77,10 +77,10 @@ impl<'a> Display for AssetPath<'a> {
 
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum ParseAssetPathError {
-    #[error("Asset provider must be followed by '://'")]
-    InvalidProviderSyntax,
-    #[error("Asset provider must be at least one character. Either specify the provider before the '://' or remove the `://`")]
-    MissingProvider,
+    #[error("Asset source must be followed by '://'")]
+    InvalidSourceSyntax,
+    #[error("Asset source must be at least one character. Either specify the source before the '://' or remove the `://`")]
+    MissingSource,
     #[error("Asset label must be at least one character. Either specify the label after the '#' or remove the '#'")]
     MissingLabel,
 }
@@ -90,7 +90,7 @@ impl<'a> AssetPath<'a> {
     /// * An asset at the root: `"scene.gltf"`
     /// * An asset nested in some folders: `"some/path/scene.gltf"`
     /// * An asset with a "label": `"some/path/scene.gltf#Mesh0"`
-    /// * An asset with a custom "provider": `"custom://some/path/scene.gltf#Mesh0"`
+    /// * An asset with a custom "source": `"custom://some/path/scene.gltf#Mesh0"`
     ///
     /// Prefer [`From<'static str>`] for static strings, as this will prevent allocations
     /// and reference counting for [`AssetPath::into_owned`].
@@ -105,18 +105,18 @@ impl<'a> AssetPath<'a> {
     /// * An asset at the root: `"scene.gltf"`
     /// * An asset nested in some folders: `"some/path/scene.gltf"`
     /// * An asset with a "label": `"some/path/scene.gltf#Mesh0"`
-    /// * An asset with a custom "provider": `"custom://some/path/scene.gltf#Mesh0"`
+    /// * An asset with a custom "source": `"custom://some/path/scene.gltf#Mesh0"`
     ///
     /// Prefer [`From<'static str>`] for static strings, as this will prevent allocations
     /// and reference counting for [`AssetPath::into_owned`].
     ///
     /// This will return a [`ParseAssetPathError`] if `asset_path` is in an invalid format.
     pub fn try_parse(asset_path: &'a str) -> Result<AssetPath<'a>, ParseAssetPathError> {
-        let (provider, path, label) = Self::parse_internal(asset_path).unwrap();
+        let (source, path, label) = Self::parse_internal(asset_path).unwrap();
         Ok(Self {
-            provider: match provider {
-                Some(provider) => AssetProviderId::Name(CowArc::Borrowed(provider)),
-                None => AssetProviderId::Default,
+            source: match source {
+                Some(source) => AssetSourceId::Name(CowArc::Borrowed(source)),
+                None => AssetSourceId::Default,
             },
             path: CowArc::Borrowed(path),
             label: label.map(CowArc::Borrowed),
@@ -127,7 +127,7 @@ impl<'a> AssetPath<'a> {
         asset_path: &str,
     ) -> Result<(Option<&str>, &Path, Option<&str>), ParseAssetPathError> {
         let mut chars = asset_path.char_indices();
-        let mut provider_range = None;
+        let mut source_range = None;
         let mut path_range = 0..asset_path.len();
         let mut label_range = None;
         while let Some((index, char)) = chars.next() {
@@ -135,17 +135,17 @@ impl<'a> AssetPath<'a> {
                 ':' => {
                     let (_, char) = chars
                         .next()
-                        .ok_or(ParseAssetPathError::InvalidProviderSyntax)?;
+                        .ok_or(ParseAssetPathError::InvalidSourceSyntax)?;
                     if char != '/' {
-                        return Err(ParseAssetPathError::InvalidProviderSyntax);
+                        return Err(ParseAssetPathError::InvalidSourceSyntax);
                     }
                     let (index, char) = chars
                         .next()
-                        .ok_or(ParseAssetPathError::InvalidProviderSyntax)?;
+                        .ok_or(ParseAssetPathError::InvalidSourceSyntax)?;
                     if char != '/' {
-                        return Err(ParseAssetPathError::InvalidProviderSyntax);
+                        return Err(ParseAssetPathError::InvalidSourceSyntax);
                     }
-                    provider_range = Some(0..index - 2);
+                    source_range = Some(0..index - 2);
                     path_range.start = index + 1;
                 }
                 '#' => {
@@ -157,12 +157,12 @@ impl<'a> AssetPath<'a> {
             }
         }
 
-        let provider = match provider_range {
-            Some(provider_range) => {
-                if provider_range.is_empty() {
-                    return Err(ParseAssetPathError::MissingProvider);
+        let source = match source_range {
+            Some(source_range) => {
+                if source_range.is_empty() {
+                    return Err(ParseAssetPathError::MissingSource);
                 }
-                Some(&asset_path[provider_range])
+                Some(&asset_path[source_range])
             }
             None => None,
         };
@@ -177,7 +177,7 @@ impl<'a> AssetPath<'a> {
         };
 
         let path = Path::new(&asset_path[path_range]);
-        Ok((provider, path, label))
+        Ok((source, path, label))
     }
 
     /// Creates a new [`AssetPath`] from a [`Path`].
@@ -185,16 +185,16 @@ impl<'a> AssetPath<'a> {
     pub fn from_path(path: &'a Path) -> AssetPath<'a> {
         AssetPath {
             path: CowArc::Borrowed(path),
-            provider: AssetProviderId::Default,
+            source: AssetSourceId::Default,
             label: None,
         }
     }
 
-    /// Gets the "asset provider", if one was defined. If none was defined, the default provider
+    /// Gets the "asset source", if one was defined. If none was defined, the default source
     /// will be used.
     #[inline]
-    pub fn provider(&self) -> &AssetProviderId {
-        &self.provider
+    pub fn source(&self) -> &AssetSourceId {
+        &self.source
     }
 
     /// Gets the "sub-asset label".
@@ -213,7 +213,7 @@ impl<'a> AssetPath<'a> {
     #[inline]
     pub fn without_label(&self) -> AssetPath<'_> {
         Self {
-            provider: self.provider.clone(),
+            source: self.source.clone(),
             path: self.path.clone(),
             label: None,
         }
@@ -236,18 +236,18 @@ impl<'a> AssetPath<'a> {
     #[inline]
     pub fn with_label(self, label: impl Into<CowArc<'a, str>>) -> AssetPath<'a> {
         AssetPath {
-            provider: self.provider,
+            source: self.source,
             path: self.path,
             label: Some(label.into()),
         }
     }
 
-    /// Returns this asset path with the given provider. This will replace the previous
-    /// provider if it exists.
+    /// Returns this asset path with the given asset source. This will replace the previous asset
+    /// source if it exists.
     #[inline]
-    pub fn with_provider(self, provider: impl Into<AssetProviderId<'a>>) -> AssetPath<'a> {
+    pub fn with_source(self, source: impl Into<AssetSourceId<'a>>) -> AssetPath<'a> {
         AssetPath {
-            provider: provider.into(),
+            source: source.into(),
             path: self.path,
             label: self.label,
         }
@@ -261,7 +261,7 @@ impl<'a> AssetPath<'a> {
             CowArc::Owned(path) => path.parent()?.to_path_buf().into(),
         };
         Some(AssetPath {
-            provider: self.provider.clone(),
+            source: self.source.clone(),
             label: None,
             path,
         })
@@ -274,7 +274,7 @@ impl<'a> AssetPath<'a> {
     /// [`Arc`]: std::sync::Arc
     pub fn into_owned(self) -> AssetPath<'static> {
         AssetPath {
-            provider: self.provider.into_owned(),
+            source: self.source.into_owned(),
             path: self.path.into_owned(),
             label: self.label.map(|l| l.into_owned()),
         }
@@ -313,9 +313,9 @@ impl<'a> AssetPath<'a> {
 impl From<&'static str> for AssetPath<'static> {
     #[inline]
     fn from(asset_path: &'static str) -> Self {
-        let (provider, path, label) = Self::parse_internal(asset_path).unwrap();
+        let (source, path, label) = Self::parse_internal(asset_path).unwrap();
         AssetPath {
-            provider: provider.into(),
+            source: source.into(),
             path: CowArc::Static(path),
             label: label.map(CowArc::Static),
         }
@@ -340,7 +340,7 @@ impl From<&'static Path> for AssetPath<'static> {
     #[inline]
     fn from(path: &'static Path) -> Self {
         Self {
-            provider: AssetProviderId::Default,
+            source: AssetSourceId::Default,
             path: CowArc::Static(path),
             label: None,
         }
@@ -351,7 +351,7 @@ impl From<PathBuf> for AssetPath<'static> {
     #[inline]
     fn from(path: PathBuf) -> Self {
         Self {
-            provider: AssetProviderId::Default,
+            source: AssetSourceId::Default,
             path: path.into(),
             label: None,
         }
@@ -566,15 +566,12 @@ mod tests {
         assert_eq!(result, Ok((Some("http"), Path::new(""), None)));
 
         let result = AssetPath::parse_internal("://x");
-        assert_eq!(result, Err(crate::ParseAssetPathError::MissingProvider));
+        assert_eq!(result, Err(crate::ParseAssetPathError::MissingSource));
 
         let result = AssetPath::parse_internal("a/b.test#");
         assert_eq!(result, Err(crate::ParseAssetPathError::MissingLabel));
 
         let result = AssetPath::parse_internal("http:/");
-        assert_eq!(
-            result,
-            Err(crate::ParseAssetPathError::InvalidProviderSyntax)
-        );
+        assert_eq!(result, Err(crate::ParseAssetPathError::InvalidSourceSyntax));
     }
 }
