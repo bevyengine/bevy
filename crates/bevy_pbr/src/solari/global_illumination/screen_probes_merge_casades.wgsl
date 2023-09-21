@@ -87,7 +87,7 @@ fn sample_upper_probe_texture(cell_id: vec2<u32>) -> vec4<f32> {
     if lower_cascade == 1u {
         return textureLoad(screen_probes_merge_buffer, cell_id, 0i);
     }
-    return textureLoad(screen_probes_merge_buffer, cell_id, lower_cascade - 1u);
+    return textureLoad(screen_probes_merge_buffer, cell_id, 1i);
 }
 
 fn get_probe_depth(pixel_id: vec2<u32>) -> f32 {
