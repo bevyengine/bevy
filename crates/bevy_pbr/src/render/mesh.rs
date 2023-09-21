@@ -9,7 +9,7 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetId, Assets, Handle};
 use bevy_core_pipeline::{
     core_3d::ViewTransmissionTexture,
-    core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
+    core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d},
     prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
@@ -399,6 +399,7 @@ pub fn prepare_mesh_uniforms(
     mut gpu_array_buffer: ResMut<GpuArrayBuffer<MeshUniform>>,
     views: Query<(
         &RenderPhase<Opaque3d>,
+        &RenderPhase<Transmissive3d>,
         &RenderPhase<Transparent3d>,
         &RenderPhase<AlphaMask3d>,
     )>,
@@ -420,9 +421,13 @@ pub fn prepare_mesh_uniforms(
         }
     };
 
-    for (opaque_phase, transparent_phase, alpha_phase) in &views {
+    for (opaque_phase, transmissive_phase, transparent_phase, alpha_phase) in &views {
         meshes
             .iter_many(opaque_phase.iter_entities())
+            .for_each(&mut push_indices);
+
+        meshes
+            .iter_many(transmissive_phase.iter_entities())
             .for_each(&mut push_indices);
 
         meshes
