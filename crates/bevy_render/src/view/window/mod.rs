@@ -10,7 +10,10 @@ use bevy_utils::{default, tracing::debug, HashMap, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
 };
-use std::ops::{Deref, DerefMut};
+use std::{
+    ops::{Deref, DerefMut},
+    sync::PoisonError,
+};
 use wgpu::{BufferUsages, TextureFormat, TextureUsages, TextureViewDescriptor};
 
 pub mod screenshot;
@@ -27,11 +30,6 @@ pub struct NonSendMarker;
 
 pub struct WindowRenderPlugin;
 
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub enum WindowSystem {
-    Prepare,
-}
-
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ScreenshotPlugin);
@@ -42,8 +40,7 @@ impl Plugin for WindowRenderPlugin {
                 .init_resource::<WindowSurfaces>()
                 .init_non_send_resource::<NonSendMarker>()
                 .add_systems(ExtractSchedule, extract_windows)
-                .configure_set(Render, WindowSystem::Prepare.in_set(RenderSet::Prepare))
-                .add_systems(Render, prepare_windows.in_set(WindowSystem::Prepare));
+                .add_systems(Render, prepare_windows.in_set(RenderSet::ManageViews));
         }
     }
 
@@ -167,7 +164,7 @@ fn extract_windows(
         }
     }
 
-    for closed_window in closed.iter() {
+    for closed_window in closed.read() {
         extracted_windows.remove(&closed_window.window);
     }
     // This lock will never block because `callbacks` is `pub(crate)` and this is the singular callsite where it's locked.
@@ -177,7 +174,7 @@ fn extract_windows(
     for (window, screenshot_func) in screenshot_manager
         .callbacks
         .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .unwrap_or_else(PoisonError::into_inner)
         .drain()
     {
         if let Some(window) = extracted_windows.get_mut(&window) {

@@ -6,7 +6,7 @@ use once_cell::race::OnceBox;
 use std::{
     any::{Any, TypeId},
     hash::BuildHasher,
-    sync::RwLock,
+    sync::{PoisonError, RwLock},
 };
 
 /// A type that can be stored in a ([`Non`])[`GenericTypeCell`].
@@ -236,10 +236,7 @@ impl<T: TypedProperty> GenericTypeCell<T> {
         // since `f` might want to call `get_or_insert` recursively
         // and we don't want a deadlock!
         {
-            let mapping = self
-                .0
-                .read()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mapping = self.0.read().unwrap_or_else(PoisonError::into_inner);
             if let Some(info) = mapping.get(&type_id) {
                 return info;
             }
@@ -247,10 +244,7 @@ impl<T: TypedProperty> GenericTypeCell<T> {
 
         let value = f();
 
-        let mut mapping = self
-            .0
-            .write()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut mapping = self.0.write().unwrap_or_else(PoisonError::into_inner);
         mapping
             .entry(type_id)
             .insert({

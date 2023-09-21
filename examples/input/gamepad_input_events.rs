@@ -27,16 +27,16 @@ fn gamepad_events(
     // this event is emmitted.
     mut button_input_events: EventReader<GamepadButtonInput>,
 ) {
-    for connection_event in connection_events.iter() {
+    for connection_event in connection_events.read() {
         info!("{:?}", connection_event);
     }
-    for axis_changed_event in axis_changed_events.iter() {
+    for axis_changed_event in axis_changed_events.read() {
         info!(
             "{:?} of {:?} is changed to {}",
             axis_changed_event.axis_type, axis_changed_event.gamepad, axis_changed_event.value
         );
     }
-    for button_changed_event in button_changed_events.iter() {
+    for button_changed_event in button_changed_events.read() {
         info!(
             "{:?} of {:?} is changed to {}",
             button_changed_event.button_type,
@@ -44,7 +44,7 @@ fn gamepad_events(
             button_changed_event.value
         );
     }
-    for button_input_event in button_input_events.iter() {
+    for button_input_event in button_input_events.read() {
         info!("{:?}", button_input_event);
     }
 }
@@ -53,7 +53,7 @@ fn gamepad_events(
 // stream directly. For standard use-cases, reading the events individually or using the
 // `Input<T>` or `Axis<T>` resources is preferable.
 fn gamepad_ordered_events(mut gamepad_events: EventReader<GamepadEvent>) {
-    for gamepad_event in gamepad_events.iter() {
+    for gamepad_event in gamepad_events.read() {
         match gamepad_event {
             GamepadEvent::Connection(connection_event) => info!("{:?}", connection_event),
             GamepadEvent::Button(button_event) => info!("{:?}", button_event),

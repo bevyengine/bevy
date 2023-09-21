@@ -11,7 +11,7 @@ use std::{
     any::TypeId,
     fmt::Debug,
     hash::Hash,
-    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 /// A draw function used to draw [`PhaseItem`]s.
@@ -120,16 +120,14 @@ impl<P: PhaseItem> Default for DrawFunctions<P> {
 impl<P: PhaseItem> DrawFunctions<P> {
     /// Accesses the draw functions in read mode.
     pub fn read(&self) -> RwLockReadGuard<'_, DrawFunctionsInternal<P>> {
-        self.internal
-            .read()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+        self.internal.read().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Accesses the draw functions in write mode.
     pub fn write(&self) -> RwLockWriteGuard<'_, DrawFunctionsInternal<P>> {
         self.internal
             .write()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .unwrap_or_else(PoisonError::into_inner)
     }
 }
 
