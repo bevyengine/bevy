@@ -24,6 +24,7 @@ bevy_ecs_macros = { path = "macros", version = "0.12.0-dev" }
 async-channel = "1.4"
 event-listener = "2.5"
 thread_local = "1.1.4"
+fastrand = "1.9"
 fixedbitset = "0.4.2"
 rustc-hash = "1.1"
 downcast-rs = "1.2"

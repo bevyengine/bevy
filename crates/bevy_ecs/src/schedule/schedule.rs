@@ -1565,18 +1565,29 @@ impl ScheduleGraph {
         conflicts: &[(NodeId, NodeId, Vec<ComponentId>)],
         resolve_by: ResolveBy,
     ) -> Result<(), ScheduleBuildError> {
+        if let ResolveBy::Random(seed) = resolve_by {
+            fastrand::seed(seed);
+        }
         for (a, b, _) in conflicts {
-            // a and b cannot be equal
-            match (a.index() < b.index(), resolve_by) {
-                (true, ResolveBy::InsertionOrder) | (false, ResolveBy::ReverseInsertionOrder) => {
-                    dependency_flattened_dag.graph.add_edge(*a, *b, ());
+            let a_before_b = match resolve_by {
+                ResolveBy::InsertionOrder => a < b,
+                ResolveBy::ReverseInsertionOrder => a > b,
+                ResolveBy::Random(_) => {
+                    let less_before_greater = fastrand::bool();
+                    if less_before_greater {
+                        a < b
+                    } else {
+                        a > b
+                    }
                 }
-                (false, ResolveBy::InsertionOrder) | (true, ResolveBy::ReverseInsertionOrder) => {
-                    dependency_flattened_dag.graph.add_edge(*b, *a, ());
-                }
+            };
+
+            if a_before_b {
+                dependency_flattened_dag.graph.add_edge(*a, *b, ());
+            } else {
+                dependency_flattened_dag.graph.add_edge(*b, *a, ());
             }
         }
-
         dependency_flattened_dag.topsort =
             self.topsort_graph(&dependency_flattened_dag.graph, ReportCycles::Dependency)?;
         Ok(())
@@ -1729,6 +1740,9 @@ pub enum ResolveBy {
     /// Usually you should use `InsertionOrder`, but if you suspect bugs from
     /// ordering ambiguities. Using this option may help diagnose things.
     ReverseInsertionOrder,
+    /// Order systems randomly, but stably. Order is determined by a seeded random number
+    /// generator.
+    Random(u64),
 }
 
 /// Specifies miscellaneous settings for schedule construction.
@@ -1766,7 +1780,7 @@ impl ScheduleBuildSettings {
     /// See the field-level documentation for the default value of each field.
     pub const fn new() -> Self {
         Self {
-            ambiguity_detection: AmbiguityDetection::Resolve(ResolveBy::InsertionOrder),
+            ambiguity_detection: AmbiguityDetection::Resolve(ResolveBy::Random(42)),
             hierarchy_detection: LogLevel::Warn,
             use_shortnames: true,
             report_sets: true,
@@ -1776,6 +1790,8 @@ impl ScheduleBuildSettings {
 
 #[cfg(test)]
 mod tests {
+    use bevy_utils::get_short_name;
+
     use crate::{
         self as bevy_ecs,
         schedule::{
@@ -1826,14 +1842,63 @@ mod tests {
         schedule.run(&mut world);
 
         assert_eq!(
-            &schedule.executable.systems[0].name(),
-            &"bevy_ecs::schedule::schedule::tests::resolve_conflicts::mutable_1"
+            get_short_name(&schedule.executable.systems[0].name()),
+            "mutable_1"
         );
         assert_eq!(
-            &schedule.executable.systems[2].name(),
-            &"bevy_ecs::schedule::schedule::tests::resolve_conflicts::mutable_2"
+            get_short_name(&schedule.executable.systems[2].name()),
+            "mutable_2"
         );
         // first system has second system as dependent
         assert_eq!(schedule.executable.system_dependents[0][0], 2);
+    }
+
+    #[test]
+    fn resolve_random() {
+        #[derive(Resource)]
+        struct A;
+        #[derive(Resource)]
+        struct B;
+
+        fn mutable_a1(_: Option<ResMut<A>>) {}
+        fn mutable_a2(_: Option<ResMut<A>>) {}
+
+        fn mutable_b1(_: Option<ResMut<B>>) {}
+        fn mutable_b2(_: Option<ResMut<B>>) {}
+
+        // mut-mut
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.set_build_settings(ScheduleBuildSettings {
+            ambiguity_detection: AmbiguityDetection::Resolve(ResolveBy::Random(42)),
+            ..Default::default()
+        });
+
+        schedule.add_systems((mutable_a1, mutable_a2, mutable_b1, mutable_b2));
+
+        schedule.run(&mut world);
+
+        for (i, (expected_name, expected_dependents)) in [
+            ("mutable_a2", 1),
+            ("mutable_a1", 0),
+            ("mutable_b1", 3),
+            ("mutable_b2", 0),
+        ]
+        .iter()
+        .enumerate()
+        {
+            assert_eq!(
+                **expected_name,
+                get_short_name(&schedule.executable.systems[i].name())
+            );
+            if *expected_dependents > 0 || schedule.executable.system_dependents[i].len() > 0 {
+                assert_eq!(
+                    *expected_dependents,
+                    schedule.executable.system_dependents[i][0]
+                );
+            }
+        }
+
+        todo!();
     }
 }
