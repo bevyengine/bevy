@@ -1010,7 +1010,7 @@ mod tests {
             let _ = schedule.graph_mut().build_schedule(
                 world.components(),
                 &TestSchedule.dyn_clone(),
-                &Vec::new(),
+                &[],
             );
 
             let ambiguities: Vec<_> = schedule
@@ -1055,12 +1055,11 @@ mod tests {
             schedule.add_systems((resmut_system, resmut_system).run_if(|| true));
 
             let mut world = World::new();
-
             schedule.graph_mut().initialize(&mut world);
             let _ = schedule.graph_mut().build_schedule(
                 world.components(),
                 &TestSchedule.dyn_clone(),
-                &Vec::new(),
+                &[],
             );
 
             let ambiguities: Vec<_> = schedule
@@ -1091,26 +1090,6 @@ mod tests {
             assert!(schedule.graph().conflicting_systems().is_empty());
 
             // check components
-            world.allow_ambiguous_component::<A>();
-            schedule.add_systems((write_component_system, read_component_system));
-            schedule.initialize(&mut world).unwrap();
-            assert!(schedule.graph().conflicting_systems().is_empty());
-        }
-
-        #[test]
-        fn ignore_before_add() {
-            let mut world = World::new();
-            world.allow_ambiguous_resource::<R>();
-            world.insert_resource(R);
-            let mut schedule = Schedule::new(TestSchedule);
-
-            //check resource
-            schedule.add_systems((resmut_system, res_system));
-            schedule.initialize(&mut world).unwrap();
-            assert!(schedule.graph().conflicting_systems().is_empty());
-
-            // check components
-            world.init_component::<A>();
             world.allow_ambiguous_component::<A>();
             schedule.add_systems((write_component_system, read_component_system));
             schedule.initialize(&mut world).unwrap();

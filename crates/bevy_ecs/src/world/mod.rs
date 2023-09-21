@@ -2088,6 +2088,7 @@ impl World {
         self.schedule_scope(label, |world, sched| sched.run(world));
     }
 
+    /// Ignore ambiguities between systems in [`Component`] T.
     pub fn allow_ambiguous_component<T: Component>(&mut self) {
         let mut ignore_ambiguities = self
             .remove_resource::<IgnoreSchedulingAmbiguities>()
@@ -2096,6 +2097,7 @@ impl World {
         self.insert_resource(ignore_ambiguities);
     }
 
+    /// Ignore ambiguities between systems in [`Resource`] T.
     pub fn allow_ambiguous_resource<T: Resource>(&mut self) {
         let mut ignore_ambiguities = self
             .remove_resource::<IgnoreSchedulingAmbiguities>()

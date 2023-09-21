@@ -17,7 +17,7 @@ use fixedbitset::FixedBitSet;
 
 use crate::{
     self as bevy_ecs,
-    component::{ComponentDescriptor, ComponentId, Components, Tick},
+    component::{ComponentId, Components, Tick},
     prelude::Component,
     schedule::*,
     system::{BoxedSystem, Resource, System},
@@ -880,7 +880,7 @@ impl ScheduleGraph {
         &mut self,
         components: &Components,
         schedule_label: &BoxedScheduleLabel,
-        ignored_ambiguities: &Vec<ComponentId>,
+        ignored_ambiguities: &[ComponentId],
     ) -> Result<SystemSchedule, ScheduleBuildError> {
         // check hierarchy for cycles
         self.hierarchy.topsort =
@@ -1053,7 +1053,7 @@ impl ScheduleGraph {
         &self,
         flat_results_disconnected: &Vec<(NodeId, NodeId)>,
         ambiguous_with_flattened: &GraphMap<NodeId, (), Undirected>,
-        ignored_ambiguities: &Vec<ComponentId>,
+        ignored_ambiguities: &[ComponentId],
     ) -> Vec<(NodeId, NodeId, Vec<ComponentId>)> {
         let mut conflicting_systems = Vec::new();
         for &(a, b) in flat_results_disconnected {
@@ -1192,7 +1192,7 @@ impl ScheduleGraph {
         &mut self,
         schedule: &mut SystemSchedule,
         components: &Components,
-        ignored_ambiguities: &Vec<ComponentId>,
+        ignored_ambiguities: &[ComponentId],
         schedule_label: &BoxedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if !self.uninit.is_empty() {
@@ -1601,16 +1601,16 @@ impl ScheduleGraph {
         ambiguities
             .iter()
             .map(move |(system_a, system_b, conflicts)| {
-                let conflict_names: Vec<_> = conflicts
-                    .iter()
-                    .map(|id| components.get_name(*id).unwrap())
-                    .collect();
-
                 let name_a = self.get_node_name(system_a);
                 let name_b = self.get_node_name(system_b);
 
                 debug_assert!(system_a.is_system(), "{name_a} is not a system.");
                 debug_assert!(system_b.is_system(), "{name_b} is not a system.");
+
+                let conflict_names: Vec<_> = conflicts
+                    .iter()
+                    .map(|id| components.get_name(*id).unwrap())
+                    .collect();
 
                 (name_a, name_b, conflict_names)
             })
@@ -1737,25 +1737,14 @@ impl ScheduleBuildSettings {
 pub struct IgnoreSchedulingAmbiguities(Vec<ComponentId>);
 
 impl IgnoreSchedulingAmbiguities {
-    /// Ignore ambiguities in component T.
-    ///
-    /// [`Components`] should be from the same world that Schedules belongs to
+    /// Ignore ambiguities between systems in [`Component`] T.
     pub fn allow_ambiguous_component<T: Component>(&mut self, world: &mut World) {
         self.0.push(world.init_component::<T>());
     }
 
-    /// Ignore ambiguities in resource T.
-    ///
-    /// [`Components`] should be from the same world that Schedules belongs to
+    /// Ignore ambiguities between systems in [`Resource`] T.
     pub fn allow_ambiguous_resource<T: Resource>(&mut self, world: &mut World) {
-        // TODO: think about moving this to World or Components
-        let resource_id = world.components.resource_id::<T>().unwrap_or_else(|| {
-            world.components.init_component_with_descriptor(
-                &mut world.storages,
-                ComponentDescriptor::new_resource::<T>(),
-            )
-        });
-        self.0.push(resource_id);
+        self.0.push(world.components.init_resource::<T>());
     }
 }
 
