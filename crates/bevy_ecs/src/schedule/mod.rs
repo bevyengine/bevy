@@ -718,8 +718,10 @@ mod tests {
     }
 
     mod system_ambiguity {
+        use super::*;
         // Required to make the derive macro behave
         use crate as bevy_ecs;
+        use crate::component::ComponentId;
         use crate::event::Events;
         use crate::prelude::*;
 
@@ -981,14 +983,12 @@ mod tests {
             assert_eq!(schedule.graph().conflicting_systems().len(), 0);
         }
 
+        #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
+        struct TestSchedule;
+
         // Tests that the correct ambiguities were reported in the correct order.
         #[test]
         fn correct_ambiguities() {
-            use super::*;
-
-            #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
-            struct TestSchedule;
-
             fn system_a(_res: ResMut<R>) {}
             fn system_b(_res: ResMut<R>) {}
             fn system_c(_res: ResMut<R>) {}
@@ -1008,9 +1008,11 @@ mod tests {
             ));
 
             schedule.graph_mut().initialize(&mut world);
-            let _ = schedule
-                .graph_mut()
-                .build_schedule(world.components(), &TestSchedule.dyn_clone());
+            let _ = schedule.graph_mut().build_schedule(
+                world.components(),
+                &TestSchedule.dyn_clone(),
+                &Vec::new(),
+            );
 
             let ambiguities: Vec<_> = schedule
                 .graph()
@@ -1050,19 +1052,16 @@ mod tests {
         // Related issue https://github.com/bevyengine/bevy/issues/9641
         #[test]
         fn anonymous_set_name() {
-            use super::*;
-
-            #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
-            struct TestSchedule;
-
             let mut schedule = Schedule::new(TestSchedule);
             schedule.add_systems((resmut_system, resmut_system).run_if(|| true));
 
             let mut world = World::new();
             schedule.graph_mut().initialize(&mut world);
-            let _ = schedule
-                .graph_mut()
-                .build_schedule(world.components(), &TestSchedule.dyn_clone());
+            let _ = schedule.graph_mut().build_schedule(
+                world.components(),
+                &TestSchedule.dyn_clone(),
+                &Vec::new(),
+            );
 
             let ambiguities: Vec<_> = schedule
                 .graph()
@@ -1077,6 +1076,60 @@ mod tests {
                     vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
                 )
             );
+        }
+
+        // helper function for testing ambiguities
+        fn assert_ambiguities_empty(
+            schedule: &mut Schedule,
+            world: &mut World,
+            ignored_ambiguities: Vec<ComponentId>,
+        ) {
+            schedule.graph_mut().initialize(world);
+            let _ = schedule.graph_mut().build_schedule(
+                world.components(),
+                &TestSchedule.dyn_clone(),
+                &ignored_ambiguities,
+            );
+
+            let ambiguities: Vec<_> = schedule
+                .graph()
+                .conflicts_to_string(schedule.graph().conflicting_systems(), world.components())
+                .collect();
+
+            assert!(ambiguities.is_empty());
+        }
+
+        #[test]
+        fn ignore_component_resource_ambiguities() {
+            fn system_a(_res: ResMut<R>) {}
+            fn system_b(_res: ResMut<R>) {}
+
+            let mut world = World::new();
+            world.insert_resource(R);
+
+            let resource_id = world.components.resource_id::<R>().unwrap();
+
+            let mut schedule = Schedule::new(TestSchedule);
+            schedule.add_systems((system_a, system_b));
+
+            assert_ambiguities_empty(&mut schedule, &mut world, vec![resource_id]);
+        }
+
+        #[test]
+        fn ignore_before_add() {
+            todo!();
+            fn system_a(_res: ResMut<R>) {}
+            fn system_b(_res: ResMut<R>) {}
+
+            let mut world = World::new();
+            world.insert_resource(R);
+
+            let resource_id = world.components.resource_id::<R>().unwrap();
+
+            let mut schedule = Schedule::new(TestSchedule);
+            schedule.add_systems((system_a, system_b));
+
+            assert_ambiguities_empty(&mut schedule, &mut world, vec![resource_id]);
         }
     }
 }
