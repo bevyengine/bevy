@@ -3,7 +3,7 @@
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::prelude::*;
 
-use crate::{Node, ZIndex};
+use crate::{Node, ZIndex, GlobalZIndex};
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
@@ -18,10 +18,10 @@ pub struct UiStack {
 /// Generates the render stack for UI nodes.
 pub fn ui_stack_system(
     mut ui_stack: ResMut<UiStack>,
-    root_node_query: Query<(Entity, Option<&ZIndex>), (With<Node>, Without<Parent>)>,
-    zindex_global_node_query: Query<(Entity, &ZIndex), (With<Node>, With<Parent>)>,
+    root_node_query: Query<(Entity, Option<&GlobalZIndex>, Option<&ZIndex>), (With<Node>, Without<Parent>)>,
+    zindex_global_node_query: Query<(Entity, &GlobalZIndex, Option<&ZIndex>), (With<Node>, With<Parent>)>,
     children_query: Query<&Children>,
-    zindex_query: Query<&ZIndex, With<Node>>,
+    zindex_query: Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
 ) {
     ui_stack.uinodes.clear();
     let uinodes = &mut ui_stack.uinodes;
@@ -30,18 +30,17 @@ pub fn ui_stack_system(
         entity: Entity,
         uinodes: &mut Vec<Entity>,
         children_query: &Query<&Children>,
-        zindex_query: &Query<&ZIndex, With<Node>>,
+        zindex_query: &Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
     ) {
         uinodes.push(entity);
 
         if let Ok(children) = children_query.get(entity) {
             let mut z_children: Vec<(Entity, i32)> = children
                 .iter()
-                .filter_map(|&child_id| match zindex_query.get(child_id) {
-                    Ok(ZIndex::Local(z)) => Some((child_id, *z)),
-                    Ok(ZIndex::Global(_)) => None,
-                    _ => Some((child_id, 0)),
-                })
+                .filter_map(|entity| 
+                    zindex_query.get(*entity).ok()
+                    .map(|zindex| (*entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))                
+                )
                 .collect();
             z_children.sort_by_key(|k| k.1);
             for (child_id, _) in z_children {
@@ -52,18 +51,17 @@ pub fn ui_stack_system(
 
     let global_nodes = zindex_global_node_query
         .iter()
-        .filter_map(|(id, zindex)| match zindex {
-            ZIndex::Global(z) => Some((id, (*z, 0))),
-            _ => None,
+        .map(|(id, global_zindex, maybe_zindex)| {
+            (id, (global_zindex.0, maybe_zindex.map(|zindex| zindex.0).unwrap_or(0)))
         });
 
     let mut root_nodes: Vec<_> = root_node_query
         .iter()
-        .map(|(root_id, maybe_zindex)| match maybe_zindex {
-            Some(ZIndex::Global(z)) => (root_id, (*z, 0)),
-            Some(ZIndex::Local(z)) => (root_id, (0, *z)),
-            None => (root_id, (0, 0)),
-        })
+        .map(|(root_id, maybe_global_zindex, maybe_zindex)| 
+        (root_id, (
+            maybe_global_zindex.map(|zindex| zindex.0).unwrap_or(0),
+            maybe_zindex.map(|zindex| zindex.0).unwrap_or(0)))
+        )
         .chain(global_nodes)
         .collect();
 

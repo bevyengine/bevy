@@ -1510,21 +1510,13 @@ pub struct CalculatedClip {
 /// [`ZIndex::Local(n)`] and [`ZIndex::Global(n)`] for root nodes.
 ///
 /// Nodes without this component will be treated as if they had a value of [`ZIndex::Local(0)`].
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 #[reflect(Component)]
-pub enum ZIndex {
-    /// Indicates the order in which this node should be rendered relative to its siblings.
-    Local(i32),
-    /// Indicates the order in which this node should be rendered relative to root nodes and
-    /// all other nodes that have a global z-index.
-    Global(i32),
-}
-
-impl Default for ZIndex {
-    fn default() -> Self {
-        Self::Local(0)
-    }
-}
+pub struct ZIndex(pub i32);
+    
+#[derive(Component, Copy, Clone, Debug, Default, Reflect)]
+#[reflect(Component)]
+pub struct GlobalZIndex(pub i32);
 
 #[cfg(test)]
 mod tests {
