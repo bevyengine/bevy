@@ -455,7 +455,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
     }
 }
 
-#[derive(Component, Clone, Default, PartialEq, Eq, Deref, DerefMut)]
+#[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
 pub struct Material2dBindGroupId(Option<BindGroupId>);
 
 /// Data prepared for a [`Material2d`] instance.

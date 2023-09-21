@@ -653,7 +653,7 @@ impl GetBatchData for MeshPipeline {
     fn get_compare_data(
         &(material_bind_group_id, mesh_handle, ..): &QueryItem<Self::Query>,
     ) -> Self::CompareData {
-        (material_bind_group_id.cloned(), mesh_handle.id())
+        (material_bind_group_id.copied(), mesh_handle.id())
     }
 }
 

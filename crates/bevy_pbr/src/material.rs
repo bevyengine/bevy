@@ -591,7 +591,7 @@ pub struct PreparedMaterial<T: Material> {
     pub properties: MaterialProperties,
 }
 
-#[derive(Component, Clone, Default, PartialEq, Eq, Deref, DerefMut)]
+#[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
 pub struct MaterialBindGroupId(Option<BindGroupId>);
 
 impl<T: Material> PreparedMaterial<T> {
