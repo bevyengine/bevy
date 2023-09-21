@@ -447,7 +447,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 // -z in front of the camera, the largest distance is -far with values increasing toward the
                 // camera. As such we can just use mesh_z as the distance
                 sort_key: FloatOrd(mesh_z),
-                // Batching is done in prepare_mesh2d_uniforms
+                // Batching is done in batch_and_prepare_render_phase
                 batch_range: 0..1,
                 dynamic_offset: None,
             });
