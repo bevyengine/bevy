@@ -16,6 +16,7 @@ fn update_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let motion_vector = textureLoad(motion_vectors, probe_center_pixel_id, 0i).rg;
     let reprojected_probe_center_uv = probe_center_uv - motion_vector;
+    let screen_disocclusion = f32(all(saturate(reprojected_probe_center_uv) == reprojected_probe_center_uv));
 
     let reprojected_probe_center_pixel_id_f = reprojected_probe_center_uv * vec2<f32>(probe_count) - 0.5;
 
@@ -48,17 +49,17 @@ fn update_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let r = fract(reprojected_probe_center_pixel_id_f);
     let screen_weight = f32(all(saturate(reprojected_probe_center_uv) == reprojected_probe_center_uv));
-    let tl_probe_weight = (1.0 - r.x) * (1.0 - r.y) * tl_probe_depth_weight * screen_weight;
-    let tr_probe_weight = r.x * (1.0 - r.y) * tr_probe_depth_weight * screen_weight;
-    let bl_probe_weight = (1.0 - r.x) * r.y * bl_probe_depth_weight * screen_weight;
-    let br_probe_weight = r.x * r.y * br_probe_depth_weight * screen_weight;
+    let tl_probe_weight = (1.0 - r.x) * (1.0 - r.y) * tl_probe_depth_weight;
+    let tr_probe_weight = r.x * (1.0 - r.y) * tr_probe_depth_weight;
+    let bl_probe_weight = (1.0 - r.x) * r.y * bl_probe_depth_weight;
+    let br_probe_weight = r.x * r.y * br_probe_depth_weight;
 
     var history_color = (tl_probe_sample * tl_probe_weight) + (tr_probe_sample * tr_probe_weight) + (bl_probe_sample * bl_probe_weight) + (br_probe_sample * br_probe_weight);
     var history_confidence = (tl_probe_confidence * tl_probe_weight) + (tr_probe_confidence * tr_probe_weight) + (bl_probe_confidence * bl_probe_weight) + (br_probe_confidence * br_probe_weight);
     history_color /= tl_probe_weight + tr_probe_weight + bl_probe_weight + br_probe_weight;
     history_confidence /= tl_probe_weight + tr_probe_weight + bl_probe_weight + br_probe_weight;
     history_color = max(history_color, vec4(0.0));
-    history_confidence = 1.0 + clamp(history_confidence, 0.0, 31.0);
+    history_confidence = 1.0 + (clamp(history_confidence, 0.0, 31.0) * screen_disocclusion);
 
     // Reconstruct world position of the probe and early out if the probe is placed on a background pixel
     let probe_depth = textureLoad(depth_buffer, probe_center_pixel_id, 0i);

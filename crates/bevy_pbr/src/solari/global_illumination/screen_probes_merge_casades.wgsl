@@ -14,9 +14,9 @@ fn merge_screen_probe_cascades(
     @builtin(num_workgroups) workgroup_count: vec3<u32>,
 ) {
     let lower_cascade_sample = textureLoad(screen_probes, global_id.xy, lower_cascade);
-    if lower_cascade_sample.a == 0.0 {
-        return;
-    }
+    // if lower_cascade_sample.a == 0.0 {
+    //     return;
+    // }
 
     let lower_probe_size = u32(exp2(f32(lower_cascade) + 3.0));
     let lower_probe_count = textureDimensions(screen_probes) / lower_probe_size;
