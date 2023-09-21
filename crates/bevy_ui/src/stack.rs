@@ -20,8 +20,8 @@ pub fn ui_stack_system(
     mut ui_stack: ResMut<UiStack>,
     root_node_query: Query<(Entity, Option<&ZIndex>), (With<Node>, Without<Parent>)>,
     zindex_global_node_query: Query<(Entity, &ZIndex), (With<Node>, With<Parent>)>,
-    node_query: Query<Option<&Children>, With<Node>>,
-    zindex_query: Query<&ZIndex>,
+    children_query: Query<&Children>,
+    zindex_query: Query<&ZIndex, With<Node>>,
 ) {
     ui_stack.uinodes.clear();
     let uinodes = &mut ui_stack.uinodes;
@@ -29,16 +29,12 @@ pub fn ui_stack_system(
     fn update_uistack_recursively(
         entity: Entity,
         uinodes: &mut Vec<Entity>,
-        node_query: &Query<Option<&Children>, With<Node>>,
-        zindex_query: &Query<&ZIndex>,
+        children_query: &Query<&Children>,
+        zindex_query: &Query<&ZIndex, With<Node>>,
     ) {
-        let Ok(children) = node_query.get(entity) else {
-            return;
-        };
-
         uinodes.push(entity);
 
-        if let Some(children) = children {
+        if let Ok(children) = children_query.get(entity) {
             let mut z_children: Vec<(Entity, i32)> = children
                 .iter()
                 .filter_map(|&child_id| match zindex_query.get(child_id) {
@@ -49,7 +45,7 @@ pub fn ui_stack_system(
                 .collect();
             z_children.sort_by_key(|k| k.1);
             for (child_id, _) in z_children {
-                update_uistack_recursively(child_id, uinodes, node_query, zindex_query);
+                update_uistack_recursively(child_id, uinodes, children_query, zindex_query);
             }
         }
     }
@@ -74,7 +70,7 @@ pub fn ui_stack_system(
     root_nodes.sort_by_key(|(_, z)| *z);
 
     for (entity, _) in root_nodes {
-        update_uistack_recursively(entity, uinodes, &node_query, &zindex_query);
+        update_uistack_recursively(entity, uinodes, &children_query, &zindex_query);
     }
 }
 
