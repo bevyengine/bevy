@@ -147,7 +147,7 @@ fn fragment(
 
     /// User clipping: everything below the plane gets discarded if the length of 
     /// the normal vector of the plane is non-zero
-    if dot(in.world_position.xyz, view.user_clip.xyz) < view.user_clip.w {
+    if dot(in.world_position.xyz, view.user_defined_clipping_plane.xyz) < view.user_defined_clipping_plane.w {
         discard;
     }
 

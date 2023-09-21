@@ -113,7 +113,7 @@ pub struct ExtractedView {
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
     pub color_grading: ColorGrading,
-    pub user_clip: Option<Vec4>,
+    pub user_defined_clipping_plane: Option<Vec4>,
 }
 
 impl ExtractedView {
@@ -171,7 +171,7 @@ pub struct ViewUniform {
     viewport: Vec4,
     color_grading: ColorGrading,
     mip_bias: f32,
-    user_clip: Vec4,
+    user_defined_clipping_plane: Vec4,
 }
 
 #[derive(Resource, Default)]
@@ -381,7 +381,7 @@ pub fn prepare_view_uniforms(
                 .unwrap_or_else(|| projection * inverse_view)
         };
 
-        let user_clip = camera.user_clip.unwrap_or(Vec4::ZERO);
+        let user_defined_clipping_plane = camera.user_defined_clipping_plane.unwrap_or(Vec4::ZERO);
 
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
@@ -396,7 +396,7 @@ pub fn prepare_view_uniforms(
                 viewport,
                 color_grading: camera.color_grading,
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
-                user_clip,
+                user_defined_clipping_plane,
             }),
         };
 

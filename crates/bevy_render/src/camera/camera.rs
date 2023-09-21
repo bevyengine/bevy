@@ -120,7 +120,7 @@ pub struct Camera {
     /// fragment stage.
     ///
     /// This is disabled by default.
-    pub user_clip: Option<Vec4>,
+    pub user_defined_clipping_plane: Option<Vec4>,
 }
 
 impl Default for Camera {
@@ -134,7 +134,7 @@ impl Default for Camera {
             output_mode: Default::default(),
             hdr: false,
             msaa_writeback: true,
-            user_clip: None,
+            user_defined_clipping_plane: None,
         }
     }
 }
@@ -718,7 +718,7 @@ pub fn extract_cameras(
                         viewport_size.y,
                     ),
                     color_grading,
-                    user_clip: camera.user_clip,
+                    user_defined_clipping_plane: camera.user_defined_clipping_plane,
                 },
                 visible_entities.clone(),
             ));

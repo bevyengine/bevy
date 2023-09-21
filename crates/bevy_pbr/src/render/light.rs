@@ -1019,7 +1019,7 @@ pub fn prepare_lights(
                             projection: cube_face_projection,
                             hdr: false,
                             color_grading: Default::default(),
-                            user_clip: None,
+                            user_defined_clipping_plane: None,
                         },
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Point {
@@ -1078,7 +1078,7 @@ pub fn prepare_lights(
                         view_projection: None,
                         hdr: false,
                         color_grading: Default::default(),
-                        user_clip: None,
+                        user_defined_clipping_plane: None,
                     },
                     RenderPhase::<Shadow>::default(),
                     LightEntity::Spot { light_entity },
@@ -1145,7 +1145,7 @@ pub fn prepare_lights(
                             view_projection: Some(cascade.view_projection),
                             hdr: false,
                             color_grading: Default::default(),
-                            user_clip : None,
+                            user_defined_clipping_plane : None,
                         },
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Directional {
