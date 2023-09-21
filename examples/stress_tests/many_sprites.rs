@@ -118,6 +118,6 @@ fn print_sprite_count(time: Res<Time>, mut timer: Local<PrintingTimer>, sprites:
     timer.tick(time.delta());
 
     if timer.just_finished() {
-        info!("Sprites: {}", sprites.iter().count(),);
+        info!("Sprites: {}", sprites.iter().count());
     }
 }

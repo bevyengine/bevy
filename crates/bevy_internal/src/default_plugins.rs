@@ -12,7 +12,6 @@ use bevy_app::{PluginGroup, PluginGroupBuilder};
 /// * [`InputPlugin`](crate::input::InputPlugin)
 /// * [`WindowPlugin`](crate::window::WindowPlugin)
 /// * [`AssetPlugin`](crate::asset::AssetPlugin) - with feature `bevy_asset`
-/// * [`DebugAssetPlugin`](crate::asset::debug_asset_server::DebugAssetServerPlugin) - with feature `debug_asset_server`
 /// * [`ScenePlugin`](crate::scene::ScenePlugin) - with feature `bevy_scene`
 /// * [`WinitPlugin`](crate::winit::WinitPlugin) - with feature `bevy_winit`
 /// * [`RenderPlugin`](crate::render::RenderPlugin) - with feature `bevy_render`
@@ -56,11 +55,6 @@ impl PluginGroup for DefaultPlugins {
         #[cfg(feature = "bevy_asset")]
         {
             group = group.add(bevy_asset::AssetPlugin::default());
-        }
-
-        #[cfg(feature = "debug_asset_server")]
-        {
-            group = group.add(bevy_asset::debug_asset_server::DebugAssetServerPlugin);
         }
 
         #[cfg(feature = "bevy_scene")]

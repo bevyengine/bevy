@@ -5,7 +5,7 @@ use bevy_render::{
     mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS},
     render_resource::{BufferUsages, BufferVec},
     renderer::{RenderDevice, RenderQueue},
-    view::ComputedVisibility,
+    view::ViewVisibility,
     Extract,
 };
 use bytemuck::Pod;
@@ -72,14 +72,14 @@ pub fn extract_morphs(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut uniform: ResMut<MorphUniform>,
-    query: Extract<Query<(Entity, &ComputedVisibility, &MeshMorphWeights)>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &MeshMorphWeights)>>,
 ) {
     uniform.buffer.clear();
 
     let mut values = Vec::with_capacity(*previous_len);
 
-    for (entity, computed_visibility, morph_weights) in &query {
-        if !computed_visibility.is_visible() {
+    for (entity, view_visibility, morph_weights) in &query {
+        if !view_visibility.get() {
             continue;
         }
         let start = uniform.buffer.len();

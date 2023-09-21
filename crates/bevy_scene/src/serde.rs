@@ -1,5 +1,4 @@
 use crate::{DynamicEntity, DynamicScene};
-use anyhow::Result;
 use bevy_ecs::entity::Entity;
 use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
 use bevy_reflect::{
@@ -424,12 +423,13 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
 mod tests {
     use crate::serde::{SceneDeserializer, SceneSerializer};
     use crate::{DynamicScene, DynamicSceneBuilder};
-    use bevy_ecs::entity::{Entity, EntityMap, EntityMapper, MapEntities};
+    use bevy_ecs::entity::{Entity, EntityMapper, MapEntities};
     use bevy_ecs::prelude::{Component, ReflectComponent, ReflectResource, Resource, World};
     use bevy_ecs::query::{With, Without};
     use bevy_ecs::reflect::{AppTypeRegistry, ReflectMapEntities};
     use bevy_ecs::world::FromWorld;
     use bevy_reflect::{Reflect, ReflectSerialize};
+    use bevy_utils::HashMap;
     use bincode::Options;
     use serde::de::DeserializeSeed;
     use serde::Serialize;
@@ -603,7 +603,7 @@ mod tests {
             "expected `entities` to contain 3 entities"
         );
 
-        let mut map = EntityMap::default();
+        let mut map = HashMap::default();
         let mut dst_world = create_world();
         scene.write_to_world(&mut dst_world, &mut map).unwrap();
 
@@ -642,7 +642,7 @@ mod tests {
 
         let deserialized_scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let mut map = EntityMap::default();
+        let mut map = HashMap::default();
         let mut dst_world = create_world();
         deserialized_scene
             .write_to_world(&mut dst_world, &mut map)
@@ -806,7 +806,7 @@ mod tests {
                 .find(|dynamic_entity| dynamic_entity.entity == expected.entity)
                 .unwrap_or_else(|| panic!("missing entity (expected: `{:?}`)", expected.entity));
 
-            assert_eq!(expected.entity, received.entity, "entities did not match",);
+            assert_eq!(expected.entity, received.entity, "entities did not match");
 
             for expected in &expected.components {
                 let received = received
