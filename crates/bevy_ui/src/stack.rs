@@ -82,15 +82,19 @@ mod tests {
     };
     use bevy_hierarchy::BuildChildren;
 
-    use crate::{Node, UiStack, ZIndex};
+    use crate::{Node, UiStack, ZIndex, GlobalZIndex};
 
     use super::ui_stack_system;
 
     #[derive(Component, PartialEq, Debug, Clone)]
     struct Label(&'static str);
 
-    fn node_with_zindex(name: &'static str, z_index: ZIndex) -> (Label, Node, ZIndex) {
-        (Label(name), Node::default(), z_index)
+    fn node_with_global_zindex(name: &'static str, global_zindex: i32) -> (Label, Node, GlobalZIndex) {
+        (Label(name), Node::default(), GlobalZIndex(global_zindex))
+    }
+
+    fn node_with_zindex(name: &'static str, zindex: i32) -> (Label, Node, ZIndex) {
+        (Label(name), Node::default(), ZIndex(zindex))
     }
 
     fn node_without_zindex(name: &'static str) -> (Label, Node) {
@@ -110,24 +114,24 @@ mod tests {
 
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
-        commands.spawn(node_with_zindex("0", ZIndex::Global(2)));
+        commands.spawn(node_with_global_zindex("0", 2));
 
         commands
-            .spawn(node_with_zindex("1", ZIndex::Local(1)))
+            .spawn(node_with_zindex("1", 1))
             .with_children(|parent| {
                 parent
                     .spawn(node_without_zindex("1-0"))
                     .with_children(|parent| {
                         parent.spawn(node_without_zindex("1-0-0"));
                         parent.spawn(node_without_zindex("1-0-1"));
-                        parent.spawn(node_with_zindex("1-0-2", ZIndex::Local(-1)));
+                        parent.spawn(node_with_zindex("1-0-2", -1));
                     });
                 parent.spawn(node_without_zindex("1-1"));
                 parent
-                    .spawn(node_with_zindex("1-2", ZIndex::Global(-1)))
+                    .spawn(node_with_global_zindex("1-2", -1))
                     .with_children(|parent| {
                         parent.spawn(node_without_zindex("1-2-0"));
-                        parent.spawn(node_with_zindex("1-2-1", ZIndex::Global(-3)));
+                        parent.spawn(node_with_global_zindex("1-2-1", -3));
                         parent
                             .spawn(node_without_zindex("1-2-2"))
                             .with_children(|_| ());
@@ -149,7 +153,7 @@ mod tests {
                     });
             });
 
-        commands.spawn(node_with_zindex("3", ZIndex::Global(-2)));
+        commands.spawn(node_with_global_zindex("3", -2));
 
         queue.apply(&mut world);
 
