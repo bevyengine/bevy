@@ -1,5 +1,4 @@
-@group(0) @binding(0)
-var texture: texture_storage_2d<rgba8unorm, read_write>;
+@group(0) @binding(0) var texture: texture_storage_2d<rgba8unorm, read_write>;
 
 fn hash(value: u32) -> u32 {
     var state = value;

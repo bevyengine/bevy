@@ -225,7 +225,7 @@ impl TextureAtlasBuilder {
 
         let mut texture_rects = Vec::with_capacity(rect_placements.packed_locations().len());
         let mut texture_ids = HashMap::default();
-        for (image_id, (_, packed_location)) in rect_placements.packed_locations().iter() {
+        for (image_id, (_, packed_location)) in rect_placements.packed_locations() {
             let texture = textures.get(*image_id).unwrap();
             let min = Vec2::new(packed_location.x() as f32, packed_location.y() as f32);
             let max = min

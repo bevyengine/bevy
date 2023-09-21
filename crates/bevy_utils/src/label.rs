@@ -73,8 +73,8 @@ macro_rules! define_boxed_label {
     ($label_trait_name:ident) => {
         /// A strongly-typed label.
         pub trait $label_trait_name: 'static + Send + Sync + ::std::fmt::Debug {
-            /// Return's the [TypeId] of this label, or the the ID of the
-            /// wrappped label type for `Box<dyn
+            /// Return's the [`TypeId`] of this label, or the the ID of the
+            /// wrapped label type for `Box<dyn
             #[doc = stringify!($label_trait_name)]
             /// >`
             ///
@@ -179,7 +179,7 @@ macro_rules! define_label {
         }
 
         $(#[$label_attr])*
-        pub trait $label_name: 'static {
+        pub trait $label_name: Send + Sync + 'static {
             /// Converts this type into an opaque, strongly-typed label.
             fn as_label(&self) -> $id_name {
                 let id = self.type_id();

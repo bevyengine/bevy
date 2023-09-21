@@ -81,6 +81,7 @@ impl<T> Hash for SystemTypeSet<T> {
         // all systems of a given type are the same
     }
 }
+
 impl<T> Clone for SystemTypeSet<T> {
     fn clone(&self) -> Self {
         *self
