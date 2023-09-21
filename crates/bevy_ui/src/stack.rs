@@ -41,12 +41,10 @@ pub fn ui_stack_system(
         if let Some(children) = children {
             let mut z_children: Vec<(Entity, i32)> = children
                 .iter()
-                .filter_map(|&child_id| {                 
-                    match zindex_query.get(child_id) {
-                        Ok(ZIndex::Local(z)) => Some((child_id, *z)),
-                        Ok(ZIndex::Global(z)) => None,
-                        _ => Some((child_id, 0)),
-                    }
+                .filter_map(|&child_id| match zindex_query.get(child_id) {
+                    Ok(ZIndex::Local(z)) => Some((child_id, *z)),
+                    Ok(ZIndex::Global(_)) => None,
+                    _ => Some((child_id, 0)),
                 })
                 .collect();
             z_children.sort_by_key(|k| k.1);
@@ -56,33 +54,29 @@ pub fn ui_stack_system(
         }
     }
 
-    let mut global_nodes = zindex_global_node_query.iter()
-        .filter_map(|(id, zindex)| 
-            match zindex {
-                ZIndex::Global(z) => Some((id, (*z, 0))),
-                _ => None,
-            }
-        );
+    let global_nodes = zindex_global_node_query
+        .iter()
+        .filter_map(|(id, zindex)| match zindex {
+            ZIndex::Global(z) => Some((id, (*z, 0))),
+            _ => None,
+        });
 
-    let mut root_nodes: Vec<_> = root_node_query.iter()
-        .map(|(root_id, maybe_zindex)| 
-            match maybe_zindex {
-                Some(ZIndex::Global(z)) => (root_id, (*z, 0)),
-                Some(ZIndex::Local(z)) => (root_id, (0, *z)),
-                None => (root_id, (0, 0)),
-            }
-        )
+    let mut root_nodes: Vec<_> = root_node_query
+        .iter()
+        .map(|(root_id, maybe_zindex)| match maybe_zindex {
+            Some(ZIndex::Global(z)) => (root_id, (*z, 0)),
+            Some(ZIndex::Local(z)) => (root_id, (0, *z)),
+            None => (root_id, (0, 0)),
+        })
         .chain(global_nodes)
         .collect();
 
-    root_nodes
-        .sort_by_key(|(_, z)| *z);
+    root_nodes.sort_by_key(|(_, z)| *z);
 
-    for (entity, (global_z_index, 0)) in root_nodes {
+    for (entity, _) in root_nodes {
         update_uistack_recursively(entity, uinodes, &node_query, &zindex_query);
     }
 }
-
 
 #[cfg(test)]
 mod tests {
