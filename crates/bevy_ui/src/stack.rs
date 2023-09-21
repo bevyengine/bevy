@@ -15,104 +15,74 @@ pub struct UiStack {
     pub uinodes: Vec<Entity>,
 }
 
-#[derive(Default)]
-struct StackingContext {
-    pub entries: Vec<StackingContextEntry>,
-}
-
-struct StackingContextEntry {
-    pub z_index: i32,
-    pub entity: Entity,
-    pub stack: StackingContext,
-}
-
 /// Generates the render stack for UI nodes.
-///
-/// First generate a UI node tree (`StackingContext`) based on z-index.
-/// Then flatten that tree into back-to-front ordered `UiStack`.
 pub fn ui_stack_system(
     mut ui_stack: ResMut<UiStack>,
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    zindex_query: Query<&ZIndex, With<Node>>,
-    children_query: Query<&Children>,
+    root_node_query: Query<(Entity, Option<&ZIndex>), (With<Node>, Without<Parent>)>,
+    zindex_global_node_query: Query<(Entity, &ZIndex), (With<Node>, With<Parent>)>,
+    node_query: Query<Option<&Children>, With<Node>>,
+    zindex_query: Query<&ZIndex>,
 ) {
-    // Generate `StackingContext` tree
-    let mut global_context = StackingContext::default();
-    let mut total_entry_count: usize = 0;
-
-    for entity in &root_node_query {
-        insert_context_hierarchy(
-            &zindex_query,
-            &children_query,
-            entity,
-            &mut global_context,
-            None,
-            &mut total_entry_count,
-        );
-    }
-
-    // Flatten `StackingContext` into `UiStack`
     ui_stack.uinodes.clear();
-    ui_stack.uinodes.reserve(total_entry_count);
-    fill_stack_recursively(&mut ui_stack.uinodes, &mut global_context);
-}
+    let uinodes = &mut ui_stack.uinodes;
 
-/// Generate z-index based UI node tree
-fn insert_context_hierarchy(
-    zindex_query: &Query<&ZIndex, With<Node>>,
-    children_query: &Query<&Children>,
-    entity: Entity,
-    global_context: &mut StackingContext,
-    parent_context: Option<&mut StackingContext>,
-    total_entry_count: &mut usize,
-) {
-    let mut new_context = StackingContext::default();
+    fn update_uistack_recursively(
+        entity: Entity,
+        uinodes: &mut Vec<Entity>,
+        node_query: &Query<Option<&Children>, With<Node>>,
+        zindex_query: &Query<&ZIndex>,
+    ) {
+        let Ok(children) = node_query.get(entity) else {
+            return;
+        };
 
-    if let Ok(children) = children_query.get(entity) {
-        // Reserve space for all children. In practice, some may not get pushed since
-        // nodes with `ZIndex::Global` are pushed to the global (root) context.
-        new_context.entries.reserve_exact(children.len());
+        uinodes.push(entity);
 
-        for entity in children {
-            insert_context_hierarchy(
-                zindex_query,
-                children_query,
-                *entity,
-                global_context,
-                Some(&mut new_context),
-                total_entry_count,
-            );
+        if let Some(children) = children {
+            let mut z_children: Vec<(Entity, i32)> = children
+                .iter()
+                .filter_map(|&child_id| {                 
+                    match zindex_query.get(child_id) {
+                        Ok(ZIndex::Local(z)) => Some((child_id, *z)),
+                        Ok(ZIndex::Global(z)) => None,
+                        _ => Some((child_id, 0)),
+                    }
+                })
+                .collect();
+            z_children.sort_by_key(|k| k.1);
+            for (child_id, _) in z_children {
+                update_uistack_recursively(child_id, uinodes, node_query, zindex_query);
+            }
         }
     }
 
-    // The node will be added either to global/parent based on its z-index type: global/local.
-    let z_index = zindex_query.get(entity).unwrap_or(&ZIndex::Local(0));
-    let (entity_context, z_index) = match z_index {
-        ZIndex::Local(value) => (parent_context.unwrap_or(global_context), *value),
-        ZIndex::Global(value) => (global_context, *value),
-    };
+    let mut global_nodes = zindex_global_node_query.iter()
+        .filter_map(|(id, zindex)| 
+            match zindex {
+                ZIndex::Global(z) => Some((id, (*z, 0))),
+                _ => None,
+            }
+        );
 
-    *total_entry_count += 1;
-    entity_context.entries.push(StackingContextEntry {
-        z_index,
-        entity,
-        stack: new_context,
-    });
-}
+    let mut root_nodes: Vec<_> = root_node_query.iter()
+        .map(|(root_id, maybe_zindex)| 
+            match maybe_zindex {
+                Some(ZIndex::Global(z)) => (root_id, (*z, 0)),
+                Some(ZIndex::Local(z)) => (root_id, (0, *z)),
+                None => (root_id, (0, 0)),
+            }
+        )
+        .chain(global_nodes)
+        .collect();
 
-/// Flatten `StackingContext` (z-index based UI node tree) into back-to-front entities list
-fn fill_stack_recursively(result: &mut Vec<Entity>, stack: &mut StackingContext) {
-    // Sort entries by ascending z_index, while ensuring that siblings
-    // with the same local z_index will keep their ordering. This results
-    // in `back-to-front` ordering, low z_index = back; high z_index = front.
-    stack.entries.sort_by_key(|e| e.z_index);
+    root_nodes
+        .sort_by_key(|(_, z)| *z);
 
-    for entry in &mut stack.entries {
-        // Parent node renders before/behind child nodes
-        result.push(entry.entity);
-        fill_stack_recursively(result, &mut entry.stack);
+    for (entity, (global_z_index, 0)) in root_nodes {
+        update_uistack_recursively(entity, uinodes, &node_query, &zindex_query);
     }
 }
+
 
 #[cfg(test)]
 mod tests {
