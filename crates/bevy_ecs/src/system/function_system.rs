@@ -240,7 +240,7 @@ impl<Param: SystemParam> SystemState<Param> {
         fn panic_mismatched(this: WorldId, other: WorldId) -> ! {
             panic!("Encountered a mismatched World. This SystemState was created from {this:?}, but a method was called using {other:?}.");
         }
-        
+
         if !self.matches_world(world_id) {
             panic_mismatched(self.world_id, world_id);
         }

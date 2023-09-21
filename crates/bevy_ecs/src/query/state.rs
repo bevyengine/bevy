@@ -232,7 +232,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         fn panic_mismatched(this: WorldId, other: WorldId) -> ! {
             panic!("Encountered a mismatched World. This QueryState was created from {this:?}, but a method was called using {other:?}.");
         }
-        
+
         if self.world_id != world_id {
             panic_mismatched(self.world_id, world_id);
         }
