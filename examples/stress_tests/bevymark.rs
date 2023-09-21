@@ -61,9 +61,9 @@ struct Args {
     #[argh(option, default = "1")]
     material_texture_count: usize,
 
-    /// use a random rather than sequential z value for birds
+    /// generate z values in increasing order rather than randomly
     #[argh(switch)]
-    random_z: bool,
+    ordered_z: bool,
 }
 
 #[derive(Default, Clone)]
@@ -366,10 +366,10 @@ fn spawn_birds(
         Mode::Sprite => {
             let batch = (0..spawn_count)
                 .map(|count| {
-                    let bird_z = if args.random_z {
-                        bird_resources.transform_rng.gen::<f32>()
-                    } else {
+                    let bird_z = if args.ordered_z {
                         (current_count + count) as f32 * 0.00001
+                    } else {
+                        bird_resources.transform_rng.gen::<f32>()
                     };
 
                     let (transform, velocity) = bird_velocity_transform(
@@ -409,10 +409,10 @@ fn spawn_birds(
         Mode::Mesh2d => {
             let batch = (0..spawn_count)
                 .map(|count| {
-                    let bird_z = if args.random_z {
-                        bird_resources.transform_rng.gen::<f32>()
-                    } else {
+                    let bird_z = if args.ordered_z {
                         (current_count + count) as f32 * 0.00001
+                    } else {
+                        bird_resources.transform_rng.gen::<f32>()
                     };
 
                     let (transform, velocity) = bird_velocity_transform(
