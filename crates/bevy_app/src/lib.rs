@@ -4,6 +4,7 @@
 #![allow(clippy::type_complexity)]
 
 mod app;
+mod events;
 mod main_schedule;
 mod plugin;
 mod plugin_group;
@@ -15,6 +16,7 @@ pub mod ci_testing;
 
 pub use app::*;
 pub use bevy_derive::DynamicPlugin;
+pub use events::*;
 pub use main_schedule::*;
 pub use plugin::*;
 pub use plugin_group::*;

@@ -1,11 +1,14 @@
 use crate::{
-    Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp, SubApps,
+    app_thread_channel, AppEvent, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins,
+    PluginsState, SubApp, SubApps,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleBuildSettings, ScheduleLabel},
+    storage::ThreadLocalStorage,
 };
+
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap};
@@ -57,7 +60,10 @@ pub(crate) enum AppError {
 /// }
 /// ```
 pub struct App {
-    pub(crate) sub_apps: SubApps,
+    #[doc(hidden)]
+    pub sub_apps: SubApps,
+    #[doc(hidden)]
+    pub tls: ThreadLocalStorage,
     /// The function that will manage the app's lifecycle.
     ///
     /// Bevy provides the [`WinitPlugin`] and [`ScheduleRunnerPlugin`] for windowed and headless
@@ -113,7 +119,32 @@ impl App {
                 main: SubApp::new(),
                 sub_apps: HashMap::new(),
             },
+            tls: ThreadLocalStorage::new(),
             runner: Some(Box::new(run_once)),
+        }
+    }
+
+    /// Disassembles the [`App`] and returns its individual parts.
+    pub fn into_parts(self) -> (SubApps, ThreadLocalStorage, Option<RunnerFn>) {
+        let Self {
+            sub_apps,
+            tls,
+            runner,
+        } = self;
+
+        (sub_apps, tls, runner)
+    }
+
+    /// Returns an [`App`] assembled from the given individual parts.
+    pub fn from_parts(
+        sub_apps: SubApps,
+        tls: ThreadLocalStorage,
+        runner: Option<RunnerFn>,
+    ) -> Self {
+        App {
+            sub_apps,
+            tls,
+            runner,
         }
     }
 
@@ -123,7 +154,64 @@ impl App {
             panic!("App::update() was called while a plugin was building.");
         }
 
-        self.sub_apps.update();
+        // disassemble
+        let (mut sub_apps, tls, runner) = std::mem::take(self).into_parts();
+
+        // create channel
+        let (send, recv) = app_thread_channel();
+
+        // insert channel
+        sub_apps
+            .iter_mut()
+            .for_each(|sub_app| tls.insert_channel(sub_app.world_mut(), send.clone()));
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            // Move sub-apps to another thread and run an event loop in this thread.
+            let thread = std::thread::spawn(move || {
+                let result = catch_unwind(AssertUnwindSafe(|| {
+                    sub_apps.update();
+                    send.send(AppEvent::Exit(Box::new(sub_apps))).unwrap();
+                }));
+
+                if let Some(payload) = result.err() {
+                    send.send(AppEvent::Error(payload)).unwrap();
+                }
+            });
+
+            loop {
+                // this loop never exits because multiple copies of sender exist
+                let event = recv.recv().unwrap();
+                match event {
+                    AppEvent::Task(f) => {
+                        f(&mut tls.lock());
+                    }
+                    AppEvent::Exit(boxed) => {
+                        // SAFETY: `Box::<T>::into_raw` returns a pointer that is properly aligned
+                        // and points to an initialized value of `T`.
+                        sub_apps = unsafe { std::ptr::read(Box::into_raw(boxed)) };
+                        thread.join().unwrap();
+                        break;
+                    }
+                    AppEvent::Error(payload) => {
+                        resume_unwind(payload);
+                    }
+                }
+            }
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            sub_apps.update();
+        }
+
+        // remove channel
+        sub_apps
+            .iter_mut()
+            .for_each(|sub_app| tls.remove_channel(sub_app.world_mut()));
+
+        // reassemble
+        *self = App::from_parts(sub_apps, tls, runner);
     }
 
     /// Runs the [`App`] by calling its [runner](Self::set_runner).
@@ -419,7 +507,7 @@ impl App {
     /// of the same type.
     ///
     /// There is also an [`init_non_send_resource`](Self::init_non_send_resource) for
-    /// resources that implement [`Default`]
+    /// resources that implement [`Default`].
     ///
     /// # Examples
     ///
@@ -427,6 +515,7 @@ impl App {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// #[derive(ThreadLocalResource)]
     /// struct MyCounter {
     ///     counter: usize,
     /// }
@@ -434,15 +523,15 @@ impl App {
     /// App::new()
     ///     .insert_non_send_resource(MyCounter { counter: 0 });
     /// ```
-    pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
-        self.world_mut().insert_non_send_resource(resource);
+    pub fn insert_non_send_resource<R: ThreadLocalResource>(&mut self, resource: R) -> &mut Self {
+        self.tls.lock().insert_resource(resource);
         self
     }
 
     /// Inserts the [`!Send`](Send) resource into the app, initialized with its default value,
     /// if there is no existing instance of `R`.
-    pub fn init_non_send_resource<R: 'static + Default>(&mut self) -> &mut Self {
-        self.world_mut().init_non_send_resource::<R>();
+    pub fn init_non_send_resource<R: ThreadLocalResource + Default>(&mut self) -> &mut Self {
+        self.tls.lock().init_resource::<R>();
         self
     }
 
@@ -809,6 +898,15 @@ impl App {
 type RunnerFn = Box<dyn FnOnce(App)>;
 
 fn run_once(mut app: App) {
+    // TODO: rework app setup
+    // create channel
+    let (send, recv) = app_thread_channel();
+    // insert channel
+    app.sub_apps
+        .iter_mut()
+        .for_each(|sub_app| app.tls.insert_channel(sub_app.world_mut(), send.clone()));
+
+    // wait for plugins to finish setting up
     let plugins_state = app.plugins_state();
     if plugins_state != PluginsState::Cleaned {
         while app.plugins_state() == PluginsState::Adding {
@@ -820,8 +918,47 @@ fn run_once(mut app: App) {
     }
 
     // if plugins where cleaned before the runner start, an update already ran
-    if plugins_state != PluginsState::Cleaned {
-        app.update();
+    if plugins_state == PluginsState::Cleaned {
+        return;
+    }
+
+    // disassemble
+    let (mut sub_apps, tls, _) = app.into_parts();
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        // Move sub-apps to another thread and run an event loop in this thread.
+        let thread = std::thread::spawn(move || {
+            let result = catch_unwind(AssertUnwindSafe(|| {
+                sub_apps.update();
+                send.send(AppEvent::Exit(Box::new(sub_apps))).unwrap();
+            }));
+
+            if let Some(payload) = result.err() {
+                send.send(AppEvent::Error(payload)).unwrap();
+            }
+        });
+
+        loop {
+            let event = recv.recv().unwrap();
+            match event {
+                AppEvent::Task(f) => {
+                    f(&mut tls.lock());
+                }
+                AppEvent::Exit(_) => {
+                    thread.join().unwrap();
+                    break;
+                }
+                AppEvent::Error(payload) => {
+                    resume_unwind(payload);
+                }
+            }
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        sub_apps.update();
     }
 }
 
