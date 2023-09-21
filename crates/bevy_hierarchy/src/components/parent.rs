@@ -30,7 +30,7 @@ impl Parent {
     /// for both [`Children`] & [`Parent`] that is agnostic to edge direction.
     ///
     /// [`Children`]: super::children::Children
-    pub fn get_slice(&self) -> &[Entity] {
+    pub fn as_slice(&self) -> &[Entity] {
         std::slice::from_ref(&self.0)
     }
 }
