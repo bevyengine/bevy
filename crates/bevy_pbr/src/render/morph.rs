@@ -2,6 +2,7 @@ use std::{iter, mem};
 
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    batching::NoAutomaticBatching,
     mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS},
     render_resource::{BufferUsages, BufferVec},
     renderer::{RenderDevice, RenderQueue},
@@ -89,7 +90,9 @@ pub fn extract_morphs(
         add_to_alignment::<f32>(&mut uniform.buffer);
 
         let index = (start * mem::size_of::<f32>()) as u32;
-        values.push((entity, MorphIndex { index }));
+        // NOTE: Because morph targets require per-morph target texture bindings, they cannot
+        // currently be batched.
+        values.push((entity, (MorphIndex { index }, NoAutomaticBatching)));
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
