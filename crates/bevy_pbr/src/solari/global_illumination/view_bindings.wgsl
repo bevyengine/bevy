@@ -40,7 +40,7 @@ const FIRST_RADIANCE_CASCADE_INTERVAL: f32 = 0.5;
 @group(1) @binding(6) var screen_probes: texture_storage_2d_array<rgba16float, read_write>;
 @group(1) @binding(7) var screen_probes_confidence_history: texture_2d_array<u32>;
 @group(1) @binding(8) var screen_probes_confidence: texture_storage_2d_array<r8uint, write>;
-@group(1) @binding(9) var screen_probes_merge_buffer: texture_storage_2d<rgba16float, read_write>;
+@group(1) @binding(9) var screen_probes_merge_buffer: texture_storage_2d_array<rgba16float, read_write>;
 @group(1) @binding(10) var<storage, read_write> screen_probes_spherical_harmonics: array<SphericalHarmonicsPacked>;
 @group(1) @binding(11) var diffuse_irradiance_output: texture_storage_2d<rgba16float, write>;
 @group(1) @binding(12) var<storage, read_write> world_cache_checksums: array<atomic<u32>, WORLD_CACHE_SIZE>;

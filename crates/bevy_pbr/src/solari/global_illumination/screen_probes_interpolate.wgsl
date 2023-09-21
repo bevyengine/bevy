@@ -1,4 +1,4 @@
-#import bevy_solari::global_illumination::view_bindings view, depth_buffer, normals_buffer, screen_probes_spherical_harmonics, screen_probes_a, diffuse_irradiance_output
+#import bevy_solari::global_illumination::view_bindings view, depth_buffer, normals_buffer, screen_probes_spherical_harmonics, screen_probes, diffuse_irradiance_output
 #import bevy_solari::utils depth_to_world_position, get_spherical_harmonics_coefficents
 
 @compute @workgroup_size(8, 8, 1)
@@ -15,7 +15,7 @@ fn interpolate_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>
     let pixel_world_position = depth_to_world_position(pixel_depth, pixel_uv);
     let pixel_world_normal = normalize(textureLoad(normals_buffer, global_id.xy, 0i).xyz * 2.0 - vec3(1.0));
 
-    let probe_count = textureDimensions(screen_probes_a) / 8u;
+    let probe_count = textureDimensions(screen_probes) / 8u;
     let probe_id_f = pixel_uv * vec2<f32>(probe_count) - 0.5;
 
     let tl_probe_id = max(vec2<u32>(probe_id_f), vec2(0u));

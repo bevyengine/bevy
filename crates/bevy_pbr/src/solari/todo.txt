@@ -1,25 +1,3 @@
-Update (reproject + trace):
-    History + Confidence per cascade -> A + Confidence
-Merge 1:
-    A3 + A2 -> B0
-Merge 2:
-    B0 + A1 -> B1
-Merge 3:
-    B1 + A0 -> spherical_harmonics
-
-History: 4 cascades
-A: Four cascades
-Confidence buffer_0: R8Uint, four cascades
-Confidence buffer_1: R8Uint, four cascades
-merge_0
-merge_1
-spherical_harmonics
-
-
-
-
-
-
 * Consider the weighing functions used for merging/filtering/interpolating
     * Plane distance used in interpolating seems to do nothing right now
 * Try some jitter:

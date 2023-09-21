@@ -148,11 +148,12 @@ pub fn prepare_resources(
                 (t2, t1)
             }
         };
-        let screen_probes_merge_buffer = texture(
+        let mut screen_probes_merge_buffer = texture(
             "solari_global_illumination_screen_probes_merge_buffer",
             TextureFormat::Rgba16Float,
             size_8,
         );
+        screen_probes_merge_buffer.size.depth_or_array_layers = 2;
         let screen_probes_spherical_harmonics = buffer(
             "solari_global_illumination_screen_probes_spherical_harmonics",
             probe_count * 112,
@@ -311,7 +312,7 @@ pub fn create_bind_group_layouts(
         entry(BindingType::StorageTexture {
             access: StorageTextureAccess::ReadWrite,
             format: TextureFormat::Rgba16Float,
-            view_dimension: TextureViewDimension::D2,
+            view_dimension: TextureViewDimension::D2Array,
         }),
         // Screen probe spherical harmonics
         entry(BindingType::Buffer {
