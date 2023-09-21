@@ -26,10 +26,6 @@ use screenshot::{
 
 use super::Msaa;
 
-/// Token to ensure a system runs on the main thread.
-#[derive(Resource, Default)]
-pub struct NonSendMarker;
-
 pub struct WindowRenderPlugin;
 
 impl Plugin for WindowRenderPlugin {
@@ -212,30 +208,28 @@ impl WindowSurfaces {
 
 /// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
-/// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
-/// the performance bottleneck. This can be seen in profiles as multiple prepare-set systems all
-/// taking an unusually long time to complete, and all finishing at about the same time as the
-/// `prepare_windows` system. Improvements in bevy are planned to avoid this happening when it
-/// should not but it will still happen as it is easy for a user to create a large GPU workload
-/// relative to the GPU performance and/or CPU workload.
-/// This can be caused by many reasons, but several of them are:
-/// - GPU workload is more than your current GPU can manage
-/// - Error / performance bug in your custom shaders
-/// - wgpu was unable to detect a proper GPU hardware-accelerated device given the chosen
+/// **NOTE:** `get_current_texture` (acquiring the next framebuffer) in `prepare_windows` can take
+/// a long time if the GPU workload is heavy. This can be seen in profiling views with many prepare
+/// systems taking an unusually long time to complete, but all finishing at around the same time
+/// `prepare_windows` does. Performance improvements are planned to reduce how often this happens,
+/// but it will still be possible, since it's easy to create a heavy GPU workload.
+///
+/// These are some contributing factors:
+/// - The GPU workload is more than your GPU can handle.
+/// - There are custom shaders with an error / performance bug.
+/// - wgpu could not detect a proper GPU hardware-accelerated device given the chosen
 ///   [`Backends`](crate::settings::Backends), [`WgpuLimits`](crate::settings::WgpuLimits),
-///   and/or [`WgpuFeatures`](crate::settings::WgpuFeatures). For example, on Windows currently
-///   `DirectX 11` is not supported by wgpu 0.12 and so if your GPU/drivers do not support Vulkan,
-///   it may be that a software renderer called "Microsoft Basic Render Driver" using `DirectX 12`
-///   will be chosen and performance will be very poor. This is visible in a log message that is
-///   output during renderer initialization. Future versions of wgpu will support `DirectX 11`, but
-///   another alternative is to try to use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and
-///   [`Backends::GL`](crate::settings::Backends::GL) if your GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or
-///   later.
+///   and/or [`WgpuFeatures`](crate::settings::WgpuFeatures).
+///   - On Windows, DirectX 11 is not supported by wgpu 0.12, and if your GPU/drivers do not
+/// support Vulkan, a software renderer called "Microsoft Basic Render Driver" using DirectX 12
+/// may be used and performance will be very poor. This will be logged as a message when the
+/// renderer is initialized. Future versions of wgpu will support DirectX 11, but an
+/// alternative is to try to use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and
+/// [`Backends::GL`](crate::settings::Backends::GL) if your GPU/drivers support OpenGL 4.3,
+/// OpenGL ES 3.0, or later.
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_windows(
-    // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
-    // which is necessary for some OS s
-    _marker: Option<NonSend<NonSendMarker>>,
+    mut main_thread: ThreadLocal,
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,
@@ -251,20 +245,28 @@ pub fn prepare_windows(
         let surface_data = window_surfaces
             .surfaces
             .entry(window.entity)
-            .or_insert_with(|| unsafe {
-                // NOTE: On some OSes this MUST be called from the main thread.
-                // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
-                let surface = render_instance
-                    .create_surface(&window.handle.get_handle())
-                    .expect("Failed to create wgpu surface");
+            .or_insert_with(|| {
+                let surface = main_thread.run(|_| {
+                    // SAFETY: raw window handle is valid
+                    unsafe {
+                        render_instance
+                            // Some operating systems only allow dereferencing window handles in
+                            // the *main* thread (and may panic if done in another thread).
+                            .create_surface(&window.handle.get_handle())
+                            // As of wgpu 0.15, this can only fail if the window is a HTML canvas
+                            // and obtaining a WebGPU/WebGL2 context fails.
+                            .expect("failed to create wgpu surface")
+                    }
+                });
                 let caps = surface.get_capabilities(&render_adapter);
                 let formats = caps.formats;
-                // For future HDR output support, we'll need to request a format that supports HDR,
-                // but as of wgpu 0.15 that is not yet supported.
-                // Prefer sRGB formats for surfaces, but fall back to first available format if no sRGB formats are available.
-                let mut format = *formats.get(0).expect("No supported formats for surface");
+                // Prefer sRGB formats, but fall back to first available format if none available.
+                // NOTE: To support HDR output in the future, we'll need to request a format that
+                // supports HDR, but as of wgpu 0.15 that is still unsupported.
+                let mut format = *formats.get(0).expect("no supported formats for surface");
                 for available_format in formats {
-                    // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
+                    // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes
+                    // that we can use for surfaces.
                     if available_format == TextureFormat::Rgba8UnormSrgb
                         || available_format == TextureFormat::Bgra8UnormSrgb
                     {
