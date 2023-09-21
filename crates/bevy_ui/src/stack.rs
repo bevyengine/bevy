@@ -3,7 +3,7 @@
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::prelude::*;
 
-use crate::{Node, ZIndex, GlobalZIndex};
+use crate::{GlobalZIndex, Node, ZIndex};
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
@@ -18,8 +18,14 @@ pub struct UiStack {
 /// Generates the render stack for UI nodes.
 pub fn ui_stack_system(
     mut ui_stack: ResMut<UiStack>,
-    root_node_query: Query<(Entity, Option<&GlobalZIndex>, Option<&ZIndex>), (With<Node>, Without<Parent>)>,
-    zindex_global_node_query: Query<(Entity, &GlobalZIndex, Option<&ZIndex>), (With<Node>, With<Parent>)>,
+    root_node_query: Query<
+        (Entity, Option<&GlobalZIndex>, Option<&ZIndex>),
+        (With<Node>, Without<Parent>),
+    >,
+    zindex_global_node_query: Query<
+        (Entity, &GlobalZIndex, Option<&ZIndex>),
+        (With<Node>, With<Parent>),
+    >,
     children_query: Query<&Children>,
     zindex_query: Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
 ) {
@@ -37,10 +43,12 @@ pub fn ui_stack_system(
         if let Ok(children) = children_query.get(entity) {
             let mut z_children: Vec<(Entity, i32)> = children
                 .iter()
-                .filter_map(|entity| 
-                    zindex_query.get(*entity).ok()
-                    .map(|zindex| (*entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))                
-                )
+                .filter_map(|entity| {
+                    zindex_query
+                        .get(*entity)
+                        .ok()
+                        .map(|zindex| (*entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
+                })
                 .collect();
             z_children.sort_by_key(|k| k.1);
             for (child_id, _) in z_children {
@@ -52,16 +60,26 @@ pub fn ui_stack_system(
     let global_nodes = zindex_global_node_query
         .iter()
         .map(|(id, global_zindex, maybe_zindex)| {
-            (id, (global_zindex.0, maybe_zindex.map(|zindex| zindex.0).unwrap_or(0)))
+            (
+                id,
+                (
+                    global_zindex.0,
+                    maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
+                ),
+            )
         });
 
     let mut root_nodes: Vec<_> = root_node_query
         .iter()
-        .map(|(root_id, maybe_global_zindex, maybe_zindex)| 
-        (root_id, (
-            maybe_global_zindex.map(|zindex| zindex.0).unwrap_or(0),
-            maybe_zindex.map(|zindex| zindex.0).unwrap_or(0)))
-        )
+        .map(|(root_id, maybe_global_zindex, maybe_zindex)| {
+            (
+                root_id,
+                (
+                    maybe_global_zindex.map(|zindex| zindex.0).unwrap_or(0),
+                    maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
+                ),
+            )
+        })
         .chain(global_nodes)
         .collect();
 
@@ -82,14 +100,17 @@ mod tests {
     };
     use bevy_hierarchy::BuildChildren;
 
-    use crate::{Node, UiStack, ZIndex, GlobalZIndex};
+    use crate::{GlobalZIndex, Node, UiStack, ZIndex};
 
     use super::ui_stack_system;
 
     #[derive(Component, PartialEq, Debug, Clone)]
     struct Label(&'static str);
 
-    fn node_with_global_zindex(name: &'static str, global_zindex: i32) -> (Label, Node, GlobalZIndex) {
+    fn node_with_global_zindex(
+        name: &'static str,
+        global_zindex: i32,
+    ) -> (Label, Node, GlobalZIndex) {
         (Label(name), Node::default(), GlobalZIndex(global_zindex))
     }
 
