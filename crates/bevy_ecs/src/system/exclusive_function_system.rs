@@ -81,14 +81,6 @@ where
     }
 
     #[inline]
-    fn is_send(&self) -> bool {
-        // exclusive systems should have access to non-send resources
-        // the executor runs exclusive systems on the main thread, so this
-        // field reflects that constraint
-        false
-    }
-
-    #[inline]
     unsafe fn run_unsafe(&mut self, _input: Self::In, _world: UnsafeWorldCell) -> Self::Out {
         panic!("Cannot run exclusive systems with a shared World reference");
     }

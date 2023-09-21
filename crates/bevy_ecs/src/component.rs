@@ -1,5 +1,6 @@
 //! Types for declaring and storing [`Component`]s.
 
+use crate::storage::ThreadLocalResource;
 use crate::{
     self as bevy_ecs,
     change_detection::MAX_CHANGE_AGE,
@@ -634,11 +635,11 @@ impl Components {
         }
     }
 
-    /// Initializes a [non-send resource](crate::system::NonSend) of type `T` with this instance.
+    /// Initializes a [`ThreadLocalResource`] of type `T` with this instance.
     /// If a resource of this type has already been initialized, this will return
     /// the ID of the pre-existing resource.
     #[inline]
-    pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
+    pub fn init_non_send<T: ThreadLocalResource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
@@ -759,6 +760,7 @@ impl<'a> TickCells<'a> {
     /// # Safety
     /// All cells contained within must uphold the safety invariants of [`UnsafeCellDeref::read`].
     #[inline]
+    #[allow(dead_code)]
     pub(crate) unsafe fn read(&self) -> ComponentTicks {
         ComponentTicks {
             added: self.added.read(),

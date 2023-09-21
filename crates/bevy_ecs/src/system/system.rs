@@ -36,12 +36,8 @@ pub trait System: Send + Sync + 'static {
     fn component_access(&self) -> &Access<ComponentId>;
     /// Returns the system's archetype component [`Access`].
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId>;
-    /// Returns true if the system is [`Send`].
-    fn is_send(&self) -> bool;
-
     /// Returns true if the system must be run exclusively.
     fn is_exclusive(&self) -> bool;
-
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
     /// can be called in parallel with other systems and may break Rust's aliasing rules
     /// if used incorrectly, making it unsafe to call.
@@ -155,7 +151,6 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
         f.debug_struct("System")
             .field("name", &self.name())
             .field("is_exclusive", &self.is_exclusive())
-            .field("is_send", &self.is_send())
             .finish_non_exhaustive()
     }
 }
@@ -336,18 +331,5 @@ mod tests {
         assert_eq!(world.entities.len(), 0);
         world.run_system_once(spawn_entity);
         assert_eq!(world.entities.len(), 1);
-    }
-
-    #[test]
-    fn non_send_resources() {
-        fn non_send_count_down(mut ns: NonSendMut<Counter>) {
-            ns.0 -= 1;
-        }
-
-        let mut world = World::new();
-        world.insert_non_send_resource(Counter(10));
-        assert_eq!(*world.non_send_resource::<Counter>(), Counter(10));
-        world.run_system_once(non_send_count_down);
-        assert_eq!(*world.non_send_resource::<Counter>(), Counter(9));
     }
 }

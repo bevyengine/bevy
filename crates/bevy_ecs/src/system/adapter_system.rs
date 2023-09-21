@@ -96,10 +96,6 @@ where
         self.system.archetype_component_access()
     }
 
-    fn is_send(&self) -> bool {
-        self.system.is_send()
-    }
-
     fn is_exclusive(&self) -> bool {
         self.system.is_exclusive()
     }

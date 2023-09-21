@@ -469,21 +469,31 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
 }
 
 #[proc_macro_derive(Event)]
+/// Derive macro generating an impl of the trait `Event`.
 pub fn derive_event(input: TokenStream) -> TokenStream {
     component::derive_event(input)
 }
 
 #[proc_macro_derive(Resource)]
+/// Derive macro generating an impl of the trait `Resource`.
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }
 
+#[proc_macro_derive(ThreadLocalResource)]
+/// Derive macro generating an impl of the trait `ThreadLocalResource`.
+pub fn derive_thread_local_resource(input: TokenStream) -> TokenStream {
+    component::derive_thread_local_resource(input)
+}
+
 #[proc_macro_derive(Component, attributes(component))]
+/// Derive macro generating an impl of the trait `Component`.
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
 }
 
 #[proc_macro_derive(States)]
+/// Derive macro generating an impl of the trait `States`.
 pub fn derive_states(input: TokenStream) -> TokenStream {
     states::derive_states(input)
 }

@@ -154,10 +154,6 @@ where
         &self.archetype_component_access
     }
 
-    fn is_send(&self) -> bool {
-        self.a.is_send() && self.b.is_send()
-    }
-
     fn is_exclusive(&self) -> bool {
         self.a.is_exclusive() || self.b.is_exclusive()
     }
