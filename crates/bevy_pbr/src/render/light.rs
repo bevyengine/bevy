@@ -27,10 +27,10 @@ use bevy_render::{
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::{
+    nonmax::NonMaxU32,
     tracing::{error, warn},
     HashMap,
 };
-use nonmax::NonMaxU32;
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
 
 #[derive(Component)]

@@ -50,8 +50,7 @@ use bevy_render::{
     view::ViewDepthTexture,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{FloatOrd, HashMap};
-use nonmax::NonMaxU32;
+use bevy_utils::{nonmax::NonMaxU32, FloatOrd, HashMap};
 
 use crate::{
     prepass::{

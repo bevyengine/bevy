@@ -36,8 +36,7 @@ use bevy_render::{
     render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat},
     texture::CachedTexture,
 };
-use bevy_utils::FloatOrd;
-use nonmax::NonMaxU32;
+use bevy_utils::{nonmax::NonMaxU32, FloatOrd};
 
 pub const DEPTH_PREPASS_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;

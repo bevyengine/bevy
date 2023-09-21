@@ -13,8 +13,7 @@ use bevy_render::{
     renderer::*,
     view::*,
 };
-use bevy_utils::FloatOrd;
-use nonmax::NonMaxU32;
+use bevy_utils::{nonmax::NonMaxU32, FloatOrd};
 
 pub struct UiPassNode {
     ui_view_query: QueryState<

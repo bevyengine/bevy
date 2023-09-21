@@ -37,8 +37,7 @@ use bevy_render::{
     render_resource::CachedRenderPipelineId,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::FloatOrd;
-use nonmax::NonMaxU32;
+use bevy_utils::{nonmax::NonMaxU32, FloatOrd};
 
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 

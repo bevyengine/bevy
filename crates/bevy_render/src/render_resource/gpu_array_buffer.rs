@@ -4,8 +4,8 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_ecs::{prelude::Component, system::Resource};
+use bevy_utils::nonmax::NonMaxU32;
 use encase::{private::WriteInto, ShaderSize, ShaderType};
-use nonmax::NonMaxU32;
 use std::{marker::PhantomData, mem};
 use wgpu::{BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType, ShaderStages};
 
