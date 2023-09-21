@@ -21,13 +21,13 @@ use bevy::{
     core_pipeline::{bloom::BloomSettings, prepass::DepthPrepass, tonemapping::Tonemapping},
     pbr::{NotShadowCaster, NotTransmittedShadowReceiver, PointLightShadowMap},
     prelude::*,
+    render::camera::TemporalJitter,
     render::view::ColorGrading,
 };
 
 #[cfg(any(not(feature = "webgl2"), not(target_arch = "wasm32")))]
 use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin};
 
-use bevy_internal::render::camera::TemporalJitter;
 use rand::random;
 
 fn main() {
