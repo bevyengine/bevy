@@ -1,4 +1,5 @@
 #![warn(missing_docs)]
+use std::marker::PhantomData;
 
 use accesskit_winit::Adapter;
 use bevy_a11y::{
@@ -6,12 +7,13 @@ use bevy_a11y::{
     AccessibilityRequested,
 };
 use bevy_ecs::entity::Entity;
-
+use bevy_ecs::prelude::{Resource, ThreadLocalResource};
 use bevy_utils::{tracing::warn, HashMap};
 use bevy_window::{CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution};
 
 use winit::{
     dpi::{LogicalSize, PhysicalPosition},
+    event_loop::EventLoopWindowTarget,
     monitor::MonitorHandle,
 };
 
@@ -20,29 +22,57 @@ use crate::{
     converters::{convert_enabled_buttons, convert_window_level, convert_window_theme},
 };
 
-/// A resource mapping window entities to their `winit`-backend [`Window`](winit::window::Window)
-/// states.
-#[derive(Debug, Default)]
-pub struct WinitWindows {
-    /// Stores [`winit`] windows by window identifier.
-    pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
+/// A two-way map between [`Window`] entities and [`winit`] library [`Window`](winit::window::Window) instances.
+#[derive(Resource, Debug, Default)]
+pub struct WinitWindowEntityMap {
     /// Maps entities to `winit` window identifiers.
     pub entity_to_winit: HashMap<Entity, winit::window::WindowId>,
     /// Maps `winit` window identifiers to entities.
     pub winit_to_entity: HashMap<winit::window::WindowId, Entity>,
+}
+
+impl WinitWindowEntityMap {
+    /// Returns the [`WindowId`](winit::window::WindowId) that is mapped to the given [`Entity`].
+    pub fn get_window_id(&self, entity: Entity) -> Option<winit::window::WindowId> {
+        self.entity_to_winit.get(&entity).cloned()
+    }
+
+    /// Returns the [`Entity`] that is mapped to the given [`WindowId`](winit::window::WindowId).
+    pub fn get_window_entity(&self, winit_id: winit::window::WindowId) -> Option<Entity> {
+        self.winit_to_entity.get(&winit_id).cloned()
+    }
+}
+
+/// Collection of `winit` [`Window`](winit::window::Window) instances.
+#[derive(ThreadLocalResource, Debug, Default)]
+pub struct WinitWindows {
+    /// Collection of [`winit`] windows indexed by [`WindowId`](winit::window::WindowId).
+    pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
+    /// Two-way mapping between [`Entity`] and [`WindowId`](winit::window::WindowId).
+    map: WinitWindowEntityMap,
+    /// Cached copy of the last-known [`Window`](bevy_window::Window) properties.
+    ///
+    /// This copy is needed because some `winit` events require immediate handling, but the
+    /// [`App`](bevy_app::App) lives in a different thread.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) cached_windows: HashMap<winit::window::WindowId, bevy_window::Window>,
     // Many `winit` window functions (e.g. `set_window_icon`) can only be called on the main thread.
     // If they're called on other threads, the program might hang. This marker indicates that this
     // type is not thread-safe and will be `!Send` and `!Sync`.
-    _not_send_sync: core::marker::PhantomData<*const ()>,
+    _not_send_sync: PhantomData<*const ()>,
 }
 
 impl WinitWindows {
-    /// Creates a `winit` window and associates it with our entity.
-    pub fn create_window(
+    /// Constructs a new [`Window`](winit::window::Window) and returns a reference to it.
+    ///
+    /// Due to platform limitations, this function can only run on the main thread.
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_window<T: 'static>(
         &mut self,
-        event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
+        event_loop: &EventLoopWindowTarget<T>,
         entity: Entity,
         window: &Window,
+        #[cfg(not(target_arch = "wasm32"))] entity_map: &mut WinitWindowEntityMap,
         adapters: &mut AccessKitAdapters,
         handlers: &mut WinitActionHandlers,
         accessibility_requested: &AccessibilityRequested,
@@ -165,6 +195,7 @@ impl WinitWindows {
             },
             Box::new(handler.clone()),
         );
+
         adapters.insert(entity, adapter);
         handlers.insert(entity, handler);
 
@@ -186,8 +217,15 @@ impl WinitWindows {
             }
         }
 
-        self.entity_to_winit.insert(entity, winit_window.id());
-        self.winit_to_entity.insert(winit_window.id(), entity);
+        self.map.entity_to_winit.insert(entity, winit_window.id());
+        self.map.winit_to_entity.insert(winit_window.id(), entity);
+
+        // save copy of window properties so we don't have to synchronize the threads to read them
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            entity_map.entity_to_winit = self.map.entity_to_winit.clone();
+            entity_map.winit_to_entity = self.map.winit_to_entity.clone();
+        }
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -211,26 +249,35 @@ impl WinitWindows {
             .into_mut()
     }
 
-    /// Get the winit window that is associated with our entity.
-    pub fn get_window(&self, entity: Entity) -> Option<&winit::window::Window> {
-        self.entity_to_winit
-            .get(&entity)
-            .and_then(|winit_id| self.windows.get(winit_id))
+    /// Returns the [`WindowId`](winit::window::WindowId) that is mapped to the given [`Entity`].
+    pub fn get_window_id(&self, entity: Entity) -> Option<winit::window::WindowId> {
+        self.map.get_window_id(entity)
     }
 
-    /// Get the entity associated with the winit window id.
-    ///
-    /// This is mostly just an intermediary step between us and winit.
+    /// Returns the [`Entity`] that is mapped to the given [`WindowId`](winit::window::WindowId).
     pub fn get_window_entity(&self, winit_id: winit::window::WindowId) -> Option<Entity> {
-        self.winit_to_entity.get(&winit_id).cloned()
+        self.map.get_window_entity(winit_id)
+    }
+
+    /// Returns the [`Window`](winit::window::Window) that is mapped to the given [`Entity`].
+    pub fn get_window(&self, entity: Entity) -> Option<&winit::window::Window> {
+        self.map
+            .get_window_id(entity)
+            .and_then(|id| self.windows.get(&id))
     }
 
     /// Remove a window from winit.
     ///
     /// This should mostly just be called when the window is closing.
     pub fn remove_window(&mut self, entity: Entity) -> Option<winit::window::Window> {
-        let winit_id = self.entity_to_winit.remove(&entity)?;
-        // Don't remove from `winit_to_window_id` so we know the window used to exist.
+        let winit_id = self.map.entity_to_winit.remove(&entity)?;
+
+        #[cfg(not(target_arch = "wasm32"))]
+        self.cached_windows.remove(&winit_id);
+
+        // Don't remove from `winit_to_window_id` so we don't forget that the window existed.
+        // TODO: Investigate the reasoning here.
+        // self.map.winit_to_entity.remove(&winit_id)?;
         self.windows.remove(&winit_id)
     }
 }
@@ -270,7 +317,7 @@ pub fn get_fitting_videomode(
     modes.first().unwrap().clone()
 }
 
-/// Gets the "best" videomode from a monitor.
+/// Returns the "best" videomode from a monitor.
 ///
 /// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
 pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::monitor::VideoMode {
@@ -314,9 +361,8 @@ pub(crate) fn attempt_grab(winit_window: &winit::window::Window, grab_mode: Curs
     }
 }
 
-/// Compute the physical window position for a given [`WindowPosition`].
-// Ideally we could generify this across window backends, but we only really have winit atm
-// so whatever.
+/// Computes the physical window position for a given [`WindowPosition`].
+// TODO: Ideally, this function is backend-generic, but right now we only internally support winit.
 pub fn winit_window_position(
     position: &WindowPosition,
     resolution: &WindowResolution,
@@ -373,9 +419,3 @@ pub fn winit_window_position(
         }
     }
 }
-
-// WARNING: this only works under the assumption that wasm runtime is single threaded
-#[cfg(target_arch = "wasm32")]
-unsafe impl Send for WinitWindows {}
-#[cfg(target_arch = "wasm32")]
-unsafe impl Sync for WinitWindows {}
