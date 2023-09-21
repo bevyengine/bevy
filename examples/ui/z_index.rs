@@ -59,7 +59,7 @@ fn setup(mut commands: Commands) {
                     // spawn a node with a positive local z-index of 2.
                     // it will show above other nodes in the gray container.
                     parent.spawn(NodeBundle {
-                        z_index: ZIndex::Local(2),
+                        z_index: ZIndex(2),
                         background_color: Color::BLUE.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
@@ -75,7 +75,7 @@ fn setup(mut commands: Commands) {
                     // spawn a node with a negative local z-index.
                     // it will show under other nodes in the gray container.
                     parent.spawn(NodeBundle {
-                        z_index: ZIndex::Local(-1),
+                        z_index: ZIndex(-1),
                         background_color: Color::GREEN.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
@@ -91,36 +91,40 @@ fn setup(mut commands: Commands) {
                     // spawn a node with a positive global z-index of 1.
                     // it will show above all other nodes, because it's the highest global z-index in this example.
                     // by default, boxes all share the global z-index of 0 that the gray container is added to.
-                    parent.spawn(NodeBundle {
-                        z_index: ZIndex::Global(1),
-                        background_color: Color::PURPLE.into(),
-                        style: Style {
-                            position_type: PositionType::Absolute,
-                            left: Val::Px(15.0),
-                            bottom: Val::Px(10.0),
-                            width: Val::Px(100.),
-                            height: Val::Px(60.),
+                    parent.spawn((
+                        NodeBundle {
+                            background_color: Color::PURPLE.into(),
+                            style: Style {
+                                position_type: PositionType::Absolute,
+                                left: Val::Px(15.0),
+                                bottom: Val::Px(10.0),
+                                width: Val::Px(100.),
+                                height: Val::Px(60.),
+                                ..default()
+                            },
                             ..default()
                         },
-                        ..default()
-                    });
+                        GlobalZIndex(1),
+                    ));
 
                     // spawn a node with a negative global z-index of -1.
                     // this will show under all other nodes including its parent, because it's the lowest global z-index
                     // in this example.
-                    parent.spawn(NodeBundle {
-                        z_index: ZIndex::Global(-1),
-                        background_color: Color::YELLOW.into(),
-                        style: Style {
-                            position_type: PositionType::Absolute,
-                            left: Val::Px(-15.0),
-                            bottom: Val::Px(-15.0),
-                            width: Val::Px(100.),
-                            height: Val::Px(125.),
+                    parent.spawn((
+                        NodeBundle {
+                            background_color: Color::YELLOW.into(),
+                            style: Style {
+                                position_type: PositionType::Absolute,
+                                left: Val::Px(-15.0),
+                                bottom: Val::Px(-15.0),
+                                width: Val::Px(100.),
+                                height: Val::Px(125.),
+                                ..default()
+                            },
                             ..default()
                         },
-                        ..default()
-                    });
+                        GlobalZIndex(-1),
+                    ));
                 });
         });
 }
