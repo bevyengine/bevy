@@ -1790,7 +1790,7 @@ impl ScheduleBuildSettings {
 
 #[cfg(test)]
 mod tests {
-    use bevy_utils::get_short_name;
+    use bevy_utils::{get_short_name, HashMap};
 
     use crate::{
         self as bevy_ecs,
@@ -1855,50 +1855,73 @@ mod tests {
 
     #[test]
     fn resolve_random() {
-        #[derive(Resource)]
-        struct A;
-        #[derive(Resource)]
-        struct B;
+        fn test_resolve_random(seed: u64, expected: [(&str, &str); 4]) {
+            #[derive(Resource)]
+            struct A;
+            #[derive(Resource)]
+            struct B;
 
-        fn mutable_a1(_: Option<ResMut<A>>) {}
-        fn mutable_a2(_: Option<ResMut<A>>) {}
+            fn mutable_a1(_: Option<ResMut<A>>) {}
+            fn mutable_a2(_: Option<ResMut<A>>) {}
 
-        fn mutable_b1(_: Option<ResMut<B>>) {}
-        fn mutable_b2(_: Option<ResMut<B>>) {}
+            fn mutable_b1(_: Option<ResMut<B>>) {}
+            fn mutable_b2(_: Option<ResMut<B>>) {}
 
-        // mut-mut
-        let mut world = World::new();
-        let mut schedule = Schedule::default();
-        schedule.set_build_settings(ScheduleBuildSettings {
-            ambiguity_detection: AmbiguityDetection::Resolve(ResolveBy::Random(42)),
-            ..Default::default()
-        });
+            // mut-mut
+            let mut world = World::new();
+            let mut schedule = Schedule::default();
+            schedule.set_build_settings(ScheduleBuildSettings {
+                ambiguity_detection: AmbiguityDetection::Resolve(ResolveBy::Random(seed)),
+                ..Default::default()
+            });
 
-        schedule.add_systems((mutable_a1, mutable_a2, mutable_b1, mutable_b2));
+            schedule.add_systems((mutable_a1, mutable_a2, mutable_b1, mutable_b2));
 
-        schedule.run(&mut world);
+            schedule.run(&mut world);
 
-        for (i, (expected_name, expected_dependents)) in [
-            ("mutable_a2", 1),
-            ("mutable_a1", 0),
-            ("mutable_b1", 3),
-            ("mutable_b2", 0),
-        ]
-        .iter()
-        .enumerate()
-        {
-            assert_eq!(
-                **expected_name,
-                get_short_name(&schedule.executable.systems[i].name())
-            );
-            if *expected_dependents > 0 || schedule.executable.system_dependents[i].len() > 0 {
-                assert_eq!(
-                    *expected_dependents,
-                    schedule.executable.system_dependents[i][0]
-                );
+            assert_eq!(schedule.executable.systems.len(), 4);
+
+            let dependents: HashMap<_, _> = schedule
+                .executable
+                .systems
+                .iter()
+                .map(|system| get_short_name(&system.name()))
+                .zip(schedule.executable.system_dependents)
+                .collect();
+            dbg!(&dependents);
+            for (name, expected_dependent) in expected {
+                let d = dependents
+                    .get(name)
+                    .unwrap_or_else(|| panic!("{name} not found"));
+
+                if !expected_dependent.is_empty() {
+                    assert_eq!(
+                        get_short_name(&schedule.executable.systems[d[0]].name()),
+                        expected_dependent
+                    );
+                }
             }
         }
 
-        todo!();
+        test_resolve_random(
+            42,
+            [
+                ("mutable_a1", "mutable_a2"),
+                ("mutable_a2", ""),
+                ("mutable_b1", "mutable_b2"),
+                ("mutable_b2", ""),
+            ],
+        );
+
+        // changing the seed changes the order
+        test_resolve_random(
+            44,
+            [
+                ("mutable_a1", ""),
+                ("mutable_a2", "mutable_a1"),
+                ("mutable_b1", ""),
+                ("mutable_b2", "mutable_b1"),
+            ],
+        );
     }
 }
