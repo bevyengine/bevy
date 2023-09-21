@@ -31,16 +31,24 @@ pub mod prelude {
     };
 }
 
+#[cfg(feature = "tracing-chrome")]
+use bevy_utils::synccell::SyncCell;
 pub use bevy_utils::tracing::{
     debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     Level,
 };
 
 use bevy_app::{App, Plugin};
+#[cfg(feature = "tracing-chrome")]
+use bevy_ecs::system::Resource;
 use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
 use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
+
+#[cfg(feature = "tracing-chrome")]
+#[derive(Resource)]
+pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 
 /// Adds logging to Apps. This plugin is part of the `DefaultPlugins`. Adding
 /// this plugin will setup a collector appropriate to your target platform:
@@ -152,7 +160,7 @@ impl Plugin for LogPlugin {
                         }
                     }))
                     .build();
-                app.insert_non_send_resource(guard);
+                app.insert_resource(FlushGuard(SyncCell::new(guard)));
                 chrome_layer
             };
 
