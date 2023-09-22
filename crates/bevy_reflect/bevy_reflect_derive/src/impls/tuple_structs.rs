@@ -1,17 +1,16 @@
 use crate::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
-use crate::impls::impl_typed;
+use crate::impls::{impl_type_path, impl_typed};
 use crate::utility::extend_where_clause;
 use crate::ReflectStruct;
-use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{Index, Member};
 
 /// Implements `TupleStruct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
-pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
+pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
     let fqoption = FQOption.into_token_stream();
 
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
-    let struct_name = reflect_struct.meta().type_name();
+    let struct_path = reflect_struct.meta().type_path();
 
     let field_idents = reflect_struct
         .active_fields()
@@ -58,7 +57,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         }
     };
 
-    let string_name = struct_name.to_string();
+    let string_name = struct_path.get_ident().unwrap().to_string();
 
     #[cfg(feature = "documentation")]
     let info_generator = {
@@ -76,28 +75,33 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
     };
 
     let typed_impl = impl_typed(
-        struct_name,
-        reflect_struct.meta().generics(),
+        reflect_struct.meta(),
         &where_clause_options,
         quote! {
             let fields = [#field_generator];
             let info = #info_generator;
             #bevy_reflect_path::TypeInfo::TupleStruct(info)
         },
-        bevy_reflect_path,
     );
 
-    let (impl_generics, ty_generics, where_clause) =
-        reflect_struct.meta().generics().split_for_impl();
+    let type_path_impl = impl_type_path(reflect_struct.meta(), &where_clause_options);
+
+    let (impl_generics, ty_generics, where_clause) = reflect_struct
+        .meta()
+        .type_path()
+        .generics()
+        .split_for_impl();
 
     let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
 
-    TokenStream::from(quote! {
+    quote! {
         #get_type_registration_impl
 
         #typed_impl
 
-        impl #impl_generics #bevy_reflect_path::TupleStruct for #struct_name #ty_generics #where_reflect_clause {
+        #type_path_impl
+
+        impl #impl_generics #bevy_reflect_path::TupleStruct for #struct_path #ty_generics #where_reflect_clause {
             fn field(&self, index: usize) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
                 match index {
                     #(#field_indices => #fqoption::Some(&self.#field_idents),)*
@@ -122,21 +126,21 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
             fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicTupleStruct {
                 let mut dynamic: #bevy_reflect_path::DynamicTupleStruct = #FQDefault::default();
-                dynamic.set_name(::std::string::ToString::to_string(#bevy_reflect_path::Reflect::type_name(self)));
+                dynamic.set_represented_type(#bevy_reflect_path::Reflect::get_represented_type_info(self));
                 #(dynamic.insert_boxed(#bevy_reflect_path::Reflect::clone_value(&self.#field_idents));)*
                 dynamic
             }
         }
 
-        impl #impl_generics #bevy_reflect_path::Reflect for #struct_name #ty_generics #where_reflect_clause {
+        impl #impl_generics #bevy_reflect_path::Reflect for #struct_path #ty_generics #where_reflect_clause {
             #[inline]
             fn type_name(&self) -> &str {
                 ::core::any::type_name::<Self>()
             }
 
             #[inline]
-            fn get_type_info(&self) -> &'static #bevy_reflect_path::TypeInfo {
-                <Self as #bevy_reflect_path::Typed>::type_info()
+            fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
+                #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
             }
 
             #[inline]
@@ -209,5 +213,5 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
             #debug_fn
         }
-    })
+    }
 }

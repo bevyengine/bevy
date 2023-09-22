@@ -1,5 +1,7 @@
 #![allow(clippy::doc_markdown)]
 
+use std::marker::PhantomData;
+
 use super::Buffer;
 use crate::renderer::{RenderDevice, RenderQueue};
 use encase::{
@@ -23,6 +25,7 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
@@ -31,7 +34,6 @@ pub struct StorageBuffer<T: ShaderType> {
     value: T,
     scratch: StorageBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
-    capacity: usize,
     label: Option<String>,
     changed: bool,
     buffer_usage: BufferUsages,
@@ -43,7 +45,6 @@ impl<T: ShaderType> From<T> for StorageBuffer<T> {
             value,
             scratch: StorageBufferWrapper::new(Vec::new()),
             buffer: None,
-            capacity: 0,
             label: None,
             changed: false,
             buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
@@ -57,7 +58,6 @@ impl<T: ShaderType + Default> Default for StorageBuffer<T> {
             value: T::default(),
             scratch: StorageBufferWrapper::new(Vec::new()),
             buffer: None,
-            capacity: 0,
             label: None,
             changed: false,
             buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
@@ -122,15 +122,15 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         self.scratch.write(&self.value).unwrap();
 
-        let size = self.scratch.as_ref().len();
+        let capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
+        let size = self.scratch.as_ref().len() as u64;
 
-        if self.capacity < size || self.changed {
+        if capacity < size || self.changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
-            self.capacity = size;
             self.changed = false;
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
@@ -155,30 +155,29 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 /// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
 pub struct DynamicStorageBuffer<T: ShaderType> {
-    values: Vec<T>,
     scratch: DynamicStorageBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
-    capacity: usize,
     label: Option<String>,
     changed: bool,
     buffer_usage: BufferUsages,
+    _marker: PhantomData<fn() -> T>,
 }
 
 impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
     fn default() -> Self {
         Self {
-            values: Vec::new(),
             scratch: DynamicStorageBufferWrapper::new(Vec::new()),
             buffer: None,
-            capacity: 0,
             label: None,
             changed: false,
             buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+            _marker: PhantomData,
         }
     }
 }
@@ -199,20 +198,13 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
-        self.values.len()
-    }
-
-    #[inline]
     pub fn is_empty(&self) -> bool {
-        self.values.is_empty()
+        self.scratch.as_ref().is_empty()
     }
 
     #[inline]
     pub fn push(&mut self, value: T) -> u32 {
-        let offset = self.scratch.write(&value).unwrap() as u32;
-        self.values.push(value);
-        offset
+        self.scratch.write(&value).unwrap() as u32
     }
 
     pub fn set_label(&mut self, label: Option<&str>) {
@@ -241,15 +233,15 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
 
     #[inline]
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
-        let size = self.scratch.as_ref().len();
+        let capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
+        let size = self.scratch.as_ref().len() as u64;
 
-        if self.capacity < size || self.changed {
+        if capacity < size || self.changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
-            self.capacity = size;
             self.changed = false;
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
@@ -258,7 +250,6 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
 
     #[inline]
     pub fn clear(&mut self) {
-        self.values.clear();
         self.scratch.as_mut().clear();
         self.scratch.set_offset(0);
     }

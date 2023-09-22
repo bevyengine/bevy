@@ -11,7 +11,7 @@ use bevy::{
         Indices, PrimitiveTopology, VertexAttributeValues,
     },
 };
-use rand::Rng;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
     App::new()
@@ -20,8 +20,8 @@ fn main() {
             brightness: 1.0,
             ..default()
         })
-        .add_startup_system(setup)
-        .add_system(joint_animation)
+        .add_systems(Startup, setup)
+        .add_systems(Update, joint_animation)
         .run();
 }
 
@@ -116,13 +116,16 @@ fn setup(
     ])));
 
     let mesh = meshes.add(mesh);
+
+    let mut rng = StdRng::seed_from_u64(42);
+
     for i in -5..5 {
         // Create joint entities
         let joint_0 = commands
             .spawn(TransformBundle::from(Transform::from_xyz(
                 i as f32 * 1.5,
                 0.0,
-                0.0,
+                i as f32 * 0.1,
             )))
             .id();
         let joint_1 = commands
@@ -141,9 +144,9 @@ fn setup(
                 mesh: mesh.clone(),
                 material: materials.add(
                     Color::rgb(
-                        rand::thread_rng().gen_range(0.0..1.0),
-                        rand::thread_rng().gen_range(0.0..1.0),
-                        rand::thread_rng().gen_range(0.0..1.0),
+                        rng.gen_range(0.0..1.0),
+                        rng.gen_range(0.0..1.0),
+                        rng.gen_range(0.0..1.0),
                     )
                     .into(),
                 ),

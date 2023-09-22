@@ -35,6 +35,9 @@ pub fn render_system(world: &mut World) {
         render_device.clone(), // TODO: is this clone really necessary?
         &render_queue.0,
         world,
+        |encoder| {
+            crate::view::screenshot::submit_screenshot_commands(world, encoder);
+        },
     ) {
         error!("Error running render graph:");
         {
@@ -66,8 +69,8 @@ pub fn render_system(world: &mut World) {
 
         let mut windows = world.resource_mut::<ExtractedWindows>();
         for window in windows.values_mut() {
-            if let Some(texture_view) = window.swap_chain_texture.take() {
-                if let Some(surface_texture) = texture_view.take_surface_texture() {
+            if let Some(wrapped_texture) = window.swap_chain_texture.take() {
+                if let Some(surface_texture) = wrapped_texture.try_unwrap() {
                     surface_texture.present();
                 }
             }
@@ -80,6 +83,8 @@ pub fn render_system(world: &mut World) {
             tracy.frame_mark = true
         );
     }
+
+    crate::view::screenshot::collect_screenshots(world);
 
     // update the time and send it to the app world
     let time_sender = world.resource::<TimeSender>();
@@ -102,7 +107,7 @@ pub struct RenderAdapter(pub Arc<Adapter>);
 #[derive(Resource, Deref, DerefMut)]
 pub struct RenderInstance(pub Instance);
 
-/// The `AdapterInfo` of the adapter in use by the renderer.
+/// The [`AdapterInfo`] of the adapter in use by the renderer.
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct RenderAdapterInfo(pub AdapterInfo);
 

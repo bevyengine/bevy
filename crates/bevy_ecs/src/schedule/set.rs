@@ -2,6 +2,7 @@ use std::any::TypeId;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use bevy_utils::define_boxed_label;
@@ -13,7 +14,9 @@ use crate::system::{
 
 define_boxed_label!(ScheduleLabel);
 
+/// A shorthand for `Box<dyn SystemSet>`.
 pub type BoxedSystemSet = Box<dyn SystemSet>;
+/// A shorthand for `Box<dyn ScheduleLabel>`.
 pub type BoxedScheduleLabel = Box<dyn ScheduleLabel>;
 
 /// Types that identify logical groups of systems.
@@ -23,33 +26,13 @@ pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
         None
     }
 
-    /// Returns `true` if this set is a "base system set". Systems
-    /// can only belong to one base set at a time. Systems and Sets
-    /// can only be added to base sets using specialized `in_base_set`
-    /// APIs. This enables "mutually exclusive" behaviors. It also
-    /// enables schedules to have a "default base set", which can be used
-    /// to apply default configuration to systems.
-    fn is_base(&self) -> bool {
+    /// Returns `true` if this system set is an [`AnonymousSet`].
+    fn is_anonymous(&self) -> bool {
         false
     }
-
     /// Creates a boxed clone of the label corresponding to this system set.
     fn dyn_clone(&self) -> Box<dyn SystemSet>;
 }
-
-/// A marker trait for `SystemSet` types where [`is_base`] returns `true`.
-/// This should only be implemented for types that satisfy this requirement.
-/// It is automatically implemented for base set types by `#[derive(SystemSet)]`.
-///
-/// [`is_base`]: SystemSet::is_base
-pub trait BaseSystemSet: SystemSet {}
-
-/// A marker trait for `SystemSet` types where [`is_base`] returns `false`.
-/// This should only be implemented for types that satisfy this requirement.
-/// It is automatically implemented for non-base set types by `#[derive(SystemSet)]`.
-///
-/// [`is_base`]: SystemSet::is_base
-pub trait FreeSystemSet: SystemSet {}
 
 impl PartialEq for dyn SystemSet {
     fn eq(&self, other: &Self) -> bool {
@@ -88,7 +71,7 @@ impl<T: 'static> SystemTypeSet<T> {
 impl<T> Debug for SystemTypeSet<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("SystemTypeSet")
-            .field(&std::any::type_name::<T>())
+            .field(&format_args!("fn {}()", &std::any::type_name::<T>()))
             .finish()
     }
 }
@@ -98,9 +81,10 @@ impl<T> Hash for SystemTypeSet<T> {
         // all systems of a given type are the same
     }
 }
+
 impl<T> Clone for SystemTypeSet<T> {
     fn clone(&self) -> Self {
-        Self(PhantomData)
+        *self
     }
 }
 
@@ -126,10 +110,36 @@ impl<T> SystemSet for SystemTypeSet<T> {
     }
 }
 
+/// A [`SystemSet`] implicitly created when using
+/// [`Schedule::add_systems`](super::Schedule::add_systems) or
+/// [`Schedule::configure_sets`](super::Schedule::configure_sets).
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct AnonymousSet(usize);
+
+static NEXT_ANONYMOUS_SET_ID: AtomicUsize = AtomicUsize::new(0);
+
+impl AnonymousSet {
+    pub(crate) fn new() -> Self {
+        Self(NEXT_ANONYMOUS_SET_ID.fetch_add(1, Ordering::Relaxed))
+    }
+}
+
+impl SystemSet for AnonymousSet {
+    fn is_anonymous(&self) -> bool {
+        true
+    }
+
+    fn dyn_clone(&self) -> Box<dyn SystemSet> {
+        Box::new(*self)
+    }
+}
+
 /// Types that can be converted into a [`SystemSet`].
 pub trait IntoSystemSet<Marker>: Sized {
+    /// The type of [`SystemSet`] this instance converts into.
     type Set: SystemSet;
 
+    /// Converts this instance to its associated [`SystemSet`] type.
     fn into_system_set(self) -> Self::Set;
 }
 
@@ -166,5 +176,42 @@ where
     #[inline]
     fn into_system_set(self) -> Self::Set {
         SystemTypeSet::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        schedule::{tests::ResMut, Schedule},
+        system::Resource,
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_boxed_label() {
+        use crate::{self as bevy_ecs, world::World};
+
+        #[derive(Resource)]
+        struct Flag(bool);
+
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct A;
+
+        let mut world = World::new();
+
+        let mut schedule = Schedule::new(A);
+        schedule.add_systems(|mut flag: ResMut<Flag>| flag.0 = true);
+        world.add_schedule(schedule);
+
+        let boxed: Box<dyn ScheduleLabel> = Box::new(A);
+
+        world.insert_resource(Flag(false));
+        world.run_schedule(&boxed);
+        assert!(world.resource::<Flag>().0);
+
+        world.insert_resource(Flag(false));
+        world.run_schedule(boxed);
+        assert!(world.resource::<Flag>().0);
     }
 }

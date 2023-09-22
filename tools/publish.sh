@@ -15,6 +15,7 @@ crates=(
     bevy_time
     bevy_log
     bevy_dynamic_plugin
+    bevy_asset/macros
     bevy_asset
     bevy_audio
     bevy_core
@@ -34,6 +35,7 @@ crates=(
     bevy_gltf
     bevy_scene
     bevy_sprite
+    bevy_gizmos
     bevy_text
     bevy_a11y
     bevy_ui

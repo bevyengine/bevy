@@ -1,12 +1,11 @@
-use bevy_app::AppTypeRegistry;
+use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
+use bevy_asset::Asset;
 use bevy_ecs::{
-    entity::EntityMap,
-    reflect::{ReflectComponent, ReflectMapEntities},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };
-use bevy_reflect::TypeUuid;
-
-use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
+use bevy_reflect::TypePath;
+use bevy_utils::HashMap;
 
 /// To spawn a scene, you can use either:
 /// * [`SceneSpawner::spawn`](crate::SceneSpawner::spawn)
@@ -14,8 +13,7 @@ use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
 /// * adding the [`Handle<Scene>`](bevy_asset::Handle) to an entity (the scene will only be
 /// visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
-#[derive(Debug, TypeUuid)]
-#[uuid = "c156503c-edd9-4ec7-8d33-dab392df03cd"]
+#[derive(Asset, TypePath, Debug)]
 pub struct Scene {
     pub world: World,
 }
@@ -31,7 +29,7 @@ impl Scene {
         type_registry: &AppTypeRegistry,
     ) -> Result<Scene, SceneSpawnError> {
         let mut world = World::new();
-        let mut entity_map = EntityMap::default();
+        let mut entity_map = HashMap::default();
         dynamic_scene.write_to_world_with(&mut world, &mut entity_map, type_registry)?;
 
         Ok(Self { world })
@@ -57,10 +55,37 @@ impl Scene {
         type_registry: &AppTypeRegistry,
     ) -> Result<InstanceInfo, SceneSpawnError> {
         let mut instance_info = InstanceInfo {
-            entity_map: EntityMap::default(),
+            entity_map: HashMap::default(),
         };
 
         let type_registry = type_registry.read();
+
+        // Resources archetype
+        for (component_id, _) in self.world.storages().resources.iter() {
+            let component_info = self
+                .world
+                .components()
+                .get_info(component_id)
+                .expect("component_ids in archetypes should have ComponentInfo");
+
+            let type_id = component_info
+                .type_id()
+                .expect("reflected resources must have a type_id");
+
+            let registration =
+                type_registry
+                    .get(type_id)
+                    .ok_or_else(|| SceneSpawnError::UnregisteredType {
+                        type_name: component_info.name().to_string(),
+                    })?;
+            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
+                SceneSpawnError::UnregisteredResource {
+                    type_name: component_info.name().to_string(),
+                }
+            })?;
+            reflect_resource.copy(&self.world, world);
+        }
+
         for archetype in self.world.archetypes().iter() {
             for scene_entity in archetype.entities() {
                 let entity = *instance_info
@@ -90,11 +115,10 @@ impl Scene {
                 }
             }
         }
+
         for registration in type_registry.iter() {
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
-                map_entities_reflect
-                    .map_entities(world, &instance_info.entity_map)
-                    .unwrap();
+                map_entities_reflect.map_all_entities(world, &mut instance_info.entity_map);
             }
         }
 

@@ -1,10 +1,10 @@
 use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
-    view::ComputedVisibility,
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    view::ViewVisibility,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_app::{App, IntoSystemAppConfig, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
@@ -83,7 +83,10 @@ impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentP
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .insert_resource(ComponentUniforms::<C>::default())
-                .add_system(prepare_uniform_components::<C>.in_set(RenderSet::Prepare));
+                .add_systems(
+                    Render,
+                    prepare_uniform_components::<C>.in_set(RenderSet::PrepareResources),
+                );
         }
     }
 }
@@ -180,9 +183,9 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.only_extract_visible {
-                render_app.add_system(extract_visible_components::<C>.in_schedule(ExtractSchedule));
+                render_app.add_systems(ExtractSchedule, extract_visible_components::<C>);
             } else {
-                render_app.add_system(extract_components::<C>.in_schedule(ExtractSchedule));
+                render_app.add_systems(ExtractSchedule, extract_components::<C>);
             }
         }
     }
@@ -219,11 +222,11 @@ fn extract_components<C: ExtractComponent>(
 fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, &ComputedVisibility, C::Query), C::Filter>>,
+    query: Extract<Query<(Entity, &ViewVisibility, C::Query), C::Filter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, computed_visibility, query_item) in &query {
-        if computed_visibility.is_visible() {
+    for (entity, view_visibility, query_item) in &query {
+        if view_visibility.get() {
             if let Some(component) = C::extract_component(query_item) {
                 values.push((entity, component));
             }

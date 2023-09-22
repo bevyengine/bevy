@@ -21,9 +21,11 @@ use wgpu::BufferUsages;
 /// from system RAM to VRAM.
 ///
 /// Other options for storing GPU-accessible data are:
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 pub struct BufferVec<T: Pod> {
@@ -73,6 +75,10 @@ impl<T: Pod> BufferVec<T> {
         let index = self.values.len();
         self.values.push(value);
         index
+    }
+
+    pub fn append(&mut self, other: &mut BufferVec<T>) {
+        self.values.append(&mut other.values);
     }
 
     pub fn set_label(&mut self, label: Option<&str>) {
@@ -137,6 +143,14 @@ impl<T: Pod> BufferVec<T> {
 
     pub fn clear(&mut self) {
         self.values.clear();
+    }
+
+    pub fn values(&self) -> &Vec<T> {
+        &self.values
+    }
+
+    pub fn values_mut(&mut self) -> &mut Vec<T> {
+        &mut self.values
     }
 }
 

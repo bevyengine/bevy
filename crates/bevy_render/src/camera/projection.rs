@@ -1,11 +1,10 @@
 use std::marker::PhantomData;
 
-use bevy_app::{App, CoreSchedule, CoreSet, Plugin, StartupSet};
+use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::{Mat4, Rect, Vec2};
 use bevy_reflect::{
-    std_traits::ReflectDefault, FromReflect, GetTypeRegistration, Reflect, ReflectDeserialize,
-    ReflectSerialize,
+    std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
 };
 use serde::{Deserialize, Serialize};
 
@@ -27,11 +26,8 @@ pub struct CameraUpdateSystem;
 impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
     fn build(&self, app: &mut App) {
         app.register_type::<T>()
-            .edit_schedule(CoreSchedule::Startup, |schedule| {
-                schedule.configure_set(CameraUpdateSystem.in_base_set(StartupSet::PostStartup));
-            })
-            .configure_set(CameraUpdateSystem.in_base_set(CoreSet::PostUpdate))
-            .add_startup_system(
+            .add_systems(
+                PostStartup,
                 crate::camera::camera_system::<T>
                     .in_set(CameraUpdateSystem)
                     // We assume that each camera will only have one projection,
@@ -39,7 +35,8 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                     .ambiguous_with(CameraUpdateSystem),
             )
-            .add_system(
+            .add_systems(
+                PostUpdate,
                 crate::camera::camera_system::<T>
                     .in_set(CameraUpdateSystem)
                     // We assume that each camera will only have one projection,
@@ -113,7 +110,7 @@ impl Default for Projection {
 }
 
 /// A 3D camera projection in which distant objects appear smaller than close objects.
-#[derive(Component, Debug, Clone, Reflect, FromReflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct PerspectiveProjection {
     /// The vertical field of view (FOV) in radians.
@@ -169,7 +166,7 @@ impl Default for PerspectiveProjection {
     }
 }
 
-#[derive(Debug, Clone, Reflect, FromReflect, Serialize, Deserialize)]
+#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum ScalingMode {
     /// Manually specify the projection's size, ignoring window resizing. The image will stretch.
@@ -200,7 +197,7 @@ pub enum ScalingMode {
 ///
 /// Note that the scale of the projection and the apparent size of objects are inversely proportional.
 /// As the size of the projection increases, the size of objects decreases.
-#[derive(Component, Debug, Clone, Reflect, FromReflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct OrthographicProjection {
     /// The distance of the near clipping plane in world units.
@@ -230,7 +227,7 @@ pub struct OrthographicProjection {
     pub viewport_origin: Vec2,
     /// How the projection will scale when the viewport is resized.
     ///
-    /// Defaults to `ScalingMode::WindowScale(1.0)`
+    /// Defaults to `ScalingMode::WindowSize(1.0)`
     pub scaling_mode: ScalingMode,
     /// Scales the projection in world units.
     ///

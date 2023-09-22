@@ -37,7 +37,7 @@ impl Benchmark {
 
         let mut system = IntoSystem::into_system(query_system);
         system.initialize(&mut world);
-        system.update_archetype_component_access(&world);
+        system.update_archetype_component_access(world.as_unsafe_world_cell());
         Self(world, Box::new(system))
     }
 

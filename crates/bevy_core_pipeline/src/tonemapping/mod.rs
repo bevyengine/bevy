@@ -1,8 +1,8 @@
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{FromReflect, Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
@@ -10,18 +10,17 @@ use bevy_render::render_asset::RenderAssets;
 use bevy_render::renderer::RenderDevice;
 use bevy_render::texture::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_render::view::{ViewTarget, ViewUniform};
-use bevy_render::{render_resource::*, RenderApp, RenderSet};
+use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
 
 mod node;
 
 use bevy_utils::default;
 pub use node::TonemappingNode;
 
-const TONEMAPPING_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17015368199668024512);
+const TONEMAPPING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17015368199668024512);
 
-const TONEMAPPING_SHARED_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2499430578245347910);
+const TONEMAPPING_SHARED_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(2499430578245347910);
 
 /// 3D LUT (look up table) textures used for tonemapping
 #[derive(Resource, Clone, ExtractResource)]
@@ -82,19 +81,29 @@ impl Plugin for TonemappingPlugin {
             app.insert_resource(tonemapping_luts);
         }
 
-        app.add_plugin(ExtractResourcePlugin::<TonemappingLuts>::default());
+        app.add_plugins(ExtractResourcePlugin::<TonemappingLuts>::default());
 
         app.register_type::<Tonemapping>();
         app.register_type::<DebandDither>();
 
-        app.add_plugin(ExtractComponentPlugin::<Tonemapping>::default());
-        app.add_plugin(ExtractComponentPlugin::<DebandDither>::default());
+        app.add_plugins((
+            ExtractComponentPlugin::<Tonemapping>::default(),
+            ExtractComponentPlugin::<DebandDither>::default(),
+        ));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<TonemappingPipeline>()
                 .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
-                .add_system(queue_view_tonemapping_pipelines.in_set(RenderSet::Queue));
+                .add_systems(
+                    Render,
+                    prepare_view_tonemapping_pipelines.in_set(RenderSet::Prepare),
+                );
+        }
+    }
+
+    fn finish(&self, app: &mut App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<TonemappingPipeline>();
         }
     }
 }
@@ -106,17 +115,7 @@ pub struct TonemappingPipeline {
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
 #[derive(
-    Component,
-    Debug,
-    Hash,
-    Clone,
-    Copy,
-    Reflect,
-    Default,
-    ExtractComponent,
-    PartialEq,
-    Eq,
-    FromReflect,
+    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
@@ -126,9 +125,7 @@ pub enum Tonemapping {
     /// Suffers from lots hue shifting, brights don't desaturate naturally.
     /// Bright primaries and secondaries don't desaturate at all.
     Reinhard,
-    /// Current bevy default. Likely to change in the future.
     /// Suffers from hue shifting. Brights don't desaturate much at all across the spectrum.
-    #[default]
     ReinhardLuminance,
     /// Same base implementation that Godot 4.0 uses for Tonemap ACES.
     /// <https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl>
@@ -148,6 +145,7 @@ pub enum Tonemapping {
     /// Designed as a compromise if you want e.g. decent skin tones in low light, but can't afford to re-do your
     /// VFX to look good without hue shifting.
     SomewhatBoringDisplayTransform,
+    /// Current Bevy default.
     /// By Tomasz Stachowiak
     /// <https://github.com/h3r2tic/tony-mc-mapface>
     /// Very neutral. Subtle but intentional hue shifting. Brights desaturate across the spectrum.
@@ -159,6 +157,7 @@ pub enum Tonemapping {
     /// Color hues are preserved during compression, except for a deliberate [Bezold–Brücke shift](https://en.wikipedia.org/wiki/Bezold%E2%80%93Br%C3%BCcke_shift).
     /// To avoid posterization, selective desaturation is employed, with care to avoid the [Abney effect](https://en.wikipedia.org/wiki/Abney_effect).
     /// NOTE: Requires the `tonemapping_luts` cargo feature.
+    #[default]
     TonyMcMapface,
     /// Default Filmic Display Transform from blender.
     /// Somewhat neutral. Suffers from hue shifting. Brights desaturate across the spectrum.
@@ -207,7 +206,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: TONEMAPPING_SHADER_HANDLE.typed(),
+                shader: TONEMAPPING_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -272,7 +271,7 @@ impl FromWorld for TonemappingPipeline {
 #[derive(Component)]
 pub struct ViewTonemappingPipeline(CachedRenderPipelineId);
 
-pub fn queue_view_tonemapping_pipelines(
+pub fn prepare_view_tonemapping_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,
@@ -293,17 +292,7 @@ pub fn queue_view_tonemapping_pipelines(
 }
 /// Enables a debanding shader that applies dithering to mitigate color banding in the final image for a given [`Camera`] entity.
 #[derive(
-    Component,
-    Debug,
-    Hash,
-    Clone,
-    Copy,
-    Reflect,
-    Default,
-    ExtractComponent,
-    PartialEq,
-    Eq,
-    FromReflect,
+    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
@@ -320,7 +309,7 @@ pub fn get_lut_bindings<'a>(
     bindings: [u32; 2],
 ) -> [BindGroupEntry<'a>; 2] {
     let image = match tonemapping {
-        //AgX lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
+        // AgX lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
         Tonemapping::None
         | Tonemapping::Reinhard
         | Tonemapping::ReinhardLuminance

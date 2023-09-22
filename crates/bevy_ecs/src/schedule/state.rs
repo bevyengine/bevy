@@ -1,12 +1,17 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::mem;
+use std::ops::Deref;
 
 use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
-use crate::schedule::{ScheduleLabel, Schedules, SystemSet};
+#[cfg(feature = "bevy_reflect")]
+use crate::reflect::ReflectResource;
+use crate::schedule::ScheduleLabel;
 use crate::system::Resource;
 use crate::world::World;
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::std_traits::ReflectDefault;
 
 pub use bevy_ecs_macros::States;
 
@@ -20,8 +25,6 @@ pub use bevy_ecs_macros::States;
 ///
 /// State transitions typically occur in the [`OnEnter<T::Variant>`] and [`OnExit<T:Variant>`] schedules,
 /// which can be run via the [`apply_state_transition::<T>`] system.
-/// Systems that run each frame in various states are typically stored in the main schedule,
-/// and are conventionally part of the [`OnUpdate(T::Variant)`] system set.
 ///
 /// # Example
 ///
@@ -38,6 +41,7 @@ pub use bevy_ecs_macros::States;
 ///
 /// ```
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {
+    /// The type returned when iterating over all [`variants`](States::variants) of this type.
     type Iter: Iterator<Item = Self>;
 
     /// Returns an iterator over all the state variants.
@@ -66,14 +70,6 @@ pub struct OnTransition<S: States> {
     pub to: S,
 }
 
-/// A [`SystemSet`] that will run within `CoreSet::Update` when this state is active.
-///
-/// This set, when created via `App::add_state`, is configured with both a base set and a run condition.
-/// If all you want is the run condition, use the [`in_state`](crate::schedule::common_conditions::in_state)
-/// [condition](super::Condition) directly.
-#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct OnUpdate<S: States>(pub S);
-
 /// A finite-state machine whose transitions have associated schedules
 /// ([`OnEnter(state)`] and [`OnExit(state)`]).
 ///
@@ -83,7 +79,40 @@ pub struct OnUpdate<S: States>(pub S);
 ///
 /// The starting state is defined via the [`Default`] implementation for `S`.
 #[derive(Resource, Default, Debug)]
-pub struct State<S: States>(pub S);
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(bevy_reflect::Reflect),
+    reflect(Resource, Default)
+)]
+pub struct State<S: States>(S);
+
+impl<S: States> State<S> {
+    /// Creates a new state with a specific value.
+    ///
+    /// To change the state use [`NextState<S>`] rather than using this to modify the `State<S>`.
+    pub fn new(state: S) -> Self {
+        Self(state)
+    }
+
+    /// Get the current state.
+    pub fn get(&self) -> &S {
+        &self.0
+    }
+}
+
+impl<S: States> PartialEq<S> for State<S> {
+    fn eq(&self, other: &S) -> bool {
+        self.get() == other
+    }
+}
+
+impl<S: States> Deref for State<S> {
+    type Target = S;
+
+    fn deref(&self) -> &Self::Target {
+        self.get()
+    }
+}
 
 /// The next state of [`State<S>`].
 ///
@@ -91,6 +120,11 @@ pub struct State<S: States>(pub S);
 /// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
 #[derive(Resource, Default, Debug)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(bevy_reflect::Reflect),
+    reflect(Resource, Default)
+)]
 pub struct NextState<S: States>(pub Option<S>);
 
 impl<S: States> NextState<S> {
@@ -100,15 +134,18 @@ impl<S: States> NextState<S> {
     }
 }
 
-/// Run the enter schedule for the current state
+/// Run the enter schedule (if it exists) for the current state.
 pub fn run_enter_schedule<S: States>(world: &mut World) {
-    world.run_schedule(OnEnter(world.resource::<State<S>>().0.clone()));
+    world
+        .try_run_schedule(OnEnter(world.resource::<State<S>>().0.clone()))
+        .ok();
 }
 
 /// If a new state is queued in [`NextState<S>`], this system:
 /// - Takes the new state value from [`NextState<S>`] and updates [`State<S>`].
-/// - Runs the [`OnExit(exited_state)`] schedule.
-/// - Runs the [`OnEnter(entered_state)`] schedule.
+/// - Runs the [`OnExit(exited_state)`] schedule, if it exists.
+/// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
+/// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
 pub fn apply_state_transition<S: States>(world: &mut World) {
     // We want to take the `NextState` resource,
     // but only mark it as changed if it wasn't empty.
@@ -116,17 +153,18 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
     if let Some(entered) = next_state_resource.bypass_change_detection().0.take() {
         next_state_resource.set_changed();
 
-        let exited = mem::replace(&mut world.resource_mut::<State<S>>().0, entered.clone());
-        world.run_schedule(OnExit(exited.clone()));
-
-        let transition_schedule = OnTransition {
-            from: exited,
-            to: entered.clone(),
-        };
-        if world.resource::<Schedules>().contains(&transition_schedule) {
-            world.run_schedule(transition_schedule);
+        let mut state_resource = world.resource_mut::<State<S>>();
+        if *state_resource != entered {
+            let exited = mem::replace(&mut state_resource.0, entered.clone());
+            // Try to run the schedules if they exist.
+            world.try_run_schedule(OnExit(exited.clone())).ok();
+            world
+                .try_run_schedule(OnTransition {
+                    from: exited,
+                    to: entered.clone(),
+                })
+                .ok();
+            world.try_run_schedule(OnEnter(entered)).ok();
         }
-
-        world.run_schedule(OnEnter(entered));
     }
 }
