@@ -1515,7 +1515,7 @@ pub struct ZIndex(pub i32);
 /// Nodes with a `GlobalZIndex` of greater than 0 will be drawn on top of nodes without a `GlobalZIndex` or nodes with a lower `GlobalZIndex`.
 /// Nodes with a `GlobalZIndex` of less than 0 will be drawn below nodes without a `GlobalZIndex` or nodes with a greater `GlobalZIndex`.
 ///
-/// If two Nodes have the same `GlobalZIndex`, the node with the greater `ZIndex` will be drawn on top.
+/// If two Nodes have the same `GlobalZIndex`, the node with the greater [`ZIndex`] will be drawn on top.
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct GlobalZIndex(pub i32);
