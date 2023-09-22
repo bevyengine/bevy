@@ -1021,6 +1021,18 @@ impl<T: TypePath + ?Sized> TypePath for &'static T {
     }
 }
 
+impl<T: TypePath + ?Sized> TypePath for &'static mut T {
+    fn type_path() -> &'static str {
+        static CELL: GenericTypePathCell = GenericTypePathCell::new();
+        CELL.get_or_insert::<Self, _>(|| format!("&mut {}", T::type_path()))
+    }
+
+    fn short_type_path() -> &'static str {
+        static CELL: GenericTypePathCell = GenericTypePathCell::new();
+        CELL.get_or_insert::<Self, _>(|| format!("&mut {}", T::short_type_path()))
+    }
+}
+
 impl Reflect for Cow<'static, str> {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
