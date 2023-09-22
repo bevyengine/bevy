@@ -7,5 +7,6 @@ homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy", "no_std"]
+authors = ["Bevy Engine Contributors"]
 
 [dependencies]

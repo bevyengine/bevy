@@ -7,6 +7,7 @@ homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
+authors = ["Bevy Engine Contributors"]
 
 [features]
 trace = []
@@ -34,7 +35,9 @@ approx = { version = "0.5", default-features = false }
 raw-window-handle = "0.5"
 
 [target.'cfg(target_os = "android")'.dependencies]
-winit = { version = "0.28", default-features = false, features = ["android-native-activity"] }
+winit = { version = "0.28", default-features = false, features = [
+    "android-native-activity",
+] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }

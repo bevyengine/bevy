@@ -7,6 +7,7 @@ homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
+authors = ["Bevy Engine Contributors"]
 
 [features]
 detailed_trace = []
@@ -17,9 +18,9 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 instant = { version = "0.1", features = ["wasm-bindgen"] }
 uuid = { version = "1.1", features = ["v4", "serde"] }
 hashbrown = { version = "0.14", features = ["serde"] }
-bevy_utils_proc_macros = {version = "0.12.0-dev", path = "macros"}
+bevy_utils_proc_macros = { version = "0.12.0-dev", path = "macros" }
 petgraph = "0.6"
 thiserror = "1.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = {version = "0.2.0", features = ["js"]}
+getrandom = { version = "0.2.0", features = ["js"] }

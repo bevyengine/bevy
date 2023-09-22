@@ -7,6 +7,7 @@ homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
+authors = ["Bevy Engine Contributors"]
 
 [features]
 # Disables diagnostics that are unsupported when Bevy is dynamically linked

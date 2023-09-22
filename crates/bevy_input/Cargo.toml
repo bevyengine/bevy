@@ -7,6 +7,7 @@ homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
+authors = ["Bevy Engine Contributors"]
 
 [features]
 default = []
@@ -18,7 +19,9 @@ bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.12.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.12.0-dev", features = ["glam"] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.12.0-dev", features = [
+    "glam",
+] }
 
 # other
 serde = { version = "1", features = ["derive"], optional = true }

@@ -11,6 +11,7 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
 rust-version = "1.70.0"
+authors = ["Bevy Engine Contributors"]
 
 [workspace]
 exclude = [
@@ -71,7 +72,11 @@ bevy_asset = ["bevy_internal/bevy_asset"]
 bevy_audio = ["bevy_internal/bevy_audio"]
 
 # Provides cameras and other basic render pipeline features
-bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline", "bevy_asset", "bevy_render"]
+bevy_core_pipeline = [
+  "bevy_internal/bevy_core_pipeline",
+  "bevy_asset",
+  "bevy_render",
+]
 
 # Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
@@ -83,7 +88,12 @@ bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf", "bevy_asset", "bevy_scene", "bevy_pbr"]
 
 # Adds PBR rendering
-bevy_pbr = ["bevy_internal/bevy_pbr", "bevy_asset", "bevy_render", "bevy_core_pipeline"]
+bevy_pbr = [
+  "bevy_internal/bevy_pbr",
+  "bevy_asset",
+  "bevy_render",
+  "bevy_core_pipeline",
+]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render"]
@@ -98,7 +108,12 @@ bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_render", "bevy_core_pipeline"]
 bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
 
 # A custom ECS-driven UI framework
-bevy_ui = ["bevy_internal/bevy_ui", "bevy_core_pipeline", "bevy_text", "bevy_sprite"]
+bevy_ui = [
+  "bevy_internal/bevy_ui",
+  "bevy_core_pipeline",
+  "bevy_text",
+  "bevy_sprite",
+]
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
@@ -113,7 +128,11 @@ trace_chrome = ["trace", "bevy_internal/trace_chrome"]
 trace_tracy = ["trace", "bevy_internal/trace_tracy"]
 
 # Tracing support, with memory profiling, exposing a port for Tracy
-trace_tracy_memory = ["trace", "bevy_internal/trace_tracy", "bevy_internal/trace_tracy_memory"]
+trace_tracy_memory = [
+  "trace",
+  "bevy_internal/trace_tracy",
+  "bevy_internal/trace_tracy_memory",
+]
 
 # Tracing support
 trace = ["bevy_internal/trace"]

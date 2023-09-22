@@ -7,6 +7,7 @@ homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
+authors = ["Bevy Engine Contributors"]
 
 [features]
 trace = []
@@ -30,5 +31,4 @@ downcast-rs = "1.2.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
-web-sys = { version = "0.3", features = [ "Window" ] }
-
+web-sys = { version = "0.3", features = ["Window"] }

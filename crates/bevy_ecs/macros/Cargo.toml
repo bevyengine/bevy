@@ -4,6 +4,7 @@ version = "0.12.0-dev"
 description = "Bevy ECS Macros"
 edition = "2021"
 license = "MIT OR Apache-2.0"
+authors = ["Bevy Engine Contributors"]
 
 [lib]
 proc-macro = true

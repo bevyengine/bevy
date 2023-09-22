@@ -2,12 +2,17 @@
 name = "bevy_mikktspace"
 version = "0.12.0-dev"
 edition = "2021"
-authors = ["Benjamin Wasty <benny.wasty@gmail.com>", "David Harvey-Macaulay <alteous@outlook.com>", "Layl Bongers <LaylConway@users.noreply.github.com>"]
+authors = [
+    "Benjamin Wasty <benny.wasty@gmail.com>",
+    "David Harvey-Macaulay <alteous@outlook.com>",
+    "Layl Bongers <LaylConway@users.noreply.github.com>",
+    "Bevy Engine Contributors",
+]
 description = "Mikkelsen tangent space algorithm"
 documentation = "https://docs.rs/bevy"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-license = "Zlib AND (MIT OR Apache-2.0)"
+license = "(MIT OR Apache-2.0) AND Zlib"
 keywords = ["bevy", "3D", "graphics", "algorithm", "tangent"]
 
 [dependencies]
