@@ -11,18 +11,18 @@
 
 #ifdef MOTION_VECTOR_PREPASS
     @group(1) @binding(4) var<uniform> last_joint_matrices: SkinnedMesh;
-#endif
+#endif // MVP
 
-#else 
+#else  // MB1
 
     @group(2) @binding(1)
     var<uniform> joint_matrices: SkinnedMesh;
 
 #ifdef MOTION_VECTOR_PREPASS
     @group(2) @binding(4) var<uniform> last_joint_matrices: SkinnedMesh;
-#endif
+#endif // MVP
 
-#endif
+#endif // MB1
 
 
 fn skin_model(
@@ -72,5 +72,5 @@ fn last_skin_model(
         + weights.z * last_joint_matrices.data[indexes.z]
         + weights.w * last_joint_matrices.data[indexes.w];
 }
-#endif
-#endif
+#endif // MVP
+#endif // SKINNED

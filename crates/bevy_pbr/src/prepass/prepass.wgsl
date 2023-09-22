@@ -143,21 +143,23 @@ fn vertex(
 
 #ifdef MOTION_VECTOR_PREPASS
 
+    var old_model = bevy_pbr::mesh_functions::get_previous_model_matrix(instance_index);
+    var old_position = vertex.position;
 #ifdef MORPH_TARGETS
     // Replace the vertex position with the old one
-    vertex.position = morph_last_position(vertex_no_morph);
+    old_position = morph_last_position(vertex_no_morph);
 #endif // MORPH_TARGETS
 #ifdef SKINNED
     // Replace the model with the one computed from old skinning weights
-    model = bevy_pbr::skinning::last_skin_model(vertex.joint_indices, vertex.joint_weights);
+    old_model = bevy_pbr::skinning::last_skin_model(vertex.joint_indices, vertex.joint_weights);
 #endif // SKINNED
 
     out.world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
     // Use instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
     out.previous_world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(
-        bevy_pbr::mesh_functions::get_previous_model_matrix(instance_index),
-        vec4<f32>(vertex.position, 1.0)
+        old_model,
+        vec4<f32>(old_position, 1.0)
     );
 #endif // MOTION_VECTOR_PREPASS
 

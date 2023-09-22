@@ -16,9 +16,11 @@ fn bevy_log_plugin() -> LogPlugin {
         level: bevy::log::Level::TRACE,
         filter: "\
           gilrs_core=info,gilrs=info,\
-          naga=info,wgpu=debug,wgpu_hal=debug,\
-          bevy_app=info,bevy_render::render_resource::pipeline_cache=trace,\
-          bevy_render::view::window=debug,bevy_ecs::world::entity_ref=info"
+          naga=warn,wgpu=warn,wgpu_hal=warn,wgpu_core::device=warn,\
+          naga::back::spv::writer=warn,\
+          bevy_pbr::render::mesh=debug,\
+          bevy_app=info,bevy_render::render_resource::pipeline_cache=warn,\
+          bevy_render::view::window=warn,bevy_ecs::world::entity_ref=warn"
             .to_string(),
     }
 }
@@ -43,7 +45,10 @@ fn main() {
             },
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (rotate, toggle_prepass_view, setup_animations))
+        .add_systems(
+            Update,
+            (rotate, toggle_prepass_view, setup_morph, setup_fox),
+        )
         // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
         .insert_resource(Msaa::Off)
         .run();
@@ -52,10 +57,11 @@ fn main() {
 #[derive(Resource)]
 struct MorphData {
     the_wave: Handle<AnimationClip>,
-    mesh: Handle<Mesh>,
 }
+#[derive(Resource)]
+struct FoxAnim(Handle<AnimationClip>);
 /// Plays an [`AnimationClip`] from the loaded [`Gltf`] on the [`AnimationPlayer`] created by the spawned scene.
-fn setup_animations(
+fn setup_morph(
     mut has_setup: Local<bool>,
     mut players: Query<(&Name, &mut AnimationPlayer)>,
     morph_data: Res<MorphData>,
@@ -70,6 +76,15 @@ fn setup_animations(
         }
         player.play(morph_data.the_wave.clone()).repeat();
         *has_setup = true;
+    }
+}
+
+fn setup_fox(
+    animations: Res<FoxAnim>,
+    mut players: Query<&mut AnimationPlayer, Added<AnimationPlayer>>,
+) {
+    for mut player in &mut players {
+        player.play(animations.0.clone_weak()).repeat();
     }
 }
 
@@ -99,13 +114,19 @@ fn setup(
     // Fox
     commands.spawn(SceneBundle {
         scene: asset_server.load("models/animated/Fox.glb#Scene0"),
+        transform: Transform {
+            scale: Vec3::splat(0.03),
+            ..default()
+        },
         ..default()
     });
+    commands.insert_resource(FoxAnim(
+        asset_server.load("models/animated/Fox.glb#Animation2"),
+    ));
 
     // morph targets
     commands.insert_resource(MorphData {
         the_wave: asset_server.load("models/animated/MorphStressTest.gltf#Animation2"),
-        mesh: asset_server.load("models/animated/MorphStressTest.gltf#Mesh0/Primitive0"),
     });
     commands.spawn(SceneBundle {
         scene: asset_server.load("models/animated/MorphStressTest.gltf#Scene0"),

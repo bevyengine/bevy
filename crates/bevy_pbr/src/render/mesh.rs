@@ -40,7 +40,8 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, HashMap, Hashed};
+use bevy_utils::tracing::trace;
+use bevy_utils::{HashMap, Hashed};
 use fixedbitset::FixedBitSet;
 
 use crate::render::{
@@ -1137,18 +1138,18 @@ pub fn prepare_mesh_bind_group(
     let Some(model) = mesh_uniforms.binding() else {
         return;
     };
-    println!("---> model_only");
+    trace!("---> model_only");
     groups.model_only = Some(layouts.model_only(&render_device, &model));
-    println!("---> mv model_only");
+    trace!("---> mv model_only");
     groups.mv_model_only = Some(layouts.mv_model_only(&render_device, &model));
 
     let skin = skinned_mesh_uniform.buffer.buffer();
     let old_skin = skinned_mesh_uniform.buffer.old_buffer();
     if let Some(skin) = skin {
-        println!("---> skin");
+        trace!("---> skin");
         groups.skinned = Some(layouts.skinned(&render_device, &model, skin));
         if let Some(old_skin) = old_skin {
-            println!("---> mv skin");
+            trace!("---> mv skin");
             groups.mv_skinned = Some(layouts.mv_skinned(&render_device, &model, skin, old_skin));
         }
     }
@@ -1158,10 +1159,10 @@ pub fn prepare_mesh_bind_group(
         for (id, gpu_mesh) in meshes.iter() {
             if let Some(targets) = gpu_mesh.morph_targets.as_ref() {
                 let group = if let Some(skin) = skin.filter(|_| is_skinned(&gpu_mesh.layout)) {
-                    println!("---> skin morph");
+                    trace!("---> skin morph");
                     layouts.morphed_skinned(&render_device, &model, skin, weights, targets)
                 } else {
-                    println!("---> morph");
+                    trace!("---> morph");
                     layouts.morphed(&render_device, &model, weights, targets)
                 };
                 groups.morph_targets.insert(id, group);
@@ -1169,7 +1170,7 @@ pub fn prepare_mesh_bind_group(
                     let group = if let (Some(skin), Some(old_skin)) =
                         (skin.filter(|_| is_skinned(&gpu_mesh.layout)), old_skin)
                     {
-                        println!("---> mv skin morph");
+                        trace!("---> mv skin morph");
                         layouts.mv_morphed_skinned(
                             &render_device,
                             &model,
@@ -1180,7 +1181,7 @@ pub fn prepare_mesh_bind_group(
                             old_weights,
                         )
                     } else {
-                        println!("---> mv morph");
+                        trace!("---> mv morph");
                         layouts.mv_morphed(&render_device, &model, weights, targets, old_weights)
                     };
                     groups.mv_morph_targets.insert(id, group);
@@ -1420,8 +1421,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     }
 }
 
-pub struct SetMeshBindGroup<const I: usize>;
-impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
+pub struct SetMeshBindGroup<const I: usize, const PREPASS: bool>;
+impl<P: PhaseItem, const I: usize, const PREPASS: bool> RenderCommand<P>
+    for SetMeshBindGroup<I, PREPASS>
+{
     type Param = SRes<MeshBindGroups>;
     type ViewWorldQuery = Has<MotionVectorPrepass>;
     type ItemWorldQuery = (
@@ -1434,11 +1437,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
     #[inline]
     fn render<'w>(
         _item: &P,
-        is_mv: bool,
+        view_mv_prepass: bool,
         (mesh, batch_indices, skin_index, morph_index): ROQueryItem<Self::ItemWorldQuery>,
         bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let is_mv = PREPASS && view_mv_prepass;
         let bind_groups = bind_groups.into_inner();
         let is_skinned = skin_index.is_some();
         let is_morphed = morph_index.is_some();

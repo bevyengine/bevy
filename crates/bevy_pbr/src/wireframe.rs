@@ -180,6 +180,6 @@ fn queue_wireframes(
 type DrawWireframes = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
-    SetMeshBindGroup<1>,
+    SetMeshBindGroup<1, false>,
     DrawMesh,
 );

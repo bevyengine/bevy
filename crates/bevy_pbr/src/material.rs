@@ -343,7 +343,7 @@ type DrawMaterial<M> = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetMaterialBindGroup<M, 1>,
-    SetMeshBindGroup<2>,
+    SetMeshBindGroup<2, false>,
     DrawMesh,
 );
 
