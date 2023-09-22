@@ -910,7 +910,7 @@ impl App {
     /// #[derive(Resource)]
     /// struct R;
     ///
-    /// // these systems are ambiguous on A
+    /// // these systems are ambiguous on R
     /// fn system_1(_: ResMut<R>) {}
     /// fn system_2(_: Res<R>) {}
     ///
