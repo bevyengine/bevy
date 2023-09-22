@@ -185,7 +185,7 @@ impl Schedule {
         Self {
             name: label.dyn_clone(),
             graph: ScheduleGraph::new(),
-            executable: SystemSchedule::new(),
+            executable: SystemSchedule::default(),
             executor: make_executor(ExecutorKind::default()),
             executor_initialized: false,
         }

@@ -1739,7 +1739,7 @@ mod tests {
         fn does_read(_: Query<&A>, _: Query<&mut Conflict>) {}
 
         let mut world = World::new();
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         schedule.add_systems((
             before_read.before(ComponentAccessSet::Reads::<A>),
@@ -1761,7 +1761,7 @@ mod tests {
         fn after_write(_q: Query<&A>) {}
 
         let mut world = World::new();
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         schedule.add_systems(does_write);
         schedule.add_systems(after_write.after(ComponentAccessSet::Writes::<A>));
@@ -1784,7 +1784,7 @@ mod tests {
         fn read_system(_: Res<R>) {}
 
         let mut world = World::new();
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         world.init_resource::<R>();
         schedule.add_systems((
@@ -1810,7 +1810,7 @@ mod tests {
         fn write_system(_: Query<&mut C>) {}
 
         let mut world = World::new();
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         // Make sure the system with write-access is initialized *before* the access set is mentioned.
         schedule.add_systems(write_system);
@@ -1836,7 +1836,7 @@ mod tests {
         fn read_all_system(_: &World) {}
 
         let mut world = World::new();
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
 
         world.init_resource::<R>();
         schedule.add_systems((
