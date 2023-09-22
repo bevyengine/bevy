@@ -453,7 +453,7 @@ impl<'a> Serialize for ArraySerializer<'a> {
 mod tests {
     use crate as bevy_reflect;
     use crate::serde::ReflectSerializer;
-    use crate::{FromReflect, Reflect, ReflectSerialize, TypeRegistry};
+    use crate::{Reflect, ReflectSerialize, TypeRegistry};
     use bevy_utils::HashMap;
     use ron::extensions::Extensions;
     use ron::ser::PrettyConfig;
@@ -483,7 +483,7 @@ mod tests {
         custom_serialize: CustomSerialize,
     }
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     struct SomeStruct {
         foo: i64,
     }
@@ -491,16 +491,16 @@ mod tests {
     #[derive(Reflect, Debug, PartialEq)]
     struct SomeTupleStruct(String);
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     struct SomeUnitStruct;
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     struct SomeIgnoredStruct {
         #[reflect(ignore)]
         ignored: i32,
     }
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     struct SomeIgnoredTupleStruct(#[reflect(ignore)] i32);
 
     #[derive(Reflect, Debug, PartialEq)]
@@ -511,7 +511,7 @@ mod tests {
         Struct { foo: String },
     }
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq)]
     enum SomeIgnoredEnum {
         Tuple(#[reflect(ignore)] f32, #[reflect(ignore)] f32),
         Struct {
@@ -644,7 +644,7 @@ mod tests {
 
     #[test]
     fn should_serialize_option() {
-        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        #[derive(Reflect, Debug, PartialEq)]
         struct OptionTest {
             none: Option<()>,
             simple: Option<String>,

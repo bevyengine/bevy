@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt::Display,
     fs::{self, File},
     io::Write,
     path::{Path, PathBuf},
@@ -8,7 +9,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-use clap::Parser;
+use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
+use pbr::ProgressBar;
 use toml_edit::Document;
 use xshell::{cmd, Shell};
 
@@ -20,6 +22,13 @@ struct Args {
 
     #[command(subcommand)]
     action: Action,
+    #[arg(long)]
+    /// Pagination control - page number. To use with --per-page
+    page: Option<usize>,
+
+    #[arg(long)]
+    /// Pagination control - number of examples per page. To use with --page
+    per_page: Option<usize>,
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -43,9 +52,13 @@ enum Action {
         #[arg(long)]
         /// Path to the folder where the content should be created
         content_folder: String,
+
+        #[arg(value_enum, long, default_value_t = WebApi::Webgpu)]
+        /// Which API to use for rendering
+        api: WebApi,
     },
-    /// BUild the examples in wasm / WebGPU
-    BuildWebGPUExamples {
+    /// Build the examples in wasm
+    BuildWasmExamples {
         #[arg(long)]
         /// Path to the folder where the content should be created
         content_folder: String,
@@ -53,11 +66,43 @@ enum Action {
         #[arg(long)]
         /// Enable hacks for Bevy website integration
         website_hacks: bool,
+
+        #[arg(long)]
+        /// Optimize the wasm file for size with wasm-opt
+        optimize_size: bool,
+
+        #[arg(value_enum, long)]
+        /// Which API to use for rendering
+        api: WebApi,
     },
+}
+
+#[derive(Debug, Copy, Clone, ValueEnum)]
+enum WebApi {
+    Webgl2,
+    Webgpu,
+}
+
+impl Display for WebApi {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WebApi::Webgl2 => write!(f, "webgl2"),
+            WebApi::Webgpu => write!(f, "webgpu"),
+        }
+    }
 }
 
 fn main() {
     let cli = Args::parse();
+
+    if cli.page.is_none() != cli.per_page.is_none() {
+        let mut cmd = Args::command();
+        cmd.error(
+            ErrorKind::MissingRequiredArgument,
+            "page and per-page must be used together",
+        )
+        .exit();
+    }
 
     let profile = cli.profile;
 
@@ -101,7 +146,16 @@ fn main() {
                 }
             }
 
-            for to_run in examples_to_run {
+            let work_to_do = || {
+                examples_to_run
+                    .iter()
+                    .skip(cli.page.unwrap_or(0) * cli.per_page.unwrap_or(0))
+                    .take(cli.per_page.unwrap_or(usize::MAX))
+            };
+
+            let mut pb = ProgressBar::new(work_to_do().count() as u64);
+
+            for to_run in work_to_do() {
                 let sh = Shell::new().unwrap();
                 let example = &to_run.technical_name;
                 let extra_parameters = extra_parameters.clone();
@@ -138,7 +192,9 @@ fn main() {
                 println!("took {duration:?}");
 
                 thread::sleep(Duration::from_secs(1));
+                pb.inc();
             }
+            pb.finish_print("done");
             if failed_examples.is_empty() {
                 println!("All examples passed!");
             } else {
@@ -152,7 +208,10 @@ fn main() {
                 exit(1);
             }
         }
-        Action::BuildWebsiteList { content_folder } => {
+        Action::BuildWebsiteList {
+            content_folder,
+            api,
+        } => {
             let examples_to_run = parse_examples();
 
             let root_path = Path::new(&content_folder);
@@ -160,9 +219,10 @@ fn main() {
             let _ = fs::create_dir_all(root_path);
 
             let mut index = File::create(root_path.join("_index.md")).unwrap();
-            index
-                .write_all(
-                    "+++
+            if matches!(api, WebApi::Webgpu) {
+                index
+                    .write_all(
+                        "+++
 title = \"Bevy Examples in WebGPU\"
 template = \"examples-webgpu.html\"
 sort_by = \"weight\"
@@ -170,12 +230,26 @@ sort_by = \"weight\"
 [extra]
 header_message = \"Examples (WebGPU)\"
 +++"
-                    .as_bytes(),
-                )
-                .unwrap();
+                        .as_bytes(),
+                    )
+                    .unwrap();
+            } else {
+                index
+                    .write_all(
+                        "+++
+title = \"Bevy Examples in WebGL2\"
+template = \"examples.html\"
+sort_by = \"weight\"
+
+[extra]
+header_message = \"Examples (WebGL2)\"
++++"
+                        .as_bytes(),
+                    )
+                    .unwrap();
+            }
 
             let mut categories = HashMap::new();
-
             for to_show in examples_to_run {
                 if !to_show.wasm {
                     continue;
@@ -213,42 +287,61 @@ weight = {}
                         format!(
                             "+++
 title = \"{}\"
-template = \"example-webgpu.html\"
+template = \"example{}.html\"
 weight = {}
 description = \"{}\"
 
 [extra]
 technical_name = \"{}\"
-link = \"{}/{}\"
+link = \"/examples{}/{}/{}\"
 image = \"../static/screenshots/{}/{}.png\"
-code_path = \"content/examples-webgpu/{}\"
+code_path = \"content/examples{}/{}\"
 github_code_path = \"{}\"
-header_message = \"Examples (WebGPU)\"
+header_message = \"Examples ({})\"
 +++",
                             to_show.name,
+                            match api {
+                                WebApi::Webgpu => "-webgpu",
+                                WebApi::Webgl2 => "",
+                            },
                             categories.get(&to_show.category).unwrap(),
                             to_show.description.replace('"', "'"),
                             &to_show.technical_name.replace('_', "-"),
+                            match api {
+                                WebApi::Webgpu => "-webgpu",
+                                WebApi::Webgl2 => "",
+                            },
                             &to_show.category,
                             &to_show.technical_name.replace('_', "-"),
                             &to_show.category,
                             &to_show.technical_name,
+                            match api {
+                                WebApi::Webgpu => "-webgpu",
+                                WebApi::Webgl2 => "",
+                            },
                             code_path
                                 .components()
                                 .skip(1)
                                 .collect::<PathBuf>()
                                 .display(),
                             &to_show.path,
+                            match api {
+                                WebApi::Webgpu => "WebGPU",
+                                WebApi::Webgl2 => "WebGL2",
+                            },
                         )
                         .as_bytes(),
                     )
                     .unwrap();
             }
         }
-        Action::BuildWebGPUExamples {
+        Action::BuildWasmExamples {
             content_folder,
             website_hacks,
+            optimize_size,
+            api,
         } => {
+            let api = format!("{}", api);
             let examples_to_build = parse_examples();
 
             let root_path = Path::new(&content_folder);
@@ -256,6 +349,17 @@ header_message = \"Examples (WebGPU)\"
             let _ = fs::create_dir_all(root_path);
 
             if website_hacks {
+                // setting up the headers file for cloudflare for the correct Content-Type
+                let mut headers = File::create(root_path.join("_headers")).unwrap();
+                headers
+                    .write_all(
+                        "/*/wasm_example_bg.wasm
+  Content-Type: application/wasm
+"
+                        .as_bytes(),
+                    )
+                    .unwrap();
+
                 let sh = Shell::new().unwrap();
 
                 // setting a canvas by default to help with integration
@@ -266,19 +370,33 @@ header_message = \"Examples (WebGPU)\"
                 cmd!(sh, "sed -i.bak 's/asset_folder: \"assets\"/asset_folder: \"\\/assets\\/examples\\/\"/' crates/bevy_asset/src/lib.rs").run().unwrap();
             }
 
-            for to_build in examples_to_build {
-                if !to_build.wasm {
-                    continue;
-                }
+            let work_to_do = || {
+                examples_to_build
+                    .iter()
+                    .filter(|to_build| to_build.wasm)
+                    .skip(cli.page.unwrap_or(0) * cli.per_page.unwrap_or(0))
+                    .take(cli.per_page.unwrap_or(usize::MAX))
+            };
 
+            let mut pb = ProgressBar::new(work_to_do().count() as u64);
+            for to_build in work_to_do() {
                 let sh = Shell::new().unwrap();
                 let example = &to_build.technical_name;
-                cmd!(
-                    sh,
-                    "cargo run -p build-wasm-example -- --api webgpu {example}"
-                )
-                .run()
-                .unwrap();
+                if optimize_size {
+                    cmd!(
+                        sh,
+                        "cargo run -p build-wasm-example -- --api {api} {example} --optimize-size"
+                    )
+                    .run()
+                    .unwrap();
+                } else {
+                    cmd!(
+                        sh,
+                        "cargo run -p build-wasm-example -- --api {api} {example}"
+                    )
+                    .run()
+                    .unwrap();
+                }
 
                 let category_path = root_path.join(&to_build.category);
                 let _ = fs::create_dir_all(&category_path);
@@ -295,11 +413,20 @@ header_message = \"Examples (WebGPU)\"
                     Path::new("examples/wasm/target/wasm_example.js"),
                     &example_path.join("wasm_example.js"),
                 );
-                let _ = fs::rename(
-                    Path::new("examples/wasm/target/wasm_example_bg.wasm"),
-                    &example_path.join("wasm_example_bg.wasm"),
-                );
+                if optimize_size {
+                    let _ = fs::rename(
+                        Path::new("examples/wasm/target/wasm_example_bg.wasm.optimized"),
+                        &example_path.join("wasm_example_bg.wasm"),
+                    );
+                } else {
+                    let _ = fs::rename(
+                        Path::new("examples/wasm/target/wasm_example_bg.wasm"),
+                        &example_path.join("wasm_example_bg.wasm"),
+                    );
+                }
+                pb.inc();
             }
+            pb.finish_print("done");
         }
     }
 }

@@ -28,9 +28,9 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_ui|A custom ECS-driven UI framework|
 |bevy_winit|winit window and input backend|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
-|filesystem_watcher|Enable watching file system for asset hot reload|
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
+|multi-threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |png|PNG image format support|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files|
 |vorbis|OGG/VORBIS audio format support|
@@ -48,15 +48,16 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_dynamic_plugin|Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))|
 |bmp|BMP image format support|
 |dds|DDS compressed texture support|
-|debug_asset_server|Enable the "debug asset server" for hot reloading internal assets|
 |detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |exr|EXR image format support|
+|filesystem_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
 |jpeg|JPEG image format support|
 |minimp3|MP3 audio format support (through minimp3)|
 |mp3|MP3 audio format support|
+|pnm|PNM image format support, includes pam, pbm, pgm and ppm|
 |serialize|Enable serialization support through serde|
 |shader_format_glsl|Enable support for shaders in GLSL|
 |shader_format_spirv|Enable support for shaders in SPIR-V|

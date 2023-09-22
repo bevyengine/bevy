@@ -1,4 +1,7 @@
-use crate::{NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo};
+use crate::{
+    self as bevy_reflect, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+};
+use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
 use std::{
@@ -485,6 +488,8 @@ impl Reflect for DynamicStruct {
     }
 }
 
+impl_type_path!((in bevy_reflect) DynamicStruct);
+
 impl Debug for DynamicStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
@@ -502,7 +507,7 @@ impl Debug for DynamicStruct {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
-    let ReflectRef::Struct(struct_value) = b.reflect_ref()  else {
+    let ReflectRef::Struct(struct_value) = b.reflect_ref() else {
         return Some(false);
     };
 

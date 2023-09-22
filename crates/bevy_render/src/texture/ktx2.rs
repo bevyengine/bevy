@@ -61,7 +61,7 @@ pub fn ktx2_buffer_to_image(
                 SupercompressionScheme::Zstandard => {
                     let mut cursor = std::io::Cursor::new(_level_data);
                     let mut decoder = ruzstd::StreamingDecoder::new(&mut cursor)
-                        .map_err(TextureError::SuperDecompressionError)?;
+                        .map_err(|err| TextureError::SuperDecompressionError(err.to_string()))?;
                     let mut decompressed = Vec::new();
                     decoder.read_to_end(&mut decompressed).map_err(|err| {
                         TextureError::SuperDecompressionError(format!(
@@ -139,7 +139,7 @@ pub fn ktx2_buffer_to_image(
                                     rgba[i * 4 + 2] = level_data[offset + 2];
                                     offset += 3;
                                 }
-                                transcoded[level].extend_from_slice(&rgba[0..n_pixels]);
+                                transcoded[level].extend_from_slice(&rgba[0..n_pixels * 4]);
                             }
                         }
                     }

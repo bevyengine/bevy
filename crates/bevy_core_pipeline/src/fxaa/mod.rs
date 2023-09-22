@@ -4,12 +4,10 @@ use crate::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_derive::Deref;
 use bevy_ecs::prelude::*;
-use bevy_reflect::{
-    std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect, TypeUuid,
-};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     prelude::Camera,
@@ -26,8 +24,8 @@ mod node;
 
 pub use node::FxaaNode;
 
-#[derive(Reflect, FromReflect, Eq, PartialEq, Hash, Clone, Copy)]
-#[reflect(FromReflect, PartialEq, Hash)]
+#[derive(Reflect, Eq, PartialEq, Hash, Clone, Copy)]
+#[reflect(PartialEq, Hash)]
 pub enum Sensitivity {
     Low,
     Medium,
@@ -48,8 +46,8 @@ impl Sensitivity {
     }
 }
 
-#[derive(Reflect, FromReflect, Component, Clone, ExtractComponent)]
-#[reflect(Component, FromReflect, Default)]
+#[derive(Reflect, Component, Clone, ExtractComponent)]
+#[reflect(Component, Default)]
 #[extract_component_filter(With<Camera>)]
 pub struct Fxaa {
     /// Enable render passes for FXAA.
@@ -77,8 +75,7 @@ impl Default for Fxaa {
     }
 }
 
-const FXAA_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4182761465141723543);
+const FXAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4182761465141723543);
 
 /// Adds support for Fast Approximate Anti-Aliasing (FXAA)
 pub struct FxaaPlugin;
@@ -86,7 +83,8 @@ impl Plugin for FxaaPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, FXAA_SHADER_HANDLE, "fxaa.wgsl", Shader::from_wgsl);
 
-        app.add_plugin(ExtractComponentPlugin::<Fxaa>::default());
+        app.register_type::<Fxaa>();
+        app.add_plugins(ExtractComponentPlugin::<Fxaa>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -180,7 +178,7 @@ impl SpecializedRenderPipeline for FxaaPipeline {
             layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: FXAA_SHADER_HANDLE.typed(),
+                shader: FXAA_SHADER_HANDLE,
                 shader_defs: vec![
                     format!("EDGE_THRESH_{}", key.edge_threshold.get_str()).into(),
                     format!("EDGE_THRESH_MIN_{}", key.edge_threshold_min.get_str()).into(),

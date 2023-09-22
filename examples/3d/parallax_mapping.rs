@@ -378,7 +378,7 @@ fn update_normal(
         return;
     }
     if let Some(normal) = normal.0.as_ref() {
-        if let Some(mut image) = images.get_mut(normal) {
+        if let Some(image) = images.get_mut(normal) {
             image.texture_descriptor.format = TextureFormat::Rgba8Unorm;
             *already_ran = true;
         }
