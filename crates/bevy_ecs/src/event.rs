@@ -750,13 +750,13 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 }
 
 /// A system that calls [`Events::update`] once per frame.
-pub fn update_system<T: Event>(mut events: ResMut<Events<T>>) {
+pub fn event_update_system<T: Event>(mut events: ResMut<Events<T>>) {
     events.update();
 }
 
 /// A run condition that checks if the event's [`update_system`]
 /// needs to run or not.
-pub fn update_condition<T: Event>(events: Res<Events<T>>) -> bool {
+pub fn event_update_condition<T: Event>(events: Res<Events<T>>) -> bool {
     !events.events_a.is_empty() || !events.events_b.is_empty()
 }
 
