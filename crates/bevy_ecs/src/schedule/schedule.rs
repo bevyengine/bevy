@@ -1733,17 +1733,17 @@ impl ScheduleBuildSettings {
     }
 }
 
-/// list of [`ComponentId`]'s to ignore when reporting ambiguity conflicts between systems
+/// List of [`ComponentId`]s to ignore when reporting system order ambiguity conflicts
 #[derive(Resource, Default, Clone, Debug)]
 pub struct IgnoredSchedulingAmbiguities(BTreeSet<ComponentId>);
 
 impl IgnoredSchedulingAmbiguities {
-    /// Ignore ambiguities between systems in [`Component`] T.
+    /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
     pub fn allow_ambiguous_component<T: Component>(&mut self, world: &mut World) {
         self.0.insert(world.init_component::<T>());
     }
 
-    /// Ignore ambiguities between systems in [`Resource`] T.
+    /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
     pub fn allow_ambiguous_resource<T: Resource>(&mut self, world: &mut World) {
         self.0.insert(world.components.init_resource::<T>());
     }
@@ -1758,7 +1758,9 @@ impl IgnoredSchedulingAmbiguities {
     /// May panic or retrieve incorrect names if [`Components`] is not from the same
     /// world
     pub fn print_names(&self, components: &Components) {
-        let mut message = "Ambiguities of the following types are ignored:\n".to_string();
+        let mut message =
+            "System order ambiguities caused by conflicts on the following types are ignored:\n"
+                .to_string();
         for id in self.iter() {
             writeln!(message, "{}", components.get_name(*id).unwrap()).unwrap();
         }
