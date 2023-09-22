@@ -28,16 +28,16 @@ impl Default for MorphUniform {
 }
 
 pub fn prepare_morphs(
-    device: Res<RenderDevice>,
-    queue: Res<RenderQueue>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
     mut uniform: ResMut<MorphUniform>,
 ) {
     if uniform.buffer.is_empty() {
         return;
     }
-    let buffer = &mut uniform.buffer;
-    buffer.reserve(buffer.len(), &device);
-    buffer.write_buffer(&device, &queue);
+    let len = uniform.buffer.len();
+    uniform.buffer.reserve(len, &render_device);
+    uniform.buffer.write_buffer(&render_device, &render_queue);
 }
 
 const fn can_align(step: usize, target: usize) -> bool {
