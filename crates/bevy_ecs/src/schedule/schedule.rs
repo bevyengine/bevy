@@ -263,14 +263,14 @@ impl Schedule {
     pub fn initialize(&mut self, world: &mut World) -> Result<(), ScheduleBuildError> {
         if self.graph.changed {
             self.graph.initialize(world);
-            let ignore_ambiguities = world
-                .get_resource::<IgnoreSchedulingAmbiguities>()
+            let ignored_ambiguities = world
+                .get_resource::<IgnoredSchedulingAmbiguities>()
                 .cloned()
                 .unwrap_or_default();
             self.graph.update_schedule(
                 &mut self.executable,
                 world.components(),
-                &ignore_ambiguities.0,
+                &ignored_ambiguities.0,
                 &self.name,
             )?;
             self.graph.changed = false;
@@ -1733,10 +1733,10 @@ impl ScheduleBuildSettings {
 }
 
 /// list of [`ComponentId`]'s to ignore when reporting ambiguity conflicts between systems
-#[derive(Resource, Default, Clone)]
-pub struct IgnoreSchedulingAmbiguities(Vec<ComponentId>);
+#[derive(Resource, Default, Clone, Debug)]
+pub struct IgnoredSchedulingAmbiguities(Vec<ComponentId>);
 
-impl IgnoreSchedulingAmbiguities {
+impl IgnoredSchedulingAmbiguities {
     /// Ignore ambiguities between systems in [`Component`] T.
     pub fn allow_ambiguous_component<T: Component>(&mut self, world: &mut World) {
         self.0.push(world.init_component::<T>());
