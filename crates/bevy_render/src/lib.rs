@@ -5,6 +5,7 @@ compile_error!("bevy_render cannot compile for a 16-bit platform.");
 
 extern crate core;
 
+pub mod batching;
 pub mod camera;
 pub mod color;
 pub mod extract_component;
@@ -251,41 +252,43 @@ impl Plugin for RenderPlugin {
             let primary_window = system_state.get(&app.world).get_single().ok().cloned();
 
             let settings = self.wgpu_settings.clone();
-            bevy_tasks::IoTaskPool::get()
-                .spawn_local(async move {
-                    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-                        backends,
-                        dx12_shader_compiler: settings.dx12_shader_compiler.clone(),
-                    });
-                    let surface = primary_window.map(|wrapper| unsafe {
-                        // SAFETY: Plugins should be set up on the main thread.
-                        let handle = wrapper.get_handle();
-                        instance
-                            .create_surface(&handle)
-                            .expect("Failed to create wgpu surface")
-                    });
+            let async_renderer = async move {
+                let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+                    backends,
+                    dx12_shader_compiler: settings.dx12_shader_compiler.clone(),
+                });
+                let surface = primary_window.map(|wrapper| unsafe {
+                    // SAFETY: Plugins should be set up on the main thread.
+                    let handle = wrapper.get_handle();
+                    instance
+                        .create_surface(&handle)
+                        .expect("Failed to create wgpu surface")
+                });
 
-                    let request_adapter_options = wgpu::RequestAdapterOptions {
-                        power_preference: settings.power_preference,
-                        compatible_surface: surface.as_ref(),
-                        ..Default::default()
-                    };
+                let request_adapter_options = wgpu::RequestAdapterOptions {
+                    power_preference: settings.power_preference,
+                    compatible_surface: surface.as_ref(),
+                    ..Default::default()
+                };
 
-                    let (device, queue, adapter_info, render_adapter) =
-                        renderer::initialize_renderer(
-                            &instance,
-                            &settings,
-                            &request_adapter_options,
-                        )
+                let (device, queue, adapter_info, render_adapter) =
+                    renderer::initialize_renderer(&instance, &settings, &request_adapter_options)
                         .await;
-                    debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
-                    debug!("Configured wgpu adapter Features: {:#?}", device.features());
-                    let mut future_renderer_resources_inner =
-                        future_renderer_resources_wrapper.lock().unwrap();
-                    *future_renderer_resources_inner =
-                        Some((device, queue, adapter_info, render_adapter, instance));
-                })
+                debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
+                debug!("Configured wgpu adapter Features: {:#?}", device.features());
+                let mut future_renderer_resources_inner =
+                    future_renderer_resources_wrapper.lock().unwrap();
+                *future_renderer_resources_inner =
+                    Some((device, queue, adapter_info, render_adapter, instance));
+            };
+            // In wasm, spawn a task and detach it for execution
+            #[cfg(target_arch = "wasm32")]
+            bevy_tasks::IoTaskPool::get()
+                .spawn_local(async_renderer)
                 .detach();
+            // Otherwise, just block for it to complete
+            #[cfg(not(target_arch = "wasm32"))]
+            futures_lite::future::block_on(async_renderer);
 
             app.init_resource::<ScratchMainWorld>();
 

@@ -120,6 +120,7 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 ..default()
             },
             ..default()

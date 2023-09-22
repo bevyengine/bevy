@@ -20,6 +20,7 @@ hashbrown = { version = "0.14", features = ["serde"] }
 bevy_utils_proc_macros = { version = "0.12.0-dev", path = "macros" }
 petgraph = "0.6"
 thiserror = "1.0"
+nonmax = "0.5"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2.0", features = ["js"] }

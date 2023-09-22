@@ -123,7 +123,7 @@ pub struct DirectionalLightBundle {
     /// Enables or disables the light
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
-    pub visible_in_hieararchy: InheritedVisibility,
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
 }

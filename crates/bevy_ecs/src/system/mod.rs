@@ -112,6 +112,7 @@ mod query;
 #[allow(clippy::module_inception)]
 mod system;
 mod system_param;
+mod system_registry;
 
 use std::borrow::Cow;
 
@@ -124,6 +125,7 @@ pub use function_system::*;
 pub use query::*;
 pub use system::*;
 pub use system_param::*;
+pub use system_registry::*;
 
 use crate::world::World;
 
@@ -548,8 +550,8 @@ mod tests {
             Schedule,
         },
         system::{
-            Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
-            QueryComponentError, Res, ResMut, Resource, System, SystemState,
+            Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
+            Resource, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -1172,7 +1174,7 @@ mod tests {
             mut n_systems: ResMut<NSystems>,
         ) {
             assert_eq!(
-                removed_i32.iter().collect::<Vec<_>>(),
+                removed_i32.read().collect::<Vec<_>>(),
                 &[despawned.0],
                 "despawning causes the correct entity to show up in the 'RemovedComponent' system parameter."
             );
@@ -1200,7 +1202,7 @@ mod tests {
             // The despawned entity from the previous frame was
             // double buffered so we now have it in this system as well.
             assert_eq!(
-                removed_i32.iter().collect::<Vec<_>>(),
+                removed_i32.read().collect::<Vec<_>>(),
                 &[despawned.0, removed.0],
                 "removing a component causes the correct entity to show up in the 'RemovedComponent' system parameter."
             );
@@ -1759,6 +1761,8 @@ mod tests {
 
     #[test]
     fn readonly_query_get_mut_component_fails() {
+        use crate::query::QueryComponentError;
+
         let mut world = World::new();
         let entity = world.spawn(W(42u32)).id();
         run_system(&mut world, move |q: Query<&mut W<u32>>| {
@@ -1771,7 +1775,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Attempted to use bevy_ecs::query::state::QueryState<()> with a mismatched World."]
+    #[should_panic = "Encountered a mismatched World."]
     fn query_validates_world_id() {
         let mut world1 = World::new();
         let world2 = World::new();

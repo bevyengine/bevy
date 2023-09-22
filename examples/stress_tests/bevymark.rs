@@ -60,6 +60,10 @@ struct Args {
     /// the number of different textures from which to randomly select the material color. 0 means no textures.
     #[argh(option, default = "1")]
     material_texture_count: usize,
+
+    /// generate z values in increasing order rather than randomly
+    #[argh(switch)]
+    ordered_z: bool,
 }
 
 #[derive(Default, Clone)]
@@ -163,6 +167,7 @@ struct BirdResources {
     color_rng: StdRng,
     material_rng: StdRng,
     velocity_rng: StdRng,
+    transform_rng: StdRng,
 }
 
 #[derive(Component)]
@@ -204,6 +209,7 @@ fn setup(
         color_rng: StdRng::seed_from_u64(42),
         material_rng: StdRng::seed_from_u64(42),
         velocity_rng: StdRng::seed_from_u64(42),
+        transform_rng: StdRng::seed_from_u64(42),
     };
 
     let text_section = move |color, value: &str| {
@@ -360,7 +366,12 @@ fn spawn_birds(
         Mode::Sprite => {
             let batch = (0..spawn_count)
                 .map(|count| {
-                    let bird_z = (current_count + count) as f32 * 0.00001;
+                    let bird_z = if args.ordered_z {
+                        (current_count + count) as f32 * 0.00001
+                    } else {
+                        bird_resources.transform_rng.gen::<f32>()
+                    };
+
                     let (transform, velocity) = bird_velocity_transform(
                         half_extents,
                         Vec3::new(bird_x, bird_y, bird_z),
@@ -398,7 +409,12 @@ fn spawn_birds(
         Mode::Mesh2d => {
             let batch = (0..spawn_count)
                 .map(|count| {
-                    let bird_z = (current_count + count) as f32 * 0.00001;
+                    let bird_z = if args.ordered_z {
+                        (current_count + count) as f32 * 0.00001
+                    } else {
+                        bird_resources.transform_rng.gen::<f32>()
+                    };
+
                     let (transform, velocity) = bird_velocity_transform(
                         half_extents,
                         Vec3::new(bird_x, bird_y, bird_z),

@@ -243,7 +243,7 @@ impl App {
             let _bevy_main_update_span = info_span!("main app").entered();
             self.world.run_schedule(&*self.main_schedule_label);
         }
-        for (_label, sub_app) in self.sub_apps.iter_mut() {
+        for (_label, sub_app) in &mut self.sub_apps {
             #[cfg(feature = "trace")]
             let _sub_app_span = info_span!("sub app", name = ?_label).entered();
             sub_app.extract(&mut self.world);

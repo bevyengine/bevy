@@ -309,6 +309,16 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "2d_viewport_to_world"
+path = "examples/2d/2d_viewport_to_world.rs"
+
+[package.metadata.example.2d_viewport_to_world]
+name = "2D Viewport To World"
+description = "Demonstrates how to use the `Camera::viewport_to_world_2d` method"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "rotation"
 path = "examples/2d/rotation.rs"
 doc-scrape-examples = true
@@ -482,6 +492,17 @@ doc-scrape-examples = true
 [package.metadata.example.3d_shapes]
 name = "3D Shapes"
 description = "A scene showcasing the built-in 3D shapes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "3d_viewport_to_world"
+path = "examples/3d/3d_viewport_to_world.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.3d_viewport_to_world]
+name = "3D Viewport To World"
+description = "Demonstrates how to use the `Camera::viewport_to_world` method"
 category = "3D Rendering"
 wasm = true
 
@@ -1280,6 +1301,16 @@ name = "Iter Combinations"
 description = "Shows how to iterate over combinations of query results"
 category = "ECS (Entity Component System)"
 wasm = true
+
+[[example]]
+name = "one_shot_systems"
+path = "examples/ecs/one_shot_systems.rs"
+
+[package.metadata.example.one_shot_systems]
+name = "One Shot Systems"
+description = "Shows how to flexibly run systems without scheduling them"
+category = "ECS (Entity Component System)"
+wasm = false
 
 [[example]]
 name = "parallel_query"
