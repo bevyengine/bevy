@@ -1,13 +1,16 @@
 [package]
 name = "bevy_pbr"
-version = "0.12.0-dev"
-edition = "2021"
 description = "Adds PBR rendering to Bevy Engine"
-homepage = "https://bevyengine.org"
-repository = "https://github.com/bevyengine/bevy"
-license = "MIT OR Apache-2.0"
-keywords = ["bevy"]
-authors = ["Bevy Engine Contributors"]
+keywords = ["bevy", "pbr", "rendering"]
+categories = ["game-development", "rendering"]
+version.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+authors.workspace = true
+readme.workspace = true
+rust-version.workspace = true
 
 [features]
 webgl = []

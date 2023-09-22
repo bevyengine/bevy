@@ -1,13 +1,15 @@
 [package]
 name = "bevy_asset_macros"
-version = "0.12.0-dev"
-edition = "2021"
 description = "Derive implementations for bevy_asset"
-homepage = "https://bevyengine.org"
-repository = "https://github.com/bevyengine/bevy"
-license = "MIT OR Apache-2.0"
-keywords = ["bevy"]
-authors = ["Bevy Engine Contributors"]
+keywords = ["bevy", "assets", "derive", "macros"]
+categories.workspace = true
+version.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
 
 [lib]
 proc-macro = true

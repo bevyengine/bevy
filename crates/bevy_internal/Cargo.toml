@@ -1,14 +1,16 @@
 [package]
 name = "bevy_internal"
-version = "0.12.0-dev"
-edition = "2021"
 description = "An internal Bevy crate used to facilitate optional dynamic linking via the 'dynamic_linking' feature"
-homepage = "https://bevyengine.org"
-repository = "https://github.com/bevyengine/bevy"
-license = "MIT OR Apache-2.0"
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 categories = ["game-engines", "graphics", "gui", "rendering"]
-authors = ["Bevy Engine Contributors"]
+version.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+authors.workspace = true
+readme.workspace = true
+rust-version.workspace = true
 
 [features]
 trace = [

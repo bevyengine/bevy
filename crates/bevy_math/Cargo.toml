@@ -1,13 +1,16 @@
 [package]
 name = "bevy_math"
-version = "0.12.0-dev"
-edition = "2021"
 description = "Provides math functionality for Bevy Engine"
-homepage = "https://bevyengine.org"
-repository = "https://github.com/bevyengine/bevy"
-license = "MIT OR Apache-2.0"
-keywords = ["bevy"]
-authors = ["Bevy Engine Contributors"]
+keywords = ["bevy", "math"]
+categories = ["game-development", "mathematics"]
+version.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+authors.workspace = true
+readme.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 glam = { version = "0.24.1", features = ["bytemuck"] }

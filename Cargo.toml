@@ -1,17 +1,28 @@
 [package]
 name = "bevy"
-version = "0.12.0-dev"
-edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
 exclude = ["assets/", "tools/", ".github/", "crates/", "examples/wasm/assets/"]
-homepage = "https://bevyengine.org"
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
-license = "MIT OR Apache-2.0"
-readme = "README.md"
+version.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+authors.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+
+[workspace.package]
+version = "0.12.0-dev"
+edition = "2021"
+homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-rust-version = "1.70.0"
+license = "MIT OR Apache-2.0"
 authors = ["Bevy Engine Contributors"]
+readme = "README.md"
+rust-version = "1.70.0"
+categories = ["game-development"]
 
 [workspace]
 exclude = [
@@ -22,6 +33,7 @@ exclude = [
 ]
 members = [
   "crates/*",
+  "crates/*/macros",
   "examples/mobile",
   "tools/ci",
   "tools/build-templated-pages",

@@ -1,13 +1,15 @@
 [package]
 name = "bevy_ecs_compile_fail_tests"
-version = "0.1.0"
-edition = "2021"
 description = "Compile fail tests for Bevy Engine's entity component system"
-homepage = "https://bevyengine.org"
-repository = "https://github.com/bevyengine/bevy"
-license = "MIT OR Apache-2.0"
 publish = false
-authors = ["Bevy Engine Contributors"]
+version.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+authors.workspace = true
+readme.workspace = true
+rust-version.workspace = true
 
 [dev-dependencies]
 bevy_ecs = { path = "../bevy_ecs" }

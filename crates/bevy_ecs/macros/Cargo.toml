@@ -1,10 +1,16 @@
 [package]
 name = "bevy_ecs_macros"
-version = "0.12.0-dev"
 description = "Bevy ECS Macros"
-edition = "2021"
-license = "MIT OR Apache-2.0"
-authors = ["Bevy Engine Contributors"]
+keywords = ["bevy", "ecs", "macros"]
+categories.workspace = true
+version.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+authors.workspace = true
+readme.workspace = true
+rust-version.workspace = true
 
 [lib]
 proc-macro = true
