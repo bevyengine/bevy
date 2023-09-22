@@ -10,6 +10,10 @@ use bevy_ecs::{
 use bevy_reflect::{Reflect, TypePath, TypeRegistryArc, TypeUuid};
 use bevy_utils::HashMap;
 
+fn a(b: impl Reflect) {
+    b.type_name();
+}
+
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;
 use bevy_ecs::reflect::ReflectResource;

@@ -73,6 +73,22 @@ pub enum ReflectOwned {
 /// [derive macro]: bevy_reflect_derive::Reflect
 /// [crate-level documentation]: crate
 pub trait Reflect: DynamicTypePath + Any + Send + Sync {
+    /// Returns the type path of the underlying type.
+    ///
+    /// This type path will either be found through [`get_represented_type_info`]
+    /// or taken from a [`TypePath`] implementation if the former isn't available.
+    ///
+    /// This method is deprecated; please consider migrating to one of the above methods.
+    #[deprecated(
+        since = "0.12.0",
+        note = "view the method documentation to find alternatives to this method."
+    )]
+    fn type_name(&self) -> &str {
+        self.get_represented_type_info()
+            .map(|info| info.type_path())
+            .unwrap_or_else(|| self.reflect_type_path())
+    }
+
     /// Returns the [`TypeInfo`] of the type _represented_ by this value.
     ///
     /// For most types, this will simply return their own `TypeInfo`.
