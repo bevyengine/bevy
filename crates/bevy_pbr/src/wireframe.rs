@@ -22,7 +22,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, VisibleEntities},
     RenderApp, RenderSet,
 };
-use bevy_render::{ExtractSchedule, Render};
+use bevy_render::{Extract, ExtractSchedule, Render};
 use bevy_utils::tracing::error;
 use bevy_utils::PassHashSet;
 
@@ -49,6 +49,7 @@ impl Plugin for WireframePlugin {
             render_app
                 .add_render_command::<Opaque3d, DrawWireframes>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
+                .init_resource::<Wireframes>()
                 .add_systems(ExtractSchedule, extract_wireframes)
                 .add_systems(Render, queue_wireframes.in_set(RenderSet::QueueMeshes));
         }
@@ -73,12 +74,15 @@ pub struct WireframeConfig {
     pub global: bool,
 }
 
-#[derive(Resource, Deref, DerefMut)]
+#[derive(Resource, Default, Deref, DerefMut)]
 pub struct Wireframes(PassHashSet<Entity>);
 
-fn extract_wireframes(mut wireframes: ResMut<Wireframes>, query: Query<Entity, With<Wireframe>>) {
+fn extract_wireframes(
+    mut wireframes: ResMut<Wireframes>,
+    query: Extract<Query<Entity, With<Wireframe>>>,
+) {
     wireframes.clear();
-    wireframes.extend(query.into_iter());
+    wireframes.extend(&query);
 }
 
 #[derive(Resource, Clone)]

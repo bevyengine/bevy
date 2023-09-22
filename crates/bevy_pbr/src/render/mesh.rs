@@ -682,12 +682,10 @@ impl GetBatchData for MeshPipeline {
             .expect("Failed to find render mesh instance");
         (
             (&mesh_instance.transforms).into(),
-            mesh_instance.automatic_batching.then(|| {
-                (
-                    mesh_instance.material_bind_group_id,
-                    mesh_instance.mesh_asset_id,
-                )
-            }),
+            mesh_instance.automatic_batching.then_some((
+                mesh_instance.material_bind_group_id,
+                mesh_instance.mesh_asset_id,
+            )),
         )
     }
 }
