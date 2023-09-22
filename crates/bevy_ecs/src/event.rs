@@ -18,22 +18,32 @@ use std::{
 ///
 /// Events must be thread-safe.
 pub trait Event: Sized + Send + Sync + 'static {
+    /// The collection used to store the events.
     type Storage: for<'a> EventStorage<'a, Item = EventInstance<Self>>
         + Send
         + Sync
-        + 'static
-        + std::ops::DerefMut<Target = [EventInstance<Self>]>
-        + Extend<EventInstance<Self>>
-        + Default;
+        + 'static;
 }
 
-pub trait EventStorage<'a> {
+
+/// Types used to specify the storage strategy for an event.
+pub trait EventStorage<'a>:
+        std::ops::DerefMut<Target = [Self::Item]>
+        + Extend<Self::Item>
+        + Default
+{
+    /// The type stored. This will always be an [`EventInstance`].
     type Item: 'a;
+    /// See [`Self::drain`].
     type DrainIter: DoubleEndedIterator<Item = Self::Item> + 'a;
+    /// Adds an item to the end of the collection.
     fn push(&mut self, v: Self::Item);
+    /// Removes the specified range from the collection, returning an iterator over the removed
+    /// elements.
     fn drain<R>(&'a mut self, range: R) -> Self::DrainIter
     where
         R: std::ops::RangeBounds<usize>;
+    /// Empties the collection.
     fn clear(&mut self);
 }
 
@@ -138,10 +148,11 @@ impl<E: Event> Hash for EventId<E> {
     }
 }
 
+/// Internal type stored in [`EventStorage`]s.
 #[derive(Debug)]
 pub struct EventInstance<E: Event> {
-    pub event_id: EventId<E>,
-    pub event: E,
+    pub(crate) event_id: EventId<E>,
+    pub(crate) event: E,
 }
 
 /// An event collection that represents the events that occurred within the last two
