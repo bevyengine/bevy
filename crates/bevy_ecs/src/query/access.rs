@@ -127,7 +127,7 @@ impl<T: SparseSetIndex> Access<T> {
         let index = index.sparse_set_index();
         self.reads_and_writes.contains(index) && !self.writes.contains(index)
     }
-    
+
     /// Returns `true` if this can access anything.
     pub fn has_any_read(&self) -> bool {
         self.reads_all || !self.reads_and_writes.is_clear()
