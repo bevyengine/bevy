@@ -19,18 +19,12 @@ use std::{
 /// Events must be thread-safe.
 pub trait Event: Sized + Send + Sync + 'static {
     /// The collection used to store the events.
-    type Storage: for<'a> EventStorage<'a, Item = EventInstance<Self>>
-        + Send
-        + Sync
-        + 'static;
+    type Storage: for<'a> EventStorage<'a, Item = EventInstance<Self>> + Send + Sync + 'static;
 }
-
 
 /// Types used to specify the storage strategy for an event.
 pub trait EventStorage<'a>:
-        std::ops::DerefMut<Target = [Self::Item]>
-        + Extend<Self::Item>
-        + Default
+    std::ops::DerefMut<Target = [Self::Item]> + Extend<Self::Item> + Default
 {
     /// The type stored. This will always be an [`EventInstance`].
     type Item: 'a;
