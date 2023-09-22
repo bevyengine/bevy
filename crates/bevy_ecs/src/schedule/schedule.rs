@@ -1082,6 +1082,10 @@ impl ScheduleGraph {
             ))));
         self.system_conditions.push(Vec::new());
 
+        // ignore ambiguities with auto sync points
+        // They aren't under user control, so no one should know or care.
+        self.ambiguous_with_all.insert(id);
+
         id
     }
 
