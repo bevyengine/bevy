@@ -9,7 +9,7 @@ use bevy::{
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
-use bevy_internal::log::LogPlugin;
+use bevy_internal::{gltf::Gltf, log::LogPlugin};
 
 fn bevy_log_plugin() -> LogPlugin {
     LogPlugin {
@@ -45,47 +45,75 @@ fn main() {
             },
         ))
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (rotate, toggle_prepass_view, setup_morph, setup_fox),
-        )
+        .add_systems(Update, (rotate, toggle_prepass_view, assign_clips))
         // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
         .insert_resource(Msaa::Off)
         .run();
 }
-
-#[derive(Resource)]
-struct MorphData {
-    the_wave: Handle<AnimationClip>,
+/// Controls animation clips for a unique entity.
+#[derive(Component)]
+struct Clips {
+    clips: Vec<Handle<AnimationClip>>,
+    current: usize,
 }
-#[derive(Resource)]
-struct FoxAnim(Handle<AnimationClip>);
-/// Plays an [`AnimationClip`] from the loaded [`Gltf`] on the [`AnimationPlayer`] created by the spawned scene.
-fn setup_morph(
-    mut has_setup: Local<bool>,
-    mut players: Query<(&Name, &mut AnimationPlayer)>,
-    morph_data: Res<MorphData>,
+impl Clips {
+    fn new(clips: Vec<Handle<AnimationClip>>) -> Self {
+        Clips { clips, current: 0 }
+    }
+    /// # Panics
+    ///
+    /// When no clips are present.
+    fn current(&self) -> Handle<AnimationClip> {
+        self.clips[self.current].clone_weak()
+    }
+}
+
+fn assign_clips(
+    mut players: Query<(Entity, &mut AnimationPlayer, &Name)>,
+    clips: Res<Assets<AnimationClip>>,
+    gltf_assets: Res<Assets<Gltf>>,
+    assets: Res<AssetServer>,
+    mut commands: Commands,
+    mut setup: Local<u32>,
+    scn: Option<Res<An>>,
 ) {
-    if *has_setup {
+    let Some(scn) = scn else {
+        return;
+    };
+    if *setup >= 5 {
         return;
     }
-    for (name, mut player) in &mut players {
-        // The name of the entity in the GLTF scene containing the AnimationPlayer for our morph targets is "Main"
-        if name.as_str() != "Main" {
-            continue;
+    let fox = gltf_assets.get(&scn.fox);
+    let dragon = gltf_assets.get(&scn.dragon);
+    let asts = fox.into_iter().chain(dragon.into_iter());
+
+    for gltf in asts {
+        let animations = &gltf.animations;
+        if !animations.is_empty() {
+            let count = animations.len();
+            let plural = if count == 1 { "" } else { "s" };
+            info!("Found {} animation{plural}", animations.len());
+            let names: Vec<_> = gltf.named_animations.keys().collect();
+            info!("Animation names: {names:?}");
         }
-        player.play(morph_data.the_wave.clone()).repeat();
-        *has_setup = true;
+        for (entity, mut player, name) in &mut players {
+            let clips = clips
+                .iter()
+                .filter_map(|(k, v)| v.compatible_with(name).then_some(k))
+                .map(|id| assets.get_id_handle(id).unwrap())
+                .collect();
+            let animations = Clips::new(clips);
+            player.play(animations.current()).repeat().set_speed(3.);
+            commands.entity(entity).insert(animations);
+            *setup += 1;
+        }
     }
 }
 
-fn setup_fox(
-    animations: Res<FoxAnim>,
-    mut players: Query<&mut AnimationPlayer, Added<AnimationPlayer>>,
-) {
-    for mut player in &mut players {
-        player.play(animations.0.clone_weak()).repeat();
-    }
+#[derive(Resource)]
+struct An {
+    fox: Handle<Gltf>,
+    dragon: Handle<Gltf>,
 }
 
 /// set up a simple 3D scene
@@ -93,7 +121,6 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
-    mut std_materials: ResMut<Assets<StandardMaterial>>,
     mut depth_materials: ResMut<Assets<PrepassOutputMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
@@ -116,21 +143,25 @@ fn setup(
         scene: asset_server.load("models/animated/Fox.glb#Scene0"),
         transform: Transform {
             scale: Vec3::splat(0.03),
+            translation: Vec3::X * -2.,
             ..default()
         },
         ..default()
     });
-    commands.insert_resource(FoxAnim(
-        asset_server.load("models/animated/Fox.glb#Animation2"),
-    ));
 
     // morph targets
-    commands.insert_resource(MorphData {
-        the_wave: asset_server.load("models/animated/MorphStressTest.gltf#Animation2"),
-    });
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/animated/MorphStressTest.gltf#Scene0"),
+        scene: asset_server.load("dragon_flying.glb#Scene0"),
+        transform: Transform {
+            scale: Vec3::splat(0.01),
+            translation: Vec3::X * 2. + Vec3::Y * -1.,
+            ..default()
+        },
         ..default()
+    });
+    commands.insert_resource(An {
+        fox: asset_server.load("models/animated/Fox.glb"),
+        dragon: asset_server.load("dragon_flying.glb"),
     });
 
     // A quad that shows the outputs of the prepass

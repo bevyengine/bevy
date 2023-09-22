@@ -32,36 +32,31 @@ impl Clips {
 /// earlier in this file.
 fn assign_clips(
     mut players: Query<(Entity, &mut AnimationPlayer, &Name)>,
-    scene_handle: Res<SceneHandle>,
     clips: Res<Assets<AnimationClip>>,
     gltf_assets: Res<Assets<Gltf>>,
     assets: Res<AssetServer>,
     mut commands: Commands,
     mut setup: Local<bool>,
 ) {
-    if scene_handle.is_loaded && !*setup {
-        *setup = true;
-    } else {
-        return;
-    }
-    let gltf = gltf_assets.get(&scene_handle.gltf_handle).unwrap();
-    let animations = &gltf.animations;
-    if !animations.is_empty() {
-        let count = animations.len();
-        let plural = if count == 1 { "" } else { "s" };
-        info!("Found {} animation{plural}", animations.len());
-        let names: Vec<_> = gltf.named_animations.keys().collect();
-        info!("Animation names: {names:?}");
-    }
-    for (entity, mut player, name) in &mut players {
-        let clips = clips
-            .iter()
-            .filter_map(|(k, v)| v.compatible_with(name).then_some(k))
-            .map(|id| assets.get_id_handle(id).unwrap())
-            .collect();
-        let animations = Clips::new(clips);
-        player.play(animations.current()).repeat();
-        commands.entity(entity).insert(animations);
+    for (_, gltf) in gltf_assets.iter() {
+        let animations = &gltf.animations;
+        if !animations.is_empty() {
+            let count = animations.len();
+            let plural = if count == 1 { "" } else { "s" };
+            info!("Found {} animation{plural}", animations.len());
+            let names: Vec<_> = gltf.named_animations.keys().collect();
+            info!("Animation names: {names:?}");
+        }
+        for (entity, mut player, name) in &mut players {
+            let clips = clips
+                .iter()
+                .filter_map(|(k, v)| v.compatible_with(name).then_some(k))
+                .map(|id| assets.get_id_handle(id).unwrap())
+                .collect();
+            let animations = Clips::new(clips);
+            player.play(animations.current()).repeat();
+            commands.entity(entity).insert(animations);
+        }
     }
 }
 

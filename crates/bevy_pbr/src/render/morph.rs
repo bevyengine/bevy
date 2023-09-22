@@ -36,9 +36,10 @@ pub fn prepare_morphs(
     if uniform.buffer.is_empty() {
         return;
     }
-    let buffer = &mut uniform.buffer;
-    buffer.reserve(buffer.len(), &device);
-    buffer.write_buffer(&device, &queue);
+
+    let len = uniform.buffer.len();
+    uniform.buffer.reserve(len, &device);
+    uniform.buffer.write_buffer(&device, &queue);
 }
 
 const fn can_align(step: usize, target: usize) -> bool {

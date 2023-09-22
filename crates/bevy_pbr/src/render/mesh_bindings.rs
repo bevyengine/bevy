@@ -18,7 +18,7 @@ pub const MORPH_BUFFER_SIZE: usize = MAX_MORPH_WEIGHTS * MORPH_WEIGHT_SIZE;
 mod layout_entry {
     use super::MORPH_BUFFER_SIZE;
     use crate::MeshUniform;
-    use crate::{render::mesh::JOINT_BUFFER_SIZE, PreviousViewProjection};
+    use crate::{render::skinning::JOINT_BUFFER_SIZE, PreviousViewProjection};
     use bevy_render::{
         globals::GlobalsUniform,
         render_resource::{
@@ -94,7 +94,7 @@ mod layout_entry {
 /// for bind groups.
 mod entry {
     use super::MORPH_BUFFER_SIZE;
-    use crate::render::mesh::JOINT_BUFFER_SIZE;
+    use crate::render::skinning::JOINT_BUFFER_SIZE;
     use bevy_render::render_resource::{
         BindGroupEntry, BindingResource, Buffer, BufferBinding, BufferSize, TextureView,
     };
