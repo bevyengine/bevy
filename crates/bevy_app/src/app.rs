@@ -855,7 +855,7 @@ impl App {
         self
     }
 
-    /// When doing [ambiguity checking](bevy_ecs::scheduling::ScheduleBuildSettings) this
+    /// When doing [ambiguity checking](bevy_ecs::schedule::ScheduleBuildSettings) this
     /// ignores systems that are ambiguious on [`Component`] T.
     ///
     /// This settings only applies to the main world. To apply this to other worlds call the
@@ -893,7 +893,7 @@ impl App {
         self
     }
 
-    /// When doing [ambiguity checking](bevy_ecs::scheduling::ScheduleBuildSettings) this
+    /// When doing [ambiguity checking](bevy_ecs::schedule::ScheduleBuildSettings) this
     /// ignores systems that are ambiguious on [`Resource`] T.
     ///
     /// This settings only applies to the main world. To apply this to other worlds call the
