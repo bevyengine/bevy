@@ -718,6 +718,8 @@ mod tests {
     }
 
     mod system_ambiguity {
+        use std::collections::BTreeSet;
+
         use super::*;
         // Required to make the derive macro behave
         use crate as bevy_ecs;
@@ -1010,7 +1012,7 @@ mod tests {
             let _ = schedule.graph_mut().build_schedule(
                 world.components(),
                 &TestSchedule.dyn_clone(),
-                &[],
+                &BTreeSet::new(),
             );
 
             let ambiguities: Vec<_> = schedule
@@ -1059,7 +1061,7 @@ mod tests {
             let _ = schedule.graph_mut().build_schedule(
                 world.components(),
                 &TestSchedule.dyn_clone(),
-                &[],
+                &BTreeSet::new(),
             );
 
             let ambiguities: Vec<_> = schedule

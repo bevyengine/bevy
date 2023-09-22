@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     fmt::{Debug, Write},
     result::Result,
 };
@@ -880,7 +881,7 @@ impl ScheduleGraph {
         &mut self,
         components: &Components,
         schedule_label: &BoxedScheduleLabel,
-        ignored_ambiguities: &[ComponentId],
+        ignored_ambiguities: &BTreeSet<ComponentId>,
     ) -> Result<SystemSchedule, ScheduleBuildError> {
         // check hierarchy for cycles
         self.hierarchy.topsort =
@@ -1053,7 +1054,7 @@ impl ScheduleGraph {
         &self,
         flat_results_disconnected: &Vec<(NodeId, NodeId)>,
         ambiguous_with_flattened: &GraphMap<NodeId, (), Undirected>,
-        ignored_ambiguities: &[ComponentId],
+        ignored_ambiguities: &BTreeSet<ComponentId>,
     ) -> Vec<(NodeId, NodeId, Vec<ComponentId>)> {
         let mut conflicting_systems = Vec::new();
         for &(a, b) in flat_results_disconnected {
@@ -1192,7 +1193,7 @@ impl ScheduleGraph {
         &mut self,
         schedule: &mut SystemSchedule,
         components: &Components,
-        ignored_ambiguities: &[ComponentId],
+        ignored_ambiguities: &BTreeSet<ComponentId>,
         schedule_label: &BoxedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if !self.uninit.is_empty() {
@@ -1734,17 +1735,17 @@ impl ScheduleBuildSettings {
 
 /// list of [`ComponentId`]'s to ignore when reporting ambiguity conflicts between systems
 #[derive(Resource, Default, Clone, Debug)]
-pub struct IgnoredSchedulingAmbiguities(Vec<ComponentId>);
+pub struct IgnoredSchedulingAmbiguities(BTreeSet<ComponentId>);
 
 impl IgnoredSchedulingAmbiguities {
     /// Ignore ambiguities between systems in [`Component`] T.
     pub fn allow_ambiguous_component<T: Component>(&mut self, world: &mut World) {
-        self.0.push(world.init_component::<T>());
+        self.0.insert(world.init_component::<T>());
     }
 
     /// Ignore ambiguities between systems in [`Resource`] T.
     pub fn allow_ambiguous_resource<T: Resource>(&mut self, world: &mut World) {
-        self.0.push(world.components.init_resource::<T>());
+        self.0.insert(world.components.init_resource::<T>());
     }
 }
 
