@@ -74,8 +74,11 @@ impl MorphTargetImage {
             return Err(MorphBuildError::TooManyTargets { target_count });
         }
         let component_count = (vertex_count * MorphAttributes::COMPONENT_COUNT) as u32;
-        let Some((Rect(width, height), padding)) = lowest_2d(component_count , max) else {
-            return Err(MorphBuildError::TooManyAttributes { vertex_count, component_count });
+        let Some((Rect(width, height), padding)) = lowest_2d(component_count, max) else {
+            return Err(MorphBuildError::TooManyAttributes {
+                vertex_count,
+                component_count,
+            });
         };
         let data = targets
             .flat_map(|mut attributes| {
@@ -104,7 +107,7 @@ impl MorphTargetImage {
 }
 
 /// Controls the [morph targets] for all child [`Handle<Mesh>`] entities. In most cases, [`MorphWeights`] should be considered
-/// the "source o[f truth" when writing morph targets for meshes. However you can choose to write child [`MeshMorphWeights`]
+/// the "source of truth" when writing morph targets for meshes. However you can choose to write child [`MeshMorphWeights`]
 /// if your situation requires more granularity. Just note that if you set [`MorphWeights`], it will overwrite child
 /// [`MeshMorphWeights`] values.
 ///

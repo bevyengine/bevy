@@ -84,6 +84,7 @@ mod splash {
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         ..default()
                     },
                     ..default()
@@ -409,7 +410,6 @@ mod menu {
             position_type: PositionType::Absolute,
             // The icon will be close to the left border of the button
             left: Val::Px(10.0),
-            right: Val::Auto,
             ..default()
         };
         let button_text_style = TextStyle {
@@ -423,6 +423,7 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -548,6 +549,7 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -613,6 +615,7 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -656,16 +659,19 @@ mod menu {
                                     DisplayQuality::Medium,
                                     DisplayQuality::High,
                                 ] {
-                                    let mut entity = parent.spawn(ButtonBundle {
-                                        style: Style {
-                                            width: Val::Px(150.0),
-                                            height: Val::Px(65.0),
-                                            ..button_style.clone()
+                                    let mut entity = parent.spawn((
+                                        ButtonBundle {
+                                            style: Style {
+                                                width: Val::Px(150.0),
+                                                height: Val::Px(65.0),
+                                                ..button_style.clone()
+                                            },
+                                            background_color: NORMAL_BUTTON.into(),
+                                            ..default()
                                         },
-                                        background_color: NORMAL_BUTTON.into(),
-                                        ..default()
-                                    });
-                                    entity.insert(quality_setting).with_children(|parent| {
+                                        quality_setting,
+                                    ));
+                                    entity.with_children(|parent| {
                                         parent.spawn(TextBundle::from_section(
                                             format!("{quality_setting:?}"),
                                             button_text_style.clone(),
@@ -713,6 +719,7 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -748,16 +755,18 @@ mod menu {
                                     button_text_style.clone(),
                                 ));
                                 for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
-                                    let mut entity = parent.spawn(ButtonBundle {
-                                        style: Style {
-                                            width: Val::Px(30.0),
-                                            height: Val::Px(65.0),
-                                            ..button_style.clone()
+                                    let mut entity = parent.spawn((
+                                        ButtonBundle {
+                                            style: Style {
+                                                width: Val::Px(30.0),
+                                                height: Val::Px(65.0),
+                                                ..button_style.clone()
+                                            },
+                                            background_color: NORMAL_BUTTON.into(),
+                                            ..default()
                                         },
-                                        background_color: NORMAL_BUTTON.into(),
-                                        ..default()
-                                    });
-                                    entity.insert(Volume(volume_setting));
+                                        Volume(volume_setting),
+                                    ));
                                     if *volume == Volume(volume_setting) {
                                         entity.insert(SelectedOption);
                                     }

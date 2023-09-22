@@ -136,7 +136,7 @@ fn apply_scaling(
         return;
     }
 
-    ui_scale.scale = target_scale.current_scale();
+    ui_scale.0 = target_scale.current_scale();
 }
 
 fn ease_in_expo(x: f64) -> f64 {

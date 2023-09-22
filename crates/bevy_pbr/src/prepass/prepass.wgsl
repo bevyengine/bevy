@@ -3,10 +3,12 @@
 #import bevy_pbr::skinning
 #import bevy_pbr::morph
 #import bevy_pbr::mesh_bindings mesh
+#import bevy_render::instance_index get_instance_index
 
 // Most of these attributes are not used in the default prepass fragment shader, but they are still needed so we can
 // pass them to custom prepass shaders like pbr_prepass.wgsl.
 struct Vertex {
+    @builtin(instance_index) instance_index: u32,
     @location(0) position: vec3<f32>,
 
 #ifdef VERTEX_UVS
@@ -88,7 +90,9 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #ifdef SKINNED
     var model = bevy_pbr::skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
 #else // SKINNED
-    var model = mesh.model;
+    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+    // See https://github.com/gfx-rs/naga/issues/2416
+    var model = bevy_pbr::mesh_functions::get_model_matrix(vertex_no_morph.instance_index);
 #endif // SKINNED
 
     out.clip_position = bevy_pbr::mesh_functions::mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
@@ -105,17 +109,33 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #ifdef SKINNED
     out.world_normal = bevy_pbr::skinning::skin_normals(model, vertex.normal);
 #else // SKINNED
-    out.world_normal = bevy_pbr::mesh_functions::mesh_normal_local_to_world(vertex.normal);
+    out.world_normal = bevy_pbr::mesh_functions::mesh_normal_local_to_world(
+        vertex.normal,
+        // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+        // See https://github.com/gfx-rs/naga/issues/2416
+        get_instance_index(vertex_no_morph.instance_index)
+    );
 #endif // SKINNED
 
 #ifdef VERTEX_TANGENTS
-    out.world_tangent = bevy_pbr::mesh_functions::mesh_tangent_local_to_world(model, vertex.tangent);
+    out.world_tangent = bevy_pbr::mesh_functions::mesh_tangent_local_to_world(
+        model,
+        vertex.tangent,
+        // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+        // See https://github.com/gfx-rs/naga/issues/2416
+        get_instance_index(vertex_no_morph.instance_index)
+    );
 #endif // VERTEX_TANGENTS
 #endif // NORMAL_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
     out.world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
-    out.previous_world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(mesh.previous_model, vec4<f32>(vertex.position, 1.0));
+    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+    // See https://github.com/gfx-rs/naga/issues/2416
+    out.previous_world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(
+        bevy_pbr::mesh_functions::get_previous_model_matrix(vertex_no_morph.instance_index),
+        vec4<f32>(vertex.position, 1.0)
+    );
 #endif // MOTION_VECTOR_PREPASS
 
     return out;

@@ -3,7 +3,7 @@
 //! Note that this uses [`Text2dBundle`] to display text alongside your other entities in a 2D scene.
 //!
 //! For an example on how to render text as part of a user interface, independent from the world
-//! viewport, you may want to look at `2d/contributors.rs` or `ui/text.rs`.
+//! viewport, you may want to look at `games/contributors.rs` or `ui/text.rs`.
 
 use bevy::{
     prelude::*,
@@ -187,6 +187,9 @@ fn animate_scale(
     // rendered quad, resulting in a pixellated look.
     for mut transform in &mut query {
         transform.translation = Vec3::new(400.0, 0.0, 0.0);
-        transform.scale = Vec3::splat((time.elapsed_seconds().sin() + 1.1) * 2.0);
+
+        let scale = (time.elapsed_seconds().sin() + 1.1) * 2.0;
+        transform.scale.x = scale;
+        transform.scale.y = scale;
     }
 }
