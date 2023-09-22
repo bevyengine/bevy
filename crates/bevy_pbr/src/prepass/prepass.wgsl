@@ -32,6 +32,21 @@ fn morph_vertex(vertex_in: Vertex) -> Vertex {
     }
     return vertex;
 }
+
+
+#ifdef MOTION_VECTOR_PREPASS
+fn morph_previous_position(vertex: Vertex) -> vec3<f32> {
+    var vertex_position = vertex.position;
+    let weight_count = bevy_pbr::morph::layer_count();
+    for (var i: u32 = 0u; i < weight_count; i++) {
+        let weight = bevy_pbr::morph::previous_weight_at(i);
+        if weight != 0.0 {
+            vertex_position += weight * bevy_pbr::morph::morph(vertex.index, bevy_pbr::morph::position_offset, i);
+        }
+    }
+    return vertex_position;
+}
+#endif // MOTION_VECTOR_PREPASS
 #endif
 
 @vertex
@@ -39,7 +54,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var out: VertexOutput;
 
 #ifdef MORPH_TARGETS
-    var vertex = morph::morph_vertex(vertex_no_morph);
+    var vertex = morph_vertex(vertex_no_morph);
 #else
     var vertex = vertex_no_morph;
 #endif
@@ -94,11 +109,21 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif // MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
+#ifdef MORPH_TARGETS
+    var previous_position = morph_previous_position(vertex_no_morph);
+#else
+    var previous_position = vertex.position;
+#endif // MORPH_TARGETS
+#ifdef SKINNED
+    var previous_model = skinning::previous_skin_model(vertex.joint_indices, vertex.joint_weights);
+#else
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
+    var previous_model = mesh_functions::get_previous_model_matrix(vertex_no_morph.instance_index);
+#endif // SKINNED
     out.previous_world_position = mesh_functions::mesh_position_local_to_world(
-        mesh_functions::get_previous_model_matrix(vertex_no_morph.instance_index),
-        vec4<f32>(vertex.position, 1.0)
+        previous_model,
+        vec4<f32>(previous_position, 1.0)
     );
 #endif // MOTION_VECTOR_PREPASS
 

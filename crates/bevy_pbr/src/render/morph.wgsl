@@ -9,11 +9,17 @@
 @group(1) @binding(2) var<uniform> morph_weights: MorphWeights;
 @group(1) @binding(3) var morph_targets: texture_3d<f32>;
 
+#ifdef MOTION_VECTOR_PREPASS
+@group(1) @binding(5) var<uniform> previous_morph_weights: MorphWeights;
+#endif
 #else
 
 @group(2) @binding(2) var<uniform> morph_weights: MorphWeights;
 @group(2) @binding(3) var morph_targets: texture_3d<f32>;
 
+#ifdef MOTION_VECTOR_PREPASS
+@group(2) @binding(5) var<uniform> previous_morph_weights: MorphWeights;
+#endif
 #endif
 
 
@@ -53,5 +59,12 @@ fn morph(vertex_index: u32, component_offset: u32, weight_index: u32) -> vec3<f3
         morph_pixel(vertex_index, component_offset + 2u, weight_index),
     );
 }
+
+#ifdef MOTION_VECTOR_PREPASS
+fn previous_weight_at(weight_index: u32) -> f32 {
+    let i = weight_index;
+    return previous_morph_weights.weights[i / 4u][i % 4u];
+}
+#endif
 
 #endif // MORPH_TARGETS

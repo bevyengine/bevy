@@ -237,7 +237,7 @@ impl SpecializedMeshPipeline for CustomPipeline {
 type DrawCustom = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
-    SetMeshBindGroup<1>,
+    SetMeshBindGroup<1, false>,
     DrawMeshInstanced,
 );
 

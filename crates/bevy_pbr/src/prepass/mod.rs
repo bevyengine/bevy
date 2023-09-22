@@ -29,6 +29,7 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;
 
+use crate::render::{MorphIndices, SkinIndices};
 use crate::*;
 
 use std::{hash::Hash, marker::PhantomData};
@@ -344,7 +345,7 @@ where
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut bind_group_layouts = vec![if key
             .mesh_key
-            .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
+            .contains(MeshPipelineKey::VIEW_MOTION_VECTOR_PREPASS)
         {
             self.view_layout_motion_vectors.clone()
         } else {
@@ -453,7 +454,7 @@ where
             shader_defs.push("PREPASS_FRAGMENT".into());
         }
 
-        let bind_group = setup_morph_and_skinning_defs(
+        let bind_group = setup_morph_and_skinning_defs::<true>(
             &self.mesh_layouts,
             layout,
             4,
@@ -465,6 +466,8 @@ where
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
+        // Note that if you are updating this code, you probably need to update the equivalent
+        // code that depends on color target states in crates/bevy_core_pipeline/src/prepass/node.rs
         // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
         let mut targets = vec![
             key.mesh_key
@@ -476,7 +479,7 @@ where
                     write_mask: ColorWrites::ALL,
                 }),
             key.mesh_key
-                .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
+                .contains(MeshPipelineKey::VIEW_MOTION_VECTOR_PREPASS)
                 .then_some(ColorTargetState {
                     format: MOTION_VECTOR_PREPASS_FORMAT,
                     // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
@@ -721,6 +724,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderMaterials<M>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
+    morph_indices: Res<MorphIndices>,
+    skin_indices: Res<SkinIndices>,
     mut views: Query<
         (
             &ExtractedView,
@@ -781,6 +786,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
         }
         if motion_vector_prepass.is_some() {
+            view_key |= MeshPipelineKey::VIEW_MOTION_VECTOR_PREPASS;
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 
@@ -802,6 +808,13 @@ pub fn queue_prepass_material_meshes<M: Material>(
 
             let mut mesh_key =
                 MeshPipelineKey::from_primitive_topology(mesh.primitive_topology) | view_key;
+
+            let missing_motion_vector = morph_indices.missing_previous(visible_entity)
+                || skin_indices.missing_previous(visible_entity);
+
+            if missing_motion_vector {
+                mesh_key &= !MeshPipelineKey::MOTION_VECTOR_PREPASS;
+            }
             if mesh.morph_targets.is_some() {
                 mesh_key |= MeshPipelineKey::MORPH_TARGETS;
             }
@@ -960,7 +973,7 @@ pub type DrawPrepass<M> = (
     SetItemPipeline,
     SetPrepassViewBindGroup<0>,
     SetMaterialBindGroup<M, 1>,
-    SetMeshBindGroup<2>,
+    SetMeshBindGroup<2, true>,
     DrawMesh,
 );
 

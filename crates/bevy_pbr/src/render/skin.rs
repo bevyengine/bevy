@@ -1,17 +1,19 @@
 use bevy_asset::Assets;
+use bevy_core_pipeline::prepass::MotionVectorPrepass;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_render::{
     batching::NoAutomaticBatching,
     mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    render_resource::{BufferUsages, BufferVec},
+    render_resource::BufferUsages,
     renderer::{RenderDevice, RenderQueue},
     view::ViewVisibility,
     Extract,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::EntityHashMap;
+
+use super::double_buffer::{DoubleBufferVec, DoubleEntityMap};
 
 /// Maximum number of joints supported for skinned meshes.
 pub const MAX_JOINTS: usize = 256;
@@ -31,18 +33,18 @@ impl SkinIndex {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct SkinIndices(EntityHashMap<Entity, SkinIndex>);
+pub struct SkinIndices(DoubleEntityMap<SkinIndex>);
 
 // Notes on implementation: see comment on top of the `extract_skins` system.
 #[derive(Resource)]
 pub struct SkinUniform {
-    pub buffer: BufferVec<Mat4>,
+    pub buffer: DoubleBufferVec<Mat4>,
 }
 
 impl Default for SkinUniform {
     fn default() -> Self {
         Self {
-            buffer: BufferVec::new(BufferUsages::UNIFORM),
+            buffer: DoubleBufferVec::new(BufferUsages::UNIFORM),
         }
     }
 }
@@ -52,13 +54,13 @@ pub fn prepare_skins(
     render_queue: Res<RenderQueue>,
     mut uniform: ResMut<SkinUniform>,
 ) {
-    if uniform.buffer.is_empty() {
+    if uniform.buffer.current.is_empty() {
         return;
     }
 
-    let len = uniform.buffer.len();
-    uniform.buffer.reserve(len, &render_device);
-    uniform.buffer.write_buffer(&render_device, &render_queue);
+    let current = &mut uniform.buffer.current;
+    current.reserve(current.len(), &render_device);
+    current.write_buffer(&render_device, &render_queue);
 }
 
 // Notes on implementation:
@@ -93,9 +95,11 @@ pub fn extract_skins(
     query: Extract<Query<(Entity, &ViewVisibility, &SkinnedMesh)>>,
     inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
     joints: Extract<Query<&GlobalTransform>>,
+    has_motion_vectors: Extract<Query<(), With<MotionVectorPrepass>>>,
 ) {
-    uniform.buffer.clear();
-    skin_indices.clear();
+    let swap_buffer = !has_motion_vectors.is_empty();
+    uniform.buffer.clear(swap_buffer);
+    skin_indices.clear(swap_buffer);
     let mut last_start = 0;
 
     // PERF: This can be expensive, can we move this to prepare?
@@ -103,7 +107,7 @@ pub fn extract_skins(
         if !view_visibility.get() {
             continue;
         }
-        let buffer = &mut uniform.buffer;
+        let buffer = &mut uniform.buffer.current;
         let Some(inverse_bindposes) = inverse_bindposes.get(&skin.inverse_bindposes) else {
             continue;
         };
@@ -130,12 +134,12 @@ pub fn extract_skins(
             buffer.push(Mat4::ZERO);
         }
 
-        skin_indices.insert(entity, SkinIndex::new(start));
+        skin_indices.0.insert(entity, SkinIndex::new(start));
     }
 
     // Pad out the buffer to ensure that there's enough space for bindings
-    while uniform.buffer.len() - last_start < MAX_JOINTS {
-        uniform.buffer.push(Mat4::ZERO);
+    while uniform.buffer.current.len() - last_start < MAX_JOINTS {
+        uniform.buffer.current.push(Mat4::ZERO);
     }
 }
 
