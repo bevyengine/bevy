@@ -755,7 +755,7 @@ pub fn setup_morph_and_skinning_defs(
     mesh_layouts: &MeshLayouts,
     layout: &Hashed<InnerMeshVertexBufferLayout>,
     offset: u32,
-    key: &MeshPipelineKey,
+    key: MeshPipelineKey,
     shader_defs: &mut Vec<ShaderDefVal>,
     vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
 ) -> BindGroupLayout {
@@ -833,7 +833,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             &self.mesh_layouts,
             layout,
             5,
-            &key,
+            key,
             &mut shader_defs,
             &mut vertex_attributes,
         ));

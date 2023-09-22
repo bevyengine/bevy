@@ -8,3 +8,4 @@ pub use fog::*;
 pub use light::*;
 pub use mesh::*;
 pub use mesh_bindings::MeshLayouts;
+pub(crate) use mesh_bindings::PrepassLayouts;

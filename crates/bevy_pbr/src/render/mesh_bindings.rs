@@ -16,26 +16,32 @@ pub const MORPH_BUFFER_SIZE: usize = MAX_MORPH_WEIGHTS * MORPH_WEIGHT_SIZE;
 mod layout_entry {
     use super::MORPH_BUFFER_SIZE;
     use crate::render::mesh::JOINT_BUFFER_SIZE;
-    use crate::MeshUniform;
+    use crate::{MeshUniform, PreviousViewProjection};
+    use bevy_render::render_resource::ShaderType;
     use bevy_render::{
+        globals::GlobalsUniform,
         render_resource::{
             BindGroupLayoutEntry, BindingType, BufferBindingType, BufferSize, GpuArrayBuffer,
             ShaderStages, TextureSampleType, TextureViewDimension,
         },
         renderer::RenderDevice,
+        view::ViewUniform,
     };
 
-    fn buffer(binding: u32, size: u64, visibility: ShaderStages) -> BindGroupLayoutEntry {
+    fn dy_buffer(binding: u32, size: u64, vis: ShaderStages, offset: bool) -> BindGroupLayoutEntry {
         BindGroupLayoutEntry {
             binding,
-            visibility,
+            visibility: vis,
             count: None,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Uniform,
-                has_dynamic_offset: true,
+                has_dynamic_offset: offset,
                 min_binding_size: BufferSize::new(size),
             },
         }
+    }
+    fn buffer(binding: u32, size: u64, vis: ShaderStages) -> BindGroupLayoutEntry {
+        dy_buffer(binding, size, vis, true)
     }
     pub(super) fn model(render_device: &RenderDevice, binding: u32) -> BindGroupLayoutEntry {
         GpuArrayBuffer::<MeshUniform>::binding_layout(
@@ -62,6 +68,21 @@ mod layout_entry {
             count: None,
         }
     }
+
+    // ---------- Prepass bind group layouts ----------
+
+    pub(super) fn view(binding: u32) -> BindGroupLayoutEntry {
+        let size = ViewUniform::min_size().get();
+        buffer(binding, size, ShaderStages::VERTEX | ShaderStages::FRAGMENT)
+    }
+    pub(super) fn globals(binding: u32) -> BindGroupLayoutEntry {
+        let size = GlobalsUniform::min_size().get();
+        dy_buffer(binding, size, ShaderStages::VERTEX, false)
+    }
+    pub(super) fn previous_view_projection(binding: u32) -> BindGroupLayoutEntry {
+        let size = PreviousViewProjection::min_size().get();
+        buffer(binding, size, ShaderStages::VERTEX | ShaderStages::FRAGMENT)
+    }
 }
 /// Individual [`BindGroupEntry`](bevy_render::render_resource::BindGroupEntry)
 /// for bind groups.
@@ -82,7 +103,7 @@ mod entry {
             }),
         }
     }
-    pub(super) fn model(binding: u32, resource: BindingResource) -> BindGroupEntry {
+    pub(super) fn resource(binding: u32, resource: BindingResource) -> BindGroupEntry {
         BindGroupEntry { binding, resource }
     }
     pub(super) fn skinning(binding: u32, buffer: &Buffer) -> BindGroupEntry {
@@ -176,7 +197,7 @@ impl MeshLayouts {
 
     pub fn model_only(&self, render_device: &RenderDevice, model: &BindingResource) -> BindGroup {
         render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[entry::model(0, model.clone())],
+            entries: &[entry::resource(0, model.clone())],
             layout: &self.model_only,
             label: Some("model_only_mesh_bind_group"),
         })
@@ -188,7 +209,7 @@ impl MeshLayouts {
         skin: &Buffer,
     ) -> BindGroup {
         render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[entry::model(0, model.clone()), entry::skinning(1, skin)],
+            entries: &[entry::resource(0, model.clone()), entry::skinning(1, skin)],
             layout: &self.skinned,
             label: Some("skinned_mesh_bind_group"),
         })
@@ -202,7 +223,7 @@ impl MeshLayouts {
     ) -> BindGroup {
         render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[
-                entry::model(0, model.clone()),
+                entry::resource(0, model.clone()),
                 entry::weights(2, weights),
                 entry::targets(3, targets),
             ],
@@ -220,13 +241,83 @@ impl MeshLayouts {
     ) -> BindGroup {
         render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[
-                entry::model(0, model.clone()),
+                entry::resource(0, model.clone()),
                 entry::skinning(1, skin),
                 entry::weights(2, weights),
                 entry::targets(3, targets),
             ],
             layout: &self.morphed_skinned,
             label: Some("morphed_skinned_mesh_bind_group"),
+        })
+    }
+}
+
+#[derive(Clone)]
+pub struct PrepassLayouts {
+    pub no_motion_vectors: BindGroupLayout,
+    pub motion_vectors: BindGroupLayout,
+}
+impl PrepassLayouts {
+    /// Prepare the layouts used by the default bevy prepass view bindings.
+    pub fn new(render_device: &RenderDevice) -> Self {
+        PrepassLayouts {
+            no_motion_vectors: Self::no_motion_layout(render_device),
+            motion_vectors: Self::motion_layout(render_device),
+        }
+    }
+
+    // ---------- create individual BindGroupLayouts ----------
+
+    fn no_motion_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[layout_entry::view(0), layout_entry::globals(1)],
+            label: Some("prepass_no_motion_vectors_layout"),
+        })
+    }
+
+    fn motion_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[
+                layout_entry::view(0),
+                layout_entry::globals(1),
+                layout_entry::previous_view_projection(2),
+            ],
+            label: Some("prepass_motion_vectors_layout"),
+        })
+    }
+
+    // ---------- BindGroup methods ----------
+
+    pub fn no_motion_vectors(
+        &self,
+        render_device: &RenderDevice,
+        view: &BindingResource,
+        globals: &BindingResource,
+    ) -> BindGroup {
+        render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                entry::resource(0, view.clone()),
+                entry::resource(1, globals.clone()),
+            ],
+            layout: &self.no_motion_vectors,
+            label: Some("prepass_no_motion_vectors_bind_group"),
+        })
+    }
+    pub fn motion_vectors(
+        &self,
+        render_device: &RenderDevice,
+        view: &BindingResource,
+        globals: &BindingResource,
+        previous_view_proj: &BindingResource,
+    ) -> BindGroup {
+        render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                entry::resource(0, view.clone()),
+                entry::resource(1, globals.clone()),
+                entry::resource(2, previous_view_proj.clone()),
+            ],
+            layout: &self.motion_vectors,
+            label: Some("prepass_motion_vectors_bind_group"),
         })
     }
 }
