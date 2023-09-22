@@ -1575,6 +1575,7 @@ pub struct UiTextureAtlasImage {
 }
 
 impl UiTextureAtlasImage {
+    /// Set the image using its `index` in the [`TextureAtlas`]
     pub fn new(index: usize) -> Self {
         Self {
             index,
