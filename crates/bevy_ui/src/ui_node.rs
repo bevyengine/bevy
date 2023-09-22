@@ -1505,7 +1505,7 @@ pub struct CalculatedClip {
 /// appear in the UI hierarchy. In such a case, the last node to be added to its parent
 /// will appear in front of this parent's other children.
 ///
-/// Nodes without this component will be treated as if they had a value of [`ZIndex::Local(0)`].
+/// Nodes without this component will be treated as if they had a value of [`ZIndex(0)`].
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct ZIndex(pub i32);
