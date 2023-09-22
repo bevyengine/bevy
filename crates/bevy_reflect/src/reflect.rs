@@ -79,6 +79,8 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// or taken from a [`TypePath`] implementation if the former isn't available.
     ///
     /// This method is deprecated; please consider migrating to one of the above methods.
+    ///
+    /// [`get_represented_type_info`]: Reflect::get_represented_type_info
     #[deprecated(
         since = "0.12.0",
         note = "view the method documentation to find alternatives to this method."
