@@ -1,12 +1,12 @@
 use std::{
-    collections::BTreeSet,
+    collections::{btree_set::Iter, BTreeSet},
     fmt::{Debug, Write},
     result::Result,
 };
 
-use bevy_utils::default;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
+use bevy_utils::{default, tracing::info};
 use bevy_utils::{
     petgraph::{algo::TarjanScc, prelude::*},
     thiserror::Error,
@@ -1746,6 +1746,24 @@ impl IgnoredSchedulingAmbiguities {
     /// Ignore ambiguities between systems in [`Resource`] T.
     pub fn allow_ambiguous_resource<T: Resource>(&mut self, world: &mut World) {
         self.0.insert(world.components.init_resource::<T>());
+    }
+
+    /// Iterate through the [`ComponentId`]'s that will be ignored.
+    pub fn iter(&self) -> Iter<'_, ComponentId> {
+        self.0.iter()
+    }
+
+    /// Prints the names of the components and resources with [`info`]
+    ///
+    /// May panic or retrieve incorrect names if [`Components`] is not from the same
+    /// world
+    pub fn print_names(&self, components: &Components) {
+        let mut message = "Ambiguities of the following types are ignored:\n".to_string();
+        for id in self.iter() {
+            writeln!(message, "{}", components.get_name(*id).unwrap()).unwrap();
+        }
+
+        info!("{}", message);
     }
 }
 
