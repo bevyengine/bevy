@@ -14,7 +14,7 @@ fn easing(c: &mut Criterion) {
 }
 
 fn cubic_2d(c: &mut Criterion) {
-    let bezier = Bezier::new([[
+    let bezier = CubicBezier::new([[
         vec2(0.0, 0.0),
         vec2(0.0, 1.0),
         vec2(1.0, 0.0),
@@ -27,7 +27,7 @@ fn cubic_2d(c: &mut Criterion) {
 }
 
 fn cubic(c: &mut Criterion) {
-    let bezier = Bezier::new([[
+    let bezier = CubicBezier::new([[
         vec3a(0.0, 0.0, 0.0),
         vec3a(0.0, 1.0, 0.0),
         vec3a(1.0, 0.0, 0.0),
@@ -40,7 +40,7 @@ fn cubic(c: &mut Criterion) {
 }
 
 fn cubic_vec3(c: &mut Criterion) {
-    let bezier = Bezier::new([[
+    let bezier = CubicBezier::new([[
         vec3(0.0, 0.0, 0.0),
         vec3(0.0, 1.0, 0.0),
         vec3(1.0, 0.0, 0.0),
@@ -53,7 +53,7 @@ fn cubic_vec3(c: &mut Criterion) {
 }
 
 fn build_pos_cubic(c: &mut Criterion) {
-    let bezier = Bezier::new([[
+    let bezier = CubicBezier::new([[
         vec3a(0.0, 0.0, 0.0),
         vec3a(0.0, 1.0, 0.0),
         vec3a(1.0, 0.0, 0.0),
@@ -66,7 +66,7 @@ fn build_pos_cubic(c: &mut Criterion) {
 }
 
 fn build_accel_cubic(c: &mut Criterion) {
-    let bezier = Bezier::new([[
+    let bezier = CubicBezier::new([[
         vec3a(0.0, 0.0, 0.0),
         vec3a(0.0, 1.0, 0.0),
         vec3a(1.0, 0.0, 0.0),

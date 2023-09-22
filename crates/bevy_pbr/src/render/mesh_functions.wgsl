@@ -3,6 +3,16 @@
 #import bevy_pbr::mesh_view_bindings  view
 #import bevy_pbr::mesh_bindings       mesh
 #import bevy_pbr::mesh_types          MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT
+#import bevy_render::instance_index   get_instance_index
+#import bevy_render::maths            affine_to_square, mat2x4_f32_to_mat3x3_unpack
+
+fn get_model_matrix(instance_index: u32) -> mat4x4<f32> {
+    return affine_to_square(mesh[get_instance_index(instance_index)].model);
+}
+
+fn get_previous_model_matrix(instance_index: u32) -> mat4x4<f32> {
+    return affine_to_square(mesh[get_instance_index(instance_index)].previous_model);
+}
 
 fn mesh_position_local_to_world(model: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
     return model * vertex_position;
@@ -28,10 +38,9 @@ fn mesh_normal_local_to_world(vertex_normal: vec3<f32>, instance_index: u32) -> 
     // unless you really know what you are doing.
     // http://www.mikktspace.com/
     return normalize(
-        mat3x3<f32>(
-            mesh[instance_index].inverse_transpose_model[0].xyz,
-            mesh[instance_index].inverse_transpose_model[1].xyz,
-            mesh[instance_index].inverse_transpose_model[2].xyz
+        mat2x4_f32_to_mat3x3_unpack(
+            mesh[instance_index].inverse_transpose_model_a,
+            mesh[instance_index].inverse_transpose_model_b,
         ) * vertex_normal
     );
 }

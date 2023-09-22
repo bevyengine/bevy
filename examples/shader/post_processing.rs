@@ -6,7 +6,6 @@
 //! This is a fairly low level example and assumes some familiarity with rendering concepts and wgpu.
 
 use bevy::{
-    asset::ChangeWatcher,
     core_pipeline::{
         clear_color::ClearColorConfig, core_3d,
         fullscreen_vertex_shader::fullscreen_shader_vertex_state,
@@ -33,17 +32,12 @@ use bevy::{
         view::ViewTarget,
         RenderApp,
     },
-    utils::Duration,
 };
 
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins.set(AssetPlugin {
-                // Hot reloading the shader works correctly
-                watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
-                ..default()
-            }),
+            DefaultPlugins.set(AssetPlugin::default().watch_for_changes()),
             PostProcessPlugin,
         ))
         .add_systems(Startup, setup)
@@ -158,7 +152,8 @@ impl ViewNode for PostProcessNode {
         let pipeline_cache = world.resource::<PipelineCache>();
 
         // Get the pipeline from the cache
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(post_process_pipeline.pipeline_id) else {
+        let Some(pipeline) = pipeline_cache.get_render_pipeline(post_process_pipeline.pipeline_id)
+        else {
             return Ok(());
         };
 

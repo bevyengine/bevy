@@ -513,8 +513,8 @@ pub mod prelude {
     pub use crate::std_traits::*;
     #[doc(hidden)]
     pub use crate::{
-        reflect_trait, FromReflect, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
-        ReflectFromReflect, ReflectSerialize, Struct, TupleStruct,
+        reflect_trait, FromReflect, GetField, GetPath, GetTupleStructField, Reflect,
+        ReflectDeserialize, ReflectFromReflect, ReflectPath, ReflectSerialize, Struct, TupleStruct,
     };
 }
 

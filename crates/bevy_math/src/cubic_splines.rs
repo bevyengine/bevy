@@ -28,7 +28,7 @@ impl Point for Vec3A {}
 impl Point for Vec2 {}
 impl Point for f32 {}
 
-/// A spline composed of a series of cubic Bezier curves.
+/// A spline composed of a single cubic Bezier curve.
 ///
 /// Useful for user-drawn curves with local control, or animation easing. See
 /// [`CubicSegment::new_bezier`] for use in easing.
@@ -53,22 +53,22 @@ impl Point for f32 {}
 ///     vec2(5.0, 3.0),
 ///     vec2(9.0, 8.0),
 /// ]];
-/// let bezier = Bezier::new(points).to_curve();
+/// let bezier = CubicBezier::new(points).to_curve();
 /// let positions: Vec<_> = bezier.iter_positions(100).collect();
 /// ```
-pub struct Bezier<P: Point> {
+pub struct CubicBezier<P: Point> {
     control_points: Vec<[P; 4]>,
 }
 
-impl<P: Point> Bezier<P> {
-    /// Create a new Bezier curve from sets of control points.
+impl<P: Point> CubicBezier<P> {
+    /// Create a new cubic Bezier curve from sets of control points.
     pub fn new(control_points: impl Into<Vec<[P; 4]>>) -> Self {
         Self {
             control_points: control_points.into(),
         }
     }
 }
-impl<P: Point> CubicGenerator<P> for Bezier<P> {
+impl<P: Point> CubicGenerator<P> for CubicBezier<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         let char_matrix = [
@@ -133,10 +133,7 @@ impl<P: Point> Hermite<P> {
         tangents: impl IntoIterator<Item = P>,
     ) -> Self {
         Self {
-            control_points: control_points
-                .into_iter()
-                .zip(tangents.into_iter())
-                .collect(),
+            control_points: control_points.into_iter().zip(tangents).collect(),
         }
     }
 }
@@ -340,7 +337,7 @@ impl CubicSegment<Vec2> {
     /// example, the ubiquitous "ease-in-out" is defined as `(0.25, 0.1), (0.25, 1.0)`.
     pub fn new_bezier(p1: impl Into<Vec2>, p2: impl Into<Vec2>) -> Self {
         let (p0, p3) = (Vec2::ZERO, Vec2::ONE);
-        let bezier = Bezier::new([[p0, p1.into(), p2.into(), p3]]).to_curve();
+        let bezier = CubicBezier::new([[p0, p1.into(), p2.into(), p3]]).to_curve();
         bezier.segments[0].clone()
     }
 
@@ -553,7 +550,7 @@ impl<P: Point> CubicCurve<P> {
 mod tests {
     use glam::{vec2, Vec2};
 
-    use crate::cubic_splines::{Bezier, CubicGenerator, CubicSegment};
+    use crate::cubic_splines::{CubicBezier, CubicGenerator, CubicSegment};
 
     /// How close two floats can be and still be considered equal
     const FLOAT_EQ: f32 = 1e-5;
@@ -568,7 +565,7 @@ mod tests {
             vec2(5.0, 3.0),
             vec2(9.0, 8.0),
         ]];
-        let bezier = Bezier::new(points).to_curve();
+        let bezier = CubicBezier::new(points).to_curve();
         for i in 0..=N_SAMPLES {
             let t = i as f32 / N_SAMPLES as f32; // Check along entire length
             assert!(bezier.position(t).distance(cubic_manual(t, points[0])) <= FLOAT_EQ);
