@@ -1,8 +1,8 @@
 use crate::{
     environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
-    GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
-    ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers, ViewClusterBindings,
-    ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
+    GpuPointLights, LightMeta, MaterialBindGroupId, NotShadowCaster, NotShadowReceiver,
+    PreviousGlobalTransform, ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers,
+    ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
@@ -16,11 +16,15 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{
     prelude::*,
-    query::ROQueryItem,
+    query::{QueryItem, ROQueryItem},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Affine3, Affine3A, Mat4, Vec2, Vec3Swizzles, Vec4};
+use bevy_math::{Affine3, Mat4, Vec2, Vec4};
 use bevy_render::{
+    batching::{
+        batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
+        NoAutomaticBatching,
+    },
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -29,7 +33,7 @@ use bevy_render::{
     },
     prelude::Msaa,
     render_asset::RenderAssets,
-    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, TrackedRenderPass},
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
@@ -41,7 +45,6 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, HashMap, Hashed};
-use fixedbitset::FixedBitSet;
 
 use crate::render::{
     morph::{extract_morphs, prepare_morphs, MorphIndex, MorphUniform},
@@ -119,7 +122,15 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        prepare_mesh_uniforms.in_set(RenderSet::PrepareResources),
+                        (
+                            batch_and_prepare_render_phase::<Opaque3d, MeshPipeline>,
+                            batch_and_prepare_render_phase::<Transparent3d, MeshPipeline>,
+                            batch_and_prepare_render_phase::<AlphaMask3d, MeshPipeline>,
+                            batch_and_prepare_render_phase::<Shadow, MeshPipeline>,
+                        )
+                            .in_set(RenderSet::PrepareResources),
+                        write_batched_instance_buffer::<MeshPipeline>
+                            .in_set(RenderSet::PrepareResourcesFlush),
                         prepare_skinned_meshes.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
                         prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
@@ -184,48 +195,13 @@ pub struct MeshUniform {
 
 impl From<&MeshTransforms> for MeshUniform {
     fn from(mesh_transforms: &MeshTransforms) -> Self {
-        let transpose_model_3x3 = mesh_transforms.transform.matrix3.transpose();
-        let transpose_previous_model_3x3 = mesh_transforms.previous_transform.matrix3.transpose();
-        let inverse_transpose_model_3x3 = Affine3A::from(&mesh_transforms.transform)
-            .inverse()
-            .matrix3
-            .transpose();
+        let (inverse_transpose_model_a, inverse_transpose_model_b) =
+            mesh_transforms.transform.inverse_transpose_3x3();
         Self {
-            transform: [
-                transpose_model_3x3
-                    .x_axis
-                    .extend(mesh_transforms.transform.translation.x),
-                transpose_model_3x3
-                    .y_axis
-                    .extend(mesh_transforms.transform.translation.y),
-                transpose_model_3x3
-                    .z_axis
-                    .extend(mesh_transforms.transform.translation.z),
-            ],
-            previous_transform: [
-                transpose_previous_model_3x3
-                    .x_axis
-                    .extend(mesh_transforms.previous_transform.translation.x),
-                transpose_previous_model_3x3
-                    .y_axis
-                    .extend(mesh_transforms.previous_transform.translation.y),
-                transpose_previous_model_3x3
-                    .z_axis
-                    .extend(mesh_transforms.previous_transform.translation.z),
-            ],
-            inverse_transpose_model_a: [
-                (
-                    inverse_transpose_model_3x3.x_axis,
-                    inverse_transpose_model_3x3.y_axis.x,
-                )
-                    .into(),
-                (
-                    inverse_transpose_model_3x3.y_axis.yz(),
-                    inverse_transpose_model_3x3.z_axis.xy(),
-                )
-                    .into(),
-            ],
-            inverse_transpose_model_b: inverse_transpose_model_3x3.z_axis.z,
+            transform: mesh_transforms.transform.to_transpose(),
+            previous_transform: mesh_transforms.previous_transform.to_transpose(),
+            inverse_transpose_model_a,
+            inverse_transpose_model_b,
             flags: mesh_transforms.flags,
         }
     }
@@ -234,7 +210,7 @@ impl From<&MeshTransforms> for MeshUniform {
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
-    struct MeshFlags: u32 {
+    pub struct MeshFlags: u32 {
         const SHADOW_RECEIVER            = (1 << 0);
         // Indicates the sign of the determinant of the 3x3 model matrix. If the sign is positive,
         // then the flag should be set, else it should not be set.
@@ -361,7 +337,12 @@ pub fn extract_skinned_meshes(
             SkinnedMeshJoints::build(skin, &inverse_bindposes, &joint_query, &mut uniform.buffer)
         {
             last_start = last_start.max(skinned_joints.index as usize);
-            values.push((entity, skinned_joints.to_buffer_index()));
+            // NOTE: The skinned joints uniform buffer has to be bound at a dynamic offset per
+            // entity and so cannot currently be batched.
+            values.push((
+                entity,
+                (skinned_joints.to_buffer_index(), NoAutomaticBatching),
+            ));
         }
     }
 
@@ -372,63 +353,6 @@ pub fn extract_skinned_meshes(
 
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn prepare_mesh_uniforms(
-    mut seen: Local<FixedBitSet>,
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut gpu_array_buffer: ResMut<GpuArrayBuffer<MeshUniform>>,
-    views: Query<(
-        &RenderPhase<Opaque3d>,
-        &RenderPhase<Transparent3d>,
-        &RenderPhase<AlphaMask3d>,
-    )>,
-    shadow_views: Query<&RenderPhase<Shadow>>,
-    meshes: Query<(Entity, &MeshTransforms)>,
-) {
-    gpu_array_buffer.clear();
-    seen.clear();
-
-    let mut indices = Vec::with_capacity(*previous_len);
-    let mut push_indices = |(mesh, mesh_uniform): (Entity, &MeshTransforms)| {
-        let index = mesh.index() as usize;
-        if !seen.contains(index) {
-            if index >= seen.len() {
-                seen.grow(index + 1);
-            }
-            seen.insert(index);
-            indices.push((mesh, gpu_array_buffer.push(mesh_uniform.into())));
-        }
-    };
-
-    for (opaque_phase, transparent_phase, alpha_phase) in &views {
-        meshes
-            .iter_many(opaque_phase.iter_entities())
-            .for_each(&mut push_indices);
-
-        meshes
-            .iter_many(transparent_phase.iter_entities())
-            .for_each(&mut push_indices);
-
-        meshes
-            .iter_many(alpha_phase.iter_entities())
-            .for_each(&mut push_indices);
-    }
-
-    for shadow_phase in &shadow_views {
-        meshes
-            .iter_many(shadow_phase.iter_entities())
-            .for_each(&mut push_indices);
-    }
-
-    *previous_len = indices.len();
-    commands.insert_or_spawn_batch(indices);
-
-    gpu_array_buffer.write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Resource, Clone)]
@@ -445,11 +369,9 @@ pub struct MeshPipeline {
     /// Use code like this in custom shaders:
     /// ```wgsl
     /// ##ifdef PER_OBJECT_BUFFER_BATCH_SIZE
-    /// @group(2) @binding(0)
-    /// var<uniform> mesh: array<Mesh, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
+    /// @group(2) @binding(0) var<uniform> mesh: array<Mesh, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
     /// ##else
-    /// @group(2) @binding(0)
-    /// var<storage> mesh: array<Mesh>;
+    /// @group(2) @binding(0) var<storage> mesh: array<Mesh>;
     /// ##endif // PER_OBJECT_BUFFER_BATCH_SIZE
     /// ```
     pub per_object_buffer_batch_size: Option<u32>,
@@ -712,6 +634,26 @@ impl MeshPipeline {
                 &self.dummy_white_gpu_image.sampler,
             ))
         }
+    }
+}
+
+impl GetBatchData for MeshPipeline {
+    type Query = (
+        Option<&'static MaterialBindGroupId>,
+        &'static Handle<Mesh>,
+        &'static MeshTransforms,
+    );
+    type CompareData = (Option<MaterialBindGroupId>, AssetId<Mesh>);
+    type BufferData = MeshUniform;
+
+    fn get_buffer_data(&(.., mesh_transforms): &QueryItem<Self::Query>) -> Self::BufferData {
+        mesh_transforms.into()
+    }
+
+    fn get_compare_data(
+        &(material_bind_group_id, mesh_handle, ..): &QueryItem<Self::Query>,
+    ) -> Self::CompareData {
+        (material_bind_group_id.copied(), mesh_handle.id())
     }
 }
 
@@ -1366,16 +1308,15 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
     type ViewWorldQuery = ();
     type ItemWorldQuery = (
         Read<Handle<Mesh>>,
-        Read<GpuArrayBufferIndex<MeshUniform>>,
         Option<Read<SkinnedMeshJoints>>,
         Option<Read<MorphIndex>>,
     );
 
     #[inline]
     fn render<'w>(
-        _item: &P,
+        item: &P,
         _view: (),
-        (mesh, batch_indices, skin_index, morph_index): ROQueryItem<Self::ItemWorldQuery>,
+        (mesh, skin_index, morph_index): ROQueryItem<Self::ItemWorldQuery>,
         bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -1393,20 +1334,20 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         };
 
         let mut dynamic_offsets: [u32; 3] = Default::default();
-        let mut index_count = 0;
-        if let Some(mesh_index) = batch_indices.dynamic_offset {
-            dynamic_offsets[index_count] = mesh_index;
-            index_count += 1;
+        let mut offset_count = 0;
+        if let Some(dynamic_offset) = item.dynamic_offset() {
+            dynamic_offsets[offset_count] = dynamic_offset.get();
+            offset_count += 1;
         }
         if let Some(skin_index) = skin_index {
-            dynamic_offsets[index_count] = skin_index.index;
-            index_count += 1;
+            dynamic_offsets[offset_count] = skin_index.index;
+            offset_count += 1;
         }
         if let Some(morph_index) = morph_index {
-            dynamic_offsets[index_count] = morph_index.index;
-            index_count += 1;
+            dynamic_offsets[offset_count] = morph_index.index;
+            offset_count += 1;
         }
-        pass.set_bind_group(I, bind_group, &dynamic_offsets[0..index_count]);
+        pass.set_bind_group(I, bind_group, &dynamic_offsets[0..offset_count]);
 
         RenderCommandResult::Success
     }
@@ -1416,22 +1357,23 @@ pub struct DrawMesh;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
     type Param = SRes<RenderAssets<Mesh>>;
     type ViewWorldQuery = ();
-    type ItemWorldQuery = (Read<GpuArrayBufferIndex<MeshUniform>>, Read<Handle<Mesh>>);
+    type ItemWorldQuery = Read<Handle<Mesh>>;
     #[inline]
     fn render<'w>(
-        _item: &P,
+        item: &P,
         _view: (),
-        (batch_indices, mesh_handle): ROQueryItem<'_, Self::ItemWorldQuery>,
+        mesh_handle: ROQueryItem<'_, Self::ItemWorldQuery>,
         meshes: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
+            let batch_range = item.batch_range();
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
             #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
             pass.set_push_constants(
                 ShaderStages::VERTEX,
                 0,
-                &(batch_indices.index as i32).to_le_bytes(),
+                &(batch_range.start as i32).to_le_bytes(),
             );
             match &gpu_mesh.buffer_info {
                 GpuBufferInfo::Indexed {
@@ -1440,13 +1382,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                     count,
                 } => {
                     pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                    pass.draw_indexed(0..*count, 0, batch_indices.index..batch_indices.index + 1);
+                    pass.draw_indexed(0..*count, 0, batch_range.clone());
                 }
                 GpuBufferInfo::NonIndexed => {
-                    pass.draw(
-                        0..gpu_mesh.vertex_count,
-                        batch_indices.index..batch_indices.index + 1,
-                    );
+                    pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
                 }
             }
             RenderCommandResult::Success

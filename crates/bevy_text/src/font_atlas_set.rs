@@ -153,7 +153,13 @@ impl FontAtlasSet {
             })
     }
 
-    pub fn num_font_atlases(&self) -> usize {
+    /// Returns the number of font atlases in this set
+    pub fn len(&self) -> usize {
         self.font_atlases.len()
+    }
+
+    /// Returns `true` if the font atlas set contains no elements
+    pub fn is_empty(&self) -> bool {
+        self.font_atlases.is_empty()
     }
 }

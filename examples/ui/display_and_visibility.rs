@@ -82,8 +82,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn(NodeBundle {
         style: Style {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
             flex_direction: FlexDirection::Column,
-            flex_basis: Val::Percent(100.),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceEvenly,
             ..Default::default()
@@ -189,9 +190,6 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
         .with_children(|parent| {
             parent
                 .spawn(NodeBundle {
-                    style: Style {
-                        ..Default::default()
-                    },
                     background_color: BackgroundColor(Color::BLACK),
                     ..Default::default()
                 })
