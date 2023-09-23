@@ -224,12 +224,7 @@ fn animate_light_direction(
         return;
     }
     for mut transform in &mut query {
-        transform.rotation = Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            time.elapsed_seconds() * PI / 5.0,
-            -FRAC_PI_4,
-        );
+        transform.rotate_y(time.delta_seconds() * PI / 5.0);
     }
 }
 
