@@ -245,7 +245,7 @@ webgl2 = ["bevy_internal/webgl"]
 file_watcher = ["bevy_internal/file_watcher"]
 
 # Enables watching in memory asset providers for Bevy Asset hot-reloading
-rust_src_watcher = ["bevy_internal/rust_src_watcher"]
+embedded_watcher = ["bevy_internal/embedded_watcher"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0-dev", default-features = false, optional = true }

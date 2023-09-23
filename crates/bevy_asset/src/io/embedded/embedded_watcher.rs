@@ -14,11 +14,11 @@ use std::{
     sync::Arc,
 };
 
-pub struct RustSrcWatcher {
+pub struct EmbeddedWatcher {
     _watcher: Debouncer<RecommendedWatcher, FileIdMap>,
 }
 
-impl RustSrcWatcher {
+impl EmbeddedWatcher {
     pub fn new(
         dir: Dir,
         root_paths: Arc<RwLock<HashMap<PathBuf, PathBuf>>>,
@@ -26,7 +26,7 @@ impl RustSrcWatcher {
         debounce_wait_time: Duration,
     ) -> Self {
         let root = get_base_path();
-        let handler = RustSrcEventHandler {
+        let handler = EmbeddedEventHandler {
             dir,
             root: root.clone(),
             sender,
@@ -38,19 +38,19 @@ impl RustSrcWatcher {
     }
 }
 
-impl AssetWatcher for RustSrcWatcher {}
+impl AssetWatcher for EmbeddedWatcher {}
 
-/// A [`FilesystemEventHandler`] that uses [`RustSrcRegistry`](crate::io::rust_src::RustSrcRegistry) to hot-reload
+/// A [`FilesystemEventHandler`] that uses [`EmbeddedAssetRegistry`](crate::io::embedded::EmbeddedAssetRegistry) to hot-reload
 /// binary-embedded Rust source files. This will read the contents of changed files from the file system and overwrite
 /// the initial static bytes from the file embedded in the binary.
-pub(crate) struct RustSrcEventHandler {
+pub(crate) struct EmbeddedEventHandler {
     sender: crossbeam_channel::Sender<AssetSourceEvent>,
     root_paths: Arc<RwLock<HashMap<PathBuf, PathBuf>>>,
     root: PathBuf,
     dir: Dir,
     last_event: Option<AssetSourceEvent>,
 }
-impl FilesystemEventHandler for RustSrcEventHandler {
+impl FilesystemEventHandler for EmbeddedEventHandler {
     fn begin(&mut self) {
         self.last_event = None;
     }

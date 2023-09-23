@@ -12,7 +12,7 @@ keywords = ["bevy"]
 
 [features]
 file_watcher = ["notify-debouncer-full", "watch"]
-rust_src_watcher = ["file_watcher"]
+embedded_watcher = ["file_watcher"]
 multi-threaded = ["bevy_tasks/multi-threaded"]
 watch = []
 

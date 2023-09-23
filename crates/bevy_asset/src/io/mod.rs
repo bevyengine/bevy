@@ -1,11 +1,11 @@
 #[cfg(target_os = "android")]
 pub mod android;
+pub mod embedded;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod file;
 pub mod gated;
 pub mod memory;
 pub mod processor_gated;
-pub mod rust_src;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
 

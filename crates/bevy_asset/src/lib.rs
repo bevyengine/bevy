@@ -37,7 +37,7 @@ pub use anyhow;
 pub use bevy_utils::BoxedFuture;
 
 use crate::{
-    io::{rust_src::RustSrcRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
+    io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
     processor::{AssetProcessor, Process},
 };
 use bevy_app::{App, First, MainScheduleOrder, Plugin, PostUpdate, Startup};
@@ -114,13 +114,13 @@ impl AssetPlugin {
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut App) {
         app.init_schedule(UpdateAssets).init_schedule(AssetEvents);
-        let rust_src = RustSrcRegistry::default();
+        let embedded = EmbeddedAssetRegistry::default();
         {
             let mut sources = app
                 .world
                 .get_resource_or_insert_with::<AssetSourceBuilders>(Default::default);
             sources.init_default_sources(&self.file_path, &self.processed_file_path);
-            rust_src.register_source(&mut sources);
+            embedded.register_source(&mut sources);
         }
         {
             let mut watch = cfg!(feature = "watch");
@@ -163,7 +163,7 @@ impl Plugin for AssetPlugin {
                 }
             }
         }
-        app.insert_resource(rust_src)
+        app.insert_resource(embedded)
             .init_asset::<LoadedFolder>()
             .init_asset::<()>()
             .configure_sets(

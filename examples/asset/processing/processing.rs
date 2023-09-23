@@ -2,9 +2,9 @@
 
 use bevy::{
     asset::{
+        embedded_asset,
         io::{Reader, Writer},
         processor::LoadAndSave,
-        rust_src_asset,
         saver::{AssetSaver, SavedAsset},
         AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
     },
@@ -51,7 +51,7 @@ pub struct TextPlugin;
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
-        rust_src_asset!(app, "examples/asset/processing/", "e.txt");
+        embedded_asset!(app, "examples/asset/processing/", "e.txt");
         app.init_asset::<CoolText>()
             .init_asset::<Text>()
             .register_asset_loader(CoolTextLoader)
@@ -197,7 +197,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         b: assets.load("foo/b.cool.ron"),
         c: assets.load("foo/c.cool.ron"),
         d: assets.load("d.cool.ron"),
-        e: assets.load("rust_src://asset_processing/e.txt"),
+        e: assets.load("embedded://asset_processing/e.txt"),
     });
 }
 
