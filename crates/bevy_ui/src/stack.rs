@@ -15,6 +15,31 @@ pub struct UiStack {
     pub uinodes: Vec<Entity>,
 }
 
+fn update_uistack_recursively(
+    entity: Entity,
+    uinodes: &mut Vec<Entity>,
+    children_query: &Query<&Children>,
+    zindex_query: &Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
+) {
+    uinodes.push(entity);
+
+    if let Ok(children) = children_query.get(entity) {
+        let mut z_children: Vec<(Entity, i32)> = children
+            .iter()
+            .filter_map(|entity| {
+                zindex_query
+                    .get(*entity)
+                    .ok()
+                    .map(|zindex| (*entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
+            })
+            .collect();
+        z_children.sort_by_key(|k| k.1);
+        for (child_id, _) in z_children {
+            update_uistack_recursively(child_id, uinodes, children_query, zindex_query);
+        }
+    }
+}
+
 /// Generates the render stack for UI nodes.
 pub fn ui_stack_system(
     mut ui_stack: ResMut<UiStack>,
@@ -31,31 +56,6 @@ pub fn ui_stack_system(
 ) {
     ui_stack.uinodes.clear();
     let uinodes = &mut ui_stack.uinodes;
-
-    fn update_uistack_recursively(
-        entity: Entity,
-        uinodes: &mut Vec<Entity>,
-        children_query: &Query<&Children>,
-        zindex_query: &Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
-    ) {
-        uinodes.push(entity);
-
-        if let Ok(children) = children_query.get(entity) {
-            let mut z_children: Vec<(Entity, i32)> = children
-                .iter()
-                .filter_map(|entity| {
-                    zindex_query
-                        .get(*entity)
-                        .ok()
-                        .map(|zindex| (*entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
-                })
-                .collect();
-            z_children.sort_by_key(|k| k.1);
-            for (child_id, _) in z_children {
-                update_uistack_recursively(child_id, uinodes, children_query, zindex_query);
-            }
-        }
-    }
 
     let global_nodes = zindex_global_node_query
         .iter()
