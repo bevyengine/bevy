@@ -440,7 +440,7 @@ impl App {
     /// #
     /// app.add_event::<MyEvent>();
     /// ```
-    /// 
+    ///
     /// [`event_update_system`]: beyv_ecs::event::event_update_system
     pub fn add_event<T>(&mut self) -> &mut Self
     where
