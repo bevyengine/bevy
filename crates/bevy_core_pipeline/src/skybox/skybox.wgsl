@@ -6,7 +6,6 @@
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0) world_position: vec3<f32>,
 };
 
 //  3 |  2.
@@ -29,21 +28,33 @@ fn skybox_vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
         0.25,
         0.5
     ) * 4.0 - vec4(1.0);
-    // Use the position on the near clipping plane to avoid -inf world position
-    // because the far plane of an infinite reverse projection is at infinity.
-    // NOTE: The clip position has a w component equal to 1.0 so we don't need
-    // to apply a perspective divide to it before inverse-projecting it.
-    let world_position_homogeneous = view.inverse_view_proj * vec4(clip_position.xy, 1.0, 1.0);
-    let world_position = world_position_homogeneous.xyz / world_position_homogeneous.w;
 
-    return VertexOutput(clip_position, world_position);
+    return VertexOutput(clip_position);
 }
 
 @fragment
 fn skybox_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    // The skybox cubemap is sampled along the direction from the camera world
-    // position, to the fragment world position on the near clipping plane
-    let ray_direction = in.world_position - view.world_position;
-    // cube maps are left-handed so we negate the z coordinate
-    return textureSample(skybox, skybox_sampler, ray_direction * vec3(1.0, 1.0, -1.0));
+    // Using world positions of the fragment and camera to calculate a ray direction
+    // break down at large translations. This code only needs to know the ray direction.
+    // The ray direction is along the direction from the camera to the fragment position.
+    // In view space, the camera is at the origin, so the view space ray direction is
+    // along the direction of the fragment position - (0,0,0) which is just the
+    // fragment position.
+    // Use the position on the near clipping plane to avoid -inf world position
+    // because the far plane of an infinite reverse projection is at infinity.
+    let view_position_homogeneous = view.inverse_projection * vec4(
+        in.clip_position.xy / view.viewport.zw * vec2(2.0, -2.0) + vec2(-1.0, 1.0),
+        1.0,
+        1.0
+    );
+    let view_position = view_position_homogeneous.xyz / view_position_homogeneous.w;
+    let view_ray_direction = normalize(view_position);
+    // Transforming the view space ray direction by the view matrix, transforms the
+    // direction to world space. Note that the w element is set to 0.0, as this is a
+    // vector direction, not a position, That causes the matrix multiplication to ignore
+    // the translations from the view matrix.
+    let ray_direction = (view.view * vec4(view_ray_direction, 0.0)).xyz;
+
+    // Cube maps are left-handed so we negate the z coordinate.
+    return textureSample(skybox, skybox_sampler, normalize(ray_direction) * vec3(1.0, 1.0, -1.0));
 }
