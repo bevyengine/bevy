@@ -1,8 +1,8 @@
 use indexmap::IndexMap;
 use naga::{
-    Arena, Block, Constant, EntryPoint, Expression, Function, FunctionArgument, FunctionResult,
-    GlobalVariable, Handle, ImageQuery, LocalVariable, Module, SampleLevel, Span, Statement,
-    StructMember, SwitchCase, Type, TypeInner, UniqueArena,
+    Arena, AtomicFunction, Block, Constant, EntryPoint, Expression, Function, FunctionArgument,
+    FunctionResult, GlobalVariable, Handle, ImageQuery, LocalVariable, Module, SampleLevel, Span,
+    Statement, StructMember, SwitchCase, Type, TypeInner, UniqueArena,
 };
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
@@ -322,12 +322,22 @@ impl<'a> DerivedModule<'a> {
                         fun,
                         value,
                         result,
-                    } => Statement::Atomic {
-                        pointer: map_expr!(pointer),
-                        fun: *fun,
-                        value: map_expr!(value),
-                        result: map_expr!(result),
-                    },
+                    } => {
+                        let fun = match fun {
+                            AtomicFunction::Exchange {
+                                compare: Some(compare_expr),
+                            } => AtomicFunction::Exchange {
+                                compare: Some(map_expr!(compare_expr)),
+                            },
+                            fun => *fun,
+                        };
+                        Statement::Atomic {
+                            pointer: map_expr!(pointer),
+                            fun,
+                            value: map_expr!(value),
+                            result: map_expr!(result),
+                        }
+                    }
                     Statement::WorkGroupUniformLoad { pointer, result } => {
                         Statement::WorkGroupUniformLoad {
                             pointer: map_expr!(pointer),
@@ -568,8 +578,15 @@ impl<'a> DerivedModule<'a> {
                 expr.clone()
             }
 
-            Expression::AtomicResult { .. } => expr.clone(),
-            Expression::WorkGroupUniformLoadResult { .. } => expr.clone(),
+            Expression::AtomicResult { ty, comparison } => Expression::AtomicResult {
+                ty: self.import_type(ty),
+                comparison: *comparison,
+            },
+            Expression::WorkGroupUniformLoadResult { ty } => {
+                Expression::WorkGroupUniformLoadResult {
+                    ty: self.import_type(ty),
+                }
+            }
             Expression::RayQueryProceedResult => expr.clone(),
             Expression::RayQueryGetIntersection { query, committed } => {
                 Expression::RayQueryGetIntersection {
