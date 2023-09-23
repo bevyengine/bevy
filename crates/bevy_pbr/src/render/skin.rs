@@ -53,6 +53,7 @@ pub fn prepare_skins(
     uniform.buffer.write_buffer(&render_device, &render_queue);
 }
 
+// PERF: This can be expensive, can we move this to prepare?
 pub fn extract_skins(
     mut commands: Commands,
     mut previous_len: Local<usize>,
@@ -70,7 +71,6 @@ pub fn extract_skins(
         if !view_visibility.get() {
             continue;
         }
-        // PERF: This can be expensive, can we move this to prepare?
         let buffer = &mut uniform.buffer;
         let Some(inverse_bindposes) = inverse_bindposes.get(&skin.inverse_bindposes) else {
             continue;
