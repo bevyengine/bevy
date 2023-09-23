@@ -37,6 +37,7 @@
 //! [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
 mod map_entities;
 
+use bevy_utils::tracing::warn;
 pub use map_entities::*;
 
 use crate::{
@@ -44,7 +45,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, fmt, mem, sync::atomic::Ordering};
+use std::{convert::TryFrom, fmt, mem, num::NonZeroU32, sync::atomic::Ordering};
 
 #[cfg(target_has_atomic = "64")]
 use std::sync::atomic::AtomicI64 as AtomicIdCursor;
@@ -117,7 +118,7 @@ type IdCursor = isize;
 /// [`World`]: crate::world::World
 #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Entity {
-    generation: u32,
+    generation: NonZeroU32,
     index: u32,
 }
 
@@ -129,8 +130,12 @@ pub(crate) enum AllocAtWithoutReplacement {
 
 impl Entity {
     #[cfg(test)]
-    pub(crate) const fn new(index: u32, generation: u32) -> Entity {
-        Entity { index, generation }
+    pub(crate) const fn new(index: u32, generation: u32) -> Result<Entity, &'static str> {
+        if let Some(generation) = NonZeroU32::new(generation) {
+            Ok(Entity { index, generation })
+        } else {
+            Err("Failed to construct Entity, check that generation > 0")
+        }
     }
 
     /// An entity ID with a placeholder value. This may or may not correspond to an actual entity,
@@ -184,7 +189,7 @@ impl Entity {
     pub const fn from_raw(index: u32) -> Entity {
         Entity {
             index,
-            generation: 0,
+            generation: NonZeroU32::MIN,
         }
     }
 
@@ -195,16 +200,20 @@ impl Entity {
     ///
     /// No particular structure is guaranteed for the returned bits.
     pub const fn to_bits(self) -> u64 {
-        (self.generation as u64) << 32 | self.index as u64
+        (self.generation.get() as u64) << 32 | self.index as u64
     }
 
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.
-    pub const fn from_bits(bits: u64) -> Self {
-        Self {
-            generation: (bits >> 32) as u32,
-            index: bits as u32,
+    pub const fn from_bits(bits: u64) -> Option<Self> {
+        if let Some(generation) = NonZeroU32::new((bits >> 32) as u32) {
+            Some(Self {
+                generation,
+                index: bits as u32,
+            })
+        } else {
+            None
         }
     }
 
@@ -223,7 +232,7 @@ impl Entity {
     /// given index has been reused (index, generation) pairs uniquely identify a given Entity.
     #[inline]
     pub const fn generation(self) -> u32 {
-        self.generation
+        self.generation.get()
     }
 }
 
@@ -241,8 +250,9 @@ impl<'de> Deserialize<'de> for Entity {
     where
         D: serde::Deserializer<'de>,
     {
+        use serde::de::Error;
         let id: u64 = serde::de::Deserialize::deserialize(deserializer)?;
-        Ok(Entity::from_bits(id))
+        Entity::from_bits(id).ok_or(D::Error::custom("Invalid generation bits"))
     }
 }
 
@@ -289,7 +299,7 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
             })
             .or_else(|| {
                 self.index_range.next().map(|index| Entity {
-                    generation: 0,
+                    generation: NonZeroU32::MIN,
                     index,
                 })
             })
@@ -437,7 +447,7 @@ impl Entities {
             // As `self.free_cursor` goes more and more negative, we return IDs farther
             // and farther beyond `meta.len()`.
             Entity {
-                generation: 0,
+                generation: NonZeroU32::MIN,
                 index: u32::try_from(self.meta.len() as IdCursor - n).expect("too many entities"),
             }
         }
@@ -466,7 +476,7 @@ impl Entities {
             let index = u32::try_from(self.meta.len()).expect("too many entities");
             self.meta.push(EntityMeta::EMPTY);
             Entity {
-                generation: 0,
+                generation: NonZeroU32::MIN,
                 index,
             }
         }
@@ -553,7 +563,18 @@ impl Entities {
         if meta.generation != entity.generation {
             return None;
         }
-        meta.generation += 1;
+
+        // NOTE: checked_add has more optimal instructions than NonZeroU32::checked_add or u32::wrapping_add
+        let new_generation = meta.generation.get().checked_add(1).unwrap_or(1);
+        // SAFETY: We use checked add to ensure that we wrap to 1, meaning it's safe to construct NonZeroU32 without checking
+        meta.generation = unsafe { NonZeroU32::new_unchecked(new_generation) };
+
+        if meta.generation == NonZeroU32::MIN {
+            warn!(
+                "Entity({}) generation wrapped on Entities::free, aliasing may occur",
+                entity.index
+            );
+        }
 
         let loc = mem::replace(&mut meta.location, EntityMeta::EMPTY.location);
 
@@ -583,7 +604,7 @@ impl Entities {
     // not reallocated since the generation is incremented in `free`
     pub fn contains(&self, entity: Entity) -> bool {
         self.resolve_from_id(entity.index())
-            .map_or(false, |e| e.generation() == entity.generation)
+            .map_or(false, |e| e.generation() == entity.generation())
     }
 
     /// Clears all [`Entity`] from the World.
@@ -635,7 +656,13 @@ impl Entities {
 
         let meta = &mut self.meta[index as usize];
         if meta.location.archetype_id == ArchetypeId::INVALID {
-            meta.generation += generations;
+            // TODO: wrapping add will make u32::MAX + 1 == u32::MAX + 2
+            let new_generation = meta.generation.get().wrapping_add(generations).max(1);
+            if new_generation < meta.generation.get() {
+                warn!("Entity({index}) generation wrapped on Entities::reserve_generations, aliasing may occur");
+            }
+            // SAFETY: We use u32::max to ensure that we wrap to 1, meaning it's safe to construct NonZeroU32 without checking
+            meta.generation = unsafe { NonZeroU32::new_unchecked(new_generation) };
             true
         } else {
             false
@@ -659,7 +686,7 @@ impl Entities {
             // Returning None handles that case correctly
             let num_pending = usize::try_from(-free_cursor).ok()?;
             (idu < self.meta.len() + num_pending).then_some(Entity {
-                generation: 0,
+                generation: NonZeroU32::MIN,
                 index,
             })
         }
@@ -777,7 +804,7 @@ impl Entities {
 #[repr(C)]
 struct EntityMeta {
     /// The current generation of the [`Entity`].
-    pub generation: u32,
+    pub generation: NonZeroU32,
     /// The current location of the [`Entity`]
     pub location: EntityLocation,
 }
@@ -785,7 +812,7 @@ struct EntityMeta {
 impl EntityMeta {
     /// meta for **pending entity**
     const EMPTY: EntityMeta = EntityMeta {
-        generation: 0,
+        generation: NonZeroU32::MIN,
         location: EntityLocation::INVALID,
     };
 }
@@ -834,12 +861,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn entity_niche_optimization() {
+        assert_eq!(
+            std::mem::size_of::<Entity>(),
+            std::mem::size_of::<Option<Entity>>()
+        );
+    }
+
+    #[test]
     fn entity_bits_roundtrip() {
         let e = Entity {
-            generation: 0xDEADBEEF,
+            generation: NonZeroU32::new(0xDEADBEEF).unwrap(),
             index: 0xBAADF00D,
         };
-        assert_eq!(Entity::from_bits(e.to_bits()), e);
+        assert_eq!(Entity::from_bits(e.to_bits()), Some(e));
     }
 
     #[test]
@@ -872,17 +907,21 @@ mod tests {
     #[test]
     fn entity_const() {
         const C1: Entity = Entity::from_raw(42);
-        assert_eq!(42, C1.index);
-        assert_eq!(0, C1.generation);
+        assert_eq!(42, C1.index());
+        assert_eq!(1, C1.generation());
 
-        const C2: Entity = Entity::from_bits(0x0000_00ff_0000_00cc);
-        assert_eq!(0x0000_00cc, C2.index);
-        assert_eq!(0x0000_00ff, C2.generation);
+        const C2: Option<Entity> = Entity::from_bits(0x0000_00ff_0000_00cc);
+        assert_eq!(Some(0x0000_00cc), C2.map(|v| v.index()));
+        assert_eq!(Some(0x0000_00ff), C2.map(|v| v.generation()));
 
         const C3: u32 = Entity::from_raw(33).index();
         assert_eq!(33, C3);
 
-        const C4: u32 = Entity::from_bits(0x00dd_00ff_0000_0000).generation();
+        const C4: u32 = if let Some(entity) = Entity::from_bits(0x00dd_00ff_0000_0000) {
+            entity.generation()
+        } else {
+            panic!("Could not construct Entity from bits, check generation > 1")
+        };
         assert_eq!(0x00dd_00ff, C4);
     }
 
@@ -908,6 +947,6 @@ mod tests {
         // The very next entity allocated should be a further generation on the same index
         let next_entity = entities.alloc();
         assert_eq!(next_entity.index(), entity.index());
-        assert!(next_entity.generation > entity.generation + GENERATIONS);
+        assert!(next_entity.generation() > entity.generation() + GENERATIONS);
     }
 }
