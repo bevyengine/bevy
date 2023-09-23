@@ -175,6 +175,76 @@ pub trait DetectChangesMut: DetectChanges {
         }
     }
 
+    /// NOCOMMIT fix comment
+    /// Similar to [`set_if_neq`](DetectChangesMut::set_if_neq), but for when the inner type
+    /// implements [`DerefMut`](https://doc.rust-lang.org/std/ops/trait.DerefMut.html).
+    ///
+    /// Dereferences the inner value, then overwrites this smart pointer with the given value, if and only if `**self != value`.
+    /// Returns `true` if the value was overwritten, and returns `false` if it was not.
+    ///
+    /// This is useful to ensure change detection is only triggered when the underlying value
+    /// changes, instead of every time it is mutably accessed.
+    ///
+    /// If you need the previous value, use [`replace_if_neq`](DetectChangesMut::replace_if_neq).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, schedule::common_conditions::resource_changed};
+    /// # use std::ops::{Deref, DerefMut};
+    /// #[derive(Resource, PartialEq, Eq)]
+    /// pub struct Score(u32);
+    ///
+    /// // These can be derived using bevy macros
+    /// impl Deref for Score {
+    ///     type Target = u32;
+    ///     fn deref(&self) -> &Self::Target {
+    ///         &self.0
+    ///     }
+    /// }
+    /// impl DerefMut for Score {
+    ///     fn deref_mut(&mut self) -> &mut Self::Target {
+    ///         &mut self.0
+    ///     }
+    /// }
+    ///
+    /// fn reset_score(mut score: ResMut<Score>) {
+    ///     // Set the score to zero, unless it is already zero.
+    ///     score.set_deref_if_neq(0);
+    /// }
+    ///
+    /// # let mut world = World::new();
+    /// # world.insert_resource(Score(1));
+    /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>());
+    /// # score_changed.initialize(&mut world);
+    /// # score_changed.run((), &mut world);
+    /// #
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_systems(reset_score);
+    /// #
+    /// # // first time `reset_score` runs, the score is changed.
+    /// # schedule.run(&mut world);
+    /// # assert!(score_changed.run((), &mut world));
+    /// # // second time `reset_score` runs, the score is not changed.
+    /// # schedule.run(&mut world);
+    /// # assert!(!score_changed.run((), &mut world));
+    /// ```
+    #[inline]
+    fn set_deref_if_neq(&mut self, value: <Self::Inner as Deref>::Target) -> bool
+    where
+        Self::Inner: DerefMut,
+        <Self::Inner as Deref>::Target: Sized + PartialEq,
+    {
+        let old = self.bypass_change_detection();
+        if **old != value {
+            **old = value;
+            self.set_changed();
+            true
+        } else {
+            false
+        }
+    }
+
     /// Overwrites this smart pointer with the given value, if and only if `*self != value`,
     /// returning the previous value if this occurs.
     ///
@@ -907,6 +977,7 @@ mod tests {
     use bevy_ecs_macros::Resource;
     use bevy_ptr::PtrMut;
     use bevy_reflect::{FromType, ReflectFromPtr};
+    use std::ops::{Deref, DerefMut};
 
     use crate::{
         self as bevy_ecs,
@@ -928,6 +999,19 @@ mod tests {
 
     #[derive(Resource, PartialEq)]
     struct R2(u8);
+
+    impl Deref for R2 {
+        type Target = u8;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    impl DerefMut for R2 {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            &mut self.0
+        }
+    }
 
     #[test]
     fn change_expiration() {
@@ -1137,6 +1221,32 @@ mod tests {
         );
 
         r.set_if_neq(R2(3));
+        assert!(
+            r.is_changed(),
+            "Resource must be changed after setting to a different value."
+        );
+    }
+
+    #[test]
+    fn set_deref_if_neq() {
+        let mut world = World::new();
+
+        world.insert_resource(R2(0));
+        // Resources are Changed when first added
+        world.increment_change_tick();
+        // This is required to update world::last_change_tick
+        world.clear_trackers();
+
+        let mut r = world.resource_mut::<R2>();
+        assert!(!r.is_changed(), "Resource must begin unchanged.");
+
+        r.set_deref_if_neq(0);
+        assert!(
+            !r.is_changed(),
+            "Resource must not be changed after setting to the same value."
+        );
+
+        r.set_deref_if_neq(3);
         assert!(
             r.is_changed(),
             "Resource must be changed after setting to a different value."
