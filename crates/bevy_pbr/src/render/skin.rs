@@ -97,6 +97,8 @@ pub fn extract_skins(
         while buffer.len() % 4 != 0 {
             buffer.push(Mat4::ZERO);
         }
+        // NOTE: The skinned joints uniform buffer has to be bound at a dynamic offset per
+        // entity and so cannot currently be batched.
         values.push((entity, (SkinIndex::new(start), NoAutomaticBatching)));
     }
 
