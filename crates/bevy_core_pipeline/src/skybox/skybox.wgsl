@@ -19,8 +19,7 @@ fn coords_to_ray_direction(position: vec2<f32>, viewport: vec4<f32>) -> vec3<f32
         1.0,
         1.0,
     );
-    let view_position = view_position_homogeneous.xyz / view_position_homogeneous.w;
-    let view_ray_direction = normalize(view_position);
+    let view_ray_direction = view_position_homogeneous.xyz / view_position_homogeneous.w;
     // Transforming the view space ray direction by the view matrix, transforms the
     // direction to world space. Note that the w element is set to 0.0, as this is a
     // vector direction, not a position, That causes the matrix multiplication to ignore
