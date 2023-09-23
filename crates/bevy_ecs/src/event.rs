@@ -754,7 +754,7 @@ pub fn event_update_system<T: Event>(mut events: ResMut<Events<T>>) {
     events.update();
 }
 
-/// A run condition that checks if the event's [`update_system`]
+/// A run condition that checks if the event's [`event_update_system`]
 /// needs to run or not.
 pub fn event_update_condition<T: Event>(events: Res<Events<T>>) -> bool {
     !events.events_a.is_empty() || !events.events_b.is_empty()
