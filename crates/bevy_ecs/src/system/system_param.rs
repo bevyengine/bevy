@@ -353,7 +353,7 @@ impl_param_set!();
 ///
 /// ```
 /// # let mut world = World::default();
-/// # let mut schedule = Schedule::default();
+/// # let mut schedule = Schedule::single_threaded();
 /// # use bevy_ecs::prelude::*;
 /// #[derive(Resource)]
 /// struct MyResource { value: u32 }

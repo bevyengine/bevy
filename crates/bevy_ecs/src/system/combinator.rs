@@ -50,7 +50,7 @@ use super::{ReadOnlySystem, System};
 /// # let mut world = World::new();
 /// # world.init_resource::<RanFlag>();
 /// #
-/// # let mut app = Schedule::default();
+/// # let mut app = Schedule::single_threaded();
 /// app.add_systems(my_system.run_if(Xor::new(
 ///     IntoSystem::into_system(resource_equals(A(1))),
 ///     IntoSystem::into_system(resource_equals(B(1))),
