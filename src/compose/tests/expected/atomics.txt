@@ -3,31 +3,31 @@ struct gen___atomic_compare_exchange_resultUint4_ {
     exchanged: bool,
 }
 
-var<workgroup> _naga_oil_mod_ORSXG5C7NVXWI5LMMU_memberatom: atomic<u32>;
+var<workgroup> atomX_naga_oil_mod_XORSXG5C7NVXWI5LMMUX: atomic<u32>;
 
-fn _naga_oil_mod_ORSXG5C7NVXWI5LMMU_memberentry_point() -> f32 {
+fn entry_pointX_naga_oil_mod_XORSXG5C7NVXWI5LMMUX() -> f32 {
     var y: u32;
 
-    atomicStore((&_naga_oil_mod_ORSXG5C7NVXWI5LMMU_memberatom), 1u);
-    let _e3: u32 = atomicLoad((&_naga_oil_mod_ORSXG5C7NVXWI5LMMU_memberatom));
+    atomicStore((&atomX_naga_oil_mod_XORSXG5C7NVXWI5LMMUX), 1u);
+    let _e3: u32 = atomicLoad((&atomX_naga_oil_mod_XORSXG5C7NVXWI5LMMUX));
     y = _e3;
-    let _e7: u32 = atomicAdd((&_naga_oil_mod_ORSXG5C7NVXWI5LMMU_memberatom), 2u);
+    let _e7: u32 = atomicAdd((&atomX_naga_oil_mod_XORSXG5C7NVXWI5LMMUX), 2u);
     let _e8: u32 = y;
     y = (_e8 + _e7);
-    let _e12: u32 = atomicSub((&_naga_oil_mod_ORSXG5C7NVXWI5LMMU_memberatom), 1u);
+    let _e12: u32 = atomicSub((&atomX_naga_oil_mod_XORSXG5C7NVXWI5LMMUX), 1u);
     let _e13: u32 = y;
     y = (_e13 + _e12);
-    let _e17: u32 = atomicMax((&_naga_oil_mod_ORSXG5C7NVXWI5LMMU_memberatom), 5u);
+    let _e17: u32 = atomicMax((&atomX_naga_oil_mod_XORSXG5C7NVXWI5LMMUX), 5u);
     let _e18: u32 = y;
     y = (_e18 + _e17);
-    let _e22: u32 = atomicMin((&_naga_oil_mod_ORSXG5C7NVXWI5LMMU_memberatom), 4u);
+    let _e22: u32 = atomicMin((&atomX_naga_oil_mod_XORSXG5C7NVXWI5LMMUX), 4u);
     let _e23: u32 = y;
     y = (_e23 + _e22);
     let _e25: u32 = y;
-    let _e27: u32 = atomicExchange((&_naga_oil_mod_ORSXG5C7NVXWI5LMMU_memberatom), _e25);
+    let _e27: u32 = atomicExchange((&atomX_naga_oil_mod_XORSXG5C7NVXWI5LMMUX), _e25);
     let _e28: u32 = y;
     y = (_e28 + _e27);
-    let _e33: gen___atomic_compare_exchange_resultUint4_ = atomicCompareExchangeWeak((&_naga_oil_mod_ORSXG5C7NVXWI5LMMU_memberatom), 12u, 0u);
+    let _e33: gen___atomic_compare_exchange_resultUint4_ = atomicCompareExchangeWeak((&atomX_naga_oil_mod_XORSXG5C7NVXWI5LMMUX), 12u, 0u);
     if _e33.exchanged {
         let _e36: u32 = y;
         y = (_e36 + _e33.old_value);
@@ -37,7 +37,7 @@ fn _naga_oil_mod_ORSXG5C7NVXWI5LMMU_memberentry_point() -> f32 {
 }
 
 fn main() -> f32 {
-    let _e0: f32 = _naga_oil_mod_ORSXG5C7NVXWI5LMMU_memberentry_point();
+    let _e0: f32 = entry_pointX_naga_oil_mod_XORSXG5C7NVXWI5LMMUX();
     return _e0;
 }
 
