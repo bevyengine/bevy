@@ -200,6 +200,16 @@ fn main() {
                 .run()
                 .unwrap();
 
+                // Don't use automatic position as it's "random" on Windows and breaks screenshot comparison
+                // using the cursor position
+                let sh = Shell::new().unwrap();
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/fixed-window-position.patch"
+                )
+                .run()
+                .unwrap();
+
                 // Setting lights ClusterConfig to have less clusters by default
                 // This is needed as the default config is too much for the CI runner
                 cmd!(
