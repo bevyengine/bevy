@@ -338,7 +338,7 @@ impl DivAssign<f32> for ScalingMode {
 /// });
 /// ```
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component)]
 pub struct OrthographicProjection {
     /// The distance of the near clipping plane in world units.
     ///
@@ -479,8 +479,25 @@ impl CameraProjection for OrthographicProjection {
     }
 }
 
-impl Default for OrthographicProjection {
-    fn default() -> Self {
+impl FromWorld for OrthographicProjection {
+    fn from_world(_world: &mut World) -> Self {
+        OrthographicProjection::default_3d()
+    }
+}
+
+impl OrthographicProjection {
+    pub fn default_2d() -> Self {
+        OrthographicProjection {
+            scale: 1.0,
+            near: -1000.0,
+            far: 1000.0,
+            viewport_origin: Vec2::new(0.5, 0.5),
+            scaling_mode: ScalingMode::WindowSize(1.0),
+            area: Rect::new(-1.0, -1.0, 1.0, 1.0),
+        }
+    }
+
+    pub fn default_3d() -> Self {
         OrthographicProjection {
             scale: 1.0,
             near: 0.0,
