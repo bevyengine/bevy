@@ -173,6 +173,10 @@ impl Default for Schedule {
     /// you don't care about the [`ScheduleLabel`]. Inserting a default schedule
     /// into the world risks overwriting another schedule. For most situations
     /// you should use [`Schedule::new`].
+    ///
+    /// # Note
+    /// In benchmarks/tests is recommended to use [`Schedule::single_threaded`]
+    /// instead, for lower overhead
     fn default() -> Self {
         Self::new(DefaultSchedule)
     }
@@ -1737,7 +1741,7 @@ mod tests {
         struct Set;
 
         let mut world = World::new();
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
 
         schedule.configure_sets(Set.run_if(|| false));
         schedule.add_systems(

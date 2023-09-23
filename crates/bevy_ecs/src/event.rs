@@ -1052,7 +1052,7 @@ mod tests {
         world.send_event(TestEvent { i: 3 });
         world.send_event(TestEvent { i: 4 });
 
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
         schedule.add_systems(|mut events: EventReader<TestEvent>| {
             let mut iter = events.read();
 

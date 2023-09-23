@@ -595,7 +595,7 @@ mod tests {
     }
 
     fn run_system<Marker, S: IntoSystem<(), (), Marker>>(world: &mut World, system: S) {
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
         schedule.add_systems(system);
         schedule.run(world);
     }
@@ -772,7 +772,7 @@ mod tests {
         world.insert_resource(Added(0));
         world.insert_resource(Changed(0));
 
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
 
         schedule.add_systems((incr_e_on_flip, apply_deferred, World::clear_trackers).chain());
 
@@ -1920,7 +1920,7 @@ mod tests {
 
         world.insert_resource(A);
         world.insert_resource(C(0));
-        let mut sched = Schedule::default();
+        let mut sched = Schedule::single_threaded();
         sched.add_systems(
             (
                 (|mut res: ResMut<C>| {

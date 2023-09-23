@@ -1735,7 +1735,7 @@ mod tests {
         }
 
         let mut world = World::new();
-        let mut schedule = crate::schedule::Schedule::default();
+        let mut schedule = crate::schedule::Schedule::single_threaded();
         schedule.add_systems(non_sync_system);
         schedule.run(&mut world);
     }

@@ -1084,7 +1084,7 @@ mod tests {
     fn run_condition() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
 
         // Run every other cycle
         schedule.add_systems(increment_counter.run_if(every_other_time));
@@ -1111,7 +1111,7 @@ mod tests {
     fn run_condition_combinators() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
 
         // Always run
         schedule.add_systems(increment_counter.run_if(every_other_time.or_else(|| true)));
@@ -1128,7 +1128,7 @@ mod tests {
     fn multiple_run_conditions() {
         let mut world = World::new();
         world.init_resource::<Counter>();
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
 
         // Run every other cycle
         schedule.add_systems(increment_counter.run_if(every_other_time).run_if(|| true));
@@ -1146,7 +1146,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Counter>();
 
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::single_threaded();
 
         // This should never run, if multiple run conditions worked
         // like an OR condition then it would always run
@@ -1180,7 +1180,7 @@ mod tests {
     // Ensure distributive_run_if compiles with the common conditions.
     #[test]
     fn distributive_run_if_compiles() {
-        Schedule::default().add_systems(
+        Schedule::single_threaded().add_systems(
             (test_system, test_system)
                 .distributive_run_if(run_once())
                 .distributive_run_if(resource_exists::<State<TestState>>())
