@@ -175,7 +175,6 @@ pub trait DetectChangesMut: DetectChanges {
         }
     }
 
-    /// NOCOMMIT fix comment
     /// Similar to [`set_if_neq`](DetectChangesMut::set_if_neq), but for when the inner type
     /// implements [`DerefMut`](https://doc.rust-lang.org/std/ops/trait.DerefMut.html).
     ///
