@@ -103,7 +103,7 @@ struct EventInstance<E: Event> {
 /// This collection is meant to be paired with a system that calls
 /// [`Events::update`] exactly once per update/frame.
 ///
-/// [`Events::update_system`] is a system that does this, typically initialized automatically using
+/// [`event_update_system`] is a system that does this, typically initialized automatically using
 /// [`add_event`](https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event).
 /// [`EventReader`]s are expected to read events from this collection at least once per loop/frame.
 /// Events will persist across a single frame boundary and so ordering of event producers and
