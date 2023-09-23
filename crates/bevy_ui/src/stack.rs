@@ -190,9 +190,9 @@ mod tests {
             .map(|entity| query.get(&world, *entity).unwrap().clone())
             .collect::<Vec<_>>();
         let expected_result = vec![
-            (Label("1-2-1")), // ZIndex::Global(-3)
-            (Label("3")),     // ZIndex::Global(-2)
-            (Label("1-2")),   // ZIndex::Global(-1)
+            (Label("1-2-1")), // GlobalZIndex(-3)
+            (Label("3")),     // GlobalZIndex(-2)
+            (Label("1-2")),   // GlobalZIndex(-1)
             (Label("1-2-0")),
             (Label("1-2-2")),
             (Label("1-2-3")),
@@ -200,14 +200,14 @@ mod tests {
             (Label("2-0")),
             (Label("2-1")),
             (Label("2-1-0")),
-            (Label("1")), // ZIndex::Local(1)
+            (Label("1")), // ZIndex(1)
             (Label("1-0")),
-            (Label("1-0-2")), // ZIndex::Local(-1)
+            (Label("1-0-2")), // ZIndex(-1)
             (Label("1-0-0")),
             (Label("1-0-1")),
             (Label("1-1")),
             (Label("1-3")),
-            (Label("0")), // ZIndex::Global(2)
+            (Label("0")), // GlobalZIndex(2)
         ];
         assert_eq!(actual_result, expected_result);
     }
