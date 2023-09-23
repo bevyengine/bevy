@@ -243,6 +243,22 @@ impl AssetSourceBuilder {
         self.processed_watcher = Some(Box::new(watcher));
         self
     }
+
+    pub fn platform_default(path: &str, processed_path: &str) -> Self {
+        Self::default()
+            .with_reader(AssetSource::get_default_reader(path.to_string()))
+            .with_writer(AssetSource::get_default_writer(path.to_string()))
+            .with_watcher(AssetSource::get_default_watcher(
+                path.to_string(),
+                Duration::from_millis(300),
+            ))
+            .with_processed_reader(AssetSource::get_default_reader(processed_path.to_string()))
+            .with_processed_writer(AssetSource::get_default_writer(processed_path.to_string()))
+            .with_processed_watcher(AssetSource::get_default_watcher(
+                processed_path.to_string(),
+                Duration::from_millis(300),
+            ))
+    }
 }
 
 /// A [`Resource`] that hold (repeatable) functions capable of producing new [`AssetReader`] and [`AssetWriter`] instances
@@ -303,21 +319,8 @@ impl AssetSourceBuilders {
 
     /// Initializes the default [`AssetSourceBuilder`] if it has not already been set.
     pub fn init_default_sources(&mut self, path: &str, processed_path: &str) {
-        self.default.get_or_insert_with(|| {
-            AssetSourceBuilder::default()
-                .with_reader(AssetSource::get_default_reader(path.to_string()))
-                .with_writer(AssetSource::get_default_writer(path.to_string()))
-                .with_watcher(AssetSource::get_default_watcher(
-                    path.to_string(),
-                    Duration::from_millis(300),
-                ))
-                .with_processed_reader(AssetSource::get_default_reader(processed_path.to_string()))
-                .with_processed_writer(AssetSource::get_default_writer(processed_path.to_string()))
-                .with_processed_watcher(AssetSource::get_default_watcher(
-                    processed_path.to_string(),
-                    Duration::from_millis(300),
-                ))
-        });
+        self.default
+            .get_or_insert_with(|| AssetSourceBuilder::platform_default(path, processed_path));
     }
 }
 
