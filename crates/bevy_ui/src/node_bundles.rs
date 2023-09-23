@@ -161,7 +161,7 @@ pub struct AtlasImageBundle {
 /// A UI node that is text
 ///
 /// The positioning of this node is controlled by the UI layout system. If you need manual control,
-/// use [`Text2dBundle.`](`bevy_text::Text2dBundle`)
+/// use [`Text2dBundle`](bevy_text::Text2dBundle).
 #[derive(Bundle, Debug)]
 pub struct TextBundle {
     /// Describes the logical size of the node
