@@ -791,7 +791,7 @@ mod tests {
             }
         }
 
-        let mut schedule = Schedule::single_threaded();
+        let mut schedule = Schedule::default(); // Uses MultiThreaded executor
         schedule.add_systems((propagate_system, modify_system).chain());
         schedule.run(&mut world);
         world.clear_trackers();
