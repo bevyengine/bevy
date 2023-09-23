@@ -12,8 +12,7 @@ struct A<const N: u16>(f32);
 fn setup(system_count: usize) -> (World, Schedule) {
     let mut world = World::new();
     fn empty() {}
-    let mut schedule = Schedule::default();
-    schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+    let mut schedule = Schedule::single_threaded();
     for _ in 0..system_count {
         schedule.add_systems(empty);
     }

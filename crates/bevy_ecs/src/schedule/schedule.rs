@@ -190,6 +190,18 @@ impl Schedule {
         }
     }
 
+    /// Constructs an empty `Schedule` with the [`SingleThreaded`] executor.
+    /// Only use in situations where you don't care about the [`ScheduleLabel`].
+    /// Inserting a default schedule into the world risks overwriting another
+    /// schedule. For most situations you should use [`Schedule::new`].
+    ///
+    /// [`SingleThreaded`]: ExecutorKind::SingleThreaded
+    pub fn single_threaded() -> Self {
+        let mut schedule = Self::default();
+        schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        schedule
+    }
+
     /// Add a collection of systems to the schedule.
     pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
         self.graph.process_configs(systems.into_configs(), false);
