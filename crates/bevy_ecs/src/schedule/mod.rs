@@ -73,7 +73,7 @@ mod tests {
         #[test]
         fn run_system() {
             let mut world = World::default();
-            let mut schedule = Schedule::single_threaded();
+            let mut schedule = Schedule::default();
 
             world.init_resource::<SystemOrder>();
 
@@ -86,7 +86,7 @@ mod tests {
         #[test]
         fn run_exclusive_system() {
             let mut world = World::default();
-            let mut schedule = Schedule::single_threaded();
+            let mut schedule = Schedule::default();
 
             world.init_resource::<SystemOrder>();
 
@@ -125,7 +125,7 @@ mod tests {
         #[test]
         fn order_systems() {
             let mut world = World::default();
-            let mut schedule = Schedule::single_threaded();
+            let mut schedule = Schedule::default();
 
             world.init_resource::<SystemOrder>();
 
@@ -163,7 +163,7 @@ mod tests {
         #[test]
         fn order_exclusive_systems() {
             let mut world = World::default();
-            let mut schedule = Schedule::single_threaded();
+            let mut schedule = Schedule::default();
 
             world.init_resource::<SystemOrder>();
 
@@ -180,7 +180,7 @@ mod tests {
         #[test]
         fn add_systems_correct_order() {
             let mut world = World::new();
-            let mut schedule = Schedule::single_threaded();
+            let mut schedule = Schedule::default();
 
             world.init_resource::<SystemOrder>();
 
@@ -201,7 +201,7 @@ mod tests {
         #[test]
         fn add_systems_correct_order_nested() {
             let mut world = World::new();
-            let mut schedule = Schedule::single_threaded();
+            let mut schedule = Schedule::default();
 
             world.init_resource::<SystemOrder>();
 
@@ -251,7 +251,7 @@ mod tests {
         #[test]
         fn system_with_condition() {
             let mut world = World::default();
-            let mut schedule = Schedule::single_threaded();
+            let mut schedule = Schedule::default();
 
             world.init_resource::<RunConditionBool>();
             world.init_resource::<SystemOrder>();
@@ -271,7 +271,7 @@ mod tests {
         #[test]
         fn systems_with_distributive_condition() {
             let mut world = World::default();
-            let mut schedule = Schedule::single_threaded();
+            let mut schedule = Schedule::default();
 
             world.insert_resource(RunConditionBool(true));
             world.init_resource::<SystemOrder>();
@@ -297,7 +297,7 @@ mod tests {
         #[test]
         fn run_exclusive_system_with_condition() {
             let mut world = World::default();
-            let mut schedule = Schedule::single_threaded();
+            let mut schedule = Schedule::default();
 
             world.init_resource::<RunConditionBool>();
             world.init_resource::<SystemOrder>();
