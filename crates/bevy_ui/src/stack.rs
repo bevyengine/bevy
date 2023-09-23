@@ -107,6 +107,19 @@ mod tests {
     #[derive(Component, PartialEq, Debug, Clone)]
     struct Label(&'static str);
 
+    fn node_with_global_and_local_zindex(
+        name: &'static str,
+        global_zindex: i32,
+        local_zindex: i32,
+    ) -> (Label, Node, GlobalZIndex, ZIndex) {
+        (
+            Label(name),
+            Node::default(),
+            GlobalZIndex(global_zindex),
+            ZIndex(local_zindex),
+        )
+    }
+
     fn node_with_global_zindex(
         name: &'static str,
         global_zindex: i32,
@@ -209,6 +222,55 @@ mod tests {
             (Label("1-3")),
             (Label("0")), // GlobalZIndex(2)
         ];
+        assert_eq!(actual_result, expected_result);
+    }
+
+    #[test]
+    fn test_with_equal_global_zindex_zindex_decides_order() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+        commands.spawn(node_with_global_and_local_zindex("0", -1, 1));
+        commands.spawn(node_with_global_and_local_zindex("1", -1, 2));
+        commands.spawn(node_with_global_and_local_zindex("2", 1, 3));
+        commands.spawn(node_with_global_and_local_zindex("3", 1, -3));
+        commands
+            .spawn(node_without_zindex("4"))
+            .with_children(|builder| {
+                builder.spawn(node_with_global_and_local_zindex("5", 0, -1));
+                builder.spawn(node_with_global_and_local_zindex("6", 0, 1));
+                builder.spawn(node_with_global_and_local_zindex("7", -1, -1));
+                builder.spawn(node_with_global_zindex("8", 1));
+            });
+
+        queue.apply(&mut world);
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+        schedule.run(&mut world);
+
+        let mut query = world.query::<&Label>();
+        let ui_stack = world.resource::<UiStack>();
+        let actual_result = ui_stack
+            .uinodes
+            .iter()
+            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .collect::<Vec<_>>();
+
+        let expected_result = vec![
+            (Label("7")),
+            (Label("0")),
+            (Label("1")),
+            (Label("5")),
+            (Label("4")),
+            (Label("6")),
+            (Label("3")),
+            (Label("8")),
+            (Label("2")),
+        ];
+
         assert_eq!(actual_result, expected_result);
     }
 }
