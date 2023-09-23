@@ -774,7 +774,7 @@ fn load_node(
                     far: orthographic.zfar(),
                     scaling_mode: ScalingMode::FixedHorizontal(1.0),
                     scale: xmag,
-                    ..Default::default()
+                    ..OrthographicProjection::default_3d()
                 };
 
                 Projection::Orthographic(orthographic_projection)

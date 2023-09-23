@@ -91,7 +91,7 @@ fn setup(
             projection: OrthographicProjection {
                 scale: 20.0,
                 scaling_mode: ScalingMode::FixedHorizontal(1.0),
-                ..default()
+                ..OrthographicProjection::default_3d()
             }
             .into(),
             ..default()
