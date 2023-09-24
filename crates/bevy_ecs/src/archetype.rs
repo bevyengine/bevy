@@ -90,7 +90,7 @@ impl ArchetypeId {
     ///
     /// While it doesn't break any safety invariants, you should ensure the
     /// values comes from a pre-existing [`ArchetypeId::index`] in this world
-    /// to avoid pancis and other unexpected behaviors.
+    /// to avoid panics and other unexpected behaviors.
     #[inline]
     pub const fn new(index: usize) -> Self {
         ArchetypeId(index as u32)
