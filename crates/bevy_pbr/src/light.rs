@@ -423,7 +423,7 @@ pub fn update_directional_light_cascades(
         })
         .collect::<Vec<_>>();
 
-    for (transform, directional_light, cascades_config, mut cascades) in lights.iter_mut() {
+    for (transform, directional_light, cascades_config, mut cascades) in &mut lights {
         if !directional_light.shadows_enabled {
             continue;
         }
@@ -1913,7 +1913,7 @@ pub fn update_spot_light_frusta(
         Or<(Changed<GlobalTransform>, Changed<SpotLight>)>,
     >,
 ) {
-    for (entity, transform, spot_light, mut frustum) in views.iter_mut() {
+    for (entity, transform, spot_light, mut frustum) in &mut views {
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
         // not needed.
@@ -2000,7 +2000,7 @@ pub fn check_light_mesh_visibility(
     {
         // Re-use already allocated entries where possible.
         let mut views_to_remove = Vec::new();
-        for (view, cascade_view_entities) in visible_entities.entities.iter_mut() {
+        for (view, cascade_view_entities) in &mut visible_entities.entities {
             match frusta.frusta.get(view) {
                 Some(view_frusta) => {
                     cascade_view_entities.resize(view_frusta.len(), Default::default());
@@ -2011,7 +2011,7 @@ pub fn check_light_mesh_visibility(
                 None => views_to_remove.push(*view),
             };
         }
-        for (view, frusta) in frusta.frusta.iter() {
+        for (view, frusta) in &frusta.frusta {
             visible_entities
                 .entities
                 .entry(*view)
@@ -2048,7 +2048,7 @@ pub fn check_light_mesh_visibility(
 
             // If we have an aabb and transform, do frustum culling
             if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
-                for (view, view_frusta) in frusta.frusta.iter() {
+                for (view, view_frusta) in &frusta.frusta {
                     let view_visible_entities = visible_entities
                         .entities
                         .get_mut(view)
@@ -2081,7 +2081,7 @@ pub fn check_light_mesh_visibility(
             }
         }
 
-        for (_, cascade_view_entities) in visible_entities.entities.iter_mut() {
+        for (_, cascade_view_entities) in &mut visible_entities.entities {
             cascade_view_entities.iter_mut().for_each(shrink_entities);
         }
     }
@@ -2184,7 +2184,7 @@ pub fn check_light_mesh_visibility(
                     maybe_entity_mask,
                     maybe_aabb,
                     maybe_transform,
-                ) in visible_entity_query.iter_mut()
+                ) in &mut visible_entity_query
                 {
                     if !inherited_visibility.get() {
                         continue;

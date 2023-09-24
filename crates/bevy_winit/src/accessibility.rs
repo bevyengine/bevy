@@ -131,7 +131,7 @@ fn update_accessibility_nodes(
                             root_children.push(entity.to_node_id());
                         }
                         if let Some(children) = children {
-                            for child in children.iter() {
+                            for child in children {
                                 if node_entities.get(*child).is_ok() {
                                     node.push_child(child.to_node_id());
                                 }

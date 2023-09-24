@@ -14,8 +14,9 @@ fn setup(mut commands: Commands) {
     let root = commands
         .spawn(NodeBundle {
             style: Style {
-                flex_basis: Val::Percent(100.0),
                 margin: UiRect::all(Val::Px(25.0)),
+                align_self: AlignSelf::Stretch,
+                justify_self: JustifySelf::Stretch,
                 flex_wrap: FlexWrap::Wrap,
                 justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::FlexStart,

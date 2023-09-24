@@ -42,9 +42,9 @@ use self::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
 ///
-/// Each [Entity] has a set of components. Each component can have up to one instance of each
+/// Each [`Entity`] has a set of components. Each component can have up to one instance of each
 /// component type. Entity components can be created, updated, removed, and queried using a given
-/// [World].
+/// [`World`].
 ///
 /// For complex access patterns involving [`SystemParam`](crate::system::SystemParam),
 /// consider using [`SystemState`](crate::system::SystemState).
@@ -94,7 +94,8 @@ impl Default for World {
 }
 
 impl World {
-    /// Creates a new empty [World]
+    /// Creates a new empty [`World`].
+    ///
     /// # Panics
     ///
     /// If [`usize::MAX`] [`World`]s have been created.
@@ -123,13 +124,13 @@ impl World {
         UnsafeWorldCell::new_readonly(self)
     }
 
-    /// Retrieves this world's [Entities] collection
+    /// Retrieves this world's [`Entities`] collection.
     #[inline]
     pub fn entities(&self) -> &Entities {
         &self.entities
     }
 
-    /// Retrieves this world's [Entities] collection mutably
+    /// Retrieves this world's [`Entities`] collection mutably.
     ///
     /// # Safety
     /// Mutable reference must not be used to put the [`Entities`] data
@@ -139,25 +140,25 @@ impl World {
         &mut self.entities
     }
 
-    /// Retrieves this world's [Archetypes] collection
+    /// Retrieves this world's [`Archetypes`] collection.
     #[inline]
     pub fn archetypes(&self) -> &Archetypes {
         &self.archetypes
     }
 
-    /// Retrieves this world's [Components] collection
+    /// Retrieves this world's [`Components`] collection.
     #[inline]
     pub fn components(&self) -> &Components {
         &self.components
     }
 
-    /// Retrieves this world's [Storages] collection
+    /// Retrieves this world's [`Storages`] collection.
     #[inline]
     pub fn storages(&self) -> &Storages {
         &self.storages
     }
 
-    /// Retrieves this world's [Bundles] collection
+    /// Retrieves this world's [`Bundles`] collection.
     #[inline]
     pub fn bundles(&self) -> &Bundles {
         &self.bundles
@@ -218,6 +219,11 @@ impl World {
     ///
     /// assert_eq!(component_a_id, world.component_id::<ComponentA>().unwrap())
     /// ```
+    ///
+    /// # See also
+    ///
+    /// * [`Components::component_id()`]
+    /// * [`Components::get_id()`]
     #[inline]
     pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
         self.components.component_id::<T>()
@@ -767,10 +773,10 @@ impl World {
         EntityWorldMut::new(self, entity, location)
     }
 
-    /// Spawns a batch of entities with the same component [Bundle] type. Takes a given [Bundle]
-    /// iterator and returns a corresponding [Entity] iterator.
+    /// Spawns a batch of entities with the same component [`Bundle`] type. Takes a given
+    /// [`Bundle`] iterator and returns a corresponding [`Entity`] iterator.
     /// This is more efficient than spawning entities and adding components to them individually,
-    /// but it is limited to spawning entities with the same [Bundle] type, whereas spawning
+    /// but it is limited to spawning entities with the same [`Bundle`] type, whereas spawning
     /// individually is more flexible.
     ///
     /// ```
@@ -797,8 +803,8 @@ impl World {
         SpawnBatchIter::new(self, iter.into_iter())
     }
 
-    /// Retrieves a reference to the given `entity`'s [Component] of the given type.
-    /// Returns [None] if the `entity` does not have a [Component] of the given type.
+    /// Retrieves a reference to the given `entity`'s [`Component`] of the given type.
+    /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
     /// ```
     /// use bevy_ecs::{component::Component, world::World};
     ///
@@ -818,8 +824,8 @@ impl World {
         self.get_entity(entity)?.get()
     }
 
-    /// Retrieves a mutable reference to the given `entity`'s [Component] of the given type.
-    /// Returns [None] if the `entity` does not have a [Component] of the given type.
+    /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
+    /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
     /// ```
     /// use bevy_ecs::{component::Component, world::World};
     ///
@@ -844,7 +850,7 @@ impl World {
     }
 
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
-    /// [Component]s. Returns `true` if the `entity` is successfully despawned and `false` if
+    /// [`Component`]s. Returns `true` if the `entity` is successfully despawned and `false` if
     /// the `entity` does not exist.
     /// ```
     /// use bevy_ecs::{component::Component, world::World};
@@ -885,8 +891,8 @@ impl World {
     /// of detection to be recorded.
     ///
     /// When using `bevy_ecs` as part of the full Bevy engine, this method is added as a system to the
-    /// main app, to run during `CoreSet::Last`, so you don't need to call it manually. When using
-    /// `bevy_ecs` as a separate standalone crate however, you need to call this manually.
+    /// main app, to run during `Last`, so you don't need to call it manually. When using `bevy_ecs`
+    /// as a separate standalone crate however, you need to call this manually.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -952,7 +958,7 @@ impl World {
     /// To iterate over entities in a deterministic order,
     /// sort the results of the query using the desired component as a key.
     /// Note that this requires fetching the whole result set from the query
-    /// and allocation of a [Vec] to store it.
+    /// and allocation of a [`Vec`] to store it.
     ///
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World};
@@ -1122,7 +1128,7 @@ impl World {
         });
     }
 
-    /// Removes the resource of a given type and returns it, if it exists. Otherwise returns [None].
+    /// Removes the resource of a given type and returns it, if it exists. Otherwise returns `None`.
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
@@ -1345,7 +1351,7 @@ impl World {
     }
 
     /// Gets a reference to the non-send resource of the given type, if it exists.
-    /// Otherwise returns [None].
+    /// Otherwise returns `None`.
     ///
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
@@ -1358,7 +1364,7 @@ impl World {
     }
 
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
-    /// Otherwise returns [None]
+    /// Otherwise returns `None`.
     ///
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
@@ -1390,12 +1396,12 @@ impl World {
         Some(resource.id())
     }
 
-    /// For a given batch of ([Entity], [Bundle]) pairs, either spawns each [Entity] with the given
-    /// bundle (if the entity does not exist), or inserts the [Bundle] (if the entity already exists).
+    /// For a given batch of ([`Entity`], [`Bundle`]) pairs, either spawns each [`Entity`] with the given
+    /// bundle (if the entity does not exist), or inserts the [`Bundle`] (if the entity already exists).
     /// This is faster than doing equivalent operations one-by-one.
-    /// Returns [Ok] if all entities were successfully inserted into or spawned. Otherwise it returns an [Err]
+    /// Returns `Ok` if all entities were successfully inserted into or spawned. Otherwise it returns an `Err`
     /// with a list of entities that could not be spawned or inserted into. A "spawn or insert" operation can
-    /// only fail if an [Entity] is passed in with an "invalid generation" that conflicts with an existing [Entity].
+    /// only fail if an [`Entity`] is passed in with an "invalid generation" that conflicts with an existing [`Entity`].
     ///
     /// # Note
     /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`World::spawn_batch`].
@@ -1702,9 +1708,9 @@ impl World {
         component_id
     }
 
-    /// Empties queued entities and adds them to the empty [Archetype](crate::archetype::Archetype).
+    /// Empties queued entities and adds them to the empty [`Archetype`](crate::archetype::Archetype).
     /// This should be called before doing operations that might operate on queued entities,
-    /// such as inserting a [Component].
+    /// such as inserting a [`Component`].
     pub(crate) fn flush(&mut self) {
         let empty_archetype = self.archetypes.empty_mut();
         let table = &mut self.storages.tables[empty_archetype.table_id()];
@@ -1807,7 +1813,7 @@ impl World {
 
     /// Clears all resources in this [`World`].
     ///
-    /// **Note:** Any resource fetch to this [World] will fail unless they are re-initialized,
+    /// **Note:** Any resource fetch to this [`World`] will fail unless they are re-initialized,
     /// including engine-internal resources that are only initialized on app/world construction.
     ///
     /// This can easily cause systems expecting certain resources to immediately start panicking.
@@ -1893,7 +1899,7 @@ impl World {
         }
     }
 
-    /// Removes the resource of a given type, if it exists. Otherwise returns [None].
+    /// Removes the resource of a given type, if it exists. Otherwise returns `None`.
     ///
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
@@ -1905,7 +1911,7 @@ impl World {
         Some(())
     }
 
-    /// Removes the resource of a given type, if it exists. Otherwise returns [None].
+    /// Removes the resource of a given type, if it exists. Otherwise returns `None`.
     ///
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
@@ -1920,8 +1926,8 @@ impl World {
         Some(())
     }
 
-    /// Retrieves an immutable untyped reference to the given `entity`'s [Component] of the given [`ComponentId`].
-    /// Returns [None] if the `entity` does not have a [Component] of the given type.
+    /// Retrieves an immutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
+    /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
     ///
     /// **You should prefer to use the typed API [`World::get_mut`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
@@ -1940,8 +1946,8 @@ impl World {
         }
     }
 
-    /// Retrieves a mutable untyped reference to the given `entity`'s [Component] of the given [`ComponentId`].
-    /// Returns [None] if the `entity` does not have a [Component] of the given type.
+    /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
+    /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
     ///
     /// **You should prefer to use the typed API [`World::get_mut`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
@@ -2103,11 +2109,11 @@ unsafe impl Send for World {}
 unsafe impl Sync for World {}
 
 /// Creates an instance of the type this trait is implemented for
-/// using data from the supplied [World].
+/// using data from the supplied [`World`].
 ///
 /// This can be helpful for complex initialization or context-aware defaults.
 pub trait FromWorld {
-    /// Creates `Self` using data from the given [World]
+    /// Creates `Self` using data from the given [`World`].
     fn from_world(world: &mut World) -> Self;
 }
 

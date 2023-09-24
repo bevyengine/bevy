@@ -5,8 +5,7 @@
 #import bevy_render::maths affine_to_square
 #import bevy_render::view  View
 
-@group(0) @binding(0)
-var<uniform> view: View;
+@group(0) @binding(0) var<uniform> view: View;
 
 struct VertexInput {
     @builtin(vertex_index) index: u32,
@@ -47,10 +46,8 @@ fn vertex(in: VertexInput) -> VertexOutput {
     return out;
 }
 
-@group(1) @binding(0)
-var sprite_texture: texture_2d<f32>;
-@group(1) @binding(1)
-var sprite_sampler: sampler;
+@group(1) @binding(0) var sprite_texture: texture_2d<f32>;
+@group(1) @binding(1) var sprite_sampler: sampler;
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {

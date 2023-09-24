@@ -392,7 +392,7 @@ pub fn check_visibility(
         Option<&RenderLayers>,
         &Aabb,
         &GlobalTransform,
-        Option<&NoFrustumCulling>,
+        Has<NoFrustumCulling>,
     )>,
     mut visible_no_aabb_query: Query<
         (
@@ -408,74 +408,74 @@ pub fn check_visibility(
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
         visible_entities.entities.clear();
-        visible_aabb_query.par_iter_mut().for_each(
-            |(
+        visible_aabb_query.par_iter_mut().for_each(|query_item| {
+            let (
                 entity,
                 inherited_visibility,
                 mut view_visibility,
                 maybe_entity_mask,
                 model_aabb,
                 transform,
-                maybe_no_frustum_culling,
-            )| {
-                // Skip computing visibility for entities that are configured to be hidden.
-                // ViewVisibility has already been reset in `reset_view_visibility`.
-                if !inherited_visibility.get() {
+                no_frustum_culling,
+            ) = query_item;
+
+            // Skip computing visibility for entities that are configured to be hidden.
+            // ViewVisibility has already been reset in `reset_view_visibility`.
+            if !inherited_visibility.get() {
+                return;
+            }
+
+            let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+            if !view_mask.intersects(&entity_mask) {
+                return;
+            }
+
+            // If we have an aabb and transform, do frustum culling
+            if !no_frustum_culling {
+                let model = transform.affine();
+                let model_sphere = Sphere {
+                    center: model.transform_point3a(model_aabb.center),
+                    radius: transform.radius_vec3a(model_aabb.half_extents),
+                };
+                // Do quick sphere-based frustum culling
+                if !frustum.intersects_sphere(&model_sphere, false) {
                     return;
                 }
-
-                let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-                if !view_mask.intersects(&entity_mask) {
+                // If we have an aabb, do aabb-based frustum culling
+                if !frustum.intersects_obb(model_aabb, &model, true, false) {
                     return;
                 }
+            }
 
-                // If we have an aabb and transform, do frustum culling
-                if maybe_no_frustum_culling.is_none() {
-                    let model = transform.affine();
-                    let model_sphere = Sphere {
-                        center: model.transform_point3a(model_aabb.center),
-                        radius: transform.radius_vec3a(model_aabb.half_extents),
-                    };
-                    // Do quick sphere-based frustum culling
-                    if !frustum.intersects_sphere(&model_sphere, false) {
-                        return;
-                    }
-                    // If we have an aabb, do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &model, true, false) {
-                        return;
-                    }
-                }
+            view_visibility.set();
+            let cell = thread_queues.get_or_default();
+            let mut queue = cell.take();
+            queue.push(entity);
+            cell.set(queue);
+        });
 
-                view_visibility.set();
-                let cell = thread_queues.get_or_default();
-                let mut queue = cell.take();
-                queue.push(entity);
-                cell.set(queue);
-            },
-        );
+        visible_no_aabb_query.par_iter_mut().for_each(|query_item| {
+            let (entity, inherited_visibility, mut view_visibility, maybe_entity_mask) = query_item;
 
-        visible_no_aabb_query.par_iter_mut().for_each(
-            |(entity, inherited_visibility, mut view_visibility, maybe_entity_mask)| {
-                // Skip computing visibility for entities that are configured to be hidden.
-                // ViewVisiblity has already been reset in `reset_view_visibility`.
-                if !inherited_visibility.get() {
-                    return;
-                }
+            // Skip computing visibility for entities that are configured to be hidden.
+            // ViewVisiblity has already been reset in `reset_view_visibility`.
+            if !inherited_visibility.get() {
+                return;
+            }
 
-                let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-                if !view_mask.intersects(&entity_mask) {
-                    return;
-                }
+            let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+            if !view_mask.intersects(&entity_mask) {
+                return;
+            }
 
-                view_visibility.set();
-                let cell = thread_queues.get_or_default();
-                let mut queue = cell.take();
-                queue.push(entity);
-                cell.set(queue);
-            },
-        );
+            view_visibility.set();
+            let cell = thread_queues.get_or_default();
+            let mut queue = cell.take();
+            queue.push(entity);
+            cell.set(queue);
+        });
 
-        for cell in thread_queues.iter_mut() {
+        for cell in &mut thread_queues {
             visible_entities.entities.append(cell.get_mut());
         }
     }
@@ -490,26 +490,21 @@ mod test {
 
     use bevy_hierarchy::BuildWorldChildren;
 
+    fn visibility_bundle(visibility: Visibility) -> VisibilityBundle {
+        VisibilityBundle {
+            visibility,
+            ..Default::default()
+        }
+    }
+
     #[test]
     fn visibility_propagation() {
         let mut app = App::new();
         app.add_systems(Update, visibility_propagate_system);
 
-        let root1 = app
-            .world
-            .spawn(VisibilityBundle {
-                visibility: Visibility::Hidden,
-                ..Default::default()
-            })
-            .id();
+        let root1 = app.world.spawn(visibility_bundle(Visibility::Hidden)).id();
         let root1_child1 = app.world.spawn(VisibilityBundle::default()).id();
-        let root1_child2 = app
-            .world
-            .spawn(VisibilityBundle {
-                visibility: Visibility::Hidden,
-                ..Default::default()
-            })
-            .id();
+        let root1_child2 = app.world.spawn(visibility_bundle(Visibility::Hidden)).id();
         let root1_child1_grandchild1 = app.world.spawn(VisibilityBundle::default()).id();
         let root1_child2_grandchild1 = app.world.spawn(VisibilityBundle::default()).id();
 
@@ -525,13 +520,7 @@ mod test {
 
         let root2 = app.world.spawn(VisibilityBundle::default()).id();
         let root2_child1 = app.world.spawn(VisibilityBundle::default()).id();
-        let root2_child2 = app
-            .world
-            .spawn(VisibilityBundle {
-                visibility: Visibility::Hidden,
-                ..Default::default()
-            })
-            .id();
+        let root2_child2 = app.world.spawn(visibility_bundle(Visibility::Hidden)).id();
         let root2_child1_grandchild1 = app.world.spawn(VisibilityBundle::default()).id();
         let root2_child2_grandchild1 = app.world.spawn(VisibilityBundle::default()).id();
 
@@ -599,59 +588,19 @@ mod test {
 
     #[test]
     fn visibility_propagation_unconditional_visible() {
+        use Visibility::{Hidden, Inherited, Visible};
+
         let mut app = App::new();
         app.add_systems(Update, visibility_propagate_system);
 
-        let root1 = app
-            .world
-            .spawn(VisibilityBundle {
-                visibility: Visibility::Visible,
-                ..Default::default()
-            })
-            .id();
-        let root1_child1 = app
-            .world
-            .spawn(VisibilityBundle {
-                visibility: Visibility::Inherited,
-                ..Default::default()
-            })
-            .id();
-        let root1_child2 = app
-            .world
-            .spawn(VisibilityBundle {
-                visibility: Visibility::Hidden,
-                ..Default::default()
-            })
-            .id();
-        let root1_child1_grandchild1 = app
-            .world
-            .spawn(VisibilityBundle {
-                visibility: Visibility::Visible,
-                ..Default::default()
-            })
-            .id();
-        let root1_child2_grandchild1 = app
-            .world
-            .spawn(VisibilityBundle {
-                visibility: Visibility::Visible,
-                ..Default::default()
-            })
-            .id();
+        let root1 = app.world.spawn(visibility_bundle(Visible)).id();
+        let root1_child1 = app.world.spawn(visibility_bundle(Inherited)).id();
+        let root1_child2 = app.world.spawn(visibility_bundle(Hidden)).id();
+        let root1_child1_grandchild1 = app.world.spawn(visibility_bundle(Visible)).id();
+        let root1_child2_grandchild1 = app.world.spawn(visibility_bundle(Visible)).id();
 
-        let root2 = app
-            .world
-            .spawn(VisibilityBundle {
-                visibility: Visibility::Inherited,
-                ..Default::default()
-            })
-            .id();
-        let root3 = app
-            .world
-            .spawn(VisibilityBundle {
-                visibility: Visibility::Hidden,
-                ..Default::default()
-            })
-            .id();
+        let root2 = app.world.spawn(visibility_bundle(Inherited)).id();
+        let root3 = app.world.spawn(visibility_bundle(Hidden)).id();
 
         app.world
             .entity_mut(root1)
@@ -709,12 +658,7 @@ mod test {
         let id2 = world.spawn(VisibilityBundle::default()).id();
         world.entity_mut(id1).push_children(&[id2]);
 
-        let id3 = world
-            .spawn(VisibilityBundle {
-                visibility: Visibility::Hidden,
-                ..Default::default()
-            })
-            .id();
+        let id3 = world.spawn(visibility_bundle(Visibility::Hidden)).id();
         world.entity_mut(id2).push_children(&[id3]);
 
         let id4 = world.spawn(VisibilityBundle::default()).id();

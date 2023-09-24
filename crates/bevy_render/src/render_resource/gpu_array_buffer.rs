@@ -4,6 +4,7 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_ecs::{prelude::Component, system::Resource};
+use bevy_utils::nonmax::NonMaxU32;
 use encase::{private::WriteInto, ShaderSize, ShaderType};
 use std::{marker::PhantomData, mem};
 use wgpu::{BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType, ShaderStages};
@@ -52,7 +53,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
         match self {
             GpuArrayBuffer::Uniform(buffer) => buffer.push(value),
             GpuArrayBuffer::Storage((_, buffer)) => {
-                let index = buffer.len() as u32;
+                let index = NonMaxU32::new(buffer.len() as u32).unwrap();
                 buffer.push(value);
                 GpuArrayBufferIndex {
                     index,
@@ -118,12 +119,12 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
 }
 
 /// An index into a [`GpuArrayBuffer`] for a given element.
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct GpuArrayBufferIndex<T: GpuArrayBufferable> {
     /// The index to use in a shader into the array.
-    pub index: u32,
+    pub index: NonMaxU32,
     /// The dynamic offset to use when setting the bind group in a pass.
     /// Only used on platforms that don't support storage buffers.
-    pub dynamic_offset: Option<u32>,
+    pub dynamic_offset: Option<NonMaxU32>,
     pub element_type: PhantomData<T>,
 }
