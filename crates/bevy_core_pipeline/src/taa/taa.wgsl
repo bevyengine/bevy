@@ -82,7 +82,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     var moment_2 = vec3(0.0);
     var closest_depth = 0.0;
     var closest_uv = uv;
-    var weights = array(1.5894572e-7, 0.8888889, 1.5894572e-7);
+    var weights = array(0.05556, 0.88889, 0.05556);
     for (var x = -1.0; x <= 1.0; x += 1.0) {
         for (var y = -1.0; y <= 1.0; y += 1.0) {
             let sample_uv = uv + (vec2(x, y) * texel_size);
