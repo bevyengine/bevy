@@ -13,6 +13,7 @@ pub mod widget;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::Reflect;
+use bevy_text::TextLayoutInfo;
 #[cfg(feature = "bevy_text")]
 mod accessibility;
 mod focus;
@@ -40,6 +41,7 @@ pub mod prelude {
 }
 
 use crate::prelude::UiCameraConfig;
+use crate::widget::TextFlags;
 use bevy_app::prelude::*;
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
@@ -89,6 +91,8 @@ impl Plugin for UiPlugin {
             .register_type::<AlignSelf>()
             .register_type::<BackgroundColor>()
             .register_type::<CalculatedClip>()
+            .register_type::<TextLayoutInfo>()
+            .register_type::<TextFlags>()
             .register_type::<ContentSize>()
             .register_type::<Direction>()
             .register_type::<Display>()
