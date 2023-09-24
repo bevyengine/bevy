@@ -561,7 +561,8 @@ pub fn queue_material_meshes<M: Material>(
                             draw_function: draw_transmissive_pbr,
                             pipeline: pipeline_id,
                             distance,
-                            batch_size: 1,
+                            batch_range: 0..1,
+                            dynamic_offset: None,
                         });
                     } else {
                         opaque_phase.add(Opaque3d {
