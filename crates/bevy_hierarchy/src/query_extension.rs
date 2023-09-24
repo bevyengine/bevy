@@ -2,14 +2,14 @@ use std::collections::VecDeque;
 
 use bevy_ecs::{
     entity::Entity,
-    query::{ReadOnlyWorldQuery, WorldQuery},
+    query::{WorldQuery, WorldQueryData, WorldQueryFilter},
     system::Query,
 };
 
 use crate::{Children, Parent};
 
 /// An extension trait for [`Query`] that adds hierarchy related methods.
-pub trait HierarchyQueryExt<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
+pub trait HierarchyQueryExt<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> {
     /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s descendants.
     ///
     /// Can only be called on a [`Query`] of [`Children`] (i.e. `Query<&Children>`).
@@ -57,7 +57,7 @@ pub trait HierarchyQueryExt<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
         Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>;
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> HierarchyQueryExt<'w, 's, Q, F>
+impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> HierarchyQueryExt<'w, 's, Q, F>
     for Query<'w, 's, Q, F>
 {
     fn iter_descendants(&'w self, entity: Entity) -> DescendantIter<'w, 's, Q, F>
@@ -78,7 +78,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> HierarchyQueryExt<'w, 's, Q, 
 /// An [`Iterator`] of [`Entity`]s over the descendants of an [`Entity`].
 ///
 /// Traverses the hierarchy breadth-first.
-pub struct DescendantIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery>
+pub struct DescendantIter<'w, 's, Q: WorldQueryData, F: WorldQueryFilter>
 where
     Q::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
 {
@@ -86,7 +86,7 @@ where
     vecdeque: VecDeque<Entity>,
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> DescendantIter<'w, 's, Q, F>
+impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> DescendantIter<'w, 's, Q, F>
 where
     Q::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
 {
@@ -104,7 +104,7 @@ where
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for DescendantIter<'w, 's, Q, F>
+impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> Iterator for DescendantIter<'w, 's, Q, F>
 where
     Q::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
 {
@@ -122,7 +122,7 @@ where
 }
 
 /// An [`Iterator`] of [`Entity`]s over the ancestors of an [`Entity`].
-pub struct AncestorIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery>
+pub struct AncestorIter<'w, 's, Q: WorldQueryData, F: WorldQueryFilter>
 where
     Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
 {
@@ -130,7 +130,7 @@ where
     next: Option<Entity>,
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> AncestorIter<'w, 's, Q, F>
+impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> AncestorIter<'w, 's, Q, F>
 where
     Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
 {
@@ -143,7 +143,7 @@ where
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for AncestorIter<'w, 's, Q, F>
+impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> Iterator for AncestorIter<'w, 's, Q, F>
 where
     Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
 {

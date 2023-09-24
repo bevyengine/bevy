@@ -1,11 +1,16 @@
 extern crate proc_macro;
 
 mod component;
-mod fetch;
 mod set;
 mod states;
+mod world_query;
+mod world_query_data;
+mod world_query_filter;
 
-use crate::{fetch::derive_world_query_impl, set::derive_set};
+use crate::{
+    set::derive_set, world_query_data::derive_world_query_data_impl,
+    world_query_filter::derive_world_query_filter_impl,
+};
 use bevy_macro_utils::{
     derive_boxed_label, ensure_no_collision, get_named_struct_fields, BevyManifest,
 };
@@ -427,10 +432,16 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Implement `WorldQuery` to use a struct as a parameter in a query
-#[proc_macro_derive(WorldQuery, attributes(world_query))]
-pub fn derive_world_query(input: TokenStream) -> TokenStream {
-    derive_world_query_impl(input)
+/// Implement `WorldQueryData` to use a struct as a data parameter in a query
+#[proc_macro_derive(WorldQueryData, attributes(world_query_data))]
+pub fn derive_world_query_data(input: TokenStream) -> TokenStream {
+    derive_world_query_data_impl(input)
+}
+
+/// Implement `WorldQueryFilter` to use a struct as a filter parameter in a query
+#[proc_macro_derive(WorldQueryFilter, attributes(world_query_filter))]
+pub fn derive_world_query_filter(input: TokenStream) -> TokenStream {
+    derive_world_query_filter_impl(input)
 }
 
 /// Derive macro generating an impl of the trait `ScheduleLabel`.

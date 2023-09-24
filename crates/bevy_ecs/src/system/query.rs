@@ -3,8 +3,8 @@ use crate::{
     entity::Entity,
     query::{
         BatchingStrategy, QueryCombinationIter, QueryComponentError, QueryEntityError, QueryIter,
-        QueryManyIter, QueryParIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyWorldQuery,
-        WorldQuery,
+        QueryManyIter, QueryParIter, QuerySingleError, QueryState, ROQueryItem,
+        ReadOnlyWorldQueryData, WorldQueryData, WorldQueryFilter,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, Mut},
 };
@@ -16,13 +16,15 @@ use std::{any::TypeId, borrow::Borrow};
 /// Its iterators and getter methods return *query items*.
 /// Each query item is a type containing data relative to an entity.
 ///
-/// `Query` is a generic data structure that accepts two type parameters, both of which must implement the [`WorldQuery`] trait:
+/// `Query` is a generic data structure that accepts two type parameters:
 ///
 /// - **`Q` (query fetch).**
 ///   The type of data contained in the query item.
 ///   Only entities that match the requested data will generate an item.
+///   Must implement the [`WorldQueryData`] trait.
 /// - **`F` (query filter).**
 ///   A set of conditions that determines whether query items should be kept or discarded.
+///   Must implement the [`WorldQueryFilter`] trait.
 ///   This type parameter is optional.
 ///
 /// [`World`]: crate::world::World
@@ -30,7 +32,7 @@ use std::{any::TypeId, borrow::Borrow};
 /// # System parameter declaration
 ///
 /// A query should always be declared as a system parameter.
-/// This section shows the most common idioms involving the declaration of `Query`, emerging by combining [`WorldQuery`] implementors.
+/// This section shows the most common idioms involving the declaration of `Query`.
 ///
 /// ## Component access
 ///
@@ -71,7 +73,7 @@ use std::{any::TypeId, borrow::Borrow};
 /// # bevy_ecs::system::assert_is_system(system);
 /// ```
 ///
-/// ## `WorldQuery` tuples
+/// ## `WorldQueryData` or `WorldQueryFilter` tuples
 ///
 /// Using tuples, each `Query` type parameter can contain multiple elements.
 ///
@@ -323,7 +325,7 @@ use std::{any::TypeId, borrow::Borrow};
 /// [`Table`]: crate::storage::Table
 /// [`With`]: crate::query::With
 /// [`Without`]: crate::query::Without
-pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
+pub struct Query<'world, 'state, Q: WorldQueryData, F: WorldQueryFilter = ()> {
     // SAFETY: Must have access to the components registered in `state`.
     world: UnsafeWorldCell<'world>,
     state: &'state QueryState<Q, F>,
@@ -337,7 +339,7 @@ pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
     force_read_only_component_access: bool,
 }
 
-impl<Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for Query<'_, '_, Q, F> {
+impl<Q: WorldQueryData, F: WorldQueryFilter> std::fmt::Debug for Query<'_, '_, Q, F> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("Query")
             .field("matched_entities", &self.iter().count())
@@ -349,7 +351,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for Query<'_, '_, Q, 
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
+impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> Query<'w, 's, Q, F> {
     /// Creates a new query.
     ///
     /// # Panics
@@ -384,7 +386,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// For example, `Query<(&mut A, &B, &mut C), With<D>>` will become `Query<(&A, &B, &C), With<D>>`.
     /// This can be useful when working around the borrow checker,
     /// or reusing functionality between systems via functions that accept query types.
-    pub fn to_readonly(&self) -> Query<'_, 's, Q::ReadOnly, F::ReadOnly> {
+    pub fn to_readonly(&self) -> Query<'_, 's, Q::ReadOnly, F> {
         let new_state = self.state.as_readonly();
         // SAFETY: This is memory safe because it turns the query immutable.
         unsafe {
@@ -425,7 +427,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`iter_mut`](Self::iter_mut) for mutable query items.
     /// - [`for_each`](Self::for_each) for the closure based alternative.
     #[inline]
-    pub fn iter(&self) -> QueryIter<'_, 's, Q::ReadOnly, F::ReadOnly> {
+    pub fn iter(&self) -> QueryIter<'_, 's, Q::ReadOnly, F> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The query is read-only, so it can be aliased even if it was originally mutable.
@@ -491,7 +493,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     #[inline]
     pub fn iter_combinations<const K: usize>(
         &self,
-    ) -> QueryCombinationIter<'_, 's, Q::ReadOnly, F::ReadOnly, K> {
+    ) -> QueryCombinationIter<'_, 's, Q::ReadOnly, F, K> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The query is read-only, so it can be aliased even if it was originally mutable.
@@ -574,7 +576,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub fn iter_many<EntityList: IntoIterator>(
         &self,
         entities: EntityList,
-    ) -> QueryManyIter<'_, 's, Q::ReadOnly, F::ReadOnly, EntityList::IntoIter>
+    ) -> QueryManyIter<'_, 's, Q::ReadOnly, F, EntityList::IntoIter>
     where
         EntityList::Item: Borrow<Entity>,
     {
@@ -787,7 +789,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// [`par_iter_mut`]: Self::par_iter_mut
     /// [`World`]: crate::world::World
     #[inline]
-    pub fn par_iter(&self) -> QueryParIter<'_, '_, Q::ReadOnly, F::ReadOnly> {
+    pub fn par_iter(&self) -> QueryParIter<'_, '_, Q::ReadOnly, F> {
         QueryParIter {
             world: self.world,
             state: self.state.as_readonly(),
@@ -1422,16 +1424,16 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator for &'w Query<'_, 's, Q, F> {
+impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> IntoIterator for &'w Query<'_, 's, Q, F> {
     type Item = ROQueryItem<'w, Q>;
-    type IntoIter = QueryIter<'w, 's, Q::ReadOnly, F::ReadOnly>;
+    type IntoIter = QueryIter<'w, 's, Q::ReadOnly, F>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator for &'w mut Query<'_, 's, Q, F> {
+impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> IntoIterator for &'w mut Query<'_, 's, Q, F> {
     type Item = Q::Item<'w>;
     type IntoIter = QueryIter<'w, 's, Q, F>;
 
@@ -1440,7 +1442,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator for &'w mut Quer
     }
 }
 
-impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
+impl<'w, 's, Q: ReadOnlyWorldQueryData, F: WorldQueryFilter> Query<'w, 's, Q, F> {
     /// Returns the query item for the given [`Entity`], with the actual "inner" world lifetime.
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
@@ -1511,7 +1513,7 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// # bevy_ecs::system::assert_is_system(report_names_system);
     /// ```
     #[inline]
-    pub fn iter_inner(&self) -> QueryIter<'w, 's, Q::ReadOnly, F::ReadOnly> {
+    pub fn iter_inner(&self) -> QueryIter<'w, 's, Q::ReadOnly, F> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {

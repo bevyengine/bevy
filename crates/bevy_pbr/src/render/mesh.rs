@@ -231,8 +231,8 @@ pub fn extract_meshes(
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
-            Option<With<NotShadowReceiver>>,
-            Option<With<NotShadowCaster>>,
+            Has<NotShadowReceiver>,
+            Has<NotShadowCaster>,
         )>,
     >,
 ) {
@@ -240,12 +240,12 @@ pub fn extract_meshes(
     let mut not_caster_commands = Vec::with_capacity(*prev_not_caster_commands_len);
     let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.get());
 
-    for (entity, _, transform, previous_transform, handle, not_receiver, not_caster) in
+    for (entity, _, transform, previous_transform, handle, has_not_receiver, has_not_caster) in
         visible_meshes
     {
         let transform = transform.affine();
         let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
-        let mut flags = if not_receiver.is_some() {
+        let mut flags = if has_not_receiver {
             MeshFlags::empty()
         } else {
             MeshFlags::SHADOW_RECEIVER
@@ -258,7 +258,7 @@ pub fn extract_meshes(
             previous_transform: (&previous_transform).into(),
             flags: flags.bits(),
         };
-        if not_caster.is_some() {
+        if has_not_caster {
             not_caster_commands.push((entity, (handle.clone_weak(), transforms, NotShadowCaster)));
         } else {
             caster_commands.push((entity, (handle.clone_weak(), transforms)));

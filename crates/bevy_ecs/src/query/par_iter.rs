@@ -1,7 +1,7 @@
 use crate::{component::Tick, world::unsafe_world_cell::UnsafeWorldCell};
 use std::ops::Range;
 
-use super::{QueryItem, QueryState, ReadOnlyWorldQuery, WorldQuery};
+use super::{QueryItem, QueryState, WorldQueryData, WorldQueryFilter};
 
 /// Dictates how a parallel query chunks up large tables/archetypes
 /// during iteration.
@@ -82,7 +82,7 @@ impl BatchingStrategy {
 ///
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::par_iter) and
 /// [`Query::par_iter_mut`](crate::system::Query::par_iter_mut) methods.
-pub struct QueryParIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
+pub struct QueryParIter<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: &'s QueryState<Q, F>,
     pub(crate) last_run: Tick,
@@ -90,7 +90,7 @@ pub struct QueryParIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
+impl<'w, 's, Q: WorldQueryData, F: WorldQueryFilter> QueryParIter<'w, 's, Q, F> {
     /// Changes the batching strategy used when iterating.
     ///
     /// For more information on how this affects the resultant iteration, see

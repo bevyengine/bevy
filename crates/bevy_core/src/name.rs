@@ -1,6 +1,6 @@
-use bevy_ecs::{
-    component::Component, entity::Entity, query::WorldQuery, reflect::ReflectComponent,
-};
+use bevy_ecs::query::WorldQueryData;
+use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent};
+
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_utils::AHasher;
@@ -102,7 +102,7 @@ impl std::fmt::Debug for Name {
 /// }
 /// # bevy_ecs::system::assert_is_system(increment_score);
 /// ```
-#[derive(WorldQuery)]
+#[derive(WorldQueryData)]
 pub struct DebugName {
     /// A [`Name`] that the entity might have that is displayed if available.
     pub name: Option<&'static Name>,

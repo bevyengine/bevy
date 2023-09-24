@@ -1,7 +1,7 @@
 use bevy_ecs::{
     component::Component,
     prelude::Res,
-    query::{Has, QueryItem, ReadOnlyWorldQuery},
+    query::{Has, QueryItem, ReadOnlyWorldQueryData},
     system::{Query, ResMut},
 };
 use bevy_utils::nonmax::NonMaxU32;
@@ -56,7 +56,7 @@ impl<T: PartialEq> BatchMeta<T> {
 /// A trait to support getting data used for batching draw commands via phase
 /// items.
 pub trait GetBatchData {
-    type Query: ReadOnlyWorldQuery;
+    type Query: ReadOnlyWorldQueryData;
     /// Data used for comparison between phase items. If the pipeline id, draw
     /// function id, per-instance data buffer dynamic offset and this data
     /// matches, the draws can be batched.
