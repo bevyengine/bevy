@@ -27,8 +27,8 @@ fn update_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let motion_vector = textureLoad(motion_vectors, probe_center_pixel_id, 0i).rg;
     let reprojected_probe_center_uv = probe_center_uv - motion_vector;
 
-    let reprojected_probe_center_pixel_id_f = reprojected_probe_center_uv * vec2<f32>(probe_count) - 0.5;
-    let tl_probe_id = max(vec2<u32>(reprojected_probe_center_pixel_id_f), vec2(0u));
+    let reprojected_probe_id_f = reprojected_probe_center_uv * vec2<f32>(probe_count) - 0.5;
+    let tl_probe_id = max(vec2<u32>(reprojected_probe_id_f), vec2(0u));
     let tr_probe_id = min(tl_probe_id + vec2(1u, 0u), probe_count - 1u);
     let bl_probe_id = min(tl_probe_id + vec2(0u, 1u), probe_count - 1u);
     let br_probe_id = min(tl_probe_id + vec2(1u, 1u), probe_count - 1u);
@@ -55,7 +55,7 @@ fn update_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
     );
     let probe_depth_weights = pow(saturate(1.0 - abs(probe_depths - current_depth) / current_depth), vec4(f32(probe_size)));
 
-    let r = fract(reprojected_probe_center_pixel_id_f);
+    let r = fract(reprojected_probe_id_f);
     let probe_weights = vec4(
         (1.0 - r.x) * (1.0 - r.y),
         r.x * (1.0 - r.y),
