@@ -499,12 +499,13 @@ impl<T: Material2d> Default for RenderMaterials2d<T> {
 /// This system extracts all created or modified assets of the corresponding [`Material2d`] type
 /// into the "render world".
 pub fn extract_materials_2d<M: Material2d>(
-    mut commands: Commands,
     mut events: Extract<EventReader<AssetEvent<M>>>,
     assets: Extract<Res<Assets<M>>>,
+    mut extracted_materials2d: ResMut<ExtractedMaterials2d<M>>,
 ) {
     let mut changed_assets = HashSet::default();
-    let mut removed = Vec::new();
+    extracted_materials2d.extracted.clear();
+    extracted_materials2d.removed.clear();
     for event in events.read() {
         match event {
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
@@ -512,7 +513,7 @@ pub fn extract_materials_2d<M: Material2d>(
             }
             AssetEvent::Removed { id } => {
                 changed_assets.remove(id);
-                removed.push(*id);
+                extracted_materials2d.removed.push(*id);
             }
 
             AssetEvent::LoadedWithDependencies { .. } => {
@@ -521,17 +522,11 @@ pub fn extract_materials_2d<M: Material2d>(
         }
     }
 
-    let mut extracted_assets = Vec::new();
     for id in changed_assets.drain() {
         if let Some(asset) = assets.get(id) {
-            extracted_assets.push((id, asset.clone()));
+            extracted_materials2d.extracted.push((id, asset.clone()));
         }
     }
-
-    commands.insert_resource(ExtractedMaterials2d {
-        extracted: extracted_assets,
-        removed,
-    });
 }
 
 /// All [`Material2d`] values of a given type that should be prepared next frame.
