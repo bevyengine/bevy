@@ -385,7 +385,7 @@ fn pbr(
         transmitted_light += lighting::transmissive_light(in.world_position, in.frag_coord.xyz, in.N, in.V, ior, thickness, perceptual_roughness, transmissive_color, transmitted_environment_light_specular).rgb;
     }
 
-    if in.material.attenuation_distance < (1.0 / 0.0) /* f32::INFINITY */ {
+    if (in.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ATTENUATION_ENABLED_BIT) != 0u {
         // We reuse the `atmospheric_fog()` function here, as it's fundamentally
         // equivalent to the attenuation that takes place inside the material volume,
         // and will allow us to eventually hook up subsurface scattering more easily

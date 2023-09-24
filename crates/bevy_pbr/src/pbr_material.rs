@@ -589,6 +589,7 @@ bitflags::bitflags! {
         const TRANSMISSION_TEXTURE       = (1 << 10);
         const THICKNESS_TEXTURE          = (1 << 11);
         const DIFFUSE_TRANSMISSION_TEXTURE = (1 << 12);
+        const ATTENUATION_ENABLED        = (1 << 13);
         const ALPHA_MODE_RESERVED_BITS   = (Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS); // ← Bitmask reserving bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = (0 << Self::ALPHA_MODE_SHIFT_BITS);                          // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = (1 << Self::ALPHA_MODE_SHIFT_BITS);                          //   the bitmask, and can range from 0 to 7.
@@ -723,6 +724,10 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             AlphaMode::Add => flags |= StandardMaterialFlags::ALPHA_MODE_ADD,
             AlphaMode::Multiply => flags |= StandardMaterialFlags::ALPHA_MODE_MULTIPLY,
         };
+
+        if self.attenuation_distance.is_finite() {
+            flags |= StandardMaterialFlags::ATTENUATION_ENABLED;
+        }
 
         StandardMaterialUniform {
             base_color: self.base_color.as_linear_rgba_f32().into(),
