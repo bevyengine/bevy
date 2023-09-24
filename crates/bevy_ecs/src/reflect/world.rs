@@ -19,7 +19,10 @@ impl World {
         &self,
         entity: Entity,
         component_id: ComponentId,
-    ) -> Option<&<T::TypeData as TraitTypeData>::Dyn> {
+    ) -> Option<&<T::TypeData as TraitTypeData>::Dyn>
+    where
+        T::TypeData: TraitTypeData,
+    {
         let type_id = self.component_type_id(component_id)?;
 
         let dyn_obj = self.get_dyn_reflect_by_id(entity, component_id)?;
@@ -35,7 +38,10 @@ impl World {
         &mut self,
         entity: Entity,
         component_id: ComponentId,
-    ) -> Option<&mut <T::TypeData as TraitTypeData>::Dyn> {
+    ) -> Option<&mut <T::TypeData as TraitTypeData>::Dyn>
+    where
+        T::TypeData: TraitTypeData,
+    {
         let type_id = self.component_type_id(component_id)?;
 
         let type_data: Box<T::TypeData> = ({

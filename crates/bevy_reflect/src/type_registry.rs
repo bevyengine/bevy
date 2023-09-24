@@ -610,7 +610,7 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
 ///
 /// In this way. the `get_dyn_by_id::<ReflectMyTrait>` or `get_dyn_by_id::<dyn MyTrait>` to get the associated `dyn Trait`
 pub trait TypeDataMapper {
-    type TypeData: TraitTypeData;
+    type TypeData: TypeData;
 }
 
 // Map to oneself
