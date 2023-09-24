@@ -161,13 +161,8 @@ where
         self.a.is_exclusive() || self.b.is_exclusive()
     }
 
-    fn should_sync(&self) -> bool {
-        self.a.should_sync() || self.b.should_sync()
-    }
-
-    fn no_sync_after(&mut self) {
-        self.a.no_sync_after();
-        self.b.no_sync_after();
+    fn has_deferred(&self) -> bool {
+        self.a.has_deferred() || self.b.has_deferred()
     }
 
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {

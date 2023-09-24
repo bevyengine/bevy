@@ -1,7 +1,7 @@
 use std::{
     collections::BTreeSet,
     fmt::{Debug, Write},
-    result::Result,
+    result::Result, collections::BTreeSet,
 };
 
 #[cfg(feature = "trace")]
@@ -459,6 +459,7 @@ pub struct ScheduleGraph {
     conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
     changed: bool,
     settings: ScheduleBuildSettings,
+    no_sync_after: BTreeSet<NodeId>,
 }
 
 impl ScheduleGraph {
@@ -478,6 +479,7 @@ impl ScheduleGraph {
             conflicting_systems: Vec::new(),
             changed: false,
             settings: default(),
+            no_sync_after: BTreeSet::new(),
         }
     }
 
@@ -730,6 +732,9 @@ impl ScheduleGraph {
         self.uninit.push((id, 0));
         self.systems.push(SystemNode::new(config.node));
         self.system_conditions.push(config.conditions);
+        if config.no_sync_after {
+            self.no_sync_after.insert(id);
+        }
 
         Ok(id)
     }
@@ -744,6 +749,7 @@ impl ScheduleGraph {
             node: set,
             graph_info,
             mut conditions,
+            no_sync_after: _,
         } = set;
 
         let id = match self.system_set_ids.get(&set) {
@@ -999,7 +1005,8 @@ impl ScheduleGraph {
             if self.systems[source_node.index()]
                 .get()
                 .unwrap()
-                .should_sync()
+                .has_deferred()
+                && !self.no_sync_after.contains(&source_node)
                 && !is_apply_deferred(self.systems[target_node.index()].get().unwrap())
             {
                 sync_point_graph.add_edge(source_node, NodeId::TempSyncNode(temp_node_index), ());

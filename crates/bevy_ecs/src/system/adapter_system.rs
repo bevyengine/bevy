@@ -104,12 +104,8 @@ where
         self.system.is_exclusive()
     }
 
-    fn should_sync(&self) -> bool {
-        self.system.should_sync()
-    }
-
-    fn no_sync_after(&mut self) {
-        self.system.no_sync_after();
+    fn has_deferred(&self) -> bool {
+        self.system.has_deferred()
     }
 
     #[inline]

@@ -41,11 +41,8 @@ pub trait System: Send + Sync + 'static {
     /// Returns true if the system must be run exclusively.
     fn is_exclusive(&self) -> bool;
 
-    /// calling this prevents schedule from adding a auto sync point after this system
-    fn no_sync_after(&mut self);
-
-    /// if this is true the scheduler will add a sync point after this system
-    fn should_sync(&self) -> bool;
+    /// Returns true if system as deferred buffers
+    fn has_deferred(&self) -> bool;
 
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
     /// can be called in parallel with other systems and may break Rust's aliasing rules

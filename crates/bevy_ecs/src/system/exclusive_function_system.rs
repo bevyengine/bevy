@@ -88,14 +88,9 @@ where
     }
 
     #[inline]
-    fn should_sync(&self) -> bool {
+    fn has_deferred(&self) -> bool {
         // exclusive systems have no deferred system params
         false
-    }
-
-    #[inline]
-    fn no_sync_after(&mut self) {
-        // no op
     }
 
     #[inline]
