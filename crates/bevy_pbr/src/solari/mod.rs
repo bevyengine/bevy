@@ -4,8 +4,19 @@ pub use self::global_illumination::{
 };
 use self::scene::SolariScenePlugin;
 use bevy_app::{App, Plugin};
-use bevy_ecs::system::Resource;
-use bevy_render::{renderer::RenderDevice, settings::WgpuFeatures};
+use bevy_ecs::{
+    system::Resource,
+    world::{FromWorld, World},
+};
+use bevy_render::{
+    render_resource::{
+        Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
+        TextureViewDescriptor,
+    },
+    renderer::{RenderDevice, RenderQueue},
+    settings::WgpuFeatures,
+    RenderApp,
+};
 
 mod global_illumination;
 mod scene;
@@ -28,6 +39,9 @@ impl Plugin for SolariPlugin {
             _ => return,
         }
 
+        app.sub_app_mut(RenderApp)
+            .init_resource::<SpatiotemporalBlueNoise>();
+
         app.insert_resource(SolariSupported)
             .add_plugins((SolariScenePlugin, SolariGlobalIlluminationPlugin));
     }
@@ -40,3 +54,34 @@ pub struct SolariSupported;
 
 #[derive(Resource)]
 pub struct SolariEnabled;
+
+#[derive(Resource)]
+pub(crate) struct SpatiotemporalBlueNoise(TextureView);
+
+impl FromWorld for SpatiotemporalBlueNoise {
+    fn from_world(world: &mut World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
+        let render_queue = world.resource::<RenderQueue>();
+
+        let texture = render_device.create_texture_with_data(
+            render_queue,
+            &(TextureDescriptor {
+                label: Some("solari_spatiotemporal_blue_noise"),
+                size: Extent3d {
+                    width: 64,
+                    height: 64,
+                    depth_or_array_layers: 32,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rg8Unorm,
+                usage: TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            }),
+            include_bytes!("stbn.ktx2"),
+        );
+
+        Self(texture.create_view(&TextureViewDescriptor::default()))
+    }
+}

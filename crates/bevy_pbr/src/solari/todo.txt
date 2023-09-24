@@ -1,9 +1,5 @@
 * Consider the weighing functions used for merging/filtering/interpolating
     * Plane distance used in interpolating seems to do nothing right now
-* Try some jitter:
-    * Jitter rays per-cell + time
-    * Use spatiotemporal blue noise for ray jitter
-    * Jitter per-pixel offset into the interpolation for use with TAA?
 
 * World cache improvements
     * Tie world cache to camera, use a log scale for cell size
@@ -14,6 +10,7 @@
     * Think about hashing ray direction, instead of hit position
     * Variance driven world cache update rate, skipping very stable cells, and adapting to lighting changes faster
 * Screen cache improvements
+    * Jitter per-pixel offset into the interpolation for use with TAA?
     * Consider 4x4 probes for the first cascade
     * More efficent/combined screen probe cascade reprojection/tracing/merging routines
     * 1/4th probe update rate

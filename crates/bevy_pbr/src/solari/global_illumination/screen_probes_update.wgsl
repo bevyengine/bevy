@@ -1,7 +1,7 @@
 #import bevy_solari::scene_bindings map_ray_hit, uniforms
-#import bevy_solari::global_illumination::view_bindings view, previous_depth_buffer, depth_buffer, motion_vectors, screen_probes_history, screen_probes, screen_probes_confidence_history, screen_probes_confidence, FIRST_RADIANCE_CASCADE_INTERVAL
+#import bevy_solari::global_illumination::view_bindings view, previous_depth_buffer, depth_buffer, motion_vectors, screen_probes_history, screen_probes, screen_probes_confidence_history, screen_probes_confidence, noise, FIRST_RADIANCE_CASCADE_INTERVAL
 #import bevy_solari::world_cache::query query_world_cache
-#import bevy_solari::utils trace_ray, depth_to_world_position, rand_vec2f
+#import bevy_solari::utils trace_ray, depth_to_world_position
 #import bevy_pbr::utils octahedral_decode
 
 var<push_constant> cascade: u32;
@@ -73,8 +73,8 @@ fn update_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
     history_confidence = 1.0 + (clamp(history_confidence, 0.0, 31.0) * screen_disocclusion);
 
     // Calculate jittered world-space normal of the assigned probe texel for this thread
-    var rng = uniforms.frame_count * 5782582u;
-    let probe_cell_center = vec2<f32>(global_id.xy % probe_size) + rand_vec2f(&rng);
+    let probe_cell_jitter = textureLoad(noise, global_id.xy % 64u, uniforms.frame_count % 32u, 0i).rg;
+    let probe_cell_center = vec2<f32>(global_id.xy % probe_size) + probe_cell_jitter;
     let probe_cell_uv = probe_cell_center / f32(probe_size);
     let probe_cell_normal = octahedral_decode(probe_cell_uv);
 

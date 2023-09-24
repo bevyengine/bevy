@@ -1,6 +1,7 @@
 use super::{
     SolariGlobalIlluminationPipelines, SolariGlobalIlluminationSettings, WORLD_CACHE_SIZE,
 };
+use crate::solari::SpatiotemporalBlueNoise;
 use bevy_core::FrameCount;
 use bevy_core_pipeline::prepass::{
     DepthPrepass, MotionVectorPrepass, NormalPrepass, ViewPrepassTextures, DEPTH_PREPASS_FORMAT,
@@ -263,6 +264,12 @@ pub fn create_bind_group_layouts(
             has_dynamic_offset: true,
             min_binding_size: Some(ViewUniform::min_size()),
         }),
+        // Spatiotemporal blue noise
+        entry(BindingType::Texture {
+            sample_type: TextureSampleType::Float { filterable: false },
+            view_dimension: TextureViewDimension::D2Array,
+            multisampled: false,
+        }),
         // Previous depth buffer
         entry(BindingType::Texture {
             sample_type: TextureSampleType::Depth,
@@ -411,13 +418,14 @@ pub struct SolariGlobalIlluminationBindGroups {
     pub view_with_world_cache_dispatch_bind_group: BindGroup,
 }
 
-pub fn prepare_bind_groups(
+pub(crate) fn prepare_bind_groups(
     views: Query<(
         Entity,
         &SolariGlobalIlluminationViewResources,
         &ViewPrepassTextures,
     )>,
     view_uniforms: Res<ViewUniforms>,
+    noise: Res<SpatiotemporalBlueNoise>,
     pipelines: Res<SolariGlobalIlluminationPipelines>,
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -438,6 +446,7 @@ pub fn prepare_bind_groups(
 
         let entries = &[
             entry(view_uniforms.clone()),
+            entry(BindingResource::TextureView(&noise.0)),
             entry(t(&solari_resources.previous_depth_buffer)),
             entry(t(prepass_textures.depth.as_ref().unwrap())),
             entry(t(prepass_textures.normal.as_ref().unwrap())),
