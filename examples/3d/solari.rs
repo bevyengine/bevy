@@ -12,6 +12,10 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
+        .insert_resource(AmbientLight {
+            brightness: 0.0,
+            ..Default::default()
+        })
         .add_systems(
             Startup,
             (
