@@ -287,7 +287,7 @@ fn directional_light(light_id: u32, roughness: f32, NdotV: f32, normal: vec3<f32
 }
 
 fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
-    // Calculate distance, used to scale roughness transmission blur
+    // Calculate distance from the camera, used to scale roughness transmission blur
     let distance = length(view_bindings::view.world_position - world_position.xyz);
 
     // Calculate the ratio between refaction indexes. Assume air/vacuum for the space outside the mesh
@@ -365,10 +365,10 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     let num_spirals = (num_taps >> 3u) + 1;
     let random_angle = interleaved_gradient_noise(frag_coord.xy);
 #ifdef TEMPORAL_JITTER
-    // Alternating pixel mesh: 0 or 1 on even/odd pixels, alternates every frame
+    // Alternating pixel checkerboard pattern: 0 or 1 on even/odd pixels, alternates every frame
     let pixel_mesh = (i32(frag_coord.x) + i32(frag_coord.y) + i32(view_bindings::globals.frame_count)) % 2;
 #else
-    // Alternating pixel mesh: 0 or 1 on even/odd pixels
+    // Alternating pixel checkerboard pattern: 0 or 1 on even/odd pixels
     let pixel_mesh = (i32(frag_coord.x) + i32(frag_coord.y)) % 2;
 #endif
 
@@ -404,7 +404,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         // Rotate and correct for aspect ratio
         let rotated_spiral_offset = (rotation_matrix * spiral_offset) * vec2(1.0, aspect);
 
-        // Calucalte final offset position, with blur and spiral offset
+        // Calculate final offset position, with blur and spiral offset
         let modified_offset_position = offset_position + rotated_spiral_offset * blur_intensity * (1.0 - f32(pixel_mesh) * 0.1);
 
 #ifdef PREPASS_DEPTH_SUPPORTED

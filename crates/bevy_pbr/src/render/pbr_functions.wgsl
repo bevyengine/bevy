@@ -396,7 +396,7 @@ fn pbr(
         // attenuation_fog.bi = /* ... */
         transmitted_light = fog::atmospheric_fog(
             attenuation_fog, vec4<f32>(transmitted_light, 1.0), thickness,
-            vec3<f32>(0.0) // TODO: Pass in (pre-attenuated) scatterd light contribution here
+            vec3<f32>(0.0) // TODO: Pass in (pre-attenuated) scattered light contribution here
         ).rgb;
     }
 

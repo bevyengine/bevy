@@ -556,7 +556,7 @@ pub fn prepare_core_3d_transmission_textures(
             .or_insert_with(|| {
                 let usage = TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST;
 
-                // The size of the depth texture
+                // The size of the transmission texture
                 let size = Extent3d {
                     depth_or_array_layers: 1,
                     width: physical_target_size.x,
