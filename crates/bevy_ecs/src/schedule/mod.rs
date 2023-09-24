@@ -103,7 +103,7 @@ mod tests {
             use std::sync::{Arc, Barrier};
 
             let mut world = World::default();
-            let mut schedule = Schedule::default(); // Uses MultiThreaded executor
+            let mut schedule = Schedule::multi_threaded();
             let thread_count = ComputeTaskPool::init(TaskPool::default).thread_num();
 
             let barrier = Arc::new(Barrier::new(thread_count));

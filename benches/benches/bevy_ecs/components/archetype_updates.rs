@@ -1,9 +1,4 @@
-use bevy_ecs::{
-    component::Component,
-    prelude::EntityWorldMut,
-    schedule::{ExecutorKind, Schedule},
-    world::World,
-};
+use bevy_ecs::{component::Component, prelude::EntityWorldMut, schedule::Schedule, world::World};
 use criterion::{BenchmarkId, Criterion};
 
 #[derive(Component)]
