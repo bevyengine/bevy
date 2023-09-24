@@ -35,12 +35,13 @@ pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 /// # world.insert_resource(AppTypeRegistry::default());
 /// // Get the type registry
 /// let registry = world.resource::<AppTypeRegistry>();
+/// let registry = registry.read();
 ///
 /// // Get a DynamicScene to serialize, for example from the World itself
 /// let scene = DynamicScene::from_world(&world);
 ///
 /// // Create a serializer for that DynamicScene, using the associated TypeRegistry
-/// let scene_serializer = SceneSerializer::new(&scene, &registry.0);
+/// let scene_serializer = SceneSerializer::new(&scene, &registry);
 ///
 /// // Serialize through any serde-compatible Serializer
 /// let ron_string = ron::ser::to_string(&scene_serializer);
