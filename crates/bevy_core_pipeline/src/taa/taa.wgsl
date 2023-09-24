@@ -74,8 +74,7 @@ fn sample_history(u: f32, v: f32) -> vec3<f32> {
 }
 
 fn sample_view_target(uv: vec2<f32>) -> vec3<f32> {
-    let texture_size = vec2<f32>(textureDimensions(view_target));
-    var sample = textureLoad(view_target, vec2<i32>(uv * texture_size), 0).rgb;
+    var sample = textureSample(view_target, nearest_sampler, uv).rgb;
 #ifdef TONEMAP
     sample = tonemap(sample);
 #endif
@@ -88,7 +87,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let texel_size = 1.0 / texture_size;
 
     // Fetch the current sample
-    let original_color = textureLoad(view_target, vec2<i32>(uv * texture_size), 0);
+    let original_color = textureSample(view_target, nearest_sampler, uv);
     var current_color = original_color.rgb;
 #ifdef TONEMAP
     current_color = tonemap(current_color);
