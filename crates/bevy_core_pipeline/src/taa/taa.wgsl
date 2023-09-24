@@ -74,7 +74,8 @@ fn sample_history(u: f32, v: f32) -> vec3<f32> {
 }
 
 fn sample_view_target(uv: vec2<f32>) -> vec3<f32> {
-    var sample = textureLoad(view_target, vec2<i32>(uv), 0).rgb;
+    let texture_size = vec2<f32>(textureDimensions(view_target));
+    var sample = textureLoad(view_target, vec2<i32>(uv * texture_size), 0).rgb;
 #ifdef TONEMAP
     sample = tonemap(sample);
 #endif
@@ -87,7 +88,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let texel_size = 1.0 / texture_size;
 
     // Fetch the current sample
-    let original_color = textureLoad(view_target, vec2<i32>(uv), 0);
+    let original_color = textureLoad(view_target, vec2<i32>(uv * texture_size), 0);
     var current_color = original_color.rgb;
 #ifdef TONEMAP
     current_color = tonemap(current_color);
@@ -102,11 +103,11 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let d_uv_bl = uv + vec2(-offset.x, -offset.y);
     let d_uv_br = uv + vec2(offset.x, -offset.y);
     var closest_uv = uv;
-    let d_tl = textureLoad(depth, vec2<i32>(d_uv_tl), 0);
-    let d_tr = textureLoad(depth, vec2<i32>(d_uv_tr), 0);
-    var closest_depth = textureLoad(depth, vec2<i32>(uv), 0);
-    let d_bl = textureLoad(depth, vec2<i32>(d_uv_bl), 0);
-    let d_br = textureLoad(depth, vec2<i32>(d_uv_br), 0);
+    let d_tl = textureLoad(depth, vec2<i32>(d_uv_tl * texture_size), 0);
+    let d_tr = textureLoad(depth, vec2<i32>(d_uv_tr * texture_size), 0);
+    var closest_depth = textureLoad(depth, vec2<i32>(uv * texture_size), 0);
+    let d_bl = textureLoad(depth, vec2<i32>(d_uv_bl * texture_size), 0);
+    let d_br = textureLoad(depth, vec2<i32>(d_uv_br * texture_size), 0);
     if d_tl > closest_depth {
         closest_uv = d_uv_tl;
         closest_depth = d_tl;

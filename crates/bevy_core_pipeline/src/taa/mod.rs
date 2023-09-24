@@ -195,7 +195,7 @@ impl ViewNode for TAANode {
         ) else {
             return Ok(());
         };
-        let view_target = view_target.post_process_write();
+        let post_process = view_target.post_process_write();
 
         let layout = match world.resource::<Msaa>().samples() {
             1 => pipelines.taa_bind_group_layout.clone(),
@@ -211,7 +211,7 @@ impl ViewNode for TAANode {
                     entries: &[
                         BindGroupEntry {
                             binding: 0,
-                            resource: BindingResource::TextureView(view_target.source),
+                            resource: BindingResource::TextureView(post_process.source),
                         },
                         BindGroupEntry {
                             binding: 1,
@@ -247,7 +247,7 @@ impl ViewNode for TAANode {
                 label: Some("taa_pass"),
                 color_attachments: &[
                     Some(RenderPassColorAttachment {
-                        view: view_target.destination,
+                        view: post_process.destination,
                         resolve_target: None,
                         ops: Operations::default(),
                     }),

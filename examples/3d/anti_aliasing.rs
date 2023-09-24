@@ -21,7 +21,16 @@ use bevy::{
 fn main() {
     App::new()
         .insert_resource(Msaa::Off)
-        .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    resolution: (1920.0, 1080.0).into(),
+                    ..default()
+                }),
+                ..default()
+            }),
+            TemporalAntiAliasPlugin,
+        ))
         .add_systems(Startup, setup)
         .add_systems(Update, (modify_aa, modify_sharpening, update_ui))
         .run();
