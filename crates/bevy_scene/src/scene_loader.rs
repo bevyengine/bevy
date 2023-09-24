@@ -12,8 +12,6 @@ use serde::de::DeserializeSeed;
 /// Asset loader for a Bevy dynamic scene (`.scn` / `.scn.ron`).
 ///
 /// The loader handles assets serialized with [`DynamicScene::serialize()`].
-///
-/// [`DynamicScene::serialize()`]: crate::DynamicScene::serialize
 #[derive(Debug)]
 pub struct SceneLoader {
     type_registry: TypeRegistryArc,
