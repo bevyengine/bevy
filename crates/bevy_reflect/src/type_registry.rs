@@ -602,11 +602,12 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
     }
 }
 
-pub trait DynTraitRelevance {
+/// Associate a `TraitTypeData`
+pub trait TraitTypeDataRelevance {
     type TypeData: TraitTypeData;
 }
 
-impl<T: TraitTypeData> DynTraitRelevance for T {
+impl<T: TraitTypeData> TraitTypeDataRelevance for T {
     type TypeData = T;
 }
 
