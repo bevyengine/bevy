@@ -1,7 +1,7 @@
 use std::{
     collections::BTreeSet,
     fmt::{Debug, Write},
-    result::Result, collections::BTreeSet,
+    result::Result,
 };
 
 #[cfg(feature = "trace")]
@@ -909,9 +909,6 @@ impl ScheduleGraph {
                         condition.initialize(world);
                     }
                 }
-                NodeId::TempSyncNode(_) => {
-                    unreachable!("should never insert temp nodes in regular schedule")
-                }
             }
         }
     }
@@ -992,37 +989,40 @@ impl ScheduleGraph {
     }
 
     // modify the graph to have sync nodes for any depedants after a system with deferred system params
-    /// Temporarily make this pub so I can test it
-    pub fn insert_sync_points(
+    fn insert_sync_points(
         &mut self,
         dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
     ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError> {
         let mut sync_point_graph = dependency_flattened.clone();
-        let mut temp_node_index = dependency_flattened.node_count();
-        let mut temp_nodes = Vec::new();
-        // loop through all edges and insert a temp sync point if there isn't one that already exists
-        for (source_node, target_node, _edge_weight) in dependency_flattened.all_edges() {
-            if self.systems[source_node.index()]
+        let topo = self.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
+
+        let mut sync_point_map = HashMap::new();
+        let mut get_sync_point = |graph: &mut ScheduleGraph, distance: u32| {
+            sync_point_map
+                .get(&distance)
+                .copied()
+                .or_else(|| {
+                    let node_id = graph.add_auto_sync();
+                    sync_point_map.insert(distance, node_id);
+                    Some(node_id)
+                })
+                .unwrap()
+        };
+
+        // calculate the number of sync points each sync point is from the beginning of the graph
+        // use the same sync point if the distance is the same
+        let mut distances: Vec<Option<u32>> = vec![None; topo.len()];
+        for node in &topo {
+            let add_sync_after = self.systems[node.index()]
                 .get()
                 .unwrap()
                 .has_deferred()
-                && !self.no_sync_after.contains(&source_node)
-                && !is_apply_deferred(self.systems[target_node.index()].get().unwrap())
-            {
-                sync_point_graph.add_edge(source_node, NodeId::TempSyncNode(temp_node_index), ());
-                sync_point_graph.add_edge(NodeId::TempSyncNode(temp_node_index), target_node, ());
-                temp_nodes.push(NodeId::TempSyncNode(temp_node_index));
-                temp_node_index += 1;
-            }
-        }
+                && !self.no_sync_after.contains(node);
 
-        // calculate the number of sync points each sync point is from the beginning of the graph
-        // we will use this to merge sync points that are at the same distance.
-        let topo = self.topsort_graph(&sync_point_graph, ReportCycles::Dependency)?;
-        let mut distances: Vec<Option<u32>> = vec![None; topo.len()];
-        for node in &topo {
-            for target in sync_point_graph.neighbors_directed(*node, Outgoing) {
-                let weight = if matches!(node, NodeId::TempSyncNode(_)) {
+            for target in dependency_flattened.neighbors_directed(*node, Outgoing) {
+                let add_sync_on_edge = add_sync_after && !is_apply_deferred(self.systems[target.index()].get().unwrap());
+
+                let weight = if add_sync_on_edge {
                     1
                 } else {
                     0
@@ -1031,52 +1031,16 @@ impl ScheduleGraph {
                 distances[target.index()] = distances[target.index()]
                     .or(Some(0))
                     .map(|distance| distance.max(distances[node.index()].unwrap_or(0) + weight));
+
+                if add_sync_on_edge {
+                    let sync_point = get_sync_point(self, distances[target.index()].unwrap());
+                    sync_point_graph.add_edge(*node, sync_point, ());
+                    sync_point_graph.add_edge(sync_point, target, ());
+                }
             }
         }
 
-        // only merge automatically added sync points as manually added sync points could have run criteria
-        let mut sync_point_map = HashMap::new();
-        let mut get_sync_point = |distance: u32| {
-            sync_point_map
-                .get(&distance)
-                .copied()
-                .or_else(|| {
-                    let node_id = self.add_auto_sync();
-                    sync_point_map.insert(distance, node_id);
-                    Some(node_id)
-                })
-                .unwrap()
-        };
-
-        // replace temp nodes
-        let mut new_graph = sync_point_graph.clone();
-        for (source, target, ()) in sync_point_graph.all_edges_mut() {
-            let mut replace_edge = false;
-            let new_source = if matches!(source, NodeId::TempSyncNode(_)) {
-                replace_edge = true;
-                get_sync_point(distances[source.index()].unwrap())
-            } else {
-                source
-            };
-
-            let new_target = if matches!(target, NodeId::TempSyncNode(_)) {
-                replace_edge = true;
-                get_sync_point(distances[target.index()].unwrap())
-            } else {
-                target
-            };
-
-            if replace_edge {
-                new_graph.add_edge(new_source, new_target, ());
-            }
-        }
-
-        // remove temp nodes and edges
-        for node in temp_nodes {
-            new_graph.remove_node(node);
-        }
-
-        Ok(new_graph)
+        Ok(sync_point_graph)
     }
 
     /// add a [`apply_deferred`] system with no config
@@ -1123,9 +1087,6 @@ impl ScheduleGraph {
                         let child_system_bitset = set_system_bitsets.get(&child).unwrap();
                         systems.extend_from_slice(child_systems);
                         system_bitset.union_with(child_system_bitset);
-                    }
-                    NodeId::TempSyncNode(_) => {
-                        unreachable!("temp nodes should not be inserted into the regular schedule")
                     }
                 }
             }
@@ -1201,7 +1162,6 @@ impl ScheduleGraph {
                         }
                     }
                 }
-                _ => unreachable!("temp nodes are not allowed in this schedule"),
             }
         }
 
@@ -1463,7 +1423,6 @@ impl ScheduleGraph {
                     set.name()
                 }
             }
-            _ => unreachable!("temp nodes are not allowed here"),
         };
         if self.settings.use_shortnames {
             name = bevy_utils::get_short_name(&name);
@@ -1488,7 +1447,6 @@ impl ScheduleGraph {
         match id {
             NodeId::System(_) => "system",
             NodeId::Set(_) => "system set",
-            NodeId::TempSyncNode(_) => "temp sync node",
         }
     }
 
