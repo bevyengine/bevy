@@ -105,7 +105,7 @@ fn modify_aa(
 
     // TAA
     if keys.just_pressed(KeyCode::Key4) && taa.is_none() {
-        *msaa = Msaa::Off;
+        *msaa = Msaa::Sample4;
         camera.remove::<Fxaa>();
 
         camera.insert(TemporalAntiAliasBundle::default());

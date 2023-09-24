@@ -197,12 +197,17 @@ impl ViewNode for TAANode {
         };
         let view_target = view_target.post_process_write();
 
+        let layout = match world.resource::<Msaa>().samples() {
+            1 => pipelines.taa_bind_group_layout.clone(),
+            _ => pipelines.taa_bind_group_layout_multisampled.clone(),
+        };
+
         let taa_bind_group =
             render_context
                 .render_device()
                 .create_bind_group(&BindGroupDescriptor {
                     label: Some("taa_bind_group"),
-                    layout: &pipelines.taa_bind_group_layout,
+                    layout: &layout,
                     entries: &[
                         BindGroupEntry {
                             binding: 0,
@@ -269,6 +274,7 @@ impl ViewNode for TAANode {
 #[derive(Resource)]
 struct TAAPipeline {
     taa_bind_group_layout: BindGroupLayout,
+    taa_bind_group_layout_multisampled: BindGroupLayout,
     nearest_sampler: Sampler,
     linear_sampler: Sampler,
 }
@@ -290,73 +296,86 @@ impl FromWorld for TAAPipeline {
             ..SamplerDescriptor::default()
         });
 
+        fn entries(multisampled: bool) -> Vec<BindGroupLayoutEntry> {
+            vec![
+                // View target (read)
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                // TAA History (read)
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                // Motion Vectors
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float {
+                            filterable: !multisampled,
+                        },
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled,
+                    },
+                    count: None,
+                },
+                // Depth
+                BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Depth,
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled,
+                    },
+                    count: None,
+                },
+                // Nearest sampler
+                BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+                    count: None,
+                },
+                // Linear sampler
+                BindGroupLayoutEntry {
+                    binding: 5,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ]
+        }
+
         let taa_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("taa_bind_group_layout"),
-                entries: &[
-                    // View target (read)
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    // TAA History (read)
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    // Motion Vectors
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    // Depth
-                    BindGroupLayoutEntry {
-                        binding: 3,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Depth,
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    // Nearest sampler
-                    BindGroupLayoutEntry {
-                        binding: 4,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
-                        count: None,
-                    },
-                    // Linear sampler
-                    BindGroupLayoutEntry {
-                        binding: 5,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
+                entries: &entries(false),
+            });
+
+        let taa_bind_group_layout_multisampled =
+            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some("taa_bind_group_layout_multisampled"),
+                entries: &entries(true),
             });
 
         TAAPipeline {
             taa_bind_group_layout,
+            taa_bind_group_layout_multisampled,
             nearest_sampler,
             linear_sampler,
         }
@@ -367,6 +386,7 @@ impl FromWorld for TAAPipeline {
 struct TAAPipelineKey {
     hdr: bool,
     reset: bool,
+    samples: u32,
 }
 
 impl SpecializedRenderPipeline for TAAPipeline {
@@ -374,6 +394,10 @@ impl SpecializedRenderPipeline for TAAPipeline {
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![];
+
+        if key.samples > 1 {
+            shader_defs.push("MULTISAMPLED".into());
+        }
 
         let format = if key.hdr {
             shader_defs.push("TONEMAP".into());
@@ -386,9 +410,14 @@ impl SpecializedRenderPipeline for TAAPipeline {
             shader_defs.push("RESET".into());
         }
 
+        let layout = match key.samples {
+            1 => vec![self.taa_bind_group_layout.clone()],
+            _ => vec![self.taa_bind_group_layout_multisampled.clone()],
+        };
+
         RenderPipelineDescriptor {
             label: Some("taa_pipeline".into()),
-            layout: vec![self.taa_bind_group_layout.clone()],
+            layout,
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: TAA_SHADER_HANDLE,
@@ -532,11 +561,13 @@ fn prepare_taa_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<TAAPipeline>>,
     pipeline: Res<TAAPipeline>,
     views: Query<(Entity, &ExtractedView, &TemporalAntiAliasSettings)>,
+    msaa: Res<Msaa>,
 ) {
     for (entity, view, taa_settings) in &views {
         let mut pipeline_key = TAAPipelineKey {
             hdr: view.hdr,
             reset: taa_settings.reset,
+            samples: msaa.samples(),
         };
         let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key.clone());
 
