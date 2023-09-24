@@ -33,11 +33,12 @@ use std::hash::Hash;
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
 ///         .init_resource::<Paused>()
+///         .add_systems(Update, update_pause_state)
 ///         .add_systems(Update, pause_menu.run_if(|paused: Res<Paused>| paused.0))
 ///         .run();
 /// }
 ///
-/// fn update_pause_state(mut paused: ResMut<Paused>, input: Input<KeyCode>) {
+/// fn update_pause_state(mut paused: ResMut<Paused>, input: Res<Input<KeyCode>>) {
 ///   if input.just_pressed(KeyCode::Escape) {
 ///     paused.0 = !paused.0;
 ///   }
