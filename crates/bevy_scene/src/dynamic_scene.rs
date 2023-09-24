@@ -4,7 +4,7 @@ use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
-use bevy_reflect::{Reflect, TypePath, TypeRegistryArc};
+use bevy_reflect::{Reflect, TypePath, TypeRegistry};
 use bevy_utils::HashMap;
 use std::any::TypeId;
 
@@ -160,9 +160,14 @@ impl DynamicScene {
     }
 
     // TODO: move to AssetSaver when it is implemented
-    /// Serialize this dynamic scene into rust object notation (ron).
+    /// Serialize this dynamic scene into the offical Bevy scene format (`.scn` / `.scn.ron`).
+    ///
+    /// The Bevy scene format is based on Rust Object Notation (RON). It describes the scene
+    /// in a human-friendly format. To deserialize the scene, use the [`SceneLoader`].
+    ///
+    /// [`SceneLoader`]: crate::SceneLoader
     #[cfg(feature = "serialize")]
-    pub fn serialize_ron(&self, registry: &TypeRegistryArc) -> Result<String, ron::Error> {
+    pub fn serialize(&self, registry: &TypeRegistry) -> Result<String, ron::Error> {
         serialize_ron(SceneSerializer::new(self, registry))
     }
 }
