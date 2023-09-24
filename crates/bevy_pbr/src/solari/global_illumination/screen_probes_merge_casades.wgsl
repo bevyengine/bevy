@@ -38,25 +38,25 @@ fn merge_screen_probe_cascades(
     let bl_probe_sample = sample_upper_probe((bl_probe_id * upper_probe_size) + upper_probe_offset);
     let br_probe_sample = sample_upper_probe((br_probe_id * upper_probe_size) + upper_probe_offset);
 
-    let tl_probe_depth = get_probe_depth((tl_probe_id * upper_probe_size) - (lower_probe_size - 1u));
-    let tr_probe_depth = get_probe_depth((tr_probe_id * upper_probe_size) - (lower_probe_size - 1u));
-    let bl_probe_depth = get_probe_depth((bl_probe_id * upper_probe_size) - (lower_probe_size - 1u));
-    let br_probe_depth = get_probe_depth((br_probe_id * upper_probe_size) - (lower_probe_size - 1u));
     let lower_probe_depth = get_probe_depth(((global_id.xy / lower_probe_size) * lower_probe_size) + (lower_probe_size / 2u - 1u));
-
-    let tl_probe_depth_weight = pow(saturate(1.0 - abs(tl_probe_depth - lower_probe_depth) / lower_probe_depth), f32(lower_probe_size));
-    let tr_probe_depth_weight = pow(saturate(1.0 - abs(tr_probe_depth - lower_probe_depth) / lower_probe_depth), f32(lower_probe_size));
-    let bl_probe_depth_weight = pow(saturate(1.0 - abs(bl_probe_depth - lower_probe_depth) / lower_probe_depth), f32(lower_probe_size));
-    let br_probe_depth_weight = pow(saturate(1.0 - abs(br_probe_depth - lower_probe_depth) / lower_probe_depth), f32(lower_probe_size));
+    let probe_depths = vec4(
+        get_probe_depth((tl_probe_id * upper_probe_size) - (lower_probe_size - 1u)),
+        get_probe_depth((tr_probe_id * upper_probe_size) - (lower_probe_size - 1u)),
+        get_probe_depth((bl_probe_id * upper_probe_size) - (lower_probe_size - 1u)),
+        get_probe_depth((br_probe_id * upper_probe_size) - (lower_probe_size - 1u)),
+    );
+    let probe_depth_weights = pow(saturate(1.0 - abs(probe_depths - lower_probe_depth) / lower_probe_depth), vec4(f32(lower_probe_size)));
 
     let r = fract(upper_probe_id_f);
-    let tl_probe_weight = (1.0 - r.x) * (1.0 - r.y) * tl_probe_depth_weight;
-    let tr_probe_weight = r.x * (1.0 - r.y) * tr_probe_depth_weight;
-    let bl_probe_weight = (1.0 - r.x) * r.y * bl_probe_depth_weight;
-    let br_probe_weight = r.x * r.y * br_probe_depth_weight;
+    let probe_weights = vec4(
+        (1.0 - r.x) * (1.0 - r.y),
+        r.x * (1.0 - r.y),
+        (1.0 - r.x) * r.y,
+        r.x * r.y,
+    ) * probe_depth_weights;
 
-    var upper_cascade_interpolated = (tl_probe_sample * tl_probe_weight) + (tr_probe_sample * tr_probe_weight) + (bl_probe_sample * bl_probe_weight) + (br_probe_sample * br_probe_weight);
-    upper_cascade_interpolated /= tl_probe_weight + tr_probe_weight + bl_probe_weight + br_probe_weight;
+    var upper_cascade_interpolated = (tl_probe_sample * probe_weights.x) + (tr_probe_sample * probe_weights.y) + (bl_probe_sample * probe_weights.z) + (br_probe_sample * probe_weights.w);
+    upper_cascade_interpolated /= dot(vec4(1.0), probe_weights);
     upper_cascade_interpolated = max(upper_cascade_interpolated, vec4(0.0));
 
     let merged_sample_rgb = lower_cascade_sample.rgb + (lower_cascade_sample.a * upper_cascade_interpolated.rgb);

@@ -28,14 +28,23 @@ fn interpolate_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>
     let bl_probe_sample = get_probe_irradiance(bl_probe_id, pixel_world_normal, probe_count);
     let br_probe_sample = get_probe_irradiance(tr_probe_id, pixel_world_normal, probe_count);
 
-    let r = fract(probe_id_f);
-    let tl_probe_weight = (1.0 - r.x) * (1.0 - r.y) * plane_distance_weight(tl_probe_id, pixel_world_position, pixel_world_normal);
-    let tr_probe_weight = r.x * (1.0 - r.y) * plane_distance_weight(tr_probe_id, pixel_world_position, pixel_world_normal);
-    let bl_probe_weight = (1.0 - r.x) * r.y * plane_distance_weight(bl_probe_id, pixel_world_position, pixel_world_normal);
-    let br_probe_weight = r.x * r.y * plane_distance_weight(br_probe_id, pixel_world_position, pixel_world_normal);
+    let probe_plane_distance_weights = vec4(
+        plane_distance_weight(tl_probe_id, pixel_world_position, pixel_world_normal),
+        plane_distance_weight(tr_probe_id, pixel_world_position, pixel_world_normal),
+        plane_distance_weight(bl_probe_id, pixel_world_position, pixel_world_normal),
+        plane_distance_weight(br_probe_id, pixel_world_position, pixel_world_normal),
+    );
 
-    var irradiance = (tl_probe_sample * tl_probe_weight) + (tr_probe_sample * tr_probe_weight) + (bl_probe_sample * bl_probe_weight) + (br_probe_sample * br_probe_weight);
-    irradiance /= tl_probe_weight + tr_probe_weight + bl_probe_weight + br_probe_weight;
+    let r = fract(probe_id_f);
+    let probe_weights = vec4(
+        (1.0 - r.x) * (1.0 - r.y),
+        r.x * (1.0 - r.y),
+        (1.0 - r.x) * r.y,
+        r.x * r.y,
+    ) * probe_plane_distance_weights;
+
+    var irradiance = (tl_probe_sample * probe_weights.x) + (tr_probe_sample * probe_weights.y) + (bl_probe_sample * probe_weights.z) + (br_probe_sample * probe_weights.w);
+    irradiance /= dot(vec4(1.0), probe_weights);
     irradiance = max(irradiance, vec3(0.0));
 
     textureStore(diffuse_irradiance_output, global_id.xy, vec4(irradiance, 1.0));
