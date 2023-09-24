@@ -637,12 +637,12 @@ pub trait TraitTypeData: TypeData {
 
 #[cfg(test)]
 mod test {
+    use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration};
     use bevy_ptr::{Ptr, PtrMut};
     use bevy_utils::HashMap;
 
     use crate as bevy_reflect;
     use crate::Reflect;
-    use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration};
 
     #[test]
     fn test_reflect_from_ptr() {
