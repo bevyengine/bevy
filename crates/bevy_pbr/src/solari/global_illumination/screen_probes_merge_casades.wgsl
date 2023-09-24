@@ -19,9 +19,9 @@ fn merge_screen_probe_cascades(
     // }
 
     let lower_probe_size = 1u << (lower_cascade + 3u);
-    let lower_probe_count = textureDimensions(screen_probes) / lower_probe_size;
+    let lower_probe_count = (vec2<u32>(view.viewport.zw) + 7u) / lower_probe_size;
     let upper_probe_size = lower_probe_size * 2u;
-    let upper_probe_count = textureDimensions(screen_probes) / upper_probe_size;
+    let upper_probe_count = lower_probe_count / 2u;
 
     let lower_probe_id = global_id.xy / lower_probe_size;
     let lower_probe_uv = (vec2<f32>(lower_probe_id) + 0.5) / vec2<f32>(lower_probe_count);
