@@ -1,6 +1,6 @@
 use std::any::TypeId;
 
-use bevy_reflect::{Reflect, ReflectFromPtr, TraitTypeData};
+use bevy_reflect::{DynTraitRelevance, Reflect, ReflectFromPtr, TraitTypeData, TypeData};
 
 use crate::component::ComponentId;
 use crate::entity::Entity;
@@ -15,35 +15,37 @@ impl World {
     }
 
     /// Retrieves an immutable `dyn T` reference to the given entity's Component of the given [`ComponentId`]
-    pub fn get_dyn_by_id<T: TraitTypeData>(
+    pub fn get_dyn_by_id<T: DynTraitRelevance + ?Sized>(
         &self,
         entity: Entity,
         component_id: ComponentId,
-    ) -> Option<&T::Dyn> {
+    ) -> Option<&<T::TypeData as TraitTypeData>::Dyn> {
         let type_id = self.component_type_id(component_id)?;
 
         let dyn_obj = self.get_dyn_reflect_by_id(entity, component_id)?;
 
         let type_registry = self.resource::<AppTypeRegistry>();
         let type_registry = type_registry.read();
-        let type_data = type_registry.get_type_data::<T>(type_id)?;
+        let type_data = type_registry.get_type_data::<T::TypeData>(type_id)?;
         type_data.get(dyn_obj)
     }
 
     /// Retrieves an mutable `dyn T` reference to the given entity's Component of the given [`ComponentId`]
-    pub fn get_dyn_mut_by_id<T: TraitTypeData>(
+    pub fn get_dyn_mut_by_id<T: DynTraitRelevance + ?Sized>(
         &mut self,
         entity: Entity,
         component_id: ComponentId,
-    ) -> Option<&mut T::Dyn> {
+    ) -> Option<&mut <T::TypeData as TraitTypeData>::Dyn> {
         let type_id = self.component_type_id(component_id)?;
 
-        let type_data: Box<T> = ({
+        let type_data: Box<T::TypeData> = ({
             let type_registry = self.get_resource::<AppTypeRegistry>()?;
             let type_registry = type_registry.read();
-            type_registry.get_type_data::<T>(type_id)?.clone_type_data()
+            type_registry
+                .get_type_data::<T::TypeData>(type_id)?
+                .clone_type_data()
         })
-        .downcast::<T>()
+        .downcast::<T::TypeData>()
         .ok()?;
         let dyn_obj = self.get_dyn_reflect_mut_by_id(entity, component_id)?;
         type_data.get_mut(dyn_obj.value)
@@ -90,9 +92,13 @@ impl World {
 
 #[cfg(test)]
 mod tests {
-    use bevy_reflect::{reflect_trait, Reflect};
+    use std::any::TypeId;
     use std::ops::DerefMut;
 
+    use bevy_reflect::{reflect_trait, Reflect};
+
+    use crate::component::ComponentId;
+    use crate::entity::Entity;
     use crate::prelude::AppTypeRegistry;
     use crate::{self as bevy_ecs, component::Component, world::World};
 
@@ -127,10 +133,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn dyn_reflect() {
+    fn ready_world() -> (World, Entity, ComponentId, TypeId) {
         let mut world = World::new();
-        let world = &mut world;
 
         let type_registry = AppTypeRegistry::default();
         {
@@ -144,6 +148,12 @@ mod tests {
 
         let component_id = world.component_id::<ComponentA>().unwrap();
         let component_type_id = world.component_type_id(component_id).unwrap();
+        (world, entity, component_id, component_type_id)
+    }
+
+    #[test]
+    fn get_dyn_reflect_by_id() {
+        let (mut world, entity, component_id, component_type_id) = ready_world();
 
         {
             let do_thing = world.get_dyn_reflect_by_id(entity, component_id);
@@ -159,6 +169,47 @@ mod tests {
             let do_thing = do_thing.deref_mut();
             assert_eq!(do_thing.type_id(), component_type_id);
         }
+    }
+
+    #[test]
+    fn get_dyn_by_id_and_dyn_type() {
+        let (mut world, entity, component_id, component_type_id) = ready_world();
+
+        {
+            let do_thing = world.get_dyn_mut_by_id::<dyn DoThing>(entity, component_id);
+            assert!(do_thing.is_some());
+            let mut do_thing = do_thing.unwrap();
+            let do_thing = do_thing.deref_mut();
+            do_thing.mut_do_thing();
+            assert_eq!(do_thing.type_id(), component_type_id);
+        }
+
+        {
+            let do_thing = world.get_dyn_by_id::<dyn DoThing>(entity, component_id);
+            assert!(do_thing.is_some());
+            let do_thing = do_thing.unwrap();
+            do_thing.do_thing();
+            assert_eq!(do_thing.as_reflect().type_id(), component_type_id);
+        }
+
+        {
+            let other_trait = world.get_dyn_mut_by_id::<dyn OtherTrait>(entity, component_id);
+            assert!(other_trait.is_some());
+            let other_trait = other_trait.unwrap();
+            assert_eq!(other_trait.as_reflect().type_id(), component_type_id);
+        }
+        {
+            let other_trait = world.get_dyn_by_id::<dyn OtherTrait>(entity, component_id);
+            assert!(other_trait.is_some());
+            let other_trait = other_trait.unwrap();
+            other_trait.other_do_thing();
+            assert_eq!(other_trait.as_reflect().type_id(), component_type_id);
+        }
+    }
+
+    #[test]
+    fn get_dyn_by_id_and_type_data() {
+        let (mut world, entity, component_id, component_type_id) = ready_world();
 
         {
             let do_thing = world.get_dyn_mut_by_id::<ReflectDoThing>(entity, component_id);

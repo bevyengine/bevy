@@ -1,10 +1,13 @@
-use crate::{serde::Serializable, Reflect, TypeInfo, Typed};
-use bevy_ptr::{Ptr, PtrMut};
-use bevy_utils::{HashMap, HashSet};
+use std::{any::TypeId, fmt::Debug, sync::Arc};
+
 use downcast_rs::{impl_downcast, Downcast};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use serde::Deserialize;
-use std::{any::TypeId, fmt::Debug, sync::Arc};
+
+use bevy_ptr::{Ptr, PtrMut};
+use bevy_utils::{HashMap, HashSet};
+
+use crate::{serde::Serializable, Reflect, TypeInfo, Typed};
 
 /// A registry of [reflected] types.
 ///
@@ -599,6 +602,14 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
     }
 }
 
+pub trait DynTraitRelevance {
+    type TypeData: TraitTypeData;
+}
+
+impl<T: TraitTypeData> DynTraitRelevance for T {
+    type TypeData = T;
+}
+
 /// Type data for transforming a `dyn Reflect` into a `dyn Trait` trait object.
 ///
 /// This trait associates the `trait object` corresponding to [`TypeData`] (because Rust does not currently support `dyn T`, where `T` is a generic parameter).
@@ -625,12 +636,12 @@ pub trait TraitTypeData: TypeData {
 
 #[cfg(test)]
 mod test {
-    use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration};
     use bevy_ptr::{Ptr, PtrMut};
     use bevy_utils::HashMap;
 
     use crate as bevy_reflect;
     use crate::Reflect;
+    use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration};
 
     #[test]
     fn test_reflect_from_ptr() {

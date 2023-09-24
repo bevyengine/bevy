@@ -1,8 +1,11 @@
-use crate::fq_std::{FQBox, FQClone, FQOption, FQResult};
-use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
+
 use quote::quote;
 use syn::{parse::Parse, parse_macro_input, Attribute, ItemTrait, Token};
+
+use bevy_macro_utils::BevyManifest;
+
+use crate::fq_std::{FQBox, FQClone, FQOption, FQResult};
 
 pub(crate) struct TraitInfo {
     item_trait: ItemTrait,
@@ -56,6 +59,10 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
             get_func: fn(&dyn #bevy_reflect_path::Reflect) -> #FQOption<&(dyn #trait_ident + 'static)>,
             get_mut_func: fn(&mut dyn #bevy_reflect_path::Reflect) -> #FQOption<&mut (dyn #trait_ident + 'static)>,
             get_boxed_func: fn(#FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<#FQBox<dyn #trait_ident>, #FQBox<dyn #bevy_reflect_path::Reflect>>,
+        }
+
+        impl #bevy_reflect_path::DynTraitRelevance for dyn #trait_ident{
+            type TypeData = #reflect_trait_ident;
         }
 
         impl #bevy_reflect_path::TraitTypeData for #reflect_trait_ident {
