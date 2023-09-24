@@ -19,9 +19,9 @@ fn interpolate_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>
     let probe_id_f = pixel_uv * vec2<f32>(probe_count) - 0.5;
 
     let tl_probe_id = max(vec2<u32>(probe_id_f), vec2(0u));
-    let tr_probe_id = min(tl_probe_id + vec2(1u, 0u), probe_count);
-    let bl_probe_id = min(tl_probe_id + vec2(0u, 1u), probe_count);
-    let br_probe_id = min(tl_probe_id + vec2(1u, 1u), probe_count);
+    let tr_probe_id = min(tl_probe_id + vec2(1u, 0u), probe_count - 1u);
+    let bl_probe_id = min(tl_probe_id + vec2(0u, 1u), probe_count - 1u);
+    let br_probe_id = min(tl_probe_id + vec2(1u, 1u), probe_count - 1u);
 
     let tl_probe_sample = get_probe_irradiance(tl_probe_id, pixel_world_normal, probe_count);
     let tr_probe_sample = get_probe_irradiance(tr_probe_id, pixel_world_normal, probe_count);

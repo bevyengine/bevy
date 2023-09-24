@@ -18,7 +18,7 @@ fn merge_screen_probe_cascades(
     //     return;
     // }
 
-    let lower_probe_size = u32(exp2(f32(lower_cascade) + 3.0));
+    let lower_probe_size = 1u << (lower_cascade + 3u);
     let lower_probe_count = textureDimensions(screen_probes) / lower_probe_size;
     let upper_probe_size = lower_probe_size * 2u;
     let upper_probe_count = textureDimensions(screen_probes) / upper_probe_size;
@@ -28,9 +28,9 @@ fn merge_screen_probe_cascades(
     let upper_probe_id_f = lower_probe_uv * vec2<f32>(upper_probe_count) - 0.5;
 
     let tl_probe_id = max(vec2<u32>(upper_probe_id_f), vec2(0u));
-    let tr_probe_id = min(tl_probe_id + vec2(1u, 0u), upper_probe_count);
-    let bl_probe_id = min(tl_probe_id + vec2(0u, 1u), upper_probe_count);
-    let br_probe_id = min(tl_probe_id + vec2(1u, 1u), upper_probe_count);
+    let tr_probe_id = min(tl_probe_id + vec2(1u, 0u), upper_probe_count - 1u);
+    let bl_probe_id = min(tl_probe_id + vec2(0u, 1u), upper_probe_count - 1u);
+    let br_probe_id = min(tl_probe_id + vec2(1u, 1u), upper_probe_count - 1u);
 
     let upper_probe_offset = (global_id.xy % lower_probe_size) * 2u;
     let tl_probe_sample = sample_upper_probe((tl_probe_id * upper_probe_size) + upper_probe_offset);

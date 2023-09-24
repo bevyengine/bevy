@@ -4,9 +4,11 @@
 #import bevy_solari::utils trace_ray, depth_to_world_position, rand_vec2f
 #import bevy_pbr::utils octahedral_decode
 
+var<push_constant> cascade: u32;
+
 @compute @workgroup_size(8, 8, 1)
 fn update_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    let probe_size = u32(exp2(f32(global_id.z) + 3.0));
+    let probe_size = 1u << (cascade + 3u);
     let probe_count = textureDimensions(screen_probes) / probe_size;
     let probe_center_cell_offset = (probe_size / 2u) - 1u;
 
@@ -14,77 +16,78 @@ fn update_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
     probe_center_pixel_id = min(probe_center_pixel_id, vec2<u32>(view.viewport.zw) - 1u);
     let probe_center_uv = (vec2<f32>(probe_center_pixel_id) + 0.5) / view.viewport.zw;
 
-    let motion_vector = textureLoad(motion_vectors, probe_center_pixel_id, 0i).rg;
-    let reprojected_probe_center_uv = probe_center_uv - motion_vector;
-    let screen_disocclusion = f32(all(saturate(reprojected_probe_center_uv) == reprojected_probe_center_uv));
-
-    let reprojected_probe_center_pixel_id_f = reprojected_probe_center_uv * vec2<f32>(probe_count) - 0.5;
-
-    let tl_probe_id = max(vec2<u32>(reprojected_probe_center_pixel_id_f), vec2(0u));
-    let tr_probe_id = min(tl_probe_id + vec2(1u, 0u), probe_count);
-    let bl_probe_id = min(tl_probe_id + vec2(0u, 1u), probe_count);
-    let br_probe_id = min(tl_probe_id + vec2(1u, 1u), probe_count);
-
-    let probe_cell_id = global_id.xy % probe_size;
-    let tl_probe_sample = get_probe_cell((tl_probe_id * probe_size) + probe_cell_id, global_id.z);
-    let tr_probe_sample = get_probe_cell((tr_probe_id * probe_size) + probe_cell_id, global_id.z);
-    let bl_probe_sample = get_probe_cell((bl_probe_id * probe_size) + probe_cell_id, global_id.z);
-    let br_probe_sample = get_probe_cell((br_probe_id * probe_size) + probe_cell_id, global_id.z);
-
-    let tl_probe_confidence = get_probe_confidence((tl_probe_id * probe_size) + probe_cell_id, global_id.z);
-    let tr_probe_confidence = get_probe_confidence((tr_probe_id * probe_size) + probe_cell_id, global_id.z);
-    let bl_probe_confidence = get_probe_confidence((bl_probe_id * probe_size) + probe_cell_id, global_id.z);
-    let br_probe_confidence = get_probe_confidence((br_probe_id * probe_size) + probe_cell_id, global_id.z);
-
-    let current_depth = get_probe_depth((tl_probe_id * probe_size) + probe_center_cell_offset);
-    let tl_probe_depth = get_probe_previous_depth((tl_probe_id * probe_size) + probe_center_cell_offset);
-    let tr_probe_depth = get_probe_previous_depth((tr_probe_id * probe_size) + probe_center_cell_offset);
-    let bl_probe_depth = get_probe_previous_depth((bl_probe_id * probe_size) + probe_center_cell_offset);
-    let br_probe_depth = get_probe_previous_depth((br_probe_id * probe_size) + probe_center_cell_offset);
-
-    let tl_probe_depth_weight = pow(saturate(1.0 - abs(tl_probe_depth - current_depth) / current_depth), f32(probe_size));
-    let tr_probe_depth_weight = pow(saturate(1.0 - abs(tr_probe_depth - current_depth) / current_depth), f32(probe_size));
-    let bl_probe_depth_weight = pow(saturate(1.0 - abs(bl_probe_depth - current_depth) / current_depth), f32(probe_size));
-    let br_probe_depth_weight = pow(saturate(1.0 - abs(br_probe_depth - current_depth) / current_depth), f32(probe_size));
-
-    let r = fract(reprojected_probe_center_pixel_id_f);
-    let screen_weight = f32(all(saturate(reprojected_probe_center_uv) == reprojected_probe_center_uv));
-    let tl_probe_weight = (1.0 - r.x) * (1.0 - r.y) * tl_probe_depth_weight;
-    let tr_probe_weight = r.x * (1.0 - r.y) * tr_probe_depth_weight;
-    let bl_probe_weight = (1.0 - r.x) * r.y * bl_probe_depth_weight;
-    let br_probe_weight = r.x * r.y * br_probe_depth_weight;
-
-    var history_color = (tl_probe_sample * tl_probe_weight) + (tr_probe_sample * tr_probe_weight) + (bl_probe_sample * bl_probe_weight) + (br_probe_sample * br_probe_weight);
-    var history_confidence = (tl_probe_confidence * tl_probe_weight) + (tr_probe_confidence * tr_probe_weight) + (bl_probe_confidence * bl_probe_weight) + (br_probe_confidence * br_probe_weight);
-    history_color /= tl_probe_weight + tr_probe_weight + bl_probe_weight + br_probe_weight;
-    history_confidence /= tl_probe_weight + tr_probe_weight + bl_probe_weight + br_probe_weight;
-    history_color = max(history_color, vec4(0.0));
-    history_confidence = 1.0 + (clamp(history_confidence, 0.0, 31.0) * screen_disocclusion);
-
-    // Reconstruct world position of the probe and early out if the probe is placed on a background pixel
+    // Early out if the probe is placed on a background pixel
     let probe_depth = textureLoad(depth_buffer, probe_center_pixel_id, 0i);
     if probe_depth == 0.0 {
-        textureStore(screen_probes, global_id.xy, global_id.z, vec4(0.0, 0.0, 0.0, 1.0));
+        textureStore(screen_probes, global_id.xy, cascade, vec4(0.0, 0.0, 0.0, 1.0));
+        textureStore(screen_probes_confidence, global_id.xy, cascade, vec4(0u));
         return;
     }
-    let probe_world_position = depth_to_world_position(probe_depth, probe_center_uv);
 
-    // Calculate world-space normal of the assigned probe texel for this thread
+    let motion_vector = textureLoad(motion_vectors, probe_center_pixel_id, 0i).rg;
+    let reprojected_probe_center_uv = probe_center_uv - motion_vector;
+
+    let reprojected_probe_center_pixel_id_f = reprojected_probe_center_uv * vec2<f32>(probe_count) - 0.5;
+    let tl_probe_id = max(vec2<u32>(reprojected_probe_center_pixel_id_f), vec2(0u));
+    let tr_probe_id = min(tl_probe_id + vec2(1u, 0u), probe_count - 1u);
+    let bl_probe_id = min(tl_probe_id + vec2(0u, 1u), probe_count - 1u);
+    let br_probe_id = min(tl_probe_id + vec2(1u, 1u), probe_count - 1u);
+
+    let probe_cell_id = global_id.xy % probe_size;
+    let tl_probe_sample = get_probe_cell((tl_probe_id * probe_size) + probe_cell_id);
+    let tr_probe_sample = get_probe_cell((tr_probe_id * probe_size) + probe_cell_id);
+    let bl_probe_sample = get_probe_cell((bl_probe_id * probe_size) + probe_cell_id);
+    let br_probe_sample = get_probe_cell((br_probe_id * probe_size) + probe_cell_id);
+
+    let probe_confidences = vec4(
+        get_probe_confidence((tl_probe_id * probe_size) + probe_cell_id),
+        get_probe_confidence((tr_probe_id * probe_size) + probe_cell_id),
+        get_probe_confidence((bl_probe_id * probe_size) + probe_cell_id),
+        get_probe_confidence((br_probe_id * probe_size) + probe_cell_id),
+    );
+
+    let current_depth = view.projection[3][2] / probe_depth;
+    let probe_depths = vec4(
+        get_probe_previous_depth((tl_probe_id * probe_size) + probe_center_cell_offset),
+        get_probe_previous_depth((tr_probe_id * probe_size) + probe_center_cell_offset),
+        get_probe_previous_depth((bl_probe_id * probe_size) + probe_center_cell_offset),
+        get_probe_previous_depth((br_probe_id * probe_size) + probe_center_cell_offset),
+    );
+    let probe_depth_weights = pow(saturate(1.0 - abs(probe_depths - current_depth) / current_depth), vec4(f32(probe_size)));
+
+    let r = fract(reprojected_probe_center_pixel_id_f);
+    let probe_weights = vec4(
+        (1.0 - r.x) * (1.0 - r.y),
+        r.x * (1.0 - r.y),
+        (1.0 - r.x) * r.y,
+        r.x * r.y,
+    ) * probe_depth_weights;
+
+    var history_color = (tl_probe_sample * probe_weights.x) + (tr_probe_sample * probe_weights.y) + (bl_probe_sample * probe_weights.z) + (br_probe_sample * probe_weights.w);
+    history_color /= dot(vec4(1.0), probe_weights);
+    history_color = max(history_color, vec4(0.0));
+
+    let screen_disocclusion = f32(all(saturate(reprojected_probe_center_uv) == reprojected_probe_center_uv));
+    var history_confidence = dot(probe_confidences, probe_weights) / dot(vec4(1.0), probe_weights);
+    history_confidence = max(history_confidence, 0.0);
+    history_confidence = 1.0 + (clamp(history_confidence, 0.0, 31.0) * screen_disocclusion);
+
+    // Calculate jittered world-space normal of the assigned probe texel for this thread
     var rng = uniforms.frame_count * 5782582u;
     let probe_cell_center = vec2<f32>(global_id.xy % probe_size) + rand_vec2f(&rng);
     let probe_cell_uv = probe_cell_center / f32(probe_size);
     let probe_cell_normal = octahedral_decode(probe_cell_uv);
 
     // Calculate radiance interval for this probe based on which cascade it's part of
-    let i = f32(global_id.z);
-    var radiance_interval_min = FIRST_RADIANCE_CASCADE_INTERVAL * (exp2(i) - 1.0);
-    var radiance_interval_max = FIRST_RADIANCE_CASCADE_INTERVAL * (exp2(i + 1.0) - 1.0);
-    if global_id.z == 0u {
+    var radiance_interval_min = FIRST_RADIANCE_CASCADE_INTERVAL * (exp2(f32(cascade)) - 1.0);
+    var radiance_interval_max = FIRST_RADIANCE_CASCADE_INTERVAL * (exp2(f32(cascade) + 1.0) - 1.0);
+    if cascade == 0u {
         radiance_interval_min = 0.001;
     }
 
-    // Trace radiance interval, query world cache for lighting at hit
+    // Trace radiance interval from probe position, query world cache for lighting at hit
     var color = vec4(0.0, 0.0, 0.0, 1.0);
+    let probe_world_position = depth_to_world_position(probe_depth, probe_center_uv);
     let ray_hit = trace_ray(probe_world_position, probe_cell_normal, radiance_interval_min, radiance_interval_max);
     if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
         let ray_hit = map_ray_hit(ray_hit);
@@ -95,15 +98,15 @@ fn update_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Store blended lighting and hit/no-hit in probe texel
     let blended_color = mix(history_color, color, 1.0 / history_confidence);
     let history_confidence_out = vec4(u32(history_confidence), vec3(0u));
-    textureStore(screen_probes, global_id.xy, global_id.z, blended_color);
-    textureStore(screen_probes_confidence, global_id.xy, global_id.z, history_confidence_out);
+    textureStore(screen_probes, global_id.xy, cascade, blended_color);
+    textureStore(screen_probes_confidence, global_id.xy, cascade, history_confidence_out);
 }
 
-fn get_probe_cell(pixel_id: vec2<u32>, cascade: u32) -> vec4<f32> {
+fn get_probe_cell(pixel_id: vec2<u32>) -> vec4<f32> {
     return textureLoad(screen_probes_history, pixel_id, cascade, 0i);
 }
 
-fn get_probe_confidence(pixel_id: vec2<u32>, cascade: u32) -> f32 {
+fn get_probe_confidence(pixel_id: vec2<u32>) -> f32 {
     return f32(textureLoad(screen_probes_confidence_history, pixel_id, cascade, 0i).r);
 }
 
@@ -111,11 +114,5 @@ fn get_probe_previous_depth(pixel_id: vec2<u32>) -> f32 {
     // TODO: Need to use previous view here
     let pixel_id_clamped = min(pixel_id, vec2<u32>(view.viewport.zw) - 1u);
     let depth = textureLoad(previous_depth_buffer, pixel_id_clamped, 0i);
-    return view.projection[3][2] / depth;
-}
-
-fn get_probe_depth(pixel_id: vec2<u32>) -> f32 {
-    let pixel_id_clamped = min(pixel_id, vec2<u32>(view.viewport.zw) - 1u);
-    let depth = textureLoad(depth_buffer, pixel_id_clamped, 0i);
     return view.projection[3][2] / depth;
 }

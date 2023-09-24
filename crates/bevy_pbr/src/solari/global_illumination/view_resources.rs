@@ -90,10 +90,13 @@ pub fn prepare_resources(
         let Some(viewport_size) = camera.physical_viewport_size else {
             continue;
         };
-        let width_8 = round_up_to_multiple_of_8(viewport_size.x);
-        let height_8 = round_up_to_multiple_of_8(viewport_size.y);
-        let size_8 = UVec2::new(width_8, height_8);
-        let probe_count = (width_8 as u64 * height_8 as u64) / 64;
+        let probe_atlas_size = UVec2::new(
+            round_up_to_multiple_of_64(viewport_size.x),
+            round_up_to_multiple_of_64(viewport_size.y),
+        );
+        let cascade_0_probe_count = (round_up_to_multiple_of_8(viewport_size.x) as u64
+            * round_up_to_multiple_of_8(viewport_size.y) as u64)
+            / 64;
 
         let previous_depth_buffer = TextureDescriptor {
             label: Some("solari_previous_depth_buffer"),
@@ -114,7 +117,7 @@ pub fn prepare_resources(
             let mut t1 = texture(
                 "solari_global_illumination_screen_probes_1",
                 TextureFormat::Rgba16Float,
-                size_8,
+                probe_atlas_size,
             );
             t1.usage |= TextureUsages::TEXTURE_BINDING;
             t1.size.depth_or_array_layers = 4;
@@ -133,7 +136,7 @@ pub fn prepare_resources(
             let mut t1 = texture(
                 "solari_global_illumination_screen_probes_confidence_1",
                 TextureFormat::R8Uint,
-                size_8,
+                probe_atlas_size,
             );
             t1.usage |= TextureUsages::TEXTURE_BINDING;
             t1.size.depth_or_array_layers = 4;
@@ -151,12 +154,12 @@ pub fn prepare_resources(
         let mut screen_probes_merge_buffer = texture(
             "solari_global_illumination_screen_probes_merge_buffer",
             TextureFormat::Rgba16Float,
-            size_8,
+            probe_atlas_size,
         );
         screen_probes_merge_buffer.size.depth_or_array_layers = 2;
         let screen_probes_spherical_harmonics = buffer(
             "solari_global_illumination_screen_probes_spherical_harmonics",
-            probe_count * 112,
+            cascade_0_probe_count * 112,
         );
         let mut diffuse_irradiance_output = texture(
             "solari_global_illumination_diffuse_irradiance_output",
@@ -476,6 +479,10 @@ pub fn prepare_bind_groups(
         };
         commands.entity(entity).insert(bind_groups);
     }
+}
+
+fn round_up_to_multiple_of_64(x: u32) -> u32 {
+    (x + 63) & !63
 }
 
 fn round_up_to_multiple_of_8(x: u32) -> u32 {

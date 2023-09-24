@@ -6,6 +6,7 @@ use super::{
 use crate::solari::scene::SolariSceneBindGroup;
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_ecs::{query::QueryItem, world::World};
+use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -81,9 +82,6 @@ impl ViewNode for SolariGlobalIlluminationNode {
             return Ok(());
         };
 
-        let dispatch_x = (viewport_size.x + 7) / 8;
-        let dispatch_y = (viewport_size.y + 7) / 8;
-
         let command_encoder = render_context.command_encoder();
         let mut solari_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some("solari_global_illumination_pass"),
@@ -131,23 +129,26 @@ impl ViewNode for SolariGlobalIlluminationNode {
 
         solari_pass.pop_debug_group();
 
-        solari_pass.push_debug_group("diffuse_global_illumination");
-
+        solari_pass.push_debug_group("screen_cache_update_cascades");
         solari_pass.set_pipeline(screen_probes_update_pipeline);
-        solari_pass.dispatch_workgroups(dispatch_x, dispatch_y, 4);
+        for cascade in 0..4u32 {
+            solari_pass.set_push_constants(0, &cascade.to_le_bytes());
+            let dispatch_size = round_up_to_multiple_of_n(viewport_size, 1 << (cascade + 3)) / 8;
+            solari_pass.dispatch_workgroups(dispatch_size.x, dispatch_size.y, 1);
+        }
+        solari_pass.pop_debug_group();
 
-        solari_pass.push_debug_group("merge_cascades");
+        solari_pass.push_debug_group("screen_cache_merge_cascades");
         solari_pass.set_pipeline(screen_probes_merge_cascades_pipeline);
         for cascade in (0..3u32).rev() {
             solari_pass.set_push_constants(0, &cascade.to_le_bytes());
-            solari_pass.dispatch_workgroups(dispatch_x, dispatch_y, 1);
+            let dispatch_size = round_up_to_multiple_of_n(viewport_size, 1 << (cascade + 3)) / 8;
+            solari_pass.dispatch_workgroups(dispatch_size.x, dispatch_size.y, 1);
         }
         solari_pass.pop_debug_group();
 
         solari_pass.set_pipeline(screen_probes_interpolate_pipeline);
-        solari_pass.dispatch_workgroups(dispatch_x, dispatch_y, 1);
-
-        solari_pass.pop_debug_group();
+        solari_pass.dispatch_workgroups((viewport_size.x + 7) / 8, (viewport_size.y + 7) / 8, 1);
 
         drop(solari_pass);
 
@@ -160,4 +161,9 @@ impl ViewNode for SolariGlobalIlluminationNode {
 
         Ok(())
     }
+}
+
+fn round_up_to_multiple_of_n(xy: UVec2, n: u32) -> UVec2 {
+    let n = n - 1;
+    (xy + n) & !n
 }

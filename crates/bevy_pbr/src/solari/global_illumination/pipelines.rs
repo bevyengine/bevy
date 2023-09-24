@@ -108,7 +108,13 @@ impl SpecializedComputePipeline for SolariGlobalIlluminationPipelines {
             }
             SampleForWorldCache => ("sample_irradiance", SOLARI_WORLD_CACHE_UPDATE_SHADER),
             BlendNewWorldCacheSamples => ("blend_new_samples", SOLARI_WORLD_CACHE_UPDATE_SHADER),
-            ScreenProbesUpdate => ("update_screen_probes", SOLARI_SCREEN_PROBES_UPDATE_SHADER),
+            ScreenProbesUpdate => {
+                push_constant_ranges.push(PushConstantRange {
+                    stages: ShaderStages::COMPUTE,
+                    range: 0..4,
+                });
+                ("update_screen_probes", SOLARI_SCREEN_PROBES_UPDATE_SHADER)
+            }
             ScreenProbesMergeCascades => {
                 push_constant_ranges.push(PushConstantRange {
                     stages: ShaderStages::COMPUTE,
