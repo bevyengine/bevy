@@ -1,6 +1,6 @@
 use std::any::TypeId;
 
-use bevy_reflect::{Reflect, ReflectFromPtr, TraitTypeData, TraitTypeDataRelevance, TypeData};
+use bevy_reflect::{Reflect, ReflectFromPtr, TraitTypeData, TypeData, TypeDataMapper};
 
 use crate::component::ComponentId;
 use crate::entity::Entity;
@@ -15,7 +15,7 @@ impl World {
     }
 
     /// Retrieves an immutable `dyn T` reference to the given entity's Component of the given [`ComponentId`]
-    pub fn get_dyn_by_id<T: TraitTypeDataRelevance + ?Sized>(
+    pub fn get_dyn_by_id<T: TypeDataMapper + ?Sized>(
         &self,
         entity: Entity,
         component_id: ComponentId,
@@ -31,7 +31,7 @@ impl World {
     }
 
     /// Retrieves an mutable `dyn T` reference to the given entity's Component of the given [`ComponentId`]
-    pub fn get_dyn_mut_by_id<T: TraitTypeDataRelevance + ?Sized>(
+    pub fn get_dyn_mut_by_id<T: TypeDataMapper + ?Sized>(
         &mut self,
         entity: Entity,
         component_id: ComponentId,

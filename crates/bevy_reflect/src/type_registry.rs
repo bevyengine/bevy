@@ -602,18 +602,25 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
     }
 }
 
-/// Associate a `TraitTypeData`
-pub trait TraitTypeDataRelevance {
+/// Map a type to a `TraitTypeData`
+///
+/// For example. `dyn MyTrait` maps to `ReflectMyTrait`. `ReflectMyTrait` maps to `ReflectMyTrait` (itself).
+///
+/// This trait is implemented automatically by `#[reflect_trait]`. It map `dyn MyTrait` maps to `ReflectMyTrait`.
+///
+/// In this way. the `get_dyn_by_id::<ReflectMyTrait>` or `get_dyn_by_id::<dyn MyTrait>` to get the associated `dyn Trait`
+pub trait TypeDataMapper {
     type TypeData: TraitTypeData;
 }
 
-impl<T: TraitTypeData> TraitTypeDataRelevance for T {
+// Map to oneself
+impl<T: TraitTypeData> TypeDataMapper for T {
     type TypeData = T;
 }
 
 /// Type data for transforming a `dyn Reflect` into a `dyn Trait` trait object.
 ///
-/// This trait associates the `trait object` corresponding to [`TypeData`] (because Rust does not currently support `dyn T`, where `T` is a generic parameter).
+/// This trait associates the `trait object` corresponding to [`TypeData`].
 ///
 /// This trait can be implemented automatically by the `#[reflect_trait]` macro.
 ///
@@ -637,12 +644,12 @@ pub trait TraitTypeData: TypeData {
 
 #[cfg(test)]
 mod test {
-    use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration};
     use bevy_ptr::{Ptr, PtrMut};
     use bevy_utils::HashMap;
 
     use crate as bevy_reflect;
     use crate::Reflect;
+    use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration};
 
     #[test]
     fn test_reflect_from_ptr() {
