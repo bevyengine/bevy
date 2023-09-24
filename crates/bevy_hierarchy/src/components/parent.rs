@@ -23,6 +23,16 @@ impl Parent {
     pub fn get(&self) -> Entity {
         self.0
     }
+
+    /// Gets the parent [`Entity`] as a slice of length 1.
+    ///
+    /// Useful for making APIs that require a type or homogenous storage
+    /// for both [`Children`] & [`Parent`] that is agnostic to edge direction.
+    ///
+    /// [`Children`]: super::children::Children
+    pub fn as_slice(&self) -> &[Entity] {
+        std::slice::from_ref(&self.0)
+    }
 }
 
 // TODO: We need to impl either FromWorld or Default so Parent can be registered as Reflect.

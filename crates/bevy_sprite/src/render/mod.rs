@@ -565,8 +565,9 @@ pub fn queue_sprites(
                     pipeline: colored_pipeline,
                     entity: *entity,
                     sort_key,
-                    // batch_size will be calculated in prepare_sprites
-                    batch_size: 0,
+                    // batch_range and dynamic_offset will be calculated in prepare_sprites
+                    batch_range: 0..0,
+                    dynamic_offset: None,
                 });
             } else {
                 transparent_phase.add(Transparent2d {
@@ -574,8 +575,9 @@ pub fn queue_sprites(
                     pipeline,
                     entity: *entity,
                     sort_key,
-                    // batch_size will be calculated in prepare_sprites
-                    batch_size: 0,
+                    // batch_range and dynamic_offset will be calculated in prepare_sprites
+                    batch_range: 0..0,
+                    dynamic_offset: None,
                 });
             }
         }
@@ -739,7 +741,9 @@ pub fn prepare_sprites(
                     ));
                 }
 
-                transparent_phase.items[batch_item_index].batch_size += 1;
+                transparent_phase.items[batch_item_index]
+                    .batch_range_mut()
+                    .end += 1;
                 batches.last_mut().unwrap().1.range.end += 1;
                 index += 1;
             }

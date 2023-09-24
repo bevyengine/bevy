@@ -152,7 +152,8 @@ fn queue_wireframes(
                 pipeline: pipeline_id,
                 draw_function: draw_custom,
                 distance: rangefinder.distance_translation(&mesh_transforms.transform.translation),
-                batch_size: 1,
+                batch_range: 0..1,
+                dynamic_offset: None,
             });
         };
 
