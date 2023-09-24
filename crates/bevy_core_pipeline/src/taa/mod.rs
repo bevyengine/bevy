@@ -113,14 +113,13 @@ pub struct TemporalAntiAliasBundle {
 /// # Tradeoffs
 ///
 /// Pros:
+/// * Filters more types of aliasing than MSAA, such as textures and singular bright pixels (specular aliasing)
 /// * Cost scales with screen/view resolution, unlike MSAA which scales with number of triangles
-/// * Filters more types of aliasing than MSAA, such as textures and singular bright pixels
-/// * Greatly increases the quality of stochastic rendering techniques such as SSAO, shadow mapping, etc
+/// * Greatly increases the quality of stochastic rendering techniques such as SSAO, certain shadow map sampling methods, etc
 ///
 /// Cons:
 /// * Chance of "ghosting" - ghostly trails left behind moving objects
-/// * Thin geometry, lighting detail, or texture lines may flicker or disappear
-/// * Slightly blurs the image, leading to a softer look (using an additional sharpening pass can reduce this)
+/// * Thin geometry, lighting detail, or texture lines may flicker noisily or disappear
 ///
 /// Because TAA blends past frames with the current frame, when the frames differ too much
 /// (such as with fast moving objects or camera cuts), ghosting artifacts may occur.
@@ -133,7 +132,7 @@ pub struct TemporalAntiAliasBundle {
 /// and add the [`DepthPrepass`], [`MotionVectorPrepass`], and [`TemporalJitter`]
 /// components to your camera.
 ///
-/// Cannot be used with [`bevy_render::camera::OrthographicProjection`].
+/// Currently cannot be used with [`bevy_render::camera::OrthographicProjection`].
 ///
 /// Currently does not support skinned meshes and morph targets.
 /// There will probably be ghosting artifacts if used with them.
@@ -154,7 +153,7 @@ pub struct TemporalAntiAliasSettings {
     /// representative of the current frame, such as in sudden camera cuts.
     ///
     /// After setting this to true, it will automatically be toggled
-    /// back to false after one frame.
+    /// back to false at the end of the frame.
     pub reset: bool,
 }
 
