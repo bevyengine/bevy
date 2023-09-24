@@ -17,6 +17,7 @@
     * Consider 4x4 probes for the first cascade
     * More efficent/combined screen probe cascade reprojection/tracing/merging routines
     * 1/4th probe update rate
+* Faster temporal reactivity
 
 * Specular lighting
 * Cleanup, remaining TODOs, performance profiling, documentation, etc
