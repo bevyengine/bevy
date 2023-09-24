@@ -8,8 +8,8 @@
 //! | `Q` / `W`          | Decrease / Increase Transmission          |
 //! | `A` / `S`          | Decrease / Increase Thickness             |
 //! | `Z` / `X`          | Decrease / Increase IOR                   |
-//! | `Down` / `Up`      | Decrease / Increase Perceptual Roughness  |
-//! | `Left` / `Right`   | Rotate Camera                             |
+//! | `E` / `R`          | Decrease / Increase Perceptual Roughness  |
+//! | Arrow Keys         | Control Camera                            |
 //! | `O` / `P`          | Decrease / Increase Transmission Steps    |
 //! | `H`                | Toggle HDR                                |
 //! | `D`                | Toggle Depth Prepass (Also disables TAA)  |
@@ -368,7 +368,7 @@ fn setup(
 
     commands.spawn(
         TextBundle::from_section(
-            "1 / 2 - Decrease / Increase Diffuse Transmission\nQ / W - Decrease / Increase Transmission\nA / S - Decrease / Increase Thickness\nZ / X - Decrease / Increase IOR\nDown / Up - Decrease / Increase Perceptual Roughness\nLeft / Right - Rotate Camera\nO / P - Decrease / Increase Transmission Steps\nH - Toggle HDR\nD - Toggle Depth Prepass (Also disables TAA)\nC - Randomize Colors",
+            "1 / 2 - Decrease / Increase Diffuse Transmission\nQ / W - Decrease / Increase Transmission\nA / S - Decrease / Increase Thickness\nZ / X - Decrease / Increase IOR\nE / R - Decrease / Increase Perceptual Roughness\nArrow Keys - Control Camera\nO / P - Decrease / Increase Transmission Steps\nH - Toggle HDR\nD - Toggle Depth Prepass (Also disables TAA)\nC - Randomize Colors",
             text_style.clone(),
         )
         .with_style(Style {
@@ -467,9 +467,9 @@ fn example_control_system(
         state.ior = (state.ior - time.delta_seconds()).max(1.0);
     }
 
-    if input.pressed(KeyCode::Up) {
+    if input.pressed(KeyCode::R) {
         state.perceptual_roughness = (state.perceptual_roughness + time.delta_seconds()).min(1.0);
-    } else if input.pressed(KeyCode::Down) {
+    } else if input.pressed(KeyCode::E) {
         state.perceptual_roughness = (state.perceptual_roughness - time.delta_seconds()).max(0.0);
     }
 
@@ -530,6 +530,16 @@ fn example_control_system(
     } else {
         0.0
     };
+
+    let distance_change = if input.pressed(KeyCode::Down) {
+        time.delta_seconds()
+    } else if input.pressed(KeyCode::Up) {
+        -time.delta_seconds()
+    } else {
+        0.0
+    };
+
+    camera_transform.translation *= distance_change.exp();
 
     camera_transform.rotate_around(
         Vec3::ZERO,
