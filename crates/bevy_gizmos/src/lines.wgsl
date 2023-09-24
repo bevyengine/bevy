@@ -1,8 +1,7 @@
 // TODO use common view binding
 #import bevy_render::view View
 
-@group(0) @binding(0)
-var<uniform> view: View;
+@group(0) @binding(0) var<uniform> view: View;
 
 
 struct LineGizmoUniform {
@@ -14,8 +13,7 @@ struct LineGizmoUniform {
 #endif
 }
 
-@group(1) @binding(0)
-var<uniform> line_gizmo: LineGizmoUniform;
+@group(1) @binding(0) var<uniform> line_gizmo: LineGizmoUniform;
 
 struct VertexInput {
     @location(0) position_a: vec3<f32>,

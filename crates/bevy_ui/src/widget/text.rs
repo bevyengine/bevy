@@ -12,8 +12,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
-    BreakLineOn, Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo,
-    TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
+    scale_value, BreakLineOn, Font, FontAtlasSets, FontAtlasWarning, Text, TextError,
+    TextLayoutInfo, TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
 };
 use bevy_window::{PrimaryWindow, Window};
 use taffy::style::AvailableSpace;
@@ -127,8 +127,8 @@ pub fn measure_text_system(
     #[allow(clippy::float_cmp)]
     if *last_scale_factor == scale_factor {
         // scale factor unchanged, only create new measure funcs for modified text
-        for (text, content_size, text_flags) in text_query.iter_mut() {
-            if text.is_changed() || text_flags.needs_new_measure_func {
+        for (text, content_size, text_flags) in &mut text_query {
+            if text.is_changed() || text_flags.needs_new_measure_func || content_size.is_added() {
                 create_text_measure(&fonts, scale_factor, text, content_size, text_flags);
             }
         }
@@ -136,7 +136,7 @@ pub fn measure_text_system(
         // scale factor changed, create new measure funcs for all text
         *last_scale_factor = scale_factor;
 
-        for (text, content_size, text_flags) in text_query.iter_mut() {
+        for (text, content_size, text_flags) in &mut text_query {
             create_text_measure(&fonts, scale_factor, text, content_size, text_flags);
         }
     }
@@ -148,11 +148,12 @@ fn queue_text(
     fonts: &Assets<Font>,
     text_pipeline: &mut TextPipeline,
     font_atlas_warning: &mut FontAtlasWarning,
-    font_atlas_set_storage: &mut Assets<FontAtlasSet>,
+    font_atlas_sets: &mut FontAtlasSets,
     texture_atlases: &mut Assets<TextureAtlas>,
     textures: &mut Assets<Image>,
     text_settings: &TextSettings,
     scale_factor: f64,
+    inverse_scale_factor: f64,
     text: &Text,
     node: Ref<Node>,
     mut text_flags: Mut<TextFlags>,
@@ -175,7 +176,7 @@ fn queue_text(
             text.alignment,
             text.linebreak_behavior,
             physical_node_size,
-            font_atlas_set_storage,
+            font_atlas_sets,
             texture_atlases,
             textures,
             text_settings,
@@ -189,7 +190,9 @@ fn queue_text(
             Err(e @ TextError::FailedToAddGlyph(_)) => {
                 panic!("Fatal error when processing text: {e}.");
             }
-            Ok(info) => {
+            Ok(mut info) => {
+                info.logical_size.x = scale_value(info.logical_size.x, inverse_scale_factor);
+                info.logical_size.y = scale_value(info.logical_size.y, inverse_scale_factor);
                 *text_layout_info = info;
                 text_flags.needs_recompute = false;
             }
@@ -215,7 +218,7 @@ pub fn text_system(
     mut font_atlas_warning: ResMut<FontAtlasWarning>,
     ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-    mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
+    mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(Ref<Node>, &Text, &mut TextLayoutInfo, &mut TextFlags)>,
 ) {
@@ -226,20 +229,21 @@ pub fn text_system(
         .unwrap_or(1.);
 
     let scale_factor = ui_scale.0 * window_scale_factor;
-
+    let inverse_scale_factor = scale_factor.recip();
     if *last_scale_factor == scale_factor {
         // Scale factor unchanged, only recompute text for modified text nodes
-        for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
+        for (node, text, text_layout_info, text_flags) in &mut text_query {
             if node.is_changed() || text_flags.needs_recompute {
                 queue_text(
                     &fonts,
                     &mut text_pipeline,
                     &mut font_atlas_warning,
-                    &mut font_atlas_set_storage,
+                    &mut font_atlas_sets,
                     &mut texture_atlases,
                     &mut textures,
                     &text_settings,
                     scale_factor,
+                    inverse_scale_factor,
                     text,
                     node,
                     text_flags,
@@ -251,16 +255,17 @@ pub fn text_system(
         // Scale factor changed, recompute text for all text nodes
         *last_scale_factor = scale_factor;
 
-        for (node, text, text_layout_info, text_flags) in text_query.iter_mut() {
+        for (node, text, text_layout_info, text_flags) in &mut text_query {
             queue_text(
                 &fonts,
                 &mut text_pipeline,
                 &mut font_atlas_warning,
-                &mut font_atlas_set_storage,
+                &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
                 &text_settings,
                 scale_factor,
+                inverse_scale_factor,
                 text,
                 node,
                 text_flags,
