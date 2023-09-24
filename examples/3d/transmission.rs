@@ -523,9 +523,9 @@ fn example_control_system(
         camera_3d.transmissive_steps += 1;
     }
 
-    let rotation = if input.pressed(KeyCode::Left) {
+    let rotation = if input.pressed(KeyCode::Right) {
         time.delta_seconds()
-    } else if input.pressed(KeyCode::Right) {
+    } else if input.pressed(KeyCode::Left) {
         -time.delta_seconds()
     } else {
         0.0
