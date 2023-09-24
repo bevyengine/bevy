@@ -2,10 +2,11 @@ use std::{iter, mem};
 
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    batching::NoAutomaticBatching,
     mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS},
     render_resource::{BufferUsages, BufferVec},
     renderer::{RenderDevice, RenderQueue},
-    view::ComputedVisibility,
+    view::ViewVisibility,
     Extract,
 };
 use bytemuck::Pod;
@@ -72,14 +73,14 @@ pub fn extract_morphs(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut uniform: ResMut<MorphUniform>,
-    query: Extract<Query<(Entity, &ComputedVisibility, &MeshMorphWeights)>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &MeshMorphWeights)>>,
 ) {
     uniform.buffer.clear();
 
     let mut values = Vec::with_capacity(*previous_len);
 
-    for (entity, computed_visibility, morph_weights) in &query {
-        if !computed_visibility.is_visible() {
+    for (entity, view_visibility, morph_weights) in &query {
+        if !view_visibility.get() {
             continue;
         }
         let start = uniform.buffer.len();
@@ -89,7 +90,9 @@ pub fn extract_morphs(
         add_to_alignment::<f32>(&mut uniform.buffer);
 
         let index = (start * mem::size_of::<f32>()) as u32;
-        values.push((entity, MorphIndex { index }));
+        // NOTE: Because morph targets require per-morph target texture bindings, they cannot
+        // currently be batched.
+        values.push((entity, (MorphIndex { index }, NoAutomaticBatching)));
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);

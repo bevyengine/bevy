@@ -366,7 +366,7 @@ pub fn winit_runner(mut app: App) {
         match event {
             event::Event::NewEvents(start_cause) => match start_cause {
                 StartCause::Init => {
-                    #[cfg(any(target_os = "android", target_os = "ios", target_os = "macos"))]
+                    #[cfg(any(target_os = "ios", target_os = "macos"))]
                     {
                         #[cfg(not(target_arch = "wasm32"))]
                         let (

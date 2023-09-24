@@ -5,6 +5,7 @@ use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
+    system::{RunSystem, SystemId},
     world::{EntityWorldMut, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
@@ -118,9 +119,7 @@ impl SystemBuffer for CommandQueue {
     #[inline]
     fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
         #[cfg(feature = "trace")]
-        let _system_span =
-            bevy_utils::tracing::info_span!("system_commands", name = _system_meta.name())
-                .entered();
+        let _span_guard = _system_meta.commands_span.enter();
         self.apply(world);
     }
 }
@@ -519,11 +518,19 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(RemoveResource::<R>::new());
     }
 
+    /// Runs the system corresponding to the given [`SystemId`].
+    /// Systems are ran in an exclusive and single threaded way.
+    /// Running slow systems can become a bottleneck.
+    ///
+    /// Calls [`World::run_system`](crate::system::World::run_system).
+    pub fn run_system(&mut self, id: SystemId) {
+        self.queue.push(RunSystem::new(id));
+    }
+
     /// Pushes a generic [`Command`] to the command queue.
     ///
     /// `command` can be a built-in command, custom struct that implements [`Command`] or a closure
     /// that takes [`&mut World`](World) as an argument.
-    ///
     /// # Example
     ///
     /// ```
@@ -673,6 +680,8 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///
     /// The command will panic when applied if the associated entity does not exist.
     ///
+    /// To avoid a panic in this case, use the command [`Self::try_insert`] instead.
+    ///
     /// # Example
     ///
     /// ```
@@ -716,6 +725,62 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// ```
     pub fn insert(&mut self, bundle: impl Bundle) -> &mut Self {
         self.commands.add(Insert {
+            entity: self.entity,
+            bundle,
+        });
+        self
+    }
+
+    /// Tries to add a [`Bundle`] of components to the entity.
+    ///
+    /// This will overwrite any previous value(s) of the same component type.
+    ///
+    /// # Note
+    ///
+    /// Unlike [`Self::insert`], this will not panic if the associated entity does not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// #[derive(Component)]
+    /// struct Health(u32);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Defense(u32);
+    ///
+    /// #[derive(Bundle)]
+    /// struct CombatBundle {
+    ///     health: Health,
+    ///     strength: Strength,
+    /// }
+    ///
+    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///   commands.entity(player.entity)
+    ///    // You can try_insert individual components:
+    ///     .try_insert(Defense(10))
+    ///     
+    ///    // You can also insert tuples of components:
+    ///     .try_insert(CombatBundle {
+    ///         health: Health(100),
+    ///         strength: Strength(40),
+    ///     });
+    ///    
+    ///    // Suppose this occurs in a parallel adjacent system or process
+    ///    commands.entity(player.entity)
+    ///      .despawn();
+    ///
+    ///    commands.entity(player.entity)
+    ///    // This will not panic nor will it add the component
+    ///      .try_insert(Defense(5));
+    /// }
+    /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
+    /// ```
+    pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
+        self.commands.add(TryInsert {
             entity: self.entity,
             bundle,
         });
@@ -955,6 +1020,25 @@ where
             entity.insert(self.bundle);
         } else {
             panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), self.entity);
+        }
+    }
+}
+
+/// A [`Command`] that attempts to add the components in a [`Bundle`] to an entity.
+pub struct TryInsert<T> {
+    /// The entity to which the components will be added.
+    pub entity: Entity,
+    /// The [`Bundle`] containing the components that will be added to the entity.
+    pub bundle: T,
+}
+
+impl<T> Command for TryInsert<T>
+where
+    T: Bundle + 'static,
+{
+    fn apply(self, world: &mut World) {
+        if let Some(mut entity) = world.get_entity_mut(self.entity) {
+            entity.insert(self.bundle);
         }
     }
 }

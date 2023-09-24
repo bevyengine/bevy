@@ -82,8 +82,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn(NodeBundle {
         style: Style {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
             flex_direction: FlexDirection::Column,
-            flex_basis: Val::Percent(100.),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceEvenly,
             ..Default::default()
@@ -189,15 +190,12 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
         .with_children(|parent| {
             parent
                 .spawn(NodeBundle {
-                    style: Style {
-                        ..Default::default()
-                    },
                     background_color: BackgroundColor(Color::BLACK),
                     ..Default::default()
                 })
                 .with_children(|parent| {
                     let id = parent
-                        .spawn((NodeBundle {
+                        .spawn(NodeBundle {
                             style: Style {
                                 align_items: AlignItems::FlexEnd,
                                 justify_content: JustifyContent::FlexEnd,
@@ -205,7 +203,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                             },
                             background_color: BackgroundColor(palette[0]),
                             ..Default::default()
-                        },))
+                        })
                         .with_children(|parent| {
                             parent.spawn(NodeBundle {
                                 style: Style {
@@ -217,7 +215,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                             });
 
                             let id = parent
-                                .spawn((NodeBundle {
+                                .spawn(NodeBundle {
                                     style: Style {
                                         height: Val::Px(400.),
                                         align_items: AlignItems::FlexEnd,
@@ -226,7 +224,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                     },
                                     background_color: BackgroundColor(palette[1]),
                                     ..Default::default()
-                                },))
+                                })
                                 .with_children(|parent| {
                                     parent.spawn(NodeBundle {
                                         style: Style {
@@ -238,7 +236,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                     });
 
                                     let id = parent
-                                        .spawn((NodeBundle {
+                                        .spawn(NodeBundle {
                                             style: Style {
                                                 height: Val::Px(300.),
                                                 align_items: AlignItems::FlexEnd,
@@ -247,7 +245,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                             },
                                             background_color: BackgroundColor(palette[2]),
                                             ..Default::default()
-                                        },))
+                                        })
                                         .with_children(|parent| {
                                             parent.spawn(NodeBundle {
                                                 style: Style {
@@ -259,7 +257,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                             });
 
                                             let id = parent
-                                                .spawn((NodeBundle {
+                                                .spawn(NodeBundle {
                                                     style: Style {
                                                         width: Val::Px(200.),
                                                         height: Val::Px(200.),
@@ -267,7 +265,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                                     },
                                                     background_color: BackgroundColor(palette[3]),
                                                     ..Default::default()
-                                                },))
+                                                })
                                                 .id();
                                             target_ids.push(id);
                                         })
@@ -326,7 +324,7 @@ fn spawn_right_panel(
                     spawn_buttons(parent, target_ids.pop().unwrap());
 
                     parent
-                        .spawn((NodeBundle {
+                        .spawn(NodeBundle {
                             style: Style {
                                 width: Val::Px(400.),
                                 height: Val::Px(400.),
@@ -342,12 +340,12 @@ fn spawn_right_panel(
                             },
                             background_color: BackgroundColor(palette[1]),
                             ..Default::default()
-                        },))
+                        })
                         .with_children(|parent| {
                             spawn_buttons(parent, target_ids.pop().unwrap());
 
                             parent
-                                .spawn((NodeBundle {
+                                .spawn(NodeBundle {
                                     style: Style {
                                         width: Val::Px(300.),
                                         height: Val::Px(300.),
@@ -363,12 +361,12 @@ fn spawn_right_panel(
                                     },
                                     background_color: BackgroundColor(palette[2]),
                                     ..Default::default()
-                                },))
+                                })
                                 .with_children(|parent| {
                                     spawn_buttons(parent, target_ids.pop().unwrap());
 
                                     parent
-                                        .spawn((NodeBundle {
+                                        .spawn(NodeBundle {
                                             style: Style {
                                                 width: Val::Px(200.),
                                                 height: Val::Px(200.),
@@ -384,7 +382,7 @@ fn spawn_right_panel(
                                             },
                                             background_color: BackgroundColor(palette[3]),
                                             ..Default::default()
-                                        },))
+                                        })
                                         .with_children(|parent| {
                                             spawn_buttons(parent, target_ids.pop().unwrap());
 

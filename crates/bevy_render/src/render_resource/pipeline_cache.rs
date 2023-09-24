@@ -7,7 +7,7 @@ use crate::{
     renderer::RenderDevice,
     Extract,
 };
-use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_ecs::{event::EventReader, system::Resource};
 use bevy_utils::{
@@ -121,15 +121,15 @@ impl CachedPipelineState {
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
     processed_shaders: HashMap<Vec<ShaderDefVal>, ErasedShaderModule>,
-    resolved_imports: HashMap<ShaderImport, Handle<Shader>>,
-    dependents: HashSet<Handle<Shader>>,
+    resolved_imports: HashMap<ShaderImport, AssetId<Shader>>,
+    dependents: HashSet<AssetId<Shader>>,
 }
 
 struct ShaderCache {
-    data: HashMap<Handle<Shader>, ShaderData>,
-    shaders: HashMap<Handle<Shader>, Shader>,
-    import_path_shaders: HashMap<ShaderImport, Handle<Shader>>,
-    waiting_on_import: HashMap<ShaderImport, Vec<Handle<Shader>>>,
+    data: HashMap<AssetId<Shader>, ShaderData>,
+    shaders: HashMap<AssetId<Shader>, Shader>,
+    import_path_shaders: HashMap<ShaderImport, AssetId<Shader>>,
+    waiting_on_import: HashMap<ShaderImport, Vec<AssetId<Shader>>>,
     composer: naga_oil::compose::Composer,
 }
 
@@ -210,8 +210,8 @@ impl ShaderCache {
 
     fn add_import_to_composer(
         composer: &mut naga_oil::compose::Composer,
-        import_path_shaders: &HashMap<ShaderImport, Handle<Shader>>,
-        shaders: &HashMap<Handle<Shader>, Shader>,
+        import_path_shaders: &HashMap<ShaderImport, AssetId<Shader>>,
+        shaders: &HashMap<AssetId<Shader>, Shader>,
         import: &ShaderImport,
     ) -> Result<(), PipelineCacheError> {
         if !composer.contains_module(&import.module_name()) {
@@ -240,14 +240,14 @@ impl ShaderCache {
         &mut self,
         render_device: &RenderDevice,
         pipeline: CachedPipelineId,
-        handle: &Handle<Shader>,
+        id: AssetId<Shader>,
         shader_defs: &[ShaderDefVal],
     ) -> Result<ErasedShaderModule, PipelineCacheError> {
         let shader = self
             .shaders
-            .get(handle)
-            .ok_or_else(|| PipelineCacheError::ShaderNotLoaded(handle.clone_weak()))?;
-        let data = self.data.entry(handle.clone_weak()).or_default();
+            .get(&id)
+            .ok_or(PipelineCacheError::ShaderNotLoaded(id))?;
+        let data = self.data.entry(id).or_default();
         let n_asset_imports = shader
             .imports()
             .filter(|import| matches!(import, ShaderImport::AssetPath(_)))
@@ -281,7 +281,7 @@ impl ShaderCache {
 
                 debug!(
                     "processing shader {:?}, with shader defs {:?}",
-                    handle, shader_defs
+                    id, shader_defs
                 );
                 let shader_source = match &shader.source {
                     #[cfg(feature = "shader_format_spirv")]
@@ -357,14 +357,14 @@ impl ShaderCache {
         Ok(module.clone())
     }
 
-    fn clear(&mut self, handle: &Handle<Shader>) -> Vec<CachedPipelineId> {
-        let mut shaders_to_clear = vec![handle.clone_weak()];
+    fn clear(&mut self, id: AssetId<Shader>) -> Vec<CachedPipelineId> {
+        let mut shaders_to_clear = vec![id];
         let mut pipelines_to_queue = Vec::new();
         while let Some(handle) = shaders_to_clear.pop() {
             if let Some(data) = self.data.get_mut(&handle) {
                 data.processed_shaders.clear();
-                pipelines_to_queue.extend(data.pipelines.iter().cloned());
-                shaders_to_clear.extend(data.dependents.iter().map(|h| h.clone_weak()));
+                pipelines_to_queue.extend(data.pipelines.iter().copied());
+                shaders_to_clear.extend(data.dependents.iter().copied());
 
                 if let Some(Shader { import_path, .. }) = self.shaders.get(&handle) {
                     self.composer
@@ -376,45 +376,42 @@ impl ShaderCache {
         pipelines_to_queue
     }
 
-    fn set_shader(&mut self, handle: &Handle<Shader>, shader: Shader) -> Vec<CachedPipelineId> {
-        let pipelines_to_queue = self.clear(handle);
+    fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) -> Vec<CachedPipelineId> {
+        let pipelines_to_queue = self.clear(id);
         let path = shader.import_path();
-        self.import_path_shaders
-            .insert(path.clone(), handle.clone_weak());
+        self.import_path_shaders.insert(path.clone(), id);
         if let Some(waiting_shaders) = self.waiting_on_import.get_mut(path) {
             for waiting_shader in waiting_shaders.drain(..) {
                 // resolve waiting shader import
-                let data = self.data.entry(waiting_shader.clone_weak()).or_default();
-                data.resolved_imports
-                    .insert(path.clone(), handle.clone_weak());
+                let data = self.data.entry(waiting_shader).or_default();
+                data.resolved_imports.insert(path.clone(), id);
                 // add waiting shader as dependent of this shader
-                let data = self.data.entry(handle.clone_weak()).or_default();
-                data.dependents.insert(waiting_shader.clone_weak());
+                let data = self.data.entry(id).or_default();
+                data.dependents.insert(waiting_shader);
             }
         }
 
         for import in shader.imports() {
-            if let Some(import_handle) = self.import_path_shaders.get(import) {
+            if let Some(import_id) = self.import_path_shaders.get(import).copied() {
                 // resolve import because it is currently available
-                let data = self.data.entry(handle.clone_weak()).or_default();
-                data.resolved_imports
-                    .insert(import.clone(), import_handle.clone_weak());
+                let data = self.data.entry(id).or_default();
+                data.resolved_imports.insert(import.clone(), import_id);
                 // add this shader as a dependent of the import
-                let data = self.data.entry(import_handle.clone_weak()).or_default();
-                data.dependents.insert(handle.clone_weak());
+                let data = self.data.entry(import_id).or_default();
+                data.dependents.insert(id);
             } else {
                 let waiting = self.waiting_on_import.entry(import.clone()).or_default();
-                waiting.push(handle.clone_weak());
+                waiting.push(id);
             }
         }
 
-        self.shaders.insert(handle.clone_weak(), shader);
+        self.shaders.insert(id, shader);
         pipelines_to_queue
     }
 
-    fn remove(&mut self, handle: &Handle<Shader>) -> Vec<CachedPipelineId> {
-        let pipelines_to_queue = self.clear(handle);
-        if let Some(shader) = self.shaders.remove(handle) {
+    fn remove(&mut self, id: AssetId<Shader>) -> Vec<CachedPipelineId> {
+        let pipelines_to_queue = self.clear(id);
+        if let Some(shader) = self.shaders.remove(&id) {
             self.import_path_shaders.remove(shader.import_path());
         }
 
@@ -625,15 +622,15 @@ impl PipelineCache {
         id
     }
 
-    fn set_shader(&mut self, handle: &Handle<Shader>, shader: &Shader) {
-        let pipelines_to_queue = self.shader_cache.set_shader(handle, shader.clone());
+    fn set_shader(&mut self, id: AssetId<Shader>, shader: &Shader) {
+        let pipelines_to_queue = self.shader_cache.set_shader(id, shader.clone());
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
             self.waiting_pipelines.insert(cached_pipeline);
         }
     }
 
-    fn remove_shader(&mut self, shader: &Handle<Shader>) {
+    fn remove_shader(&mut self, shader: AssetId<Shader>) {
         let pipelines_to_queue = self.shader_cache.remove(shader);
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
@@ -649,7 +646,7 @@ impl PipelineCache {
         let vertex_module = match self.shader_cache.get(
             &self.device,
             id,
-            &descriptor.vertex.shader,
+            descriptor.vertex.shader.id(),
             &descriptor.vertex.shader_defs,
         ) {
             Ok(module) => module,
@@ -662,7 +659,7 @@ impl PipelineCache {
             let fragment_module = match self.shader_cache.get(
                 &self.device,
                 id,
-                &fragment.shader,
+                fragment.shader.id(),
                 &fragment.shader_defs,
             ) {
                 Ok(module) => module,
@@ -734,7 +731,7 @@ impl PipelineCache {
         let compute_module = match self.shader_cache.get(
             &self.device,
             id,
-            &descriptor.shader,
+            descriptor.shader.id(),
             &descriptor.shader_defs,
         ) {
             Ok(module) => module,
@@ -834,12 +831,15 @@ impl PipelineCache {
     ) {
         for event in events.read() {
             match event {
-                AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                    if let Some(shader) = shaders.get(handle) {
-                        cache.set_shader(handle, shader);
+                AssetEvent::Added { id } | AssetEvent::Modified { id } => {
+                    if let Some(shader) = shaders.get(*id) {
+                        cache.set_shader(*id, shader);
                     }
                 }
-                AssetEvent::Removed { handle } => cache.remove_shader(handle),
+                AssetEvent::Removed { id } => cache.remove_shader(*id),
+                AssetEvent::LoadedWithDependencies { .. } => {
+                    // TODO: handle this
+                }
             }
         }
     }
@@ -851,7 +851,7 @@ pub enum PipelineCacheError {
     #[error(
         "Pipeline could not be compiled because the following shader is not loaded yet: {0:?}"
     )]
-    ShaderNotLoaded(Handle<Shader>),
+    ShaderNotLoaded(AssetId<Shader>),
     #[error(transparent)]
     ProcessShaderError(#[from] naga_oil::compose::ComposerError),
     #[error("Shader import not yet available.")]

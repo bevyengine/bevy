@@ -50,7 +50,7 @@ pub use rodio::Sample;
 pub use sinks::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{AddAsset, Asset};
+use bevy_asset::{Asset, AssetApp};
 use bevy_ecs::prelude::*;
 
 use audio_output::*;
@@ -71,7 +71,7 @@ pub struct AudioPlugin {
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(self.global_volume)
-            .configure_set(PostUpdate, AudioPlaySet.run_if(audio_output_available))
+            .configure_sets(PostUpdate, AudioPlaySet.run_if(audio_output_available))
             .init_resource::<AudioOutput>();
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]
@@ -90,7 +90,7 @@ impl AddAudioSource for App {
         T: Decodable + Asset,
         f32: rodio::cpal::FromSample<T::DecoderItem>,
     {
-        self.add_asset::<T>().add_systems(
+        self.init_asset::<T>().add_systems(
             PostUpdate,
             play_queued_audio_system::<T>.in_set(AudioPlaySet),
         );

@@ -52,9 +52,8 @@ pub mod draw_3d_graph {
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::CameraUpdateSystem, extract_resource::ExtractResourcePlugin, prelude::Color,
     render_asset::prepare_assets, render_graph::RenderGraph, render_phase::sort_phase_system,
@@ -64,28 +63,18 @@ use bevy_render::{
 use bevy_transform::TransformSystem;
 use environment_map::EnvironmentMapPlugin;
 
-pub const PBR_TYPES_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1708015359337029744);
-pub const PBR_BINDINGS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5635987986427308186);
-pub const UTILS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1900548483293416725);
-pub const CLUSTERED_FORWARD_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 166852093121196815);
-pub const PBR_LIGHTING_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 14170772752254856967);
-pub const SHADOWS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 11350275143789590502);
-pub const PBR_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4805239651767701046);
-pub const PBR_PREPASS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9407115064344201137);
-pub const PBR_FUNCTIONS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16550102964439850292);
-pub const PBR_AMBIENT_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2441520459096337034);
-pub const PARALLAX_MAPPING_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17035894873630133905);
+pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1708015359337029744);
+pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5635987986427308186);
+pub const UTILS_HANDLE: Handle<Shader> = Handle::weak_from_u128(1900548483293416725);
+pub const CLUSTERED_FORWARD_HANDLE: Handle<Shader> = Handle::weak_from_u128(166852093121196815);
+pub const PBR_LIGHTING_HANDLE: Handle<Shader> = Handle::weak_from_u128(14170772752254856967);
+pub const SHADOWS_HANDLE: Handle<Shader> = Handle::weak_from_u128(11350275143789590502);
+pub const PBR_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4805239651767701046);
+pub const PBR_PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(9407115064344201137);
+pub const PBR_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16550102964439850292);
+pub const PBR_AMBIENT_HANDLE: Handle<Shader> = Handle::weak_from_u128(2441520459096337034);
+pub const PARALLAX_MAPPING_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(17035894873630133905);
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -219,7 +208,7 @@ impl Plugin for PbrPlugin {
                         .after(CameraUpdateSystem),
                     update_directional_light_frusta
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
-                        // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
+                        // This must run after CheckVisibility because it relies on `ViewVisibility`
                         .after(VisibilitySystems::CheckVisibility)
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::UpdateDirectionalLightCascades)
@@ -241,22 +230,20 @@ impl Plugin for PbrPlugin {
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::UpdateLightFrusta)
                         // NOTE: This MUST be scheduled AFTER the core renderer visibility check
-                        // because that resets entity ComputedVisibility for the first view
+                        // because that resets entity `ViewVisibility` for the first view
                         // which would override any results from this otherwise
                         .after(VisibilitySystems::CheckVisibility),
                 ),
             );
 
-        app.world
-            .resource_mut::<Assets<StandardMaterial>>()
-            .set_untracked(
-                Handle::<StandardMaterial>::default(),
-                StandardMaterial {
-                    base_color: Color::rgb(1.0, 0.0, 0.5),
-                    unlit: true,
-                    ..Default::default()
-                },
-            );
+        app.world.resource_mut::<Assets<StandardMaterial>>().insert(
+            Handle::<StandardMaterial>::default(),
+            StandardMaterial {
+                base_color: Color::rgb(1.0, 0.0, 0.5),
+                unlit: true,
+                ..Default::default()
+            },
+        );
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,

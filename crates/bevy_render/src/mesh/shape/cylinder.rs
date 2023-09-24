@@ -2,6 +2,7 @@ use crate::mesh::{Indices, Mesh};
 use wgpu::PrimitiveTopology;
 
 /// A cylinder which stands on the XZ plane
+#[derive(Clone, Copy, Debug)]
 pub struct Cylinder {
     /// Radius in the XZ plane.
     pub radius: f32,

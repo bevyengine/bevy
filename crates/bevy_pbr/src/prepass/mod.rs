@@ -1,5 +1,5 @@
 use bevy_app::{Plugin, PreUpdate};
-use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     prelude::Camera3d,
     prepass::{
@@ -16,8 +16,8 @@ use bevy_ecs::{
     },
 };
 use bevy_math::{Affine3A, Mat4};
-use bevy_reflect::TypeUuid;
 use bevy_render::{
+    batching::batch_and_prepare_render_phase,
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
@@ -52,14 +52,12 @@ use crate::{
 
 use std::{hash::Hash, marker::PhantomData};
 
-pub const PREPASS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 921124473254008983);
+pub const PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(921124473254008983);
 
-pub const PREPASS_BINDINGS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5533152893177403494);
+pub const PREPASS_BINDINGS_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(5533152893177403494);
 
-pub const PREPASS_UTILS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4603948296044544);
+pub const PREPASS_UTILS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4603948296044544);
 
 /// Sets up everything required to use the prepass pipeline.
 ///
@@ -161,7 +159,12 @@ where
                 .add_systems(ExtractSchedule, extract_camera_previous_view_projection)
                 .add_systems(
                     Render,
-                    prepare_previous_view_projection_uniforms.in_set(RenderSet::PrepareResources),
+                    (
+                        prepare_previous_view_projection_uniforms,
+                        batch_and_prepare_render_phase::<Opaque3dPrepass, MeshPipeline>,
+                        batch_and_prepare_render_phase::<AlphaMask3dPrepass, MeshPipeline>,
+                    )
+                        .in_set(RenderSet::PrepareResources),
                 );
         }
 
@@ -463,7 +466,7 @@ where
             // Use the fragment shader from the material
             let frag_shader_handle = match self.material_fragment_shader.clone() {
                 Some(frag_shader_handle) => frag_shader_handle,
-                _ => PREPASS_SHADER_HANDLE.typed::<Shader>(),
+                _ => PREPASS_SHADER_HANDLE,
             };
 
             FragmentState {
@@ -478,7 +481,7 @@ where
         let vert_shader_handle = if let Some(handle) = &self.material_vertex_shader {
             handle.clone()
         } else {
-            PREPASS_SHADER_HANDLE.typed::<Shader>()
+            PREPASS_SHADER_HANDLE
         };
 
         let mut push_constant_ranges = Vec::with_capacity(1);
@@ -805,7 +808,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             };
 
             let (Some(material), Some(mesh)) = (
-                render_materials.get(material_handle),
+                render_materials.get(&material_handle.id()),
                 render_meshes.get(mesh_handle),
             ) else {
                 continue;
@@ -852,6 +855,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         draw_function: opaque_draw_prepass,
                         pipeline_id,
                         distance,
+                        batch_range: 0..1,
+                        dynamic_offset: None,
                     });
                 }
                 AlphaMode::Mask(_) => {
@@ -860,6 +865,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         draw_function: alpha_mask_draw_prepass,
                         pipeline_id,
                         distance,
+                        batch_range: 0..1,
+                        dynamic_offset: None,
                     });
                 }
                 AlphaMode::Blend
