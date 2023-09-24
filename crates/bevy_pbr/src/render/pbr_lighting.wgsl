@@ -361,13 +361,17 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     let num_taps = i32(max(min(sqrt(blur_intensity) * 7.0, 1.0) * f32(MAX_TRANSMISSIVE_TAPS), 1.0));
     let num_spirals = (num_taps >> 3u) + 1;
     let random_angle = interleaved_gradient_noise(frag_coord.xy);
+
+    // Pixel checkerboard pattern (helps make the interleaved gradient noise pattern less visible)
+    let pixel_checkboard = (
 #ifdef TEMPORAL_JITTER
-    // Alternating pixel checkerboard pattern: 0 or 1 on even/odd pixels, alternates every frame
-    let pixel_mesh = (i32(frag_coord.x) + i32(frag_coord.y) + i32(view_bindings::globals.frame_count)) % 2;
+    // 0 or 1 on even/odd pixels, alternates every frame
+        (i32(frag_coord.x) + i32(frag_coord.y) + i32(view_bindings::globals.frame_count)) % 2
 #else
-    // Alternating pixel checkerboard pattern: 0 or 1 on even/odd pixels
-    let pixel_mesh = (i32(frag_coord.x) + i32(frag_coord.y)) % 2;
+    // 0 or 1 on even/odd pixels
+        (i32(frag_coord.x) + i32(frag_coord.y)) % 2
 #endif
+    );
 
     var result = vec4<f32>(0.0);
     for (var i: i32 = 0; i < num_taps; i = i + 1) {
@@ -402,7 +406,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         let rotated_spiral_offset = (rotation_matrix * spiral_offset) * vec2(1.0, aspect);
 
         // Calculate final offset position, with blur and spiral offset
-        let modified_offset_position = offset_position + rotated_spiral_offset * blur_intensity * (1.0 - f32(pixel_mesh) * 0.1);
+        let modified_offset_position = offset_position + rotated_spiral_offset * blur_intensity * (1.0 - f32(pixel_checkboard) * 0.1);
 
 #ifdef PREPASS_DEPTH_SUPPORTED
         // Use depth prepass data to reject values that are in front of the current fragment
