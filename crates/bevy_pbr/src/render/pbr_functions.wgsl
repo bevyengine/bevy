@@ -382,7 +382,7 @@ fn pbr(
     let emissive_light = emissive.rgb * output_color.a;
 
     if transmission > 0.0 {
-        transmitted_light += lighting::transmissive_light(in.world_position, in.frag_coord.xyz, in.N, in.V, ior, thickness, perceptual_roughness, transmissive_color, transmitted_environment_light_specular).rgb;
+        transmitted_light += lighting::transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, ior, thickness, perceptual_roughness, transmissive_color, transmitted_environment_light_specular).rgb;
     }
 
     if (in.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ATTENUATION_ENABLED_BIT) != 0u {

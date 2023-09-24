@@ -286,10 +286,7 @@ fn directional_light(light_id: u32, roughness: f32, NdotV: f32, normal: vec3<f32
     return (specular_light + diffuse) * (*light).color.rgb * NoL;
 }
 
-fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
-    // Calculate distance from the camera, used to scale roughness transmission blur
-    let distance = length(view_bindings::view.world_position - world_position.xyz);
-
+fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
     // Calculate the ratio between refaction indexes. Assume air/vacuum for the space outside the mesh
     let eta = 1.0 / ior;
 
@@ -311,7 +308,7 @@ fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, N: vec3<
     let offset_position = (clip_exit_position.xy / clip_exit_position.w) * vec2<f32>(0.5, -0.5) + 0.5;
 
     // Fetch background color
-    let background_color = fetch_transmissive_background(offset_position, frag_coord, perceptual_roughness, distance);
+    let background_color = fetch_transmissive_background(offset_position, frag_coord, view_z, perceptual_roughness);
 
     // Calculate final color by applying transmissive color to a mix of background color and transmitted specular environment light
     // TODO: Add support for attenuationColor and attenuationDistance
@@ -344,7 +341,7 @@ const SPIRAL_OFFSETS: array<vec2<f32>, 8> = array<vec2<f32>, 8>(
 
 const MAX_TRANSMISSIVE_TAPS = 16;
 
-fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, perceptual_roughness: f32, distance: f32) -> vec4<f32> {
+fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, view_z: f32, perceptual_roughness: f32) -> vec4<f32> {
     // Calculate view aspect ratio, used to scale offset so that it's proportionate
     let aspect = view_bindings::view.viewport.z / view_bindings::view.viewport.w;
 
@@ -357,8 +354,8 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     //
     // Blur intensity is:
     // - squarely proportional to `perceptual_roughness`
-    // - inversely proportional to object distance to the view
-    let blur_intensity = (perceptual_roughness * perceptual_roughness) / distance;
+    // - inversely proportional to view z
+    let blur_intensity = (perceptual_roughness * perceptual_roughness) / view_z;
 
     // Number of taps scale with blur intensity
     let num_taps = i32(max(min(sqrt(blur_intensity) * 7.0, 1.0) * f32(MAX_TRANSMISSIVE_TAPS), 1.0));
