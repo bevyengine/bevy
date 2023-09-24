@@ -23,7 +23,7 @@ mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
 mod pipeline_3d;
 
-/// The `bevy_gizmos` prelude.
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{gizmos::Gizmos, AabbGizmo, AabbGizmoConfig, GizmoConfig};
@@ -67,12 +67,6 @@ use bevy_transform::{
 };
 use gizmos::{GizmoStorage, Gizmos};
 use std::mem;
-
-#[allow(missing_docs)]
-pub mod prelude {
-    #[doc(hidden)]
-    pub use crate::{gizmos::Gizmos, AabbGizmo, AabbGizmoConfig, GizmoConfig};
-}
 
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
 
