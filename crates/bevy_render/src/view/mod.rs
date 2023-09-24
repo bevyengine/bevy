@@ -22,6 +22,7 @@ use bevy_math::{Mat4, UVec4, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
+use std::fmt;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
@@ -92,6 +93,16 @@ pub enum Msaa {
     #[default]
     Sample4 = 4,
     Sample8 = 8,
+}
+impl fmt::Display for Msaa {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Msaa::Off => f.write_str("no MSAA"),
+            Msaa::Sample2 => f.write_str("MSAA 2x"),
+            Msaa::Sample4 => f.write_str("MSAA 4x"),
+            Msaa::Sample8 => f.write_str("MSAA 8x"),
+        }
+    }
 }
 
 impl Msaa {
