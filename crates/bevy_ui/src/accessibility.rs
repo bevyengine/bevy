@@ -21,7 +21,7 @@ use bevy_transform::prelude::GlobalTransform;
 
 fn calc_name(texts: &Query<&Text>, children: &Children) -> Option<Box<str>> {
     let mut name = None;
-    for child in children.iter() {
+    for child in children {
         if let Ok(text) = texts.get(*child) {
             let values = text
                 .sections

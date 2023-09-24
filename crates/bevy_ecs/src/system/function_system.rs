@@ -10,6 +10,9 @@ use crate::{
 use bevy_utils::all_tuples;
 use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::{info_span, Span};
+
 use super::{In, IntoSystem, ReadOnlySystem};
 
 /// The metadata of a [`System`].
@@ -22,16 +25,25 @@ pub struct SystemMeta {
     // SystemParams from overriding each other
     is_send: bool,
     pub(crate) last_run: Tick,
+    #[cfg(feature = "trace")]
+    pub(crate) system_span: Span,
+    #[cfg(feature = "trace")]
+    pub(crate) commands_span: Span,
 }
 
 impl SystemMeta {
     pub(crate) fn new<T>() -> Self {
+        let name = std::any::type_name::<T>();
         Self {
-            name: std::any::type_name::<T>().into(),
+            name: name.into(),
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
             last_run: Tick::new(0),
+            #[cfg(feature = "trace")]
+            system_span: info_span!("system", name = name),
+            #[cfg(feature = "trace")]
+            commands_span: info_span!("system_commands", name = name),
         }
     }
 
@@ -60,8 +72,10 @@ impl SystemMeta {
 // (to avoid the need for unwrapping to retrieve SystemMeta)
 /// Holds on to persistent state required to drive [`SystemParam`] for a [`System`].
 ///
-/// This is a very powerful and convenient tool for working with exclusive world access,
+/// This is a powerful and convenient tool for working with exclusive world access,
 /// allowing you to fetch data from the [`World`] as if you were running a [`System`].
+/// However, simply calling `world::run_system(my_system)` using a [`World::run_system`](crate::system::World::run_system)
+/// can be significantly simpler and ensures that change detection and command flushing work as expected.
 ///
 /// Borrow-checking is handled for you, allowing you to mutably access multiple compatible system parameters at once,
 /// and arbitrary system parameters (like [`EventWriter`](crate::event::EventWriter)) can be conveniently fetched.
@@ -76,6 +90,8 @@ impl SystemMeta {
 /// - [`Added`](crate::query::Added) and [`Changed`](crate::query::Changed) query filters
 /// - [`Local`](crate::system::Local) variables that hold state
 /// - [`EventReader`](crate::event::EventReader) system parameters, which rely on a [`Local`](crate::system::Local) to track which events have been seen
+///
+/// Note that this is automatically handled for you when using a [`World::run_system`](crate::system::World::run_system).
 ///
 /// # Example
 ///
@@ -216,8 +232,18 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Asserts that the [`SystemState`] matches the provided world.
     #[inline]
+    #[track_caller]
     fn validate_world(&self, world_id: WorldId) {
-        assert!(self.matches_world(world_id), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
+        #[inline(never)]
+        #[track_caller]
+        #[cold]
+        fn panic_mismatched(this: WorldId, other: WorldId) -> ! {
+            panic!("Encountered a mismatched World. This SystemState was created from {this:?}, but a method was called using {other:?}.");
+        }
+
+        if !self.matches_world(world_id) {
+            panic_mismatched(self.world_id, world_id);
+        }
     }
 
     /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before fetching the parameters,
@@ -444,6 +470,9 @@ where
 
     #[inline]
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
+        #[cfg(feature = "trace")]
+        let _span_guard = self.system_meta.system_span.enter();
+
         let change_tick = world.increment_change_tick();
 
         // SAFETY:

@@ -17,13 +17,12 @@ bitflags! {
     }
 }
 
-const CLIPPY_FLAGS: [&str; 8] = [
+const CLIPPY_FLAGS: [&str; 7] = [
     "-Aclippy::type_complexity",
     "-Wclippy::doc_markdown",
     "-Wclippy::redundant_else",
     "-Wclippy::match_same_arms",
     "-Wclippy::semicolon_if_nothing_returned",
-    "-Wclippy::explicit_iter_loop",
     "-Wclippy::map_flatten",
     "-Dwarnings",
 ];

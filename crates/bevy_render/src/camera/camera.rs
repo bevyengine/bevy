@@ -7,7 +7,7 @@ use crate::{
     view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
     Extract,
 };
-use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -19,7 +19,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_log::warn;
-use bevy_math::{Mat4, Ray, Rect, URect, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{vec2, Mat4, Ray, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
@@ -528,14 +528,14 @@ impl NormalizedRenderTarget {
     fn is_changed(
         &self,
         changed_window_ids: &HashSet<Entity>,
-        changed_image_handles: &HashSet<&Handle<Image>>,
+        changed_image_handles: &HashSet<&AssetId<Image>>,
     ) -> bool {
         match self {
             NormalizedRenderTarget::Window(window_ref) => {
                 changed_window_ids.contains(&window_ref.entity())
             }
             NormalizedRenderTarget::Image(image_handle) => {
-                changed_image_handles.contains(&image_handle)
+                changed_image_handles.contains(&image_handle.id())
             }
             NormalizedRenderTarget::TextureView(_) => true,
         }
@@ -575,14 +575,14 @@ pub fn camera_system<T: CameraProjection + Component>(
     let primary_window = primary_window.iter().next();
 
     let mut changed_window_ids = HashSet::new();
-    changed_window_ids.extend(window_created_events.iter().map(|event| event.window));
-    changed_window_ids.extend(window_resized_events.iter().map(|event| event.window));
+    changed_window_ids.extend(window_created_events.read().map(|event| event.window));
+    changed_window_ids.extend(window_resized_events.read().map(|event| event.window));
 
-    let changed_image_handles: HashSet<&Handle<Image>> = image_asset_events
-        .iter()
+    let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_events
+        .read()
         .filter_map(|event| {
-            if let AssetEvent::Modified { handle } = event {
-                Some(handle)
+            if let AssetEvent::Modified { id } = event {
+                Some(id)
             } else {
                 None
             }
@@ -806,7 +806,8 @@ impl TemporalJitter {
             return;
         }
 
-        let jitter = self.offset / view_size;
+        // https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/docs/techniques/media/super-resolution-temporal/jitter-space.svg
+        let jitter = (self.offset * vec2(2.0, -2.0)) / view_size;
 
         projection.z_axis.x += jitter.x;
         projection.z_axis.y += jitter.y;

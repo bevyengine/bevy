@@ -18,11 +18,13 @@ pub use short_names::get_short_name;
 pub mod synccell;
 pub mod syncunsafecell;
 
+mod cow_arc;
 mod default;
 mod float_ord;
 
 pub use ahash::{AHasher, RandomState};
 pub use bevy_utils_proc_macros::*;
+pub use cow_arc::*;
 pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
@@ -31,6 +33,11 @@ pub use petgraph;
 pub use thiserror;
 pub use tracing;
 pub use uuid::Uuid;
+
+#[allow(missing_docs)]
+pub mod nonmax {
+    pub use nonmax::*;
+}
 
 use hashbrown::hash_map::RawEntryMut;
 use std::{
@@ -295,6 +302,30 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
         // SAFETY: We may move out of `self`, since this instance can never be observed after it's dropped.
         let callback = unsafe { ManuallyDrop::take(&mut self.callback) };
         callback();
+    }
+}
+
+/// Calls the [`tracing::info!`] macro on a value.
+pub fn info<T: Debug>(data: T) {
+    tracing::info!("{:?}", data);
+}
+
+/// Calls the [`tracing::debug!`] macro on a value.
+pub fn dbg<T: Debug>(data: T) {
+    tracing::debug!("{:?}", data);
+}
+
+/// Processes a [`Result`] by calling the [`tracing::warn!`] macro in case of an [`Err`] value.
+pub fn warn<E: Debug>(result: Result<(), E>) {
+    if let Err(warn) = result {
+        tracing::warn!("{:?}", warn);
+    }
+}
+
+/// Processes a [`Result`] by calling the [`tracing::error!`] macro in case of an [`Err`] value.
+pub fn error<E: Debug>(result: Result<(), E>) {
+    if let Err(error) = result {
+        tracing::error!("{:?}", error);
     }
 }
 

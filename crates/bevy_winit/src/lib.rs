@@ -63,10 +63,10 @@ use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin
 #[cfg(target_os = "android")]
 pub static ANDROID_APP: std::sync::OnceLock<AndroidApp> = std::sync::OnceLock::new();
 
-/// A [`Plugin`] that uses [`winit`] to create and manage windows, and receive window and input
+/// A [`Plugin`] that uses `winit` to create and manage windows, and receive window and input
 /// events.
 ///
-/// This plugin will add systems and resources that sync with the [`winit`] backend and also
+/// This plugin will add systems and resources that sync with the `winit` backend and also
 /// replace the exising [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
 #[derive(Default)]
@@ -356,7 +356,7 @@ pub fn winit_runner(mut app: App) {
             }
 
             if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-                if app_exit_event_reader.iter(app_exit_events).last().is_some() {
+                if app_exit_event_reader.read(app_exit_events).last().is_some() {
                     *control_flow = ControlFlow::Exit;
                     return;
                 }
@@ -366,7 +366,7 @@ pub fn winit_runner(mut app: App) {
         match event {
             event::Event::NewEvents(start_cause) => match start_cause {
                 StartCause::Init => {
-                    #[cfg(any(target_os = "android", target_os = "ios", target_os = "macos"))]
+                    #[cfg(any(target_os = "ios", target_os = "macos"))]
                     {
                         #[cfg(not(target_arch = "wasm32"))]
                         let (
@@ -422,20 +422,20 @@ pub fn winit_runner(mut app: App) {
                     event_writer_system_state.get_mut(&mut app.world);
 
                 let Some(window_entity) = winit_windows.get_window_entity(window_id) else {
-                        warn!(
-                            "Skipped event {:?} for unknown winit Window Id {:?}",
-                            event, window_id
-                        );
-                        return;
-                    };
+                    warn!(
+                        "Skipped event {:?} for unknown winit Window Id {:?}",
+                        event, window_id
+                    );
+                    return;
+                };
 
                 let Ok((mut window, mut cache)) = windows.get_mut(window_entity) else {
-                        warn!(
-                            "Window {:?} is missing `Window` component, skipping event {:?}",
-                            window_entity, event
-                        );
-                        return;
-                    };
+                    warn!(
+                        "Window {:?} is missing `Window` component, skipping event {:?}",
+                        window_entity, event
+                    );
+                    return;
+                };
 
                 runner_state.window_event_received = true;
 
@@ -723,14 +723,14 @@ pub fn winit_runner(mut app: App) {
                         if let Some(app_redraw_events) =
                             app.world.get_resource::<Events<RequestRedraw>>()
                         {
-                            if redraw_event_reader.iter(app_redraw_events).last().is_some() {
+                            if redraw_event_reader.read(app_redraw_events).last().is_some() {
                                 runner_state.redraw_requested = true;
                                 *control_flow = ControlFlow::Poll;
                             }
                         }
 
                         if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-                            if app_exit_event_reader.iter(app_exit_events).last().is_some() {
+                            if app_exit_event_reader.read(app_exit_events).last().is_some() {
                                 *control_flow = ControlFlow::Exit;
                             }
                         }

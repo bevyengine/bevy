@@ -89,21 +89,12 @@ impl Plugin for ScheduleRunnerPlugin {
                           -> Result<Option<Duration>, AppExit> {
                         let start_time = Instant::now();
 
-                        if let Some(app_exit_events) =
-                            app.world.get_resource_mut::<Events<AppExit>>()
-                        {
-                            if let Some(exit) = app_exit_event_reader.iter(&app_exit_events).last()
-                            {
-                                return Err(exit.clone());
-                            }
-                        }
-
                         app.update();
 
                         if let Some(app_exit_events) =
                             app.world.get_resource_mut::<Events<AppExit>>()
                         {
-                            if let Some(exit) = app_exit_event_reader.iter(&app_exit_events).last()
+                            if let Some(exit) = app_exit_event_reader.read(&app_exit_events).last()
                             {
                                 return Err(exit.clone());
                             }

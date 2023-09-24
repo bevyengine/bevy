@@ -37,7 +37,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let mut field_kind = Vec::with_capacity(named_fields.len());
 
-    for field in named_fields.iter() {
+    for field in named_fields {
         for attr in field
             .attrs
             .iter()
@@ -251,10 +251,17 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let token_stream = input.clone();
     let ast = parse_macro_input!(input as DeriveInput);
-    let syn::Data::Struct(syn::DataStruct { fields: field_definitions, .. }) = ast.data else {
-        return syn::Error::new(ast.span(), "Invalid `SystemParam` type: expected a `struct`")
-            .into_compile_error()
-            .into();
+    let syn::Data::Struct(syn::DataStruct {
+        fields: field_definitions,
+        ..
+    }) = ast.data
+    else {
+        return syn::Error::new(
+            ast.span(),
+            "Invalid `SystemParam` type: expected a `struct`",
+        )
+        .into_compile_error()
+        .into();
     };
     let path = bevy_ecs_path();
 

@@ -44,7 +44,7 @@ pub(crate) fn create_windows<'a>(
     mut winit_windows: NonSendMut<WinitWindows>,
     mut adapters: NonSendMut<AccessKitAdapters>,
     mut handlers: ResMut<WinitActionHandlers>,
-    mut accessibility_requested: ResMut<AccessibilityRequested>,
+    accessibility_requested: ResMut<AccessibilityRequested>,
     #[cfg(target_arch = "wasm32")] event_channel: ResMut<CanvasParentResizeEventChannel>,
 ) {
     for (entity, mut window) in created_windows {
@@ -64,7 +64,7 @@ pub(crate) fn create_windows<'a>(
             &window,
             &mut adapters,
             &mut handlers,
-            &mut accessibility_requested,
+            &accessibility_requested,
         );
 
         if let Some(theme) = winit_window.theme() {
@@ -110,7 +110,7 @@ pub(crate) fn despawn_windows(
     mut close_events: EventWriter<WindowClosed>,
     mut winit_windows: NonSendMut<WinitWindows>,
 ) {
-    for window in closed.iter() {
+    for window in closed.read() {
         info!("Closing window {:?}", window);
         // Guard to verify that the window is in fact actually gone,
         // rather than having the component added and removed in the same frame.
@@ -179,13 +179,7 @@ pub(crate) fn changed_windows(
 
             if window.physical_cursor_position() != cache.window.physical_cursor_position() {
                 if let Some(physical_position) = window.physical_cursor_position() {
-                    let inner_size = winit_window.inner_size();
-
-                    let position = PhysicalPosition::new(
-                        physical_position.x,
-                        // Flip the coordinate space back to winit's context.
-                        inner_size.height as f32 - physical_position.y,
-                    );
+                    let position = PhysicalPosition::new(physical_position.x, physical_position.y);
 
                     if let Err(err) = winit_window.set_cursor_position(position) {
                         error!("could not set cursor position: {:?}", err);
@@ -312,6 +306,10 @@ pub(crate) fn changed_windows(
 
             if window.window_theme != cache.window.window_theme {
                 winit_window.set_theme(window.window_theme.map(convert_window_theme));
+            }
+
+            if window.visible != cache.window.visible {
+                winit_window.set_visible(window.visible);
             }
 
             cache.window = window.clone();
