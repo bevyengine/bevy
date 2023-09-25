@@ -52,9 +52,6 @@ pub struct NodeConfig<T> {
     pub(crate) node: T,
     pub(crate) graph_info: GraphInfo,
     pub(crate) conditions: Vec<BoxedCondition>,
-    /// true if we should skip a sync after. This only works for `NodeConfig<BoxedSystem>`.
-    /// and not other types.
-    pub(crate) no_sync_after: bool,
 }
 
 /// Stores configuration for a single system.
@@ -89,7 +86,6 @@ impl SystemConfigs {
                 ..Default::default()
             },
             conditions: Vec::new(),
-            no_sync_after: false,
         })
     }
 }
@@ -241,27 +237,6 @@ impl<T> NodeConfigs<T> {
     }
 }
 
-impl SystemConfig {
-    fn no_sync_after(&mut self) {
-        self.no_sync_after = true;
-    }
-}
-
-impl NodeConfigs<BoxedSystem> {
-    fn no_sync_after_inner(&mut self) {
-        match self {
-            Self::NodeConfig(config) => {
-                config.no_sync_after();
-            }
-            Self::Configs { configs, .. } => {
-                for config in configs {
-                    config.no_sync_after_inner();
-                }
-            }
-        }
-    }
-}
-
 /// Types that can convert into a [`SystemConfigs`].
 pub trait IntoSystemConfigs<Marker>
 where
@@ -383,11 +358,6 @@ where
     fn chain(self) -> SystemConfigs {
         self.into_configs().chain()
     }
-
-    /// Do not add auto sync points for these systems.
-    fn no_sync_after(self) -> SystemConfigs {
-        self.into_configs().no_sync_after()
-    }
 }
 
 impl IntoSystemConfigs<()> for SystemConfigs {
@@ -455,11 +425,6 @@ impl IntoSystemConfigs<()> for SystemConfigs {
     fn chain(self) -> Self {
         self.chain_inner()
     }
-
-    fn no_sync_after(mut self) -> SystemConfigs {
-        self.no_sync_after_inner();
-        self
-    }
 }
 
 #[doc(hidden)]
@@ -503,7 +468,6 @@ impl SystemSetConfig {
             node: set,
             graph_info: GraphInfo::default(),
             conditions: Vec::new(),
-            no_sync_after: false,
         }
     }
 }

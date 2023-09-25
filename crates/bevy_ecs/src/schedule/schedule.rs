@@ -1,5 +1,4 @@
 use std::{
-    collections::BTreeSet,
     fmt::{Debug, Write},
     result::Result,
 };
@@ -459,7 +458,6 @@ pub struct ScheduleGraph {
     conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
     changed: bool,
     settings: ScheduleBuildSettings,
-    no_sync_after: BTreeSet<NodeId>,
 }
 
 impl ScheduleGraph {
@@ -479,7 +477,6 @@ impl ScheduleGraph {
             conflicting_systems: Vec::new(),
             changed: false,
             settings: default(),
-            no_sync_after: BTreeSet::new(),
         }
     }
 
@@ -732,9 +729,6 @@ impl ScheduleGraph {
         self.uninit.push((id, 0));
         self.systems.push(SystemNode::new(config.node));
         self.system_conditions.push(config.conditions);
-        if config.no_sync_after {
-            self.no_sync_after.insert(id);
-        }
 
         Ok(id)
     }
@@ -749,7 +743,6 @@ impl ScheduleGraph {
             node: set,
             graph_info,
             mut conditions,
-            no_sync_after: _,
         } = set;
 
         let id = match self.system_set_ids.get(&set) {
@@ -1015,8 +1008,7 @@ impl ScheduleGraph {
         // use the same sync point if the distance is the same
         let mut distances: Vec<Option<u32>> = vec![None; topo.len()];
         for node in &topo {
-            let add_sync_after = self.systems[node.index()].get().unwrap().has_deferred()
-                && !self.no_sync_after.contains(node);
+            let add_sync_after = self.systems[node.index()].get().unwrap().has_deferred();
 
             for (_node, target, allow_auto_sync) in
                 dependency_flattened.edges_directed(*node, Outgoing)
@@ -1964,22 +1956,6 @@ mod tests {
         schedule.run(&mut world);
 
         assert_eq!(schedule.executable.systems.len(), 5);
-    }
-
-    #[test]
-    fn skips_adding_a_sync_point() {
-        let mut schedule = Schedule::default();
-        let mut world = World::default();
-        schedule.add_systems(
-            (
-                (|mut commands: Commands| commands.insert_resource(Resource1)).no_sync_after(),
-                |res: Option<Res<Resource1>>| assert!(res.is_none()),
-            )
-                .chain(),
-        );
-        schedule.run(&mut world);
-
-        assert_eq!(schedule.executable.systems.len(), 2);
     }
 
     #[test]
