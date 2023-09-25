@@ -1,13 +1,8 @@
 use crate::{
-    environment_map, prepass,
-    render::{
-        morph::{no_automatic_morph_batching, MorphIndices},
-        skin::no_automatic_skin_batching,
-    },
-    EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta,
-    MaterialBindGroupId, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
-    ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers, ViewClusterBindings,
-    ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
+    environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
+    GpuPointLights, LightMeta, MaterialBindGroupId, NotShadowCaster, NotShadowReceiver,
+    PreviousGlobalTransform, ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers,
+    ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::{Plugin, PostUpdate};
@@ -52,8 +47,10 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, HashMap, Hashed, PassHashMap};
 
 use crate::render::{
-    morph::{extract_morphs, prepare_morphs, MorphUniform},
-    skin::{extract_skins, prepare_skins, SkinUniform},
+    morph::{
+        extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices, MorphUniform,
+    },
+    skin::{extract_skins, no_automatic_skin_batching, prepare_skins, SkinUniform},
     MeshLayouts,
 };
 
