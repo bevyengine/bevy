@@ -1,5 +1,5 @@
 use std::{
-    collections::{btree_set::Iter, BTreeSet},
+    collections::BTreeSet,
     fmt::{Debug, Write},
     result::Result,
 };
@@ -1749,7 +1749,7 @@ impl IgnoredSchedulingAmbiguities {
     }
 
     /// Iterate through the [`ComponentId`]'s that will be ignored.
-    pub fn iter(&self) -> Iter<'_, ComponentId> {
+    pub fn iter(&self) -> impl Iterator<Item = &ComponentId> + '_ {
         self.0.iter()
     }
 
