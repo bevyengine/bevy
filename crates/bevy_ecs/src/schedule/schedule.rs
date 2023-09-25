@@ -214,7 +214,7 @@ impl Schedule {
     /// [`MultiThreaded`]: ExecutorKind::MultiThreaded
     pub fn multi_threaded() -> Self {
         let mut schedule = Self::default();
-        schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        schedule.set_executor_kind(ExecutorKind::MultiThreaded);
         schedule
     }
 
