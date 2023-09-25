@@ -33,7 +33,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{FloatOrd, HashMap, PassHashMap};
+use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
@@ -329,7 +329,7 @@ pub struct ExtractedSprite {
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
-    pub sprites: PassHashMap<Entity, ExtractedSprite>,
+    pub sprites: EntityHashMap<Entity, ExtractedSprite>,
 }
 
 #[derive(Resource, Default)]

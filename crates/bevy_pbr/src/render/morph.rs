@@ -10,7 +10,7 @@ use bevy_render::{
     view::ViewVisibility,
     Extract,
 };
-use bevy_utils::PassHashMap;
+use bevy_utils::EntityHashMap;
 use bytemuck::Pod;
 
 #[derive(Component)]
@@ -19,7 +19,7 @@ pub struct MorphIndex {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct MorphIndices(PassHashMap<Entity, MorphIndex>);
+pub struct MorphIndices(EntityHashMap<Entity, MorphIndex>);
 
 #[derive(Resource)]
 pub struct MorphUniform {

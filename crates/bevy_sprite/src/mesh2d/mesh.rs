@@ -30,7 +30,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::PassHashMap;
+use bevy_utils::EntityHashMap;
 
 use crate::Material2dBindGroupId;
 
@@ -192,7 +192,7 @@ pub struct RenderMesh2dInstance {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct RenderMesh2dInstances(PassHashMap<Entity, RenderMesh2dInstance>);
+pub struct RenderMesh2dInstances(EntityHashMap<Entity, RenderMesh2dInstance>);
 
 #[derive(Component)]
 pub struct Mesh2d;

@@ -29,7 +29,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{FloatOrd, HashMap, HashSet, PassHashMap};
+use bevy_utils::{EntityHashMap, FloatOrd, HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -174,7 +174,7 @@ where
 }
 
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterial2dInstances<M: Material2d>(PassHashMap<Entity, AssetId<M>>);
+pub struct RenderMaterial2dInstances<M: Material2d>(EntityHashMap<Entity, AssetId<M>>);
 
 impl<M: Material2d> Default for RenderMaterial2dInstances<M> {
     fn default() -> Self {

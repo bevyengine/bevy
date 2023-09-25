@@ -34,7 +34,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewVisibility, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{tracing::error, HashMap, HashSet, PassHashMap};
+use bevy_utils::{tracing::error, EntityHashMap, HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -373,7 +373,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
 }
 
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterialInstances<M: Material>(PassHashMap<Entity, AssetId<M>>);
+pub struct RenderMaterialInstances<M: Material>(EntityHashMap<Entity, AssetId<M>>);
 
 impl<M: Material> Default for RenderMaterialInstances<M> {
     fn default() -> Self {

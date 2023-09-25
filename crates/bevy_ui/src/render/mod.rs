@@ -35,7 +35,7 @@ use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{FloatOrd, HashMap, PassHashMap};
+use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
@@ -163,7 +163,7 @@ pub struct ExtractedUiNode {
 
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
-    pub uinodes: PassHashMap<Entity, ExtractedUiNode>,
+    pub uinodes: EntityHashMap<Entity, ExtractedUiNode>,
 }
 
 pub fn extract_atlas_uinodes(

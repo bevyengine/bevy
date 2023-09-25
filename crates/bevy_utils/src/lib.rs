@@ -223,12 +223,6 @@ impl Hasher for PassHasher {
     }
 }
 
-/// A [`HashMap`] pre-configured to use [`PassHash`] passthrough hashing.
-pub type PassHashMap<K, V> = hashbrown::HashMap<K, V, PassHash>;
-
-/// A [`HashSet`] pre-configured to use [`PassHash`] passthrough hashing.
-pub type PassHashSet<T> = hashbrown::HashSet<T, PassHash>;
-
 /// A [`HashMap`] pre-configured to use [`Hashed`] keys and [`PassHash`] passthrough hashing.
 pub type PreHashMap<K, V> = hashbrown::HashMap<Hashed<K>, V, PassHash>;
 
@@ -255,6 +249,48 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
         }
     }
 }
+
+/// A [`BuildHasher`] that results in a [`EntityHasher`].
+#[derive(Default)]
+pub struct EntityHash;
+
+impl BuildHasher for EntityHash {
+    type Hasher = EntityHasher;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        EntityHasher::default()
+    }
+}
+
+/// A very fast hash that is only designed to work on generational indices
+/// like [`Entity`]. It will panic if attempting to hash a type containing
+/// non-u64 fields.
+#[derive(Debug, Default)]
+pub struct EntityHasher {
+    hash: u64,
+}
+
+impl Hasher for EntityHasher {
+    fn write(&mut self, _bytes: &[u8]) {
+        panic!("can only hash u64 using EntityHasher");
+    }
+
+    #[inline]
+    fn write_u64(&mut self, i: u64) {
+        self.hash = i | (i.wrapping_mul(0x517cc1b727220a95) << 32);
+    }
+
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.hash
+    }
+}
+
+/// A [`HashMap`] pre-configured to use [`EntityHash`] hashing.
+pub type EntityHashMap<K, V> = hashbrown::HashMap<K, V, EntityHash>;
+
+/// A [`HashSet`] pre-configured to use [`EntityHash`] hashing.
+pub type EntityHashSet<T> = hashbrown::HashSet<T, EntityHash>;
 
 /// A type which calls a function when dropped.
 /// This can be used to ensure that cleanup code is run even in case of a panic.

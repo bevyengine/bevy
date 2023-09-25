@@ -44,7 +44,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, HashMap, Hashed, PassHashMap};
+use bevy_utils::{tracing::error, EntityHashMap, HashMap, Hashed};
 
 use crate::render::{
     morph::{
@@ -237,7 +237,7 @@ pub struct RenderMeshInstance {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct RenderMeshInstances(PassHashMap<Entity, RenderMeshInstance>);
+pub struct RenderMeshInstances(EntityHashMap<Entity, RenderMeshInstance>);
 
 #[derive(Component)]
 pub struct Mesh3d;

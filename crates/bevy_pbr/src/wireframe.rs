@@ -24,7 +24,7 @@ use bevy_render::{
 };
 use bevy_render::{Extract, ExtractSchedule, Render};
 use bevy_utils::tracing::error;
-use bevy_utils::PassHashSet;
+use bevy_utils::EntityHashSet;
 
 pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
 
@@ -75,7 +75,7 @@ pub struct WireframeConfig {
 }
 
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct Wireframes(PassHashSet<Entity>);
+pub struct Wireframes(EntityHashSet<Entity>);
 
 fn extract_wireframes(
     mut wireframes: ResMut<Wireframes>,

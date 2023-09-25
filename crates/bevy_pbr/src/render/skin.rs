@@ -11,7 +11,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::PassHashMap;
+use bevy_utils::EntityHashMap;
 
 /// Maximum number of joints supported for skinned meshes.
 pub const MAX_JOINTS: usize = 256;
@@ -31,7 +31,7 @@ impl SkinIndex {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct SkinIndices(PassHashMap<Entity, SkinIndex>);
+pub struct SkinIndices(EntityHashMap<Entity, SkinIndex>);
 
 // Notes on implementation: see comment on top of the `extract_skins` system.
 #[derive(Resource)]
