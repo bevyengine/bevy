@@ -52,7 +52,7 @@ pub struct NodeConfig<T> {
     pub(crate) node: T,
     pub(crate) graph_info: GraphInfo,
     pub(crate) conditions: Vec<BoxedCondition>,
-    /// true if we should skip a sync after. This only works for `NodeConfig<BoxedSystem>
+    /// true if we should skip a sync after. This only works for `NodeConfig<BoxedSystem>`.
     /// and not other types.
     pub(crate) no_sync_after: bool,
 }

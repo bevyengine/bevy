@@ -1013,20 +1013,14 @@ impl ScheduleGraph {
         // use the same sync point if the distance is the same
         let mut distances: Vec<Option<u32>> = vec![None; topo.len()];
         for node in &topo {
-            let add_sync_after = self.systems[node.index()]
-                .get()
-                .unwrap()
-                .has_deferred()
+            let add_sync_after = self.systems[node.index()].get().unwrap().has_deferred()
                 && !self.no_sync_after.contains(node);
 
             for target in dependency_flattened.neighbors_directed(*node, Outgoing) {
-                let add_sync_on_edge = add_sync_after && !is_apply_deferred(self.systems[target.index()].get().unwrap());
+                let add_sync_on_edge = add_sync_after
+                    && !is_apply_deferred(self.systems[target.index()].get().unwrap());
 
-                let weight = if add_sync_on_edge {
-                    1
-                } else {
-                    0
-                };
+                let weight = if add_sync_on_edge { 1 } else { 0 };
 
                 distances[target.index()] = distances[target.index()]
                     .or(Some(0))
