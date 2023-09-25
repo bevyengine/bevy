@@ -82,9 +82,9 @@ fn create_text_measure(
     match TextMeasureInfo::from_text(&text, fonts, scale_factor) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
-                content_size.set(FixedMeasure { size: measure.max });
+                content_size.set_unrounded(FixedMeasure { size: measure.max });
             } else {
-                content_size.set(TextMeasure { info: measure });
+                content_size.set_unrounded(TextMeasure { info: measure });
             }
 
             // Text measure func created successfully, so set `TextFlags` to schedule a recompute

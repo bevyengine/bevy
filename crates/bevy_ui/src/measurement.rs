@@ -52,6 +52,7 @@ pub struct ContentSize {
     /// The `Measure` used to compute the intrinsic size
     #[reflect(ignore)]
     pub(crate) measure_func: Option<MeasureFunc>,
+    pub(crate) no_rounding: bool,
 }
 
 impl ContentSize {
@@ -67,10 +68,27 @@ impl ContentSize {
         self.measure_func = Some(MeasureFunc::Boxed(Box::new(measure_func)));
     }
 
+    /// Set a `Measure` for the UI node entity with this component
+    pub fn set_unrounded(&mut self, measure: impl Measure) {
+        let measure_func = move |size: TaffySize<_>, available: TaffySize<_>| {
+            let size = measure.measure(size.width, size.height, available.width, available.height);
+            TaffySize {
+                width: size.x,
+                height: size.y,
+            }
+        };
+        self.measure_func = Some(MeasureFunc::Boxed(Box::new(measure_func)));
+        self.no_rounding = true;
+    }
+
     /// Creates a `ContentSize` with a `Measure` that always returns given `size` argument, regardless of the UI layout's constraints.
     pub fn fixed_size(size: Vec2) -> ContentSize {
         let mut content_size = Self::default();
         content_size.set(FixedMeasure { size });
         content_size
+    }
+
+    pub fn no_rounding(&self) -> bool {
+        self.no_rounding
     }
 }
