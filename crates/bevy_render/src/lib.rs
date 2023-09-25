@@ -140,7 +140,7 @@ impl Render {
                 .after(prepare_assets::<Mesh>),
         );
         schedule.configure_sets(
-            (PrepareResources, PrepareBindGroups)
+            (PrepareResources, PrepareResourcesFlush, PrepareBindGroups)
                 .chain()
                 .in_set(Prepare),
         );
