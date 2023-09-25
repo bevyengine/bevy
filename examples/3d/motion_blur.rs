@@ -178,7 +178,7 @@ fn move_spheres(
     }
 
     for mut transform in &mut scales {
-        transform.scale = Vec3::splat(((time.elapsed_seconds() * 20.0).sin() + 1.0) * 2.0 + 1.0)
+        transform.scale = Vec3::splat(((time.elapsed_seconds() * 20.0).sin() + 1.0) * 2.0 + 1.0);
     }
 }
 
@@ -220,7 +220,7 @@ fn update_settings(
 
     if *follow {
         let mut camera = camera.single_mut();
-        camera.look_at(trackable.single().translation(), Vec3::Y)
+        camera.look_at(trackable.single().translation(), Vec3::Y);
     }
 }
 
