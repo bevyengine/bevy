@@ -137,7 +137,7 @@ impl<T> NodeConfigs<T> {
         }
     }
 
-    fn before_no_sync_inner(&mut self, set: BoxedSystemSet) {
+    fn before_ignore_deferred_inner(&mut self, set: BoxedSystemSet) {
         match self {
             Self::NodeConfig(config) => {
                 config
@@ -147,13 +147,13 @@ impl<T> NodeConfigs<T> {
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
-                    config.before_no_sync_inner(set.dyn_clone());
+                    config.before_ignore_deferred_inner(set.dyn_clone());
                 }
             }
         }
     }
 
-    fn after_no_sync_inner(&mut self, set: BoxedSystemSet) {
+    fn after_ignore_deferred_inner(&mut self, set: BoxedSystemSet) {
         match self {
             Self::NodeConfig(config) => {
                 config
@@ -163,7 +163,7 @@ impl<T> NodeConfigs<T> {
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
-                    config.after_no_sync_inner(set.dyn_clone());
+                    config.after_ignore_deferred_inner(set.dyn_clone());
                 }
             }
         }
@@ -263,13 +263,13 @@ where
     }
 
     /// Run before all systems in `set` and skip inserting a sync point
-    fn before_no_sync<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
-        self.into_configs().before_no_sync(set)
+    fn before_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
+        self.into_configs().before_ignore_deferred(set)
     }
 
     /// Run after all systems in `set`.
-    fn after_no_sync<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
-        self.into_configs().after_no_sync(set)
+    fn after_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
+        self.into_configs().after_ignore_deferred(set)
     }
 
     /// Add a run condition to each contained system.
@@ -389,15 +389,15 @@ impl IntoSystemConfigs<()> for SystemConfigs {
         self
     }
 
-    fn before_no_sync<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+    fn before_ignore_deferred<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.before_no_sync_inner(set.dyn_clone());
+        self.before_ignore_deferred_inner(set.dyn_clone());
         self
     }
 
-    fn after_no_sync<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+    fn after_ignore_deferred<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.after_no_sync_inner(set.dyn_clone());
+        self.after_ignore_deferred_inner(set.dyn_clone());
         self
     }
 
@@ -501,13 +501,13 @@ where
     }
 
     /// Run before all systems in `set` and skip auto sync point.
-    fn before_no_sync<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
-        self.into_configs().before_no_sync(set)
+    fn before_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
+        self.into_configs().before_ignore_deferred(set)
     }
 
     /// Run after all systems in `set` and skip auto sync point.
-    fn after_no_sync<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
-        self.into_configs().after_no_sync(set)
+    fn after_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
+        self.into_configs().after_ignore_deferred(set)
     }
 
     /// Run the systems in this set(s) only if the [`Condition`] is `true`.
@@ -568,16 +568,16 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
         self
     }
 
-    fn before_no_sync<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+    fn before_ignore_deferred<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.before_no_sync_inner(set.dyn_clone());
+        self.before_ignore_deferred_inner(set.dyn_clone());
 
         self
     }
 
-    fn after_no_sync<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+    fn after_ignore_deferred<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        self.after_no_sync_inner(set.dyn_clone());
+        self.after_ignore_deferred_inner(set.dyn_clone());
 
         self
     }

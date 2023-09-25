@@ -2010,7 +2010,7 @@ mod tests {
             check_no_sync_edges(|schedule| {
                 schedule.add_systems((
                     insert_resource,
-                    resource_does_not_exist.after_no_sync(insert_resource),
+                    resource_does_not_exist.after_ignore_deferred(insert_resource),
                 ));
             });
         }
@@ -2019,7 +2019,7 @@ mod tests {
         fn system_to_system_before() {
             check_no_sync_edges(|schedule| {
                 schedule.add_systems((
-                    insert_resource.before_no_sync(resource_does_not_exist),
+                    insert_resource.before_ignore_deferred(resource_does_not_exist),
                     resource_does_not_exist,
                 ));
             });
@@ -2030,7 +2030,7 @@ mod tests {
             check_no_sync_edges(|schedule| {
                 schedule
                     .add_systems((insert_resource, resource_does_not_exist.in_set(Sets::A)))
-                    .configure_sets(Sets::A.after_no_sync(insert_resource));
+                    .configure_sets(Sets::A.after_ignore_deferred(insert_resource));
             });
         }
 
@@ -2039,7 +2039,7 @@ mod tests {
             check_no_sync_edges(|schedule| {
                 schedule
                     .add_systems((insert_resource.in_set(Sets::A), resource_does_not_exist))
-                    .configure_sets(Sets::A.before_no_sync(resource_does_not_exist));
+                    .configure_sets(Sets::A.before_ignore_deferred(resource_does_not_exist));
             });
         }
 
@@ -2051,7 +2051,7 @@ mod tests {
                         insert_resource.in_set(Sets::A),
                         resource_does_not_exist.in_set(Sets::B),
                     ))
-                    .configure_sets(Sets::B.after_no_sync(Sets::A));
+                    .configure_sets(Sets::B.after_ignore_deferred(Sets::A));
             });
         }
 
@@ -2063,7 +2063,7 @@ mod tests {
                         insert_resource.in_set(Sets::A),
                         resource_does_not_exist.in_set(Sets::B),
                     ))
-                    .configure_sets(Sets::A.before_no_sync(Sets::B));
+                    .configure_sets(Sets::A.before_ignore_deferred(Sets::B));
             });
         }
     }
