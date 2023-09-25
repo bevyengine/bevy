@@ -9,7 +9,7 @@ use crate::{
 };
 use std::borrow::Borrow;
 
-/// [System parameter] that provides selective access to the [Component] data stored in a [`World`].
+/// [System parameter] that provides selective access to the [`Component`] data stored in a [`World`].
 ///
 /// Enables access to [entity identifiers] and [components] from a system, without the need to directly access the world.
 /// Its iterators and getter methods return *query items*.
@@ -292,7 +292,7 @@ use std::borrow::Borrow;
 /// [`AnyOf`]: crate::query::AnyOf
 /// [binomial coefficient]: https://en.wikipedia.org/wiki/Binomial_coefficient
 /// [`Changed`]: crate::query::Changed
-/// [Component]: crate::component::Component
+/// [`Component`]: crate::component::Component
 /// [components]: crate::component::Component
 /// [entity identifiers]: crate::entity::Entity
 /// [`EntityRef`]: crate::world::EntityRef
