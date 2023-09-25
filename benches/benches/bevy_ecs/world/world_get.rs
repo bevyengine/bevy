@@ -319,7 +319,7 @@ pub fn query_get_component(criterion: &mut Criterion) {
                 let mut count = 0;
                 for comp in entities
                     .iter()
-                    .flat_map(|&e| query.get_component::<Table>(e))
+                    .flat_map(|&e| query.get(e))
                 {
                     black_box(comp);
                     count += 1;
@@ -341,7 +341,7 @@ pub fn query_get_component(criterion: &mut Criterion) {
                 let mut count = 0;
                 for comp in entities
                     .iter()
-                    .flat_map(|&e| query.get_component::<Sparse>(e))
+                    .flat_map(|&e| query.get(e))
                 {
                     black_box(comp);
                     count += 1;

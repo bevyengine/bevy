@@ -1,16 +1,15 @@
 use crate::{
-    component::{Component, Tick},
+    component::Tick,
     entity::Entity,
     query::{
-        BatchingStrategy, QueryCombinationIter, QueryComponentError, QueryEntityError, QueryIter,
-        QueryManyIter, QueryParIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyWorldQuery,
-        WorldQuery,
+        BatchingStrategy, QueryCombinationIter, QueryEntityError, QueryIter, QueryManyIter,
+        QueryParIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyWorldQuery, WorldQuery,
     },
-    world::{unsafe_world_cell::UnsafeWorldCell, Mut},
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
-use std::{any::TypeId, borrow::Borrow};
+use std::borrow::Borrow;
 
-/// [System parameter] that provides selective access to the [`Component`] data stored in a [`World`].
+/// [System parameter] that provides selective access to the [Component] data stored in a [`World`].
 ///
 /// Enables access to [entity identifiers] and [components] from a system, without the need to directly access the world.
 /// Its iterators and getter methods return *query items*.
@@ -293,6 +292,7 @@ use std::{any::TypeId, borrow::Borrow};
 /// [`AnyOf`]: crate::query::AnyOf
 /// [binomial coefficient]: https://en.wikipedia.org/wiki/Binomial_coefficient
 /// [`Changed`]: crate::query::Changed
+/// [Component]: crate::component::Component
 /// [components]: crate::component::Component
 /// [entity identifiers]: crate::entity::Entity
 /// [`EntityRef`]: crate::world::EntityRef
@@ -329,12 +329,6 @@ pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
     state: &'state QueryState<Q, F>,
     last_run: Tick,
     this_run: Tick,
-    // SAFETY: This is used to ensure that `get_component_mut::<C>` properly fails when a Query writes C
-    // and gets converted to a read-only query using `to_readonly`. Without checking this, `get_component_mut` relies on
-    // QueryState's archetype_component_access, which will continue allowing write access to C after being cast to
-    // the read-only variant. This whole situation is confusing and error prone. Ideally this is a temporary hack
-    // until we sort out a cleaner alternative.
-    force_read_only_component_access: bool,
 }
 
 impl<Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for Query<'_, '_, Q, F> {
@@ -366,12 +360,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         state: &'s QueryState<Q, F>,
         last_run: Tick,
         this_run: Tick,
-        force_read_only_component_access: bool,
     ) -> Self {
         state.validate_world(world.id());
 
         Self {
-            force_read_only_component_access,
             world,
             state,
             last_run,
@@ -387,17 +379,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub fn to_readonly(&self) -> Query<'_, 's, Q::ReadOnly, F::ReadOnly> {
         let new_state = self.state.as_readonly();
         // SAFETY: This is memory safe because it turns the query immutable.
-        unsafe {
-            Query::new(
-                self.world,
-                new_state,
-                self.last_run,
-                self.this_run,
-                // SAFETY: this must be set to true or `get_component_mut` will be unsound. See the comments
-                // on this field for more details
-                true,
-            )
-        }
+        unsafe { Query::new(self.world, new_state, self.last_run, self.this_run) }
     }
 
     /// Returns an [`Iterator`] over the read-only query items.
@@ -1066,151 +1048,6 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         // same-system queries have runtime borrow checks when they conflict
         self.state
             .get_unchecked_manual(self.world, entity, self.last_run, self.this_run)
-    }
-
-    /// Returns a shared reference to the component `T` of the given [`Entity`].
-    ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
-    ///
-    /// # Example
-    ///
-    /// Here, `get_component` is used to retrieve the `Character` component of the entity specified by the `SelectedCharacter` resource.
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(Resource)]
-    /// # struct SelectedCharacter { entity: Entity }
-    /// # #[derive(Component)]
-    /// # struct Character { name: String }
-    /// #
-    /// fn print_selected_character_name_system(
-    ///        query: Query<&Character>,
-    ///        selection: Res<SelectedCharacter>
-    /// )
-    /// {
-    ///     if let Ok(selected_character) = query.get_component::<Character>(selection.entity) {
-    ///         println!("{}", selected_character.name);
-    ///     }
-    /// }
-    /// # bevy_ecs::system::assert_is_system(print_selected_character_name_system);
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`component`](Self::component) a panicking version of this function.
-    /// - [`get_component_mut`](Self::get_component_mut) to get a mutable reference of a component.
-    #[inline]
-    pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
-        self.state.get_component(self.world, entity)
-    }
-
-    /// Returns a mutable reference to the component `T` of the given entity.
-    ///
-    /// In case of a nonexisting entity, mismatched component or missing write acess, a [`QueryComponentError`] is returned instead.
-    ///
-    /// # Example
-    ///
-    /// Here, `get_component_mut` is used to retrieve the `Health` component of the entity specified by the `PoisonedCharacter` resource.
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(Resource)]
-    /// # struct PoisonedCharacter { character_id: Entity }
-    /// # #[derive(Component)]
-    /// # struct Health(u32);
-    /// #
-    /// fn poison_system(mut query: Query<&mut Health>, poisoned: Res<PoisonedCharacter>) {
-    ///     if let Ok(mut health) = query.get_component_mut::<Health>(poisoned.character_id) {
-    ///         health.0 -= 1;
-    ///     }
-    /// }
-    /// # bevy_ecs::system::assert_is_system(poison_system);
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`component_mut`](Self::component_mut) a panicking version of this function.
-    /// - [`get_component`](Self::get_component) to get a shared reference of a component.
-    #[inline]
-    pub fn get_component_mut<T: Component>(
-        &mut self,
-        entity: Entity,
-    ) -> Result<Mut<'_, T>, QueryComponentError> {
-        // SAFETY: unique access to query (preventing aliased access)
-        unsafe { self.get_component_unchecked_mut(entity) }
-    }
-
-    /// Returns a shared reference to the component `T` of the given [`Entity`].
-    ///
-    /// # Panics
-    ///
-    /// Panics in case of a nonexisting entity or mismatched component.
-    ///
-    /// # See also
-    ///
-    /// - [`get_component`](Self::get_component) a non-panicking version of this function.
-    /// - [`component_mut`](Self::component_mut) to get a mutable reference of a component.
-    #[inline]
-    #[track_caller]
-    pub fn component<T: Component>(&self, entity: Entity) -> &T {
-        self.state.component(self.world, entity)
-    }
-
-    /// Returns a mutable reference to the component `T` of the given entity.
-    ///
-    /// # Panics
-    ///
-    /// Panics in case of a nonexisting entity, mismatched component or missing write access.
-    ///
-    /// # See also
-    ///
-    /// - [`get_component_mut`](Self::get_component_mut) a non-panicking version of this function.
-    /// - [`component`](Self::component) to get a shared reference of a component.
-    #[inline]
-    #[track_caller]
-    pub fn component_mut<T: Component>(&mut self, entity: Entity) -> Mut<'_, T> {
-        match self.get_component_mut(entity) {
-            Ok(component) => component,
-            Err(error) => {
-                panic!(
-                    "Cannot get component `{:?}` from {entity:?}: {error}",
-                    TypeId::of::<T>()
-                )
-            }
-        }
-    }
-
-    /// Returns a mutable reference to the component `T` of the given entity.
-    ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryComponentError`] is returned instead.
-    ///
-    /// # Safety
-    ///
-    /// This function makes it possible to violate Rust's aliasing guarantees.
-    /// You must make sure this call does not result in multiple mutable references to the same component.
-    ///
-    /// # See also
-    ///
-    /// - [`get_component_mut`](Self::get_component_mut) for the safe version.
-    #[inline]
-    pub unsafe fn get_component_unchecked_mut<T: Component>(
-        &self,
-        entity: Entity,
-    ) -> Result<Mut<'_, T>, QueryComponentError> {
-        // This check is required to ensure soundness in the case of `to_readonly().get_component_mut()`
-        // See the comments on the `force_read_only_component_access` field for more info.
-        if self.force_read_only_component_access {
-            return Err(QueryComponentError::MissingWriteAccess);
-        }
-
-        // SAFETY: The above check ensures we are not a readonly query.
-        // It is the callers responsibility to ensure multiple mutable access is not provided.
-        unsafe {
-            self.state
-                .get_component_unchecked_mut(self.world, entity, self.last_run, self.this_run)
-        }
     }
 
     /// Returns a single read-only query item when there is exactly one entity matching the query.

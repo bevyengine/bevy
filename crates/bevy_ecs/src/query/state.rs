@@ -1,9 +1,8 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
-    change_detection::Mut,
     component::{ComponentId, Tick},
     entity::Entity,
-    prelude::{Component, FromWorld},
+    prelude::FromWorld,
     query::{
         Access, BatchingStrategy, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter,
         QueryIter, QueryParIter, WorldQuery,
@@ -14,11 +13,11 @@ use crate::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
-use std::{any::TypeId, borrow::Borrow, fmt, mem::MaybeUninit};
+use std::{borrow::Borrow, fmt, mem::MaybeUninit};
 
 use super::{
-    NopWorldQuery, QueryComponentError, QueryEntityError, QueryManyIter, QuerySingleError,
-    ROQueryItem, ReadOnlyWorldQuery,
+    NopWorldQuery, QueryEntityError, QueryManyIter, QuerySingleError, ROQueryItem,
+    ReadOnlyWorldQuery,
 };
 
 /// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
@@ -513,110 +512,6 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
             Ok(Q::fetch(&mut fetch, entity, location.table_row))
         } else {
             Err(QueryEntityError::QueryDoesNotMatch(entity))
-        }
-    }
-
-    /// Returns a shared reference to the component `T` of the given [`Entity`].
-    ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
-    #[inline]
-    pub(crate) fn get_component<'w, 's, 'r, T: Component>(
-        &'s self,
-        world: UnsafeWorldCell<'w>,
-        entity: Entity,
-    ) -> Result<&'r T, QueryComponentError>
-    where
-        'w: 'r,
-    {
-        let entity_ref = world
-            .get_entity(entity)
-            .ok_or(QueryComponentError::NoSuchEntity)?;
-        let component_id = world
-            .components()
-            .get_id(TypeId::of::<T>())
-            .ok_or(QueryComponentError::MissingComponent)?;
-        let archetype_component = entity_ref
-            .archetype()
-            .get_archetype_component_id(component_id)
-            .ok_or(QueryComponentError::MissingComponent)?;
-        if self
-            .archetype_component_access
-            .has_read(archetype_component)
-        {
-            // SAFETY: `world` must have access to the component `T` for this entity,
-            // since it was registered in `self`'s archetype component access set.
-            unsafe { entity_ref.get::<T>() }.ok_or(QueryComponentError::MissingComponent)
-        } else {
-            Err(QueryComponentError::MissingReadAccess)
-        }
-    }
-
-    /// Returns a shared reference to the component `T` of the given [`Entity`].
-    ///
-    /// # Panics
-    ///
-    /// If given a nonexisting entity or mismatched component, this will panic.
-    #[inline]
-    pub(crate) fn component<'w, 's, 'r, T: Component>(
-        &'s self,
-        world: UnsafeWorldCell<'w>,
-        entity: Entity,
-    ) -> &'r T
-    where
-        'w: 'r,
-    {
-        match self.get_component(world, entity) {
-            Ok(component) => component,
-            Err(error) => {
-                panic!(
-                    "Cannot get component `{:?}` from {entity:?}: {error}",
-                    TypeId::of::<T>()
-                )
-            }
-        }
-    }
-
-    /// Returns a mutable reference to the component `T` of the given entity.
-    ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryComponentError`] is returned instead.
-    ///
-    /// # Safety
-    ///
-    /// This function makes it possible to violate Rust's aliasing guarantees.
-    /// You must make sure this call does not result in multiple mutable references to the same component.
-    #[inline]
-    pub unsafe fn get_component_unchecked_mut<'w, 's, 'r, T: Component>(
-        &'s self,
-        world: UnsafeWorldCell<'w>,
-        entity: Entity,
-        last_run: Tick,
-        this_run: Tick,
-    ) -> Result<Mut<'r, T>, QueryComponentError>
-    where
-        'w: 'r,
-    {
-        let entity_ref = world
-            .get_entity(entity)
-            .ok_or(QueryComponentError::NoSuchEntity)?;
-        let component_id = world
-            .components()
-            .get_id(TypeId::of::<T>())
-            .ok_or(QueryComponentError::MissingComponent)?;
-        let archetype_component = entity_ref
-            .archetype()
-            .get_archetype_component_id(component_id)
-            .ok_or(QueryComponentError::MissingComponent)?;
-        if self
-            .archetype_component_access
-            .has_write(archetype_component)
-        {
-            // SAFETY: It is the responsibility of the caller to ensure it is sound to get a
-            // mutable reference to this entity's component `T`.
-            let result = unsafe { entity_ref.get_mut_using_ticks::<T>(last_run, this_run) };
-
-            result.ok_or(QueryComponentError::MissingComponent)
-        } else {
-            Err(QueryComponentError::MissingWriteAccess)
         }
     }
 

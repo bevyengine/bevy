@@ -25,18 +25,6 @@ fn main() {
         }
 
         {
-            let data: &Foo = query.get_component::<Foo>(e).unwrap();
-            let mut data2: Mut<Foo> = query.get_component_mut(e).unwrap();
-            assert_eq!(data, &mut *data2); // oops UB
-        }
-
-        {
-            let mut data2: Mut<Foo> = query.get_component_mut(e).unwrap();
-            let data: &Foo = query.get_component::<Foo>(e).unwrap();
-            assert_eq!(data, &mut *data2); // oops UB
-        }
-
-        {
             let data: &Foo = query.single();
             let mut data2: Mut<Foo> = query.single_mut();
             assert_eq!(data, &mut *data2); // oops UB

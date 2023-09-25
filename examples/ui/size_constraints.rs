@@ -366,7 +366,7 @@ fn update_radio_buttons_colors(
     children_query: Query<&Children>,
 ) {
     for &ButtonActivatedEvent(button_id) in event_reader.read() {
-        let target_constraint = button_query.get_component::<Constraint>(button_id).unwrap();
+        let (_, target_constraint, _) = button_query.get(button_id).unwrap();
         for (id, constraint, interaction) in button_query.iter() {
             if target_constraint == constraint {
                 let (border_color, inner_color, text_color) = if id == button_id {
