@@ -45,6 +45,18 @@ pub(crate) enum DependencyKind {
     Before,
     /// A node that should be succeeded.
     After,
+    /// A node that should be preceded and do **not** automatically insert sync points
+    BeforeNoSync,
+    /// A node that should be succeeded and do **not** automatically insert sync points
+    AfterNoSync,
+}
+
+/// Specifies if an edge should allow adding a sync point or not.
+/// Will only add a sync point if the preceding node has deferred system params
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum AllowAutoSync {
+    Yes,
+    No,
 }
 
 /// An edge to be added to the dependency graph.
@@ -100,11 +112,11 @@ pub(crate) struct CheckGraphResults<V> {
     /// Edges that are redundant because a longer path exists.
     pub(crate) transitive_edges: Vec<(V, V)>,
     /// Variant of the graph with no transitive edges.
-    pub(crate) transitive_reduction: DiGraphMap<V, ()>,
+    pub(crate) transitive_reduction: DiGraphMap<V, AllowAutoSync>,
     /// Variant of the graph with all possible transitive edges.
     // TODO: this will very likely be used by "if-needed" ordering
     #[allow(dead_code)]
-    pub(crate) transitive_closure: DiGraphMap<V, ()>,
+    pub(crate) transitive_closure: DiGraphMap<V, AllowAutoSync>,
 }
 
 impl<V: NodeTrait + Debug> Default for CheckGraphResults<V> {
@@ -132,7 +144,7 @@ impl<V: NodeTrait + Debug> Default for CheckGraphResults<V> {
 ///
 /// [1]: https://doi.org/10.1016/0012-365X(93)90164-O
 pub(crate) fn check_graph<V>(
-    graph: &DiGraphMap<V, ()>,
+    graph: &DiGraphMap<V, AllowAutoSync>,
     topological_order: &[V],
 ) -> CheckGraphResults<V>
 where
@@ -146,14 +158,14 @@ where
 
     // build a copy of the graph where the nodes and edges appear in topsorted order
     let mut map = HashMap::with_capacity(n);
-    let mut topsorted = DiGraphMap::<V, ()>::new();
+    let mut topsorted = DiGraphMap::<V, AllowAutoSync>::new();
     // iterate nodes in topological order
     for (i, &node) in topological_order.iter().enumerate() {
         map.insert(node, i);
         topsorted.add_node(node);
         // insert nodes as successors to their predecessors
         for pred in graph.neighbors_directed(node, Direction::Incoming) {
-            topsorted.add_edge(pred, node, ());
+            topsorted.add_edge(pred, node, *graph.edge_weight(pred, node).unwrap());
         }
     }
 
@@ -162,8 +174,8 @@ where
     let mut disconnected = Vec::new();
 
     let mut transitive_edges = Vec::new();
-    let mut transitive_reduction = DiGraphMap::<V, ()>::new();
-    let mut transitive_closure = DiGraphMap::<V, ()>::new();
+    let mut transitive_reduction = DiGraphMap::<V, AllowAutoSync>::new();
+    let mut transitive_closure = DiGraphMap::<V, AllowAutoSync>::new();
 
     let mut visited = FixedBitSet::with_capacity(n);
 
@@ -177,13 +189,13 @@ where
     for a in topsorted.nodes().rev() {
         let index_a = *map.get(&a).unwrap();
         // iterate their successors in topological order
-        for b in topsorted.neighbors_directed(a, Direction::Outgoing) {
+        for (_, b, weight) in topsorted.edges_directed(a, Direction::Outgoing) {
             let index_b = *map.get(&b).unwrap();
             debug_assert!(index_a < index_b);
             if !visited[index_b] {
                 // edge <a, b> is not redundant
-                transitive_reduction.add_edge(a, b, ());
-                transitive_closure.add_edge(a, b, ());
+                transitive_reduction.add_edge(a, b, *weight);
+                transitive_closure.add_edge(a, b, *weight);
                 reachable.insert(index(index_a, index_b, n));
 
                 let successors = transitive_closure
@@ -194,7 +206,7 @@ where
                     debug_assert!(index_b < index_c);
                     if !visited[index_c] {
                         visited.insert(index_c);
-                        transitive_closure.add_edge(a, c, ());
+                        transitive_closure.add_edge(a, c, *weight);
                         reachable.insert(index(index_a, index_c, n));
                     }
                 }
@@ -242,7 +254,10 @@ where
 /// ["Finding all the elementary circuits of a directed graph"][1] by D. B. Johnson.
 ///
 /// [1]: https://doi.org/10.1137/0204007
-pub fn simple_cycles_in_component<N>(graph: &DiGraphMap<N, ()>, scc: &[N]) -> Vec<Vec<N>>
+pub(crate) fn simple_cycles_in_component<N>(
+    graph: &DiGraphMap<N, AllowAutoSync>,
+    scc: &[N],
+) -> Vec<Vec<N>>
 where
     N: NodeTrait + Debug,
 {

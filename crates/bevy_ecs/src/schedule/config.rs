@@ -141,6 +141,38 @@ impl<T> NodeConfigs<T> {
         }
     }
 
+    fn before_no_sync_inner(&mut self, set: BoxedSystemSet) {
+        match self {
+            Self::NodeConfig(config) => {
+                config
+                    .graph_info
+                    .dependencies
+                    .push(Dependency::new(DependencyKind::BeforeNoSync, set));
+            }
+            Self::Configs { configs, .. } => {
+                for config in configs {
+                    config.before_no_sync_inner(set.dyn_clone());
+                }
+            }
+        }
+    }
+
+    fn after_no_sync_inner(&mut self, set: BoxedSystemSet) {
+        match self {
+            Self::NodeConfig(config) => {
+                config
+                    .graph_info
+                    .dependencies
+                    .push(Dependency::new(DependencyKind::AfterNoSync, set));
+            }
+            Self::Configs { configs, .. } => {
+                for config in configs {
+                    config.after_no_sync_inner(set.dyn_clone());
+                }
+            }
+        }
+    }
+
     fn distributive_run_if_inner<M>(&mut self, condition: impl Condition<M> + Clone) {
         match self {
             Self::NodeConfig(config) => {
@@ -253,6 +285,16 @@ where
     /// Run after all systems in `set`.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after(set)
+    }
+
+    /// Run before all systems in `set` and skip inserting a sync point
+    fn before_no_sync<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
+        self.into_configs().before_no_sync(set)
+    }
+
+    /// Run after all systems in `set`.
+    fn after_no_sync<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
+        self.into_configs().after_no_sync(set)
     }
 
     /// Add a run condition to each contained system.
@@ -377,6 +419,18 @@ impl IntoSystemConfigs<()> for SystemConfigs {
         self
     }
 
+    fn before_no_sync<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        let set = set.into_system_set();
+        self.before_no_sync_inner(set.dyn_clone());
+        self
+    }
+
+    fn after_no_sync<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        let set = set.into_system_set();
+        self.after_no_sync_inner(set.dyn_clone());
+        self
+    }
+
     fn distributive_run_if<M>(mut self, condition: impl Condition<M> + Clone) -> SystemConfigs {
         self.distributive_run_if_inner(condition);
         self
@@ -482,6 +536,16 @@ where
         self.into_configs().after(set)
     }
 
+    /// Run before all systems in `set` and skip auto sync point.
+    fn before_no_sync<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
+        self.into_configs().before_no_sync(set)
+    }
+
+    /// Run after all systems in `set` and skip auto sync point.
+    fn after_no_sync<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
+        self.into_configs().after_no_sync(set)
+    }
+
     /// Run the systems in this set(s) only if the [`Condition`] is `true`.
     ///
     /// The `Condition` will be evaluated at most once (per schedule run),
@@ -536,6 +600,20 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
     fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
         self.after_inner(set.dyn_clone());
+
+        self
+    }
+
+    fn before_no_sync<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        let set = set.into_system_set();
+        self.before_no_sync_inner(set.dyn_clone());
+
+        self
+    }
+
+    fn after_no_sync<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        let set = set.into_system_set();
+        self.after_no_sync_inner(set.dyn_clone());
 
         self
     }
