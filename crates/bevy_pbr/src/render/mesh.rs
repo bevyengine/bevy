@@ -1,13 +1,17 @@
 use crate::{
-    environment_map, prepass, render::morph::MorphInstances, EnvironmentMapLight, FogMeta,
-    GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta, MaterialBindGroupId,
-    NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
+    environment_map, prepass,
+    render::{
+        morph::{no_automatic_morph_batching, MorphIndices},
+        skin::no_automatic_skin_batching,
+    },
+    EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta,
+    MaterialBindGroupId, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
     ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers, ViewClusterBindings,
     ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
-use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, AssetId, Assets, Handle};
+use bevy_app::{Plugin, PostUpdate};
+use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
     prepass::ViewPrepassTextures,
@@ -21,7 +25,7 @@ use bevy_ecs::{
     query::{QueryItem, ROQueryItem},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Affine3, Mat4, Vec2, Vec4};
+use bevy_math::{Affine3, Vec2, Vec4};
 use bevy_render::{
     batching::{
         batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
@@ -29,7 +33,6 @@ use bevy_render::{
     },
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
-        skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         GpuBufferInfo, InnerMeshVertexBufferLayout, Mesh, MeshVertexBufferLayout,
         VertexAttributeDescriptor,
     },
@@ -50,16 +53,14 @@ use bevy_utils::{tracing::error, HashMap, Hashed, PassHashMap};
 
 use crate::render::{
     morph::{extract_morphs, prepare_morphs, MorphUniform},
+    skin::{extract_skins, prepare_skins, SkinUniform},
     MeshLayouts,
 };
 
+use super::skin::SkinIndices;
+
 #[derive(Default)]
 pub struct MeshRenderPlugin;
-
-/// Maximum number of joints supported for skinned meshes.
-pub const MAX_JOINTS: usize = 256;
-const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
-pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
 pub const MESH_VERTEX_OUTPUT: Handle<Shader> = Handle::weak_from_u128(2645551199423808407);
 pub const MESH_VIEW_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(8140454348013264787);
@@ -112,17 +113,22 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, MORPH_HANDLE, "morph.wgsl", Shader::from_wgsl);
 
+        app.add_systems(
+            PostUpdate,
+            (no_automatic_skin_batching, no_automatic_morph_batching),
+        );
+
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<RenderMeshInstances>()
-                .init_resource::<SkinnedMeshJointsInstances>()
-                .init_resource::<MorphInstances>()
-                .init_resource::<SkinnedMeshUniform>()
                 .init_resource::<MeshBindGroups>()
+                .init_resource::<SkinUniform>()
+                .init_resource::<SkinIndices>()
                 .init_resource::<MorphUniform>()
+                .init_resource::<MorphIndices>()
                 .add_systems(
                     ExtractSchedule,
-                    (extract_meshes, extract_skinned_meshes, extract_morphs),
+                    (extract_meshes, extract_skins, extract_morphs),
                 )
                 .add_systems(
                     Render,
@@ -136,7 +142,7 @@ impl Plugin for MeshRenderPlugin {
                             .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<MeshPipeline>
                             .in_set(RenderSet::PrepareResourcesFlush),
-                        prepare_skinned_meshes.in_set(RenderSet::PrepareResources),
+                        prepare_skins.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
                         prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
                         prepare_mesh_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
@@ -302,86 +308,6 @@ pub fn extract_meshes(
         );
     }
     commands.insert_or_spawn_batch(entities);
-}
-
-#[derive(Component)]
-pub struct SkinnedMeshJoints {
-    pub index: u32,
-}
-
-impl SkinnedMeshJoints {
-    #[inline]
-    pub fn build(
-        skin: &SkinnedMesh,
-        inverse_bindposes: &Assets<SkinnedMeshInverseBindposes>,
-        joints: &Query<&GlobalTransform>,
-        buffer: &mut BufferVec<Mat4>,
-    ) -> Option<Self> {
-        let inverse_bindposes = inverse_bindposes.get(&skin.inverse_bindposes)?;
-        let start = buffer.len();
-        let target = start + skin.joints.len().min(MAX_JOINTS);
-        buffer.extend(
-            joints
-                .iter_many(&skin.joints)
-                .zip(inverse_bindposes.iter())
-                .take(MAX_JOINTS)
-                .map(|(joint, bindpose)| joint.affine() * *bindpose),
-        );
-        // iter_many will skip any failed fetches. This will cause it to assign the wrong bones,
-        // so just bail by truncating to the start.
-        if buffer.len() != target {
-            buffer.truncate(start);
-            return None;
-        }
-
-        // Pad to 256 byte alignment
-        while buffer.len() % 4 != 0 {
-            buffer.push(Mat4::ZERO);
-        }
-        Some(Self {
-            index: start as u32,
-        })
-    }
-
-    /// Updated index to be in address space based on [`SkinnedMeshUniform`] size.
-    pub fn to_buffer_index(mut self) -> Self {
-        self.index *= std::mem::size_of::<Mat4>() as u32;
-        self
-    }
-}
-
-#[derive(Default, Resource, Deref, DerefMut)]
-pub struct SkinnedMeshJointsInstances(PassHashMap<Entity, SkinnedMeshJoints>);
-
-pub fn extract_skinned_meshes(
-    mut skinned_mesh_joints_instances: ResMut<SkinnedMeshJointsInstances>,
-    mut uniform: ResMut<SkinnedMeshUniform>,
-    query: Extract<Query<(Entity, &ViewVisibility, &SkinnedMesh)>>,
-    inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
-    joint_query: Extract<Query<&GlobalTransform>>,
-) {
-    skinned_mesh_joints_instances.clear();
-    uniform.buffer.clear();
-
-    let mut last_start = 0;
-
-    for (entity, view_visibility, skin) in &query {
-        if !view_visibility.get() {
-            continue;
-        }
-        // PERF: This can be expensive, can we move this to prepare?
-        if let Some(skinned_joints) =
-            SkinnedMeshJoints::build(skin, &inverse_bindposes, &joint_query, &mut uniform.buffer)
-        {
-            last_start = last_start.max(skinned_joints.index as usize);
-            skinned_mesh_joints_instances.insert(entity, skinned_joints.to_buffer_index());
-        }
-    }
-
-    // Pad out the buffer to ensure that there's enough space for bindings
-    while uniform.buffer.len() - last_start < MAX_JOINTS {
-        uniform.buffer.push(Mat4::ZERO);
-    }
 }
 
 #[derive(Resource, Clone)]
@@ -1076,7 +1002,7 @@ pub fn prepare_mesh_bind_group(
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
     mesh_uniforms: Res<GpuArrayBuffer<MeshUniform>>,
-    skinned_mesh_uniform: Res<SkinnedMeshUniform>,
+    skins_uniform: Res<SkinUniform>,
     weights_uniform: Res<MorphUniform>,
 ) {
     groups.reset();
@@ -1086,7 +1012,7 @@ pub fn prepare_mesh_bind_group(
     };
     groups.model_only = Some(layouts.model_only(&render_device, &model));
 
-    let skin = skinned_mesh_uniform.buffer.buffer();
+    let skin = skins_uniform.buffer.buffer();
     if let Some(skin) = skin {
         groups.skinned = Some(layouts.skinned(&render_device, &model, skin));
     }
@@ -1103,41 +1029,6 @@ pub fn prepare_mesh_bind_group(
             }
         }
     }
-}
-
-// NOTE: This is using BufferVec because it is using a trick to allow a fixed-size array
-// in a uniform buffer to be used like a variable-sized array by only writing the valid data
-// into the buffer, knowing the number of valid items starting from the dynamic offset, and
-// ignoring the rest, whether they're valid for other dynamic offsets or not. This trick may
-// be supported later in encase, and then we should make use of it.
-
-#[derive(Resource)]
-pub struct SkinnedMeshUniform {
-    pub buffer: BufferVec<Mat4>,
-}
-
-impl Default for SkinnedMeshUniform {
-    fn default() -> Self {
-        Self {
-            buffer: BufferVec::new(BufferUsages::UNIFORM),
-        }
-    }
-}
-
-pub fn prepare_skinned_meshes(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut skinned_mesh_uniform: ResMut<SkinnedMeshUniform>,
-) {
-    if skinned_mesh_uniform.buffer.is_empty() {
-        return;
-    }
-
-    let len = skinned_mesh_uniform.buffer.len();
-    skinned_mesh_uniform.buffer.reserve(len, &render_device);
-    skinned_mesh_uniform
-        .buffer
-        .write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Component)]
@@ -1340,8 +1231,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
     type Param = (
         SRes<MeshBindGroups>,
         SRes<RenderMeshInstances>,
-        SRes<SkinnedMeshJointsInstances>,
-        SRes<MorphInstances>,
+        SRes<SkinIndices>,
+        SRes<MorphIndices>,
     );
     type ViewWorldQuery = ();
     type ItemWorldQuery = ();
@@ -1351,7 +1242,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         item: &P,
         _view: (),
         _item_query: (),
-        (bind_groups, mesh_instances, skin_instances, morph_instances): SystemParamItem<
+        (bind_groups, mesh_instances, skin_indices, morph_indices): SystemParamItem<
             'w,
             '_,
             Self::Param,
@@ -1360,16 +1251,16 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
     ) -> RenderCommandResult {
         let bind_groups = bind_groups.into_inner();
         let mesh_instances = mesh_instances.into_inner();
-        let skin_instances = skin_instances.into_inner();
-        let morph_instances = morph_instances.into_inner();
+        let skin_indices = skin_indices.into_inner();
+        let morph_indices = morph_indices.into_inner();
 
         let entity = &item.entity();
 
         let Some(mesh) = mesh_instances.get(entity) else {
             return RenderCommandResult::Success;
         };
-        let skin_index = skin_instances.get(entity);
-        let morph_index = morph_instances.get(entity);
+        let skin_index = skin_indices.get(entity);
+        let morph_index = morph_indices.get(entity);
 
         let is_skinned = skin_index.is_some();
         let is_morphed = morph_index.is_some();

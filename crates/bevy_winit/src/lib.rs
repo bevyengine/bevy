@@ -67,7 +67,7 @@ pub static ANDROID_APP: std::sync::OnceLock<AndroidApp> = std::sync::OnceLock::n
 /// events.
 ///
 /// This plugin will add systems and resources that sync with the `winit` backend and also
-/// replace the exising [`App`] runner with one that constructs an [event loop](EventLoop) to
+/// replace the existing [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
 #[derive(Default)]
 pub struct WinitPlugin;
@@ -366,7 +366,7 @@ pub fn winit_runner(mut app: App) {
         match event {
             event::Event::NewEvents(start_cause) => match start_cause {
                 StartCause::Init => {
-                    #[cfg(any(target_os = "android", target_os = "ios", target_os = "macos"))]
+                    #[cfg(any(target_os = "ios", target_os = "macos"))]
                     {
                         #[cfg(not(target_arch = "wasm32"))]
                         let (
