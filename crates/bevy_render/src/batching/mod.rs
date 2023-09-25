@@ -67,8 +67,9 @@ pub trait GetBatchData {
     /// containing these data for all instances.
     type BufferData: GpuArrayBufferable + Sync + Send + 'static;
     /// Get the per-instance data to be inserted into the [`GpuArrayBuffer`].
-    /// Get the data used for comparison when deciding whether draws can be
-    /// batched.
+    /// If the instance can be batched, also return the data used for
+    /// comparison when deciding whether draws can be batched, else return None
+    /// for the CompareData.
     fn get_batch_data(
         param: &SystemParamItem<Self::Param>,
         query_item: &QueryItem<Self::Query>,
