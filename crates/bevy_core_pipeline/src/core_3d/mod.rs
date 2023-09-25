@@ -14,6 +14,7 @@ pub mod graph {
         pub const MAIN_OPAQUE_PASS: &str = "main_opaque_pass";
         pub const MAIN_TRANSPARENT_PASS: &str = "main_transparent_pass";
         pub const END_MAIN_PASS: &str = "end_main_pass";
+        pub const MOTION_BLUR: &str = "motion_blur";
         pub const BLOOM: &str = "bloom";
         pub const TONEMAPPING: &str = "tonemapping";
         pub const FXAA: &str = "fxaa";

@@ -407,7 +407,7 @@ impl Plugin for RenderPlugin {
 
             render_app
                 .insert_resource(RenderInstance(instance))
-                .insert_resource(PipelineCache::new(device.clone()))
+                .insert_resource(PipelineCache::new(render_adapter.clone(), device.clone()))
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)

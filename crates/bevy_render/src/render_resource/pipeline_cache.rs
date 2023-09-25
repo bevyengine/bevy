@@ -4,7 +4,7 @@ use crate::{
         RawComputePipelineDescriptor, RawFragmentState, RawRenderPipelineDescriptor,
         RawVertexState, RenderPipeline, RenderPipelineDescriptor, Shader, ShaderImport, Source,
     },
-    renderer::RenderDevice,
+    renderer::{RenderAdapter, RenderDevice},
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets};
@@ -22,7 +22,7 @@ use thiserror::Error;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
 use wgpu::{
-    Features, PipelineLayoutDescriptor, PushConstantRange, ShaderModuleDescriptor,
+    DownlevelFlags, Features, PipelineLayoutDescriptor, PushConstantRange, ShaderModuleDescriptor,
     VertexBufferLayout as RawVertexBufferLayout,
 };
 
@@ -163,8 +163,8 @@ impl ShaderDefVal {
 }
 
 impl ShaderCache {
-    fn new(render_device: &RenderDevice) -> Self {
-        const CAPABILITIES: &[(Features, Capabilities)] = &[
+    fn new(render_adapter: &RenderAdapter, render_device: &RenderDevice) -> Self {
+        const FEATURES_CAPABILITIES: &[(Features, Capabilities)] = &[
             (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
             (Features::SHADER_F64, Capabilities::FLOAT64),
             (
@@ -183,11 +183,31 @@ impl ShaderCache {
                 Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
                 Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
             ),
+            (
+                Features::TEXTURE_FORMAT_16BIT_NORM,
+                Capabilities::STORAGE_TEXTURE_16BIT_NORM_FORMATS,
+            ),
+            (Features::MULTIVIEW, Capabilities::MULTIVIEW),
+            (
+                Features::SHADER_EARLY_DEPTH_TEST,
+                Capabilities::EARLY_DEPTH_TEST,
+            ),
         ];
         let features = render_device.features();
         let mut capabilities = Capabilities::empty();
-        for (feature, capability) in CAPABILITIES {
+        for (feature, capability) in FEATURES_CAPABILITIES {
             if features.contains(*feature) {
+                capabilities |= *capability;
+            }
+        }
+
+        const DOWNLEVEL_FLAGS_CAPABILITIES: &[(DownlevelFlags, Capabilities)] = &[(
+            DownlevelFlags::MULTISAMPLED_SHADING,
+            Capabilities::MULTISAMPLED_SHADING,
+        )];
+        let downlevel_flags = render_adapter.get_downlevel_capabilities().flags;
+        for (downlevel_flag, capability) in DOWNLEVEL_FLAGS_CAPABILITIES {
+            if downlevel_flags.contains(*downlevel_flag) {
                 capabilities |= *capability;
             }
         }
@@ -479,9 +499,9 @@ impl PipelineCache {
     }
 
     /// Create a new pipeline cache associated with the given render device.
-    pub fn new(device: RenderDevice) -> Self {
+    pub fn new(adapter: RenderAdapter, device: RenderDevice) -> Self {
         Self {
-            shader_cache: ShaderCache::new(&device),
+            shader_cache: ShaderCache::new(&adapter, &device),
             device,
             layout_cache: default(),
             waiting_pipelines: default(),

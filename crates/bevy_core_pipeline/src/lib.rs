@@ -8,6 +8,7 @@ pub mod core_2d;
 pub mod core_3d;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
+pub mod motion_blur;
 pub mod msaa_writeback;
 pub mod prepass;
 mod skybox;
@@ -42,6 +43,7 @@ use crate::{
     core_3d::Core3dPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::FxaaPlugin,
+    motion_blur::MotionBlurPlugin,
     msaa_writeback::MsaaWritebackPlugin,
     prepass::{DepthPrepass, NormalPrepass},
     tonemapping::TonemappingPlugin,
@@ -79,6 +81,7 @@ impl Plugin for CorePipelinePlugin {
                 BloomPlugin,
                 FxaaPlugin,
                 CASPlugin,
+                MotionBlurPlugin,
             ));
     }
 }
