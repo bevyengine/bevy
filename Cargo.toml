@@ -1987,6 +1987,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "color_mixing"
+path = "examples/ui/color_mixing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.color_mixing]
+name = "Color Mixing"
+description = "Demonstrates color mixing in different spaces"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "display_and_visibility"
 path = "examples/ui/display_and_visibility.rs"
 doc-scrape-examples = true

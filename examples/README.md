@@ -343,6 +343,7 @@ Example | Description
 [Borders](../examples/ui/borders.rs) | Demonstrates how to create a node with a border
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
 [CSS Grid](../examples/ui/grid.rs) | An example for CSS Grid layout
+[Color Mixing](../examples/ui/color_mixing.rs) | Demonstrates color mixing in different spaces
 [Display and Visibility](../examples/ui/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
