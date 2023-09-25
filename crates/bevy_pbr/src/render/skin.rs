@@ -27,6 +27,7 @@ impl SkinIndex {
     }
 }
 
+// Notes on implementation: see comment on top of the `extract_skins` system.
 #[derive(Resource)]
 pub struct SkinUniform {
     pub buffer: BufferVec<Mat4>,
@@ -53,7 +54,32 @@ pub fn prepare_skins(
     uniform.buffer.write_buffer(&render_device, &render_queue);
 }
 
-// PERF: This can be expensive, can we move this to prepare?
+// Notes on implementation:
+// We define the uniform binding as an array<mat4x4<f32>, N> in the shader,
+// where N is the maximum number of Mat4s we can fit in the uniform binding,
+// which may be as little as 16kB or 64kB. But, we may not need all N.
+// We may only need, for example, 10.
+//
+// If we used uniform buffers ‘normally’ then we would have to write a full
+// binding of data for each dynamic offset binding, which is wasteful, makes
+// the buffer much larger than it needs to be, and uses more memory bandwidth
+// to transfer the data, which then costs frame time So @superdump came up
+// with this design: just bind data at the specified offset and interpret
+// the data at that offset as an array<T, N> regardless of what is there.
+//
+// So instead of writing N Mat4s when you only need 10, you write 10, and
+// then pad up to the next dynamic offset alignment. Then write the next.
+// And for the last dynamic offset binding, make sure there is a full binding
+// of data after it so that the buffer is of size
+// `last dynamic offset` + `array<mat4x4<f32>>`.
+//
+// Then when binding the first dynamic offset, the first 10 entries in the array
+// are what you expect, but if you read the 11th you’re reading ‘invalid’ data
+// which could be padding or could be from the next binding.
+//
+// In this way, we can pack ‘variable sized arrays’ into uniform buffer bindings
+// which normally only support fixed size arrays. You just have to make sure
+// in the shader that you only read the values that are valid for that binding.
 pub fn extract_skins(
     mut commands: Commands,
     mut previous_len: Local<usize>,
@@ -67,6 +93,7 @@ pub fn extract_skins(
     let mut values = Vec::with_capacity(*previous_len);
     let mut last_start = 0;
 
+    // PERF: This can be expensive, can we move this to prepare?
     for (entity, view_visibility, skin) in &query {
         if !view_visibility.get() {
             continue;

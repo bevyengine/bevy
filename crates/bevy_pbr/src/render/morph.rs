@@ -69,6 +69,8 @@ fn add_to_alignment<T: Pod + Default>(buffer: &mut BufferVec<T>) {
     buffer.extend(iter::repeat_with(T::default).take(ts_to_add));
 }
 
+// Notes on implementation: see comment on top of the extract_skins system in skin module.
+// This works similarly, but for `f32` instead of `Mat4`
 pub fn extract_morphs(
     mut commands: Commands,
     mut previous_len: Local<usize>,
