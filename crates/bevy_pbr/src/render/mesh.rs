@@ -244,6 +244,7 @@ pub struct Mesh3d;
 
 pub fn extract_meshes(
     mut commands: Commands,
+    mut previous_len: Local<usize>,
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     meshes_query: Extract<
         Query<(
@@ -258,9 +259,8 @@ pub fn extract_meshes(
         )>,
     >,
 ) {
-    let capacity = meshes_query.iter().len();
     render_mesh_instances.clear();
-    let mut entities = Vec::with_capacity(capacity);
+    let mut entities = Vec::with_capacity(*previous_len);
 
     let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.get());
 
@@ -304,6 +304,7 @@ pub fn extract_meshes(
             },
         );
     }
+    *previous_len = entities.len();
     commands.insert_or_spawn_batch(entities);
 }
 

@@ -199,6 +199,7 @@ pub struct Mesh2d;
 
 pub fn extract_mesh2d(
     mut commands: Commands,
+    mut previous_len: Local<usize>,
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     query: Extract<
         Query<(
@@ -210,9 +211,8 @@ pub fn extract_mesh2d(
         )>,
     >,
 ) {
-    let capacity = query.iter().len();
     render_mesh_instances.clear();
-    let mut entities = Vec::with_capacity(capacity);
+    let mut entities = Vec::with_capacity(*previous_len);
 
     for (entity, view_visibility, transform, handle, no_automatic_batching) in &query {
         if !view_visibility.get() {
@@ -234,6 +234,7 @@ pub fn extract_mesh2d(
             },
         );
     }
+    *previous_len = entities.len();
     commands.insert_or_spawn_batch(entities);
 }
 
