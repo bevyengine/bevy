@@ -847,6 +847,7 @@ impl EntityLocation {
     };
 }
 
+/// Offsets a generation value by the specified amount, wrapping to 1 instead of 0
 pub(crate) const fn inc_generation_by(lhs: NonZeroU32, rhs: u32) -> NonZeroU32 {
     let (lo, hi) = lhs.get().overflowing_add(rhs);
     let ret = lo + hi as u32;
