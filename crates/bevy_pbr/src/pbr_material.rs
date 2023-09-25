@@ -254,7 +254,7 @@ pub struct StandardMaterial {
     /// - It will look weird on bent/non-planar surfaces.
     /// - The depth of the pixel does not reflect its visual position, resulting
     ///   in artifacts for depth-dependent features such as fog or SSAO.
-    /// - For the same reason, the the geometry silhouette will always be
+    /// - For the same reason, the geometry silhouette will always be
     ///   the one of the actual geometry, not the parallaxed version, resulting
     ///   in awkward looks on intersecting parallaxed surfaces.
     ///
