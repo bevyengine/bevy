@@ -213,11 +213,6 @@ impl Hasher for PassHasher {
     }
 
     #[inline]
-    fn write_u32(&mut self, i: u32) {
-        self.hash = i as u64;
-    }
-
-    #[inline]
     fn write_u64(&mut self, i: u64) {
         self.hash = i;
     }
