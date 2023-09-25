@@ -45,14 +45,14 @@ pub(crate) enum DependencyKind {
     Before,
     /// A node that should be succeeded.
     After,
-    /// A node that should be preceded and do **not** automatically insert sync points
+    /// A node that should be preceded and will **not** automatically insert a apply deferred on the edge.
     BeforeNoSync,
-    /// A node that should be succeeded and do **not** automatically insert sync points
+    /// A node that should be succeeded and will **not** automatically insert a apply deferred on the edge.
     AfterNoSync,
 }
 
-/// Specifies if an edge should allow adding a sync point or not.
-/// Will only add a sync point if the preceding node has deferred system params
+/// Specifies if an edge should allow adding a `apply_deferred` or not.
+/// An `apply_deferred` will only be added if the preceding node has deferred system params.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum AllowAutoSync {
     Yes,
@@ -254,10 +254,7 @@ where
 /// ["Finding all the elementary circuits of a directed graph"][1] by D. B. Johnson.
 ///
 /// [1]: https://doi.org/10.1137/0204007
-pub(crate) fn simple_cycles_in_component<N>(
-    graph: &DiGraphMap<N, AllowAutoSync>,
-    scc: &[N],
-) -> Vec<Vec<N>>
+pub fn simple_cycles_in_component<N>(graph: &DiGraphMap<N, AllowAutoSync>, scc: &[N]) -> Vec<Vec<N>>
 where
     N: NodeTrait + Debug,
 {

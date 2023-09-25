@@ -262,12 +262,14 @@ where
         self.into_configs().after(set)
     }
 
-    /// Run before all systems in `set` and skip inserting a sync point
+    /// Run before all systems in `set` and systems in `set` do not care about the `deferred` effects
+    /// being applied.
     fn before_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().before_ignore_deferred(set)
     }
 
-    /// Run after all systems in `set`.
+    /// Run after all systems in `set` and the deferred effects of systems in `set` do not need to be a
+    /// applied before running.
     fn after_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after_ignore_deferred(set)
     }
@@ -500,12 +502,14 @@ where
         self.into_configs().after(set)
     }
 
-    /// Run before all systems in `set` and skip auto sync point.
+    /// Run before all systems in `set` and systems in `set` do not care about the `deferred` effects
+    /// being applied.
     fn before_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
         self.into_configs().before_ignore_deferred(set)
     }
 
-    /// Run after all systems in `set` and skip auto sync point.
+    /// Run after all systems in `set` and the deferred effects of systems in `set` do not need to be a
+    /// applied before running.
     fn after_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
         self.into_configs().after_ignore_deferred(set)
     }

@@ -949,8 +949,8 @@ impl ScheduleGraph {
         let mut dependency_flattened = self.get_dependency_flattened(&set_systems);
 
         // modify graph with auto sync points
-        if self.settings.auto_insert_sync_points {
-            dependency_flattened = self.insert_sync_points(&mut dependency_flattened)?;
+        if self.settings.auto_insert_apply_deferred {
+            dependency_flattened = self.auto_insert_apply_deferred(&mut dependency_flattened)?;
         }
 
         // topsort
@@ -984,7 +984,7 @@ impl ScheduleGraph {
     }
 
     // modify the graph to have sync nodes for any depedants after a system with deferred system params
-    fn insert_sync_points(
+    fn auto_insert_apply_deferred(
         &mut self,
         dependency_flattened: &mut GraphMap<NodeId, AllowAutoSync, Directed>,
     ) -> Result<GraphMap<NodeId, AllowAutoSync, Directed>, ScheduleBuildError> {
@@ -1826,7 +1826,7 @@ pub struct ScheduleBuildSettings {
     ///
     /// Defaults to [`LogLevel::Warn`].
     pub hierarchy_detection: LogLevel,
-    /// Auto insert [`apply_deferred`] sync points after a system into the schedule,
+    /// Auto insert [`apply_deferred`] systems into the schedule,
     /// when there are [`Deferred`](crate::prelude::Deferred)
     /// in one system and there are ordering dependencies on that system. [`Commands`](crate::system::Commands) is one
     /// such deferred buffer.
@@ -1835,7 +1835,7 @@ pub struct ScheduleBuildSettings {
     /// or want to manually insert all your sync points.
     ///
     /// Defaults to `true`
-    pub auto_insert_sync_points: bool,
+    pub auto_insert_apply_deferred: bool,
     /// If set to true, node names will be shortened instead of the fully qualified type path.
     ///
     /// Defaults to `true`.
@@ -1859,7 +1859,7 @@ impl ScheduleBuildSettings {
         Self {
             ambiguity_detection: LogLevel::Ignore,
             hierarchy_detection: LogLevel::Warn,
-            auto_insert_sync_points: true,
+            auto_insert_apply_deferred: true,
             use_shortnames: true,
             report_sets: true,
         }
@@ -1962,7 +1962,7 @@ mod tests {
     fn disable_auto_sync_points() {
         let mut schedule = Schedule::default();
         schedule.set_build_settings(ScheduleBuildSettings {
-            auto_insert_sync_points: false,
+            auto_insert_apply_deferred: false,
             ..Default::default()
         });
         let mut world = World::default();
