@@ -12,8 +12,8 @@
 //!
 //! For more details on the `WorldQuery` derive macro, see the trait documentation.
 
+use bevy::ecs::query::{WorldQueryData, WorldQueryFilter};
 use bevy::prelude::*;
-use bevy_internal::ecs::query::{WorldQueryData, WorldQueryFilter};
 use std::fmt::Debug;
 
 fn main() {
