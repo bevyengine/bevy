@@ -13,6 +13,7 @@ pub mod widget;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::Reflect;
+#[cfg(feature = "bevy_text")]
 use bevy_text::TextLayoutInfo;
 #[cfg(feature = "bevy_text")]
 mod accessibility;
@@ -41,6 +42,7 @@ pub mod prelude {
 }
 
 use crate::prelude::UiCameraConfig;
+#[cfg(feature = "bevy_text")]
 use crate::widget::TextFlags;
 use bevy_app::prelude::*;
 use bevy_asset::Assets;
@@ -91,8 +93,6 @@ impl Plugin for UiPlugin {
             .register_type::<AlignSelf>()
             .register_type::<BackgroundColor>()
             .register_type::<CalculatedClip>()
-            .register_type::<TextLayoutInfo>()
-            .register_type::<TextFlags>()
             .register_type::<ContentSize>()
             .register_type::<Direction>()
             .register_type::<Display>()
@@ -130,6 +130,10 @@ impl Plugin for UiPlugin {
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
             );
+
+        #[cfg(feature = "bevy_text")]
+        app.register_type::<TextLayoutInfo>()
+            .register_type::<TextFlags>();
         // add these systems to front because these must run before transform update systems
         #[cfg(feature = "bevy_text")]
         app.add_systems(
