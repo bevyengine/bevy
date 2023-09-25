@@ -1,9 +1,4 @@
-// #import bevy_pbr::mesh_types
-// #import bevy_pbr::mesh_view_bindings  globals
 #import bevy_pbr::prepass_utils
-
-// #import bevy_pbr::mesh_vertex_output  MeshVertexOutput
-
 #import bevy_pbr::utils
 #import bevy_core_pipeline::fullscreen_vertex_shader FullscreenVertexOutput
 
