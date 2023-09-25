@@ -1,7 +1,7 @@
-use std::num::NonZeroU32;
-
 use crate::{entity::Entity, world::World};
 use bevy_utils::HashMap;
+
+use super::inc_generation_by;
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -72,17 +72,7 @@ impl<'m> EntityMapper<'m> {
 
         // this new entity reference is specifically designed to never represent any living entity
         let new = Entity {
-            // TODO: wrapping add will make u32::MAX + 1 == u32::MAX + 2
-            // SAFETY: We use u32::max to ensure that we wrap to 1, meaning it's safe to construct NonZeroU32 without checking
-            generation: unsafe {
-                NonZeroU32::new_unchecked(
-                    self.dead_start
-                        .generation
-                        .get()
-                        .wrapping_add(self.generations)
-                        .max(1),
-                )
-            },
+            generation: inc_generation_by(self.dead_start.generation, self.generations),
             index: self.dead_start.index,
         };
         self.generations += 1;

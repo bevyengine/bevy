@@ -564,10 +564,7 @@ impl Entities {
             return None;
         }
 
-        // NOTE: checked_add has more optimal instructions than NonZeroU32::checked_add or u32::wrapping_add
-        let new_generation = meta.generation.get().checked_add(1).unwrap_or(1);
-        // SAFETY: We use checked add to ensure that we wrap to 1, meaning it's safe to construct NonZeroU32 without checking
-        meta.generation = unsafe { NonZeroU32::new_unchecked(new_generation) };
+        meta.generation = inc_generation_by(meta.generation, 1);
 
         if meta.generation == NonZeroU32::MIN {
             warn!(
@@ -656,13 +653,7 @@ impl Entities {
 
         let meta = &mut self.meta[index as usize];
         if meta.location.archetype_id == ArchetypeId::INVALID {
-            // TODO: wrapping add will make u32::MAX + 1 == u32::MAX + 2
-            let new_generation = meta.generation.get().wrapping_add(generations).max(1);
-            if new_generation < meta.generation.get() {
-                warn!("Entity({index}) generation wrapped on Entities::reserve_generations, aliasing may occur");
-            }
-            // SAFETY: We use u32::max to ensure that we wrap to 1, meaning it's safe to construct NonZeroU32 without checking
-            meta.generation = unsafe { NonZeroU32::new_unchecked(new_generation) };
+            meta.generation = inc_generation_by(meta.generation, generations);
             true
         } else {
             false
@@ -856,9 +847,47 @@ impl EntityLocation {
     };
 }
 
+pub(crate) const fn inc_generation_by(lhs: NonZeroU32, rhs: u32) -> NonZeroU32 {
+    let (lo, hi) = lhs.get().overflowing_add(rhs);
+    let ret = lo + hi as u32;
+    // SAFETY:
+    // - Adding the overflow flag will offet overflows to start at 1 instead of 0
+    // - The sum of `NonZeroU32::MAX` + `u32::MAX` + 1 (overflow) == `NonZeroU32::MAX`
+    // - If the operation doesn't overflow, no offsetting takes place
+    unsafe { NonZeroU32::new_unchecked(ret) }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inc_generation_by_is_safe() {
+        // Correct offsets without overflow
+        assert_eq!(
+            inc_generation_by(NonZeroU32::MIN, 1),
+            NonZeroU32::new(2).unwrap()
+        );
+
+        assert_eq!(
+            inc_generation_by(NonZeroU32::MIN, 10),
+            NonZeroU32::new(11).unwrap()
+        );
+
+        // Check that overflows start at 1 correctly
+        assert_eq!(inc_generation_by(NonZeroU32::MAX, 1), NonZeroU32::MIN);
+
+        assert_eq!(
+            inc_generation_by(NonZeroU32::MAX, 2),
+            NonZeroU32::new(2).unwrap()
+        );
+
+        // Ensure we can't overflow twice
+        assert_eq!(
+            inc_generation_by(NonZeroU32::MAX, u32::MAX),
+            NonZeroU32::MAX
+        );
+    }
 
     #[test]
     fn entity_niche_optimization() {
