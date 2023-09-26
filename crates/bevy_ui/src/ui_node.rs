@@ -1473,6 +1473,19 @@ pub struct Outline {
     pub color: Color,
 }
 
+impl Outline {
+    /// Create a new outline
+    pub fn new(width: Val, color: Color) -> Self {
+        Self { width, color }
+    }
+
+    /// Create a new outline with width in logical pixels
+    pub fn px(width: f32, color: Color) -> Self {
+        Self { width: Val::Px(width), color }
+    }
+
+}
+
 /// The 2D texture displayed for this UI node
 #[derive(Component, Clone, Debug, Reflect, Default)]
 #[reflect(Component, Default)]

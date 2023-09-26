@@ -386,7 +386,7 @@ pub fn ui_layout_system(
 pub fn resolve_outlines_system(
     primary_window: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
-    mut outlines_query: Query<(Ref<Outline>, &mut Node)>,
+    mut outlines_query: Query<(&Outline, &mut Node)>,
 ) {
     let viewport_size = primary_window
         .get_single()
