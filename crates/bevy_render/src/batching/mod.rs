@@ -69,7 +69,7 @@ pub trait GetBatchData {
     /// Get the per-instance data to be inserted into the [`GpuArrayBuffer`].
     /// If the instance can be batched, also return the data used for
     /// comparison when deciding whether draws can be batched, else return None
-    /// for the CompareData.
+    /// for the `CompareData`.
     fn get_batch_data(
         param: &SystemParamItem<Self::Param>,
         query_item: &QueryItem<Self::Query>,
