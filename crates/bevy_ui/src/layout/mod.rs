@@ -383,6 +383,7 @@ pub fn ui_layout_system(
     }
 }
 
+/// Resolve and update the widths of Node outlines
 pub fn resolve_outlines_system(
     primary_window: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,

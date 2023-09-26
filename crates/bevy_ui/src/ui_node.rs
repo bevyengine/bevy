@@ -19,7 +19,7 @@ pub struct Node {
     pub(crate) calculated_size: Vec2,
     /// The width of this node's outline
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered
-    /// automatically calculated by [`super::layout::compute_outlines_system`]
+    /// automatically calculated by [`super::layout::resolve_outlines_system`]
     pub(crate) outline_width: f32,
 }
 
