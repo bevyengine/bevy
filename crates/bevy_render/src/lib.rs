@@ -52,7 +52,7 @@ use crate::{
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
-    settings::RenderSettings,
+    settings::RenderCreation,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin, SubApp};
@@ -67,7 +67,7 @@ use std::{
 /// Contains the default Bevy rendering backend based on wgpu.
 #[derive(Default)]
 pub struct RenderPlugin {
-    pub render_settings: RenderSettings,
+    pub render_settings: RenderCreation,
 }
 
 /// The labels of the default App rendering sets.
@@ -241,7 +241,7 @@ impl Plugin for RenderPlugin {
             .init_asset_loader::<ShaderLoader>();
 
         match &self.render_settings {
-            RenderSettings::Manual(device, queue, adapter_info, adapter, instance) => {
+            RenderCreation::Manual(device, queue, adapter_info, adapter, instance) => {
                 let future_renderer_resources_wrapper = Arc::new(Mutex::new(Some((
                     device.clone(),
                     queue.clone(),
@@ -254,7 +254,7 @@ impl Plugin for RenderPlugin {
                 ));
                 unsafe { initialize_render_app(app) };
             }
-            RenderSettings::Automatic(render_settings) => {
+            RenderCreation::Automatic(render_settings) => {
                 if let Some(backends) = render_settings.backends {
                     let future_renderer_resources_wrapper = Arc::new(Mutex::new(None));
                     app.insert_resource(FutureRendererResources(

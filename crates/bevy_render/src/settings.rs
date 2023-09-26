@@ -97,7 +97,7 @@ impl Default for WgpuSettings {
 }
 
 /// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).
-pub enum RenderSettings {
+pub enum RenderCreation {
     /// Allows renderer resource initialization to happen outside of the rendering plugin.
     Manual(
         RenderDevice,
@@ -110,7 +110,7 @@ pub enum RenderSettings {
     Automatic(WgpuSettings),
 }
 
-impl RenderSettings {
+impl RenderCreation {
     /// Function to create a [`RenderSettings::Manual`] variant.
     pub fn manual(
         device: RenderDevice,
@@ -123,13 +123,13 @@ impl RenderSettings {
     }
 }
 
-impl Default for RenderSettings {
+impl Default for RenderCreation {
     fn default() -> Self {
         Self::Automatic(Default::default())
     }
 }
 
-impl From<WgpuSettings> for RenderSettings {
+impl From<WgpuSettings> for RenderCreation {
     fn from(value: WgpuSettings) -> Self {
         Self::Automatic(value)
     }
