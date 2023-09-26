@@ -111,7 +111,7 @@ pub enum RenderCreation {
 }
 
 impl RenderCreation {
-    /// Function to create a [`RenderSettings::Manual`] variant.
+    /// Function to create a [`RenderCreation::Manual`] variant.
     pub fn manual(
         device: RenderDevice,
         queue: RenderQueue,
