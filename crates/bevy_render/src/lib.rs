@@ -67,7 +67,7 @@ use std::{
 /// Contains the default Bevy rendering backend based on wgpu.
 #[derive(Default)]
 pub struct RenderPlugin {
-    pub render_settings: RenderCreation,
+    pub render_creation: RenderCreation,
 }
 
 /// The labels of the default App rendering sets.
