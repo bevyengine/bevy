@@ -1443,7 +1443,7 @@ impl UiTextureAtlasImage {
         self
     }
 
-    /// flip the image along its y-axis
+    /// Flip the image along its y-axis
     #[must_use]
     pub const fn with_flip_y(mut self) -> Self {
         self.flip_y = true;
