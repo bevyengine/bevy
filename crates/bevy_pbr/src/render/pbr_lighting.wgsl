@@ -403,7 +403,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         }
 
         // Make each consecutive spiral slightly smaller than the previous one
-        spiral_offset *= 1.0 - (0.5 * f32(current_spiral) / f32(num_spirals));
+        spiral_offset *= 1.0 - (0.5 * f32(current_spiral + 1) / f32(num_spirals));
 
         // Rotate and correct for aspect ratio
         let rotated_spiral_offset = (rotation_matrix * spiral_offset) * vec2(1.0, aspect);
