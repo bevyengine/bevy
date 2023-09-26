@@ -720,7 +720,7 @@ fn apply_animation(
                             let result = morph_start
                                 .iter()
                                 .zip(morph_end)
-                                .map(|(a, b)| *a * (1.0 - lerp) + *b * lerp);
+                                .map(|(a, b)| *a + lerp * (*b - *a));
                             lerp_morph_weights(morphs.weights_mut(), result, weight);
                         }
                     }
