@@ -4,7 +4,85 @@ use bevy_reflect::{Reflect, ReflectFromPtr, TraitTypeData, TypeData, TypeDataMap
 
 use crate::component::ComponentId;
 use crate::entity::Entity;
-use crate::prelude::{AppTypeRegistry, Mut, World};
+use crate::prelude::{AppTypeRegistry, EntityRef, EntityWorldMut, Mut, World};
+
+impl<'w> EntityRef<'w> {
+    /// Retrieves an immutable `dyn Reflect` reference to the given entity's Component of the given [`ComponentId`]
+    pub fn get_dyn_reflect_by_id(&self, component_id: ComponentId) -> Option<&dyn Reflect> {
+        let type_id = self.0.world.component_type_id(component_id)?;
+        let component_ptr = self.get_by_id(component_id)?;
+
+        let type_registry = self.get_resource::<AppTypeRegistry>()?;
+        let type_registry = type_registry.read();
+        let from_ptr = type_registry.get_type_data::<ReflectFromPtr>(type_id)?;
+        // SAFETY: type_id is correct
+        Some(unsafe { from_ptr.as_reflect(component_ptr) })
+    }
+
+    /// Retrieves an immutable `dyn T` reference to the given entity's Component of the given [`ComponentId`]
+    pub fn get_dyn_by_id<T: TypeDataMapper + ?Sized>(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<&<T::TypeData as TraitTypeData>::Dyn>
+    where
+        T::TypeData: TraitTypeData,
+    {
+        let type_id = self.0.world.component_type_id(component_id)?;
+
+        let dyn_obj = self.get_dyn_reflect_by_id(component_id)?;
+
+        let type_registry = self.resource::<AppTypeRegistry>();
+        let type_registry = type_registry.read();
+        let type_data = type_registry.get_type_data::<T::TypeData>(type_id)?;
+        type_data.get(dyn_obj)
+    }
+}
+
+impl<'w> EntityWorldMut<'w> {
+    /// Retrieves an mutable `dyn T` reference to the given entity's Component of the given [`ComponentId`]
+    pub fn get_dyn_mut_by_id<T: TypeDataMapper + ?Sized>(
+        &mut self,
+        component_id: ComponentId,
+    ) -> Option<&mut <T::TypeData as TraitTypeData>::Dyn>
+    where
+        T::TypeData: TraitTypeData,
+    {
+        let type_id = self.world.component_type_id(component_id)?;
+
+        let type_data: Box<T::TypeData> = ({
+            let type_registry = self.get_resource::<AppTypeRegistry>()?;
+            let type_registry = type_registry.read();
+            type_registry
+                .get_type_data::<T::TypeData>(type_id)?
+                .clone_type_data()
+        })
+        .downcast::<T::TypeData>()
+        .ok()?;
+        let dyn_obj = self.get_dyn_reflect_mut_by_id(component_id)?;
+        type_data.get_mut(dyn_obj.value)
+    }
+
+    /// Retrieves an mutable `dyn Reflect` reference to the given entity's Component of the given [`ComponentId`]
+    pub fn get_dyn_reflect_mut_by_id(
+        &mut self,
+        component_id: ComponentId,
+    ) -> Option<Mut<dyn Reflect>> {
+        let type_id = self.world.component_type_id(component_id)?;
+        let reflect_component_ptr = {
+            let type_registry = self.get_resource::<AppTypeRegistry>()?;
+            let type_registry = type_registry.read();
+            type_registry
+                .get_type_data::<ReflectFromPtr>(type_id)?
+                .clone()
+        };
+
+        let mut_ptr = self.get_mut_by_id(component_id)?;
+        Some(mut_ptr.map_unchanged(|p| {
+            // SAFETY: type_id is correct
+            unsafe { reflect_component_ptr.as_reflect_mut(p) }
+        }))
+    }
+}
 
 impl World {
     /// Returns the [`TypeId`] of the underlying component type. Returns None if the component does not correspond to a Rust type.
@@ -23,14 +101,7 @@ impl World {
     where
         T::TypeData: TraitTypeData,
     {
-        let type_id = self.component_type_id(component_id)?;
-
-        let dyn_obj = self.get_dyn_reflect_by_id(entity, component_id)?;
-
-        let type_registry = self.resource::<AppTypeRegistry>();
-        let type_registry = type_registry.read();
-        let type_data = type_registry.get_type_data::<T::TypeData>(type_id)?;
-        type_data.get(dyn_obj)
+        self.entity(entity).get_dyn_by_id::<T>(component_id)
     }
 
     /// Retrieves an mutable `dyn T` reference to the given entity's Component of the given [`ComponentId`]
@@ -42,19 +113,7 @@ impl World {
     where
         T::TypeData: TraitTypeData,
     {
-        let type_id = self.component_type_id(component_id)?;
-
-        let type_data: Box<T::TypeData> = ({
-            let type_registry = self.get_resource::<AppTypeRegistry>()?;
-            let type_registry = type_registry.read();
-            type_registry
-                .get_type_data::<T::TypeData>(type_id)?
-                .clone_type_data()
-        })
-        .downcast::<T::TypeData>()
-        .ok()?;
-        let dyn_obj = self.get_dyn_reflect_mut_by_id(entity, component_id)?;
-        type_data.get_mut(dyn_obj.value)
+        self.entity_mut(entity).get_dyn_mut_by_id::<T>(component_id)
     }
 
     /// Retrieves an immutable `dyn Reflect` reference to the given entity's Component of the given [`ComponentId`]
@@ -63,14 +122,7 @@ impl World {
         entity: Entity,
         component_id: ComponentId,
     ) -> Option<&dyn Reflect> {
-        let type_id = self.component_type_id(component_id)?;
-        let component_ptr = self.get_by_id(entity, component_id)?;
-
-        let type_registry = self.get_resource::<AppTypeRegistry>()?;
-        let type_registry = type_registry.read();
-        let from_ptr = type_registry.get_type_data::<ReflectFromPtr>(type_id)?;
-        // SAFETY: type_id is correct
-        Some(unsafe { from_ptr.as_reflect(component_ptr) })
+        self.entity(entity).get_dyn_reflect_by_id(component_id)
     }
 
     /// Retrieves an mutable `dyn Reflect` reference to the given entity's Component of the given [`ComponentId`]
@@ -79,20 +131,8 @@ impl World {
         entity: Entity,
         component_id: ComponentId,
     ) -> Option<Mut<dyn Reflect>> {
-        let type_id = self.component_type_id(component_id)?;
-        let reflect_component_ptr = {
-            let type_registry = self.get_resource::<AppTypeRegistry>()?;
-            let type_registry = type_registry.read();
-            type_registry
-                .get_type_data::<ReflectFromPtr>(type_id)?
-                .clone()
-        };
-
-        let mut_ptr = self.get_mut_by_id(entity, component_id)?;
-        Some(mut_ptr.map_unchanged(|p| {
-            // SAFETY: type_id is correct
-            unsafe { reflect_component_ptr.as_reflect_mut(p) }
-        }))
+        self.entity_mut(entity)
+            .get_dyn_reflect_mut_by_id(component_id)
     }
 }
 
