@@ -1,7 +1,7 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Style, UiScale, SizeRounding};
+use crate::{ContentSize, Node, SizeRounding, Style, UiScale};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -347,8 +347,14 @@ pub fn ui_layout_system(
 
             absolute_location += layout_location;
 
-            let size = match maybe_content_size.map(|content_size| content_size.rounding).unwrap_or_default() {
-                SizeRounding::Enabled => round_layout_coords(absolute_location + layout_size) - round_layout_coords(absolute_location),
+            let size = match maybe_content_size
+                .map(|content_size| content_size.rounding)
+                .unwrap_or_default()
+            {
+                SizeRounding::Enabled => {
+                    round_layout_coords(absolute_location + layout_size)
+                        - round_layout_coords(absolute_location)
+                }
                 SizeRounding::Disabled => layout_size,
             };
 
