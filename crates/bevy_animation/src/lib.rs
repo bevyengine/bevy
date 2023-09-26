@@ -567,7 +567,7 @@ fn run_animation_player(
 
 /// Update `weights` based on weights in `keyframe` with a linear interpolation
 /// on `key_lerp`.
-fn lerp_morph_weights(weights: &mut [f32], key_lerp: f32, keyframe: impl Iterator<Item = f32>) {
+fn lerp_morph_weights(weights: &mut [f32], keyframe: impl Iterator<Item = f32>, key_lerp: f32) {
     let zipped = weights.iter_mut().zip(keyframe);
     for (morph_weight, keyframe) in zipped {
         *morph_weight += (keyframe - *morph_weight) * key_lerp;
@@ -662,8 +662,8 @@ fn apply_animation(
                                 let target_count = morphs.weights().len();
                                 lerp_morph_weights(
                                     morphs.weights_mut(),
-                                    weight,
                                     get_keyframe(target_count, keyframes, 0).iter().copied(),
+                                    weight,
                                 );
                             }
                         }
@@ -721,7 +721,7 @@ fn apply_animation(
                                 .iter()
                                 .zip(morph_end)
                                 .map(|(a, b)| *a * (1.0 - lerp) + *b * lerp);
-                            lerp_morph_weights(morphs.weights_mut(), weight, result);
+                            lerp_morph_weights(morphs.weights_mut(), result, weight);
                         }
                     }
                 }
