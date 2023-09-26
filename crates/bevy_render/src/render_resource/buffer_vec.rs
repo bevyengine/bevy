@@ -1,9 +1,13 @@
+use std::mem;
+
 use crate::{
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_core::{cast_slice, Pod};
 use wgpu::BufferUsages;
+
+const WGPU_UNIFORM_MIN_ALIGN: usize = 256;
 
 /// A structure for storing raw bytes that have already been properly formatted
 /// for use by the GPU.
@@ -29,6 +33,8 @@ use wgpu::BufferUsages;
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 pub struct BufferVec<T: Pod> {
+    // SAFETY: this must not be read, values stored in this may not be used.
+    // This is to uphold the invariants in `add_to_alignment`
     values: Vec<T>,
     buffer: Option<Buffer>,
     capacity: usize,
@@ -145,12 +151,53 @@ impl<T: Pod> BufferVec<T> {
         self.values.clear();
     }
 
-    pub fn values(&self) -> &Vec<T> {
-        &self.values
-    }
+    /// How many `T`s are required to align to WebGPU's minimal uniform alignment.
+    ///
+    /// Alignment is the value of [`WGPU_UNIFORM_MIN_ALIGN`],
+    /// returns `None` if `T` is a multiple of alignment,
+    /// panics (at compile time!) if it is impossible to align.
+    const T_ALIGN: Option<usize> = {
+        let t_size = mem::size_of::<T>();
+        let align = WGPU_UNIFORM_MIN_ALIGN;
 
-    pub fn values_mut(&mut self) -> &mut Vec<T> {
-        &mut self.values
+        let multiple_of_size = align % t_size == 0;
+        let multiple_of_align = t_size % align == 0;
+
+        // note that the panic occurs at compile time.
+        match (multiple_of_size, multiple_of_align) {
+            (false, false) => panic!(
+                "BufferVec should contain only types with a size multiple or \
+                divisible by n, has a size of t_size, which is neither \
+                multiple or divisible by n",
+            ),
+            (true, false) => Some(align / t_size),
+            // size greater than alignment, but multiple of it, meaning it will always be aligned.
+            (_, true) => None,
+        }
+    };
+
+    /// Align [`BufferVec`] to `N` bytes by padding the end with undefined values.
+    #[inline]
+    pub fn add_to_alignment(&mut self) {
+        const fn div_ceil(lhf: usize, rhs: usize) -> usize {
+            (lhf + rhs - 1) / rhs
+        }
+        let Some(t_align) = Self::T_ALIGN else {
+            return;
+        };
+        let len = self.values.len();
+        let t_aligned_len = div_ceil(len, t_align) * t_align;
+
+        self.values.reserve(t_align);
+        let uninits = &mut self.values.spare_capacity_mut()[0..t_align];
+        for uninit in uninits {
+            uninit.write(T::zeroed());
+        }
+        // SAFETY:
+        // - This is initialized in the previous for loop
+        // - `t_aligned_len` is the next multiple of `t_aligned` over `len`, which
+        //   by definition is smaller or equal to `t_aligned + len`.
+        unsafe { self.values.set_len(t_aligned_len) };
     }
 }
 
@@ -160,3 +207,7 @@ impl<T: Pod> Extend<T> for BufferVec<T> {
         self.values.extend(iter);
     }
 }
+// - must be initialized: this is only read to be uploaded to the GPU, we never read the contents.
+//   wgpu never reads the content either, it's passed directly to the GPU driver.
+//   Yes, this _isn't_ initialized, meaning the invariants must be upheld in a different
+//   way. See the comment on `values` field in struct definition.

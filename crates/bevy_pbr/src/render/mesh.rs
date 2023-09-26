@@ -300,10 +300,8 @@ impl SkinnedMeshJoints {
             return None;
         }
 
-        // Pad to 256 byte alignment
-        while buffer.len() % 4 != 0 {
-            buffer.push(Mat4::ZERO);
-        }
+        buffer.add_to_alignment();
+
         Some(Self {
             index: start as u32,
         })

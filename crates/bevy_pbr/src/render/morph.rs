@@ -1,4 +1,4 @@
-use std::{iter, mem};
+use std::mem;
 
 use bevy_ecs::prelude::*;
 use bevy_render::{
@@ -9,7 +9,6 @@ use bevy_render::{
     view::ViewVisibility,
     Extract,
 };
-use bytemuck::Pod;
 
 #[derive(Component)]
 pub struct MorphIndex {
@@ -40,35 +39,6 @@ pub fn prepare_morphs(
     buffer.write_buffer(&device, &queue);
 }
 
-const fn can_align(step: usize, target: usize) -> bool {
-    step % target == 0 || target % step == 0
-}
-const WGPU_MIN_ALIGN: usize = 256;
-
-/// Align a [`BufferVec`] to `N` bytes by padding the end with `T::default()` values.
-fn add_to_alignment<T: Pod + Default>(buffer: &mut BufferVec<T>) {
-    let n = WGPU_MIN_ALIGN;
-    let t_size = mem::size_of::<T>();
-    if !can_align(n, t_size) {
-        // This panic is stripped at compile time, due to n, t_size and can_align being const
-        panic!(
-            "BufferVec should contain only types with a size multiple or divisible by {n}, \
-            {} has a size of {t_size}, which is neither multiple or divisible by {n}",
-            std::any::type_name::<T>()
-        );
-    }
-
-    let buffer_size = buffer.len();
-    let byte_size = t_size * buffer_size;
-    let bytes_over_n = byte_size % n;
-    if bytes_over_n == 0 {
-        return;
-    }
-    let bytes_to_add = n - bytes_over_n;
-    let ts_to_add = bytes_to_add / t_size;
-    buffer.extend(iter::repeat_with(T::default).take(ts_to_add));
-}
-
 pub fn extract_morphs(
     mut commands: Commands,
     mut previous_len: Local<usize>,
@@ -87,7 +57,7 @@ pub fn extract_morphs(
         let weights = morph_weights.weights();
         let legal_weights = weights.iter().take(MAX_MORPH_WEIGHTS).copied();
         uniform.buffer.extend(legal_weights);
-        add_to_alignment::<f32>(&mut uniform.buffer);
+        uniform.buffer.add_to_alignment();
 
         let index = (start * mem::size_of::<f32>()) as u32;
         // NOTE: Because morph targets require per-morph target texture bindings, they cannot
