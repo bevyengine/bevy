@@ -60,12 +60,15 @@ fn setup(
         ..default()
     });
 
-    let mesh = meshes.add(Mesh::from(shape::UVSphere::default()));
+    let mesh = meshes.add(Mesh::from(shape::Capsule {
+        radius: 1.0,
+        ..default()
+    }));
     let image = asset_server.load("textures/checkered.png");
     // Acts like a skybox to allow testing the effects of full screen blur due to camera movement.
     commands.spawn((
         PbrBundle {
-            mesh: mesh.clone(),
+            mesh: meshes.add(Mesh::from(shape::UVSphere::default())),
             material: materials.add(StandardMaterial {
                 base_color: Color::CYAN,
                 perceptual_roughness: 1.0,
@@ -146,7 +149,7 @@ fn setup(
             transform: Transform::from_xyz(0.0, 0.0, -30.0).with_rotation(Quat::from_euler(
                 EulerRot::XYZ,
                 FRAC_PI_4,
-                FRAC_PI_4,
+                -FRAC_PI_4,
                 FRAC_PI_4,
             )),
             ..default()
@@ -218,7 +221,7 @@ fn update_settings(
     mut text: Query<&mut Text>,
     mut follow: Local<bool>,
     mut camera: Query<&mut Transform, With<Camera>>,
-    trackable: Query<&GlobalTransform, With<Trackable>>,
+    trackable: Query<&Transform, (With<Trackable>, Without<Camera>)>,
 ) {
     let mut settings = settings.single_mut();
     for press in presses.read() {
@@ -249,7 +252,7 @@ fn update_settings(
 
     if *follow {
         let mut camera = camera.single_mut();
-        camera.look_at(trackable.single().translation(), Vec3::Y);
+        camera.look_at(trackable.single().translation, Vec3::Y);
     }
 }
 
