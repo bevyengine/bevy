@@ -5,12 +5,14 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_render::{
+    globals::GlobalsUniform,
     render_resource::{
         BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState, MultisampleState,
-        PipelineCache, PrimitiveState, RenderPipelineDescriptor, Sampler, SamplerBindingType,
-        SamplerDescriptor, ShaderDefVal, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureFormat, TextureSampleType, TextureViewDimension,
+        BufferBindingType, CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState,
+        MultisampleState, PipelineCache, PrimitiveState, RenderPipelineDescriptor, Sampler,
+        SamplerBindingType, SamplerDescriptor, ShaderDefVal, ShaderStages, ShaderType,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, TextureSampleType,
+        TextureViewDimension,
     },
     renderer::RenderDevice,
     texture::BevyDefault,
@@ -78,9 +80,20 @@ impl MotionBlurPipeline {
                     binding: 4,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
-                        ty: bevy_render::render_resource::BufferBindingType::Uniform,
+                        ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
                         min_binding_size: Some(MotionBlur::min_size()),
+                    },
+                    count: None,
+                },
+                // Global uniforms
+                BindGroupLayoutEntry {
+                    binding: 5,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(GlobalsUniform::min_size()),
                     },
                     count: None,
                 },
@@ -135,9 +148,20 @@ impl MotionBlurPipeline {
                     binding: 4,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
-                        ty: bevy_render::render_resource::BufferBindingType::Uniform,
+                        ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
                         min_binding_size: Some(MotionBlur::min_size()),
+                    },
+                    count: None,
+                },
+                // Global uniforms
+                BindGroupLayoutEntry {
+                    binding: 5,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(GlobalsUniform::min_size()),
                     },
                     count: None,
                 },
@@ -182,6 +206,7 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         {
             shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
+            shader_defs.push("NO_DEPTH_TEXTURE_SUPPORT".into());
             shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
         }
 

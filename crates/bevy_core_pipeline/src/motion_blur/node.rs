@@ -1,6 +1,7 @@
 use bevy_ecs::{query::QueryItem, world::World};
 use bevy_render::{
     extract_component::ComponentUniforms,
+    globals::GlobalsBuffer,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         BindGroupDescriptor, BindGroupEntry, BindingResource, Operations, PipelineCache,
@@ -48,6 +49,9 @@ impl ViewNode for MotionBlurNode {
         else {
             return Ok(());
         };
+        let Some(globals_uniforms) = world.resource::<GlobalsBuffer>().buffer.binding() else {
+            return Ok(());
+        };
 
         let post_process = view_target.post_process_write();
 
@@ -85,6 +89,10 @@ impl ViewNode for MotionBlurNode {
                     BindGroupEntry {
                         binding: 4,
                         resource: settings_binding.clone(),
+                    },
+                    BindGroupEntry {
+                        binding: 5,
+                        resource: globals_uniforms.clone(),
                     },
                 ],
             });
