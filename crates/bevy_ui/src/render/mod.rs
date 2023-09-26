@@ -422,7 +422,8 @@ pub fn extract_uinode_outlines(
                 .and_then(|parent| clip_query.get(parent.get()).ok().map(|clip| clip.clip));
 
             // Calculate the outline rects.
-            let inner_rect = Rect::from_center_size(Vec2::ZERO, node.size());
+            let inner_rect =
+                Rect::from_center_size(Vec2::ZERO, node.size() + 2. * node.outline_offset);
             let outer_rect = inner_rect.inset(node.outline_width());
             let outline_edges = [
                 // Left edge

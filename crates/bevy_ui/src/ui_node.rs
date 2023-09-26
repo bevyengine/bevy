@@ -21,6 +21,8 @@ pub struct Node {
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered
     /// automatically calculated by [`super::layout::resolve_outlines_system`]
     pub(crate) outline_width: f32,
+    // The amount of space between the outline and the edge of the node
+    pub(crate) outline_offset: f32,
 }
 
 impl Node {
@@ -78,6 +80,7 @@ impl Node {
     pub const DEFAULT: Self = Self {
         calculated_size: Vec2::ZERO,
         outline_width: 0.,
+        outline_offset: 0.,
     };
 }
 
@@ -1462,27 +1465,27 @@ impl Default for BorderColor {
 
 #[derive(Component, Copy, Clone, Default, Debug, Reflect)]
 #[reflect(Component, Default)]
-/// The `Outline` component adds an outline outside the border of a UI node.
+/// The `Outline` component adds an outline outside the edge of a UI node.
 /// Outlines do not take up space in the layout
 pub struct Outline {
     /// The width of the outline
     ///
     /// Percentage `Val` values are resolved based on the width of the outlined [`Node`]
     pub width: Val,
+    /// The amount of space between a node's outline the edge of the node
+    ///
+    /// Percentage `Val` values are resolved based on the width of the outlined [`Node`]
+    pub offset: Val,
     /// Color of the outline
     pub color: Color,
 }
 
 impl Outline {
     /// Create a new outline
-    pub fn new(width: Val, color: Color) -> Self {
-        Self { width, color }
-    }
-
-    /// Create a new outline with width in logical pixels
-    pub fn px(width: f32, color: Color) -> Self {
+    pub const fn new(width: Val, offset: Val, color: Color) -> Self {
         Self {
-            width: Val::Px(width),
+            width,
+            offset,
             color,
         }
     }

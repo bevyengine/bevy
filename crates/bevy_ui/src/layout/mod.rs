@@ -396,7 +396,14 @@ pub fn resolve_outlines_system(
         / ui_scale.0 as f32;
 
     for (outline, mut node) in outlines_query.iter_mut() {
-        node.bypass_change_detection().outline_width = outline
+        let node = node.bypass_change_detection();
+        node.outline_width = outline
+            .width
+            .resolve(node.size().x, viewport_size)
+            .unwrap_or(0.)
+            .max(0.);
+
+        node.outline_offset = outline
             .width
             .resolve(node.size().x, viewport_size)
             .unwrap_or(0.)

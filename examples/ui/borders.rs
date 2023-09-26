@@ -23,7 +23,7 @@ fn setup(mut commands: Commands) {
                 align_content: AlignContent::FlexStart,
                 ..Default::default()
             },
-            background_color: BackgroundColor(Color::BLACK),
+            background_color: BackgroundColor(Color::DARK_GRAY),
             ..Default::default()
         })
         .id();
@@ -103,18 +103,19 @@ fn setup(mut commands: Commands) {
                         width: Val::Px(50.),
                         height: Val::Px(50.),
                         border: borders[i % borders.len()],
-                        margin: UiRect::all(Val::Px(2.)),
+                        margin: UiRect::all(Val::Px(20.)),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..Default::default()
                     },
-                    background_color: Color::BLUE.into(),
-                    border_color: Color::WHITE.with_a(0.5).into(),
+                    background_color: Color::MAROON.into(),
+                    border_color: Color::RED.into(),
                     ..Default::default()
                 },
                 Outline {
-                    width: Val::Px(1.),
-                    color: Color::PURPLE,
+                    width: Val::Px(6.),
+                    offset: Val::Px(6.),
+                    color: Color::WHITE,
                 },
             ))
             .add_child(inner_spot)
