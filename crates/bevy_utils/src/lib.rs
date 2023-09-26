@@ -263,7 +263,7 @@ impl BuildHasher for EntityHash {
 }
 
 /// A very fast hash that is only designed to work on generational indices
-/// like [`Entity`]. It will panic if attempting to hash a type containing
+/// like `Entity`. It will panic if attempting to hash a type containing
 /// non-u64 fields.
 #[derive(Debug, Default)]
 pub struct EntityHasher {

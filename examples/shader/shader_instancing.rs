@@ -6,7 +6,9 @@ use bevy::{
         query::QueryItem,
         system::{lifetimeless::*, SystemParamItem},
     },
-    pbr::{MeshPipeline, MeshPipelineKey, SetMeshBindGroup, SetMeshViewBindGroup},
+    pbr::{
+        MeshPipeline, MeshPipelineKey, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
+    },
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -22,7 +24,6 @@ use bevy::{
         Render, RenderApp, RenderSet,
     },
 };
-use bevy_internal::pbr::RenderMeshInstances;
 use bytemuck::{Pod, Zeroable};
 
 fn main() {
