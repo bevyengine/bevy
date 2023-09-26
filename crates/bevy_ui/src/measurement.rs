@@ -52,6 +52,7 @@ pub struct ContentSize {
     /// The `Measure` used to compute the intrinsic size
     #[reflect(ignore)]
     pub(crate) measure_func: Option<MeasureFunc>,
+    /// Whether the size of the node should be rounded after layout recomputation
     pub(crate) no_rounding: bool,
 }
 
@@ -88,6 +89,7 @@ impl ContentSize {
         content_size
     }
 
+    /// Returns true if this node's size should not be rounded after layout recomputation
     pub fn no_rounding(&self) -> bool {
         self.no_rounding
     }
