@@ -13,7 +13,7 @@ fn main() {
     App::new()
         .add_plugins(
             DefaultPlugins.set(RenderPlugin {
-                render_settings: WgpuSettings {
+                render_creation: WgpuSettings {
                     backends: None,
                     ..default()
                 }

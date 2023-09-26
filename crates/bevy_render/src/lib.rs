@@ -240,7 +240,7 @@ impl Plugin for RenderPlugin {
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
 
-        match &self.render_settings {
+        match &self.render_creation {
             RenderCreation::Manual(device, queue, adapter_info, adapter, instance) => {
                 let future_renderer_resources_wrapper = Arc::new(Mutex::new(Some((
                     device.clone(),
@@ -254,8 +254,8 @@ impl Plugin for RenderPlugin {
                 ));
                 unsafe { initialize_render_app(app) };
             }
-            RenderCreation::Automatic(render_settings) => {
-                if let Some(backends) = render_settings.backends {
+            RenderCreation::Automatic(render_creation) => {
+                if let Some(backends) = render_creation.backends {
                     let future_renderer_resources_wrapper = Arc::new(Mutex::new(None));
                     app.insert_resource(FutureRendererResources(
                         future_renderer_resources_wrapper.clone(),
@@ -266,7 +266,7 @@ impl Plugin for RenderPlugin {
                     > = SystemState::new(&mut app.world);
                     let primary_window = system_state.get(&app.world).get_single().ok().cloned();
 
-                    let settings = render_settings.clone();
+                    let settings = render_creation.clone();
                     let async_renderer = async move {
                         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
                             backends,
