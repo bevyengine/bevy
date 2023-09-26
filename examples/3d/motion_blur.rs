@@ -11,7 +11,7 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins, CameraControllerPlugin))
         .add_systems(Startup, (setup, setup_ui))
-        .add_systems(Update, (move_spheres, update_settings))
+        .add_systems(Update, (move_spheres, update_settings).chain())
         .insert_resource(AmbientLight {
             brightness: 0.5,
             ..default()
