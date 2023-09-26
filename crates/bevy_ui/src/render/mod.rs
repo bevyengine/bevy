@@ -419,8 +419,7 @@ pub fn extract_uinode_outlines(
 
             // Outline's are drawn outside of a node's borders, so they are clipped using the clipping Rect of their UI node entity's parent.
             let clip = maybe_parent
-                .map(|parent| clip_query.get(parent.get()).ok().map(|clip| clip.clip))
-                .flatten();
+                .and_then(|parent| clip_query.get(parent.get()).ok().map(|clip| clip.clip));                ;
 
             // Calculate the outline rects.
             let inner_rect = Rect::from_center_size(Vec2::ZERO, node.size());
