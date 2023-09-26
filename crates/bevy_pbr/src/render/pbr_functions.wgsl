@@ -189,9 +189,9 @@ fn pbr(
     let ior = in.material.ior;
     let thickness = in.material.thickness;
     let diffuse_transmission = in.material.diffuse_transmission;
-    let transmission = in.material.transmission;
+    let specular_transmission = in.material.specular_transmission;
 
-    let transmissive_color = transmission * in.material.base_color.rgb;
+    let specular_transmissive_color = specular_transmission * in.material.base_color.rgb;
 
     let occlusion = in.occlusion;
 
@@ -206,10 +206,10 @@ fn pbr(
     let F0 = 0.16 * reflectance * reflectance * (1.0 - metallic) + output_color.rgb * metallic;
 
     // Diffuse strength is inversely related to metallicity, specular and diffuse transmission
-    let diffuse_color = output_color.rgb * (1.0 - metallic) * (1.0 - transmission) * (1.0 - diffuse_transmission);
+    let diffuse_color = output_color.rgb * (1.0 - metallic) * (1.0 - specular_transmission) * (1.0 - diffuse_transmission);
 
     // Diffuse transmissive strength is inversely related to metallicity and specular transmission, but directly related to diffuse transmission
-    let diffuse_transmissive_color = output_color.rgb * (1.0 - metallic) * (1.0 - transmission) * diffuse_transmission;
+    let diffuse_transmissive_color = output_color.rgb * (1.0 - metallic) * (1.0 - specular_transmission) * diffuse_transmission;
 
     // Calculate the world position of the second Lambertian lobe used for diffuse transmission, by subtracting material thickness
     let diffuse_transmissive_lobe_world_position = in.world_position - vec4<f32>(in.world_normal, 0.0) * thickness;
@@ -350,10 +350,10 @@ fn pbr(
     indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
 
     // we'll use the specular component of the transmitted environment
-    // light in the call to `transmissive_light()` below
-    var transmitted_environment_light_specular = vec3<f32>(0.0);
+    // light in the call to `specular_transmissive_light()` below
+    var specular_transmitted_environment_light = vec3<f32>(0.0);
 
-    if diffuse_transmission > 0.0 || transmission > 0.0 {
+    if diffuse_transmission > 0.0 || specular_transmission > 0.0 {
         // NOTE: We use the diffuse transmissive color, inverted normal and view vectors,
         // and the following simplified values for the transmitted environment light contribution
         // approximation:
@@ -371,18 +371,18 @@ fn pbr(
 
         let transmitted_environment_light = bevy_pbr::environment_map::environment_map_light(perceptual_roughness, roughness, diffuse_transmissive_color, 1.0, vec2<f32>(0.1), -in.N, T, vec3<f32>(0.16));
         transmitted_light += transmitted_environment_light.diffuse;
-        transmitted_environment_light_specular = transmitted_environment_light.specular;
+        specular_transmitted_environment_light = transmitted_environment_light.specular;
     }
 #else
     // If there's no environment map light, there's no transmitted environment
     // light specular component, so we can just hardcode it to zero.
-    let transmitted_environment_light_specular = vec3<f32>(0.0);
+    let specular_transmitted_environment_light = vec3<f32>(0.0);
 #endif
 
     let emissive_light = emissive.rgb * output_color.a;
 
-    if transmission > 0.0 {
-        transmitted_light += lighting::transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, ior, thickness, perceptual_roughness, transmissive_color, transmitted_environment_light_specular).rgb;
+    if specular_transmission > 0.0 {
+        transmitted_light += lighting::specular_transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, ior, thickness, perceptual_roughness, specular_transmissive_color, specular_transmitted_environment_light).rgb;
     }
 
     if (in.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ATTENUATION_ENABLED_BIT) != 0u {

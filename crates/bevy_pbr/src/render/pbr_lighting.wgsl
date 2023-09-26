@@ -286,7 +286,7 @@ fn directional_light(light_id: u32, roughness: f32, NdotV: f32, normal: vec3<f32
     return (specular_light + diffuse) * (*light).color.rgb * NoL;
 }
 
-fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
+fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
     // Calculate the ratio between refaction indexes. Assume air/vacuum for the space outside the mesh
     let eta = 1.0 / ior;
 
@@ -310,9 +310,9 @@ fn transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: 
     // Fetch background color
     let background_color = fetch_transmissive_background(offset_position, frag_coord, view_z, perceptual_roughness);
 
-    // Calculate final color by applying transmissive color to a mix of background color and transmitted specular environment light
+    // Calculate final color by applying specular transmissive color to a mix of background color and transmitted specular environment light
     // TODO: Add support for attenuationColor and attenuationDistance
-    return transmissive_color * mix(transmitted_environment_light_specular, background_color.rgb, background_color.a);
+    return specular_transmissive_color * mix(transmitted_environment_light_specular, background_color.rgb, background_color.a);
 }
 
 // https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence

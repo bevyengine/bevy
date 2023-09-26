@@ -7,7 +7,7 @@ struct StandardMaterial {
     metallic: f32,
     reflectance: f32,
     diffuse_transmission: f32,
-    transmission: f32,
+    specular_transmission: f32,
     thickness: f32,
     ior: f32,
     attenuation_distance: f32,
@@ -55,7 +55,7 @@ fn standard_material_new() -> StandardMaterial {
     material.metallic = 0.00;
     material.reflectance = 0.5;
     material.diffuse_transmission = 0.0;
-    material.transmission = 0.0;
+    material.specular_transmission = 0.0;
     material.thickness = 0.0;
     material.ior = 1.5;
     material.attenuation_distance = 1.0;

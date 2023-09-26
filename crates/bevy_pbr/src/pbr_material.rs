@@ -145,7 +145,7 @@ pub struct StandardMaterial {
     /// which provides an inexpensive but plausible approximation of translucency for thin dieletric objects (e.g. paper,
     /// leaves, some fabrics) or thicker volumetric materials with short scattering distances (e.g. porcelain, wax).
     ///
-    /// For specular transmission usecases with refraction (e.g. glass) use the [`StandardMaterial::transmission`] and
+    /// For specular transmission usecases with refraction (e.g. glass) use the [`StandardMaterial::specular_transmission`] and
     /// [`StandardMaterial::ior`] properties instead.
     ///
     /// - When set to `0.0` (the default) no diffuse light is transmitted;
@@ -185,17 +185,17 @@ pub struct StandardMaterial {
     ///
     /// - [`Camera3d::transmissive_steps`](bevy_core_pipeline::core_3d::Camera3d::transmissive_steps) can be used to enable transmissive objects
     /// to be seen through other transmissive objects, at the cost of additional draw calls and texture copies; (Use with caution!)
-    ///     - If a simplified approximation of transmission using only environment map lighting is sufficient, consider setting
+    ///     - If a simplified approximation of specular transmission using only environment map lighting is sufficient, consider setting
     /// [`Camera3d::transmissive_steps`](bevy_core_pipeline::core_3d::Camera3d::transmissive_steps) to `0`.
     /// - If purely diffuse light transmission is needed, (i.e. “translucency”) consider using [`StandardMaterial::diffuse_transmission`] instead,
     /// for a much less expensive effect.
     #[doc(alias = "refraction")]
-    pub transmission: f32,
+    pub specular_transmission: f32,
 
-    /// A map that modulates specular transmission via its **R channel**. Multiplied by [`StandardMaterial::transmission`]
+    /// A map that modulates specular transmission via its **R channel**. Multiplied by [`StandardMaterial::specular_transmission`]
     /// to obtain the final result.
     ///
-    /// **Important:** The [`StandardMaterial::transmission`] property must be set to a value higher than 0.0,
+    /// **Important:** The [`StandardMaterial::specular_transmission`] property must be set to a value higher than 0.0,
     /// or this texture won't have any effect.
     #[texture(13)]
     #[sampler(14)]
@@ -209,7 +209,7 @@ pub struct StandardMaterial {
     ///
     /// When set to any other value, the material distorts light like a thick lens.
     ///
-    /// **Note:** Typically used in conjunction with [`StandardMaterial::transmission`] and [`StandardMaterial::ior`], or with
+    /// **Note:** Typically used in conjunction with [`StandardMaterial::specular_transmission`] and [`StandardMaterial::ior`], or with
     /// [`StandardMaterial::diffuse_transmission`].
     #[doc(alias = "volume")]
     #[doc(alias = "thin_walled")]
@@ -250,7 +250,7 @@ pub struct StandardMaterial {
     /// | Diamond         | 2.42                 |
     /// | Moissanite      | 2.65                 |
     ///
-    /// **Note:** Typically used in conjunction with [`StandardMaterial::transmission`] and [`StandardMaterial::thickness`].
+    /// **Note:** Typically used in conjunction with [`StandardMaterial::specular_transmission`] and [`StandardMaterial::thickness`].
     #[doc(alias = "index_of_refraction")]
     #[doc(alias = "refraction_index")]
     #[doc(alias = "refractive_index")]
@@ -264,7 +264,7 @@ pub struct StandardMaterial {
     /// **Note:** To have any effect, must be used in conjunction with:
     /// - [`StandardMaterial::attenuation_color`];
     /// - [`StandardMaterial::thickness`];
-    /// - [`StandardMaterial::diffuse_transmission`] or [`StandardMaterial::transmission`].
+    /// - [`StandardMaterial::diffuse_transmission`] or [`StandardMaterial::specular_transmission`].
     #[doc(alias = "absorption_distance")]
     #[doc(alias = "extinction_distance")]
     pub attenuation_distance: f32,
@@ -276,7 +276,7 @@ pub struct StandardMaterial {
     /// **Note:** To have any effect, must be used in conjunction with:
     /// - [`StandardMaterial::attenuation_distance`];
     /// - [`StandardMaterial::thickness`];
-    /// - [`StandardMaterial::diffuse_transmission`] or [`StandardMaterial::transmission`].
+    /// - [`StandardMaterial::diffuse_transmission`] or [`StandardMaterial::specular_transmission`].
     #[doc(alias = "absorption_color")]
     #[doc(alias = "extinction_color")]
     pub attenuation_color: Color,
@@ -479,7 +479,7 @@ impl Default for StandardMaterial {
             diffuse_transmission: 0.0,
             #[cfg(feature = "pbr_transmission_textures")]
             diffuse_transmission_texture: None,
-            transmission: 0.0,
+            specular_transmission: 0.0,
             #[cfg(feature = "pbr_transmission_textures")]
             transmission_texture: None,
             thickness: 0.0,
@@ -585,7 +585,7 @@ pub struct StandardMaterialUniform {
     /// Amount of diffuse light transmitted through the material
     pub diffuse_transmission: f32,
     /// Amount of specular light transmitted through the material
-    pub transmission: f32,
+    pub specular_transmission: f32,
     /// Thickness of the volume underneath the material surface
     pub thickness: f32,
     /// Index of Refraction
@@ -694,7 +694,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             metallic: self.metallic,
             reflectance: self.reflectance,
             diffuse_transmission: self.diffuse_transmission,
-            transmission: self.transmission,
+            specular_transmission: self.specular_transmission,
             thickness: self.thickness,
             ior: self.ior,
             attenuation_distance: self.attenuation_distance,
@@ -778,6 +778,6 @@ impl Material for StandardMaterial {
 
     #[inline]
     fn reads_view_transmission_texture(&self) -> bool {
-        self.transmission > 0.0
+        self.specular_transmission > 0.0
     }
 }

@@ -95,13 +95,13 @@ fn fragment(
         pbr_input.material.metallic = metallic;
         pbr_input.material.perceptual_roughness = perceptual_roughness;
 
-        var transmission: f32 = pbr_bindings::material.transmission;
+        var specular_transmission: f32 = pbr_bindings::material.specular_transmission;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & STANDARD_MATERIAL_FLAGS_TRANSMISSION_TEXTURE_BIT) != 0u) {
-            transmission *= textureSample(pbr_bindings::transmission_texture, pbr_bindings::transmission_sampler, uv).r;
+            specular_transmission *= textureSample(pbr_bindings::transmission_texture, pbr_bindings::transmission_sampler, uv).r;
         }
 #endif
-        pbr_input.material.transmission = transmission;
+        pbr_input.material.specular_transmission = specular_transmission;
 
         var thickness: f32 = pbr_bindings::material.thickness;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED

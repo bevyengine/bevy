@@ -5,7 +5,7 @@
 //! | Key Binding        | Action                                    |
 //! |:-------------------|:------------------------------------------|
 //! | `1` / `2`          | Decrease / Increase Diffuse Transmission  |
-//! | `Q` / `W`          | Decrease / Increase Transmission          |
+//! | `Q` / `W`          | Decrease / Increase Specular Transmission |
 //! | `A` / `S`          | Decrease / Increase Thickness             |
 //! | `Z` / `X`          | Decrease / Increase IOR                   |
 //! | `E` / `R`          | Decrease / Increase Perceptual Roughness  |
@@ -96,7 +96,7 @@ fn setup(
         },
         ExampleControls {
             color: true,
-            transmission: false,
+            specular_transmission: false,
             diffuse_transmission: false,
         },
     ));
@@ -116,7 +116,7 @@ fn setup(
         },
         ExampleControls {
             color: true,
-            transmission: false,
+            specular_transmission: false,
             diffuse_transmission: false,
         },
     ));
@@ -138,7 +138,7 @@ fn setup(
         NotTransmittedShadowReceiver,
         ExampleControls {
             color: true,
-            transmission: false,
+            specular_transmission: false,
             diffuse_transmission: true,
         },
     ));
@@ -165,7 +165,7 @@ fn setup(
             mesh: icosphere_mesh.clone(),
             material: materials.add(StandardMaterial {
                 base_color: Color::WHITE,
-                transmission: 0.9,
+                specular_transmission: 0.9,
                 diffuse_transmission: 1.0,
                 thickness: 1.8,
                 ior: 1.5,
@@ -178,7 +178,7 @@ fn setup(
         NotTransmittedShadowReceiver,
         ExampleControls {
             color: true,
-            transmission: true,
+            specular_transmission: true,
             diffuse_transmission: false,
         },
     ));
@@ -189,7 +189,7 @@ fn setup(
             mesh: icosphere_mesh.clone(),
             material: materials.add(StandardMaterial {
                 base_color: Color::RED,
-                transmission: 0.9,
+                specular_transmission: 0.9,
                 diffuse_transmission: 1.0,
                 thickness: 1.8,
                 ior: 1.5,
@@ -202,7 +202,7 @@ fn setup(
         NotTransmittedShadowReceiver,
         ExampleControls {
             color: true,
-            transmission: true,
+            specular_transmission: true,
             diffuse_transmission: false,
         },
     ));
@@ -213,7 +213,7 @@ fn setup(
             mesh: icosphere_mesh.clone(),
             material: materials.add(StandardMaterial {
                 base_color: Color::GREEN,
-                transmission: 0.9,
+                specular_transmission: 0.9,
                 diffuse_transmission: 1.0,
                 thickness: 1.8,
                 ior: 1.5,
@@ -226,7 +226,7 @@ fn setup(
         NotTransmittedShadowReceiver,
         ExampleControls {
             color: true,
-            transmission: true,
+            specular_transmission: true,
             diffuse_transmission: false,
         },
     ));
@@ -237,7 +237,7 @@ fn setup(
             mesh: icosphere_mesh,
             material: materials.add(StandardMaterial {
                 base_color: Color::BLUE,
-                transmission: 0.9,
+                specular_transmission: 0.9,
                 diffuse_transmission: 1.0,
                 thickness: 1.8,
                 ior: 1.5,
@@ -250,7 +250,7 @@ fn setup(
         NotTransmittedShadowReceiver,
         ExampleControls {
             color: true,
-            transmission: true,
+            specular_transmission: true,
             diffuse_transmission: false,
         },
     ));
@@ -285,7 +285,7 @@ fn setup(
                 },
                 ExampleControls {
                     color: true,
-                    transmission: false,
+                    specular_transmission: false,
                     diffuse_transmission: false,
                 },
             ));
@@ -311,7 +311,7 @@ fn setup(
             ..default()
         },
         ExampleControls {
-            transmission: false,
+            specular_transmission: false,
             color: false,
             diffuse_transmission: true,
         },
@@ -396,13 +396,13 @@ struct Flicker;
 #[derive(Component)]
 struct ExampleControls {
     diffuse_transmission: bool,
-    transmission: bool,
+    specular_transmission: bool,
     color: bool,
 }
 
 struct ExampleState {
     diffuse_transmission: f32,
-    transmission: f32,
+    specular_transmission: f32,
     thickness: f32,
     ior: f32,
     perceptual_roughness: f32,
@@ -415,7 +415,7 @@ impl Default for ExampleState {
     fn default() -> Self {
         ExampleState {
             diffuse_transmission: 0.5,
-            transmission: 0.9,
+            specular_transmission: 0.9,
             thickness: 1.8,
             ior: 1.5,
             perceptual_roughness: 0.12,
@@ -450,9 +450,9 @@ fn example_control_system(
     }
 
     if input.pressed(KeyCode::W) {
-        state.transmission = (state.transmission + time.delta_seconds()).min(1.0);
+        state.specular_transmission = (state.specular_transmission + time.delta_seconds()).min(1.0);
     } else if input.pressed(KeyCode::Q) {
-        state.transmission = (state.transmission - time.delta_seconds()).max(0.0);
+        state.specular_transmission = (state.specular_transmission - time.delta_seconds()).max(0.0);
     }
 
     if input.pressed(KeyCode::S) {
@@ -477,8 +477,8 @@ fn example_control_system(
 
     for (material_handle, controls) in &controllable {
         let material = materials.get_mut(material_handle).unwrap();
-        if controls.transmission {
-            material.transmission = state.transmission;
+        if controls.specular_transmission {
+            material.specular_transmission = state.specular_transmission;
             material.thickness = state.thickness;
             material.ior = state.ior;
             material.perceptual_roughness = state.perceptual_roughness;
@@ -556,7 +556,7 @@ fn example_control_system(
             "N/A"
         },
         state.diffuse_transmission,
-        state.transmission,
+        state.specular_transmission,
         state.thickness,
         state.ior,
         state.perceptual_roughness,
