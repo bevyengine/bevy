@@ -33,7 +33,7 @@ use super::{unsafe_world_cell::UnsafeEntityCell, Ref};
 /// # bevy_ecs::system::assert_is_system(disjoint_system);
 /// ```
 #[derive(Copy, Clone)]
-pub struct EntityRef<'w>(pub(crate) UnsafeEntityCell<'w>);
+pub struct EntityRef<'w>(UnsafeEntityCell<'w>);
 
 impl<'w> EntityRef<'w> {
     /// # Safety
@@ -385,7 +385,7 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for EntityMut<'a> {
 /// entities at once.  Unlike `EntityMut`, this type allows adding and
 /// removing components, and despawning the entity.
 pub struct EntityWorldMut<'w> {
-    pub(crate) world: &'w mut World,
+    world: &'w mut World,
     entity: Entity,
     location: EntityLocation,
 }
