@@ -20,8 +20,8 @@ fn merge_screen_probe_cascades(
 
     let lower_probe_size = 1u << (lower_cascade + 3u);
     let lower_probe_count = (vec2<u32>(view.viewport.zw) + 7u) / lower_probe_size;
-    let upper_probe_size = lower_probe_size * 2u;
-    let upper_probe_count = lower_probe_count / 2u;
+    let upper_probe_size = lower_probe_size << 1u;
+    let upper_probe_count = lower_probe_count >> vec2(1u);
 
     let lower_probe_id = global_id.xy / lower_probe_size;
     let lower_probe_uv = (vec2<f32>(lower_probe_id) + 0.5) / vec2<f32>(lower_probe_count);
@@ -32,13 +32,13 @@ fn merge_screen_probe_cascades(
     let bl_probe_id = min(tl_probe_id + vec2(0u, 1u), upper_probe_count - 1u);
     let br_probe_id = min(tl_probe_id + vec2(1u, 1u), upper_probe_count - 1u);
 
-    let upper_probe_offset = (global_id.xy % lower_probe_size) * 2u;
+    let upper_probe_offset = (global_id.xy % lower_probe_size) << vec2(1u);
     let tl_probe_sample = sample_upper_probe((tl_probe_id * upper_probe_size) + upper_probe_offset);
     let tr_probe_sample = sample_upper_probe((tr_probe_id * upper_probe_size) + upper_probe_offset);
     let bl_probe_sample = sample_upper_probe((bl_probe_id * upper_probe_size) + upper_probe_offset);
     let br_probe_sample = sample_upper_probe((br_probe_id * upper_probe_size) + upper_probe_offset);
 
-    let lower_probe_depth = get_probe_depth(((global_id.xy / lower_probe_size) * lower_probe_size) + (lower_probe_size / 2u - 1u));
+    let lower_probe_depth = get_probe_depth(((global_id.xy / lower_probe_size) * lower_probe_size) + ((lower_probe_size >> 1u) - 1u));
     let probe_depths = vec4(
         get_probe_depth((tl_probe_id * upper_probe_size) - (lower_probe_size - 1u)),
         get_probe_depth((tr_probe_id * upper_probe_size) - (lower_probe_size - 1u)),

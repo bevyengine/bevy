@@ -10,7 +10,7 @@ var<push_constant> cascade: u32;
 fn update_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let probe_size = 1u << (cascade + 3u);
     let probe_count = (vec2<u32>(view.viewport.zw) + 7u) / probe_size;
-    let probe_center_cell_offset = (probe_size / 2u) - 1u;
+    let probe_center_cell_offset = (probe_size >> 1u) - 1u;
 
     var probe_center_pixel_id = ((global_id.xy / probe_size) * probe_size) + probe_center_cell_offset;
     probe_center_pixel_id = min(probe_center_pixel_id, vec2<u32>(view.viewport.zw) - 1u);
