@@ -1436,7 +1436,7 @@ impl UiTextureAtlasImage {
         }
     }
 
-    /// flip the image along its x-axis
+    /// Flip the image along its x-axis
     #[must_use]
     pub const fn with_flip_x(mut self) -> Self {
         self.flip_x = true;
