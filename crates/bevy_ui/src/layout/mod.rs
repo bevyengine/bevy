@@ -399,7 +399,7 @@ pub fn resolve_outlines_system(
             .width
             .resolve(node.size().x, viewport_size)
             .unwrap_or(0.)
-            .min(0.);
+            .max(0.);
     }
 }
 
