@@ -41,6 +41,9 @@ pub struct Camera3d {
     /// Setting this to `0` disables the screen-space refraction effect entirely, and falls
     /// back to refracting the environment map light's texture.
     pub transmissive_steps: usize,
+
+    /// The quality of the transmissive blur effect.
+    pub transmissive_quality: TransmissiveQuality,
 }
 
 impl Default for Camera3d {
@@ -50,6 +53,7 @@ impl Default for Camera3d {
             depth_load_op: Default::default(),
             depth_texture_usages: TextureUsages::RENDER_ATTACHMENT.into(),
             transmissive_steps: 1,
+            transmissive_quality: Default::default(),
         }
     }
 }
@@ -92,6 +96,34 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
             Camera3dDepthLoadOp::Load => LoadOp::Load,
         }
     }
+}
+
+/// The quality of the transmissive blur effect. Higher qualities are more GPU-intensive.
+///
+/// **Note:** You can get better-looking results at any quality level by enabling TAA. See: [`TemporalAntiAliasPlugin`](crate::experimental::taa::TemporalAntiAliasPlugin).
+#[derive(Resource, Default, Clone, Copy, Reflect, PartialEq, PartialOrd, Debug)]
+#[reflect(Resource)]
+pub enum TransmissiveQuality {
+    /// Best performance at the cost of quality. Suitable for lower end GPUs. (e.g. Mobile)
+    ///
+    /// `num_taps` = 4
+    Low,
+
+    /// A balanced option between quality and performance.
+    ///
+    /// `num_taps` = 8
+    #[default]
+    Medium,
+
+    /// Best quality. Suitable for high end GPUs. (e.g. Desktop)
+    ///
+    /// `num_taps` = 16
+    High,
+
+    /// The highest quality, suitable for non-realtime rendering. (e.g. Pre-rendered cinematics and photo mode)
+    ///
+    /// `num_taps` = 32
+    Ultra,
 }
 
 #[derive(Bundle)]

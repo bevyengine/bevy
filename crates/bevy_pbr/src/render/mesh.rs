@@ -729,6 +729,11 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TRANSMISSIVE_QUALITY_RESERVED_BITS = Self::TRANSMISSIVE_QUALITY_MASK_BITS << Self::TRANSMISSIVE_QUALITY_SHIFT_BITS;
+        const TRANSMISSIVE_QUALITY_LOW          = 0 << Self::TRANSMISSIVE_QUALITY_SHIFT_BITS;
+        const TRANSMISSIVE_QUALITY_MEDIUM       = 1 << Self::TRANSMISSIVE_QUALITY_SHIFT_BITS;
+        const TRANSMISSIVE_QUALITY_HIGH         = 2 << Self::TRANSMISSIVE_QUALITY_SHIFT_BITS;
+        const TRANSMISSIVE_QUALITY_ULTRA        = 3 << Self::TRANSMISSIVE_QUALITY_SHIFT_BITS;
     }
 }
 
@@ -744,6 +749,9 @@ impl MeshPipelineKey {
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
         Self::BLEND_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
+    const TRANSMISSIVE_QUALITY_MASK_BITS: u32 = 0b11;
+    const TRANSMISSIVE_QUALITY_SHIFT_BITS: u32 =
+        Self::TONEMAP_METHOD_SHIFT_BITS - Self::TRANSMISSIVE_QUALITY_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -973,6 +981,19 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::TEMPORAL_JITTER) {
             shader_defs.push("TEMPORAL_JITTER".into());
+        }
+
+        let transmissive_quality =
+            key.intersection(MeshPipelineKey::TRANSMISSIVE_QUALITY_RESERVED_BITS);
+
+        if transmissive_quality == MeshPipelineKey::TRANSMISSIVE_QUALITY_LOW {
+            shader_defs.push(ShaderDefVal::Int("TRANSMISSIVE_TAPS".into(), 4));
+        } else if transmissive_quality == MeshPipelineKey::TRANSMISSIVE_QUALITY_MEDIUM {
+            shader_defs.push(ShaderDefVal::Int("TRANSMISSIVE_TAPS".into(), 8));
+        } else if transmissive_quality == MeshPipelineKey::TRANSMISSIVE_QUALITY_HIGH {
+            shader_defs.push(ShaderDefVal::Int("TRANSMISSIVE_TAPS".into(), 16));
+        } else if transmissive_quality == MeshPipelineKey::TRANSMISSIVE_QUALITY_ULTRA {
+            shader_defs.push(ShaderDefVal::Int("TRANSMISSIVE_TAPS".into(), 32));
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {

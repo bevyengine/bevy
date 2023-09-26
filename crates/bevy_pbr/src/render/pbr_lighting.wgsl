@@ -342,8 +342,11 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     // - inversely proportional to view z
     let blur_intensity = (perceptual_roughness * perceptual_roughness) / view_z;
 
-    // TODO: Make this configurable
-    let num_taps = 8;
+#ifdef TRANSMISSIVE_TAPS
+    let num_taps = #{TRANSMISSIVE_TAPS}; // Controlled by the `Camera3d::transmissive_quality` property
+#else
+    let num_taps = 8; // Fallback to 8 taps
+#endif
     let num_spirals = i32(ceil(f32(num_taps) / 8.0));
     let random_angle = interleaved_gradient_noise(frag_coord.xy);
 
