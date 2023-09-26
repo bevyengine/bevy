@@ -384,13 +384,10 @@ macro_rules! impl_methods {
 
             /// Allows you access to the dereferenced value of this pointer without immediately
             /// triggering change detection.
-            pub fn as_deref_mut(self)  -> Mut<'a, <$target as Deref>::Target>
+            pub fn as_deref_mut(&mut self)  -> Mut<'_, <$target as Deref>::Target>
                 where $target: DerefMut
             {
-                Mut {
-                    value: self.value.deref_mut(),
-                    ticks: self.ticks,
-                }
+                self.reborrow().map_unchanged(|v|v.deref_mut())
             }
 
         }
@@ -1179,7 +1176,7 @@ mod tests {
         // This is required to update world::last_change_tick
         world.clear_trackers();
 
-        let r = world.resource_mut::<R2>();
+        let mut r = world.resource_mut::<R2>();
         assert!(!r.is_changed(), "Resource must begin unchanged.");
 
         let mut r = r.as_deref_mut();
