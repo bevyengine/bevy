@@ -570,8 +570,7 @@ fn run_animation_player(
 fn lerp_morph_weights(weights: &mut [f32], key_lerp: f32, keyframe: impl Iterator<Item = f32>) {
     let zipped = weights.iter_mut().zip(keyframe);
     for (morph_weight, keyframe) in zipped {
-        let minus_lerp = 1.0 - key_lerp;
-        *morph_weight = (*morph_weight * minus_lerp) + (keyframe * key_lerp);
+        *morph_weight += (keyframe - *morph_weight) * key_lerp;
     }
 }
 
