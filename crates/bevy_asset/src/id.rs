@@ -1,5 +1,4 @@
 use crate::{Asset, AssetIndex, Handle, UntypedHandle};
-use bevy_ecs::component::Component;
 use bevy_reflect::{Reflect, Uuid};
 use std::{
     any::TypeId,
