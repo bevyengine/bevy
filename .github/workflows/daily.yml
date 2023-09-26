@@ -89,6 +89,14 @@ jobs:
         include:
           - device: "iPhone 13"
             os_version: "15"
+          - device: "iPhone 14"
+            os_version: "16"
+          - device: "iPhone 15"
+            os_version: "17"
+          - device: "Xiaomi Redmi Note 11"
+            os_version: "11.0"
+          - device: "Google Pixel 6"
+            os_version: "12.0"
           - device: "Samsung Galaxy S23"
             os_version: "13.0"
     steps:
