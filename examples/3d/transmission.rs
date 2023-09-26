@@ -19,7 +19,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::{bloom::BloomSettings, prepass::DepthPrepass, tonemapping::Tonemapping},
+    core_pipeline::{
+        bloom::BloomSettings, core_3d::TransmissiveQuality, prepass::DepthPrepass,
+        tonemapping::Tonemapping,
+    },
     pbr::{NotShadowCaster, NotTransmittedShadowReceiver, PointLightShadowMap},
     prelude::*,
     render::camera::TemporalJitter,
