@@ -396,15 +396,13 @@ pub fn extract_uinode_outlines(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
-        Query<
-            (
-                &Node,
-                &GlobalTransform,
-                &Outline,
-                &ViewVisibility,
-                Option<&Parent>,
-            ),            
-        >,
+        Query<(
+            &Node,
+            &GlobalTransform,
+            &Outline,
+            &ViewVisibility,
+            Option<&Parent>,
+        )>,
     >,
     clip_query: Query<&CalculatedClip>,
 ) {
@@ -420,7 +418,9 @@ pub fn extract_uinode_outlines(
             }
 
             // Outline's are drawn outside of a node's borders, so they are clipped using the clipping Rect of their UI node entity's parent.
-            let clip = maybe_parent.map(|parent| clip_query.get(parent.get()).ok().map(|clip| clip.clip)).flatten();
+            let clip = maybe_parent
+                .map(|parent| clip_query.get(parent.get()).ok().map(|clip| clip.clip))
+                .flatten();
 
             // Calculate the outline rects.
             let inner_rect = Rect::from_center_size(Vec2::ZERO, node.size());

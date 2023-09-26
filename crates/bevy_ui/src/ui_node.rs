@@ -1481,9 +1481,11 @@ impl Outline {
 
     /// Create a new outline with width in logical pixels
     pub fn px(width: f32, color: Color) -> Self {
-        Self { width: Val::Px(width), color }
+        Self {
+            width: Val::Px(width),
+            color,
+        }
     }
-
 }
 
 /// The 2D texture displayed for this UI node
