@@ -13,7 +13,7 @@ fn main() {
         .add_systems(Startup, (setup, setup_ui))
         .add_systems(Update, (move_spheres, update_settings))
         .insert_resource(AmbientLight {
-            brightness: 0.6,
+            brightness: 0.5,
             ..default()
         })
         .run();
@@ -28,8 +28,12 @@ fn setup(
 ) {
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(-23.0, 3.0, 1.0))
-                .looking_at(Vec3::new(0.0, -2.0, -10.0), Vec3::Y),
+            camera: Camera {
+                hdr: true,
+                ..default()
+            },
+            transform: Transform::from_translation(Vec3::new(-35.0, 8.0, 45.0))
+                .looking_at(Vec3::new(0.0, -4.0, 20.0), Vec3::Y),
             ..default()
         },
         // Adding this bundle to a camera will add motion blur to objects rendered by it.
@@ -48,15 +52,48 @@ fn setup(
     // Add a light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 200000.,
+            illuminance: 30000.,
+            shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_2)),
+        transform: Transform::from_translation(Vec3::Y * 100.0).looking_at(Vec3::X, Vec3::Y),
         ..default()
     });
 
     let mesh = meshes.add(Mesh::from(shape::UVSphere::default()));
     let image = asset_server.load("textures/checkered.png");
+    // Acts like a skybox to allow testing the effects of full screen blur due to camera movement.
+    commands.spawn((
+        PbrBundle {
+            mesh: mesh.clone(),
+            material: materials.add(StandardMaterial {
+                base_color: Color::CYAN,
+                perceptual_roughness: 1.0,
+                reflectance: 0.0,
+                base_color_texture: Some(image.clone()),
+                ..default()
+            }),
+            transform: Transform::from_scale(Vec3::splat(-1000.0))
+                .with_translation(Vec3::Y * -200.0),
+            ..default()
+        },
+        NotShadowReceiver,
+    ));
+    commands.spawn((PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Plane {
+            size: 10000.0,
+            ..default()
+        })),
+        material: materials.add(StandardMaterial {
+            base_color: Color::CYAN,
+            perceptual_roughness: 1.0,
+            reflectance: 0.0,
+            ..default()
+        }),
+        transform: Transform::from_xyz(0.0, -10.0, 0.0),
+        ..default()
+    },));
+    // The rest of the spheres
     let mut sphere_matl = |base_color: Color| {
         materials.add(StandardMaterial {
             base_color_texture: Some(image.clone()),
@@ -64,19 +101,11 @@ fn setup(
             ..default()
         })
     };
-    // Acts like a skybox to allow testing the effects of full screen blur due to camera movement.
-    commands.spawn((PbrBundle {
-        mesh: mesh.clone(),
-        material: sphere_matl(Color::WHITE),
-        transform: Transform::from_scale(Vec3::splat(-1000.0)), // In
-        ..default()
-    },));
-    // The rest of the spheres
     commands.spawn((
         PbrBundle {
             mesh: mesh.clone(),
-            material: sphere_matl(Color::RED),
-            transform: Transform::from_xyz(0.0, 0.7, -7.0),
+            material: sphere_matl(Color::BLUE),
+            transform: Transform::from_xyz(0.0, 0.7, 40.0),
             ..default()
         },
         Moves,
@@ -85,7 +114,7 @@ fn setup(
         PbrBundle {
             mesh: mesh.clone(),
             material: sphere_matl(Color::GREEN),
-            transform: Transform::from_xyz(0.0, -0.8, -2.0),
+            transform: Transform::from_xyz(0.0, -0.8, 30.0),
             ..default()
         },
         Moves,
@@ -93,8 +122,8 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: mesh.clone(),
-            material: sphere_matl(Color::CYAN),
-            transform: Transform::from_xyz(0.0, 1.8, -4.0),
+            material: sphere_matl(Color::RED),
+            transform: Transform::from_xyz(0.0, 1.8, 20.0),
             ..default()
         },
         Moves,
@@ -104,7 +133,7 @@ fn setup(
         PbrBundle {
             mesh: mesh.clone(),
             material: sphere_matl(Color::YELLOW),
-            transform: Transform::from_xyz(0.0, -1.4, -10.0),
+            transform: Transform::from_xyz(0.0, -1.4, 10.0),
             ..default()
         },
         Moves,
@@ -114,7 +143,7 @@ fn setup(
         PbrBundle {
             mesh: mesh.clone(),
             material: sphere_matl(Color::FUCHSIA),
-            transform: Transform::from_xyz(0.0, 0.0, -20.0).with_rotation(Quat::from_euler(
+            transform: Transform::from_xyz(0.0, 0.0, -30.0).with_rotation(Quat::from_euler(
                 EulerRot::XYZ,
                 FRAC_PI_4,
                 FRAC_PI_4,
@@ -226,6 +255,7 @@ fn update_settings(
 
 use bevy::input::mouse::MouseMotion;
 use bevy::window::CursorGrabMode;
+use bevy_internal::pbr::NotShadowReceiver;
 
 use std::f32::consts::*;
 use std::fmt;

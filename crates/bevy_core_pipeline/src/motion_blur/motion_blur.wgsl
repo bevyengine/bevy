@@ -44,7 +44,7 @@ fn fragment(
     
     let exposure_vector = shutter_angle * motion_vector;
     let speed = length(exposure_vector * texture_size);
-    let n_samples = i32(clamp(speed * 2.0, 1.0, f32(settings.max_samples)));
+    let n_samples = i32(clamp(round(speed), 1.0, f32(settings.max_samples)));
 
 #ifdef NO_DEPTH_TEXTURE_SUPPORT
     let this_depth = 0.0;
@@ -56,14 +56,13 @@ fn fragment(
 #endif
 #endif
 
-    let base_color = textureSample(screen_texture, texture_sampler, in.uv);
-    var weight_total = 0.0;
-    var accumulator = vec4<f32>(0.0);
+    var weight_total = 1.0;
+    var accumulator = textureSample(screen_texture, texture_sampler, in.uv);
+    let noise = hash_noise(frag_coords, globals.frame_count);
 
-    for (var i = 0; i < n_samples; i++) {
+    for (var i = 1; i <= n_samples; i++) {
         var offset = vec2<f32>(0.0);
         if speed > 1.0 {
-            let noise = hash_noise(frag_coords, globals.frame_count + u32(i));
             offset = exposure_vector * ((f32(i) + noise) / f32(n_samples) - 0.5);
         }
         let sample_uv = in.uv + offset;
@@ -84,15 +83,10 @@ fn fragment(
             let sample_depth = textureSample(depth, texture_sampler, sample_uv);
         #endif
         #endif
-        let weight = step(settings.depth_bias, this_depth - sample_depth);
+        // The 100x multiplier ensures that these samples far outweigh the base sample
+        let weight = 100.0 * step(settings.depth_bias, this_depth - sample_depth);
         weight_total += weight;
         accumulator += weight * textureSample(screen_texture, texture_sampler, sample_uv);
-    }
-
-    // Avoid black pixels by falling back to the unblurred fragment color
-    if weight_total == 0.0 {
-        accumulator =  base_color;
-        weight_total = 1.0;
     }
 
     return accumulator / weight_total;
@@ -116,4 +110,9 @@ fn unormf(n: u32) -> f32 {
 fn hash_noise(ifrag_coord: vec2<i32>, frame: u32) -> f32 {
     let urnd = uhash(u32(ifrag_coord.x), (u32(ifrag_coord.y) << 11u) + frame);
     return unormf(urnd);
+}
+
+// pow() but safe for NaNs/negatives
+fn powsafe(color: vec3<f32>, power: f32) -> vec3<f32> {
+    return pow(abs(color), vec3(power)) * sign(color);
 }
