@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     fmt::{Debug, Write},
     result::Result,
 };
@@ -372,7 +373,7 @@ impl Schedule {
 #[derive(Default)]
 pub struct Dag {
     /// A directed graph.
-    graph: DiGraphMap<NodeId, AllowAutoSync>,
+    graph: DiGraphMap<NodeId, ()>,
     /// A cached topological ordering of the graph.
     topsort: Vec<NodeId>,
 }
@@ -386,7 +387,7 @@ impl Dag {
     }
 
     /// The directed graph of the stored systems, connected by their ordering dependencies.
-    pub fn graph(&self) -> &DiGraphMap<NodeId, AllowAutoSync> {
+    pub fn graph(&self) -> &DiGraphMap<NodeId, ()> {
         &self.graph
     }
 
@@ -458,6 +459,7 @@ pub struct ScheduleGraph {
     conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
     changed: bool,
     settings: ScheduleBuildSettings,
+    no_sync_edges: BTreeSet<(NodeId, NodeId)>,
 }
 
 impl ScheduleGraph {
@@ -477,6 +479,7 @@ impl ScheduleGraph {
             conflicting_systems: Vec::new(),
             changed: false,
             settings: default(),
+            no_sync_edges: BTreeSet::new(),
         }
     }
 
@@ -643,7 +646,7 @@ impl ScheduleGraph {
                                 self.dependency.graph.add_edge(
                                     *last_in_prev,
                                     *first_in_current,
-                                    AllowAutoSync::Yes,
+                                    (),
                                 );
                             }
                             // The previous group is "densely" chained, so we can simplify the graph by only
@@ -654,7 +657,7 @@ impl ScheduleGraph {
                                     self.dependency.graph.add_edge(
                                         *last_in_prev,
                                         *current_node,
-                                        AllowAutoSync::Yes,
+                                        (),
                                     );
                                 }
                             }
@@ -666,7 +669,7 @@ impl ScheduleGraph {
                                     self.dependency.graph.add_edge(
                                         *previous_node,
                                         *first_in_current,
-                                        AllowAutoSync::Yes,
+                                        (),
                                     );
                                 }
                             }
@@ -678,7 +681,7 @@ impl ScheduleGraph {
                                         self.dependency.graph.add_edge(
                                             *previous_node,
                                             *current_node,
-                                            AllowAutoSync::Yes,
+                                            (),
                                         );
                                     }
                                 }
@@ -845,7 +848,7 @@ impl ScheduleGraph {
         self.dependency.graph.add_node(id);
 
         for set in sets.into_iter().map(|set| self.system_set_ids[&set]) {
-            self.hierarchy.graph.add_edge(set, id, AllowAutoSync::Yes);
+            self.hierarchy.graph.add_edge(set, id, ());
 
             // ensure set also appears in dependency graph
             self.dependency.graph.add_node(set);
@@ -859,13 +862,19 @@ impl ScheduleGraph {
             .into_iter()
             .map(|Dependency { kind, set }| (kind, self.system_set_ids[&set]))
         {
-            let (lhs, rhs, weight) = match kind {
-                DependencyKind::Before => (id, set, AllowAutoSync::Yes),
-                DependencyKind::BeforeNoSync => (id, set, AllowAutoSync::No),
-                DependencyKind::After => (set, id, AllowAutoSync::Yes),
-                DependencyKind::AfterNoSync => (set, id, AllowAutoSync::No),
+            let (lhs, rhs) = match kind {
+                DependencyKind::Before => (id, set),
+                DependencyKind::BeforeNoSync => {
+                    self.no_sync_edges.insert((id, set));
+                    (id, set)
+                }
+                DependencyKind::After => (set, id),
+                DependencyKind::AfterNoSync => {
+                    self.no_sync_edges.insert((set, id));
+                    (set, id)
+                }
             };
-            self.dependency.graph.add_edge(lhs, rhs, weight);
+            self.dependency.graph.add_edge(lhs, rhs, ());
 
             // ensure set also appears in hierarchy graph
             self.hierarchy.graph.add_node(set);
@@ -986,8 +995,8 @@ impl ScheduleGraph {
     // modify the graph to have sync nodes for any depedants after a system with deferred system params
     fn auto_insert_apply_deferred(
         &mut self,
-        dependency_flattened: &mut GraphMap<NodeId, AllowAutoSync, Directed>,
-    ) -> Result<GraphMap<NodeId, AllowAutoSync, Directed>, ScheduleBuildError> {
+        dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
+    ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError> {
         let mut sync_point_graph = dependency_flattened.clone();
         let topo = self.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
 
@@ -1010,12 +1019,10 @@ impl ScheduleGraph {
         for node in &topo {
             let add_sync_after = self.systems[node.index()].get().unwrap().has_deferred();
 
-            for (_node, target, allow_auto_sync) in
-                dependency_flattened.edges_directed(*node, Outgoing)
-            {
+            for target in dependency_flattened.neighbors_directed(*node, Outgoing) {
                 let add_sync_on_edge = add_sync_after
                     && !is_apply_deferred(self.systems[target.index()].get().unwrap())
-                    && *allow_auto_sync == AllowAutoSync::Yes;
+                    && !self.no_sync_edges.contains(&(*node, target));
 
                 let weight = if add_sync_on_edge { 1 } else { 0 };
 
@@ -1024,11 +1031,13 @@ impl ScheduleGraph {
                     .map(|distance| distance.max(distances[node.index()].unwrap_or(0) + weight));
 
                 if add_sync_on_edge {
+                    // TODO: this algorithm might add a bunch of redundant edges to the sync point
                     let sync_point = get_sync_point(self, distances[target.index()].unwrap());
-                    // edge weight no longer matters, but we insert something so we can operate on the cloned
-                    // graph.
-                    sync_point_graph.add_edge(*node, sync_point, AllowAutoSync::Yes);
-                    sync_point_graph.add_edge(sync_point, target, AllowAutoSync::Yes);
+                    sync_point_graph.add_edge(*node, sync_point, ());
+                    sync_point_graph.add_edge(sync_point, target, ());
+
+                    // edge is now redundant
+                    sync_point_graph.remove_edge(*node, target);
                 }
             }
         }
@@ -1056,7 +1065,7 @@ impl ScheduleGraph {
     fn map_sets_to_systems(
         &self,
         hierarchy_topsort: &[NodeId],
-        hierarchy_graph: &GraphMap<NodeId, AllowAutoSync, Directed>,
+        hierarchy_graph: &GraphMap<NodeId, (), Directed>,
     ) -> (HashMap<NodeId, Vec<NodeId>>, HashMap<NodeId, FixedBitSet>) {
         let mut set_systems: HashMap<NodeId, Vec<NodeId>> =
             HashMap::with_capacity(self.system_sets.len());
@@ -1091,9 +1100,9 @@ impl ScheduleGraph {
     }
 
     fn get_dependency_flattened(
-        &self,
+        &mut self,
         set_systems: &HashMap<NodeId, Vec<NodeId>>,
-    ) -> GraphMap<NodeId, AllowAutoSync, Directed> {
+    ) -> GraphMap<NodeId, (), Directed> {
         // flatten: combine `in_set` with `before` and `after` information
         // have to do it like this to preserve transitivity
         let mut dependency_flattened = self.dependency.graph.clone();
@@ -1103,36 +1112,38 @@ impl ScheduleGraph {
                 // collapse dependencies for empty sets
                 for a in dependency_flattened.neighbors_directed(set, Direction::Incoming) {
                     for b in dependency_flattened.neighbors_directed(set, Direction::Outgoing) {
-                        let weight = match (dependency_flattened.edge_weight(a, set).unwrap(), dependency_flattened.edge_weight(set, b).unwrap()) {
-                            (AllowAutoSync::Yes, AllowAutoSync::Yes)
-                            // for the mixed edges the preceeding dependents would have
-                            // seen the effects of the sync if there was a system in the empty
-                            // set, so we collapse the edges to `Yes`.
-                            | (AllowAutoSync::Yes, AllowAutoSync::No)
-                            | (AllowAutoSync::No, AllowAutoSync::Yes) => AllowAutoSync::Yes,
-                            (AllowAutoSync::No, AllowAutoSync::No) => AllowAutoSync::No,
-                        };
+                        if self.no_sync_edges.contains(&(a, set))
+                            && self.no_sync_edges.contains(&(set, b))
+                        {
+                            self.no_sync_edges.insert((a, b));
+                        }
 
-                        temp.push((a, b, weight));
+                        temp.push((a, b));
                     }
                 }
             } else {
                 for a in dependency_flattened.neighbors_directed(set, Direction::Incoming) {
                     for &sys in systems {
-                        temp.push((a, sys, *dependency_flattened.edge_weight(a, set).unwrap()));
+                        if self.no_sync_edges.contains(&(a, set)) {
+                            self.no_sync_edges.insert((a, sys));
+                        }
+                        temp.push((a, sys));
                     }
                 }
 
                 for b in dependency_flattened.neighbors_directed(set, Direction::Outgoing) {
                     for &sys in systems {
-                        temp.push((sys, b, *dependency_flattened.edge_weight(set, b).unwrap()));
+                        if self.no_sync_edges.contains(&(set, b)) {
+                            self.no_sync_edges.insert((sys, b));
+                        }
+                        temp.push((sys, b));
                     }
                 }
             }
 
             dependency_flattened.remove_node(set);
-            for (a, b, weight) in temp.drain(..) {
-                dependency_flattened.add_edge(a, b, weight);
+            for (a, b) in temp.drain(..) {
+                dependency_flattened.add_edge(a, b, ());
             }
         }
 
@@ -1509,7 +1520,7 @@ impl ScheduleGraph {
     /// If the graph contain cycles, then an error is returned.
     fn topsort_graph(
         &self,
-        graph: &DiGraphMap<NodeId, AllowAutoSync>,
+        graph: &DiGraphMap<NodeId, ()>,
         report: ReportCycles,
     ) -> Result<Vec<NodeId>, ScheduleBuildError> {
         // Tarjan's SCC algorithm returns elements in *reverse* topological order.
