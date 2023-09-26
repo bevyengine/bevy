@@ -11,6 +11,7 @@
 //! | `E` / `R`          | Decrease / Increase Perceptual Roughness  |
 //! | Arrow Keys         | Control Camera                            |
 //! | `O` / `P`          | Decrease / Increase Transmission Steps    |
+//! | `J`/`K`/`L`/`;`    | Transmissive Quality                      |
 //! | `H`                | Toggle HDR                                |
 //! | `D`                | Toggle Depth Prepass (Also disables TAA)  |
 //! | `C`                | Randomize Colors                          |
@@ -368,7 +369,7 @@ fn setup(
 
     commands.spawn(
         TextBundle::from_section(
-            "1 / 2 - Decrease / Increase Diffuse Transmission\nQ / W - Decrease / Increase Transmission\nA / S - Decrease / Increase Thickness\nZ / X - Decrease / Increase IOR\nE / R - Decrease / Increase Perceptual Roughness\nArrow Keys - Control Camera\nO / P - Decrease / Increase Transmission Steps\nH - Toggle HDR\nD - Toggle Depth Prepass (Also disables TAA)\nC - Randomize Colors",
+            "1 / 2 - Decrease / Increase Diffuse Transmission\nQ / W - Decrease / Increase Transmission\nA / S - Decrease / Increase Thickness\nZ / X - Decrease / Increase IOR\nE / R - Decrease / Increase Perceptual Roughness\nArrow Keys - Control Camera\nO / P - Decrease / Increase Transmission Steps\nJ / K / L / ; - Transmissive Quality\nH - Toggle HDR\nD - Toggle Depth Prepass (Also disables TAA)\nC - Randomize Colors",
             text_style.clone(),
         )
         .with_style(Style {
@@ -521,6 +522,22 @@ fn example_control_system(
 
     if input.just_pressed(KeyCode::P) && camera_3d.transmissive_steps < 4 {
         camera_3d.transmissive_steps += 1;
+    }
+
+    if input.just_pressed(KeyCode::J) {
+        camera_3d.transmissive_quality = TransmissiveQuality::Low;
+    }
+
+    if input.just_pressed(KeyCode::K) {
+        camera_3d.transmissive_quality = TransmissiveQuality::Medium;
+    }
+
+    if input.just_pressed(KeyCode::L) {
+        camera_3d.transmissive_quality = TransmissiveQuality::High;
+    }
+
+    if input.just_pressed(KeyCode::Semicolon) {
+        camera_3d.transmissive_quality = TransmissiveQuality::Ultra;
     }
 
     let rotation = if input.pressed(KeyCode::Right) {
