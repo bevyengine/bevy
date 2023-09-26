@@ -311,7 +311,6 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
     let background_color = fetch_transmissive_background(offset_position, frag_coord, view_z, perceptual_roughness);
 
     // Calculate final color by applying specular transmissive color to a mix of background color and transmitted specular environment light
-    // TODO: Add support for attenuationColor and attenuationDistance
     return specular_transmissive_color * mix(transmitted_environment_light_specular, background_color.rgb, background_color.a);
 }
 
