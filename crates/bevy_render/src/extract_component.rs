@@ -5,7 +5,7 @@ use crate::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetId, Handle};
+use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
     prelude::*,
@@ -197,11 +197,11 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
 impl<T: Asset> ExtractComponent for Handle<T> {
     type Query = Read<Handle<T>>;
     type Filter = ();
-    type Out = AssetId<T>;
+    type Out = Handle<T>;
 
     #[inline]
     fn extract_component(handle: QueryItem<'_, Self::Query>) -> Option<Self::Out> {
-        Some(handle.id())
+        Some(handle.clone_weak())
     }
 }
 
