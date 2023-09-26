@@ -402,16 +402,16 @@ pub fn extract_uinode_outlines(
                 &GlobalTransform,
                 &Outline,
                 &ViewVisibility,
-                Option<&CalculatedClip>,
-            ),
-            Without<ContentSize>,
+                Option<&Parent>,
+            ),            
         >,
     >,
+    clip_query: Query<&CalculatedClip>,
 ) {
     let image = AssetId::<Image>::default();
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((node, global_transform, outline, view_visibility, clip)) =
+        if let Ok((node, global_transform, outline, view_visibility, maybe_parent)) =
             uinode_query.get(*entity)
         {
             // Skip invisible outlines
@@ -419,8 +419,10 @@ pub fn extract_uinode_outlines(
                 continue;
             }
 
-            // Calculate the outline rects.
+            // Outline's are drawn outside of a node's borders, so they are clipped using the clipping Rect of their UI node entity's parent.
+            let clip = maybe_parent.map(|parent| clip_query.get(parent.get()).ok().map(|clip| clip.clip)).flatten();
 
+            // Calculate the outline rects.
             let inner_rect = Rect::from_center_size(Vec2::ZERO, node.size());
             let outer_rect = inner_rect.inset(node.outline_width());
             let outline_edges = [
@@ -471,7 +473,7 @@ pub fn extract_uinode_outlines(
                             },
                             image,
                             atlas_size: None,
-                            clip: clip.map(|clip| clip.clip),
+                            clip,
                             flip_x: false,
                             flip_y: false,
                         },
