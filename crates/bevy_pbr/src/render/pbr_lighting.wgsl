@@ -308,7 +308,13 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
     let offset_position = (clip_exit_position.xy / clip_exit_position.w) * vec2<f32>(0.5, -0.5) + 0.5;
 
     // Fetch background color
-    let background_color = fetch_transmissive_background(offset_position, frag_coord, view_z, perceptual_roughness);
+    var background_color: vec4<f32>;
+    if perceptual_roughness == 0.0 {
+        // If the material has zero roughness, we can use a faster approach without the blur
+        background_color = fetch_transmissive_background_non_rough(offset_position);
+    } else {
+        background_color = fetch_transmissive_background(offset_position, frag_coord, view_z, perceptual_roughness);
+    }
 
     // Calculate final color by applying specular transmissive color to a mix of background color and transmitted specular environment light
     return specular_transmissive_color * mix(transmitted_environment_light_specular, background_color.rgb, background_color.a);
@@ -324,6 +330,14 @@ fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>) -> f32 {
     let xy = pixel_coordinates;
 #endif
     return fract(52.9829189 * fract(0.06711056 * xy.x + 0.00583715 * xy.y));
+}
+
+fn fetch_transmissive_background_non_rough(offset_position: vec2<f32>) -> vec4<f32> {
+    return textureSample(
+        view_bindings::view_transmission_texture,
+        view_bindings::view_transmission_sampler,
+        offset_position,
+    );
 }
 
 fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, view_z: f32, perceptual_roughness: f32) -> vec4<f32> {
