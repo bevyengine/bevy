@@ -270,6 +270,12 @@ pub struct EntityHasher {
     hash: u64,
 }
 
+// This value comes from rustc-hash (also known as FxHasher) which in turn got
+// it from Firefox. It is something like `u64::MAX / N` for an N that gives a
+// value close to π and works well for distributing bits for hashing when using
+// with a wrapping multiplication.
+const FRAC_U64MAX_PI: u64 = 0x517cc1b727220a95;
+
 impl Hasher for EntityHasher {
     fn write(&mut self, _bytes: &[u8]) {
         panic!("can only hash u64 using EntityHasher");
@@ -277,7 +283,11 @@ impl Hasher for EntityHasher {
 
     #[inline]
     fn write_u64(&mut self, i: u64) {
-        self.hash = i | (i.wrapping_mul(0x517cc1b727220a95) << 32);
+        // Apparently hashbrown's hashmap uses the upper 7 bits for some SIMD
+        // optimisation that uses those bits for binning. This hash function
+        // was faster than i | (i << (64 - 7)) in the worst cases, and was
+        // faster than PassHasher for all cases tested.
+        self.hash = i | (i.wrapping_mul(FRAC_U64MAX_PI) << 32);
     }
 
     #[inline]
