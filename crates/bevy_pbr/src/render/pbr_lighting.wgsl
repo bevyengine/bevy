@@ -326,20 +326,6 @@ fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>) -> f32 {
     return fract(52.9829189 * fract(0.06711056 * xy.x + 0.00583715 * xy.y));
 }
 
-// https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
-const SPIRAL_OFFSETS: array<vec2<f32>, 8> = array<vec2<f32>, 8>(
-    vec2<f32>(-0.7071,  0.7071),
-    vec2<f32>(-0.0000, -0.8750),
-    vec2<f32>( 0.5303,  0.5303),
-    vec2<f32>(-0.6250, -0.0000),
-    vec2<f32>( 0.3536, -0.3536),
-    vec2<f32>(-0.0000,  0.3750),
-    vec2<f32>(-0.1768, -0.1768),
-    vec2<f32>( 0.1250,  0.0000),
-);
-
-const MAX_TRANSMISSIVE_TAPS = 16;
-
 fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, view_z: f32, perceptual_roughness: f32) -> vec4<f32> {
     // Calculate view aspect ratio, used to scale offset so that it's proportionate
     let aspect = view_bindings::view.viewport.z / view_bindings::view.viewport.w;
@@ -356,9 +342,9 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     // - inversely proportional to view z
     let blur_intensity = (perceptual_roughness * perceptual_roughness) / view_z;
 
-    // Number of taps scale with blur intensity
-    let num_taps = i32(max(min(sqrt(blur_intensity) * 7.0, 1.0) * f32(MAX_TRANSMISSIVE_TAPS), 1.0));
-    let num_spirals = (num_taps >> 3u) + 1;
+    // TODO: Make this configurable
+    let num_taps = 8;
+    let num_spirals = i32(ceil(f32(num_taps) / 8.0));
     let random_angle = interleaved_gradient_noise(frag_coord.xy);
 
     // Pixel checkerboard pattern (helps make the interleaved gradient noise pattern less visible)
@@ -382,19 +368,20 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
             m.x, m.y
         );
 
-        // Get spiral offset from array
+        // Get spiral offset
         var spiral_offset: vec2<f32>;
         switch i & 7 {
+            // https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
             // TODO: Figure out a more reasonable way of doing this, as WGSL
-            // seems to only allow constant indexes into the constant array
-            case 0: { spiral_offset = SPIRAL_OFFSETS[0]; }
-            case 1: { spiral_offset = SPIRAL_OFFSETS[1]; }
-            case 2: { spiral_offset = SPIRAL_OFFSETS[2]; }
-            case 3: { spiral_offset = SPIRAL_OFFSETS[3]; }
-            case 4: { spiral_offset = SPIRAL_OFFSETS[4]; }
-            case 5: { spiral_offset = SPIRAL_OFFSETS[5]; }
-            case 6: { spiral_offset = SPIRAL_OFFSETS[6]; }
-            case 7: { spiral_offset = SPIRAL_OFFSETS[7]; }
+            // seems to only allow constant indexes into constant arrays
+            case 0: { spiral_offset = vec2<f32>(-0.7071,  0.7071); }
+            case 1: { spiral_offset = vec2<f32>(-0.0000, -0.8750); }
+            case 2: { spiral_offset = vec2<f32>( 0.5303,  0.5303); }
+            case 3: { spiral_offset = vec2<f32>(-0.6250, -0.0000); }
+            case 4: { spiral_offset = vec2<f32>( 0.3536, -0.3536); }
+            case 5: { spiral_offset = vec2<f32>(-0.0000,  0.3750); }
+            case 6: { spiral_offset = vec2<f32>(-0.1768, -0.1768); }
+            case 7: { spiral_offset = vec2<f32>( 0.1250,  0.0000); }
             default: {}
         }
 
