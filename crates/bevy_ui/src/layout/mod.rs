@@ -8,7 +8,7 @@ use bevy_ecs::{
     event::EventReader,
     query::{With, Without},
     removal_detection::RemovedComponents,
-    system::{Query, Res, ResMut, Resource, ParamSet},
+    system::{ParamSet, Query, Res, ResMut, Resource},
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
@@ -336,7 +336,9 @@ pub fn ui_layout_system(
         parent_size: Vec2,
         mut absolute_location: Vec2,
     ) {
-        if let Ok((mut node, mut transform, maybe_content_size)) = node_transform_query.get_mut(entity) {
+        if let Ok((mut node, mut transform, maybe_content_size)) =
+            node_transform_query.get_mut(entity)
+        {
             let layout = ui_surface.get_layout(entity).unwrap();
             let layout_size =
                 inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
@@ -344,11 +346,15 @@ pub fn ui_layout_system(
                 inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
 
             absolute_location += layout_location;
-            
-            let size = if maybe_content_size.map(|content_size| content_size.no_rounding()).unwrap_or_default() {
+
+            let size = if maybe_content_size
+                .map(|content_size| content_size.no_rounding())
+                .unwrap_or_default()
+            {
                 layout_size
             } else {
-                round_layout_coords(absolute_location + layout_size) - round_layout_coords(absolute_location)
+                round_layout_coords(absolute_location + layout_size)
+                    - round_layout_coords(absolute_location)
             };
 
             let rounded_location =
@@ -381,7 +387,7 @@ pub fn ui_layout_system(
         update_uinode_geometry_recursive(
             entity,
             &ui_surface,
-        &mut mutables_param_set.p1(),
+            &mut mutables_param_set.p1(),
             &just_children_query,
             inverse_target_scale_factor as f32,
             Vec2::ZERO,
