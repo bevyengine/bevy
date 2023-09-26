@@ -353,10 +353,10 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     // Pixel checkerboard pattern (helps make the interleaved gradient noise pattern less visible)
     let pixel_checkboard = (
 #ifdef TEMPORAL_JITTER
-    // 0 or 1 on even/odd pixels, alternates every frame
+        // 0 or 1 on even/odd pixels, alternates every frame
         (i32(frag_coord.x) + i32(frag_coord.y) + i32(view_bindings::globals.frame_count)) % 2
 #else
-    // 0 or 1 on even/odd pixels
+        // 0 or 1 on even/odd pixels
         (i32(frag_coord.x) + i32(frag_coord.y)) % 2
 #endif
     );
