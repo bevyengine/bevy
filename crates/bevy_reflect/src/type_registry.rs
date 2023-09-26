@@ -592,7 +592,7 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
                 unsafe { ptr.deref::<T>() as &dyn Reflect }
             },
             from_ptr_mut: |ptr| {
-                // SAFETY: same as above, but foor `as_reflect_mut`, `from_ptr_mut` and `deref_mut`.
+                // SAFETY: same as above, but for `as_reflect_mut`, `from_ptr_mut` and `deref_mut`.
                 unsafe { ptr.deref_mut::<T>() as &mut dyn Reflect }
             },
         }
