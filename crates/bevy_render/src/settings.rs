@@ -1,3 +1,6 @@
+use crate::renderer::{
+    RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue,
+};
 use std::borrow::Cow;
 
 pub use wgpu::{
@@ -90,6 +93,45 @@ impl Default for WgpuSettings {
             constrained_limits: None,
             dx12_shader_compiler: dx12_compiler,
         }
+    }
+}
+
+/// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).
+pub enum RenderSettings {
+    /// Allows renderer resource initialization to happen outside of the rendering plugin.
+    Manual(
+        RenderDevice,
+        RenderQueue,
+        RenderAdapterInfo,
+        RenderAdapter,
+        RenderInstance,
+    ),
+    /// Lets the rendering plugin create resources itself.
+    Automatic(WgpuSettings),
+}
+
+impl RenderSettings {
+    /// Function to create a [`RenderSettings::Manual`] variant.
+    pub fn manual(
+        device: RenderDevice,
+        queue: RenderQueue,
+        adapter_info: RenderAdapterInfo,
+        adapter: RenderAdapter,
+        instance: RenderInstance,
+    ) -> Self {
+        Self::Manual(device, queue, adapter_info, adapter, instance)
+    }
+}
+
+impl Default for RenderSettings {
+    fn default() -> Self {
+        Self::Automatic(Default::default())
+    }
+}
+
+impl From<WgpuSettings> for RenderSettings {
+    fn from(value: WgpuSettings) -> Self {
+        Self::Automatic(value)
     }
 }
 

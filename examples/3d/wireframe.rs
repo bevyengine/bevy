@@ -10,10 +10,11 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.set(RenderPlugin {
-                wgpu_settings: WgpuSettings {
+                render_settings: WgpuSettings {
                     features: WgpuFeatures::POLYGON_MODE_LINE,
                     ..default()
-                },
+                }
+                .into(),
             }),
             WireframePlugin,
         ))
