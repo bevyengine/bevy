@@ -21,7 +21,6 @@ impl WinitSettings {
             unfocused_mode: UpdateMode::ReactiveLowPower {
                 wait: Duration::from_secs_f64(1.0 / 60.0), // 60Hz
             },
-            ..Default::default()
         }
     }
 
@@ -37,7 +36,6 @@ impl WinitSettings {
             unfocused_mode: UpdateMode::ReactiveLowPower {
                 wait: Duration::from_secs(60),
             },
-            ..Default::default()
         }
     }
 

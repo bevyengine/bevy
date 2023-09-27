@@ -15,8 +15,6 @@ mod web_resize;
 mod winit_config;
 mod winit_windows;
 
-use std::ops::Deref;
-
 use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::system::{SystemParam, SystemState};
 use bevy_utils::{Duration, Instant};
@@ -199,73 +197,6 @@ where
     event_loop.run(event_handler)
 }
 
-#[cfg(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd"
-))]
-fn run_ondemand<F, T>(event_loop: &mut EventLoop<T>, event_handler: F)
-where
-    F: FnMut(Event<T>, &EventLoopWindowTarget<T>, &mut ControlFlow),
-{
-    use winit::platform::run_ondemand::EventLoopExtRunOnDemand;
-    event_loop.run_ondemand(event_handler);
-}
-
-#[cfg(not(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd"
-)))]
-fn run_ondemand<F, T>(_event_loop: &mut EventLoop<T>, _event_handler: F)
-where
-    F: FnMut(Event<T>, &EventLoopWindowTarget<T>, &mut ControlFlow),
-{
-    panic!("Run return is not supported on this platform!")
-}
-
-#[cfg(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd"
-))]
-fn pump_events<F, T>(event_loop: &mut EventLoop<T>, event_handler: F)
-where
-    F: FnMut(Event<T>, &EventLoopWindowTarget<T>, &mut ControlFlow),
-{
-    use winit::platform::pump_events::EventLoopExtPumpEvents;
-    let timeout = Some(Duration::ZERO);
-    event_loop.pump_events(timeout, event_handler);
-}
-
-#[cfg(not(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd"
-)))]
-fn pump_events<F, T>(_event_loop: &mut EventLoop<T>, _event_handler: F)
-where
-    F: FnMut(Event<T>, &EventLoopWindowTarget<T>, &mut ControlFlow),
-{
-    panic!("Pump events is not supported on this platform!")
-}
-
 #[derive(SystemParam)]
 struct WindowAndInputEventWriters<'w> {
     // `winit` `WindowEvent`s
@@ -328,7 +259,7 @@ impl Default for WinitAppRunnerState {
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
 /// `EventLoop`.
 pub fn winit_runner(mut app: App) {
-    let mut event_loop = app
+    let event_loop = app
         .world
         .remove_non_send_resource::<EventLoop<()>>()
         .unwrap();
@@ -811,7 +742,7 @@ pub fn winit_runner(mut app: App) {
                     ) = create_window_system_state.get_mut(&mut app.world);
 
                     create_windows(
-                        &*event_loop,
+                        event_loop,
                         commands,
                         windows.iter_mut(),
                         event_writer,
@@ -831,5 +762,5 @@ pub fn winit_runner(mut app: App) {
     };
 
     trace!("starting winit event loop");
-    run(event_loop, event_handler);
+    let _ = run(event_loop, event_handler);
 }

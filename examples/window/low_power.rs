@@ -22,7 +22,6 @@ fn main() {
             unfocused_mode: bevy::winit::UpdateMode::ReactiveLowPower {
                 wait: Duration::from_millis(10),
             },
-            ..default()
         })
         .insert_resource(ExampleMode::Game)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
