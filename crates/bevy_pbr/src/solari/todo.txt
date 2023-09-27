@@ -10,6 +10,7 @@
     * Think about hashing ray direction, instead of hit position
     * If visible last frame, reproject last frame's lighting
 * Screen cache improvements
+    * Deinterleaved layout for faster upper probe texture reads when merging?
     * Jitter per-pixel offset into the interpolation for use with TAA?
     * Consider 4x4 probes for the first cascade
     * 1/2 or 1/4 checkerboard probe update rate
