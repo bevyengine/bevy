@@ -122,6 +122,7 @@ pub struct Entity {
 }
 
 impl Hash for Entity {
+    #[inline]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.to_bits().hash(state);
     }
