@@ -12,16 +12,6 @@ impl std::fmt::Debug for ContentSize {
     }
 }
 
-/// Determines if the size of a UI node should be rounded
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
-pub enum SizeRounding {
-    /// The node's size should be rounded after layout recomputation
-    #[default]
-    Enabled,
-    /// The node's size should be not rounded after layout recomputation
-    Disabled,
-}
-
 /// A `Measure` is used to compute the size of a ui node
 /// when the size of that node is based on its content.
 pub trait Measure: Send + Sync + 'static {
@@ -62,8 +52,6 @@ pub struct ContentSize {
     /// The `Measure` used to compute the intrinsic size
     #[reflect(ignore)]
     pub(crate) measure_func: Option<MeasureFunc>,
-    /// Determines if the size of the UI node with this `ContentSize` should be rounded after layout recomputation
-    pub(crate) rounding: SizeRounding,
 }
 
 impl ContentSize {
@@ -77,19 +65,6 @@ impl ContentSize {
             }
         };
         self.measure_func = Some(MeasureFunc::Boxed(Box::new(measure_func)));
-    }
-
-    /// Set a `Measure` for the UI node entity with this component with size rounding disabled
-    pub fn set_unrounded(&mut self, measure: impl Measure) {
-        let measure_func = move |size: TaffySize<_>, available: TaffySize<_>| {
-            let size = measure.measure(size.width, size.height, available.width, available.height);
-            TaffySize {
-                width: size.x,
-                height: size.y,
-            }
-        };
-        self.measure_func = Some(MeasureFunc::Boxed(Box::new(measure_func)));
-        self.rounding = SizeRounding::Disabled;
     }
 
     /// Creates a `ContentSize` with a `Measure` that always returns given `size` argument, regardless of the UI layout's constraints.

@@ -82,9 +82,9 @@ fn create_text_measure(
     match TextMeasureInfo::from_text(&text, fonts, scale_factor) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
-                content_size.set_unrounded(FixedMeasure { size: measure.max });
+                content_size.set(FixedMeasure { size: measure.max });
             } else {
-                content_size.set_unrounded(TextMeasure { info: measure });
+                content_size.set(TextMeasure { info: measure });
             }
 
             // Text measure func created successfully, so set `TextFlags` to schedule a recompute
@@ -166,7 +166,10 @@ fn queue_text(
             Vec2::splat(f32::INFINITY)
         } else {
             // `scale_factor` is already multiplied by `UiScale`
-            node.physical_size(scale_factor, 1.)
+            Vec2::new(
+                (node.unrounded_size.x as f64 * scale_factor) as f32,
+                (node.unrounded_size.y as f64 * scale_factor) as f32,
+            )
         };
 
         match text_pipeline.queue_text(

@@ -1,14 +1,14 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, SizeRounding, Style, UiScale};
+use crate::{ContentSize, Node, Style, UiScale};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     event::EventReader,
     query::{With, Without},
     removal_detection::RemovedComponents,
-    system::{ParamSet, Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut, Resource},
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
@@ -245,14 +245,12 @@ pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     style_query: Query<(Entity, Ref<Style>), With<Node>>,
+mut measure_query: Query<(Entity, &mut ContentSize)>,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
     just_children_query: Query<&Children>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
-    mut mutables_param_set: ParamSet<(
-        Query<(Entity, &mut ContentSize)>,
-        Query<(&mut Node, &mut Transform, Option<&ContentSize>)>,
-    )>,
+    mut node_transform_query: Query<(&mut Node, &mut Transform)>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
     // assume one window for time being...
@@ -298,7 +296,7 @@ pub fn ui_layout_system(
         ui_surface.try_remove_measure(entity);
     }
 
-    for (entity, mut content_size) in &mut mutables_param_set.p0() {
+    for (entity, mut content_size) in &mut measure_query {
         if let Some(measure_func) = content_size.measure_func.take() {
             ui_surface.update_measure(entity, measure_func);
         }
@@ -330,15 +328,13 @@ pub fn ui_layout_system(
     fn update_uinode_geometry_recursive(
         entity: Entity,
         ui_surface: &UiSurface,
-        node_transform_query: &mut Query<(&mut Node, &mut Transform, Option<&ContentSize>)>,
+        node_transform_query: &mut Query<(&mut Node, &mut Transform)>,
         children_query: &Query<&Children>,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         mut absolute_location: Vec2,
     ) {
-        if let Ok((mut node, mut transform, maybe_content_size)) =
-            node_transform_query.get_mut(entity)
-        {
+        if let Ok((mut node, mut transform)) = node_transform_query.get_mut(entity) {
             let layout = ui_surface.get_layout(entity).unwrap();
             let layout_size =
                 inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
@@ -347,23 +343,16 @@ pub fn ui_layout_system(
 
             absolute_location += layout_location;
 
-            let size = match maybe_content_size
-                .map(|content_size| content_size.rounding)
-                .unwrap_or_default()
-            {
-                SizeRounding::Enabled => {
-                    round_layout_coords(absolute_location + layout_size)
-                        - round_layout_coords(absolute_location)
-                }
-                SizeRounding::Disabled => layout_size,
-            };
+            let rounded_size = round_layout_coords(absolute_location + layout_size)
+                - round_layout_coords(absolute_location);
 
             let rounded_location =
-                round_layout_coords(layout_location) + 0.5 * (size - parent_size);
+                round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
 
             // only trigger change detection when the new values are different
-            if node.calculated_size != size {
-                node.calculated_size = size;
+            if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
+                node.calculated_size = rounded_size;
+                node.unrounded_size = layout_size;
             }
             if transform.translation.truncate() != rounded_location {
                 transform.translation = rounded_location.extend(0.);
@@ -376,7 +365,7 @@ pub fn ui_layout_system(
                         node_transform_query,
                         children_query,
                         inverse_target_scale_factor,
-                        size,
+                        rounded_size,
                         absolute_location,
                     );
                 }
@@ -388,7 +377,7 @@ pub fn ui_layout_system(
         update_uinode_geometry_recursive(
             entity,
             &ui_surface,
-            &mut mutables_param_set.p1(),
+            &mut node_transform_query,
             &just_children_query,
             inverse_target_scale_factor as f32,
             Vec2::ZERO,
