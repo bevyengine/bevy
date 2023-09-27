@@ -37,6 +37,8 @@ use bevy_utils::{
     tracing::{trace, warn},
     Duration, Instant,
 };
+#[cfg(target_os = "android")]
+use bevy_window::PrimaryWindow;
 use bevy_window::{
     exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
     ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
@@ -299,6 +301,9 @@ pub fn winit_runner(mut app: App) {
         .insert_non_send_resource(event_loop.create_proxy());
 
     let mut runner_state = WinitAppRunnerState::default();
+
+    #[cfg(target_os = "android")]
+    let mut primary_window = None;
 
     // prepare structures to access data in the world
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
@@ -664,16 +669,22 @@ pub fn winit_runner(mut app: App) {
                 runner_state.is_active = false;
                 #[cfg(target_os = "android")]
                 {
-                    // Android sending this event invalidates all render surfaces.
-                    // TODO
-                    // Upon resume, check if the new render surfaces are compatible with the
-                    // existing render device. If not (which should basically never happen),
-                    // then try to rebuild the renderer.
-                    *control_flow = ControlFlow::Exit;
+                    let mut query = app.world.query::<(Entity, &Window)>();
+                    let (entity, window) = query.single(&app.world);
+                    primary_window = Some(window.clone());
+                    app.world.despawn(entity);
+                    *control_flow = ControlFlow::Wait;
                 }
             }
             event::Event::Resumed => {
                 runner_state.is_active = true;
+                #[cfg(target_os = "android")]
+                {
+                    if let Some(window) = primary_window.take() {
+                        app.world.spawn((window, PrimaryWindow));
+                    }
+                    *control_flow = ControlFlow::Poll;
+                }
             }
             event::Event::MainEventsCleared => {
                 if runner_state.is_active {
