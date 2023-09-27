@@ -252,24 +252,28 @@ where
         self.into_configs().in_set(set)
     }
 
-    /// Run before all systems in `set`.
+    /// Run before all systems in `set`. This will add a [`apply_deferred`](crate::schedule::apply_deferred) 
+    /// on the edge if systems in the current set have deferred parameters. If this behavior is not desired
+    /// consider using ['before_ignore_deferred'](Self::before_ignore_deferred) instead.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().before(set)
     }
 
-    /// Run after all systems in `set`.
+    /// Run after all systems in `set`. This will add a [`apply_deferred`](crate::schedule::apply_deferred) 
+    /// on the edge if systems in `set` have deferred parameters. If this behavior is not desired
+    /// consider using ['after_ignore_deferred'](Self::after_ignore_deferred) instead.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after(set)
     }
 
-    /// Run before all systems in `set` and systems in `set` do not care about the `deferred` effects
-    /// being applied.
+    /// Run before all systems in `set`. Unlike [`before`](Self::before), this will not cause the systems in 
+    /// `set` to wait for the deferred effects of `self` to be applied.
     fn before_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().before_ignore_deferred(set)
     }
 
-    /// Run after all systems in `set` and the deferred effects of systems in `set` do not need to be a
-    /// applied before running.
+    /// Run after all systems in `set`. Unlike [`after`](Self::after), this will not wait for the deferred 
+    /// effects of systems in `set` to be applied.
     fn after_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after_ignore_deferred(set)
     }
@@ -492,24 +496,26 @@ where
         self.into_configs().in_set(set)
     }
 
-    /// Run before all systems in `set`.
+    /// Run before all systems in `set`. This will add a [`apply_deferred`](crate::schedule::apply_deferred) 
+    /// on the edge if systems in the current set have deferred parameters. If this behavior is not desired
+    /// consider using ['before_ignore_deferred'](Self::before_ignore_deferred) instead.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
         self.into_configs().before(set)
     }
 
-    /// Run after all systems in `set`.
+    /// Run after all systems in `set`. This will add a [`apply_deferred`](crate::schedule::apply_deferred) 
+    /// on the edge if systems in `set` have deferred parameters. If this behavior is not desired
+    /// consider using ['after_ignore_deferred'](Self::after_ignore_deferred) instead.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
         self.into_configs().after(set)
     }
 
-    /// Run before all systems in `set` and systems in `set` do not care about the `deferred` effects
-    /// being applied.
+    /// Run before all systems in `set`. Unlike [`before`](Self::before), this will not cause the systems in `set` to wait for the deferred effects of `self` to be applied.
     fn before_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
         self.into_configs().before_ignore_deferred(set)
     }
 
-    /// Run after all systems in `set` and the deferred effects of systems in `set` do not need to be a
-    /// applied before running.
+    /// Run after all systems in `set`. Unlike [`after`](Self::after), this will not wait for the deferred effects of systems in `set` to be applied.
     fn after_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
         self.into_configs().after_ignore_deferred(set)
     }
