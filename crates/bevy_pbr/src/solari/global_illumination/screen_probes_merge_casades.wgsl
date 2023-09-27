@@ -40,10 +40,10 @@ fn merge_screen_probe_cascades(
 
     let lower_probe_depth = get_probe_depth(((global_id.xy / lower_probe_size) * lower_probe_size) + ((lower_probe_size >> 1u) - 1u));
     let probe_depths = vec4(
-        get_probe_depth((tl_probe_id * upper_probe_size) - (lower_probe_size - 1u)),
-        get_probe_depth((tr_probe_id * upper_probe_size) - (lower_probe_size - 1u)),
-        get_probe_depth((bl_probe_id * upper_probe_size) - (lower_probe_size - 1u)),
-        get_probe_depth((br_probe_id * upper_probe_size) - (lower_probe_size - 1u)),
+        get_probe_depth((tl_probe_id * upper_probe_size) + (lower_probe_size - 1u)),
+        get_probe_depth((tr_probe_id * upper_probe_size) + (lower_probe_size - 1u)),
+        get_probe_depth((bl_probe_id * upper_probe_size) + (lower_probe_size - 1u)),
+        get_probe_depth((br_probe_id * upper_probe_size) + (lower_probe_size - 1u)),
     );
     let probe_depth_weights = pow(saturate(1.0 - abs(probe_depths - lower_probe_depth) / lower_probe_depth), vec4(f32(lower_probe_size)));
 

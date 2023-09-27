@@ -12,9 +12,9 @@ fn update_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let probe_count = (vec2<u32>(view.viewport.zw) + 7u) / probe_size;
     let probe_center_cell_offset = (probe_size >> 1u) - 1u;
 
-    var probe_center_pixel_id = ((global_id.xy / probe_size) * probe_size) + probe_center_cell_offset;
+    let probe_center_uv = (vec2<f32>(global_id.xy / probe_size) + 0.5) / vec2<f32>(probe_count);
+    var probe_center_pixel_id = (global_id.xy / probe_size) * probe_size + probe_center_cell_offset;
     probe_center_pixel_id = min(probe_center_pixel_id, vec2<u32>(view.viewport.zw) - 1u);
-    let probe_center_uv = (vec2<f32>(probe_center_pixel_id) + 0.5) / view.viewport.zw;
 
     // Early out if the probe is placed on a background pixel
     let probe_depth = textureLoad(depth_buffer, probe_center_pixel_id, 0i);
@@ -87,7 +87,8 @@ fn update_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // Trace radiance interval from probe position, query world cache for lighting at hit
     var color = vec4(0.0, 0.0, 0.0, 1.0);
-    let probe_world_position = depth_to_world_position(probe_depth, probe_center_uv);
+    let probe_center_pixel_uv = (vec2<f32>(probe_center_pixel_id) + 0.5) / view.viewport.zw;
+    let probe_world_position = depth_to_world_position(probe_depth, probe_center_pixel_uv);
     let ray_hit = trace_ray(probe_world_position, probe_cell_normal, radiance_interval_min, radiance_interval_max);
     if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
         let ray_hit = map_ray_hit(ray_hit);

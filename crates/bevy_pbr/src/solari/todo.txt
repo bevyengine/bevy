@@ -1,5 +1,6 @@
-* Consider the weighing functions used for merging/filtering/interpolating
+* Consider the weighing functions used for reprojecting/merging/interpolating
     * Plane distance used in interpolating seems to do nothing right now
+    * Ghosting during reprojection
 
 * World cache improvements
     * Tie world cache to camera, use a log scale for cell size
