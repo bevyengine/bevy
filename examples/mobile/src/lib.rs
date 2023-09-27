@@ -5,6 +5,9 @@ use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        // On Android, the entity with this window will be despawned when the application is suspended
+        // and respawned when it is resumed. The entity will change each time, and any extra component
+        // will be lost.
         primary_window: Some(Window {
             resizable: false,
             mode: WindowMode::BorderlessFullscreen,
