@@ -4,17 +4,15 @@
 
 * World cache improvements
     * Tie world cache to camera, use a log scale for cell size
-    * Short trace distance
+    * Short trace distance for sampling from other cells
     * Reservoir sampling for the world cache update method
         * Light sources and other cache entries via choosing a random slice of world_cache_active_cell_indices
-    * If visible last frame, reproject last frame's lighting
     * Think about hashing ray direction, instead of hit position
-    * Variance driven world cache update rate, skipping very stable cells, and adapting to lighting changes faster
+    * If visible last frame, reproject last frame's lighting
 * Screen cache improvements
     * Jitter per-pixel offset into the interpolation for use with TAA?
     * Consider 4x4 probes for the first cascade
-    * More efficent/combined screen probe cascade reprojection/tracing/merging routines
-    * 1/4th probe update rate
+    * 1/2 or 1/4 checkerboard probe update rate
 * Faster temporal reactivity
 
 * Specular lighting
