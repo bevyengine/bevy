@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.11.2"
+version = "0.11.3"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -249,8 +249,8 @@ shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 webgl2 = ["bevy_internal/webgl"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.11.2", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.11.2", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.11.3", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.11.3", default-features = false }
 
 [dev-dependencies]
 anyhow = "1.0.4"
