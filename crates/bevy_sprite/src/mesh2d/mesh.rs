@@ -178,7 +178,7 @@ impl From<&Mesh2dTransforms> for Mesh2dUniform {
 // NOTE: These must match the bit flags in bevy_sprite/src/mesh2d/mesh2d.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
-    struct MeshFlags: u32 {
+    pub struct MeshFlags: u32 {
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
