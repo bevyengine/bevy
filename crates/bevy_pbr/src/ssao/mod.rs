@@ -326,7 +326,7 @@ impl FromWorld for SsaoPipelines {
 
         let hilbert_index_lut = render_device
             .create_texture_with_data(
-                render_queue,
+                &render_queue,
                 &(TextureDescriptor {
                     label: Some("ssao_hilbert_index_lut"),
                     size: Extent3d {

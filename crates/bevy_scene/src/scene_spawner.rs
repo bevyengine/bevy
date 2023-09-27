@@ -4,8 +4,8 @@ use bevy_ecs::{
     entity::Entity,
     event::{Event, Events, ManualEventReader},
     reflect::AppTypeRegistry,
-    system::{Command, Resource},
-    world::{Mut, World},
+    system::{Command, ResMut, Resource},
+    world::World,
 };
 use bevy_hierarchy::{AddChild, Parent};
 use bevy_utils::{tracing::error, HashMap, HashSet};
@@ -145,7 +145,7 @@ impl SceneSpawner {
         id: AssetId<DynamicScene>,
         entity_map: &mut HashMap<Entity, Entity>,
     ) -> Result<(), SceneSpawnError> {
-        world.resource_scope(|world, scenes: Mut<Assets<DynamicScene>>| {
+        world.resource_scope(|world, scenes: ResMut<Assets<DynamicScene>>| {
             let scene = scenes
                 .get(id)
                 .ok_or(SceneSpawnError::NonExistentScene { id })?;
@@ -167,7 +167,7 @@ impl SceneSpawner {
         id: AssetId<Scene>,
         instance_id: InstanceId,
     ) -> Result<InstanceId, SceneSpawnError> {
-        world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
+        world.resource_scope(|world, scenes: ResMut<Assets<Scene>>| {
             let scene = scenes
                 .get(id)
                 .ok_or(SceneSpawnError::NonExistentRealScene { id })?;
@@ -309,7 +309,7 @@ impl SceneSpawner {
 }
 
 pub fn scene_spawner_system(world: &mut World) {
-    world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
+    world.resource_scope(|world, mut scene_spawner: ResMut<SceneSpawner>| {
         // remove any loading instances where parent is deleted
         let mut dead_instances = HashSet::default();
         scene_spawner
@@ -336,7 +336,7 @@ pub fn scene_spawner_system(world: &mut World) {
         let scene_spawner = &mut *scene_spawner;
         for event in scene_spawner
             .scene_asset_event_reader
-            .read(scene_asset_events)
+            .read(&scene_asset_events)
         {
             if let AssetEvent::Modified { id } = event {
                 if scene_spawner.spawned_dynamic_scenes.contains_key(id) {

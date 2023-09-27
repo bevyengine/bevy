@@ -817,7 +817,7 @@ impl App {
     /// Gets read-only access to the [`Schedule`] with the provided `label` if it exists.
     pub fn get_schedule(&self, label: impl ScheduleLabel) -> Option<&Schedule> {
         let schedules = self.world.get_resource::<Schedules>()?;
-        schedules.get(&label)
+        schedules.into_inner().get(&label)
     }
 
     /// Gets read-write access to a [`Schedule`] with the provided `label` if it exists.

@@ -356,7 +356,11 @@ pub fn winit_runner(mut app: App) {
             }
 
             if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-                if app_exit_event_reader.read(app_exit_events).last().is_some() {
+                if app_exit_event_reader
+                    .read(&app_exit_events)
+                    .last()
+                    .is_some()
+                {
                     *control_flow = ControlFlow::Exit;
                     return;
                 }
@@ -723,14 +727,22 @@ pub fn winit_runner(mut app: App) {
                         if let Some(app_redraw_events) =
                             app.world.get_resource::<Events<RequestRedraw>>()
                         {
-                            if redraw_event_reader.read(app_redraw_events).last().is_some() {
+                            if redraw_event_reader
+                                .read(&app_redraw_events)
+                                .last()
+                                .is_some()
+                            {
                                 runner_state.redraw_requested = true;
                                 *control_flow = ControlFlow::Poll;
                             }
                         }
 
                         if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-                            if app_exit_event_reader.read(app_exit_events).last().is_some() {
+                            if app_exit_event_reader
+                                .read(&app_exit_events)
+                                .last()
+                                .is_some()
+                            {
                                 *control_flow = ControlFlow::Exit;
                             }
                         }

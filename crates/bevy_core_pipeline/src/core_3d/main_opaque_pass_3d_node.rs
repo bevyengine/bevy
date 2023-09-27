@@ -119,7 +119,7 @@ impl ViewNode for MainOpaquePass3dNode {
         if let (Some(skybox_pipeline), Some(skybox_bind_group)) =
             (skybox_pipeline, skybox_bind_group)
         {
-            let pipeline_cache = world.resource::<PipelineCache>();
+            let pipeline_cache = world.resource::<PipelineCache>().into_inner();
             if let Some(pipeline) = pipeline_cache.get_render_pipeline(skybox_pipeline.0) {
                 render_pass.set_render_pipeline(pipeline);
                 render_pass.set_bind_group(0, &skybox_bind_group.0, &[view_uniform_offset.offset]);

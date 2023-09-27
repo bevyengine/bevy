@@ -472,7 +472,7 @@ unsafe fn initialize_render_app(app: &mut App) {
 /// the render schedule rather than during extraction to allow the commands to run in parallel with the
 /// main app when pipelined rendering is enabled.
 fn apply_extract_commands(render_world: &mut World) {
-    render_world.resource_scope(|render_world, mut schedules: Mut<Schedules>| {
+    render_world.resource_scope(|render_world, mut schedules: ResMut<Schedules>| {
         schedules
             .get_mut(&ExtractSchedule)
             .unwrap()

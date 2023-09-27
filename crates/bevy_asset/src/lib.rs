@@ -537,7 +537,7 @@ mod tests {
     const LARGE_ITERATION_COUNT: usize = 10000;
 
     fn get<A: Asset>(world: &World, id: AssetId<A>) -> Option<&A> {
-        world.resource::<Assets<A>>().get(id)
+        world.resource::<Assets<A>>().into_inner().get(id)
     }
 
     #[derive(Resource, Default)]
@@ -1018,6 +1018,7 @@ mod tests {
                 let text = app
                     .world
                     .resource::<Assets<CoolText>>()
+                    .into_inner()
                     .get(&handle)
                     .unwrap();
                 assert_eq!(text.text, hello);
@@ -1129,7 +1130,7 @@ mod tests {
             let asset_server = world.resource::<AssetServer>();
             let loaded_folders = world.resource::<Assets<LoadedFolder>>();
             let cool_texts = world.resource::<Assets<CoolText>>();
-            for event in reader.read(events) {
+            for event in reader.read(&events) {
                 if let AssetEvent::LoadedWithDependencies { id } = event {
                     if *id == handle.id() {
                         let loaded_folder = loaded_folders.get(&handle).unwrap();

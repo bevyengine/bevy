@@ -104,8 +104,8 @@ impl ViewNode for TonemappingNode {
                 ];
 
                 entries.extend(get_lut_bindings(
-                    gpu_images,
-                    tonemapping_luts,
+                    &gpu_images,
+                    &tonemapping_luts,
                     tonemapping,
                     [3, 4],
                 ));

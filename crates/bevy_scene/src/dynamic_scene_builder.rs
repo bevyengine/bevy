@@ -232,7 +232,11 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// [`allow`]: Self::allow
     /// [`deny`]: Self::deny
     pub fn extract_entities(&mut self, entities: impl Iterator<Item = Entity>) -> &mut Self {
-        let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
+        let type_registry = self
+            .original_world
+            .resource::<AppTypeRegistry>()
+            .into_inner()
+            .read();
 
         for entity in entities {
             if self.extracted_scene.contains_key(&entity) {
@@ -303,7 +307,11 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// [`allow_resource`]: Self::allow_resource
     /// [`deny_resource`]: Self::deny_resource
     pub fn extract_resources(&mut self) -> &mut Self {
-        let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
+        let type_registry = self
+            .original_world
+            .resource::<AppTypeRegistry>()
+            .into_inner()
+            .read();
 
         for (component_id, _) in self.original_world.storages().resources.iter() {
             let mut extract_and_push = || {

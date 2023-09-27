@@ -209,7 +209,7 @@ impl<'w> WorldCell<'w> {
 
         WorldBorrow::try_new(
             // SAFETY: access is checked by WorldBorrow
-            || unsafe { self.world.get_resource::<T>() },
+            || unsafe { self.world.get_resource::<T>() }.map(|res| res.into_inner()),
             archetype_component_id,
             self.access.clone(),
         )
@@ -243,7 +243,7 @@ impl<'w> WorldCell<'w> {
             .get_resource_archetype_component_id(component_id)?;
         WorldBorrowMut::try_new(
             // SAFETY: access is checked by WorldBorrowMut
-            || unsafe { self.world.get_resource_mut::<T>() },
+            || unsafe { self.world.get_resource_mut::<T>() }.map(|res| res.into()),
             archetype_component_id,
             self.access.clone(),
         )

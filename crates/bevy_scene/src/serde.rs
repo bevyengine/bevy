@@ -588,7 +588,7 @@ mod tests {
 )"#;
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let scene_deserializer = SceneDeserializer {
-            type_registry: &world.resource::<AppTypeRegistry>().read(),
+            type_registry: &world.resource::<AppTypeRegistry>().into_inner().read(),
         };
         let scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
 

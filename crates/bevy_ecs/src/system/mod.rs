@@ -1080,7 +1080,7 @@ mod tests {
         impl FromWorld for Foo {
             fn from_world(world: &mut World) -> Self {
                 Foo {
-                    value: world.resource::<ProtoFoo>().value + 1,
+                    value: world.resource::<ProtoFoo>().into_inner().value + 1,
                 }
             }
         }
@@ -1934,6 +1934,9 @@ mod tests {
         );
         sched.initialize(&mut world).unwrap();
         sched.run(&mut world);
-        assert_eq!(world.get_resource(), Some(&C(3)));
+        assert_eq!(
+            world.get_resource::<C>().map(|res| res.into_inner()),
+            Some(&C(3))
+        );
     }
 }

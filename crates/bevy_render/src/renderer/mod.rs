@@ -23,7 +23,7 @@ use wgpu::{
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
-    world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
+    world.resource_scope(|world, mut graph: ResMut<RenderGraph>| {
         graph.update(world);
     });
     let graph = world.resource::<RenderGraph>();
@@ -31,7 +31,7 @@ pub fn render_system(world: &mut World) {
     let render_queue = world.resource::<RenderQueue>();
 
     if let Err(e) = RenderGraphRunner::run(
-        graph,
+        &graph,
         render_device.clone(), // TODO: is this clone really necessary?
         &render_queue.0,
         world,

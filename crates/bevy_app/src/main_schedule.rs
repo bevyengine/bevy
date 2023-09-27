@@ -1,8 +1,8 @@
 use crate::{App, Plugin};
 use bevy_ecs::{
     schedule::{ExecutorKind, Schedule, ScheduleLabel},
-    system::{Local, Resource},
-    world::{Mut, World},
+    system::{Local, ResMut, Resource},
+    world::World,
 };
 
 /// The schedule that contains the app logic that is evaluated each tick of [`App::update()`].
@@ -147,7 +147,7 @@ impl Main {
             *run_at_least_once = true;
         }
 
-        world.resource_scope(|world, order: Mut<MainScheduleOrder>| {
+        world.resource_scope(|world, order: ResMut<MainScheduleOrder>| {
             for label in &order.labels {
                 let _ = world.try_run_schedule(&**label);
             }

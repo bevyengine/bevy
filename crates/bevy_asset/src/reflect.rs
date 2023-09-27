@@ -128,7 +128,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             handle_type_id: TypeId::of::<Handle<A>>(),
             assets_resource_type_id: TypeId::of::<Assets<A>>(),
             get: |world, handle| {
-                let assets = world.resource::<Assets<A>>();
+                let assets = world.resource::<Assets<A>>().into_inner();
                 let asset = assets.get(&handle.typed_debug_checked());
                 asset.map(|asset| asset as &dyn Reflect)
             },
@@ -156,7 +156,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                 assets.len()
             },
             ids: |world| {
-                let assets = world.resource::<Assets<A>>();
+                let assets = world.resource::<Assets<A>>().into_inner();
                 Box::new(assets.ids().map(|i| i.untyped()))
             },
             remove: |world, handle| {

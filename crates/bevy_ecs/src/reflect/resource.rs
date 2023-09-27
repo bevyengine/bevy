@@ -188,7 +188,11 @@ impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
             remove: |world| {
                 world.remove_resource::<C>();
             },
-            reflect: |world| world.get_resource::<C>().map(|res| res as &dyn Reflect),
+            reflect: |world| {
+                world
+                    .get_resource::<C>()
+                    .map(|res| res.into_inner() as &dyn Reflect)
+            },
             reflect_unchecked_mut: |world| {
                 // SAFETY: all usages of `reflect_unchecked_mut` guarantee that there is either a single mutable
                 // reference or multiple immutable ones alive at any given point
@@ -200,7 +204,7 @@ impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
                 }
             },
             copy: |source_world, destination_world| {
-                let source_resource = source_world.resource::<C>();
+                let source_resource = source_world.resource::<C>().into_inner();
                 let mut destination_resource = C::from_world(destination_world);
                 destination_resource.apply(source_resource);
                 destination_world.insert_resource(destination_resource);

@@ -341,7 +341,7 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
 
         MaterialPipeline {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
-            material_layout: M::bind_group_layout(render_device),
+            material_layout: M::bind_group_layout(&render_device),
             vertex_shader: match M::vertex_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),

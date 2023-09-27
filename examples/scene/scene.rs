@@ -121,7 +121,7 @@ fn save_scene_system(world: &mut World) {
     let scene = DynamicScene::from_world(&scene_world);
 
     // Scenes can be serialized like this:
-    let type_registry = world.resource::<AppTypeRegistry>();
+    let type_registry = world.resource::<AppTypeRegistry>().into_inner();
     let serialized_scene = scene.serialize_ron(type_registry).unwrap();
 
     // Showing the scene in the console

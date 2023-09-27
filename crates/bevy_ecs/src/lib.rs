@@ -71,8 +71,8 @@ mod tests {
         component::{Component, ComponentId},
         entity::Entity,
         query::{Added, Changed, FilteredAccess, ReadOnlyWorldQuery, With, Without},
-        system::Resource,
-        world::{EntityRef, Mut, World},
+        system::{ResMut, Resource},
+        world::{EntityRef, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use std::{
@@ -1145,7 +1145,7 @@ mod tests {
             "removed resource has the correct value"
         );
         assert_eq!(
-            world.get_resource::<BigNum>(),
+            world.get_resource::<BigNum>().map(|res| res.into_inner()),
             None,
             "removed resource no longer exists"
         );
@@ -1157,13 +1157,13 @@ mod tests {
 
         world.insert_resource(BigNum(1));
         assert_eq!(
-            world.get_resource::<BigNum>(),
+            world.get_resource::<BigNum>().map(|res| res.into_inner()),
             Some(&BigNum(1)),
             "re-inserting resources works"
         );
 
         assert_eq!(
-            world.get_resource::<Num>(),
+            world.get_resource::<Num>().map(|res| res.into_inner()),
             Some(&Num(123)),
             "other resources are unaffected"
         );
@@ -1409,7 +1409,7 @@ mod tests {
     fn resource_scope() {
         let mut world = World::default();
         world.insert_resource(A(0));
-        world.resource_scope(|world: &mut World, mut value: Mut<A>| {
+        world.resource_scope(|world: &mut World, mut value: ResMut<A>| {
             value.0 += 1;
             assert!(!world.contains_resource::<A>());
         });

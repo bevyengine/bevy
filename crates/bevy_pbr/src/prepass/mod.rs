@@ -320,7 +320,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                 ShaderRef::Handle(handle) => Some(handle),
                 ShaderRef::Path(path) => Some(asset_server.load(path)),
             },
-            material_layout: M::bind_group_layout(render_device),
+            material_layout: M::bind_group_layout(&render_device),
             material_pipeline: world.resource::<MaterialPipeline<M>>().clone(),
             _marker: PhantomData,
         }

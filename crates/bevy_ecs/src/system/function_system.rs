@@ -152,7 +152,7 @@ impl SystemMeta {
 /// });
 ///
 /// // Later, fetch the cached system state, saving on overhead
-/// world.resource_scope(|world, mut cached_state: Mut<CachedSystemState>| {
+/// world.resource_scope(|world, mut cached_state: ResMut<CachedSystemState>| {
 ///     let mut event_reader = cached_state.event_state.get_mut(world);
 ///
 ///     for events in event_reader.iter() {

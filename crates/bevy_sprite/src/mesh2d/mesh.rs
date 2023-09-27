@@ -110,7 +110,7 @@ impl Plugin for Mesh2dRenderPlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             if let Some(per_object_buffer_batch_size) = GpuArrayBuffer::<Mesh2dUniform>::batch_size(
-                render_app.world.resource::<RenderDevice>(),
+                render_app.world.resource::<RenderDevice>().into_inner(),
             ) {
                 mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
                     "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
@@ -120,7 +120,7 @@ impl Plugin for Mesh2dRenderPlugin {
 
             render_app
                 .insert_resource(GpuArrayBuffer::<Mesh2dUniform>::new(
-                    render_app.world.resource::<RenderDevice>(),
+                    render_app.world.resource::<RenderDevice>().into_inner(),
                 ))
                 .init_resource::<Mesh2dPipeline>();
         }

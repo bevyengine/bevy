@@ -1,6 +1,5 @@
-use crate::prelude::Mut;
 use crate::reflect::AppTypeRegistry;
-use crate::system::{Command, EntityCommands, Resource};
+use crate::system::{Command, EntityCommands, ResMut, Resource};
 use crate::{entity::Entity, reflect::ReflectComponent, world::World};
 use bevy_reflect::{Reflect, TypeRegistry};
 use std::borrow::Cow;
@@ -234,7 +233,7 @@ pub struct InsertReflectWithRegistry<T: Resource + AsRef<TypeRegistry>> {
 
 impl<T: Resource + AsRef<TypeRegistry>> Command for InsertReflectWithRegistry<T> {
     fn apply(self, world: &mut World) {
-        world.resource_scope(|world, registry: Mut<T>| {
+        world.resource_scope(|world, registry: ResMut<T>| {
             let registry: &TypeRegistry = registry.as_ref().as_ref();
             insert_reflect(world, self.entity, registry, self.component);
         });
@@ -299,7 +298,7 @@ pub struct RemoveReflectWithRegistry<T: Resource + AsRef<TypeRegistry>> {
 
 impl<T: Resource + AsRef<TypeRegistry>> Command for RemoveReflectWithRegistry<T> {
     fn apply(self, world: &mut World) {
-        world.resource_scope(|world, registry: Mut<T>| {
+        world.resource_scope(|world, registry: ResMut<T>| {
             let registry: &TypeRegistry = registry.as_ref().as_ref();
             remove_reflect(world, self.entity, registry, self.component_type_name);
         });

@@ -13,7 +13,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
     storage::{Column, ComponentSparseSet, Storages},
-    system::Resource,
+    system::{Res, ResMut, Resource},
 };
 use bevy_ptr::Ptr;
 use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
@@ -45,7 +45,7 @@ use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
 ///
 /// ```
 /// use bevy_ecs::world::World;
-/// use bevy_ecs::change_detection::Mut;
+/// use bevy_ecs::change_detection::ResMut;
 /// use bevy_ecs::system::Resource;
 /// use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 ///
@@ -55,7 +55,7 @@ use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
 /// struct OnlyComponentAccessWorld<'w>(UnsafeWorldCell<'w>);
 ///
 /// impl<'w> OnlyResourceAccessWorld<'w> {
-///     fn get_resource_mut<T: Resource>(&mut self) -> Option<Mut<'w, T>> {
+///     fn get_resource_mut<T: Resource>(&mut self) -> Option<ResMut<'w, T>> {
 ///         // SAFETY: resource access is allowed through this UnsafeWorldCell
 ///         unsafe { self.0.get_resource_mut::<T>() }
 ///     }
@@ -323,15 +323,22 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - the [`UnsafeWorldCell`] has permission to access the resource
     /// - no mutable reference to the resource exists at the same time
     #[inline]
-    pub unsafe fn get_resource<R: Resource>(self) -> Option<&'w R> {
+    pub unsafe fn get_resource<R: Resource>(self) -> Option<Res<'w, R>> {
         let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
+        let last_change_tick = self.last_change_tick();
+        let change_tick = self.change_tick();
+
         // SAFETY: caller ensures `self` has permission to access the resource
         //  caller also ensure that no mutable reference to the resource exists
-        unsafe {
-            self.get_resource_by_id(component_id)
-                // SAFETY: `component_id` was obtained from the type ID of `R`.
-                .map(|ptr| ptr.deref::<R>())
-        }
+        let (component_ptr, tick_cells) = unsafe { self.get_resource_with_ticks(component_id) }?;
+
+        // SAFETY: `component_id` was obtained from the type ID of `R`.
+        let value = unsafe { component_ptr.deref::<R>() };
+
+        // SAFETY: The caller ensures this will not interact with an existing mutable borrow.
+        let ticks = unsafe { Ticks::from_tick_cells(tick_cells, last_change_tick, change_tick) };
+
+        Some(Res { value, ticks })
     }
 
     /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
@@ -404,16 +411,18 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
     /// - no other references to the resource exist at the same time
     #[inline]
-    pub unsafe fn get_resource_mut<R: Resource>(self) -> Option<Mut<'w, R>> {
+    pub unsafe fn get_resource_mut<R: Resource>(self) -> Option<ResMut<'w, R>> {
         let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
+
         // SAFETY:
         // - caller ensures `self` has permission to access the resource mutably
         // - caller ensures no other references to the resource exist
-        unsafe {
-            self.get_resource_mut_by_id(component_id)
-                // `component_id` was gotten from `TypeId::of::<R>()`
-                .map(|ptr| ptr.with_type::<R>())
-        }
+        let data = unsafe { self.get_resource_mut_by_id(component_id) }?;
+
+        // SAFETY: `component_id` was gotten from `TypeId::of::<R>()`
+        let Mut { value, ticks } = unsafe { data.with_type::<R>() };
+
+        Some(ResMut { value, ticks })
     }
 
     /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
