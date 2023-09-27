@@ -95,6 +95,7 @@ pub fn extract_skins(
     joints: Extract<Query<&GlobalTransform>>,
 ) {
     uniform.buffer.clear();
+    skin_indices.clear();
     let mut last_start = 0;
 
     // PERF: This can be expensive, can we move this to prepare?
