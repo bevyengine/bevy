@@ -2,6 +2,7 @@
 #![warn(missing_docs)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![doc = include_str!("../README.md")]
+#![forbid(unsafe_op_in_unsafe_fn)]
 
 pub mod commands;
 /// The basic components of the transform crate

@@ -1,6 +1,7 @@
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 #![doc = include_str!("../README.md")]
+#![forbid(unsafe_op_in_unsafe_fn)]
 
 /// Common run conditions
 pub mod common_conditions;

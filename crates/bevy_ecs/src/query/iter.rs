@@ -34,9 +34,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
         QueryIter {
             query_state,
             // SAFETY: We only access table data that has been registered in `query_state`.
-            tables: &world.storages().tables,
+            tables: unsafe { &world.storages().tables },
             archetypes: world.archetypes(),
-            cursor: QueryIterationCursor::init(world, query_state, last_run, this_run),
+            // SAFETY: It is the caller's responsibility to uphold the invariants of `init`
+            cursor: unsafe { QueryIterationCursor::init(world, query_state, last_run, this_run) },
         }
     }
 }
@@ -99,15 +100,17 @@ where
         last_run: Tick,
         this_run: Tick,
     ) -> QueryManyIter<'w, 's, Q, F, I> {
-        let fetch = Q::init_fetch(world, &query_state.fetch_state, last_run, this_run);
-        let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
+        // SAFETY: It is the caller's responsibility to uphold the invariants of `init_fetch`
+        let fetch = unsafe { Q::init_fetch(world, &query_state.fetch_state, last_run, this_run) };
+        // SAFETY: It is the caller's responsibility to uphold the invariants of `init_fetch`
+        let filter = unsafe { F::init_fetch(world, &query_state.filter_state, last_run, this_run) };
         QueryManyIter {
             query_state,
             entities: world.entities(),
             archetypes: world.archetypes(),
             // SAFETY: We only access table data that has been registered in `query_state`.
             // This means `world` has permission to access the data we use.
-            tables: &world.storages().tables,
+            tables: unsafe { &world.storages().tables },
             fetch,
             filter,
             entity_iter: entity_list.into_iter(),
@@ -137,36 +140,43 @@ where
                 continue;
             }
 
-            let archetype = self
-                .archetypes
-                .get(location.archetype_id)
-                .debug_checked_unwrap();
-            let table = self.tables.get(location.table_id).debug_checked_unwrap();
+            // SAFETY: The archetype was checked above
+            let archetype = unsafe {
+                self.archetypes
+                    .get(location.archetype_id)
+                    .debug_checked_unwrap()
+            };
+            // SAFETY: The table is assumed to exist based on the archetype
+            let table = unsafe { self.tables.get(location.table_id).debug_checked_unwrap() };
 
             // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-            Q::set_archetype(
-                &mut self.fetch,
-                &self.query_state.fetch_state,
-                archetype,
-                table,
-            );
+            unsafe {
+                Q::set_archetype(
+                    &mut self.fetch,
+                    &self.query_state.fetch_state,
+                    archetype,
+                    table,
+                );
+            }
             // SAFETY: `table` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-            F::set_archetype(
-                &mut self.filter,
-                &self.query_state.filter_state,
-                archetype,
-                table,
-            );
+            unsafe {
+                F::set_archetype(
+                    &mut self.filter,
+                    &self.query_state.filter_state,
+                    archetype,
+                    table,
+                );
+            }
 
             // SAFETY: set_archetype was called prior.
             // `location.archetype_row` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
-            if F::filter_fetch(&mut self.filter, entity, location.table_row) {
+            if unsafe { F::filter_fetch(&mut self.filter, entity, location.table_row) } {
                 // SAFETY:
                 // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
                 // - fetch is only called once for each entity.
-                return Some(Q::fetch(&mut self.fetch, entity, location.table_row));
+                return unsafe { Some(Q::fetch(&mut self.fetch, entity, location.table_row)) };
             }
         }
         None
@@ -299,28 +309,35 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
             .as_mut_ptr()
             .cast::<QueryIterationCursor<'w, 's, Q, F>>();
         if K != 0 {
-            ptr.write(QueryIterationCursor::init(
-                world,
-                query_state,
-                last_run,
-                this_run,
-            ));
+            // SAFETY: It is the caller's responsibility to uphold the invariants of `write` and `init`
+            unsafe {
+                ptr.write(QueryIterationCursor::init(
+                    world,
+                    query_state,
+                    last_run,
+                    this_run,
+                ));
+            }
         }
-        for slot in (1..K).map(|offset| ptr.add(offset)) {
-            slot.write(QueryIterationCursor::init_empty(
-                world,
-                query_state,
-                last_run,
-                this_run,
-            ));
+        // SAFETY: The pointer is valid for all offsets between 1..K
+        unsafe {
+            for slot in (1..K).map(|offset| ptr.add(offset)) {
+                slot.write(QueryIterationCursor::init_empty(
+                    world,
+                    query_state,
+                    last_run,
+                    this_run,
+                ));
+            }
         }
 
         QueryCombinationIter {
             query_state,
             // SAFETY: We only access table data that has been registered in `query_state`.
-            tables: &world.storages().tables,
+            tables: unsafe { &world.storages().tables },
             archetypes: world.archetypes(),
-            cursors: array.assume_init(),
+            // SAFETY: The array is initialized above
+            cursors: unsafe { array.assume_init() },
         }
     }
 
@@ -343,11 +360,15 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
         // Make cursor in index `j` for all `j` in `[i, K)` a copy of `c` advanced `j-i+1` times.
         // If no such `c` exists, return `None`
         'outer: for i in (0..K).rev() {
-            match self.cursors[i].next(self.tables, self.archetypes, self.query_state) {
+            // SAFETY: Tables, Archetypes, and Query State are all matched
+            match unsafe { self.cursors[i].next(self.tables, self.archetypes, self.query_state) } {
                 Some(_) => {
                     for j in (i + 1)..K {
                         self.cursors[j] = self.cursors[j - 1].clone();
-                        match self.cursors[j].next(self.tables, self.archetypes, self.query_state) {
+                        // SAFETY: Tables, Archetypes, and Query State are all matched
+                        match unsafe {
+                            self.cursors[j].next(self.tables, self.archetypes, self.query_state)
+                        } {
                             Some(_) => {}
                             None if i > 0 => continue 'outer,
                             None => return None,
@@ -364,10 +385,14 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
 
         let ptr = values.as_mut_ptr().cast::<Q::Item<'w>>();
         for (offset, cursor) in self.cursors.iter_mut().enumerate() {
-            ptr.add(offset).write(cursor.peek_last().unwrap());
+            // SAFETY: Internally assured offsets are valid
+            unsafe {
+                ptr.add(offset).write(cursor.peek_last().unwrap());
+            }
         }
 
-        Some(values.assume_init())
+        // SAFETY: The values are initialized above
+        unsafe { Some(values.assume_init()) }
     }
 
     /// Get next combination of queried components
@@ -484,7 +509,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
         QueryIterationCursor {
             table_id_iter: [].iter(),
             archetype_id_iter: [].iter(),
-            ..Self::init(world, query_state, last_run, this_run)
+            // SAFETY: It is the caller's responsibility to uphold the invariants of `init`
+            ..unsafe { Self::init(world, query_state, last_run, this_run) }
         }
     }
 
@@ -497,8 +523,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
-        let fetch = Q::init_fetch(world, &query_state.fetch_state, last_run, this_run);
-        let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
+        // SAFETY: It is the caller's responsibility to uphold the invariants of `init_fetch`
+        let fetch = unsafe { Q::init_fetch(world, &query_state.fetch_state, last_run, this_run) };
+        // SAFETY: It is the caller's responsibility to uphold the invariants of `init_fetch`
+        let filter = unsafe { F::init_fetch(world, &query_state.filter_state, last_run, this_run) };
         QueryIterationCursor {
             fetch,
             filter,
@@ -515,17 +543,20 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     #[inline]
     unsafe fn peek_last(&mut self) -> Option<Q::Item<'w>> {
         if self.current_row > 0 {
-            let index = self.current_row - 1;
-            if Self::IS_DENSE {
-                let entity = self.table_entities.get_unchecked(index);
-                Some(Q::fetch(&mut self.fetch, *entity, TableRow::new(index)))
-            } else {
-                let archetype_entity = self.archetype_entities.get_unchecked(index);
-                Some(Q::fetch(
-                    &mut self.fetch,
-                    archetype_entity.entity(),
-                    archetype_entity.table_row(),
-                ))
+            // SAFETY: It is the caller's responsibility to uphold the invariants of `get_unchecked`, and `fetch`
+            unsafe {
+                let index = self.current_row - 1;
+                if Self::IS_DENSE {
+                    let entity = self.table_entities.get_unchecked(index);
+                    Some(Q::fetch(&mut self.fetch, *entity, TableRow::new(index)))
+                } else {
+                    let archetype_entity = self.archetype_entities.get_unchecked(index);
+                    Some(Q::fetch(
+                        &mut self.fetch,
+                        archetype_entity.entity(),
+                        archetype_entity.table_row(),
+                    ))
+                }
             }
         } else {
             None
@@ -565,11 +596,14 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_row == self.current_len {
                     let table_id = self.table_id_iter.next()?;
-                    let table = tables.get(*table_id).debug_checked_unwrap();
+                    // SAFETY: The caller ensures the tables are valid in this context
+                    let table = unsafe { tables.get(*table_id).debug_checked_unwrap() };
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                    Q::set_table(&mut self.fetch, &query_state.fetch_state, table);
-                    F::set_table(&mut self.filter, &query_state.filter_state, table);
+                    unsafe {
+                        Q::set_table(&mut self.fetch, &query_state.fetch_state, table);
+                        F::set_table(&mut self.filter, &query_state.filter_state, table);
+                    }
                     self.table_entities = table.entities();
                     self.current_len = table.entity_count();
                     self.current_row = 0;
@@ -578,9 +612,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
 
                 // SAFETY: set_table was called prior.
                 // `current_row` is a table row in range of the current table, because if it was not, then the if above would have been executed.
-                let entity = self.table_entities.get_unchecked(self.current_row);
+                let entity = unsafe { self.table_entities.get_unchecked(self.current_row) };
                 let row = TableRow::new(self.current_row);
-                if !F::filter_fetch(&mut self.filter, *entity, row) {
+                // SAFETY: It is the caller's responsibility to ensure the invariants for `filter_fetch` are upheld
+                if !unsafe { F::filter_fetch(&mut self.filter, *entity, row) } {
                     self.current_row += 1;
                     continue;
                 }
@@ -590,7 +625,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 // - `current_row` must be a table row in range of the current table,
                 //   because if it was not, then the if above would have been executed.
                 // - fetch is only called once for each `entity`.
-                let item = Q::fetch(&mut self.fetch, *entity, row);
+                let item = unsafe { Q::fetch(&mut self.fetch, *entity, row) };
 
                 self.current_row += 1;
                 return Some(item);
@@ -599,31 +634,45 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
             loop {
                 if self.current_row == self.current_len {
                     let archetype_id = self.archetype_id_iter.next()?;
-                    let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();
+                    // SAFETY: The caller ensures archetypes is valid in this context
+                    let archetype = unsafe { archetypes.get(*archetype_id).debug_checked_unwrap() };
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                    let table = tables.get(archetype.table_id()).debug_checked_unwrap();
-                    Q::set_archetype(&mut self.fetch, &query_state.fetch_state, archetype, table);
-                    F::set_archetype(
-                        &mut self.filter,
-                        &query_state.filter_state,
-                        archetype,
-                        table,
-                    );
+                    unsafe {
+                        let table = tables.get(archetype.table_id()).debug_checked_unwrap();
+                        Q::set_archetype(
+                            &mut self.fetch,
+                            &query_state.fetch_state,
+                            archetype,
+                            table,
+                        );
+                        F::set_archetype(
+                            &mut self.filter,
+                            &query_state.filter_state,
+                            archetype,
+                            table,
+                        );
+                    }
                     self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();
                     self.current_row = 0;
                     continue;
                 }
 
-                // SAFETY: set_archetype was called prior.
-                // `current_row` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
-                let archetype_entity = self.archetype_entities.get_unchecked(self.current_row);
-                if !F::filter_fetch(
-                    &mut self.filter,
-                    archetype_entity.entity(),
-                    archetype_entity.table_row(),
-                ) {
+                let archetype_entity = {
+                    // SAFETY: set_archetype was called prior.
+                    // `current_row` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
+                    unsafe { self.archetype_entities.get_unchecked(self.current_row) }
+                };
+
+                // SAFETY: It is the caller's responsibility to uphold the invariants of `filter_fetch`
+                if !unsafe {
+                    F::filter_fetch(
+                        &mut self.filter,
+                        archetype_entity.entity(),
+                        archetype_entity.table_row(),
+                    )
+                } {
                     self.current_row += 1;
                     continue;
                 }
@@ -633,11 +682,13 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 // - `current_row` must be an archetype index row in range of the current archetype,
                 //   because if it was not, then the if above would have been executed.
                 // - fetch is only called once for each `archetype_entity`.
-                let item = Q::fetch(
-                    &mut self.fetch,
-                    archetype_entity.entity(),
-                    archetype_entity.table_row(),
-                );
+                let item = unsafe {
+                    Q::fetch(
+                        &mut self.fetch,
+                        archetype_entity.entity(),
+                        archetype_entity.table_row(),
+                    )
+                };
                 self.current_row += 1;
                 return Some(item);
             }

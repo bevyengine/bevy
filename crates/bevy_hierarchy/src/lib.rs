@@ -1,5 +1,6 @@
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
+#![forbid(unsafe_op_in_unsafe_fn)]
 //! `bevy_hierarchy` can be used to define hierarchies of entities.
 //!
 //! Most commonly, these hierarchies are used for inheriting `Transform` values

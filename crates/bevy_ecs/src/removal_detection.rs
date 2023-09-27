@@ -274,6 +274,8 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        world.world_metadata().removed_components()
+        // SAFETY: no component value access, removed component events can be read in parallel and are
+        // never mutably borrowed during system execution
+        unsafe { world.world_metadata() }.removed_components()
     }
 }

@@ -1,4 +1,5 @@
 #![allow(clippy::type_complexity)]
+#![forbid(unsafe_op_in_unsafe_fn)]
 
 use bevy_macro_utils::BevyManifest;
 use encase_derive_impl::{implement, syn};

@@ -172,11 +172,17 @@ impl ComponentSparseSet {
         if let Some(&dense_index) = self.sparse.get(entity.index()) {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index as usize]);
-            self.dense
-                .replace(TableRow::new(dense_index as usize), value, change_tick);
+            // SAFETY: It is the caller's responsibility to uphold the invariants of `replace`
+            unsafe {
+                self.dense
+                    .replace(TableRow::new(dense_index as usize), value, change_tick);
+            }
         } else {
             let dense_index = self.dense.len();
-            self.dense.push(value, ComponentTicks::new(change_tick));
+            // SAFETY: It is the caller's responsibility to uphold the invariants of `push`
+            unsafe {
+                self.dense.push(value, ComponentTicks::new(change_tick));
+            }
             self.sparse.insert(entity.index(), dense_index as u32);
             #[cfg(debug_assertions)]
             assert_eq!(self.entities.len(), dense_index);

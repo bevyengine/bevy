@@ -42,7 +42,8 @@
     non_upper_case_globals,
     unused_mut,
     unused_assignments,
-    unused_variables
+    unused_variables,
+    unsafe_op_in_unsafe_fn
 )]
 
 use std::ptr::null_mut;

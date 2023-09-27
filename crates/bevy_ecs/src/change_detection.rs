@@ -417,11 +417,14 @@ impl<'a> Ticks<'a> {
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
-        Self {
-            added: cells.added.deref(),
-            changed: cells.changed.deref(),
-            last_run,
-            this_run,
+        // SAFETY: It is the caller's responsibility to uphold the invariants of `deref`
+        unsafe {
+            Self {
+                added: cells.added.deref(),
+                changed: cells.changed.deref(),
+                last_run,
+                this_run,
+            }
         }
     }
 }
@@ -442,11 +445,14 @@ impl<'a> TicksMut<'a> {
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
-        Self {
-            added: cells.added.deref_mut(),
-            changed: cells.changed.deref_mut(),
-            last_run,
-            this_run,
+        // SAFETY: It is the caller's responsibility to uphold the invariants of `deref_mut`
+        unsafe {
+            Self {
+                added: cells.added.deref_mut(),
+                changed: cells.changed.deref_mut(),
+                last_run,
+                this_run,
+            }
         }
     }
 }
@@ -847,9 +853,12 @@ impl<'a> MutUntyped<'a> {
     /// # Safety
     /// - `T` must be the erased pointee type for this [`MutUntyped`].
     pub unsafe fn with_type<T>(self) -> Mut<'a, T> {
-        Mut {
-            value: self.value.deref_mut(),
-            ticks: self.ticks,
+        // SAFETY: It is the responsibility of the caller to uphold the invariants of `deref_mut`
+        unsafe {
+            Mut {
+                value: self.value.deref_mut(),
+                ticks: self.ticks,
+            }
         }
     }
 }

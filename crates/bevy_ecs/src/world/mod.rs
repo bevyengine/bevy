@@ -763,14 +763,17 @@ impl World {
     /// must be called on an entity that was just allocated
     unsafe fn spawn_at_empty_internal(&mut self, entity: Entity) -> EntityWorldMut {
         let archetype = self.archetypes.empty_mut();
+        // SAFETY: This memory is immediately written to.
         // PERF: consider avoiding allocating entities in the empty archetype unless needed
-        let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
+        let table_row = unsafe { self.storages.tables[archetype.table_id()].allocate(entity) };
         // SAFETY: no components are allocated by archetype.allocate() because the archetype is
         // empty
-        let location = archetype.allocate(entity, table_row);
+        let location = unsafe { archetype.allocate(entity, table_row) };
         // SAFETY: entity index was just allocated
-        self.entities.set(entity.index(), location);
-        EntityWorldMut::new(self, entity, location)
+        unsafe {
+            self.entities.set(entity.index(), location);
+            EntityWorldMut::new(self, entity, location)
+        }
     }
 
     /// Spawns a batch of entities with the same component [`Bundle`] type. Takes a given
@@ -1633,8 +1636,10 @@ impl World {
         let change_tick = self.change_tick();
 
         // SAFETY: value is valid for component_id, ensured by caller
-        self.initialize_resource_internal(component_id)
-            .insert(value, change_tick);
+        unsafe {
+            self.initialize_resource_internal(component_id)
+                .insert(value, change_tick);
+        }
     }
 
     /// Inserts a new `!Send` resource with the given `value`. Will replace the value if it already
@@ -1658,8 +1663,10 @@ impl World {
         let change_tick = self.change_tick();
 
         // SAFETY: value is valid for component_id, ensured by caller
-        self.initialize_non_send_internal(component_id)
-            .insert(value, change_tick);
+        unsafe {
+            self.initialize_non_send_internal(component_id)
+                .insert(value, change_tick);
+        }
     }
 
     /// # Panics

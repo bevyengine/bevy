@@ -1,4 +1,5 @@
 #![allow(clippy::type_complexity)]
+#![forbid(unsafe_op_in_unsafe_fn)]
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;

@@ -24,11 +24,13 @@ pub enum DynamicPluginLoadError {
 pub unsafe fn dynamically_load_plugin<P: AsRef<OsStr>>(
     path: P,
 ) -> Result<(Library, Box<dyn Plugin>), DynamicPluginLoadError> {
-    let lib = Library::new(path).map_err(DynamicPluginLoadError::Library)?;
-    let func: Symbol<CreatePlugin> = lib
-        .get(b"_bevy_create_plugin")
-        .map_err(DynamicPluginLoadError::Plugin)?;
-    let plugin = Box::from_raw(func());
+    // SAFETY: the caller must uphold the safety contract for `new`.
+    let lib = unsafe { Library::new(path) }.map_err(DynamicPluginLoadError::Library)?;
+    // SAFETY: the caller must uphold the safety contract for `get`.
+    let func: Symbol<CreatePlugin> =
+        unsafe { lib.get(b"_bevy_create_plugin") }.map_err(DynamicPluginLoadError::Plugin)?;
+    // SAFETY: the caller must uphold the safety contract for `from_raw`.
+    let plugin = unsafe { Box::from_raw(func()) };
     Ok((lib, plugin))
 }
 
@@ -41,7 +43,8 @@ pub trait DynamicPluginExt {
 
 impl DynamicPluginExt for App {
     unsafe fn load_plugin<P: AsRef<OsStr>>(&mut self, path: P) -> &mut Self {
-        let (lib, plugin) = dynamically_load_plugin(path).unwrap();
+        // SAFETY: the caller must uphold the safety contract for `dynamically_load_plugin`.
+        let (lib, plugin) = unsafe { dynamically_load_plugin(path) }.unwrap();
         std::mem::forget(lib); // Ensure that the library is not automatically unloaded
         plugin.build(self);
         self

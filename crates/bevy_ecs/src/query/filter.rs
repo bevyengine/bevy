@@ -288,7 +288,8 @@ macro_rules! impl_query_filter_tuple {
             unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($filter,)*) = state;
                 ($(OrFetch {
-                    fetch: $filter::init_fetch(world, $filter, last_run, this_run),
+                    // SAFETY: It is the caller's responsibility to uphold the invariants of `init_fetch`
+                    fetch: unsafe { $filter::init_fetch(world, $filter, last_run, this_run) },
                     matches: false,
                 },)*)
             }
@@ -300,7 +301,8 @@ macro_rules! impl_query_filter_tuple {
                 $(
                     $filter.matches = $filter::matches_component_set($state, &|id| table.has_column(id));
                     if $filter.matches {
-                        $filter::set_table(&mut $filter.fetch, $state, table);
+                        // SAFETY: It is the caller's responsibility to uphold the invariants of `set_table`
+                        unsafe { $filter::set_table(&mut $filter.fetch, $state, table); }
                     }
                 )*
             }
@@ -317,7 +319,8 @@ macro_rules! impl_query_filter_tuple {
                 $(
                     $filter.matches = $filter::matches_component_set($state, &|id| archetype.contains(id));
                     if $filter.matches {
-                        $filter::set_archetype(&mut $filter.fetch, $state, archetype, table);
+                        // SAFETY: It is the caller's responsibility to uphold the invariants of `set_archetype`
+                        unsafe { $filter::set_archetype(&mut $filter.fetch, $state, archetype, table); }
                     }
                 )*
             }
@@ -329,7 +332,10 @@ macro_rules! impl_query_filter_tuple {
                 _table_row: TableRow
             ) -> Self::Item<'w> {
                 let ($($filter,)*) = fetch;
-                false $(|| ($filter.matches && $filter::filter_fetch(&mut $filter.fetch, _entity, _table_row)))*
+                false $(|| (
+                    // SAFETY: It is the caller's responsibility to uphold the invariants of `filter_fetch`
+                    $filter.matches && unsafe { $filter::filter_fetch(&mut $filter.fetch, _entity, _table_row) }
+                ))*
             }
 
             #[inline(always)]
@@ -338,7 +344,8 @@ macro_rules! impl_query_filter_tuple {
                 entity: Entity,
                 table_row: TableRow
             ) -> bool {
-                Self::fetch(fetch, entity, table_row)
+                // SAFETY: It is the caller's responsibility to uphold the invariants of `fetch`
+                unsafe { Self::fetch(fetch, entity, table_row) }
             }
 
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -427,11 +434,12 @@ macro_rules! impl_tick_filter {
                     table_ticks: None,
                     sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
                         .then(|| {
-                            world.unsafe_world()
+                            // SAFETY: It is the caller's responsibility to uphold the invariants of `fetch`
+                            unsafe { world.unsafe_world()
                                  .storages()
                                  .sparse_sets
                                  .get(id)
-                                 .debug_checked_unwrap()
+                                 .debug_checked_unwrap() }
                         }),
                     last_run,
                     this_run,
@@ -455,9 +463,10 @@ macro_rules! impl_tick_filter {
             ) {
                 fetch.table_ticks = Some(
                     $get_slice(
-                        &table
+                        // SAFETY: It is the caller's responsibility to uphold the invariants of `get_column`
+                        unsafe { &table
                             .get_column(component_id)
-                            .debug_checked_unwrap()
+                            .debug_checked_unwrap() }
                     ).into(),
                 );
             }
@@ -470,7 +479,8 @@ macro_rules! impl_tick_filter {
                 table: &'w Table
             ) {
                 if Self::IS_DENSE {
-                    Self::set_table(fetch, component_id, table);
+                    // SAFETY: It is the caller's responsibility to uphold the invariants of `set_table`
+                    unsafe { Self::set_table(fetch, component_id, table); }
                 }
             }
 
@@ -480,7 +490,8 @@ macro_rules! impl_tick_filter {
                 entity: Entity,
                 table_row: TableRow
             ) -> Self::Item<'w> {
-                match T::Storage::STORAGE_TYPE {
+                // SAFETY: It is the caller's responsibility to ensure the `fetch` is valid in this context
+                unsafe { match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
                         fetch
                             .table_ticks
@@ -498,7 +509,7 @@ macro_rules! impl_tick_filter {
                             .deref()
                             .is_newer_than(fetch.last_run, fetch.this_run)
                     }
-                }
+                } }
             }
 
             #[inline(always)]
@@ -507,7 +518,8 @@ macro_rules! impl_tick_filter {
                 entity: Entity,
                 table_row: TableRow
             ) -> bool {
-                Self::fetch(fetch, entity, table_row)
+                // SAFETY: It is the caller's responsibility to uphold the invariants of `set_table`
+                unsafe { Self::fetch(fetch, entity, table_row) }
             }
 
             #[inline]

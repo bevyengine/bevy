@@ -134,12 +134,14 @@ impl<const SEND: bool> ResourceData<SEND> {
     pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: Tick) {
         if self.is_present() {
             self.validate_access();
-            self.column.replace(Self::ROW, value, change_tick);
+            // SAFETY: It is the caller's responsibility to ensure `value` is valid for `replace`
+            unsafe { self.column.replace(Self::ROW, value, change_tick) };
         } else {
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());
             }
-            self.column.push(value, ComponentTicks::new(change_tick));
+            // SAFETY: It is the caller's responsibility to ensure `value` is valid for `push`
+            unsafe { self.column.push(value, ComponentTicks::new(change_tick)) };
         }
     }
 
@@ -160,17 +162,23 @@ impl<const SEND: bool> ResourceData<SEND> {
     ) {
         if self.is_present() {
             self.validate_access();
-            self.column.replace_untracked(Self::ROW, value);
-            *self.column.get_added_tick_unchecked(Self::ROW).deref_mut() = change_ticks.added;
-            *self
-                .column
-                .get_changed_tick_unchecked(Self::ROW)
-                .deref_mut() = change_ticks.changed;
+            // SAFETY: It is the caller's responsibility to ensure `value` is valid
+            unsafe {
+                self.column.replace_untracked(Self::ROW, value);
+                *self.column.get_added_tick_unchecked(Self::ROW).deref_mut() = change_ticks.added;
+                *self
+                    .column
+                    .get_changed_tick_unchecked(Self::ROW)
+                    .deref_mut() = change_ticks.changed;
+            }
         } else {
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());
             }
-            self.column.push(value, change_ticks);
+            // SAFETY: It is the caller's responsibility to ensure `value` is valid for `push`
+            unsafe {
+                self.column.push(value, change_ticks);
+            }
         }
     }
 

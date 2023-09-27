@@ -619,13 +619,16 @@ impl<'w> EntityWorldMut<'w> {
             change_tick,
         );
 
-        self.location = insert_dynamic_bundle(
-            bundle_inserter,
-            self.entity,
-            self.location,
-            Some(component).into_iter(),
-            Some(storage_type).into_iter(),
-        );
+        // SAFETY: The entity, storage, and bundle are all appropriate.
+        self.location = unsafe {
+            insert_dynamic_bundle(
+                bundle_inserter,
+                self.entity,
+                self.location,
+                Some(component).into_iter(),
+                Some(storage_type).into_iter(),
+            )
+        };
 
         self
     }
@@ -662,13 +665,16 @@ impl<'w> EntityWorldMut<'w> {
             change_tick,
         );
 
-        self.location = insert_dynamic_bundle(
-            bundle_inserter,
-            self.entity,
-            self.location,
-            iter_components,
-            storage_types.iter().cloned(),
-        );
+        // SAFETY: The entity, storage, and bundle are all appropriate.
+        self.location = unsafe {
+            insert_dynamic_bundle(
+                bundle_inserter,
+                self.entity,
+                self.location,
+                iter_components,
+                storage_types.iter().cloned(),
+            )
+        };
 
         self
     }
@@ -769,50 +775,59 @@ impl<'w> EntityWorldMut<'w> {
         if let Some(swapped_entity) = remove_result.swapped_entity {
             let swapped_location = entities.get(swapped_entity).unwrap();
 
-            entities.set(
-                swapped_entity.index(),
-                EntityLocation {
-                    archetype_id: swapped_location.archetype_id,
-                    archetype_row: old_location.archetype_row,
-                    table_id: swapped_location.table_id,
-                    table_row: swapped_location.table_row,
-                },
-            );
+            // SAFETY: Index and location are both valid.
+            unsafe {
+                entities.set(
+                    swapped_entity.index(),
+                    EntityLocation {
+                        archetype_id: swapped_location.archetype_id,
+                        archetype_row: old_location.archetype_row,
+                        table_id: swapped_location.table_id,
+                        table_row: swapped_location.table_row,
+                    },
+                );
+            }
         }
         let old_table_row = remove_result.table_row;
         let old_table_id = old_archetype.table_id();
         let new_archetype = &mut archetypes[new_archetype_id];
 
         let new_location = if old_table_id == new_archetype.table_id() {
-            new_archetype.allocate(entity, old_table_row)
+            // SAFETY: The allocation will be initialized below.
+            unsafe { new_archetype.allocate(entity, old_table_row) }
         } else {
             let (old_table, new_table) = storages
                 .tables
                 .get_2_mut(old_table_id, new_archetype.table_id());
 
             // SAFETY: old_table_row exists
-            let move_result = if DROP {
-                old_table.move_to_and_drop_missing_unchecked(old_table_row, new_table)
-            } else {
-                old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table)
+            let move_result = unsafe {
+                if DROP {
+                    old_table.move_to_and_drop_missing_unchecked(old_table_row, new_table)
+                } else {
+                    old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table)
+                }
             };
 
             // SAFETY: move_result.new_row is a valid position in new_archetype's table
-            let new_location = new_archetype.allocate(entity, move_result.new_row);
+            let new_location = unsafe { new_archetype.allocate(entity, move_result.new_row) };
 
             // if an entity was moved into this entity's table row, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
                 let swapped_location = entities.get(swapped_entity).unwrap();
 
-                entities.set(
-                    swapped_entity.index(),
-                    EntityLocation {
-                        archetype_id: swapped_location.archetype_id,
-                        archetype_row: swapped_location.archetype_row,
-                        table_id: swapped_location.table_id,
-                        table_row: old_location.table_row,
-                    },
-                );
+                // SAFETY: The above ensures location and index are valid
+                unsafe {
+                    entities.set(
+                        swapped_entity.index(),
+                        EntityLocation {
+                            archetype_id: swapped_location.archetype_id,
+                            archetype_row: swapped_location.archetype_row,
+                            table_id: swapped_location.table_id,
+                            table_row: old_location.table_row,
+                        },
+                    );
+                }
                 archetypes[swapped_location.archetype_id]
                     .set_entity_table_row(swapped_location.archetype_row, old_table_row);
             }
@@ -822,7 +837,9 @@ impl<'w> EntityWorldMut<'w> {
 
         *self_location = new_location;
         // SAFETY: The entity is valid and has been moved to the new location already.
-        entities.set(entity.index(), new_location);
+        unsafe {
+            entities.set(entity.index(), new_location);
+        }
     }
 
     /// Removes any components in the [`Bundle`] from the entity.
@@ -1113,7 +1130,7 @@ unsafe fn remove_bundle_from_archetype(
             for component_id in bundle_info.components().iter().cloned() {
                 if current_archetype.contains(component_id) {
                     // SAFETY: bundle components were already initialized by bundles.get_info
-                    let component_info = components.get_info_unchecked(component_id);
+                    let component_info = unsafe { components.get_info_unchecked(component_id) };
                     match component_info.storage_type() {
                         StorageType::Table => removed_table_components.push(component_id),
                         StorageType::SparseSet => removed_sparse_set_components.push(component_id),
@@ -1145,9 +1162,11 @@ unsafe fn remove_bundle_from_archetype(
                 current_archetype.table_id()
             } else {
                 // SAFETY: all components in next_table_components exist
-                storages
-                    .tables
-                    .get_id_or_insert(&next_table_components, components)
+                unsafe {
+                    storages
+                        .tables
+                        .get_id_or_insert(&next_table_components, components)
+                }
             };
         }
 
@@ -1208,7 +1227,7 @@ pub(crate) unsafe fn take_component<'a>(
     location: EntityLocation,
 ) -> OwningPtr<'a> {
     // SAFETY: caller promises component_id to be valid
-    let component_info = components.get_info_unchecked(component_id);
+    let component_info = unsafe { components.get_info_unchecked(component_id) };
     removed_components.send(component_id, entity);
     match component_info.storage_type() {
         StorageType::Table => {
@@ -1218,9 +1237,11 @@ pub(crate) unsafe fn take_component<'a>(
             // - archetypes only store valid table_rows
             // - index is in bounds as promised by caller
             // - promote is safe because the caller promises to remove the table row without dropping it immediately afterwards
-            components
-                .get_data_unchecked_mut(location.table_row)
-                .promote()
+            unsafe {
+                components
+                    .get_data_unchecked_mut(location.table_row)
+                    .promote()
+            }
         }
         StorageType::SparseSet => storages
             .sparse_sets

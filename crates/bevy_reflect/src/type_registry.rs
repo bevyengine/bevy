@@ -545,7 +545,8 @@ impl ReflectFromPtr {
     /// `val` must be a pointer to value of the type that the [`ReflectFromPtr`] was constructed for.
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
     pub unsafe fn as_reflect<'a>(&self, val: Ptr<'a>) -> &'a dyn Reflect {
-        (self.from_ptr)(val)
+        // SAFETY: the caller must uphold the safety contract for `from_ptr`.
+        unsafe { (self.from_ptr)(val) }
     }
 
     /// Convert `PtrMut` into `&mut dyn Reflect`.
@@ -555,7 +556,8 @@ impl ReflectFromPtr {
     /// `val` must be a pointer to a value of the type that the [`ReflectFromPtr`] was constructed for
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
     pub unsafe fn as_reflect_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
-        (self.from_ptr_mut)(val)
+        // SAFETY: the caller must uphold the safety contract for `from_ptr_mut`.
+        unsafe { (self.from_ptr_mut)(val) }
     }
     /// Get a function pointer to turn a `Ptr` into `&dyn Reflect` for
     /// the type this [`ReflectFromPtr`] was constructed for.

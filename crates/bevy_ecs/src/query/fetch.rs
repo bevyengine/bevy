@@ -570,9 +570,9 @@ unsafe impl WorldQuery for EntityRef<'_> {
         _table_row: TableRow,
     ) -> Self::Item<'w> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        let cell = world.get_entity(entity).debug_checked_unwrap();
+        let cell = unsafe { world.get_entity(entity).debug_checked_unwrap() };
         // SAFETY: Read-only access to every component has been registered.
-        EntityRef::new(cell)
+        unsafe { EntityRef::new(cell) }
     }
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -650,9 +650,9 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
         _table_row: TableRow,
     ) -> Self::Item<'w> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        let cell = world.get_entity(entity).debug_checked_unwrap();
+        let cell = unsafe { world.get_entity(entity).debug_checked_unwrap() };
         // SAFETY: mutable access to every component has been registered.
-        EntityMut::new(cell)
+        unsafe { EntityMut::new(cell) }
     }
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -728,15 +728,17 @@ unsafe impl<T: Component> WorldQuery for &T {
         ReadFetch {
             table_components: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                world
-                    // SAFETY: The underlying type associated with `component_id` is `T`,
-                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
-                    // Note that we do not actually access any components in this function, we just get a shared
-                    // reference to the sparse set, which is used to access the components in `Self::fetch`.
-                    .storages()
-                    .sparse_sets
-                    .get(component_id)
-                    .debug_checked_unwrap()
+                // SAFETY: The underlying type associated with `component_id` is `T`,
+                // which we are allowed to access since we registered it in `update_archetype_component_access`.
+                // Note that we do not actually access any components in this function, we just get a shared
+                // reference to the sparse set, which is used to access the components in `Self::fetch`.
+                unsafe {
+                    world
+                        .storages()
+                        .sparse_sets
+                        .get(component_id)
+                        .debug_checked_unwrap()
+                }
             }),
         }
     }
@@ -749,7 +751,10 @@ unsafe impl<T: Component> WorldQuery for &T {
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
-            Self::set_table(fetch, component_id, table);
+            // SAFETY: It is the caller's responsibility to uphold the invariants of `set_table`
+            unsafe {
+                Self::set_table(fetch, component_id, table);
+            }
         }
     }
 
@@ -760,11 +765,14 @@ unsafe impl<T: Component> WorldQuery for &T {
         table: &'w Table,
     ) {
         fetch.table_components = Some(
-            table
-                .get_column(component_id)
-                .debug_checked_unwrap()
-                .get_data_slice()
-                .into(),
+            // SAFETY: It is the caller's responsibility to uphold the invariants of `get_data_slice`
+            unsafe {
+                table
+                    .get_column(component_id)
+                    .debug_checked_unwrap()
+                    .get_data_slice()
+                    .into()
+            },
         );
     }
 
@@ -774,18 +782,21 @@ unsafe impl<T: Component> WorldQuery for &T {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => fetch
-                .table_components
-                .debug_checked_unwrap()
-                .get(table_row.index())
-                .deref(),
-            StorageType::SparseSet => fetch
-                .sparse_set
-                .debug_checked_unwrap()
-                .get(entity)
-                .debug_checked_unwrap()
-                .deref(),
+        // SAFETY: It is the caller's responsibility to uphold the invariants of `get`
+        unsafe {
+            match T::Storage::STORAGE_TYPE {
+                StorageType::Table => fetch
+                    .table_components
+                    .debug_checked_unwrap()
+                    .get(table_row.index())
+                    .deref(),
+                StorageType::SparseSet => fetch
+                    .sparse_set
+                    .debug_checked_unwrap()
+                    .get(entity)
+                    .debug_checked_unwrap()
+                    .deref(),
+            }
         }
     }
 
@@ -878,12 +889,14 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         RefFetch {
             table_data: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                world
-                    // SAFETY: See &T::init_fetch.
-                    .storages()
-                    .sparse_sets
-                    .get(component_id)
-                    .debug_checked_unwrap()
+                // SAFETY: See &T::init_fetch.
+                unsafe {
+                    world
+                        .storages()
+                        .sparse_sets
+                        .get(component_id)
+                        .debug_checked_unwrap()
+                }
             }),
             last_run,
             this_run,
@@ -898,7 +911,10 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
-            Self::set_table(fetch, component_id, table);
+            // SAFETY: It is the caller's responsibility to uphold the invariants of `set_table`
+            unsafe {
+                Self::set_table(fetch, component_id, table);
+            }
         }
     }
 
@@ -908,9 +924,11 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         &component_id: &ComponentId,
         table: &'w Table,
     ) {
-        let column = table.get_column(component_id).debug_checked_unwrap();
+        // SAFETY: It is the caller's responsibility to uphold the invariants of `get_column`
+        let column = unsafe { table.get_column(component_id).debug_checked_unwrap() };
         fetch.table_data = Some((
-            column.get_data_slice().into(),
+            // SAFETY: It is the caller's responsibility to uphold the invariants of `get_data_slice`
+            unsafe { column.get_data_slice() }.into(),
             column.get_added_ticks_slice().into(),
             column.get_changed_ticks_slice().into(),
         ));
@@ -925,26 +943,36 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
                 let (table_components, added_ticks, changed_ticks) =
-                    fetch.table_data.debug_checked_unwrap();
-                Ref {
-                    value: table_components.get(table_row.index()).deref(),
-                    ticks: Ticks {
-                        added: added_ticks.get(table_row.index()).deref(),
-                        changed: changed_ticks.get(table_row.index()).deref(),
-                        this_run: fetch.this_run,
-                        last_run: fetch.last_run,
-                    },
+                    // SAFETY: It is the caller's responsibility to ensure `table_data` is valid
+                    unsafe { fetch.table_data.debug_checked_unwrap() };
+                // SAFETY: It is the caller's responsibility to ensure the `table_data` can be packed into a `Ref`
+                unsafe {
+                    Ref {
+                        value: table_components.get(table_row.index()).deref(),
+                        ticks: Ticks {
+                            added: added_ticks.get(table_row.index()).deref(),
+                            changed: changed_ticks.get(table_row.index()).deref(),
+                            this_run: fetch.this_run,
+                            last_run: fetch.last_run,
+                        },
+                    }
                 }
             }
             StorageType::SparseSet => {
-                let (component, ticks) = fetch
-                    .sparse_set
-                    .debug_checked_unwrap()
-                    .get_with_ticks(entity)
-                    .debug_checked_unwrap();
-                Ref {
-                    value: component.deref(),
-                    ticks: Ticks::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
+                // SAFETY: It is the caller's responsibility to ensure `table_data` is valid
+                let (component, ticks) = unsafe {
+                    fetch
+                        .sparse_set
+                        .debug_checked_unwrap()
+                        .get_with_ticks(entity)
+                        .debug_checked_unwrap()
+                };
+                // SAFETY: It is the caller's responsibility to ensure the `sparse_set` can be packed into a `Ref`
+                unsafe {
+                    Ref {
+                        value: component.deref(),
+                        ticks: Ticks::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
+                    }
                 }
             }
         }
@@ -1039,12 +1067,14 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         WriteFetch {
             table_data: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                world
-                    // SAFETY: See &T::init_fetch.
-                    .storages()
-                    .sparse_sets
-                    .get(component_id)
-                    .debug_checked_unwrap()
+                // SAFETY: See &T::init_fetch.
+                unsafe {
+                    world
+                        .storages()
+                        .sparse_sets
+                        .get(component_id)
+                        .debug_checked_unwrap()
+                }
             }),
             last_run,
             this_run,
@@ -1059,7 +1089,10 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
-            Self::set_table(fetch, component_id, table);
+            // SAFETY: It is the caller's responsibility to uphold the invariants of `set_table`
+            unsafe {
+                Self::set_table(fetch, component_id, table);
+            }
         }
     }
 
@@ -1069,9 +1102,11 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         &component_id: &ComponentId,
         table: &'w Table,
     ) {
-        let column = table.get_column(component_id).debug_checked_unwrap();
+        // SAFETY: It is the caller's responsibility to uphold the invariantts of `get_column`
+        let column = unsafe { table.get_column(component_id).debug_checked_unwrap() };
         fetch.table_data = Some((
-            column.get_data_slice().into(),
+            // SAFETY: It is the caller's responsibility to uphold the invariants of `get_data_slice`
+            unsafe { column.get_data_slice() }.into(),
             column.get_added_ticks_slice().into(),
             column.get_changed_ticks_slice().into(),
         ));
@@ -1086,26 +1121,36 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
                 let (table_components, added_ticks, changed_ticks) =
-                    fetch.table_data.debug_checked_unwrap();
-                Mut {
-                    value: table_components.get(table_row.index()).deref_mut(),
-                    ticks: TicksMut {
-                        added: added_ticks.get(table_row.index()).deref_mut(),
-                        changed: changed_ticks.get(table_row.index()).deref_mut(),
-                        this_run: fetch.this_run,
-                        last_run: fetch.last_run,
-                    },
+                    // SAFETY: It is the caller's responsibility to ensure `table_data` is valid
+                    unsafe { fetch.table_data.debug_checked_unwrap() };
+                // SAFETY: It is the caller's responsibility to ensure a `Mut` can be constructed from `fetch`
+                unsafe {
+                    Mut {
+                        value: table_components.get(table_row.index()).deref_mut(),
+                        ticks: TicksMut {
+                            added: added_ticks.get(table_row.index()).deref_mut(),
+                            changed: changed_ticks.get(table_row.index()).deref_mut(),
+                            this_run: fetch.this_run,
+                            last_run: fetch.last_run,
+                        },
+                    }
                 }
             }
             StorageType::SparseSet => {
-                let (component, ticks) = fetch
-                    .sparse_set
-                    .debug_checked_unwrap()
-                    .get_with_ticks(entity)
-                    .debug_checked_unwrap();
-                Mut {
-                    value: component.assert_unique().deref_mut(),
-                    ticks: TicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
+                // SAFETY: It is the caller's responsibility to ensure `sparse_set` is valid
+                let (component, ticks) = unsafe {
+                    fetch
+                        .sparse_set
+                        .debug_checked_unwrap()
+                        .get_with_ticks(entity)
+                        .debug_checked_unwrap()
+                };
+                // SAFETY: It is the caller's responsibility to ensure a `Mut` can be constructed from `fetch`
+                unsafe {
+                    Mut {
+                        value: component.assert_unique().deref_mut(),
+                        ticks: TicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
+                    }
                 }
             }
         }
@@ -1183,7 +1228,8 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         this_run: Tick,
     ) -> OptionFetch<'w, T> {
         OptionFetch {
-            fetch: T::init_fetch(world, state, last_run, this_run),
+            // SAFETY: It is the caller's responsibility to uphold the invariants of `init_fetch`
+            fetch: unsafe { T::init_fetch(world, state, last_run, this_run) },
             matches: false,
         }
     }
@@ -1197,7 +1243,8 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     ) {
         fetch.matches = T::matches_component_set(state, &|id| archetype.contains(id));
         if fetch.matches {
-            T::set_archetype(&mut fetch.fetch, state, archetype, table);
+            // SAFETY: It is the caller's responsibility to uphold the invariants of `set_archetype`
+            unsafe { T::set_archetype(&mut fetch.fetch, state, archetype, table) };
         }
     }
 
@@ -1205,7 +1252,8 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     unsafe fn set_table<'w>(fetch: &mut OptionFetch<'w, T>, state: &T::State, table: &'w Table) {
         fetch.matches = T::matches_component_set(state, &|id| table.has_column(id));
         if fetch.matches {
-            T::set_table(&mut fetch.fetch, state, table);
+            // SAFETY: It is the caller's responsiblity to uphold the invariants of `set_table`
+            unsafe { T::set_table(&mut fetch.fetch, state, table) };
         }
     }
 
@@ -1215,9 +1263,10 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        fetch
-            .matches
-            .then(|| T::fetch(&mut fetch.fetch, entity, table_row))
+        fetch.matches.then(|| {
+            // SAFETY: It is the caller's responsibility to uphold the invariants of `fetch`
+            unsafe { T::fetch(&mut fetch.fetch, entity, table_row) }
+        })
     }
 
     fn update_component_access(state: &T::State, access: &mut FilteredAccess<ComponentId>) {
@@ -1418,7 +1467,10 @@ macro_rules! impl_tuple_fetch {
             #[allow(clippy::unused_unit)]
             unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
-                ($($name::init_fetch(_world, $name, _last_run, _this_run),)*)
+                ($(
+                    // SAFETY: It is the caller's responsibility to uphold `init_fetch`
+                    unsafe { $name::init_fetch(_world, $name, _last_run, _this_run) },
+                )*)
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
@@ -1434,14 +1486,20 @@ macro_rules! impl_tuple_fetch {
             ) {
                 let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
-                $($name::set_archetype($name, $state, _archetype, _table);)*
+                $(
+                    // SAFETY: It is the caller's responsibility to uphold the invariants of `set_archetype`
+                    unsafe { $name::set_archetype($name, $state, _archetype, _table); }
+                )*
             }
 
             #[inline]
             unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
                 let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
-                $($name::set_table($name, $state, _table);)*
+                $(
+                    // SAFETY: It is the caller's responsibility to uphold the invariants of `set_table`
+                    unsafe { $name::set_table($name, $state, _table); }
+                )*
             }
 
             #[inline(always)]
@@ -1452,7 +1510,10 @@ macro_rules! impl_tuple_fetch {
                 _table_row: TableRow
             ) -> Self::Item<'w> {
                 let ($($name,)*) = _fetch;
-                ($($name::fetch($name, _entity, _table_row),)*)
+                ($(
+                    // SAFETY: It is the caller's responsibility to uphold the invariants of `fetch`
+                    unsafe { $name::fetch($name, _entity, _table_row) },
+                )*)
             }
 
             #[inline(always)]
@@ -1462,7 +1523,10 @@ macro_rules! impl_tuple_fetch {
                 _table_row: TableRow
             ) -> bool {
                 let ($($name,)*) = _fetch;
-                true $(&& $name::filter_fetch($name, _entity, _table_row))*
+                true $(
+                    // SAFETY: It is the caller's responsibility to uphold the invariants of `filter_fetch`
+                    && unsafe { $name::filter_fetch($name, _entity, _table_row) }
+                )*
             }
 
             fn update_component_access(state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {
@@ -1521,7 +1585,13 @@ macro_rules! impl_anytuple_fetch {
             #[allow(clippy::unused_unit)]
             unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
-                ($(($name::init_fetch(_world, $name, _last_run, _this_run), false),)*)
+                ($(
+                    (
+                        // SAFETY: It is the caller's responsibility to uphold the invariants of `init_fetch`
+                        unsafe { $name::init_fetch(_world, $name, _last_run, _this_run) },
+                        false,
+                    ),
+                )*)
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
@@ -1540,7 +1610,8 @@ macro_rules! impl_anytuple_fetch {
                 $(
                     $name.1 = $name::matches_component_set($state, &|id| _archetype.contains(id));
                     if $name.1 {
-                        $name::set_archetype(&mut $name.0, $state, _archetype, _table);
+                        // SAFETY: It is the caller's responsibility to uphold the invariants of `set_archetype`
+                        unsafe { $name::set_archetype(&mut $name.0, $state, _archetype, _table); }
                     }
                 )*
             }
@@ -1552,7 +1623,8 @@ macro_rules! impl_anytuple_fetch {
                 $(
                     $name.1 = $name::matches_component_set($state, &|id| _table.has_column(id));
                     if $name.1 {
-                        $name::set_table(&mut $name.0, $state, _table);
+                        // SAFETY: It is the caller's responsibility to uphold the invariants of `set_table`
+                        unsafe { $name::set_table(&mut $name.0, $state, _table); }
                     }
                 )*
             }
@@ -1566,7 +1638,10 @@ macro_rules! impl_anytuple_fetch {
             ) -> Self::Item<'w> {
                 let ($($name,)*) = _fetch;
                 ($(
-                    $name.1.then(|| $name::fetch(&mut $name.0, _entity, _table_row)),
+                    $name.1.then(|| {
+                        // SAFETY: It is the caller's responsibility to uphold the invariants of `fetch`
+                        unsafe { $name::fetch(&mut $name.0, _entity, _table_row) }
+                    }),
                 )*)
             }
 

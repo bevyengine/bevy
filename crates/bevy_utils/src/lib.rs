@@ -5,6 +5,7 @@
 #![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 #![warn(clippy::undocumented_unsafe_blocks)]
+#![forbid(unsafe_op_in_unsafe_fn)]
 
 #[allow(missing_docs)]
 pub mod prelude {
