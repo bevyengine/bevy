@@ -265,14 +265,14 @@ where
 
     /// Run before all systems in `set`. This will add a [`apply_deferred`](crate::schedule::apply_deferred)
     /// on the edge if systems in the current set have deferred parameters. If this behavior is not desired
-    /// consider using ['before_ignore_deferred'](Self::before_ignore_deferred) instead.
+    /// consider using [`before_ignore_deferred`](Self::before_ignore_deferred) instead.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().before(set)
     }
 
     /// Run after all systems in `set`. This will add a [`apply_deferred`](crate::schedule::apply_deferred)
     /// on the edge if systems in `set` have deferred parameters. If this behavior is not desired
-    /// consider using ['after_ignore_deferred'](Self::after_ignore_deferred) instead.
+    /// consider using [`after_ignore_deferred`](Self::after_ignore_deferred) instead.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after(set)
     }
@@ -384,7 +384,7 @@ where
     ///
     /// Ordering constraints will be applied between the successive elements.
     ///
-    /// Unlike [`chain`](Self::chain) this will **not** add [`apply_deferred`] on the edges.
+    /// Unlike [`chain`](Self::chain) this will **not** add [`apply_deferred`](crate::schedule::apply_deferred) on the edges.
     fn chain_ignore_deferred(self) -> SystemConfigs {
         self.into_configs().chain_ignore_deferred()
     }
@@ -526,14 +526,14 @@ where
 
     /// Run before all systems in `set`. This will add a [`apply_deferred`](crate::schedule::apply_deferred)
     /// on the edge if systems in the current set have deferred parameters. If this behavior is not desired
-    /// consider using ['before_ignore_deferred'](Self::before_ignore_deferred) instead.
+    /// consider using [`before_ignore_deferred`](Self::before_ignore_deferred) instead.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
         self.into_configs().before(set)
     }
 
     /// Run after all systems in `set`. This will add a [`apply_deferred`](crate::schedule::apply_deferred)
     /// on the edge if systems in `set` have deferred parameters. If this behavior is not desired
-    /// consider using ['after_ignore_deferred'](Self::after_ignore_deferred) instead.
+    /// consider using [`after_ignore_deferred`](Self::after_ignore_deferred) instead.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
         self.into_configs().after(set)
     }
@@ -579,7 +579,7 @@ where
     ///
     /// Ordering constraints will be applied between the successive elements.
     ///
-    /// Unlike [`chain`](Self::chain) this will **not** add [`apply_deferred`] on the edges.
+    /// Unlike [`chain`](Self::chain) this will **not** add [`apply_deferred`](crate::schedule::apply_deferred) on the edges.
     fn chain_ignore_deferred(self) -> SystemConfigs {
         self.into_configs().chain_ignore_deferred()
     }

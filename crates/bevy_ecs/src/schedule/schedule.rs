@@ -2188,7 +2188,7 @@ mod tests {
                             |mut commands: Commands| commands.insert_resource(Ra),
                             |mut commands: Commands, res_a: Option<Res<Ra>>| {
                                 commands.insert_resource(Rb);
-                                assert!(res_a.is_some())
+                                assert!(res_a.is_some());
                             },
                         )
                             .chain(),
@@ -2214,7 +2214,7 @@ mod tests {
                             |mut commands: Commands| commands.insert_resource(Ra),
                             |mut commands: Commands, res_a: Option<Res<Ra>>| {
                                 commands.insert_resource(Rb);
-                                assert!(res_a.is_some())
+                                assert!(res_a.is_some());
                             },
                         )
                             .chain(),
@@ -2304,7 +2304,7 @@ mod tests {
                             |mut commands: Commands| commands.insert_resource(Ra),
                             |mut commands: Commands, res_a: Option<Res<Ra>>| {
                                 commands.insert_resource(Rb);
-                                assert!(res_a.is_some())
+                                assert!(res_a.is_some());
                             },
                         )
                             .chain(),
@@ -2337,7 +2337,7 @@ mod tests {
                             |mut commands: Commands| commands.insert_resource(Ra),
                             |mut commands: Commands, res_a: Option<Res<Ra>>| {
                                 commands.insert_resource(Rb);
-                                assert!(res_a.is_some())
+                                assert!(res_a.is_some());
                             },
                         )
                             .chain(),
