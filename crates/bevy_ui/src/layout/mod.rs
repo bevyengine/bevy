@@ -245,7 +245,7 @@ pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     style_query: Query<(Entity, Ref<Style>), With<Node>>,
-mut measure_query: Query<(Entity, &mut ContentSize)>,
+    mut measure_query: Query<(Entity, &mut ContentSize)>,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
     just_children_query: Query<&Children>,
     mut removed_children: RemovedComponents<Children>,
