@@ -21,9 +21,9 @@ use bevy::{
         Extract, Render, RenderApp, RenderSet,
     },
     sprite::{
-        DrawMesh2d, Material2dBindGroupId, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey,
-        Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, RenderMesh2dInstances,
-        SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+        extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dHandle, Mesh2dPipeline,
+        Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance,
+        RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
     },
     utils::FloatOrd,
 };
@@ -281,7 +281,10 @@ impl Plugin for ColoredMesh2dPlugin {
             .unwrap()
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
-            .add_systems(ExtractSchedule, extract_colored_mesh2d)
+            .add_systems(
+                ExtractSchedule,
+                extract_colored_mesh2d.after(extract_mesh2d),
+            )
             .add_systems(Render, queue_colored_mesh2d.in_set(RenderSet::QueueMeshes));
     }
 
@@ -304,8 +307,6 @@ pub fn extract_colored_mesh2d(
     >,
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
 ) {
-    render_mesh_instances.clear();
-
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, view_visibility, transform, handle) in &query {
         if !view_visibility.get() {
