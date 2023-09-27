@@ -157,6 +157,18 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
     }
 }
 
+/// Chain systems into dependencies
+#[derive(PartialEq)]
+pub enum Chain {
+    /// Run nodes in order. If there are deferred parameters in preceeding systems a
+    /// [`apply_deferred`] will be added on the edge.
+    Yes,
+    /// Run nodes in order. This will not add [`apply_deferred`] between nodes.
+    YesIgnoreDeferred,
+    /// Nodes are allowed to run in any order.
+    No,
+}
+
 /// A collection of systems, and the metadata and executor needed to run them
 /// in a certain order under certain conditions.
 ///
@@ -622,7 +634,7 @@ impl ScheduleGraph {
                 let mut config_iter = configs.into_iter();
                 let mut nodes_in_scope = Vec::new();
                 let mut densely_chained = true;
-                if chained {
+                if chained == Chain::Yes || chained == Chain::YesIgnoreDeferred {
                     let Some(prev) = config_iter.next() else {
                         return ProcessConfigsResult {
                             nodes: Vec::new(),
@@ -648,6 +660,11 @@ impl ScheduleGraph {
                                     *first_in_current,
                                     (),
                                 );
+
+                                if chained == Chain::YesIgnoreDeferred {
+                                    self.no_sync_edges
+                                        .insert((*last_in_prev, *first_in_current));
+                                }
                             }
                             // The previous group is "densely" chained, so we can simplify the graph by only
                             // chaining the last item from the previous list to every item in the current list
@@ -659,6 +676,10 @@ impl ScheduleGraph {
                                         *current_node,
                                         (),
                                     );
+
+                                    if chained == Chain::YesIgnoreDeferred {
+                                        self.no_sync_edges.insert((*last_in_prev, *current_node));
+                                    }
                                 }
                             }
                             // The current list is currently "densely" chained, so we can simplify the graph by
@@ -671,6 +692,11 @@ impl ScheduleGraph {
                                         *first_in_current,
                                         (),
                                     );
+
+                                    if chained == Chain::YesIgnoreDeferred {
+                                        self.no_sync_edges
+                                            .insert((*previous_node, *first_in_current));
+                                    }
                                 }
                             }
                             // Neither of the lists are "densely" chained, so we must chain every item in the first
@@ -683,6 +709,11 @@ impl ScheduleGraph {
                                             *current_node,
                                             (),
                                         );
+
+                                        if chained == Chain::YesIgnoreDeferred {
+                                            self.no_sync_edges
+                                                .insert((*previous_node, *current_node));
+                                        }
                                     }
                                 }
                             }
@@ -2075,6 +2106,261 @@ mod tests {
                         resource_does_not_exist.in_set(Sets::B),
                     ))
                     .configure_sets(Sets::A.before_ignore_deferred(Sets::B));
+            });
+        }
+    }
+
+    mod no_sync_chain {
+        use super::*;
+
+        #[derive(Resource)]
+        struct Ra;
+
+        #[derive(Resource)]
+        struct Rb;
+
+        #[derive(Resource)]
+        struct Rc;
+
+        fn run_schedule(expected_num_systems: usize, add_systems: impl FnOnce(&mut Schedule)) {
+            let mut schedule = Schedule::default();
+            let mut world = World::default();
+            add_systems(&mut schedule);
+
+            schedule.run(&mut world);
+
+            assert_eq!(schedule.executable.systems.len(), expected_num_systems);
+        }
+
+        #[test]
+        fn only_chain_outside() {
+            run_schedule(5, |schedule: &mut Schedule| {
+                schedule.add_systems(
+                    (
+                        (
+                            |mut commands: Commands| commands.insert_resource(Ra),
+                            |mut commands: Commands| commands.insert_resource(Rb),
+                        ),
+                        (
+                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                            },
+                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                            },
+                        ),
+                    )
+                        .chain(),
+                );
+            });
+
+            run_schedule(4, |schedule: &mut Schedule| {
+                schedule.add_systems(
+                    (
+                        (
+                            |mut commands: Commands| commands.insert_resource(Ra),
+                            |mut commands: Commands| commands.insert_resource(Rb),
+                        ),
+                        (
+                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                                assert!(res_a.is_none());
+                                assert!(res_b.is_none());
+                            },
+                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                                assert!(res_a.is_none());
+                                assert!(res_b.is_none());
+                            },
+                        ),
+                    )
+                        .chain_ignore_deferred(),
+                );
+            });
+        }
+
+        #[test]
+        fn chain_first() {
+            run_schedule(6, |schedule: &mut Schedule| {
+                schedule.add_systems(
+                    (
+                        (
+                            |mut commands: Commands| commands.insert_resource(Ra),
+                            |mut commands: Commands, res_a: Option<Res<Ra>>| {
+                                commands.insert_resource(Rb);
+                                assert!(res_a.is_some())
+                            },
+                        )
+                            .chain(),
+                        (
+                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                            },
+                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                            },
+                        ),
+                    )
+                        .chain(),
+                );
+            });
+
+            run_schedule(5, |schedule: &mut Schedule| {
+                schedule.add_systems(
+                    (
+                        (
+                            |mut commands: Commands| commands.insert_resource(Ra),
+                            |mut commands: Commands, res_a: Option<Res<Ra>>| {
+                                commands.insert_resource(Rb);
+                                assert!(res_a.is_some())
+                            },
+                        )
+                            .chain(),
+                        (
+                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_none());
+                            },
+                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_none());
+                            },
+                        ),
+                    )
+                        .chain_ignore_deferred(),
+                );
+            });
+        }
+
+        #[test]
+        fn chain_second() {
+            run_schedule(6, |schedule: &mut Schedule| {
+                schedule.add_systems(
+                    (
+                        (
+                            |mut commands: Commands| commands.insert_resource(Ra),
+                            |mut commands: Commands| commands.insert_resource(Rb),
+                        ),
+                        (
+                            |mut commands: Commands,
+                             res_a: Option<Res<Ra>>,
+                             res_b: Option<Res<Rb>>| {
+                                commands.insert_resource(Rc);
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                            },
+                            |res_a: Option<Res<Ra>>,
+                             res_b: Option<Res<Rb>>,
+                             res_c: Option<Res<Rc>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                                assert!(res_c.is_some());
+                            },
+                        )
+                            .chain(),
+                    )
+                        .chain(),
+                );
+            });
+
+            run_schedule(5, |schedule: &mut Schedule| {
+                schedule.add_systems(
+                    (
+                        (
+                            |mut commands: Commands| commands.insert_resource(Ra),
+                            |mut commands: Commands| commands.insert_resource(Rb),
+                        ),
+                        (
+                            |mut commands: Commands,
+                             res_a: Option<Res<Ra>>,
+                             res_b: Option<Res<Rb>>| {
+                                commands.insert_resource(Rc);
+                                assert!(res_a.is_none());
+                                assert!(res_b.is_none());
+                            },
+                            |res_a: Option<Res<Ra>>,
+                             res_b: Option<Res<Rb>>,
+                             res_c: Option<Res<Rc>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                                assert!(res_c.is_some());
+                            },
+                        )
+                            .chain(),
+                    )
+                        .chain_ignore_deferred(),
+                );
+            });
+        }
+
+        #[test]
+        fn chain_all() {
+            run_schedule(7, |schedule: &mut Schedule| {
+                schedule.add_systems(
+                    (
+                        (
+                            |mut commands: Commands| commands.insert_resource(Ra),
+                            |mut commands: Commands, res_a: Option<Res<Ra>>| {
+                                commands.insert_resource(Rb);
+                                assert!(res_a.is_some())
+                            },
+                        )
+                            .chain(),
+                        (
+                            |mut commands: Commands,
+                             res_a: Option<Res<Ra>>,
+                             res_b: Option<Res<Rb>>| {
+                                commands.insert_resource(Rc);
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                            },
+                            |res_a: Option<Res<Ra>>,
+                             res_b: Option<Res<Rb>>,
+                             res_c: Option<Res<Rc>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                                assert!(res_c.is_some());
+                            },
+                        )
+                            .chain(),
+                    )
+                        .chain(),
+                );
+            });
+
+            run_schedule(6, |schedule: &mut Schedule| {
+                schedule.add_systems(
+                    (
+                        (
+                            |mut commands: Commands| commands.insert_resource(Ra),
+                            |mut commands: Commands, res_a: Option<Res<Ra>>| {
+                                commands.insert_resource(Rb);
+                                assert!(res_a.is_some())
+                            },
+                        )
+                            .chain(),
+                        (
+                            |mut commands: Commands,
+                             res_a: Option<Res<Ra>>,
+                             res_b: Option<Res<Rb>>| {
+                                commands.insert_resource(Rc);
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_none());
+                            },
+                            |res_a: Option<Res<Ra>>,
+                             res_b: Option<Res<Rb>>,
+                             res_c: Option<Res<Rc>>| {
+                                assert!(res_a.is_some());
+                                assert!(res_b.is_some());
+                                assert!(res_c.is_some());
+                            },
+                        )
+                            .chain(),
+                    )
+                        .chain_ignore_deferred(),
+                );
             });
         }
     }
