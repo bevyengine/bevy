@@ -1,4 +1,5 @@
 use bevy_asset::Assets;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_render::{
@@ -10,6 +11,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::prelude::GlobalTransform;
+use bevy_utils::EntityHashMap;
 
 /// Maximum number of joints supported for skinned meshes.
 pub const MAX_JOINTS: usize = 256;
@@ -18,6 +20,7 @@ pub const MAX_JOINTS: usize = 256;
 pub struct SkinIndex {
     pub index: u32,
 }
+
 impl SkinIndex {
     /// Index to be in address space based on [`SkinUniform`] size.
     const fn new(start: usize) -> Self {
@@ -27,11 +30,15 @@ impl SkinIndex {
     }
 }
 
+#[derive(Default, Resource, Deref, DerefMut)]
+pub struct SkinIndices(EntityHashMap<Entity, SkinIndex>);
+
 // Notes on implementation: see comment on top of the `extract_skins` system.
 #[derive(Resource)]
 pub struct SkinUniform {
     pub buffer: BufferVec<Mat4>,
 }
+
 impl Default for SkinUniform {
     fn default() -> Self {
         Self {
@@ -81,16 +88,14 @@ pub fn prepare_skins(
 // which normally only support fixed size arrays. You just have to make sure
 // in the shader that you only read the values that are valid for that binding.
 pub fn extract_skins(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
+    mut skin_indices: ResMut<SkinIndices>,
     mut uniform: ResMut<SkinUniform>,
     query: Extract<Query<(Entity, &ViewVisibility, &SkinnedMesh)>>,
     inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
     joints: Extract<Query<&GlobalTransform>>,
 ) {
     uniform.buffer.clear();
-
-    let mut values = Vec::with_capacity(*previous_len);
+    skin_indices.clear();
     let mut last_start = 0;
 
     // PERF: This can be expensive, can we move this to prepare?
@@ -124,16 +129,23 @@ pub fn extract_skins(
         while buffer.len() % 4 != 0 {
             buffer.push(Mat4::ZERO);
         }
-        // NOTE: The skinned joints uniform buffer has to be bound at a dynamic offset per
-        // entity and so cannot currently be batched.
-        values.push((entity, (SkinIndex::new(start), NoAutomaticBatching)));
+
+        skin_indices.insert(entity, SkinIndex::new(start));
     }
 
     // Pad out the buffer to ensure that there's enough space for bindings
     while uniform.buffer.len() - last_start < MAX_JOINTS {
         uniform.buffer.push(Mat4::ZERO);
     }
+}
 
-    *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
+// NOTE: The skinned joints uniform buffer has to be bound at a dynamic offset per
+// entity and so cannot currently be batched.
+pub fn no_automatic_skin_batching(
+    mut commands: Commands,
+    query: Query<Entity, (With<SkinnedMesh>, Without<NoAutomaticBatching>)>,
+) {
+    for entity in &query {
+        commands.entity(entity).insert(NoAutomaticBatching);
+    }
 }

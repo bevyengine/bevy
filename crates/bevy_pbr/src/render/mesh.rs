@@ -5,7 +5,7 @@ use crate::{
     ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
-use bevy_app::Plugin;
+use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
@@ -14,6 +14,7 @@ use bevy_core_pipeline::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
     },
 };
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
     query::{QueryItem, ROQueryItem},
@@ -21,7 +22,10 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Vec2, Vec4};
 use bevy_render::{
-    batching::{batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData},
+    batching::{
+        batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
+        NoAutomaticBatching,
+    },
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
         GpuBufferInfo, InnerMeshVertexBufferLayout, Mesh, MeshVertexBufferLayout,
@@ -40,13 +44,17 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, HashMap, Hashed};
+use bevy_utils::{tracing::error, EntityHashMap, HashMap, Hashed};
 
 use crate::render::{
-    morph::{extract_morphs, prepare_morphs, MorphIndex, MorphUniform},
-    skin::{extract_skins, prepare_skins, SkinIndex, SkinUniform},
+    morph::{
+        extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices, MorphUniform,
+    },
+    skin::{extract_skins, no_automatic_skin_batching, prepare_skins, SkinUniform},
     MeshLayouts,
 };
+
+use super::skin::SkinIndices;
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;
@@ -102,11 +110,19 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, MORPH_HANDLE, "morph.wgsl", Shader::from_wgsl);
 
+        app.add_systems(
+            PostUpdate,
+            (no_automatic_skin_batching, no_automatic_morph_batching),
+        );
+
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_resource::<RenderMeshInstances>()
                 .init_resource::<MeshBindGroups>()
                 .init_resource::<SkinUniform>()
+                .init_resource::<SkinIndices>()
                 .init_resource::<MorphUniform>()
+                .init_resource::<MorphIndices>()
                 .add_systems(
                     ExtractSchedule,
                     (extract_meshes, extract_skins, extract_morphs),
@@ -212,10 +228,24 @@ bitflags::bitflags! {
     }
 }
 
+pub struct RenderMeshInstance {
+    pub transforms: MeshTransforms,
+    pub mesh_asset_id: AssetId<Mesh>,
+    pub material_bind_group_id: MaterialBindGroupId,
+    pub shadow_caster: bool,
+    pub automatic_batching: bool,
+}
+
+#[derive(Default, Resource, Deref, DerefMut)]
+pub struct RenderMeshInstances(EntityHashMap<Entity, RenderMeshInstance>);
+
+#[derive(Component)]
+pub struct Mesh3d;
+
 pub fn extract_meshes(
     mut commands: Commands,
-    mut prev_caster_commands_len: Local<usize>,
-    mut prev_not_caster_commands_len: Local<usize>,
+    mut previous_len: Local<usize>,
+    mut render_mesh_instances: ResMut<RenderMeshInstances>,
     meshes_query: Extract<
         Query<(
             Entity,
@@ -225,15 +255,25 @@ pub fn extract_meshes(
             &Handle<Mesh>,
             Option<With<NotShadowReceiver>>,
             Option<With<NotShadowCaster>>,
+            Has<NoAutomaticBatching>,
         )>,
     >,
 ) {
-    let mut caster_commands = Vec::with_capacity(*prev_caster_commands_len);
-    let mut not_caster_commands = Vec::with_capacity(*prev_not_caster_commands_len);
+    render_mesh_instances.clear();
+    let mut entities = Vec::with_capacity(*previous_len);
+
     let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.get());
 
-    for (entity, _, transform, previous_transform, handle, not_receiver, not_caster) in
-        visible_meshes
+    for (
+        entity,
+        _,
+        transform,
+        previous_transform,
+        handle,
+        not_receiver,
+        not_caster,
+        no_automatic_batching,
+    ) in visible_meshes
     {
         let transform = transform.affine();
         let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
@@ -250,16 +290,22 @@ pub fn extract_meshes(
             previous_transform: (&previous_transform).into(),
             flags: flags.bits(),
         };
-        if not_caster.is_some() {
-            not_caster_commands.push((entity, (handle.clone_weak(), transforms, NotShadowCaster)));
-        } else {
-            caster_commands.push((entity, (handle.clone_weak(), transforms)));
-        }
+        // FIXME: Remove this - it is just a workaround to enable rendering to work as
+        // render commands require an entity to exist at the moment.
+        entities.push((entity, Mesh3d));
+        render_mesh_instances.insert(
+            entity,
+            RenderMeshInstance {
+                mesh_asset_id: handle.id(),
+                transforms,
+                shadow_caster: not_caster.is_none(),
+                material_bind_group_id: MaterialBindGroupId::default(),
+                automatic_batching: !no_automatic_batching,
+            },
+        );
     }
-    *prev_caster_commands_len = caster_commands.len();
-    *prev_not_caster_commands_len = not_caster_commands.len();
-    commands.insert_or_spawn_batch(caster_commands);
-    commands.insert_or_spawn_batch(not_caster_commands);
+    *previous_len = entities.len();
+    commands.insert_or_spawn_batch(entities);
 }
 
 #[derive(Resource, Clone)]
@@ -545,22 +591,26 @@ impl MeshPipeline {
 }
 
 impl GetBatchData for MeshPipeline {
-    type Query = (
-        Option<&'static MaterialBindGroupId>,
-        &'static Handle<Mesh>,
-        &'static MeshTransforms,
-    );
-    type CompareData = (Option<MaterialBindGroupId>, AssetId<Mesh>);
+    type Param = SRes<RenderMeshInstances>;
+    type Query = Entity;
+    type QueryFilter = With<Mesh3d>;
+    type CompareData = (MaterialBindGroupId, AssetId<Mesh>);
     type BufferData = MeshUniform;
 
-    fn get_buffer_data(&(.., mesh_transforms): &QueryItem<Self::Query>) -> Self::BufferData {
-        mesh_transforms.into()
-    }
-
-    fn get_compare_data(
-        &(material_bind_group_id, mesh_handle, ..): &QueryItem<Self::Query>,
-    ) -> Self::CompareData {
-        (material_bind_group_id.copied(), mesh_handle.id())
+    fn get_batch_data(
+        mesh_instances: &SystemParamItem<Self::Param>,
+        entity: &QueryItem<Self::Query>,
+    ) -> (Self::BufferData, Option<Self::CompareData>) {
+        let mesh_instance = mesh_instances
+            .get(entity)
+            .expect("Failed to find render mesh instance");
+        (
+            (&mesh_instance.transforms).into(),
+            mesh_instance.automatic_batching.then_some((
+                mesh_instance.material_bind_group_id,
+                mesh_instance.mesh_asset_id,
+            )),
+        )
     }
 }
 
@@ -932,12 +982,12 @@ impl MeshBindGroups {
     /// Get the `BindGroup` for `GpuMesh` with given `handle_id`.
     pub fn get(
         &self,
-        handle_id: AssetId<Mesh>,
+        asset_id: AssetId<Mesh>,
         is_skinned: bool,
         morph: bool,
     ) -> Option<&BindGroup> {
         match (is_skinned, morph) {
-            (_, true) => self.morph_targets.get(&handle_id),
+            (_, true) => self.morph_targets.get(&asset_id),
             (true, false) => self.skinned.as_ref(),
             (false, false) => self.model_only.as_ref(),
         }
@@ -1176,27 +1226,44 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
 
 pub struct SetMeshBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
-    type Param = SRes<MeshBindGroups>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = (
-        Read<Handle<Mesh>>,
-        Option<Read<SkinIndex>>,
-        Option<Read<MorphIndex>>,
+    type Param = (
+        SRes<MeshBindGroups>,
+        SRes<RenderMeshInstances>,
+        SRes<SkinIndices>,
+        SRes<MorphIndices>,
     );
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = ();
 
     #[inline]
     fn render<'w>(
         item: &P,
         _view: (),
-        (mesh, skin_index, morph_index): ROQueryItem<Self::ItemWorldQuery>,
-        bind_groups: SystemParamItem<'w, '_, Self::Param>,
+        _item_query: (),
+        (bind_groups, mesh_instances, skin_indices, morph_indices): SystemParamItem<
+            'w,
+            '_,
+            Self::Param,
+        >,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let bind_groups = bind_groups.into_inner();
+        let mesh_instances = mesh_instances.into_inner();
+        let skin_indices = skin_indices.into_inner();
+        let morph_indices = morph_indices.into_inner();
+
+        let entity = &item.entity();
+
+        let Some(mesh) = mesh_instances.get(entity) else {
+            return RenderCommandResult::Success;
+        };
+        let skin_index = skin_indices.get(entity);
+        let morph_index = morph_indices.get(entity);
+
         let is_skinned = skin_index.is_some();
         let is_morphed = morph_index.is_some();
 
-        let Some(bind_group) = bind_groups.get(mesh.id(), is_skinned, is_morphed) else {
+        let Some(bind_group) = bind_groups.get(mesh.mesh_asset_id, is_skinned, is_morphed) else {
             error!(
                 "The MeshBindGroups resource wasn't set in the render phase. \
                 It should be set by the queue_mesh_bind_group system.\n\
@@ -1227,43 +1294,50 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 
 pub struct DrawMesh;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
-    type Param = SRes<RenderAssets<Mesh>>;
+    type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMeshInstances>);
     type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<Handle<Mesh>>;
+    type ItemWorldQuery = ();
     #[inline]
     fn render<'w>(
         item: &P,
         _view: (),
-        mesh_handle: ROQueryItem<'_, Self::ItemWorldQuery>,
-        meshes: SystemParamItem<'w, '_, Self::Param>,
+        _item_query: (),
+        (meshes, mesh_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
-            let batch_range = item.batch_range();
-            pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-            pass.set_push_constants(
-                ShaderStages::VERTEX,
-                0,
-                &(batch_range.start as i32).to_le_bytes(),
-            );
-            match &gpu_mesh.buffer_info {
-                GpuBufferInfo::Indexed {
-                    buffer,
-                    index_format,
-                    count,
-                } => {
-                    pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                    pass.draw_indexed(0..*count, 0, batch_range.clone());
-                }
-                GpuBufferInfo::NonIndexed => {
-                    pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
-                }
+        let meshes = meshes.into_inner();
+        let mesh_instances = mesh_instances.into_inner();
+
+        let Some(mesh_instance) = mesh_instances.get(&item.entity()) else {
+            return RenderCommandResult::Failure;
+        };
+        let Some(gpu_mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
+            return RenderCommandResult::Failure;
+        };
+
+        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+
+        let batch_range = item.batch_range();
+        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        pass.set_push_constants(
+            ShaderStages::VERTEX,
+            0,
+            &(batch_range.start as i32).to_le_bytes(),
+        );
+        match &gpu_mesh.buffer_info {
+            GpuBufferInfo::Indexed {
+                buffer,
+                index_format,
+                count,
+            } => {
+                pass.set_index_buffer(buffer.slice(..), 0, *index_format);
+                pass.draw_indexed(0..*count, 0, batch_range.clone());
             }
-            RenderCommandResult::Success
-        } else {
-            RenderCommandResult::Failure
+            GpuBufferInfo::NonIndexed => {
+                pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
+            }
         }
+        RenderCommandResult::Success
     }
 }
 

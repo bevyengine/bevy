@@ -47,7 +47,8 @@ use bevy_utils::tracing::error;
 use crate::{
     prepare_materials, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material,
     MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey,
-    MeshTransforms, RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup,
+    RenderMaterialInstances, RenderMaterials, RenderMeshInstances, SetMaterialBindGroup,
+    SetMeshBindGroup,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -758,8 +759,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
+    render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderMaterials<M>>,
-    material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshTransforms)>,
+    render_material_instances: Res<RenderMaterialInstances<M>>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -804,16 +806,16 @@ pub fn queue_prepass_material_meshes<M: Material>(
         let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {
-            let Ok((material_handle, mesh_handle, mesh_transforms)) =
-                material_meshes.get(*visible_entity)
-            else {
+            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
-
-            let (Some(material), Some(mesh)) = (
-                render_materials.get(&material_handle.id()),
-                render_meshes.get(mesh_handle),
-            ) else {
+            let Some(mesh_instance) = render_mesh_instances.get(visible_entity) else {
+                continue;
+            };
+            let Some(material) = render_materials.get(material_asset_id) else {
+                continue;
+            };
+            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
 
@@ -849,7 +851,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             };
 
-            let distance = rangefinder.distance_translation(&mesh_transforms.transform.translation)
+            let distance = rangefinder
+                .distance_translation(&mesh_instance.transforms.transform.translation)
                 + material.properties.depth_bias;
             match alpha_mode {
                 AlphaMode::Opaque => {
