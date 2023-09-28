@@ -77,7 +77,6 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // Loop over 3x3 neighborhood of the pre-TAA rendered texture
     // https://alextardif.com/TAA.html
     var current_color = vec3(0.0);
-    var weight_sum = 0.0;
     var moment_1 = vec3(0.0);
     var moment_2 = vec3(0.0);
     var closest_depth = 0.0;
@@ -90,7 +89,6 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
 
             // Apply Mitchell-Netravali kernel over the jittered 3x3 neighborhood to reduce softness
             let weight = weights[u32(x + 1.0)] * weights[u32(y + 1.0)];
-            weight_sum += weight;
             current_color += sample * weight;
 
             // Calculate first and second color moments for use with variance clipping
@@ -105,7 +103,6 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
             }
         }
     }
-    current_color /= weight_sum;
 
     // Reproject to find the equivalent sample from the past
     // Uses 5-sample Catmull-Rom filtering (reduces blurriness)
