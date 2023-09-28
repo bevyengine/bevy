@@ -25,7 +25,8 @@ fn main() {
         )
         .add_systems(
             Update,
-            (camera_controller, update_sun_direction).run_if(resource_exists::<SolariSupported>()),
+            (toggle_solari, camera_controller, update_sun_direction)
+                .run_if(resource_exists::<SolariSupported>()),
         )
         .run();
 }
@@ -92,6 +93,25 @@ fn solari_not_supported(mut commands: Commands) {
     );
 
     commands.spawn(Camera2dBundle::default());
+}
+
+fn toggle_solari(
+    key_input: Res<Input<KeyCode>>,
+    mut commands: Commands,
+    camera: Query<(Entity, Has<SolariGlobalIlluminationSettings>), With<Camera>>,
+) {
+    if key_input.just_pressed(KeyCode::Space) {
+        let (entity, gi_enabled) = camera.single();
+        if gi_enabled {
+            commands
+                .entity(entity)
+                .remove::<SolariGlobalIlluminationSettings>();
+        } else {
+            commands
+                .entity(entity)
+                .insert(SolariGlobalIlluminationSettings::default());
+        }
+    }
 }
 
 // --------------------------------------------------------------------------------------
