@@ -1,5 +1,7 @@
 use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
 pub use bevy_derive::AppLabel;
+use bevy_ecs::schedule::IntoConditionalScheduleLabel;
+use bevy_ecs::system::ExclusiveSystemParamFunction;
 use bevy_ecs::{
     prelude::*,
     schedule::{
@@ -374,12 +376,20 @@ impl App {
     /// app.add_systems(Update, (system_a, system_b, system_c));
     /// app.add_systems(Update, (system_a, system_b).run_if(should_run));
     /// ```
-    pub fn add_systems<M>(
+    pub fn add_systems<M, S: ScheduleLabel>(
         &mut self,
-        schedule: impl ScheduleLabel,
+        schedule: impl IntoConditionalScheduleLabel<S>,
         systems: impl IntoSystemConfigs<M>,
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
+
+        let (schedule, condition) = schedule.into_conditional_schedule_label();
+
+        let mut systems = systems.into_configs();
+
+        if let Some(condition) = condition {
+            systems.run_if_dyn(condition);
+        }
 
         if let Some(schedule) = schedules.get_mut(&schedule) {
             schedule.add_systems(systems);
@@ -395,9 +405,9 @@ impl App {
     /// Configures a system set in the default schedule, adding the set if it does not exist.
     #[deprecated(since = "0.12.0", note = "Please use `configure_sets` instead.")]
     #[track_caller]
-    pub fn configure_set(
+    pub fn configure_set<S: ScheduleLabel>(
         &mut self,
-        schedule: impl ScheduleLabel,
+        schedule: impl IntoConditionalScheduleLabel<S>,
         set: impl IntoSystemSetConfigs,
     ) -> &mut Self {
         self.configure_sets(schedule, set)
@@ -405,12 +415,20 @@ impl App {
 
     /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.
     #[track_caller]
-    pub fn configure_sets(
+    pub fn configure_sets<S: ScheduleLabel>(
         &mut self,
-        schedule: impl ScheduleLabel,
+        schedule: impl IntoConditionalScheduleLabel<S>,
         sets: impl IntoSystemSetConfigs,
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
+        let (schedule, condition) = schedule.into_conditional_schedule_label();
+
+        let mut sets = sets.into_configs();
+
+        if let Some(condition) = condition {
+            sets.run_if_dyn(condition);
+        }
+
         if let Some(schedule) = schedules.get_mut(&schedule) {
             schedule.configure_sets(sets);
         } else {

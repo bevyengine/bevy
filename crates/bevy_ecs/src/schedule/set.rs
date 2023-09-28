@@ -4,13 +4,17 @@ use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use crate::schedule::Condition;
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use bevy_utils::define_boxed_label;
 use bevy_utils::label::DynHash;
 
 use crate::system::{
-    ExclusiveSystemParamFunction, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
+    self, ExclusiveSystemParamFunction, IntoSystem, IsExclusiveFunctionSystem, IsFunctionSystem,
+    ReadOnlySystem, SystemParamFunction,
 };
+
+use super::IntoSystemConfigs;
 
 define_boxed_label!(ScheduleLabel);
 
@@ -18,6 +22,21 @@ define_boxed_label!(ScheduleLabel);
 pub type BoxedSystemSet = Box<dyn SystemSet>;
 /// A shorthand for `Box<dyn ScheduleLabel>`.
 pub type BoxedScheduleLabel = Box<dyn ScheduleLabel>;
+
+/// A trait that represents an item that can become a ScheduleLabel with optional Conditions
+pub trait IntoConditionalScheduleLabel<S: ScheduleLabel> {
+    fn into_conditional_schedule_label(
+        self,
+    ) -> (S, Option<Box<dyn ReadOnlySystem<In = (), Out = bool>>>);
+}
+
+impl<S: ScheduleLabel> IntoConditionalScheduleLabel<S> for S {
+    fn into_conditional_schedule_label(
+        self,
+    ) -> (S, Option<Box<dyn ReadOnlySystem<In = (), Out = bool>>>) {
+        (self, None)
+    }
+}
 
 /// Types that identify logical groups of systems.
 pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {

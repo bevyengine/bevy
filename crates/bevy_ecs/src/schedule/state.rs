@@ -1,7 +1,9 @@
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::marker::PhantomData;
 use std::mem;
 use std::ops::Deref;
+use std::sync::Arc;
 
 use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
@@ -12,9 +14,10 @@ use crate::system::Resource;
 use crate::world::World;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
+use bevy_utils::prelude::default;
 
-pub use bevy_ecs_macros::States;
 use crate::prelude::Schedules;
+pub use bevy_ecs_macros::States;
 
 /// Types that can define world-wide states in a finite-state machine.
 ///
@@ -44,7 +47,9 @@ use crate::prelude::Schedules;
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {}
 
 /// Types that can match world-wide states.
-pub trait StateMatcher<S: States>: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {
+pub trait StateMatcher<S: States>:
+    'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug
+{
     fn match_state(&self, state: &S) -> bool;
 }
 
@@ -57,23 +62,31 @@ impl<S: States + Eq> StateMatcher<S> for S {
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// enters this state.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct OnEnter<S: States, M: StateMatcher<S>>(pub M);
+pub struct OnEnter<S: States>(pub S);
+
+/// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
+/// enters a matching state from a non-matching state.
+pub struct OnEnterMatching<S: States, M: StateMatcher<S>>(M, PhantomData<S>);
 
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// exits this state.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct OnExit<S: States, M: StateMatcher<S>>(pub M);
+pub struct OnExit<S: States>(pub S);
+
+/// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
+/// exits a matching state without entering another matching state.
+pub struct OnExitMatching<S: States, M: StateMatcher<S>>(M, PhantomData<S>);
 
 /// The label of a [`Schedule`](super::Schedule) that **only** runs whenever [`State<S>`]
 /// exits the `from` state, AND enters the `to` state.
 ///
 /// Systems added to this schedule are always ran *after* [`OnExit`], and *before* [`OnEnter`].
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct OnTransition<S: States, M1: StateMatcher<S>, M2: StateMatcher<S>> {
+pub struct OnTransition<S: States> {
     /// The state being exited.
-    pub from: M1,
+    pub from: S,
     /// The state being entered.
-    pub to: M2,
+    pub to: S,
 }
 
 /// A finite-state machine whose transitions have associated schedules
@@ -120,40 +133,38 @@ impl<S: States> Deref for State<S> {
     }
 }
 
-/// Trait for transforming from one state to another
-pub trait StateTransformer<S: States> {
-    fn transform(&self, input: S) -> S;
-}
-
-impl<S: States> StateTransformer<S> for S {
-    fn transform(&self, input: S) -> S {
-        self.clone()
-    }
-}
-
-impl<S: States, F: Fn(S) -> S> StateTransformer<S> for F {
-    fn transform(&self, input: S) -> S {
-        self(input)
-    }
-}
-
 /// The next state of [`State<S>`].
 ///
 /// To queue a transition, just set the contained value to `Some(next_state)`.
 /// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
-#[derive(Resource, Default, Debug)]
+#[derive(Resource, Default, Clone)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
     reflect(Resource, Default)
 )]
-pub struct NextState<S: States>(pub Option<Box<dyn StateTransformer<S>>>);
+pub enum NextState<S: States> {
+    #[default]
+    MaintainCurrent,
+    StateValue(S),
+    StateSetter(Arc<dyn Fn(S) -> S + Sync + Send>),
+}
+
+impl<S: States> Debug for NextState<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MaintainCurrent => write!(f, "MaintainCurrent"),
+            Self::StateValue(arg0) => f.debug_tuple("StateValue").field(arg0).finish(),
+            Self::StateSetter(arg0) => write!(f, "StateSetter"),
+        }
+    }
+}
 
 impl<S: States> NextState<S> {
     /// Tentatively set a planned state transition to `Some(state)`.
     pub fn set(&mut self, state: S) {
-        self.0 = Some(state);
+        *self = Self::StateValue(state)
     }
 }
 
@@ -169,16 +180,20 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 /// - Runs the [`OnExit(exited_state)`] schedule, if it exists.
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
-pub fn apply_state_transition<S: States >(world: &mut World) {
+pub fn apply_state_transition<S: States>(world: &mut World) {
     // We want to take the `NextState` resource,
     // but only mark it as changed if it wasn't empty.
-    let mut next_state_resource = world.resource_mut::<NextState<S>>();
-    if let Some(entered) = next_state_resource.bypass_change_detection().0.take() {
-        next_state_resource.set_changed();
-
-        let mut state_resource = world.resource_mut::<State<S>>();
-        let entered = entered.transform((*state_resource).clone());
-        if *state_resource != entered {
+    let next_state_resource = world.resource::<NextState<S>>();
+    let current_state = world.resource::<State<S>>().0.clone();
+    let entered = match next_state_resource {
+        NextState::MaintainCurrent => None,
+        NextState::StateValue(v) => Some(v.clone()),
+        NextState::StateSetter(f) => Some(f(current_state.clone())),
+    };
+    if let Some(entered) = entered {
+        world.insert_resource(NextState::<S>::MaintainCurrent);
+        if current_state != entered {
+            let mut state_resource = world.resource_mut::<State<S>>();
             let exited = mem::replace(&mut state_resource.0, entered.clone());
             // Try to run the schedules if they exist.
             world.try_run_schedule(OnExit(exited.clone())).ok();
