@@ -21,6 +21,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3A, Mat4};
 use bevy_render::{
+    batching::batch_and_prepare_render_phase,
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
@@ -51,7 +52,8 @@ use bevy_utils::tracing::error;
 use crate::{
     prepare_materials, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material,
     MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey,
-    MeshTransforms, OpaqueRendererMethod, RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup,
+    OpaqueRendererMethod, RenderMaterialInstances, RenderMaterials, RenderMeshInstances,
+    SetMaterialBindGroup, SetMeshBindGroup,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -172,7 +174,12 @@ where
                 .add_systems(ExtractSchedule, extract_camera_previous_view_projection)
                 .add_systems(
                     Render,
-                    prepare_previous_view_projection_uniforms.in_set(RenderSet::PrepareResources),
+                    (
+                        prepare_previous_view_projection_uniforms,
+                        batch_and_prepare_render_phase::<Opaque3dPrepass, MeshPipeline>,
+                        batch_and_prepare_render_phase::<AlphaMask3dPrepass, MeshPipeline>,
+                    )
+                        .in_set(RenderSet::PrepareResources),
                 );
         }
 
@@ -779,9 +786,16 @@ pub fn prepare_previous_view_projection_uniforms(
         With<MotionVectorPrepass>,
     >,
 ) {
-    view_uniforms.uniforms.clear();
-
-    for (entity, camera, maybe_previous_view_proj) in &views {
+    let views_iter = views.iter();
+    let view_count = views_iter.len();
+    let Some(mut writer) =
+        view_uniforms
+            .uniforms
+            .get_writer(view_count, &render_device, &render_queue)
+    else {
+        return;
+    };
+    for (entity, camera, maybe_previous_view_proj) in views_iter {
         let view_projection = match maybe_previous_view_proj {
             Some(previous_view) => previous_view.clone(),
             None => PreviousViewProjection {
@@ -791,13 +805,9 @@ pub fn prepare_previous_view_projection_uniforms(
         commands
             .entity(entity)
             .insert(PreviousViewProjectionUniformOffset {
-                offset: view_uniforms.uniforms.push(view_projection),
+                offset: writer.write(&view_projection),
             });
     }
-
-    view_uniforms
-        .uniforms
-        .write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Default, Resource)]
@@ -869,8 +879,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
+    render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderMaterials<M>>,
-    material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshTransforms)>,
+    render_material_instances: Res<RenderMaterialInstances<M>>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -932,16 +943,16 @@ pub fn queue_prepass_material_meshes<M: Material>(
         let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {
-            let Ok((material_handle, mesh_handle, mesh_transforms)) =
-                material_meshes.get(*visible_entity)
-            else {
+            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
-
-            let (Some(material), Some(mesh)) = (
-                render_materials.get(&material_handle.id()),
-                render_meshes.get(mesh_handle),
-            ) else {
+            let Some(mesh_instance) = render_mesh_instances.get(visible_entity) else {
+                continue;
+            };
+            let Some(material) = render_materials.get(material_asset_id) else {
+                continue;
+            };
+            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
 
@@ -988,7 +999,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             };
 
-            let distance = rangefinder.distance_translation(&mesh_transforms.transform.translation)
+            let distance = rangefinder
+                .distance_translation(&mesh_instance.transforms.transform.translation)
                 + material.properties.depth_bias;
             match alpha_mode {
                 AlphaMode::Opaque => {
@@ -1001,6 +1013,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 draw_function: opaque_draw_deferred,
                                 pipeline_id,
                                 distance,
+                                batch_range: 0..1,
+                                dynamic_offset: None,
                             });
                     } else {
                         opaque_phase.add(Opaque3dPrepass {
@@ -1008,6 +1022,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             draw_function: opaque_draw_prepass,
                             pipeline_id,
                             distance,
+                            batch_range: 0..1,
+                            dynamic_offset: None,
                         });
                     }
                 }
@@ -1021,6 +1037,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 draw_function: alpha_mask_draw_deferred,
                                 pipeline_id,
                                 distance,
+                                batch_range: 0..1,
+                                dynamic_offset: None,
                             });
                     } else {
                         alpha_mask_phase.add(AlphaMask3dPrepass {
@@ -1028,6 +1046,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             draw_function: alpha_mask_draw_prepass,
                             pipeline_id,
                             distance,
+                            batch_range: 0..1,
+                            dynamic_offset: None,
                         });
                     }
                 }

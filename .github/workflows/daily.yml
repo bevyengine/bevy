@@ -11,10 +11,11 @@ env:
 
 jobs:
   build-for-iOS:
+    if: github.repository == 'bevyengine/bevy'
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -38,10 +39,11 @@ jobs:
             -F "custom_id=$GITHUB_RUN_ID"
 
   build-for-Android:
+    if: github.repository == 'bevyengine/bevy'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -65,6 +67,7 @@ jobs:
             -F "custom_id=$GITHUB_RUN_ID"
 
   nonce:
+    if: github.repository == 'bevyengine/bevy'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
@@ -74,6 +77,7 @@ jobs:
       run: echo "result=${{ github.run_id }}-$(date +%s)" >> $GITHUB_OUTPUT
 
   run:
+    if: github.repository == 'bevyengine/bevy'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [nonce, build-for-iOS, build-for-Android]
@@ -88,7 +92,7 @@ jobs:
           - device: "Samsung Galaxy S23"
             os_version: "13.0"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Run Example
         run: |
@@ -112,6 +116,7 @@ jobs:
           path: .github/start-mobile-example/*.png
 
   check-result:
+    if: github.repository == 'bevyengine/bevy'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [run]

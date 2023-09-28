@@ -77,7 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     info!("Loading {}", scene_path);
     let (file_path, scene_index) = parse_scene(scene_path);
 
-    commands.insert_resource(SceneHandle::new(asset_server.load(&file_path), scene_index));
+    commands.insert_resource(SceneHandle::new(asset_server.load(file_path), scene_index));
 }
 
 fn setup_scene_after_load(

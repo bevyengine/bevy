@@ -93,12 +93,10 @@ pub struct StrongHandle {
 
 impl Drop for StrongHandle {
     fn drop(&mut self) {
-        if let Err(err) = self.drop_sender.send(DropEvent {
+        let _ = self.drop_sender.send(DropEvent {
             id: self.id.internal(),
             asset_server_managed: self.asset_server_managed,
-        }) {
-            println!("Failed to send DropEvent for StrongHandle {:?}", err);
-        }
+        });
     }
 }
 

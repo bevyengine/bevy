@@ -187,6 +187,9 @@ fn animate_scale(
     // rendered quad, resulting in a pixellated look.
     for mut transform in &mut query {
         transform.translation = Vec3::new(400.0, 0.0, 0.0);
-        transform.scale = Vec3::splat((time.elapsed_seconds().sin() + 1.1) * 2.0);
+
+        let scale = (time.elapsed_seconds().sin() + 1.1) * 2.0;
+        transform.scale.x = scale;
+        transform.scale.y = scale;
     }
 }

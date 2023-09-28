@@ -139,6 +139,26 @@ impl TextSection {
     }
 }
 
+#[cfg(feature = "default_font")]
+impl From<&str> for TextSection {
+    fn from(value: &str) -> Self {
+        Self {
+            value: value.into(),
+            ..default()
+        }
+    }
+}
+
+#[cfg(feature = "default_font")]
+impl From<String> for TextSection {
+    fn from(value: String) -> Self {
+        Self {
+            value,
+            ..Default::default()
+        }
+    }
+}
+
 /// Describes horizontal alignment preference for positioning & bounds.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]

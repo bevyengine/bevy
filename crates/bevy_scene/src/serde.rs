@@ -806,7 +806,7 @@ mod tests {
                 .find(|dynamic_entity| dynamic_entity.entity == expected.entity)
                 .unwrap_or_else(|| panic!("missing entity (expected: `{:?}`)", expected.entity));
 
-            assert_eq!(expected.entity, received.entity, "entities did not match",);
+            assert_eq!(expected.entity, received.entity, "entities did not match");
 
             for expected in &expected.components {
                 let received = received

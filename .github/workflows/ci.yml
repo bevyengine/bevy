@@ -19,7 +19,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/cache@v3
         with:
           path: |
@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/cache@v3
         with:
           path: |
@@ -67,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/cache@v3
         with:
           path: |
@@ -101,7 +101,7 @@ jobs:
     timeout-minutes: 30
     needs: ci
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/cache@v3
         with:
           path: |
@@ -127,7 +127,7 @@ jobs:
     timeout-minutes: 30
     needs: build
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/cache@v3
         with:
           path: |
@@ -151,7 +151,7 @@ jobs:
     needs: check-missing-features-in-docs
     if: always()
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
@@ -167,7 +167,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -201,7 +201,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/cache@v3
         with:
           path: |
@@ -233,7 +233,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: check for missing metadata
         id: missing-metadata
         run: cargo run -p build-templated-pages -- check-missing examples
@@ -267,7 +267,7 @@ jobs:
     timeout-minutes: 30
     needs: check-missing-examples-in-docs
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: check for missing features
         id: missing-features
         run: cargo run -p build-templated-pages -- check-missing features
@@ -301,7 +301,7 @@ jobs:
     timeout-minutes: 30
     needs: build
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/cache@v3
         with:
           path: |
@@ -338,7 +338,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Check for bevy_internal imports
         shell: bash
         run: |
