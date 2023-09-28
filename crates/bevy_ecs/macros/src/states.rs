@@ -28,17 +28,9 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
     trait_path.segments.push(format_ident!("schedule").into());
     trait_path.segments.push(format_ident!("States").into());
     let struct_name = &ast.ident;
-    let idents = enumeration.variants.iter().map(|v| &v.ident);
-    let len = idents.len();
 
     quote! {
-        impl #impl_generics #trait_path for #struct_name #ty_generics #where_clause {
-            type Iter = std::array::IntoIter<Self, #len>;
-
-            fn variants() -> Self::Iter {
-                [#(Self::#idents,)*].into_iter()
-            }
-        }
+        impl #impl_generics #trait_path for #struct_name #ty_generics #where_clause {}
     }
     .into()
 }
