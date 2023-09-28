@@ -6,7 +6,6 @@ use crate::{
     PointLight, PointLightShadowMap, PrepassPipeline, RenderMaterialInstances, RenderMaterials,
     RenderMeshInstances, SpotLight, VisiblePointLights,
 };
-use bevy_asset::Handle;
 use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
