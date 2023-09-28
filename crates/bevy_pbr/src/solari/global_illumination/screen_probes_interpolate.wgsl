@@ -6,7 +6,7 @@ fn interpolate_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>
     let screen_size = vec2<u32>(view.viewport.zw);
     if any(global_id.xy >= screen_size) { return; }
 
-    let pixel_depth = view.projection[3][2] / textureLoad(depth_buffer, global_id.xy, 0i);
+    let pixel_depth = textureLoad(depth_buffer, global_id.xy, 0i);
     if pixel_depth == 0.0 {
         textureStore(diffuse_irradiance_output, global_id.xy, vec4(0.0, 0.0, 0.0, 1.0));
         return;
@@ -26,7 +26,7 @@ fn interpolate_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>
     let tl_probe_sample = get_probe_irradiance(tl_probe_id, pixel_world_normal, probe_count);
     let tr_probe_sample = get_probe_irradiance(tr_probe_id, pixel_world_normal, probe_count);
     let bl_probe_sample = get_probe_irradiance(bl_probe_id, pixel_world_normal, probe_count);
-    let br_probe_sample = get_probe_irradiance(tr_probe_id, pixel_world_normal, probe_count);
+    let br_probe_sample = get_probe_irradiance(br_probe_id, pixel_world_normal, probe_count);
 
     let probe_plane_distance_weights = vec4(
         plane_distance_weight(tl_probe_id, pixel_world_position, pixel_world_normal),
@@ -88,5 +88,5 @@ fn plane_distance_weight(probe_id: vec2<u32>, pixel_world_position: vec3<f32>, p
 
     let plane_distance = abs(dot(probe_world_position - pixel_world_position, pixel_world_normal));
 
-    return step(0.1, plane_distance);
+    return 1.0; // TODO
 }
