@@ -4,7 +4,7 @@ use argh::FromArgs;
 use bevy::prelude::*;
 use bevy::text::BreakLineOn;
 use bevy::winit::WinitSettings;
-use bevy_internal::window::WindowResolution;
+use bevy::window::WindowResolution;
 
 #[derive(FromArgs, Resource)]
 /// `text_wrap_debug` demonstrates text wrapping and use of the `LineBreakOn` property
