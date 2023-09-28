@@ -14,6 +14,7 @@ use crate::world::World;
 use bevy_reflect::std_traits::ReflectDefault;
 
 pub use bevy_ecs_macros::States;
+use crate::prelude::Schedules;
 
 /// Types that can define world-wide states in a finite-state machine.
 ///
@@ -23,7 +24,7 @@ pub use bevy_ecs_macros::States;
 /// You can access the current state of type `T` with the [`State<T>`] resource,
 /// and the queued state with the [`NextState<T>`] resource.
 ///
-/// State transitions typically occur in the [`OnEnter<T::Variant>`] and [`OnExit<T:Variant>`] schedules,
+/// State transitions typically occur in the [`OnEnter<T>`] and [`OnExit<T>`] schedules,
 /// which can be run via the [`apply_state_transition::<T>`] system.
 ///
 /// # Example
@@ -42,26 +43,37 @@ pub use bevy_ecs_macros::States;
 /// ```
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {}
 
+/// Types that can match world-wide states.
+pub trait StateMatcher<S: States>: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {
+    fn match_state(&self, state: &S) -> bool;
+}
+
+impl<S: States + Eq> StateMatcher<S> for S {
+    fn match_state(&self, state: &S) -> bool {
+        self == state
+    }
+}
+
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// enters this state.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct OnEnter<S: States>(pub S);
+pub struct OnEnter<S: States, M: StateMatcher<S>>(pub M);
 
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// exits this state.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct OnExit<S: States>(pub S);
+pub struct OnExit<S: States, M: StateMatcher<S>>(pub M);
 
 /// The label of a [`Schedule`](super::Schedule) that **only** runs whenever [`State<S>`]
 /// exits the `from` state, AND enters the `to` state.
 ///
 /// Systems added to this schedule are always ran *after* [`OnExit`], and *before* [`OnEnter`].
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct OnTransition<S: States> {
+pub struct OnTransition<S: States, M1: StateMatcher<S>, M2: StateMatcher<S>> {
     /// The state being exited.
-    pub from: S,
+    pub from: M1,
     /// The state being entered.
-    pub to: S,
+    pub to: M2,
 }
 
 /// A finite-state machine whose transitions have associated schedules
@@ -94,7 +106,7 @@ impl<S: States> State<S> {
     }
 }
 
-impl<S: States> PartialEq<S> for State<S> {
+impl<S: States + PartialEq> PartialEq<S> for State<S> {
     fn eq(&self, other: &S) -> bool {
         self.get() == other
     }
@@ -105,6 +117,23 @@ impl<S: States> Deref for State<S> {
 
     fn deref(&self) -> &Self::Target {
         self.get()
+    }
+}
+
+/// Trait for transforming from one state to another
+pub trait StateTransformer<S: States> {
+    fn transform(&self, input: S) -> S;
+}
+
+impl<S: States> StateTransformer<S> for S {
+    fn transform(&self, input: S) -> S {
+        self.clone()
+    }
+}
+
+impl<S: States, F: Fn(S) -> S> StateTransformer<S> for F {
+    fn transform(&self, input: S) -> S {
+        self(input)
     }
 }
 
@@ -119,7 +148,7 @@ impl<S: States> Deref for State<S> {
     derive(bevy_reflect::Reflect),
     reflect(Resource, Default)
 )]
-pub struct NextState<S: States>(pub Option<S>);
+pub struct NextState<S: States>(pub Option<Box<dyn StateTransformer<S>>>);
 
 impl<S: States> NextState<S> {
     /// Tentatively set a planned state transition to `Some(state)`.
@@ -140,7 +169,7 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 /// - Runs the [`OnExit(exited_state)`] schedule, if it exists.
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
-pub fn apply_state_transition<S: States>(world: &mut World) {
+pub fn apply_state_transition<S: States >(world: &mut World) {
     // We want to take the `NextState` resource,
     // but only mark it as changed if it wasn't empty.
     let mut next_state_resource = world.resource_mut::<NextState<S>>();
@@ -148,6 +177,7 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         next_state_resource.set_changed();
 
         let mut state_resource = world.resource_mut::<State<S>>();
+        let entered = entered.transform((*state_resource).clone());
         if *state_resource != entered {
             let exited = mem::replace(&mut state_resource.0, entered.clone());
             // Try to run the schedules if they exist.
