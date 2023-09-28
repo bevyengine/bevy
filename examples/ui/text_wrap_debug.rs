@@ -13,7 +13,7 @@ struct Args {
     /// window scale factor
     scale_factor: Option<f64>,
 
-    #[argh(option)]
+    #[argh(option, default="1.")]
     /// ui scale factor
     ui_scale: f64,
 }
