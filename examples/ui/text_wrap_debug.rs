@@ -8,7 +8,6 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(WinitSettings::desktop_app())
-        .insert_resource(UiScale(4. / 3.))
         .add_systems(Startup, spawn)
         .run();
 }
