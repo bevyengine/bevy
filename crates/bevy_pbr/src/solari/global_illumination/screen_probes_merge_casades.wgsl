@@ -38,14 +38,14 @@ fn merge_screen_probe_cascades(
     let bl_probe_sample = sample_upper_probe((bl_probe_id * upper_probe_size) + upper_probe_offset);
     let br_probe_sample = sample_upper_probe((br_probe_id * upper_probe_size) + upper_probe_offset);
 
-    let lower_probe_depth = get_probe_depth(((global_id.xy / lower_probe_size) * lower_probe_size) + ((lower_probe_size >> 1u) - 1u));
-    let probe_depths = vec4(
+    let lower_probe_depth = view.projection[3][2] / get_probe_depth(((global_id.xy / lower_probe_size) * lower_probe_size) + ((lower_probe_size >> 1u) - 1u));
+    let probe_depths = view.projection[3][2] / vec4(
         get_probe_depth((tl_probe_id * upper_probe_size) + (lower_probe_size - 1u)),
         get_probe_depth((tr_probe_id * upper_probe_size) + (lower_probe_size - 1u)),
         get_probe_depth((bl_probe_id * upper_probe_size) + (lower_probe_size - 1u)),
         get_probe_depth((br_probe_id * upper_probe_size) + (lower_probe_size - 1u)),
     );
-    let probe_depth_weights = pow(saturate(1.0 - abs(probe_depths - lower_probe_depth) / lower_probe_depth), vec4(f32(lower_probe_size)));
+    let probe_depth_weights = exp(-abs(probe_depths - lower_probe_depth) * 3.5);
 
     let r = fract(upper_probe_id_f);
     let probe_weights = vec4(
@@ -92,8 +92,7 @@ fn sample_upper_probe_texture(cell_id: vec2<u32>) -> vec4<f32> {
 
 fn get_probe_depth(pixel_id: vec2<u32>) -> f32 {
     let pixel_id_clamped = min(pixel_id, vec2<u32>(view.viewport.zw) - 1u);
-    let depth = textureLoad(depth_buffer, pixel_id_clamped, 0i);
-    return view.projection[3][2] / depth;
+    return textureLoad(depth_buffer, pixel_id_clamped, 0i);
 }
 
 // TODO: Replace with subgroup/wave ops when supported

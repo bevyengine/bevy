@@ -28,12 +28,20 @@ fn interpolate_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>
     let bl_probe_sample = get_probe_irradiance(bl_probe_id, pixel_world_normal, probe_count);
     let br_probe_sample = get_probe_irradiance(br_probe_id, pixel_world_normal, probe_count);
 
-    let probe_plane_distance_weights = vec4(
-        plane_distance_weight(tl_probe_id, pixel_world_position, pixel_world_normal),
-        plane_distance_weight(tr_probe_id, pixel_world_position, pixel_world_normal),
-        plane_distance_weight(bl_probe_id, pixel_world_position, pixel_world_normal),
-        plane_distance_weight(br_probe_id, pixel_world_position, pixel_world_normal),
+    let pixel_depth_linear = view.projection[3][2] / pixel_depth;
+    let probe_depths = view.projection[3][2] / vec4(
+        get_probe_depth(tl_probe_id),
+        get_probe_depth(tr_probe_id),
+        get_probe_depth(bl_probe_id),
+        get_probe_depth(br_probe_id),
     );
+    let probe_depth_weights = exp(-abs(probe_depths - pixel_depth_linear) * 100.0);
+    let probe_normal_weights = pow(vec4(
+        max(0.0, dot(pixel_world_normal, get_probe_normal(tl_probe_id))),
+        max(0.0, dot(pixel_world_normal, get_probe_normal(tr_probe_id))),
+        max(0.0, dot(pixel_world_normal, get_probe_normal(bl_probe_id))),
+        max(0.0, dot(pixel_world_normal, get_probe_normal(br_probe_id))),
+    ), vec4(8.0));
 
     let r = fract(probe_id_f);
     let probe_weights = vec4(
@@ -41,7 +49,7 @@ fn interpolate_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>
         r.x * (1.0 - r.y),
         (1.0 - r.x) * r.y,
         r.x * r.y,
-    ) * probe_plane_distance_weights;
+    ) * probe_depth_weights * probe_normal_weights;
 
     var irradiance = (tl_probe_sample * probe_weights.x) + (tr_probe_sample * probe_weights.y) + (bl_probe_sample * probe_weights.z) + (br_probe_sample * probe_weights.w);
     irradiance /= dot(vec4(1.0), probe_weights);
@@ -78,15 +86,14 @@ fn get_probe_irradiance(probe_id: vec2<u32>, pixel_world_normal: vec3<f32>, prob
     return irradiance;
 }
 
-fn plane_distance_weight(probe_id: vec2<u32>, pixel_world_position: vec3<f32>, pixel_world_normal: vec3<f32>) -> f32 {
+fn get_probe_depth(probe_id: vec2<u32>) -> f32 {
     var probe_center_pixel_id = (probe_id * 8u) + 3u;
     probe_center_pixel_id = min(probe_center_pixel_id, vec2<u32>(view.viewport.zw) - 1u);
+    return textureLoad(depth_buffer, probe_center_pixel_id, 0i);
+}
 
-    let probe_depth = textureLoad(depth_buffer, probe_center_pixel_id, 0i);
-    let probe_center_uv = (vec2<f32>(probe_center_pixel_id) + 0.5) / view.viewport.zw;
-    let probe_world_position = depth_to_world_position(probe_depth, probe_center_uv);
-
-    let plane_distance = abs(dot(probe_world_position - pixel_world_position, pixel_world_normal));
-
-    return 1.0; // TODO
+fn get_probe_normal(probe_id: vec2<u32>) -> vec3<f32> {
+    var probe_center_pixel_id = (probe_id * 8u) + 3u;
+    probe_center_pixel_id = min(probe_center_pixel_id, vec2<u32>(view.viewport.zw) - 1u);
+    return normalize(textureLoad(normals_buffer, probe_center_pixel_id, 0i).xyz * 2.0 - vec3(1.0));
 }

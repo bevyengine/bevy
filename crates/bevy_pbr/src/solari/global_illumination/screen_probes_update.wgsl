@@ -47,13 +47,13 @@ fn update_screen_probes(@builtin(global_invocation_id) global_id: vec3<u32>) {
     );
 
     let current_depth = view.projection[3][2] / probe_depth;
-    let probe_depths = vec4(
+    let probe_depths = view.projection[3][2] / vec4(
         get_probe_previous_depth((tl_probe_id * probe_size) + probe_center_cell_offset),
         get_probe_previous_depth((tr_probe_id * probe_size) + probe_center_cell_offset),
         get_probe_previous_depth((bl_probe_id * probe_size) + probe_center_cell_offset),
         get_probe_previous_depth((br_probe_id * probe_size) + probe_center_cell_offset),
     );
-    let probe_depth_weights = pow(saturate(1.0 - abs(probe_depths - current_depth) / current_depth), vec4(f32(probe_size)));
+    let probe_depth_weights = exp(-abs(probe_depths - current_depth) * 100.0);
 
     let r = fract(reprojected_probe_id_f);
     let probe_weights = vec4(
@@ -114,6 +114,5 @@ fn get_probe_confidence(pixel_id: vec2<u32>) -> f32 {
 fn get_probe_previous_depth(pixel_id: vec2<u32>) -> f32 {
     // TODO: Need to use previous view here
     let pixel_id_clamped = min(pixel_id, vec2<u32>(view.viewport.zw) - 1u);
-    let depth = textureLoad(previous_depth_buffer, pixel_id_clamped, 0i);
-    return view.projection[3][2] / depth;
+    return textureLoad(previous_depth_buffer, pixel_id_clamped, 0i);
 }
