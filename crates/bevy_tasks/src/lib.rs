@@ -28,6 +28,11 @@ mod thread_executor;
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
 pub use thread_executor::{ThreadExecutor, ThreadExecutorTicker};
 
+#[cfg(feature = "async-io")]
+pub use async_io::block_on;
+#[cfg(not(feature = "async-io"))]
+pub use futures_lite::future::block_on;
+
 mod iter;
 pub use iter::ParallelIterator;
 
@@ -35,6 +40,7 @@ pub use iter::ParallelIterator;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
+        block_on,
         iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},
         usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool},

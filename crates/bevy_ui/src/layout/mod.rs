@@ -551,8 +551,8 @@ mod tests {
 
         world.despawn(ui_entity);
 
-        // `ui_layout_system` will recieve a `RemovedComponents<Node>` event for `ui_entity`
-        // and remove `ui_entity` from  `ui_node` from the internal layout tree
+        // `ui_layout_system` will receive a `RemovedComponents<Node>` event for `ui_entity`
+        // and remove `ui_entity` from `ui_node` from the internal layout tree
         ui_schedule.run(&mut world);
 
         let ui_surface = world.resource::<UiSurface>();

@@ -565,8 +565,16 @@ fn run_animation_player(
     }
 }
 
-/// Update `weights` based on weights in `keyframes` at index `key_index`
-/// with a linear interpolation on `key_lerp`.
+/// Update `weights` based on weights in `keyframe` with a linear interpolation
+/// on `key_lerp`.
+fn lerp_morph_weights(weights: &mut [f32], keyframe: impl Iterator<Item = f32>, key_lerp: f32) {
+    let zipped = weights.iter_mut().zip(keyframe);
+    for (morph_weight, keyframe) in zipped {
+        *morph_weight += (keyframe - *morph_weight) * key_lerp;
+    }
+}
+
+/// Extract a keyframe from a list of keyframes by index.
 ///
 /// # Panics
 ///
@@ -575,16 +583,10 @@ fn run_animation_player(
 /// This happens when `keyframes` is not formatted as described in
 /// [`Keyframes::Weights`]. A possible cause is [`AnimationClip`] not being
 /// meant to be used for the [`MorphWeights`] of the entity it's being applied to.
-fn lerp_morph_weights(weights: &mut [f32], key_lerp: f32, keyframes: &[f32], key_index: usize) {
-    let target_count = weights.len();
+fn get_keyframe(target_count: usize, keyframes: &[f32], key_index: usize) -> &[f32] {
     let start = target_count * key_index;
     let end = target_count * (key_index + 1);
-
-    let zipped = weights.iter_mut().zip(&keyframes[start..end]);
-    for (morph_weight, keyframe) in zipped {
-        let minus_lerp = 1.0 - key_lerp;
-        *morph_weight = (*morph_weight * minus_lerp) + (keyframe * key_lerp);
-    }
+    &keyframes[start..end]
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -657,7 +659,12 @@ fn apply_animation(
                         }
                         Keyframes::Weights(keyframes) => {
                             if let Ok(morphs) = &mut morphs {
-                                lerp_morph_weights(morphs.weights_mut(), weight, keyframes, 0);
+                                let target_count = morphs.weights().len();
+                                lerp_morph_weights(
+                                    morphs.weights_mut(),
+                                    get_keyframe(target_count, keyframes, 0).iter().copied(),
+                                    weight,
+                                );
                             }
                         }
                     }
@@ -707,7 +714,14 @@ fn apply_animation(
                     }
                     Keyframes::Weights(keyframes) => {
                         if let Ok(morphs) = &mut morphs {
-                            lerp_morph_weights(morphs.weights_mut(), weight, keyframes, step_start);
+                            let target_count = morphs.weights().len();
+                            let morph_start = get_keyframe(target_count, keyframes, step_start);
+                            let morph_end = get_keyframe(target_count, keyframes, step_start + 1);
+                            let result = morph_start
+                                .iter()
+                                .zip(morph_end)
+                                .map(|(a, b)| *a + lerp * (*b - *a));
+                            lerp_morph_weights(morphs.weights_mut(), result, weight);
                         }
                     }
                 }

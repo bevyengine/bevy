@@ -1096,7 +1096,7 @@ mod tests {
         schedule.run(&mut world);
         assert_eq!(world.resource::<Counter>().0, 2);
 
-        // Run every other cycle oppsite to the last one
+        // Run every other cycle opposite to the last one
         schedule.add_systems(increment_counter.run_if(not(every_other_time)));
 
         schedule.run(&mut world);

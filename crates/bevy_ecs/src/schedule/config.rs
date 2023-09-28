@@ -59,7 +59,7 @@ pub type SystemConfig = NodeConfig<BoxedSystem>;
 
 /// A collections of generic [`NodeConfig`]s.
 pub enum NodeConfigs<T> {
-    /// Configuratin for a single node.
+    /// Configuration for a single node.
     NodeConfig(NodeConfig<T>),
     /// Configuration for a tuple of nested `Configs` instances.
     Configs {
