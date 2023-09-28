@@ -9,6 +9,7 @@ use bevy_utils::BoxedFuture;
 #[cfg(feature = "serialize")]
 use serde::de::DeserializeSeed;
 
+/// [`AssetLoader`] for loading serialized Bevy scene files as [`DynamicScene`].
 #[derive(Debug)]
 pub struct SceneLoader {
     type_registry: TypeRegistryArc,

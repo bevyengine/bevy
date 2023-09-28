@@ -28,6 +28,7 @@ pub struct InstanceInfo {
     pub entity_map: HashMap<Entity, Entity>,
 }
 
+/// Unique id identifying a scene instance.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct InstanceId(Uuid);
 
@@ -37,6 +38,25 @@ impl InstanceId {
     }
 }
 
+/// Handles spawning and despawning scenes in the world, either synchronously or batched through the [`scene_spawner_system`].
+///
+/// Synchronous methods: (Scene operations will take effect immediately)
+/// - [`spawn_dynamic_sync`](Self::spawn_dynamic_sync)
+/// - [`spawn_sync`](Self::spawn_sync)
+/// - [`despawn_sync`](Self::despawn_sync)
+/// - [`despawn_instance_sync`](Self::despawn_instance_sync)
+/// - [`update_spawned_scenes`](Self::update_spawned_scenes)
+/// - [`spawn_queued_scenes`](Self::spawn_queued_scenes)
+/// - [`despawn_queued_scenes`](Self::despawn_queued_scenes)
+/// - [`despawn_queued_instances`](Self::despawn_queued_instances)
+///
+/// Deferred methods: (Scene operations will be processed when the [`scene_spawner_system`] is run)
+/// - [`spawn_dynamic`](Self::spawn_dynamic)
+/// - [`spawn_dynamic_as_child`](Self::spawn_dynamic_as_child)
+/// - [`spawn`](Self::spawn)
+/// - [`spawn_as_child`](Self::spawn_as_child)
+/// - [`despawn`](Self::despawn)
+/// - [`despawn_instance`](Self::despawn_instance)
 #[derive(Default, Resource)]
 pub struct SceneSpawner {
     spawned_scenes: HashMap<AssetId<Scene>, Vec<InstanceId>>,
@@ -50,27 +70,50 @@ pub struct SceneSpawner {
     scenes_with_parent: Vec<(InstanceId, Entity)>,
 }
 
+/// Errors that can occur when spawning a scene.
 #[derive(Error, Debug)]
 pub enum SceneSpawnError {
+    /// Scene contains an unregistered component type.
     #[error("scene contains the unregistered component `{type_name}`. consider adding `#[reflect(Component)]` to your type")]
-    UnregisteredComponent { type_name: String },
+    UnregisteredComponent {
+        /// Type of the unregistered component.
+        type_name: String,
+    },
+    /// Scene contains an unregistered resource type.
     #[error("scene contains the unregistered resource `{type_name}`. consider adding `#[reflect(Resource)]` to your type")]
-    UnregisteredResource { type_name: String },
+    UnregisteredResource {
+        /// Type of the unregistered resource.
+        type_name: String,
+    },
+    /// Scene contains an unregistered type.
     #[error("scene contains the unregistered type `{type_name}`. consider registering the type using `app.register_type::<T>()`")]
-    UnregisteredType { type_name: String },
+    UnregisteredType {
+        /// The unregistered type.
+        type_name: String,
+    },
+    /// Dynamic scene with the given id does not exist.
     #[error("scene does not exist")]
-    NonExistentScene { id: AssetId<DynamicScene> },
+    NonExistentScene {
+        /// Id of the non-existent dynamic scene.
+        id: AssetId<DynamicScene>,
+    },
+    /// Scene with the given id does not exist.
     #[error("scene does not exist")]
-    NonExistentRealScene { id: AssetId<Scene> },
+    NonExistentRealScene {
+        /// Id of the non-existent scene.
+        id: AssetId<Scene>,
+    },
 }
 
 impl SceneSpawner {
+    /// Schedule the spawn of a new instance of the provided dynamic scene.
     pub fn spawn_dynamic(&mut self, id: impl Into<AssetId<DynamicScene>>) -> InstanceId {
         let instance_id = InstanceId::new();
         self.dynamic_scenes_to_spawn.push((id.into(), instance_id));
         instance_id
     }
 
+    /// Schedule the spawn of a new instance of the provided dynamic scene as a child of `parent`.
     pub fn spawn_dynamic_as_child(
         &mut self,
         id: impl Into<AssetId<DynamicScene>>,
@@ -82,12 +125,14 @@ impl SceneSpawner {
         instance_id
     }
 
+    /// Schedule the spawn of a new instance of the provided scene.
     pub fn spawn(&mut self, id: impl Into<AssetId<Scene>>) -> InstanceId {
         let instance_id = InstanceId::new();
         self.scenes_to_spawn.push((id.into(), instance_id));
         instance_id
     }
 
+    /// Schedule the spawn of a new instance of the provided scene as a child of `parent`.
     pub fn spawn_as_child(&mut self, id: impl Into<AssetId<Scene>>, parent: Entity) -> InstanceId {
         let instance_id = InstanceId::new();
         self.scenes_to_spawn.push((id.into(), instance_id));
@@ -95,14 +140,17 @@ impl SceneSpawner {
         instance_id
     }
 
+    /// Schedule the despawn of all instances of the provided dynamic scene.
     pub fn despawn(&mut self, id: impl Into<AssetId<DynamicScene>>) {
         self.scenes_to_despawn.push(id.into());
     }
 
+    /// Schedule the despawn of a scene instance, removing all its entities from the world.
     pub fn despawn_instance(&mut self, instance_id: InstanceId) {
         self.instances_to_despawn.push(instance_id);
     }
 
+    /// Immediately despawns all instances of a dynamic scene.
     pub fn despawn_sync(
         &mut self,
         world: &mut World,
@@ -116,6 +164,7 @@ impl SceneSpawner {
         Ok(())
     }
 
+    /// Immediately despawns a scene instance, removing all its entities from the world.
     pub fn despawn_instance_sync(&mut self, world: &mut World, instance_id: &InstanceId) {
         if let Some(instance) = self.spawned_instances.remove(instance_id) {
             for &entity in instance.entity_map.values() {
@@ -124,6 +173,7 @@ impl SceneSpawner {
         }
     }
 
+    /// Immediately spawns a new instance of the provided dynamic scene.
     pub fn spawn_dynamic_sync(
         &mut self,
         world: &mut World,
@@ -153,6 +203,7 @@ impl SceneSpawner {
         })
     }
 
+    /// Immediately spawns a new instance of the provided scene.
     pub fn spawn_sync(
         &mut self,
         world: &mut World,
@@ -182,6 +233,9 @@ impl SceneSpawner {
         })
     }
 
+    /// Iterate through all instances of the provided scenes and update those immediately.
+    ///
+    /// Useful for updating already spawned scene instances after their corresponding scene has been modified.
     pub fn update_spawned_scenes(
         &mut self,
         world: &mut World,
@@ -199,6 +253,7 @@ impl SceneSpawner {
         Ok(())
     }
 
+    /// Immediately despawns all scenes scheduled for despawn by despawning their instances.
     pub fn despawn_queued_scenes(&mut self, world: &mut World) -> Result<(), SceneSpawnError> {
         let scenes_to_despawn = std::mem::take(&mut self.scenes_to_despawn);
 
@@ -208,6 +263,7 @@ impl SceneSpawner {
         Ok(())
     }
 
+    /// Immediately despawns all scene instances scheduled for despawn.
     pub fn despawn_queued_instances(&mut self, world: &mut World) {
         let instances_to_despawn = std::mem::take(&mut self.instances_to_despawn);
 
@@ -216,6 +272,7 @@ impl SceneSpawner {
         }
     }
 
+    /// Immediately spawns all scenes scheduled for spawn.
     pub fn spawn_queued_scenes(&mut self, world: &mut World) -> Result<(), SceneSpawnError> {
         let scenes_to_spawn = std::mem::take(&mut self.dynamic_scenes_to_spawn);
 
@@ -308,6 +365,7 @@ impl SceneSpawner {
     }
 }
 
+/// System that handles scheduled scene instance spawning and despawning through a [`SceneSpawner`].
 pub fn scene_spawner_system(world: &mut World) {
     world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
         // remove any loading instances where parent is deleted
