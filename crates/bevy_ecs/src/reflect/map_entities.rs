@@ -3,7 +3,7 @@ use crate::{
     entity::{Entity, EntityMapper, MapEntities},
     world::World,
 };
-use bevy_reflect::FromType;
+use bevy_reflect::TypeData;
 use bevy_utils::HashMap;
 
 /// For a specific type of component, this maps any fields with values of type [`Entity`] to a new world.
@@ -49,8 +49,8 @@ impl ReflectMapEntities {
     }
 }
 
-impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
-    fn from_type() -> Self {
+impl<C: Component + MapEntities> TypeData<C> for ReflectMapEntities {
+    fn create_type_data() -> Self {
         ReflectMapEntities {
             map_entities: |world, entity_mapper, entities| {
                 for &entity in entities {

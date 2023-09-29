@@ -906,7 +906,7 @@ impl std::fmt::Debug for MutUntyped<'_> {
 mod tests {
     use bevy_ecs_macros::Resource;
     use bevy_ptr::PtrMut;
-    use bevy_reflect::{FromType, ReflectFromPtr};
+    use bevy_reflect::{ReflectFromPtr, TypeData};
 
     use crate::{
         self as bevy_ecs,
@@ -1164,7 +1164,7 @@ mod tests {
             ticks,
         };
 
-        let reflect_from_ptr = <ReflectFromPtr as FromType<i32>>::from_type();
+        let reflect_from_ptr = <ReflectFromPtr as TypeData<i32>>::create_type_data();
 
         let mut new = value.map_unchanged(|ptr| {
             // SAFETY: The underlying type of `ptr` matches `reflect_from_ptr`.

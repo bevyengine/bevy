@@ -9,7 +9,7 @@ use crate::{
     system::Resource,
     world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
 };
-use bevy_reflect::{FromType, Reflect};
+use bevy_reflect::{Reflect, TypeData};
 
 /// A struct used to operate on reflected [`Resource`] of a type.
 ///
@@ -61,12 +61,12 @@ pub struct ReflectResourceFns {
 
 impl ReflectResourceFns {
     /// Get the default set of [`ReflectResourceFns`] for a specific resource type using its
-    /// [`FromType`] implementation.
+    /// [`TypeData`] implementation.
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
     pub fn new<T: Resource + Reflect + FromWorld>() -> Self {
-        <ReflectResource as FromType<T>>::from_type().0
+        <ReflectResource as TypeData<T>>::create_type_data().0
     }
 }
 
@@ -164,8 +164,8 @@ impl ReflectResource {
     }
 }
 
-impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
-    fn from_type() -> Self {
+impl<C: Resource + Reflect + FromWorld> TypeData<C> for ReflectResource {
+    fn create_type_data() -> Self {
         ReflectResource(ReflectResourceFns {
             insert: |world, reflected_resource| {
                 let mut resource = C::from_world(world);

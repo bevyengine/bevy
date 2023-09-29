@@ -729,7 +729,7 @@ impl App {
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type_data<
         T: bevy_reflect::Reflect + 'static,
-        D: bevy_reflect::TypeData + bevy_reflect::FromType<T>,
+        D: bevy_reflect::BaseTypeData + bevy_reflect::TypeData<T>,
     >(
         &mut self,
     ) -> &mut Self {

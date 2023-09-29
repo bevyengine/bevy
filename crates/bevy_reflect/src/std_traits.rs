@@ -1,8 +1,8 @@
-use crate::{FromType, Reflect};
+use crate::{Reflect, TypeData};
 
 /// A struct used to provide the default value of a type.
 ///
-/// A [`ReflectDefault`] for type `T` can be obtained via [`FromType::from_type`].
+/// A [`ReflectDefault`] for type `T` can be obtained via [`TypeData::create_type_data`].
 #[derive(Clone)]
 pub struct ReflectDefault {
     default: fn() -> Box<dyn Reflect>,
@@ -14,8 +14,8 @@ impl ReflectDefault {
     }
 }
 
-impl<T: Reflect + Default> FromType<T> for ReflectDefault {
-    fn from_type() -> Self {
+impl<T: Reflect + Default> TypeData<T> for ReflectDefault {
+    fn create_type_data() -> Self {
         ReflectDefault {
             default: || Box::<T>::default(),
         }

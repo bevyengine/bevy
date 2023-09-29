@@ -14,17 +14,17 @@
 //! [`get_type_registration`] method (see the relevant code[^1]).
 //!
 //! ```ignore
-//! registration.insert::<ReflectComponent>(FromType::<Self>::from_type());
+//! registration.register::<Self, ReflectComponent>();
 //! ```
 //!
 //! This line adds a `ReflectComponent` to the registration data for the type in question.
 //! The user can access the `ReflectComponent` for type `T` through the type registry,
 //! as per the `trait_reflection.rs` example.
 //!
-//! The `FromType::<Self>::from_type()` in the previous line calls the `FromType<C>`
+//! The `.register::<Self, ReflectComponent>()` in the previous line calls the `TypeData<C>`
 //! implementation of `ReflectComponent`.
 //!
-//! The `FromType<C>` impl creates a function per field of [`ReflectComponentFns`].
+//! The [`TypeData<C>`] impl creates a function per field of [`ReflectComponentFns`].
 //! In those functions, we call generic methods on [`World`] and [`EntityWorldMut`].
 //!
 //! The result is a `ReflectComponent` completely independent of `C`, yet capable
@@ -45,6 +45,7 @@
 //! [^1]: `crates/bevy_reflect/bevy_reflect_derive/src/registration.rs`
 //!
 //! [`get_type_registration`]: bevy_reflect::GetTypeRegistration::get_type_registration
+//! [`TypeData<C>`]: bevy_reflect::TypeData
 
 use crate::{
     change_detection::Mut,
@@ -52,7 +53,7 @@ use crate::{
     entity::Entity,
     world::{unsafe_world_cell::UnsafeEntityCell, EntityRef, EntityWorldMut, FromWorld, World},
 };
-use bevy_reflect::{FromType, Reflect};
+use bevy_reflect::{Reflect, TypeData};
 
 /// A struct used to operate on reflected [`Component`] of a type.
 ///
@@ -110,12 +111,12 @@ pub struct ReflectComponentFns {
 
 impl ReflectComponentFns {
     /// Get the default set of [`ReflectComponentFns`] for a specific component type using its
-    /// [`FromType`] implementation.
+    /// [`TypeData`] implementation.
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
     pub fn new<T: Component + Reflect + FromWorld>() -> Self {
-        <ReflectComponent as FromType<T>>::from_type().0
+        <ReflectComponent as TypeData<T>>::create_type_data().0
     }
 }
 
@@ -236,8 +237,8 @@ impl ReflectComponent {
     }
 }
 
-impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
-    fn from_type() -> Self {
+impl<C: Component + Reflect + FromWorld> TypeData<C> for ReflectComponent {
+    fn create_type_data() -> Self {
         ReflectComponent(ReflectComponentFns {
             from_world: |world| Box::new(C::from_world(world)),
             insert: |entity, reflected_component| {

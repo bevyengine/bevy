@@ -299,7 +299,7 @@ pub fn derive_type_uuid(input: TokenStream) -> TokenStream {
 /// Because of this, **it can only be used on [object-safe] traits.**
 ///
 /// For a trait named `MyTrait`, this will generate the struct `ReflectMyTrait`.
-/// The generated struct can be created using `FromType` with any type that implements the trait.
+/// The generated struct can be created using `TypeData` with any type that implements the trait.
 /// The creation and registration of this generated struct as type data can be automatically handled
 /// by [`#[derive(Reflect)]`](Reflect).
 ///
@@ -324,7 +324,7 @@ pub fn derive_type_uuid(input: TokenStream) -> TokenStream {
 /// }
 ///
 /// // We can create the type data manually if we wanted:
-/// let my_trait: ReflectMyTrait = FromType::<SomeStruct>::from_type();
+/// let my_trait: ReflectMyTrait = TypeData::<SomeStruct>::create_type_data();
 ///
 /// // Or we can simply get it from the registry:
 /// let mut registry = TypeRegistry::default();
