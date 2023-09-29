@@ -39,7 +39,7 @@ where
     I: IntoIterator<Item = T> + Default + Send + 'static,
 {
     /// Collect all enqueued items from all threads and them into one
-    /// 
+    ///
     /// The ordering is not guarenteed.
     pub fn drain<B>(&mut self) -> impl Iterator<Item = T> + '_
     where
@@ -52,9 +52,9 @@ where
 }
 
 impl<T: Send> Parallel<Vec<T>> {
-    /// Collect all enqueued items from all threads and appends them to the end of a 
+    /// Collect all enqueued items from all threads and appends them to the end of a
     /// single Vec.
-    /// 
+    ///
     /// The ordering is not guarenteed.
     pub fn drain_into(&mut self, out: &mut Vec<T>) {
         let size = self
