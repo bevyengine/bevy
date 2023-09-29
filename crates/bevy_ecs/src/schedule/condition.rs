@@ -737,7 +737,7 @@ pub mod common_conditions {
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
-    /// if the state machine is currently in any provided `state`.
+    /// if the state machine is currently in any provided `states`.
     ///
     /// # Panics
     ///
