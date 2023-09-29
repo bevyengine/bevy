@@ -266,7 +266,7 @@ impl<S: States, M1: StateMatcher<S>, M2: StateMatcher<S>>
 }
 
 /// A trait to add the capacity for States to be used to create matcher-based schedule labels
-pub trait SetupTransitionScheduleLables<S: States> {
+pub trait SetupTransitionScheduleLabels<S: States> {
     /// Entering a state that matches the matcher from a state that doesn't
     fn on_enter_matching<M: StateMatcher<S>>(matcher: M) -> OnEnterMatching<S, M> {
         OnEnterMatching {
@@ -377,7 +377,7 @@ pub trait SetupTransitionScheduleLables<S: States> {
     }
 }
 
-impl<S: States> SetupTransitionScheduleLables<S> for S {}
+impl<S: States> SetupTransitionScheduleLabels<S> for S {}
 
 /// A finite-state machine whose transitions have associated schedules
 /// ([`OnEnter(state)`] and [`OnExit(state)`]).

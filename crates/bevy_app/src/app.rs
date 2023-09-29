@@ -8,7 +8,7 @@ use bevy_ecs::{
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, BoxedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleBuildSettings, ScheduleLabel, SetupTransitionScheduleLables,
+        ScheduleBuildSettings, ScheduleLabel, SetupTransitionScheduleLabels,
     },
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};

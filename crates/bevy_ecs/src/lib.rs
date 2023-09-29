@@ -46,7 +46,7 @@ pub mod prelude {
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, state_matcher, Condition,
             IntoStateMatcher, IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfigs, NextState,
-            OnEnter, OnExit, OnTransition, Schedule, Schedules, SetupTransitionScheduleLables,
+            OnEnter, OnExit, OnTransition, Schedule, Schedules, SetupTransitionScheduleLabels,
             State, StateMatcher, StateMatcherFunction, States, SystemSet,
         },
         system::{
