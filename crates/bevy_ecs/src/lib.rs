@@ -44,7 +44,7 @@ pub mod prelude {
         query::{Added, AnyOf, Changed, Has, Or, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
-            apply_deferred, apply_state_transition, common_conditions::*, Condition,
+            apply_deferred, apply_state_transition, common_conditions::*, state_matcher, Condition,
             IntoStateMatcher, IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfigs, NextState,
             OnEnter, OnExit, OnTransition, Schedule, Schedules, SetupTransitionScheduleLables,
             State, StateMatcher, StateMatcherFunction, States, SystemSet,
@@ -55,6 +55,9 @@ pub mod prelude {
         },
         world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
     };
+
+    #[doc(hidden)]
+    pub use crate::{in_state, on_enter, on_enter_strict, on_exit, on_exit_strict};
 }
 
 pub use bevy_utils::all_tuples;

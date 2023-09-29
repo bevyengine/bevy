@@ -4,12 +4,7 @@
 //! can be used to great effect to ensure that you handle setup and teardown appropriately.
 //!
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state.
-
 use bevy::prelude::*;
-use bevy_internal::ecs::{
-    in_state, on_enter,
-    schedule::{state_matcher, IntoStateMatcher, StateMatcher, StateMatcherFunction},
-};
 
 fn main() {
     App::new()
