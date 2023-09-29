@@ -3,6 +3,7 @@
 extern crate proc_macro;
 
 mod attrs;
+pub mod fq_std;
 mod shape;
 mod symbol;
 

@@ -20,7 +20,6 @@ mod derive_data;
 mod documentation;
 mod enum_utility;
 mod field_attributes;
-mod fq_std;
 mod from_reflect;
 mod impls;
 mod reflect_value;
@@ -32,6 +31,7 @@ mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
 use crate::type_uuid::gen_impl_type_uuid;
+pub(crate) use bevy_macro_utils::fq_std;
 use container_attributes::ReflectTraits;
 use derive_data::ReflectTypePath;
 use proc_macro::TokenStream;

@@ -33,14 +33,14 @@
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
-pub(crate) struct FQAny;
-pub(crate) struct FQBox;
-pub(crate) struct FQClone;
-pub(crate) struct FQDefault;
-pub(crate) struct FQOption;
-pub(crate) struct FQResult;
-pub(crate) struct FQSend;
-pub(crate) struct FQSync;
+pub struct FQAny;
+pub struct FQBox;
+pub struct FQClone;
+pub struct FQDefault;
+pub struct FQOption;
+pub struct FQResult;
+pub struct FQSend;
+pub struct FQSync;
 
 impl ToTokens for FQAny {
     fn to_tokens(&self, tokens: &mut TokenStream) {
