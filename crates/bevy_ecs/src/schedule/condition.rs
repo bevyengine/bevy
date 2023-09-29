@@ -882,8 +882,6 @@ pub mod common_conditions {
     ///     GameOver,
     /// }
     ///
-    /// world.init_resource::<State<GameState>>();
-    ///
     /// app.add_systems((
     ///     // `in_any_state` will only return true if the
     ///     // given state equals one of the given values
