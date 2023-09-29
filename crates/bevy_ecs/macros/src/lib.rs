@@ -480,7 +480,7 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
     states::derive_states(input)
 }
 
-/// A macro for generating a stract implementing StateMatcher that matches a specific pattern.
+/// A macro for generating a stract implementing `StateMatcher<S>` that matches a specific pattern.
 /// Use:
 /// `state_matcher!(pub MyMatcherStruct, MyStatesType, MyStatesType::AState | MyStatesType::AComplexState(false))`
 #[proc_macro]
