@@ -462,9 +462,10 @@ impl<S: States> NextState<S> {
 
 /// Run the enter schedule (if it exists) for the current state.
 pub fn run_enter_schedule<S: States>(world: &mut World) {
-    world
-        .try_run_schedule(OnEnter(world.resource::<State<S>>().0.clone()))
-        .ok();
+    let Some(state) = world.get_resource::<State<S>>().map(|s| s.0.clone()) else {
+        return;
+    };
+    world.try_run_schedule(OnEnter(state)).ok();
 }
 
 /// If a new state is queued in [`NextState<S>`], this system:
@@ -473,10 +474,12 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 /// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
 /// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
 pub fn apply_state_transition<S: States>(world: &mut World) {
-    // We want to take the `NextState` resource,
-    // but only mark it as changed if it wasn't empty.
-    let next_state_resource = world.resource::<NextState<S>>();
-    let current_state = world.resource::<State<S>>().0.clone();
+    let Some(next_state_resource) = world.get_resource::<NextState<S>>() else {
+        return;
+    };
+    let Some(current_state) = world.get_resource::<State<S>>().map(|s| s.0.clone()) else {
+        return;
+    };
     let entered = match next_state_resource {
         NextState::MaintainCurrent => None,
         NextState::StateValue(v) => Some(v.clone()),

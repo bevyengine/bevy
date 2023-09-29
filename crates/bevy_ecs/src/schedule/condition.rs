@@ -734,8 +734,11 @@ pub mod common_conditions {
     /// ```
     pub fn in_state<S: States, M: StateMatcher<S>>(
         state: M,
-    ) -> impl FnMut(Res<State<S>>) -> bool + Clone {
-        move |current_state: Res<State<S>>| state.match_state(current_state.as_ref())
+    ) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
+        move |current_state: Option<Res<State<S>>>| match current_state {
+            Some(current_state) => state.match_state(current_state.as_ref()),
+            None => false,
+        }
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
