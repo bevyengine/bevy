@@ -33,13 +33,21 @@
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
+/// Fully Qualified (FQ) short name for [`::core::any::Any`]
 pub struct FQAny;
+/// Fully Qualified (FQ) short name for [`::std::boxed::Box`]
 pub struct FQBox;
+/// Fully Qualified (FQ) short name for [`::core::clone::Clone`]
 pub struct FQClone;
+/// Fully Qualified (FQ) short name for [`::core::default::Default`]
 pub struct FQDefault;
+/// Fully Qualified (FQ) short name for [`::core::option::Option`]
 pub struct FQOption;
+/// Fully Qualified (FQ) short name for [`::core::result::Result`]
 pub struct FQResult;
+/// Fully Qualified (FQ) short name for [`::core::marker::Send`]
 pub struct FQSend;
+/// Fully Qualified (FQ) short name for [`::core::marker::Sync`]
 pub struct FQSync;
 
 impl ToTokens for FQAny {
