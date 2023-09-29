@@ -17,6 +17,9 @@ pub struct Node {
     /// The size of the node as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub(crate) calculated_size: Vec2,
+    /// The unrounded size of the node as width and height in logical pixels
+    /// automatically calculated by [`super::layout::ui_layout_system`]
+    pub(crate) unrounded_size: Vec2,
 }
 
 impl Node {
@@ -24,6 +27,12 @@ impl Node {
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub const fn size(&self) -> Vec2 {
         self.calculated_size
+    }
+
+    /// The calculated node size as width and height in logical pixels before rounding
+    /// automatically calculated by [`super::layout::ui_layout_system`]
+    pub const fn unrounded_size(&self) -> Vec2 {
+        self.unrounded_size
     }
 
     /// Returns the size of the node in physical pixels based on the given scale factor and `UiScale`.
@@ -66,6 +75,7 @@ impl Node {
 impl Node {
     pub const DEFAULT: Self = Self {
         calculated_size: Vec2::ZERO,
+        unrounded_size: Vec2::ZERO,
     };
 }
 
@@ -1382,7 +1392,7 @@ fn try_into_grid_span(span: u16) -> Result<Option<NonZeroU16>, GridPlacementErro
     ))
 }
 
-/// Errors that occur when setting contraints for a `GridPlacement`
+/// Errors that occur when setting constraints for a `GridPlacement`
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
 pub enum GridPlacementError {
     #[error("Zero is not a valid grid position")]
