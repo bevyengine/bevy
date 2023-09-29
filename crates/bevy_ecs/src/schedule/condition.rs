@@ -184,7 +184,7 @@ pub mod common_conditions {
         event::{Event, EventReader},
         prelude::{Component, Query, With},
         removal_detection::RemovedComponents,
-        schedule::{State, States},
+        schedule::{State, StateMatcher, States},
         system::{IntoSystem, Res, Resource, System},
     };
 
@@ -732,8 +732,10 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     /// ```
-    pub fn in_state<S: States>(state: S) -> impl FnMut(Res<State<S>>) -> bool + Clone {
-        move |current_state: Res<State<S>>| *current_state == state
+    pub fn in_state<S: States, M: StateMatcher<S>>(
+        state: M,
+    ) -> impl FnMut(Res<State<S>>) -> bool + Clone {
+        move |current_state: Res<State<S>>| state.match_state(current_state.as_ref())
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`

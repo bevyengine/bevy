@@ -4,17 +4,15 @@ use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::schedule::Condition;
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use bevy_utils::define_boxed_label;
 use bevy_utils::label::DynHash;
 
 use crate::system::{
-    self, ExclusiveSystemParamFunction, IntoSystem, IsExclusiveFunctionSystem, IsFunctionSystem,
-    ReadOnlySystem, SystemParamFunction,
+    ExclusiveSystemParamFunction, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
 };
 
-use super::IntoSystemConfigs;
+use super::BoxedCondition;
 
 define_boxed_label!(ScheduleLabel);
 
@@ -23,17 +21,14 @@ pub type BoxedSystemSet = Box<dyn SystemSet>;
 /// A shorthand for `Box<dyn ScheduleLabel>`.
 pub type BoxedScheduleLabel = Box<dyn ScheduleLabel>;
 
-/// A trait that represents an item that can become a ScheduleLabel with optional Conditions
+/// A trait that represents an item that can become a ScheduleLabel with optional BoxedCondition
 pub trait IntoConditionalScheduleLabel<S: ScheduleLabel> {
-    fn into_conditional_schedule_label(
-        self,
-    ) -> (S, Option<Box<dyn ReadOnlySystem<In = (), Out = bool>>>);
+    /// This converts the item to a ScheduleLabel with an optional BoxedCondition.
+    fn into_conditional_schedule_label(self) -> (S, Option<BoxedCondition>);
 }
 
 impl<S: ScheduleLabel> IntoConditionalScheduleLabel<S> for S {
-    fn into_conditional_schedule_label(
-        self,
-    ) -> (S, Option<Box<dyn ReadOnlySystem<In = (), Out = bool>>>) {
+    fn into_conditional_schedule_label(self) -> (S, Option<BoxedCondition>) {
         (self, None)
     }
 }

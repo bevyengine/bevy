@@ -6,18 +6,17 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use crate as bevy_ecs;
-use crate::change_detection::DetectChangesMut;
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
 use crate::schedule::ScheduleLabel;
-use crate::system::Resource;
+use crate::system::{IntoSystem, Resource};
 use crate::world::World;
+pub use bevy_ecs_macros::States;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
-use bevy_utils::prelude::default;
 
-use crate::prelude::Schedules;
-pub use bevy_ecs_macros::States;
+use super::{BoxedCondition, IntoConditionalScheduleLabel};
+use bevy_ecs::prelude::Res;
 
 /// Types that can define world-wide states in a finite-state machine.
 ///
@@ -50,6 +49,7 @@ pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug 
 pub trait StateMatcher<S: States>:
     'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug
 {
+    /// Check whether to match with the current state
     fn match_state(&self, state: &S) -> bool;
 }
 
@@ -64,18 +64,124 @@ impl<S: States + Eq> StateMatcher<S> for S {
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnEnter<S: States>(pub S);
 
+impl<S: States> OnEnter<S> {
+    pub fn matching<M: StateMatcher<S>>(matcher: M) -> OnEnterMatching<S, M> {
+        OnEnterMatching {
+            matcher,
+            exclusive: false,
+            phantom: PhantomData::<S>,
+        }
+    }
+    pub fn matching_exclusive<M: StateMatcher<S>>(matcher: M) -> OnEnterMatching<S, M> {
+        OnEnterMatching {
+            matcher,
+            exclusive: true,
+            phantom: PhantomData::<S>,
+        }
+    }
+}
+
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// enters a matching state from a non-matching state.
-pub struct OnEnterMatching<S: States, M: StateMatcher<S>>(M, PhantomData<S>);
+pub struct OnEnterMatching<S: States, M: StateMatcher<S>> {
+    matcher: M,
+    exclusive: bool,
+    phantom: PhantomData<S>,
+}
+
+impl<S: States, M: StateMatcher<S>> IntoConditionalScheduleLabel<OnStateEntry<S>>
+    for OnEnterMatching<S, M>
+{
+    fn into_conditional_schedule_label(self) -> (OnStateEntry<S>, Option<super::BoxedCondition>) {
+        let matcher = self.matcher;
+        let matcher: BoxedCondition = if self.exclusive {
+            Box::new(IntoSystem::into_system(
+                move |next: Res<State<S>>, previous: Res<PreviousState<S>>| {
+                    matcher.match_state(&next) && (next.0 != previous.0)
+                },
+            ))
+        } else {
+            Box::new(IntoSystem::into_system(
+                move |next: Res<State<S>>, previous: Res<PreviousState<S>>| {
+                    matcher.match_state(&next) && !matcher.match_state(&previous)
+                },
+            ))
+        };
+
+        (OnStateEntry::<S>(PhantomData::<S>), Some(matcher))
+    }
+}
 
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// exits this state.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnExit<S: States>(pub S);
 
+impl<S: States> OnExit<S> {
+    pub fn matching<M: StateMatcher<S>>(matcher: M) -> OnExitMatching<S, M> {
+        OnExitMatching {
+            matcher,
+            exclusive: false,
+            phantom: PhantomData::<S>,
+        }
+    }
+    pub fn matching_exclusive<M: StateMatcher<S>>(matcher: M) -> OnExitMatching<S, M> {
+        OnExitMatching {
+            matcher,
+            exclusive: true,
+            phantom: PhantomData::<S>,
+        }
+    }
+}
+
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// exits a matching state without entering another matching state.
-pub struct OnExitMatching<S: States, M: StateMatcher<S>>(M, PhantomData<S>);
+pub struct OnExitMatching<S: States, M: StateMatcher<S>> {
+    matcher: M,
+    exclusive: bool,
+    phantom: PhantomData<S>,
+}
+
+impl<S: States, M: StateMatcher<S>> IntoConditionalScheduleLabel<OnStateExit<S>>
+    for OnExitMatching<S, M>
+{
+    fn into_conditional_schedule_label(self) -> (OnStateExit<S>, Option<super::BoxedCondition>) {
+        let matcher = self.matcher;
+
+        let matcher: BoxedCondition = if self.exclusive {
+            Box::new(IntoSystem::into_system(
+                move |next: Res<State<S>>, previous: Res<PreviousState<S>>| {
+                    matcher.match_state(&previous) && (next.0 != previous.0)
+                },
+            ))
+        } else {
+            Box::new(IntoSystem::into_system(
+                move |next: Res<State<S>>, previous: Res<PreviousState<S>>| {
+                    !matcher.match_state(&next) && matcher.match_state(&previous)
+                },
+            ))
+        };
+
+        (OnStateExit::<S>(PhantomData::<S>), Some(matcher))
+    }
+}
+
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct OnStateEntry<S: States>(PhantomData<S>);
+
+impl<S: States> OnStateEntry<S> {
+    fn new() -> Self {
+        Self(PhantomData::<S>)
+    }
+}
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct OnStateExit<S: States>(PhantomData<S>);
+
+impl<S: States> OnStateExit<S> {
+    fn new() -> Self {
+        Self(PhantomData::<S>)
+    }
+}
 
 /// The label of a [`Schedule`](super::Schedule) that **only** runs whenever [`State<S>`]
 /// exits the `from` state, AND enters the `to` state.
@@ -133,6 +239,48 @@ impl<S: States> Deref for State<S> {
     }
 }
 
+#[derive(Resource, Default, Debug)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(bevy_reflect::Reflect),
+    reflect(Resource, Default)
+)]
+struct PreviousState<S: States>(S);
+
+impl<S: States> PreviousState<S> {
+    /// Creates a new state with a specific value.
+    ///
+    /// To change the state use [`NextState<S>`] rather than using this to modify the `State<S>`.
+    pub fn new(state: S) -> Self {
+        Self(state)
+    }
+
+    /// Get the current state.
+    pub fn get(&self) -> &S {
+        &self.0
+    }
+}
+
+impl<S: States + PartialEq> PartialEq<S> for PreviousState<S> {
+    fn eq(&self, other: &S) -> bool {
+        self.get() == other
+    }
+}
+
+impl<S: States> Deref for PreviousState<S> {
+    type Target = S;
+
+    fn deref(&self) -> &Self::Target {
+        self.get()
+    }
+}
+
+impl<S: States> From<State<S>> for PreviousState<S> {
+    fn from(value: State<S>) -> Self {
+        Self(value.0.clone())
+    }
+}
+
 /// The next state of [`State<S>`].
 ///
 /// To queue a transition, just set the contained value to `Some(next_state)`.
@@ -145,9 +293,12 @@ impl<S: States> Deref for State<S> {
     reflect(Resource, Default)
 )]
 pub enum NextState<S: States> {
+    /// Do not change the state.
     #[default]
     MaintainCurrent,
+    /// Change the state to a specific, pre-determined value
     StateValue(S),
+    /// Change the state to a value determined by the given closure
     StateSetter(Arc<dyn Fn(S) -> S + Sync + Send>),
 }
 
@@ -156,7 +307,7 @@ impl<S: States> Debug for NextState<S> {
         match self {
             Self::MaintainCurrent => write!(f, "MaintainCurrent"),
             Self::StateValue(arg0) => f.debug_tuple("StateValue").field(arg0).finish(),
-            Self::StateSetter(arg0) => write!(f, "StateSetter"),
+            Self::StateSetter(_) => write!(f, "StateSetter"),
         }
     }
 }
@@ -165,6 +316,10 @@ impl<S: States> NextState<S> {
     /// Tentatively set a planned state transition to `Some(state)`.
     pub fn set(&mut self, state: S) {
         *self = Self::StateValue(state)
+    }
+    /// Tentatively set a planned state transition to `Some(state)`.
+    pub fn setter(&mut self, setter: impl Fn(S) -> S + 'static + Sync + Send) {
+        *self = Self::StateSetter(Arc::new(setter));
     }
 }
 
@@ -193,10 +348,14 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
     if let Some(entered) = entered {
         world.insert_resource(NextState::<S>::MaintainCurrent);
         if current_state != entered {
+            world.insert_resource(PreviousState(current_state));
             let mut state_resource = world.resource_mut::<State<S>>();
             let exited = mem::replace(&mut state_resource.0, entered.clone());
             // Try to run the schedules if they exist.
             world.try_run_schedule(OnExit(exited.clone())).ok();
+            world
+                .try_run_schedule(OnStateExit::<S>(PhantomData::<S>))
+                .ok();
             world
                 .try_run_schedule(OnTransition {
                     from: exited,
@@ -204,6 +363,10 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
                 })
                 .ok();
             world.try_run_schedule(OnEnter(entered)).ok();
+            world
+                .try_run_schedule(OnStateEntry::<S>(PhantomData::<S>))
+                .ok();
+            world.remove_resource::<PreviousState<S>>();
         }
     }
 }

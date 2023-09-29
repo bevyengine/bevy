@@ -1,7 +1,6 @@
 use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::schedule::IntoConditionalScheduleLabel;
-use bevy_ecs::system::ExclusiveSystemParamFunction;
 use bevy_ecs::{
     prelude::*,
     schedule::{
