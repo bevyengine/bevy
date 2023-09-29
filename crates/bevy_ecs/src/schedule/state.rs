@@ -476,9 +476,9 @@ pub enum NextState<S: States> {
 impl<S: States> Debug for NextState<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Keep => write!(f, "MaintainCurrent"),
-            Self::Value(arg0) => f.debug_tuple("StateValue").field(arg0).finish(),
-            Self::Setter(_) => write!(f, "StateSetter"),
+            Self::Keep => write!(f, "Keep"),
+            Self::Value(arg0) => f.debug_tuple("Vlalue").field(arg0).finish(),
+            Self::Setter(_) => write!(f, "Setter"),
         }
     }
 }
