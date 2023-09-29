@@ -737,6 +737,57 @@ pub mod common_conditions {
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the state machine is currently in multiple `states`.
+    ///
+    /// # Panics
+    ///
+    /// The condition will panic if the resource does not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, Default)]
+    /// # struct BackgroundAnimation(bool);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_resource::<BackgroundAnimation>();
+    /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
+    /// enum GameState {
+    ///     #[default]
+    ///     Playing,
+    ///     Paused,
+    /// }
+    ///
+    /// world.init_resource::<State<GameState>>();
+    ///
+    /// app.add_systems((
+    ///     // `in_any_state` will only return true if the
+    ///     // given state equals one of the given values
+    ///     background_animation.run_if(in_any_state([GameState::Playing, GameState::Paused]))
+    /// ));
+    ///
+    /// fn background_animation(mut animation: ResMut<BackgroundAnimation>) {
+    ///     animation.0 = true;
+    /// }
+    ///
+    /// // We default to `GameState::Playing` so `background_animation` runs
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<BackgroundAnimation>().0, true);
+    ///
+    /// *world.resource_mut::<State<GameState>>() = State::new(GameState::Paused);
+    ///
+    /// // Now that we are in `GameState::Pause`, `background_animation` will also run
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<BackgroundAnimation>().0, true);
+    /// ```
+    pub fn in_any_state<S: States, const COUNT: usize>(
+        states: [S; COUNT],
+    ) -> impl FnMut(Res<State<S>>) -> bool + Clone {
+        move |current_state: Res<State<S>>| states.iter().any(|state| *current_state == *state)
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine exists and is currently in `state`.
     ///
     /// The condition will return `false` if the state does not exist.
