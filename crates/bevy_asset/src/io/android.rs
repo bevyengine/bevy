@@ -8,7 +8,7 @@ use futures_lite::stream;
 use std::{
     ffi::{CString, OsString},
     os::unix::ffi::OsStringExt as _,
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 /// [`AssetReader`] implementation for Android devices, built on top of Android's [`AssetManager`].
@@ -76,10 +76,19 @@ impl AssetReader for AndroidAssetReader {
 
             // collecting it since AssetDir can't be sent between threads
             let paths = opened_dir
-                .map(|path| {
+                .filter_map(|path| {
                     // convert from CString to PathBuf, only works on unix which android is.
                     let bytes = path.to_bytes().to_vec();
-                    OsString::from_vec(bytes).into()
+                    let path: PathBuf = OsString::from_vec(bytes).into();
+
+                    // filter out meta files as they are not considered assets
+                    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                        if ext.eq_ignore_ascii_case("meta") {
+                            return None;
+                        }
+                    }
+
+                    Some(path)
                 })
                 .collect::<Vec<_>>();
             let stream: Box<PathStream> = Box::new(stream::iter(paths));
