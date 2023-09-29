@@ -18,18 +18,22 @@ fn main() {
         // and then all systems from the enter schedule of the state we're entering are run second.
         .add_systems(OnEnter(AppState::Menu), setup_menu)
         .add_systems(OnEnter(AppState::InGame { paused: true }), setup_paused)
-        // We also have the ability to use matchers,
+        // We also have the ability to use matchers, which are structs that allow more complex matching functions
+        // These can be created with either the `::matching` function, which will run if only one of the systems matches
+        // or with the `::matching_exclusive` function, which will run if the entering/exiting system matches
+        // regardless of whether the other system matches as well.
         .add_systems(OnEnter::matching(InGame), setup_game)
         .add_systems(OnExit::matching_exclusive(ShowsUI), cleanup_ui)
         // By contrast, update systems are stored in the `Update` schedule. They simply
         // check the value of the `State<T>` resource to see if they should run each frame.
         .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
-        .add_systems(Update, toggle_pause)
         .add_systems(
             Update,
             movement.run_if(in_state(AppState::InGame { paused: false })),
         )
+        // Alternatively, you can provide the `in_state` function with a matcher
         .add_systems(Update, change_color.run_if(in_state(InGame)))
+        .add_systems(Update, toggle_pause)
         .run();
 }
 
@@ -128,6 +132,7 @@ fn menu(
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
+                // One way to set the next state is to set the full state value, like so
                 next_state.set(AppState::InGame { paused: true });
             }
             Interaction::Hovered => {
@@ -184,6 +189,7 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
 
 fn toggle_pause(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
     if input.just_pressed(KeyCode::Escape) {
+        // Alternatively, you provide next_state with a setter function, which will take the current state, and output the new state, allowing for some degree of update-in-place
         next_state.setter(|state| match &state {
             AppState::InGame { paused } => AppState::InGame { paused: !paused },
             _ => state,
