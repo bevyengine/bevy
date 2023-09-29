@@ -1,18 +1,23 @@
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, AssetWatcher, EmptyPathStream, PathStream,
+    get_meta_path, AssetReader, AssetReaderError, AssetWatcher, PathStream,
     Reader, VecReader,
 };
 use anyhow::Result;
 use bevy_log::error;
 use bevy_utils::BoxedFuture;
-use std::{ffi::CString, path::Path};
+use futures_lite::stream;
+use std::{
+    ffi::{CString, OsString},
+    os::unix::ffi::OsStringExt as _,
+    path::Path
+};
 
 /// [`AssetReader`] implementation for Android devices, built on top of Android's [`AssetManager`].
 ///
 /// Implementation details:
 ///
-/// - [`load_path`](AssetIo::load_path) uses the [`AssetManager`] to load files.
-/// - [`read_directory`](AssetIo::read_directory) always returns an empty iterator.
+/// - [`read`](AssetIo::read) and [`read_directory`](AssetIo::read_directory) use the [`AssetManager`] to load files and directories.
+/// - [`is_directory`](AssetIo::is_directory) always returns false.
 /// - Watching for changes is not supported. The watcher method will do nothing.
 ///
 /// [AssetManager]: https://developer.android.com/reference/android/content/res/AssetManager
@@ -58,11 +63,27 @@ impl AssetReader for AndroidAssetReader {
 
     fn read_directory<'a>(
         &'a self,
-        _path: &'a Path,
+        path: &'a Path,
     ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
-        let stream: Box<PathStream> = Box::new(EmptyPathStream);
-        error!("Reading directories is not supported with the AndroidAssetReader");
-        Box::pin(async move { Ok(stream) })
+        Box::pin(async move {
+            let asset_manager = bevy_winit::ANDROID_APP
+                .get()
+                .expect("Bevy must be setup with the #[bevy_main] macro on Android")
+                .asset_manager();
+
+            let opened_dir = asset_manager
+                .open_dir(&CString::new(path.to_str().unwrap()).unwrap())
+                .ok_or(AssetReaderError::NotFound(path.to_path_buf()))?;
+
+            // collecting it since AssetDir can't be sent between threads
+            let paths = opened_dir.map(|path| {
+                // convert from CString to PathBuf, only works on unix which android is.
+                let bytes = path.to_bytes().to_vec();
+                OsString::from_vec(bytes).into()
+            }).collect::<Vec<_>>();
+            let stream: Box<PathStream> = Box::new(stream::iter(paths));
+            Ok(stream)
+        })
     }
 
     fn is_directory<'a>(
