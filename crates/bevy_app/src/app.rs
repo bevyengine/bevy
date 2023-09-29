@@ -367,7 +367,7 @@ impl App {
     ///
     /// You can treat these just like any other states, but bear in mind that the `State<S>` and `NextState<S>`
     /// resources might not exist.
-    pub fn add_conditional_state<S: States, Parent: States>(
+    pub fn add_sub_state<S: States, Parent: States>(
         &mut self,
         condition: impl StateMatcher<Parent>,
     ) -> &mut Self {
@@ -395,7 +395,7 @@ impl App {
     ///
     /// You can treat these just like any other states, but bear in mind that the `State<S>` and `NextState<S>`
     /// resources might not exist.
-    pub fn add_strict_conditional_state<S: States, Parent: States>(
+    pub fn add_strict_sub_state<S: States, Parent: States>(
         &mut self,
         condition: impl StateMatcher<Parent>,
     ) -> &mut Self {

@@ -9,38 +9,49 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_state::<AppState>()
+        .add_systems(Update, toggle_pause)
         .add_systems(Startup, setup)
+        // You need to register a state type for it to be usable in the app.
+        // This sets up all the necessary systems, schedules & resources in the background.
+        .add_state::<AppState>()
         // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.
         // All systems from the exit schedule of the state we're leaving are run first,
         // and then all systems from the enter schedule of the state we're entering are run second.
         .add_systems(OnEnter(AppState::Menu), setup_menu)
-        // We also have the ability to use matchers, which are structs that allow more complex matching functions
-        // These can be created with either the `::matching` function, which will run if only one of the systems matches
-        // or with the `::matching_strict` function, which will run if the entering/exiting system matches
-        // regardless of whether the other system matches as well.
-        .add_systems(OnEnter::matching(InGame), setup_game)
-        .add_systems(OnExit::matching_strict(ShowsUI), cleanup_ui)
-        // You can also use the `on_enter`, `on_enter_strict`, `on_exit` or `on_exit_strict` macros
-        // The macros can either accept a matcher (or state) as a single parameter,
-        // or the state type and a pattern to match against as two parameters
-        .add_systems(on_enter!(AppState::InGame { paused: true }), setup_paused)
+        // The `OnEnter` struct can accept any valid state object, not just enums
+        .add_systems(OnEnter(AppState::InGame { paused: true }), setup_paused)
         .add_systems(
-            on_enter!(AppState::InGame { paused: false }),
+            OnEnter(AppState::InGame { paused: false }),
             setup_in_game_ui,
         )
-        // By contrast, update systems are stored in the `Update` schedule. They simply
-        // check the value of the `State<T>` resource to see if they should run each frame.
-        // The in_state function can accept State values or StateMatcher's.
+        // In addition to `OnEnter` and `OnExit`, you can run systems any other schedule as well.
+        // To do so, you will want to add the `in_state()` run condition, which will check
+        // if we're in the correct state every time the schedule runs. In this case - that's every frame.
         .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
-        // Alternatively, you can use the `in_state!` macro with a type and pattern
+        // But that is not all - we can use pattern matching with the `on_enter! macro
+        // Which lets us run the system whenever we enter a matching state from one that doesn't maatch
+        .add_systems(on_enter!(AppState, AppState::InGame { .. }), setup_game)
+        // Both `on_enter!` and `on_exit` also have `_strict` versions, which will match whenever
+        // we enter/exit a matching system regardless if the previous/next system matched as well.
+        // As a result, this system will run on every state transition, because every state matches
+        // the pattern. If it were not strict, this system would never run.
+        .add_systems(on_exit_strict!(AppState, _), cleanup_ui)
+        // You can also use pattern matching when in a state, using the `in_state!` macro
+        // This works just like the `in_state()` function, but relies on pattern matching rather than
+        // strict equality.
         .add_systems(
             Update,
             change_color.run_if(in_state!(AppState, AppState::InGame { .. })),
         )
-        .add_systems(Update, toggle_pause)
-        //
-        .add_conditional_state::<MovementState, _>(AppState::InGame { paused: false })
+        // Lastly, we can also insert sub states to our app.
+        // Sub states are just regular states, but they are set up so that they are automatically
+        // removed from the world when you aren't in a matching parent state, and are added to the world
+        // with their default value whenever you are in a matching parent state.
+        // In this case - `State<MovementState>` will only exist in the world when the game is not paused.
+        .add_sub_state::<MovementState, _>(AppState::InGame { paused: false })
+        // Just like any other state, we can use the various macros and functions to relate to it.
+        // Here we are pattern matching against any value of `MovementState`, which means it will run
+        // whenever `MovementState` exists - which is when we are in an unpaused game.
         .add_systems(Update, invert_movement.run_if(in_state!(MovementState, _)))
         .add_systems(Update, movement.run_if(in_state(MovementState::Normal)))
         .add_systems(
@@ -49,22 +60,6 @@ fn main() {
         )
         .run();
 }
-
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
-struct ShowsUI;
-
-// State Matchers can be implemented manually
-// Note that because this matcher is used with a strict matching
-// It will still trigger every time AppState changes
-impl StateMatcher<AppState> for ShowsUI {
-    fn match_state(&self, _: &AppState) -> bool {
-        true
-    }
-}
-
-// State Matchers can also be implemented using the `state_matcher!` micro
-// If the matcher could be treated as a match expression
-state_matcher!(InGame, AppState, AppState::InGame { .. });
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 enum AppState {
