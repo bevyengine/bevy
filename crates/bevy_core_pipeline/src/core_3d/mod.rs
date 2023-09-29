@@ -24,7 +24,7 @@ pub mod graph {
 }
 pub const CORE_3D: &str = graph::NAME;
 
-use std::cmp::Reverse;
+use std::{cmp::Reverse, ops::Range};
 
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
@@ -50,7 +50,7 @@ use bevy_render::{
     view::ViewDepthTexture,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{FloatOrd, HashMap};
+use bevy_utils::{nonmax::NonMaxU32, FloatOrd, HashMap};
 
 use crate::{
     prepass::{
@@ -135,7 +135,8 @@ pub struct Opaque3d {
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
-    pub batch_size: usize,
+    pub batch_range: Range<u32>,
+    pub dynamic_offset: Option<NonMaxU32>,
 }
 
 impl PhaseItem for Opaque3d {
@@ -164,8 +165,23 @@ impl PhaseItem for Opaque3d {
     }
 
     #[inline]
-    fn batch_size(&self) -> usize {
-        self.batch_size
+    fn batch_range(&self) -> &Range<u32> {
+        &self.batch_range
+    }
+
+    #[inline]
+    fn batch_range_mut(&mut self) -> &mut Range<u32> {
+        &mut self.batch_range
+    }
+
+    #[inline]
+    fn dynamic_offset(&self) -> Option<NonMaxU32> {
+        self.dynamic_offset
+    }
+
+    #[inline]
+    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
+        &mut self.dynamic_offset
     }
 }
 
@@ -181,7 +197,8 @@ pub struct AlphaMask3d {
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
-    pub batch_size: usize,
+    pub batch_range: Range<u32>,
+    pub dynamic_offset: Option<NonMaxU32>,
 }
 
 impl PhaseItem for AlphaMask3d {
@@ -210,8 +227,23 @@ impl PhaseItem for AlphaMask3d {
     }
 
     #[inline]
-    fn batch_size(&self) -> usize {
-        self.batch_size
+    fn batch_range(&self) -> &Range<u32> {
+        &self.batch_range
+    }
+
+    #[inline]
+    fn batch_range_mut(&mut self) -> &mut Range<u32> {
+        &mut self.batch_range
+    }
+
+    #[inline]
+    fn dynamic_offset(&self) -> Option<NonMaxU32> {
+        self.dynamic_offset
+    }
+
+    #[inline]
+    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
+        &mut self.dynamic_offset
     }
 }
 
@@ -227,7 +259,8 @@ pub struct Transparent3d {
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
-    pub batch_size: usize,
+    pub batch_range: Range<u32>,
+    pub dynamic_offset: Option<NonMaxU32>,
 }
 
 impl PhaseItem for Transparent3d {
@@ -255,8 +288,23 @@ impl PhaseItem for Transparent3d {
     }
 
     #[inline]
-    fn batch_size(&self) -> usize {
-        self.batch_size
+    fn batch_range(&self) -> &Range<u32> {
+        &self.batch_range
+    }
+
+    #[inline]
+    fn batch_range_mut(&mut self) -> &mut Range<u32> {
+        &mut self.batch_range
+    }
+
+    #[inline]
+    fn dynamic_offset(&self) -> Option<NonMaxU32> {
+        self.dynamic_offset
+    }
+
+    #[inline]
+    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
+        &mut self.dynamic_offset
     }
 }
 

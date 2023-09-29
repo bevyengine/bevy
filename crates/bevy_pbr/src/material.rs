@@ -1,6 +1,6 @@
 use crate::{
     render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
-    MeshTransforms, PrepassPipelinePlugin, PrepassPlugin, ScreenSpaceAmbientOcclusionSettings,
+    PrepassPipelinePlugin, PrepassPlugin, RenderMeshInstances, ScreenSpaceAmbientOcclusionSettings,
     SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
 };
 use bevy_app::{App, Plugin};
@@ -14,13 +14,9 @@ use bevy_core_pipeline::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
-    system::{
-        lifetimeless::{Read, SRes},
-        SystemParamItem,
-    },
+    system::{lifetimeless::SRes, SystemParamItem},
 };
 use bevy_render::{
-    extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
@@ -29,16 +25,16 @@ use bevy_render::{
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, OwnedBindingResource,
-        PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
-        SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout,
+        OwnedBindingResource, PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef,
+        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
     texture::FallbackImage,
-    view::{ExtractedView, Msaa, VisibleEntities},
+    view::{ExtractedView, Msaa, ViewVisibility, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{tracing::error, HashMap, HashSet};
+use bevy_utils::{tracing::error, EntityHashMap, HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -95,12 +91,9 @@ use std::marker::PhantomData;
 /// In WGSL shaders, the material's binding would look like this:
 ///
 /// ```wgsl
-/// @group(1) @binding(0)
-/// var<uniform> color: vec4<f32>;
-/// @group(1) @binding(1)
-/// var color_texture: texture_2d<f32>;
-/// @group(1) @binding(2)
-/// var color_sampler: sampler;
+/// @group(1) @binding(0) var<uniform> color: vec4<f32>;
+/// @group(1) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(1) @binding(2) var color_sampler: sampler;
 /// ```
 pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
@@ -183,8 +176,7 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.init_asset::<M>()
-            .add_plugins(ExtractComponentPlugin::<Handle<M>>::extract_visible());
+        app.init_asset::<M>();
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -195,8 +187,12 @@ where
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
+                .init_resource::<RenderMaterialInstances<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_systems(ExtractSchedule, extract_materials::<M>)
+                .add_systems(
+                    ExtractSchedule,
+                    (extract_materials::<M>, extract_material_meshes::<M>),
+                )
                 .add_systems(
                     Render,
                     (
@@ -350,21 +346,77 @@ type DrawMaterial<M> = (
 /// Sets the bind group for a given [`Material`] at the configured `I` index.
 pub struct SetMaterialBindGroup<M: Material, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterialBindGroup<M, I> {
-    type Param = SRes<RenderMaterials<M>>;
+    type Param = (SRes<RenderMaterials<M>>, SRes<RenderMaterialInstances<M>>);
     type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<Handle<M>>;
+    type ItemWorldQuery = ();
 
     #[inline]
     fn render<'w>(
-        _item: &P,
+        item: &P,
         _view: (),
-        material_handle: &'_ Handle<M>,
-        materials: SystemParamItem<'w, '_, Self::Param>,
+        _item_query: (),
+        (materials, material_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material = materials.into_inner().get(&material_handle.id()).unwrap();
+        let materials = materials.into_inner();
+        let material_instances = material_instances.into_inner();
+
+        let Some(material_asset_id) = material_instances.get(&item.entity()) else {
+            return RenderCommandResult::Failure;
+        };
+        let Some(material) = materials.get(material_asset_id) else {
+            return RenderCommandResult::Failure;
+        };
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
+    }
+}
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct RenderMaterialInstances<M: Material>(EntityHashMap<Entity, AssetId<M>>);
+
+impl<M: Material> Default for RenderMaterialInstances<M> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+fn extract_material_meshes<M: Material>(
+    mut material_instances: ResMut<RenderMaterialInstances<M>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &Handle<M>)>>,
+) {
+    material_instances.clear();
+    for (entity, view_visibility, handle) in &query {
+        if view_visibility.get() {
+            material_instances.insert(entity, handle.id());
+        }
+    }
+}
+
+const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
+    match alpha_mode {
+        // Premultiplied and Add share the same pipeline key
+        // They're made distinct in the PBR shader, via `premultiply_alpha()`
+        AlphaMode::Premultiplied | AlphaMode::Add => MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA,
+        AlphaMode::Blend => MeshPipelineKey::BLEND_ALPHA,
+        AlphaMode::Multiply => MeshPipelineKey::BLEND_MULTIPLY,
+        AlphaMode::Mask(_) => MeshPipelineKey::MAY_DISCARD,
+        _ => MeshPipelineKey::NONE,
+    }
+}
+
+const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
+    match tonemapping {
+        Tonemapping::None => MeshPipelineKey::TONEMAP_METHOD_NONE,
+        Tonemapping::Reinhard => MeshPipelineKey::TONEMAP_METHOD_REINHARD,
+        Tonemapping::ReinhardLuminance => MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE,
+        Tonemapping::AcesFitted => MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED,
+        Tonemapping::AgX => MeshPipelineKey::TONEMAP_METHOD_AGX,
+        Tonemapping::SomewhatBoringDisplayTransform => {
+            MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+        }
+        Tonemapping::TonyMcMapface => MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
+        Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
     }
 }
 
@@ -379,7 +431,8 @@ pub fn queue_material_meshes<M: Material>(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
-    material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshTransforms)>,
+    mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    render_material_instances: Res<RenderMaterialInstances<M>>,
     images: Res<RenderAssets<Image>>,
     mut views: Query<(
         &ExtractedView,
@@ -421,131 +474,104 @@ pub fn queue_material_meshes<M: Material>(
         if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
         }
-
         if taa_settings.is_some() {
             view_key |= MeshPipelineKey::TAA;
         }
+        let environment_map_loaded = environment_map.is_some_and(|map| map.is_loaded(&images));
 
-        let environment_map_loaded = match environment_map {
-            Some(environment_map) => environment_map.is_loaded(&images),
-            None => false,
-        };
         if environment_map_loaded {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
         }
-
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= match tonemapping {
-                    Tonemapping::None => MeshPipelineKey::TONEMAP_METHOD_NONE,
-                    Tonemapping::Reinhard => MeshPipelineKey::TONEMAP_METHOD_REINHARD,
-                    Tonemapping::ReinhardLuminance => {
-                        MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
-                    }
-                    Tonemapping::AcesFitted => MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED,
-                    Tonemapping::AgX => MeshPipelineKey::TONEMAP_METHOD_AGX,
-                    Tonemapping::SomewhatBoringDisplayTransform => {
-                        MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
-                    }
-                    Tonemapping::TonyMcMapface => MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
-                    Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
-                };
+                view_key |= tonemapping_pipeline_key(*tonemapping);
             }
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }
         }
-
         if ssao.is_some() {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
-
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
-            if let Ok((material_handle, mesh_handle, mesh_transforms)) =
-                material_meshes.get(*visible_entity)
-            {
-                if let (Some(mesh), Some(material)) = (
-                    render_meshes.get(mesh_handle),
-                    render_materials.get(&material_handle.id()),
-                ) {
-                    let mut mesh_key =
-                        MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
-                            | view_key;
-                    if mesh.morph_targets.is_some() {
-                        mesh_key |= MeshPipelineKey::MORPH_TARGETS;
-                    }
-                    match material.properties.alpha_mode {
-                        AlphaMode::Blend => {
-                            mesh_key |= MeshPipelineKey::BLEND_ALPHA;
-                        }
-                        AlphaMode::Premultiplied | AlphaMode::Add => {
-                            // Premultiplied and Add share the same pipeline key
-                            // They're made distinct in the PBR shader, via `premultiply_alpha()`
-                            mesh_key |= MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA;
-                        }
-                        AlphaMode::Multiply => {
-                            mesh_key |= MeshPipelineKey::BLEND_MULTIPLY;
-                        }
-                        AlphaMode::Mask(_) => {
-                            mesh_key |= MeshPipelineKey::MAY_DISCARD;
-                        }
-                        _ => (),
-                    }
+            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
+                continue;
+            };
+            let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
+                continue;
+            };
+            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                continue;
+            };
+            let Some(material) = render_materials.get(material_asset_id) else {
+                continue;
+            };
+            let mut mesh_key = view_key;
 
-                    let pipeline_id = pipelines.specialize(
-                        &pipeline_cache,
-                        &material_pipeline,
-                        MaterialPipelineKey {
-                            mesh_key,
-                            bind_group_data: material.key.clone(),
-                        },
-                        &mesh.layout,
-                    );
-                    let pipeline_id = match pipeline_id {
-                        Ok(id) => id,
-                        Err(err) => {
-                            error!("{}", err);
-                            continue;
-                        }
-                    };
+            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
 
-                    let distance = rangefinder
-                        .distance_translation(&mesh_transforms.transform.translation)
-                        + material.properties.depth_bias;
-                    match material.properties.alpha_mode {
-                        AlphaMode::Opaque => {
-                            opaque_phase.add(Opaque3d {
-                                entity: *visible_entity,
-                                draw_function: draw_opaque_pbr,
-                                pipeline: pipeline_id,
-                                distance,
-                                batch_size: 1,
-                            });
-                        }
-                        AlphaMode::Mask(_) => {
-                            alpha_mask_phase.add(AlphaMask3d {
-                                entity: *visible_entity,
-                                draw_function: draw_alpha_mask_pbr,
-                                pipeline: pipeline_id,
-                                distance,
-                                batch_size: 1,
-                            });
-                        }
-                        AlphaMode::Blend
-                        | AlphaMode::Premultiplied
-                        | AlphaMode::Add
-                        | AlphaMode::Multiply => {
-                            transparent_phase.add(Transparent3d {
-                                entity: *visible_entity,
-                                draw_function: draw_transparent_pbr,
-                                pipeline: pipeline_id,
-                                distance,
-                                batch_size: 1,
-                            });
-                        }
-                    }
+            if mesh.morph_targets.is_some() {
+                mesh_key |= MeshPipelineKey::MORPH_TARGETS;
+            }
+            mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
+
+            let pipeline_id = pipelines.specialize(
+                &pipeline_cache,
+                &material_pipeline,
+                MaterialPipelineKey {
+                    mesh_key,
+                    bind_group_data: material.key.clone(),
+                },
+                &mesh.layout,
+            );
+            let pipeline_id = match pipeline_id {
+                Ok(id) => id,
+                Err(err) => {
+                    error!("{}", err);
+                    continue;
+                }
+            };
+
+            mesh_instance.material_bind_group_id = material.get_bind_group_id();
+
+            let distance = rangefinder
+                .distance_translation(&mesh_instance.transforms.transform.translation)
+                + material.properties.depth_bias;
+            match material.properties.alpha_mode {
+                AlphaMode::Opaque => {
+                    opaque_phase.add(Opaque3d {
+                        entity: *visible_entity,
+                        draw_function: draw_opaque_pbr,
+                        pipeline: pipeline_id,
+                        distance,
+                        batch_range: 0..1,
+                        dynamic_offset: None,
+                    });
+                }
+                AlphaMode::Mask(_) => {
+                    alpha_mask_phase.add(AlphaMask3d {
+                        entity: *visible_entity,
+                        draw_function: draw_alpha_mask_pbr,
+                        pipeline: pipeline_id,
+                        distance,
+                        batch_range: 0..1,
+                        dynamic_offset: None,
+                    });
+                }
+                AlphaMode::Blend
+                | AlphaMode::Premultiplied
+                | AlphaMode::Add
+                | AlphaMode::Multiply => {
+                    transparent_phase.add(Transparent3d {
+                        entity: *visible_entity,
+                        draw_function: draw_transparent_pbr,
+                        pipeline: pipeline_id,
+                        distance,
+                        batch_range: 0..1,
+                        dynamic_offset: None,
+                    });
                 }
             }
         }
@@ -568,6 +594,15 @@ pub struct PreparedMaterial<T: Material> {
     pub bind_group: BindGroup,
     pub key: T::Data,
     pub properties: MaterialProperties,
+}
+
+#[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
+pub struct MaterialBindGroupId(Option<BindGroupId>);
+
+impl<T: Material> PreparedMaterial<T> {
+    pub fn get_bind_group_id(&self) -> MaterialBindGroupId {
+        MaterialBindGroupId(Some(self.bind_group.id()))
+    }
 }
 
 #[derive(Resource)]

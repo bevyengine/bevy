@@ -224,12 +224,18 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Many unsafe query methods require the world to match for soundness. This function is the easiest
     /// way of ensuring that it matches.
     #[inline]
+    #[track_caller]
     pub fn validate_world(&self, world_id: WorldId) {
-        assert!(
-            world_id == self.world_id,
-            "Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
-                std::any::type_name::<Self>(),
-        );
+        #[inline(never)]
+        #[track_caller]
+        #[cold]
+        fn panic_mismatched(this: WorldId, other: WorldId) -> ! {
+            panic!("Encountered a mismatched World. This QueryState was created from {this:?}, but a method was called using {other:?}.");
+        }
+
+        if self.world_id != world_id {
+            panic_mismatched(self.world_id, world_id);
+        }
     }
 
     /// Update the current [`QueryState`] with information from the provided [`Archetype`]

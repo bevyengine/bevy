@@ -17,9 +17,8 @@ bitflags! {
     }
 }
 
-const CLIPPY_FLAGS: [&str; 8] = [
+const CLIPPY_FLAGS: [&str; 7] = [
     "-Aclippy::type_complexity",
-    "-Aclippy::explicit_iter_loop",
     "-Wclippy::doc_markdown",
     "-Wclippy::redundant_else",
     "-Wclippy::match_same_arms",

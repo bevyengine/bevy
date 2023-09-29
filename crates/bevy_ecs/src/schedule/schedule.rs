@@ -95,7 +95,7 @@ impl Schedules {
         let _all_span = info_span!("check stored schedule ticks").entered();
         // label used when trace feature is enabled
         #[allow(unused_variables)]
-        for (label, schedule) in self.inner.iter_mut() {
+        for (label, schedule) in &mut self.inner {
             #[cfg(feature = "trace")]
             let name = format!("{label:?}");
             #[cfg(feature = "trace")]
@@ -106,7 +106,7 @@ impl Schedules {
 
     /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
     pub fn configure_schedules(&mut self, schedule_build_settings: ScheduleBuildSettings) {
-        for (_, schedule) in self.inner.iter_mut() {
+        for (_, schedule) in &mut self.inner {
             schedule.set_build_settings(schedule_build_settings.clone());
         }
     }
@@ -251,7 +251,7 @@ impl Schedule {
 
         world.check_change_ticks();
         self.initialize(world)
-            .unwrap_or_else(|e| panic!("Error when intializing schedule {:?}: {e}", self.name));
+            .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.name));
         self.executor.run(&mut self.executable, world);
     }
 
@@ -297,13 +297,13 @@ impl Schedule {
         }
 
         for conditions in &mut self.executable.system_conditions {
-            for system in conditions.iter_mut() {
+            for system in conditions {
                 system.check_change_tick(change_tick);
             }
         }
 
         for conditions in &mut self.executable.set_conditions {
-            for system in conditions.iter_mut() {
+            for system in conditions {
                 system.check_change_tick(change_tick);
             }
         }
@@ -973,7 +973,7 @@ impl ScheduleGraph {
         // have to do it like this to preserve transitivity
         let mut dependency_flattened = self.dependency.graph.clone();
         let mut temp = Vec::new();
-        for (&set, systems) in set_systems.iter() {
+        for (&set, systems) in set_systems {
             if systems.is_empty() {
                 for a in dependency_flattened.neighbors_directed(set, Direction::Incoming) {
                     for b in dependency_flattened.neighbors_directed(set, Direction::Outgoing) {
@@ -1456,7 +1456,7 @@ impl ScheduleGraph {
         dep_results: &CheckGraphResults<NodeId>,
         hier_results_connected: &HashSet<(NodeId, NodeId)>,
     ) -> Result<(), ScheduleBuildError> {
-        for &(a, b) in dep_results.connected.iter() {
+        for &(a, b) in &dep_results.connected {
             if hier_results_connected.contains(&(a, b)) || hier_results_connected.contains(&(b, a))
             {
                 let name_a = self.get_node_name(&a);
@@ -1474,7 +1474,7 @@ impl ScheduleGraph {
         set_system_bitsets: &HashMap<NodeId, FixedBitSet>,
     ) -> Result<(), ScheduleBuildError> {
         // check that there is no ordering between system sets that intersect
-        for (a, b) in dep_results_connected.iter() {
+        for (a, b) in dep_results_connected {
             if !(a.is_set() && b.is_set()) {
                 continue;
             }
@@ -1497,7 +1497,7 @@ impl ScheduleGraph {
         &self,
         set_systems: &HashMap<NodeId, Vec<NodeId>>,
     ) -> Result<(), ScheduleBuildError> {
-        for (&id, systems) in set_systems.iter() {
+        for (&id, systems) in set_systems {
             let set = &self.system_sets[id.index()];
             if set.is_system_type() {
                 let instances = systems.len();
@@ -1570,7 +1570,7 @@ impl ScheduleGraph {
         message
     }
 
-    /// convert conflics to human readable format
+    /// convert conflicts to human readable format
     pub fn conflicts_to_string<'a>(
         &'a self,
         ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],

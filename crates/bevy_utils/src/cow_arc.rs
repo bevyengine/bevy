@@ -101,6 +101,18 @@ impl<'a, T: PartialOrd + ?Sized> PartialOrd for CowArc<'a, T> {
     }
 }
 
+impl Default for CowArc<'static, str> {
+    fn default() -> Self {
+        CowArc::Static(Default::default())
+    }
+}
+
+impl Default for CowArc<'static, Path> {
+    fn default() -> Self {
+        CowArc::Static(Path::new(""))
+    }
+}
+
 impl<'a, T: Ord + ?Sized> Ord for CowArc<'a, T> {
     #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {

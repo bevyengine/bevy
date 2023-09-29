@@ -1,14 +1,17 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, num::NonZeroU64};
 
 use crate::{
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
 };
 use encase::{
-    internal::WriteInto, DynamicUniformBuffer as DynamicUniformBufferWrapper, ShaderType,
+    internal::{AlignmentValue, BufferMut, WriteInto},
+    DynamicUniformBuffer as DynamicUniformBufferWrapper, ShaderType,
     UniformBuffer as UniformBufferWrapper,
 };
-use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
+use wgpu::{
+    util::BufferInitDescriptor, BindingResource, BufferBinding, BufferDescriptor, BufferUsages,
+};
 
 use super::IntoBinding;
 
@@ -242,6 +245,67 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         self.changed = true;
     }
 
+    /// Creates a writer that can be used to directly write elements into the target buffer.
+    ///
+    /// This method uses less memory and performs fewer memory copies using over [`push`] and [`write_buffer`].
+    ///
+    /// `max_count` *must* be greater than or equal to the number of elements that are to be written to the buffer, or
+    /// the writer will panic while writing.  Dropping the writer will schedule the buffer write into the provided
+    /// [`RenderQueue`](crate::renderer::RenderQueue).
+    ///
+    /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
+    /// allocated does not have enough capacity to hold `max_count` elements, a new GPU-side buffer is created.
+    ///
+    /// Returns `None` if there is no allocated GPU-side buffer, and `max_count` is 0.
+    ///
+    /// [`push`]: Self::push
+    /// [`write_buffer`]: Self::write_buffer
+    #[inline]
+    pub fn get_writer<'a>(
+        &'a mut self,
+        max_count: usize,
+        device: &RenderDevice,
+        queue: &'a RenderQueue,
+    ) -> Option<DynamicUniformBufferWriter<'a, T>> {
+        let alignment =
+            AlignmentValue::new(device.limits().min_uniform_buffer_offset_alignment as u64);
+        let mut capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
+        let size = alignment
+            .round_up(T::min_size().get())
+            .checked_mul(max_count as u64)
+            .unwrap();
+
+        if capacity < size || self.changed {
+            let buffer = device.create_buffer(&BufferDescriptor {
+                label: self.label.as_deref(),
+                usage: self.buffer_usage,
+                size,
+                mapped_at_creation: false,
+            });
+            capacity = buffer.size();
+            self.buffer = Some(buffer);
+            self.changed = false;
+        }
+
+        if let Some(buffer) = self.buffer.as_deref() {
+            let buffer_view = queue
+                .write_buffer_with(buffer, 0, NonZeroU64::new(buffer.size())?)
+                .unwrap();
+            Some(DynamicUniformBufferWriter {
+                buffer: encase::DynamicUniformBuffer::new_with_alignment(
+                    QueueWriteBufferViewWrapper {
+                        capacity: capacity as usize,
+                        buffer_view,
+                    },
+                    alignment.get(),
+                ),
+                _marker: PhantomData,
+            })
+        } else {
+            None
+        }
+    }
+
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
     /// and the provided [`RenderQueue`](crate::renderer::RenderQueue).
     ///
@@ -268,6 +332,41 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     pub fn clear(&mut self) {
         self.scratch.as_mut().clear();
         self.scratch.set_offset(0);
+    }
+}
+
+/// A writer that can be used to directly write elements into the target buffer.
+///
+/// For more information, see [`DynamicUniformBuffer::get_writer`].
+pub struct DynamicUniformBufferWriter<'a, T> {
+    buffer: encase::DynamicUniformBuffer<QueueWriteBufferViewWrapper<'a>>,
+    _marker: PhantomData<fn() -> T>,
+}
+
+impl<'a, T: ShaderType + WriteInto> DynamicUniformBufferWriter<'a, T> {
+    pub fn write(&mut self, value: &T) -> u32 {
+        self.buffer.write(value).unwrap() as u32
+    }
+}
+
+/// A wrapper to work around the orphan rule so that [`wgpu::QueueWriteBufferView`] can  implement
+/// [`encase::internal::BufferMut`].
+struct QueueWriteBufferViewWrapper<'a> {
+    buffer_view: wgpu::QueueWriteBufferView<'a>,
+    // Must be kept separately and cannot be retrieved from buffer_view, as the read-only access will
+    // invoke a panic.
+    capacity: usize,
+}
+
+impl<'a> BufferMut for QueueWriteBufferViewWrapper<'a> {
+    #[inline]
+    fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    #[inline]
+    fn write<const N: usize>(&mut self, offset: usize, val: &[u8; N]) {
+        self.buffer_view.write(offset, val);
     }
 }
 

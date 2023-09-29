@@ -243,7 +243,7 @@ impl App {
             let _bevy_main_update_span = info_span!("main app").entered();
             self.world.run_schedule(&*self.main_schedule_label);
         }
-        for (_label, sub_app) in self.sub_apps.iter_mut() {
+        for (_label, sub_app) in &mut self.sub_apps {
             #[cfg(feature = "trace")]
             let _sub_app_span = info_span!("sub app", name = ?_label).entered();
             sub_app.extract(&mut self.world);
@@ -424,7 +424,7 @@ impl App {
     /// Setup the application to manage events of type `T`.
     ///
     /// This is done by adding a [`Resource`] of type [`Events::<T>`],
-    /// and inserting an [`update_system`](Events::update_system) into [`First`].
+    /// and inserting an [`event_update_system`] into [`First`].
     ///
     /// See [`Events`] for defining events.
     ///
@@ -440,13 +440,18 @@ impl App {
     /// #
     /// app.add_event::<MyEvent>();
     /// ```
+    ///
+    /// [`event_update_system`]: bevy_ecs::event::event_update_system
     pub fn add_event<T>(&mut self) -> &mut Self
     where
         T: Event,
     {
         if !self.world.contains_resource::<Events<T>>() {
-            self.init_resource::<Events<T>>()
-                .add_systems(First, Events::<T>::update_system);
+            self.init_resource::<Events<T>>().add_systems(
+                First,
+                bevy_ecs::event::event_update_system::<T>
+                    .run_if(bevy_ecs::event::event_update_condition::<T>),
+            );
         }
         self
     }
