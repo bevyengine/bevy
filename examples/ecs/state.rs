@@ -54,8 +54,10 @@ fn main() {
 struct ShowsUI;
 
 // State Matchers can be implemented manually
+// Note that because this matcher is used with a strict matching
+// It will still trigger every time AppState changes
 impl StateMatcher<AppState> for ShowsUI {
-    fn match_state(&self, state: &AppState) -> bool {
+    fn match_state(&self, _: &AppState) -> bool {
         true
     }
 }

@@ -596,8 +596,9 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
 macro_rules! on_enter {
     ($type:ident, $expression:pat) => {{
         let matcher = |state: &$type| matches!(state.clone(), $expression);
+        let matcher: StateMatcherFunction<$type> = matcher.into_state_matcher();
 
-        $type::on_enter_match_function(matcher)
+        $type::on_enter_match(matcher)
     }};
     ($expression:expr) => {{
         OnEnter::matching($expression)
@@ -611,8 +612,9 @@ macro_rules! on_enter {
 macro_rules! on_enter_strict {
     ($type:ident, $expression:pat) => {{
         let matcher = |state: &$type| matches!(state.clone(), $expression);
+        let matcher: StateMatcherFunction<$type> = matcher.into_state_matcher();
 
-        $type::on_enter_match_function_strict(matcher)
+        $type::on_enter_match_strict(matcher)
     }};
     ($expression:expr) => {{
         OnEnter::matching_strict($expression)
@@ -626,8 +628,9 @@ macro_rules! on_enter_strict {
 macro_rules! on_exit {
     ($type:ident, $expression:pat) => {{
         let matcher = |state: &$type| matches!(state.clone(), $expression);
+        let matcher: StateMatcherFunction<$type> = matcher.into_state_matcher();
 
-        $type::on_exit_match_function(matcher)
+        $type::on_exit_match(matcher)
     }};
     ($expression:expr) => {{
         OnExit::matching($expression)
@@ -641,8 +644,9 @@ macro_rules! on_exit {
 macro_rules! on_exit_strict {
     ($type:ident, $expression:pat) => {{
         let matcher = |state: &$type| matches!(state.clone(), $expression);
+        let matcher: StateMatcherFunction<$type> = matcher.into_state_matcher();
 
-        $type::on_exit_match_function_strict(matcher)
+        $type::on_exit_match_strict(matcher)
     }};
     ($expression:expr) => {{
         OnExit::matching_strict($expression)
