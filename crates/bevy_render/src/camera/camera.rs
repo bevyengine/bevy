@@ -784,7 +784,7 @@ pub fn sort_cameras(
     }
 }
 
-/// A subpixel offset to jitter a perspective camera's fustrum by.
+/// A subpixel offset to jitter a perspective camera's frustum by.
 ///
 /// Useful for temporal rendering techniques.
 ///

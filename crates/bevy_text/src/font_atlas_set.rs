@@ -4,6 +4,7 @@ use bevy_asset::{AssetEvent, AssetId};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_math::Vec2;
+use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::FloatOrd;
@@ -40,7 +41,7 @@ pub struct FontAtlasSet {
     font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct GlyphAtlasInfo {
     pub texture_atlas: Handle<TextureAtlas>,
     pub glyph_index: usize,

@@ -97,7 +97,8 @@ fn main() {
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "BevyMark".into(),
-                    resolution: (800., 600.).into(),
+                    resolution: WindowResolution::new(1920.0, 1080.0)
+                        .with_scale_factor_override(1.0),
                     present_mode: PresentMode::AutoNoVsync,
                     ..default()
                 }),

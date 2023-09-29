@@ -17,6 +17,9 @@ pub struct Node {
     /// The size of the node as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub(crate) calculated_size: Vec2,
+    /// The unrounded size of the node as width and height in logical pixels
+    /// automatically calculated by [`super::layout::ui_layout_system`]
+    pub(crate) unrounded_size: Vec2,
 }
 
 impl Node {
@@ -24,6 +27,12 @@ impl Node {
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub const fn size(&self) -> Vec2 {
         self.calculated_size
+    }
+
+    /// The calculated node size as width and height in logical pixels before rounding
+    /// automatically calculated by [`super::layout::ui_layout_system`]
+    pub const fn unrounded_size(&self) -> Vec2 {
+        self.unrounded_size
     }
 
     /// Returns the size of the node in physical pixels based on the given scale factor and `UiScale`.
@@ -66,6 +75,7 @@ impl Node {
 impl Node {
     pub const DEFAULT: Self = Self {
         calculated_size: Vec2::ZERO,
+        unrounded_size: Vec2::ZERO,
     };
 }
 
@@ -82,13 +92,13 @@ impl Default for Node {
 ///
 /// ### Flexbox
 ///
-/// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
+/// - [MDN: Basic Concepts of Flexbox](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flexible_Box_Layout/Basic_Concepts_of_Flexbox)
 /// - [A Complete Guide To Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.
-/// - [Flexbox Froggy](https://flexboxfroggy.com/). An interactive tutorial/game that teaches the essential parts of Flebox in a fun engaging way.
+/// - [Flexbox Froggy](https://flexboxfroggy.com/). An interactive tutorial/game that teaches the essential parts of Flexbox in a fun engaging way.
 ///
 /// ### CSS Grid
 ///
-/// - [MDN: Basic Concepts of Flexbox](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flexible_Box_Layout/Basic_Concepts_of_Flexbox)
+/// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
 /// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
 

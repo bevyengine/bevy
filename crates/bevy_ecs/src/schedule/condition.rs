@@ -867,7 +867,7 @@ pub mod common_conditions {
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// # world.init_resource::<Events<MyEvent>>();
-    /// # app.add_systems(Events::<MyEvent>::update_system.before(my_system));
+    /// # app.add_systems(bevy_ecs::event::event_update_system::<MyEvent>.before(my_system));
     ///
     /// app.add_systems(
     ///     my_system.run_if(on_event::<MyEvent>()),
@@ -1096,7 +1096,7 @@ mod tests {
         schedule.run(&mut world);
         assert_eq!(world.resource::<Counter>().0, 2);
 
-        // Run every other cycle oppsite to the last one
+        // Run every other cycle opposite to the last one
         schedule.add_systems(increment_counter.run_if(not(every_other_time)));
 
         schedule.run(&mut world);

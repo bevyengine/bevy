@@ -1107,7 +1107,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns a mutable reference to the component `T` of the given entity.
     ///
-    /// In case of a nonexisting entity, mismatched component or missing write acess, a [`QueryComponentError`] is returned instead.
+    /// In case of a nonexisting entity, mismatched component or missing write access, a [`QueryComponentError`] is returned instead.
     ///
     /// # Example
     ///
