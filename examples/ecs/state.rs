@@ -169,9 +169,6 @@ fn movement(
     input: Res<Input<KeyCode>>,
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
-    if query.is_empty() {
-        println!("No transform to move!");
-    }
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
         if input.pressed(KeyCode::Left) {
@@ -198,9 +195,6 @@ fn inverted_movement(
     input: Res<Input<KeyCode>>,
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
-    if query.is_empty() {
-        println!("No transform to move!");
-    }
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
         if input.pressed(KeyCode::Left) {
