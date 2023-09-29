@@ -384,10 +384,10 @@ macro_rules! impl_methods {
 
             /// Allows you access to the dereferenced value of this pointer without immediately
             /// triggering change detection.
-            pub fn as_deref_mut(&mut self)  -> Mut<'_, <$target as Deref>::Target>
+            pub fn as_deref_mut(&mut self) -> Mut<'_, <$target as Deref>::Target>
                 where $target: DerefMut
             {
-                self.reborrow().map_unchanged(|v|v.deref_mut())
+                self.reborrow().map_unchanged(|v| v.deref_mut())
             }
 
         }
