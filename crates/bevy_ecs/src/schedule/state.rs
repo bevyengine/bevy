@@ -466,19 +466,19 @@ impl<S: States> Deref for PreviousState<S> {
 pub enum NextState<S: States> {
     /// Do not change the state.
     #[default]
-    MaintainCurrent,
+    Keep,
     /// Change the state to a specific, pre-determined value
-    StateValue(S),
+    Value(S),
     /// Change the state to a value determined by the given closure
-    StateSetter(Arc<dyn Fn(S) -> S + Sync + Send>),
+    Setter(Arc<dyn Fn(S) -> S + Sync + Send>),
 }
 
 impl<S: States> Debug for NextState<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::MaintainCurrent => write!(f, "MaintainCurrent"),
-            Self::StateValue(arg0) => f.debug_tuple("StateValue").field(arg0).finish(),
-            Self::StateSetter(_) => write!(f, "StateSetter"),
+            Self::Keep => write!(f, "MaintainCurrent"),
+            Self::Value(arg0) => f.debug_tuple("StateValue").field(arg0).finish(),
+            Self::Setter(_) => write!(f, "StateSetter"),
         }
     }
 }
@@ -486,17 +486,17 @@ impl<S: States> Debug for NextState<S> {
 impl<S: States> NextState<S> {
     /// Tentatively set a planned state transition to `Some(state)`.
     pub fn set(&mut self, state: S) {
-        *self = Self::StateValue(state);
+        *self = Self::Value(state);
     }
     /// Tentatively set a planned state transition to `Some(state)`.
     pub fn setter(&mut self, setter: impl Fn(S) -> S + 'static + Sync + Send) {
-        *self = Self::StateSetter(Arc::new(setter));
+        *self = Self::Setter(Arc::new(setter));
     }
 }
 
 /// If the state doesn't exist, initializes it to default runs `OnEnter`
 pub fn initialize_state_and_enter<S: States>(world: &mut World) {
-    world.insert_resource(NextState::<S>::MaintainCurrent);
+    world.insert_resource(NextState::<S>::Keep);
 
     if world.contains_resource::<State<S>>() {
         return;
@@ -556,12 +556,12 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         return;
     };
     let entered = match next_state_resource {
-        NextState::MaintainCurrent => None,
-        NextState::StateValue(v) => Some(v.clone()),
-        NextState::StateSetter(f) => Some(f(current_state.clone())),
+        NextState::Keep => None,
+        NextState::Value(v) => Some(v.clone()),
+        NextState::Setter(f) => Some(f(current_state.clone())),
     };
     if let Some(entered) = entered {
-        world.insert_resource(NextState::<S>::MaintainCurrent);
+        world.insert_resource(NextState::<S>::Keep);
         if current_state != entered {
             world.insert_resource(PreviousState(current_state));
             let mut state_resource = world.resource_mut::<State<S>>();
