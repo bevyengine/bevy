@@ -885,8 +885,8 @@ pub mod common_conditions {
     /// app.add_systems((
     ///     // `in_any_state` will only return true if the
     ///     // given state equals one of the given values
-    ///     background_animation.run_if(in_any_state([GameState::Playing, GameState::Paused])),
-    ///     game_over.run_if(in_state(GameState::GameOver)),
+    ///     background_animation.run_if(state_exists_and_equals_any([GameState::Playing, GameState::Paused])),
+    ///     game_over.run_if(state_exists_and_equals(GameState::GameOver)),
     /// ));
     ///
     /// fn background_animation(mut animation: ResMut<BackgroundAnimation>) {
