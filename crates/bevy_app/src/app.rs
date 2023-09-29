@@ -8,7 +8,7 @@ use bevy_ecs::{
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, BoxedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleBuildSettings, ScheduleLabel,
+        ScheduleBuildSettings, ScheduleLabel, SetupTransitionScheduleLables,
     },
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
@@ -372,11 +372,11 @@ impl App {
         condition: impl StateMatcher<Parent>,
     ) -> &mut Self {
         self.add_systems(
-            OnEnter::matching(condition.clone()),
+            Parent::on_enter_matching(condition.clone()),
             initialize_state_and_enter::<S>,
         )
         .add_systems(
-            OnExit::matching(condition.clone()),
+            Parent::on_exit_matching(condition.clone()),
             remove_state_from_world::<S>,
         )
         .add_systems(
@@ -400,11 +400,11 @@ impl App {
         condition: impl StateMatcher<Parent>,
     ) -> &mut Self {
         self.add_systems(
-            OnEnter::matching_strict(condition.clone()),
+            Parent::on_enter_matching_strict(condition.clone()),
             initialize_state_and_enter::<S>,
         )
         .add_systems(
-            OnExit::matching_strict(condition.clone()),
+            Parent::on_enter_matching_strict(condition.clone()),
             remove_state_from_world::<S>,
         )
         .add_systems(

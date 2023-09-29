@@ -1171,6 +1171,7 @@ mod tests {
     enum TestState {
         #[default]
         A,
+        #[allow(dead_code)]
         B,
     }
 

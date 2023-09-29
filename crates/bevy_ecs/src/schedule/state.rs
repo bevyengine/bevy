@@ -94,49 +94,15 @@ impl<S: States, M: StateMatcher<S>> IntoStateMatcher<S, M> for M {
 pub struct OnEnter<S: States>(pub S);
 
 impl<S: States> OnEnter<S> {
-    /// Entering a state that matches the matcher from a state that doesn't
+    /// Generate a matching schedule label for on exit
     pub fn matching<M: StateMatcher<S>>(matcher: M) -> OnEnterMatching<S, M> {
-        OnEnterMatching {
-            matcher,
-            strict: false,
-            phantom: PhantomData::<S>,
-        }
+        S::on_enter_matching(matcher)
     }
-
-    /// Entering a state that matches the matcher regardless of the previous state
+    /// Generate a strict matching schedule label for on exit
     pub fn matching_strict<M: StateMatcher<S>>(matcher: M) -> OnEnterMatching<S, M> {
-        OnEnterMatching {
-            matcher,
-            strict: true,
-            phantom: PhantomData::<S>,
-        }
-    }
-
-    /// Entering a state that matches the matcher from a state that doesn't
-    pub fn match_function<F: Fn(&S) -> bool + 'static + Send + Sync>(
-        matcher: F,
-    ) -> OnEnterMatching<S, StateMatcherFunction<S>> {
-        let matcher = matcher.into_state_matcher();
-        OnEnterMatching {
-            matcher,
-            strict: false,
-            phantom: PhantomData::<S>,
-        }
-    }
-
-    /// Entering a state that matches the matcher from a state that doesn't
-    pub fn match_function_strict<F: Fn(&S) -> bool + 'static + Send + Sync>(
-        matcher: F,
-    ) -> OnEnterMatching<S, StateMatcherFunction<S>> {
-        let matcher = matcher.into_state_matcher();
-        OnEnterMatching {
-            matcher,
-            strict: true,
-            phantom: PhantomData::<S>,
-        }
+        S::on_enter_matching_strict(matcher)
     }
 }
-
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// enters a matching state from a non-matching state.
 pub struct OnEnterMatching<S: States, M: StateMatcher<S>> {
@@ -176,46 +142,13 @@ impl<S: States, M: StateMatcher<S>> IntoConditionalScheduleLabel<OnStateEntry<S>
 pub struct OnExit<S: States>(pub S);
 
 impl<S: States> OnExit<S> {
-    /// Exiting a matching state to a state that doesn't match
+    /// Generate a matching schedule label for on exit
     pub fn matching<M: StateMatcher<S>>(matcher: M) -> OnExitMatching<S, M> {
-        OnExitMatching {
-            matcher,
-            strict: false,
-            phantom: PhantomData::<S>,
-        }
+        S::on_exit_matching(matcher)
     }
-
-    /// Exiting a matching state regardless of what the next state is
+    /// Generate a strict matching schedule label for on exit
     pub fn matching_strict<M: StateMatcher<S>>(matcher: M) -> OnExitMatching<S, M> {
-        OnExitMatching {
-            matcher,
-            strict: true,
-            phantom: PhantomData::<S>,
-        }
-    }
-
-    /// Entering a state that matches the matcher from a state that doesn't
-    pub fn match_function<F: Fn(&S) -> bool + 'static + Send + Sync>(
-        matcher: F,
-    ) -> OnExitMatching<S, StateMatcherFunction<S>> {
-        let matcher = matcher.into_state_matcher();
-        OnExitMatching {
-            matcher,
-            strict: false,
-            phantom: PhantomData::<S>,
-        }
-    }
-
-    /// Entering a state that matches the matcher from a state that doesn't
-    pub fn match_function_strict<F: Fn(&S) -> bool + 'static + Send + Sync>(
-        matcher: F,
-    ) -> OnExitMatching<S, StateMatcherFunction<S>> {
-        let matcher = matcher.into_state_matcher();
-        OnExitMatching {
-            matcher,
-            strict: true,
-            phantom: PhantomData::<S>,
-        }
+        S::on_exit_matching_strict(matcher)
     }
 }
 
@@ -257,6 +190,10 @@ impl<S: States, M: StateMatcher<S>> IntoConditionalScheduleLabel<OnStateExit<S>>
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnStateEntry<S: States>(PhantomData<S>);
 
+/// A schedule for every time a state of type S is changed
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct OnStateTransition<S: States>(PhantomData<S>);
+
 /// A schedule for every time a state of type S is exited
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnStateExit<S: States>(PhantomData<S>);
@@ -272,6 +209,175 @@ pub struct OnTransition<S: States> {
     /// The state being entered.
     pub to: S,
 }
+
+/// The label of a [`Schedule`](super::Schedule) that **only** runs whenever [`State<S>`]
+/// exits the `from` state, AND enters the `to` state.
+///
+/// Systems added to this schedule are always ran *after* [`OnExit`], and *before* [`OnEnter`].
+pub struct OnTransitionMatching<S: States, M1: StateMatcher<S>, M2: StateMatcher<S>> {
+    from_matcher: M1,
+    to_matcher: M2,
+    from_strict: bool,
+    to_strict: bool,
+    phantom: PhantomData<S>,
+}
+
+impl<S: States, M1: StateMatcher<S>, M2: StateMatcher<S>>
+    IntoConditionalScheduleLabel<OnStateTransition<S>> for OnTransitionMatching<S, M1, M2>
+{
+    fn into_conditional_schedule_label(
+        self,
+    ) -> (OnStateTransition<S>, Option<super::BoxedCondition>) {
+        let Self {
+            from_matcher,
+            to_matcher,
+            from_strict,
+            to_strict,
+            ..
+        } = self;
+
+        let matcher: BoxedCondition = Box::new(IntoSystem::into_system(
+            move |next: Option<Res<State<S>>>, previous: Option<Res<PreviousState<S>>>| {
+                let Some(next) = next else {
+                    return false;
+                };
+                let Some(previous) = previous else {
+                    return false;
+                };
+
+                if !from_matcher.match_state(&previous) || !to_matcher.match_state(&next) {
+                    return false;
+                }
+
+                if !from_strict && from_matcher.match_state(&next) {
+                    return false;
+                }
+
+                if !to_strict && to_matcher.match_state(&previous) {
+                    return false;
+                }
+
+                true
+            },
+        ));
+
+        (OnStateTransition::<S>(PhantomData::<S>), Some(matcher))
+    }
+}
+
+/// A trait to add the capacity for States to be used to create matcher-based schedule labels
+pub trait SetupTransitionScheduleLables<S: States> {
+    /// Entering a state that matches the matcher from a state that doesn't
+    fn on_enter_matching<M: StateMatcher<S>>(matcher: M) -> OnEnterMatching<S, M> {
+        OnEnterMatching {
+            matcher,
+            strict: false,
+            phantom: PhantomData::<S>,
+        }
+    }
+
+    /// Entering a state that matches the matcher regardless of the previous state
+    fn on_enter_matching_strict<M: StateMatcher<S>>(matcher: M) -> OnEnterMatching<S, M> {
+        OnEnterMatching {
+            matcher,
+            strict: true,
+            phantom: PhantomData::<S>,
+        }
+    }
+
+    /// Entering a state that matches the matcher from a state that doesn't
+    fn on_enter_match_function<F: Fn(&S) -> bool + 'static + Send + Sync>(
+        matcher: F,
+    ) -> OnEnterMatching<S, StateMatcherFunction<S>> {
+        let matcher = matcher.into_state_matcher();
+        OnEnterMatching {
+            matcher,
+            strict: false,
+            phantom: PhantomData::<S>,
+        }
+    }
+
+    /// Entering a state that matches the matcher from a state that doesn't
+    fn on_enter_match_function_strict<F: Fn(&S) -> bool + 'static + Send + Sync>(
+        matcher: F,
+    ) -> OnEnterMatching<S, StateMatcherFunction<S>> {
+        let matcher = matcher.into_state_matcher();
+        OnEnterMatching {
+            matcher,
+            strict: true,
+            phantom: PhantomData::<S>,
+        }
+    }
+
+    /// Exiting a matching state to a state that doesn't match
+    fn on_exit_matching<M: StateMatcher<S>>(matcher: M) -> OnExitMatching<S, M> {
+        OnExitMatching {
+            matcher,
+            strict: false,
+            phantom: PhantomData::<S>,
+        }
+    }
+
+    /// Exiting a matching state regardless of what the next state is
+    fn on_exit_matching_strict<M: StateMatcher<S>>(matcher: M) -> OnExitMatching<S, M> {
+        OnExitMatching {
+            matcher,
+            strict: true,
+            phantom: PhantomData::<S>,
+        }
+    }
+
+    /// Entering a state that matches the matcher from a state that doesn't
+    fn on_exit_match_function<F: Fn(&S) -> bool + 'static + Send + Sync>(
+        matcher: F,
+    ) -> OnExitMatching<S, StateMatcherFunction<S>> {
+        let matcher = matcher.into_state_matcher();
+        OnExitMatching {
+            matcher,
+            strict: false,
+            phantom: PhantomData::<S>,
+        }
+    }
+
+    /// Entering a state that matches the matcher from a state that doesn't
+    fn on_exit_match_function_strict<F: Fn(&S) -> bool + 'static + Send + Sync>(
+        matcher: F,
+    ) -> OnExitMatching<S, StateMatcherFunction<S>> {
+        let matcher = matcher.into_state_matcher();
+        OnExitMatching {
+            matcher,
+            strict: true,
+            phantom: PhantomData::<S>,
+        }
+    }
+
+    /// Entering a state that matches the matcher from a state that doesn't
+    ///
+    /// from is a matcher for the previous state
+    /// to is a matcher for the next state
+    ///
+    /// if from_strict is true, the transition will occur even if the next state also matches
+    /// the from matcher
+    ///
+    /// if to_strict is true, the transition will occur even if the previous stata also
+    /// matches the to matcher
+    fn on_transition_match<M1: StateMatcher<S>, M2: StateMatcher<S>>(
+        from: M1,
+        to: M2,
+        from_strict: bool,
+        to_strict: bool,
+    ) -> OnTransitionMatching<S, M1, M2> {
+        OnTransitionMatching {
+            from_matcher: from,
+            to_matcher: to,
+            from_strict,
+            to_strict,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<S: States> SetupTransitionScheduleLables<S> for S {}
 
 /// A finite-state machine whose transitions have associated schedules
 /// ([`OnEnter(state)`] and [`OnExit(state)`]).
@@ -488,7 +594,7 @@ macro_rules! on_enter {
     ($type:ident, $expression:pat) => {{
         let matcher = |state: &$type| matches!(state.clone(), $expression);
 
-        OnEnter::match_function(matcher)
+        $type::on_enter_match_function(matcher)
     }};
     ($expression:expr) => {{
         OnEnter::matching($expression)
@@ -503,7 +609,7 @@ macro_rules! on_enter_strict {
     ($type:ident, $expression:pat) => {{
         let matcher = |state: &$type| matches!(state.clone(), $expression);
 
-        OnEnter::match_function_strict(matcher)
+        $type::on_enter_match_function_strict(matcher)
     }};
     ($expression:expr) => {{
         OnEnter::matching_strict($expression)
@@ -518,7 +624,7 @@ macro_rules! on_exit {
     ($type:ident, $expression:pat) => {{
         let matcher = |state: &$type| matches!(state.clone(), $expression);
 
-        OnExit::match_function(matcher)
+        $type::on_exit_match_function(matcher)
     }};
     ($expression:expr) => {{
         OnExit::matching($expression)
@@ -533,7 +639,7 @@ macro_rules! on_exit_strict {
     ($type:ident, $expression:pat) => {{
         let matcher = |state: &$type| matches!(state.clone(), $expression);
 
-        OnExit::match_function_strict(matcher)
+        $type::on_exit_match_function_strict(matcher)
     }};
     ($expression:expr) => {{
         OnExit::matching_strict($expression)
