@@ -1,6 +1,5 @@
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, AssetWatcher, PathStream,
-    Reader, VecReader,
+    get_meta_path, AssetReader, AssetReaderError, AssetWatcher, PathStream, Reader, VecReader,
 };
 use anyhow::Result;
 use bevy_log::error;
@@ -9,7 +8,7 @@ use futures_lite::stream;
 use std::{
     ffi::{CString, OsString},
     os::unix::ffi::OsStringExt as _,
-    path::Path
+    path::Path,
 };
 
 /// [`AssetReader`] implementation for Android devices, built on top of Android's [`AssetManager`].
@@ -76,11 +75,13 @@ impl AssetReader for AndroidAssetReader {
                 .ok_or(AssetReaderError::NotFound(path.to_path_buf()))?;
 
             // collecting it since AssetDir can't be sent between threads
-            let paths = opened_dir.map(|path| {
-                // convert from CString to PathBuf, only works on unix which android is.
-                let bytes = path.to_bytes().to_vec();
-                OsString::from_vec(bytes).into()
-            }).collect::<Vec<_>>();
+            let paths = opened_dir
+                .map(|path| {
+                    // convert from CString to PathBuf, only works on unix which android is.
+                    let bytes = path.to_bytes().to_vec();
+                    OsString::from_vec(bytes).into()
+                })
+                .collect::<Vec<_>>();
             let stream: Box<PathStream> = Box::new(stream::iter(paths));
             Ok(stream)
         })
