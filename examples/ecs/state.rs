@@ -38,11 +38,10 @@ struct InGame;
 
 impl StateMatcher<AppState> for InGame {
     fn match_state(&self, state: &AppState) -> bool {
-        let in_game = match state {
+        match state {
             AppState::Menu => false,
             AppState::InGame { .. } => true,
-        };
-        in_game
+        }
     }
 }
 
@@ -68,11 +67,6 @@ enum AppState {
     },
 }
 
-#[derive(Resource)]
-struct MenuData {
-    button_entity: Entity,
-}
-
 const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
@@ -83,7 +77,7 @@ fn setup(mut commands: Commands) {
 }
 
 fn setup_menu(mut commands: Commands) {
-    let button_entity = commands
+    commands
         .spawn(NodeBundle {
             style: Style {
                 // center button
@@ -120,9 +114,7 @@ fn setup_menu(mut commands: Commands) {
                         },
                     ));
                 });
-        })
-        .id();
-    commands.insert_resource(MenuData { button_entity });
+        });
 }
 
 fn menu(
@@ -146,10 +138,6 @@ fn menu(
             }
         }
     }
-}
-
-fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
-    commands.entity(menu_data.button_entity).despawn_recursive();
 }
 
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {

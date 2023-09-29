@@ -65,6 +65,7 @@ impl<S: States + Eq> StateMatcher<S> for S {
 pub struct OnEnter<S: States>(pub S);
 
 impl<S: States> OnEnter<S> {
+    /// Entering a state that matches the matcher from a state that doesn't
     pub fn matching<M: StateMatcher<S>>(matcher: M) -> OnEnterMatching<S, M> {
         OnEnterMatching {
             matcher,
@@ -72,6 +73,8 @@ impl<S: States> OnEnter<S> {
             phantom: PhantomData::<S>,
         }
     }
+
+    /// Entering a state that matches the matcher regardless of the previous state
     pub fn matching_exclusive<M: StateMatcher<S>>(matcher: M) -> OnEnterMatching<S, M> {
         OnEnterMatching {
             matcher,
@@ -118,6 +121,7 @@ impl<S: States, M: StateMatcher<S>> IntoConditionalScheduleLabel<OnStateEntry<S>
 pub struct OnExit<S: States>(pub S);
 
 impl<S: States> OnExit<S> {
+    /// Exiting a matching state to a state that doesn't match
     pub fn matching<M: StateMatcher<S>>(matcher: M) -> OnExitMatching<S, M> {
         OnExitMatching {
             matcher,
@@ -125,6 +129,8 @@ impl<S: States> OnExit<S> {
             phantom: PhantomData::<S>,
         }
     }
+
+    /// Exiting a matching state regardless of what the next state is
     pub fn matching_exclusive<M: StateMatcher<S>>(matcher: M) -> OnExitMatching<S, M> {
         OnExitMatching {
             matcher,
@@ -166,22 +172,13 @@ impl<S: States, M: StateMatcher<S>> IntoConditionalScheduleLabel<OnStateExit<S>>
     }
 }
 
+/// A schedule for every time a state of type S is entered
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnStateEntry<S: States>(PhantomData<S>);
 
-impl<S: States> OnStateEntry<S> {
-    fn new() -> Self {
-        Self(PhantomData::<S>)
-    }
-}
+/// A schedule for every time a state of type S is exited
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnStateExit<S: States>(PhantomData<S>);
-
-impl<S: States> OnStateExit<S> {
-    fn new() -> Self {
-        Self(PhantomData::<S>)
-    }
-}
 
 /// The label of a [`Schedule`](super::Schedule) that **only** runs whenever [`State<S>`]
 /// exits the `from` state, AND enters the `to` state.
@@ -248,13 +245,6 @@ impl<S: States> Deref for State<S> {
 struct PreviousState<S: States>(S);
 
 impl<S: States> PreviousState<S> {
-    /// Creates a new state with a specific value.
-    ///
-    /// To change the state use [`NextState<S>`] rather than using this to modify the `State<S>`.
-    pub fn new(state: S) -> Self {
-        Self(state)
-    }
-
     /// Get the current state.
     pub fn get(&self) -> &S {
         &self.0
@@ -272,12 +262,6 @@ impl<S: States> Deref for PreviousState<S> {
 
     fn deref(&self) -> &Self::Target {
         self.get()
-    }
-}
-
-impl<S: States> From<State<S>> for PreviousState<S> {
-    fn from(value: State<S>) -> Self {
-        Self(value.0.clone())
     }
 }
 
