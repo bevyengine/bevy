@@ -3,8 +3,8 @@
 
 use bevy::{
     prelude::*,
-    reflect::{TypePath, TypeUuid},
-    render::render_resource::*,
+    reflect::TypePath,
+    render::render_resource::{AsBindGroup, ShaderRef},
 };
 
 fn main() {
@@ -34,8 +34,7 @@ fn setup(
     });
 }
 
-#[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
-#[uuid = "a3d71c04-d054-4946-80f8-ba6cfbc90cad"]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 struct CustomMaterial {}
 
 impl Material for CustomMaterial {

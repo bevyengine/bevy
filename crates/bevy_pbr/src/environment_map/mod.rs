@@ -1,13 +1,13 @@
 mod generate_from_skybox;
 
 use bevy_app::{App, Last, Plugin};
-use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::{self, CORE_3D},
     prelude::Camera3d,
 };
 use bevy_ecs::{prelude::Component, query::With, schedule::IntoSystemConfigs};
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
@@ -35,15 +35,12 @@ pub mod draw_3d_graph {
     }
 }
 
-pub const ENVIRONMENT_MAP_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 154476556247605696);
-pub const DOWNSAMPLE_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 254476556247605696);
-pub const FILTER_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 354476556247605696);
-pub const DIFFUSE_CONVOLUTION_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 454476556247605696);
-
+pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(154476556247605696);
+pub const DOWNSAMPLE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(254476556247605696);
+pub const FILTER_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(354476556247605696);
+pub const DIFFUSE_CONVOLUTION_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(454476556247605696);
 pub struct EnvironmentMapLightPlugin;
 
 impl Plugin for EnvironmentMapLightPlugin {

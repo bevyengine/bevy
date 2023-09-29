@@ -198,7 +198,7 @@ impl GenerateEnvironmentMapLightResourcesSpecialized {
                 label: Some("generate_environment_map_light_downsample_pipeline".into()),
                 layout: vec![downsample_layout.clone()],
                 push_constant_ranges: vec![],
-                shader: DOWNSAMPLE_SHADER_HANDLE.typed(),
+                shader: DOWNSAMPLE_SHADER_HANDLE,
                 shader_defs: shader_defs.clone(),
                 entry_point: "main".into(),
             });
@@ -207,7 +207,7 @@ impl GenerateEnvironmentMapLightResourcesSpecialized {
             label: Some("generate_environment_map_light_filter_pipeline".into()),
             layout: vec![filter_layout.clone()],
             push_constant_ranges: vec![],
-            shader: FILTER_SHADER_HANDLE.typed(),
+            shader: FILTER_SHADER_HANDLE,
             shader_defs: shader_defs.clone(),
             entry_point: "main".into(),
         });
@@ -217,7 +217,7 @@ impl GenerateEnvironmentMapLightResourcesSpecialized {
                 label: Some("generate_environment_map_light_diffuse_convolution_pipeline".into()),
                 layout: vec![diffuse_convolution_layout.clone()],
                 push_constant_ranges: vec![],
-                shader: DIFFUSE_CONVOLUTION_SHADER_HANDLE.typed(),
+                shader: DIFFUSE_CONVOLUTION_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "main".into(),
             });

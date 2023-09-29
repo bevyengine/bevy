@@ -28,8 +28,8 @@ pub mod prelude {
     };
 }
 
-use bevy_app::{prelude::*, SpawnScene};
-use bevy_asset::AddAsset;
+use bevy_app::prelude::*;
+use bevy_asset::AssetApp;
 
 #[derive(Default)]
 pub struct ScenePlugin;
@@ -37,8 +37,8 @@ pub struct ScenePlugin;
 #[cfg(feature = "serialize")]
 impl Plugin for ScenePlugin {
     fn build(&self, app: &mut App) {
-        app.add_asset::<DynamicScene>()
-            .add_asset::<Scene>()
+        app.init_asset::<DynamicScene>()
+            .init_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()
             .add_event::<SceneInstanceReady>()
             .init_resource::<SceneSpawner>()

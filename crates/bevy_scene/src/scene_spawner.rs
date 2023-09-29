@@ -1,5 +1,5 @@
 use crate::{DynamicScene, Scene};
-use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_ecs::{
     entity::Entity,
     event::{Event, Events, ManualEventReader},
@@ -39,13 +39,13 @@ impl InstanceId {
 
 #[derive(Default, Resource)]
 pub struct SceneSpawner {
-    spawned_scenes: HashMap<Handle<Scene>, Vec<InstanceId>>,
-    spawned_dynamic_scenes: HashMap<Handle<DynamicScene>, Vec<InstanceId>>,
+    spawned_scenes: HashMap<AssetId<Scene>, Vec<InstanceId>>,
+    spawned_dynamic_scenes: HashMap<AssetId<DynamicScene>, Vec<InstanceId>>,
     spawned_instances: HashMap<InstanceId, InstanceInfo>,
     scene_asset_event_reader: ManualEventReader<AssetEvent<DynamicScene>>,
-    dynamic_scenes_to_spawn: Vec<(Handle<DynamicScene>, InstanceId)>,
-    scenes_to_spawn: Vec<(Handle<Scene>, InstanceId)>,
-    scenes_to_despawn: Vec<Handle<DynamicScene>>,
+    dynamic_scenes_to_spawn: Vec<(AssetId<DynamicScene>, InstanceId)>,
+    scenes_to_spawn: Vec<(AssetId<Scene>, InstanceId)>,
+    scenes_to_despawn: Vec<AssetId<DynamicScene>>,
     instances_to_despawn: Vec<InstanceId>,
     scenes_with_parent: Vec<(InstanceId, Entity)>,
 }
@@ -59,46 +59,44 @@ pub enum SceneSpawnError {
     #[error("scene contains the unregistered type `{type_name}`. consider registering the type using `app.register_type::<T>()`")]
     UnregisteredType { type_name: String },
     #[error("scene does not exist")]
-    NonExistentScene { handle: Handle<DynamicScene> },
+    NonExistentScene { id: AssetId<DynamicScene> },
     #[error("scene does not exist")]
-    NonExistentRealScene { handle: Handle<Scene> },
+    NonExistentRealScene { id: AssetId<Scene> },
 }
 
 impl SceneSpawner {
-    pub fn spawn_dynamic(&mut self, scene_handle: Handle<DynamicScene>) -> InstanceId {
+    pub fn spawn_dynamic(&mut self, id: impl Into<AssetId<DynamicScene>>) -> InstanceId {
         let instance_id = InstanceId::new();
-        self.dynamic_scenes_to_spawn
-            .push((scene_handle, instance_id));
+        self.dynamic_scenes_to_spawn.push((id.into(), instance_id));
         instance_id
     }
 
     pub fn spawn_dynamic_as_child(
         &mut self,
-        scene_handle: Handle<DynamicScene>,
+        id: impl Into<AssetId<DynamicScene>>,
         parent: Entity,
     ) -> InstanceId {
         let instance_id = InstanceId::new();
-        self.dynamic_scenes_to_spawn
-            .push((scene_handle, instance_id));
+        self.dynamic_scenes_to_spawn.push((id.into(), instance_id));
         self.scenes_with_parent.push((instance_id, parent));
         instance_id
     }
 
-    pub fn spawn(&mut self, scene_handle: Handle<Scene>) -> InstanceId {
+    pub fn spawn(&mut self, id: impl Into<AssetId<Scene>>) -> InstanceId {
         let instance_id = InstanceId::new();
-        self.scenes_to_spawn.push((scene_handle, instance_id));
+        self.scenes_to_spawn.push((id.into(), instance_id));
         instance_id
     }
 
-    pub fn spawn_as_child(&mut self, scene_handle: Handle<Scene>, parent: Entity) -> InstanceId {
+    pub fn spawn_as_child(&mut self, id: impl Into<AssetId<Scene>>, parent: Entity) -> InstanceId {
         let instance_id = InstanceId::new();
-        self.scenes_to_spawn.push((scene_handle, instance_id));
+        self.scenes_to_spawn.push((id.into(), instance_id));
         self.scenes_with_parent.push((instance_id, parent));
         instance_id
     }
 
-    pub fn despawn(&mut self, scene_handle: Handle<DynamicScene>) {
-        self.scenes_to_despawn.push(scene_handle);
+    pub fn despawn(&mut self, id: impl Into<AssetId<DynamicScene>>) {
+        self.scenes_to_despawn.push(id.into());
     }
 
     pub fn despawn_instance(&mut self, instance_id: InstanceId) {
@@ -108,9 +106,9 @@ impl SceneSpawner {
     pub fn despawn_sync(
         &mut self,
         world: &mut World,
-        scene_handle: Handle<DynamicScene>,
+        id: impl Into<AssetId<DynamicScene>>,
     ) -> Result<(), SceneSpawnError> {
-        if let Some(instance_ids) = self.spawned_dynamic_scenes.remove(&scene_handle) {
+        if let Some(instance_ids) = self.spawned_dynamic_scenes.remove(&id.into()) {
             for instance_id in instance_ids {
                 self.despawn_instance_sync(world, &instance_id);
             }
@@ -129,33 +127,28 @@ impl SceneSpawner {
     pub fn spawn_dynamic_sync(
         &mut self,
         world: &mut World,
-        scene_handle: &Handle<DynamicScene>,
+        id: impl Into<AssetId<DynamicScene>>,
     ) -> Result<(), SceneSpawnError> {
         let mut entity_map = HashMap::default();
-        Self::spawn_dynamic_internal(world, scene_handle, &mut entity_map)?;
+        let id = id.into();
+        Self::spawn_dynamic_internal(world, id, &mut entity_map)?;
         let instance_id = InstanceId::new();
         self.spawned_instances
             .insert(instance_id, InstanceInfo { entity_map });
-        let spawned = self
-            .spawned_dynamic_scenes
-            .entry(scene_handle.clone())
-            .or_insert_with(Vec::new);
+        let spawned = self.spawned_dynamic_scenes.entry(id).or_default();
         spawned.push(instance_id);
         Ok(())
     }
 
     fn spawn_dynamic_internal(
         world: &mut World,
-        scene_handle: &Handle<DynamicScene>,
+        id: AssetId<DynamicScene>,
         entity_map: &mut HashMap<Entity, Entity>,
     ) -> Result<(), SceneSpawnError> {
         world.resource_scope(|world, scenes: Mut<Assets<DynamicScene>>| {
-            let scene =
-                scenes
-                    .get(scene_handle)
-                    .ok_or_else(|| SceneSpawnError::NonExistentScene {
-                        handle: scene_handle.clone_weak(),
-                    })?;
+            let scene = scenes
+                .get(id)
+                .ok_or(SceneSpawnError::NonExistentScene { id })?;
             scene.write_to_world(world, entity_map)
         })
     }
@@ -163,33 +156,27 @@ impl SceneSpawner {
     pub fn spawn_sync(
         &mut self,
         world: &mut World,
-        scene_handle: Handle<Scene>,
+        id: AssetId<Scene>,
     ) -> Result<InstanceId, SceneSpawnError> {
-        self.spawn_sync_internal(world, scene_handle, InstanceId::new())
+        self.spawn_sync_internal(world, id, InstanceId::new())
     }
 
     fn spawn_sync_internal(
         &mut self,
         world: &mut World,
-        scene_handle: Handle<Scene>,
+        id: AssetId<Scene>,
         instance_id: InstanceId,
     ) -> Result<InstanceId, SceneSpawnError> {
         world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
-            let scene =
-                scenes
-                    .get(&scene_handle)
-                    .ok_or_else(|| SceneSpawnError::NonExistentRealScene {
-                        handle: scene_handle.clone(),
-                    })?;
+            let scene = scenes
+                .get(id)
+                .ok_or(SceneSpawnError::NonExistentRealScene { id })?;
 
             let instance_info =
                 scene.write_to_world_with(world, &world.resource::<AppTypeRegistry>().clone())?;
 
             self.spawned_instances.insert(instance_id, instance_info);
-            let spawned = self
-                .spawned_scenes
-                .entry(scene_handle)
-                .or_insert_with(Vec::new);
+            let spawned = self.spawned_scenes.entry(id).or_default();
             spawned.push(instance_id);
             Ok(instance_id)
         })
@@ -198,17 +185,13 @@ impl SceneSpawner {
     pub fn update_spawned_scenes(
         &mut self,
         world: &mut World,
-        scene_handles: &[Handle<DynamicScene>],
+        scene_ids: &[AssetId<DynamicScene>],
     ) -> Result<(), SceneSpawnError> {
-        for scene_handle in scene_handles {
-            if let Some(spawned_instances) = self.spawned_dynamic_scenes.get(scene_handle) {
+        for id in scene_ids {
+            if let Some(spawned_instances) = self.spawned_dynamic_scenes.get(id) {
                 for instance_id in spawned_instances {
                     if let Some(instance_info) = self.spawned_instances.get_mut(instance_id) {
-                        Self::spawn_dynamic_internal(
-                            world,
-                            scene_handle,
-                            &mut instance_info.entity_map,
-                        )?;
+                        Self::spawn_dynamic_internal(world, *id, &mut instance_info.entity_map)?;
                     }
                 }
             }
@@ -236,22 +219,21 @@ impl SceneSpawner {
     pub fn spawn_queued_scenes(&mut self, world: &mut World) -> Result<(), SceneSpawnError> {
         let scenes_to_spawn = std::mem::take(&mut self.dynamic_scenes_to_spawn);
 
-        for (scene_handle, instance_id) in scenes_to_spawn {
+        for (id, instance_id) in scenes_to_spawn {
             let mut entity_map = HashMap::default();
 
-            match Self::spawn_dynamic_internal(world, &scene_handle, &mut entity_map) {
+            match Self::spawn_dynamic_internal(world, id, &mut entity_map) {
                 Ok(_) => {
                     self.spawned_instances
                         .insert(instance_id, InstanceInfo { entity_map });
                     let spawned = self
                         .spawned_dynamic_scenes
-                        .entry(scene_handle.clone())
+                        .entry(id)
                         .or_insert_with(Vec::new);
                     spawned.push(instance_id);
                 }
                 Err(SceneSpawnError::NonExistentScene { .. }) => {
-                    self.dynamic_scenes_to_spawn
-                        .push((scene_handle, instance_id));
+                    self.dynamic_scenes_to_spawn.push((id, instance_id));
                 }
                 Err(err) => return Err(err),
             }
@@ -262,7 +244,7 @@ impl SceneSpawner {
         for (scene_handle, instance_id) in scenes_to_spawn {
             match self.spawn_sync_internal(world, scene_handle, instance_id) {
                 Ok(_) => {}
-                Err(SceneSpawnError::NonExistentRealScene { handle }) => {
+                Err(SceneSpawnError::NonExistentRealScene { id: handle }) => {
                     self.scenes_to_spawn.push((handle, instance_id));
                 }
                 Err(err) => return Err(err),
@@ -356,9 +338,9 @@ pub fn scene_spawner_system(world: &mut World) {
             .scene_asset_event_reader
             .read(scene_asset_events)
         {
-            if let AssetEvent::Modified { handle } = event {
-                if scene_spawner.spawned_dynamic_scenes.contains_key(handle) {
-                    updated_spawned_scenes.push(handle.clone_weak());
+            if let AssetEvent::Modified { id } = event {
+                if scene_spawner.spawned_dynamic_scenes.contains_key(id) {
+                    updated_spawned_scenes.push(*id);
                 }
             }
         }

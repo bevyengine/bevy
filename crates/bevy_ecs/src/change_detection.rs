@@ -125,12 +125,13 @@ pub trait DetectChangesMut: DetectChanges {
     /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
     fn bypass_change_detection(&mut self) -> &mut Self::Inner;
 
-    /// Overwrites this smart pointer with the given value, if and only if `*self != value`
+    /// Overwrites this smart pointer with the given value, if and only if `*self != value`.
+    /// Returns `true` if the value was overwritten, and returns `false` if it was not.
     ///
     /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time it is mutably accessed.
     ///
-    /// If you need to handle the previous value, use [`replace_if_neq`](DetectChangesMut::replace_if_neq).
+    /// If you need the previous value, use [`replace_if_neq`](DetectChangesMut::replace_if_neq).
     ///
     /// # Examples
     ///
@@ -160,7 +161,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// # assert!(!score_changed.run((), &mut world));
     /// ```
     #[inline]
-    fn set_if_neq(&mut self, value: Self::Inner)
+    fn set_if_neq(&mut self, value: Self::Inner) -> bool
     where
         Self::Inner: Sized + PartialEq,
     {
@@ -168,16 +169,19 @@ pub trait DetectChangesMut: DetectChanges {
         if *old != value {
             *old = value;
             self.set_changed();
+            true
+        } else {
+            false
         }
     }
 
-    /// Overwrites this smart pointer with the given value, if and only if `*self != value`
+    /// Overwrites this smart pointer with the given value, if and only if `*self != value`,
     /// returning the previous value if this occurs.
     ///
     /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time it is mutably accessed.
     ///
-    /// If you don't need to handle the previous value, use [`set_if_neq`](DetectChangesMut::set_if_neq).
+    /// If you don't need the previous value, use [`set_if_neq`](DetectChangesMut::set_if_neq).
     ///
     /// # Examples
     ///
@@ -829,7 +833,7 @@ impl<'a> MutUntyped<'a> {
     /// # let mut_untyped: MutUntyped = unimplemented!();
     /// # let reflect_from_ptr: bevy_reflect::ReflectFromPtr = unimplemented!();
     /// // SAFETY: from the context it is known that `ReflectFromPtr` was made for the type of the `MutUntyped`
-    /// mut_untyped.map_unchanged(|ptr| unsafe { reflect_from_ptr.as_reflect_ptr_mut(ptr) });
+    /// mut_untyped.map_unchanged(|ptr| unsafe { reflect_from_ptr.as_reflect_mut(ptr) });
     /// ```
     pub fn map_unchanged<T: ?Sized>(self, f: impl FnOnce(PtrMut<'a>) -> &'a mut T) -> Mut<'a, T> {
         Mut {
@@ -1164,7 +1168,7 @@ mod tests {
 
         let mut new = value.map_unchanged(|ptr| {
             // SAFETY: The underlying type of `ptr` matches `reflect_from_ptr`.
-            let value = unsafe { reflect_from_ptr.as_reflect_ptr_mut(ptr) };
+            let value = unsafe { reflect_from_ptr.as_reflect_mut(ptr) };
             value
         });
 

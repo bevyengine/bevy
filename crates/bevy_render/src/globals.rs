@@ -6,14 +6,13 @@ use crate::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_core::FrameCount;
 use bevy_ecs::prelude::*;
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_time::Time;
 
-pub const GLOBALS_TYPE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17924628719070609599);
+pub const GLOBALS_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(17924628719070609599);
 
 pub struct GlobalsPlugin;
 
