@@ -1,6 +1,8 @@
 use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
 pub use bevy_derive::AppLabel;
-use bevy_ecs::schedule::IntoConditionalScheduleLabel;
+use bevy_ecs::schedule::{
+    initialize_state_and_enter, remove_state_from_world, IntoConditionalScheduleLabel, StateMatcher,
+};
 use bevy_ecs::{
     prelude::*,
     schedule::{
@@ -327,8 +329,7 @@ impl App {
         self.plugin_registry = plugin_registry;
     }
 
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
-    /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, an instance of [`apply_state_transition::<S>`] in
     /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update) and
     /// a instance of [`run_enter_schedule::<S>`] in [`StateTransition`] with a
     /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
@@ -354,6 +355,62 @@ impl App {
         // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
         // (i.e. when the first system is added to them), and World::try_run_schedule is used to fail
         // gracefully if they aren't present.
+
+        self
+    }
+
+    /// Adds a [`State<S>`] and [`NextState<S>`] whenever entering a matching `Parent` state
+    /// from a `Parent` state that does not match and runs OnEnter/OnExit when those occur.
+    ///
+    /// In addition, adds an instance of [`apply_state_transition::<S>`] in
+    /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update).
+    ///
+    /// You can treat these just like any other states, but bear in mind that the `State<S>` and `NextState<S>`
+    /// resources might not exist.
+    pub fn add_conditional_state<S: States, Parent: States>(
+        &mut self,
+        condition: impl StateMatcher<Parent>,
+    ) -> &mut Self {
+        self.add_systems(
+            OnEnter::matching(condition.clone()),
+            initialize_state_and_enter::<S>,
+        )
+        .add_systems(
+            OnExit::matching(condition.clone()),
+            remove_state_from_world::<S>,
+        )
+        .add_systems(
+            StateTransition,
+            apply_state_transition::<S>.run_if(in_state(condition)),
+        );
+
+        self
+    }
+
+    /// Adds a [`State<S>`] and [`NextState<S>`] whenever entering a matching `Parent` state
+    /// regardless of whether the previous `Parent` state matches, and runs OnEnter/OnExit when those occur.
+    ///
+    /// In addition, adds an instance of [`apply_state_transition::<S>`] in
+    /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update).
+    ///
+    /// You can treat these just like any other states, but bear in mind that the `State<S>` and `NextState<S>`
+    /// resources might not exist.
+    pub fn add_strict_conditional_state<S: States, Parent: States>(
+        &mut self,
+        condition: impl StateMatcher<Parent>,
+    ) -> &mut Self {
+        self.add_systems(
+            OnEnter::matching_strict(condition.clone()),
+            initialize_state_and_enter::<S>,
+        )
+        .add_systems(
+            OnExit::matching_strict(condition.clone()),
+            remove_state_from_world::<S>,
+        )
+        .add_systems(
+            StateTransition,
+            apply_state_transition::<S>.run_if(in_state(condition)),
+        );
 
         self
     }

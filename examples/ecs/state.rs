@@ -30,20 +30,28 @@ fn main() {
         // The macros can either accept a matcher (or state) as a single parameter,
         // or the state type and a pattern to match against as two parameters
         .add_systems(on_enter!(AppState::InGame { paused: true }), setup_paused)
+        .add_systems(
+            on_enter!(AppState::InGame { paused: false }),
+            setup_in_game_ui,
+        )
         // By contrast, update systems are stored in the `Update` schedule. They simply
         // check the value of the `State<T>` resource to see if they should run each frame.
         // The in_state function can accept State values or StateMatcher's.
         .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
-        .add_systems(
-            Update,
-            movement.run_if(in_state(AppState::InGame { paused: false })),
-        )
         // Alternatively, you can use the `in_state!` macro with a type and pattern
         .add_systems(
             Update,
             change_color.run_if(in_state!(AppState, AppState::InGame { .. })),
         )
         .add_systems(Update, toggle_pause)
+        //
+        .add_conditional_state::<MovementState, _>(AppState::InGame { paused: false })
+        .add_systems(Update, invert_movement.run_if(in_state!(MovementState, _)))
+        .add_systems(Update, movement.run_if(in_state(MovementState::Normal)))
+        .add_systems(
+            Update,
+            inverted_movement.run_if(in_state(MovementState::Invert)),
+        )
         .run();
 }
 
@@ -53,10 +61,7 @@ struct ShowsUI;
 // State Matchers can be implemented manually
 impl StateMatcher<AppState> for ShowsUI {
     fn match_state(&self, state: &AppState) -> bool {
-        match state {
-            AppState::Menu => true,
-            AppState::InGame { paused } => *paused,
-        }
+        true
     }
 }
 
@@ -71,6 +76,13 @@ enum AppState {
     InGame {
         paused: bool,
     },
+}
+
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+enum MovementState {
+    #[default]
+    Normal,
+    Invert,
 }
 
 const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
@@ -160,6 +172,9 @@ fn movement(
     input: Res<Input<KeyCode>>,
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
+    if query.is_empty() {
+        println!("No transform to move!");
+    }
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
         if input.pressed(KeyCode::Left) {
@@ -173,6 +188,35 @@ fn movement(
         }
         if input.pressed(KeyCode::Down) {
             direction.y -= 1.0;
+        }
+
+        if direction != Vec3::ZERO {
+            transform.translation += direction.normalize() * SPEED * time.delta_seconds();
+        }
+    }
+}
+
+fn inverted_movement(
+    time: Res<Time>,
+    input: Res<Input<KeyCode>>,
+    mut query: Query<&mut Transform, With<Sprite>>,
+) {
+    if query.is_empty() {
+        println!("No transform to move!");
+    }
+    for mut transform in &mut query {
+        let mut direction = Vec3::ZERO;
+        if input.pressed(KeyCode::Left) {
+            direction.x += 1.0;
+        }
+        if input.pressed(KeyCode::Right) {
+            direction.x -= 1.0;
+        }
+        if input.pressed(KeyCode::Up) {
+            direction.y -= 1.0;
+        }
+        if input.pressed(KeyCode::Down) {
+            direction.y += 1.0;
         }
 
         if direction != Vec3::ZERO {
@@ -196,6 +240,15 @@ fn toggle_pause(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<App
             AppState::InGame { paused } => AppState::InGame { paused: !paused },
             _ => state,
         })
+    }
+}
+
+fn invert_movement(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<MovementState>>) {
+    if input.just_pressed(KeyCode::ShiftLeft) {
+        next_state.set(MovementState::Invert);
+    }
+    if input.just_released(KeyCode::ShiftLeft) {
+        next_state.set(MovementState::Normal);
     }
 }
 
@@ -233,6 +286,58 @@ fn setup_paused(mut commands: Commands) {
                         "Paused... Press Esc to Resume",
                         TextStyle {
                             font_size: 40.0,
+                            color: Color::rgb(0.9, 0.9, 0.9),
+                            ..default()
+                        },
+                    ));
+                });
+        });
+}
+
+fn setup_in_game_ui(mut commands: Commands) {
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                // center button
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                justify_content: JustifyContent::Start,
+                align_items: AlignItems::Start,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|parent| {
+            parent
+                .spawn(NodeBundle {
+                    style: Style {
+                        width: Val::Auto,
+                        height: Val::Auto,
+                        padding: UiRect::all(Val::Px(10.)),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        flex_direction: FlexDirection::Column,
+                        ..default()
+                    },
+                    background_color: LABEL.into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent.spawn(TextBundle::from_section(
+                        "Press Esc to Pause",
+                        TextStyle {
+                            font_size: 25.0,
+                            color: Color::rgb(0.9, 0.9, 0.9),
+                            ..default()
+                        },
+                    ));
+                    parent.spawn(TextBundle::from_section(
+                        "Hold Left Shift to invert movement",
+                        TextStyle {
+                            font_size: 25.0,
                             color: Color::rgb(0.9, 0.9, 0.9),
                             ..default()
                         },

@@ -228,14 +228,16 @@ impl<S: States, M: StateMatcher<S>> IntoConditionalScheduleLabel<OnStateEntry<S>
         let matcher = self.matcher;
         let matcher: BoxedCondition = if self.strict {
             Box::new(IntoSystem::into_system(
-                move |next: Res<State<S>>, previous: Res<PreviousState<S>>| {
-                    matcher.match_state(&next) && (next.0 != previous.0)
+                move |next: Res<State<S>>, previous: Option<Res<PreviousState<S>>>| match previous {
+                    Some(previous) => matcher.match_state(&next) && (next.0 != previous.0),
+                    None => matcher.match_state(&next),
                 },
             ))
         } else {
             Box::new(IntoSystem::into_system(
-                move |next: Res<State<S>>, previous: Res<PreviousState<S>>| {
-                    matcher.match_state(&next) && !matcher.match_state(&previous)
+                move |next: Res<State<S>>, previous: Option<Res<PreviousState<S>>>| match previous {
+                    Some(previous) => matcher.match_state(&next) && !matcher.match_state(&previous),
+                    None => matcher.match_state(&next),
                 },
             ))
         };
@@ -309,14 +311,16 @@ impl<S: States, M: StateMatcher<S>> IntoConditionalScheduleLabel<OnStateExit<S>>
 
         let matcher: BoxedCondition = if self.strict {
             Box::new(IntoSystem::into_system(
-                move |next: Res<State<S>>, previous: Res<PreviousState<S>>| {
-                    matcher.match_state(&previous) && (next.0 != previous.0)
+                move |next: Option<Res<State<S>>>, previous: Res<PreviousState<S>>| match next {
+                    Some(next) => matcher.match_state(&previous) && (next.0 != previous.0),
+                    None => matcher.match_state(&previous),
                 },
             ))
         } else {
             Box::new(IntoSystem::into_system(
-                move |next: Res<State<S>>, previous: Res<PreviousState<S>>| {
-                    !matcher.match_state(&next) && matcher.match_state(&previous)
+                move |next: Option<Res<State<S>>>, previous: Res<PreviousState<S>>| match next {
+                    Some(next) => !matcher.match_state(&next) && matcher.match_state(&previous),
+                    None => matcher.match_state(&previous),
                 },
             ))
         };
@@ -460,12 +464,53 @@ impl<S: States> NextState<S> {
     }
 }
 
+/// If the state doesn't exist, initializes it to default runs OnEnter
+pub fn initialize_state_and_enter<S: States>(world: &mut World) {
+    world.insert_resource(NextState::<S>::MaintainCurrent);
+
+    if world.contains_resource::<State<S>>() {
+        return;
+    }
+
+    let default = S::default();
+
+    world.insert_resource(State(default.clone()));
+
+    world.try_run_schedule(OnEnter(default)).ok();
+    world
+        .try_run_schedule(OnStateEntry::<S>(PhantomData::<S>))
+        .ok();
+}
+
+/// If the state exists, removes it and runs OnExit
+pub fn remove_state_from_world<S: States>(world: &mut World) {
+    world.remove_resource::<NextState<S>>();
+
+    let Some(state) = world.get_resource::<State<S>>() else {
+        return;
+    };
+    let state = state.0.clone();
+
+    world.remove_resource::<State<S>>();
+
+    world.insert_resource(PreviousState(state.clone()));
+
+    world.try_run_schedule(OnExit(state)).ok();
+    world
+        .try_run_schedule(OnStateExit::<S>(PhantomData::<S>))
+        .ok();
+    world.remove_resource::<PreviousState<S>>();
+}
+
 /// Run the enter schedule (if it exists) for the current state.
 pub fn run_enter_schedule<S: States>(world: &mut World) {
     let Some(state) = world.get_resource::<State<S>>().map(|s| s.0.clone()) else {
         return;
     };
     world.try_run_schedule(OnEnter(state)).ok();
+    world
+        .try_run_schedule(OnStateEntry::<S>(PhantomData::<S>))
+        .ok();
 }
 
 /// If a new state is queued in [`NextState<S>`], this system:
