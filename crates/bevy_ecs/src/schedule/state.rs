@@ -577,6 +577,9 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
                     to: entered.clone(),
                 })
                 .ok();
+            world
+                .try_run_schedule(OnStateTransition::<S>(PhantomData))
+                .ok();
             world.try_run_schedule(OnEnter(entered)).ok();
             world
                 .try_run_schedule(OnStateEntry::<S>(PhantomData::<S>))
