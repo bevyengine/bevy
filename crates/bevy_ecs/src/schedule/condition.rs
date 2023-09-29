@@ -924,7 +924,7 @@ pub mod common_conditions {
     pub fn state_exists_and_equals_any<S: States, const COUNT: usize>(
         states: [S; COUNT],
     ) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
-        move |current_state: Res<State<S>>| match current_state {
+        move |current_state: Option<Res<State<S>>>| match current_state {
             Some(current_state) => states.iter().any(|state| *current_state == *state),
             None => false,
         }
