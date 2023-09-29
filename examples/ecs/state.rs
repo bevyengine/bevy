@@ -3,7 +3,8 @@
 //! You can have multiple independent states, and the [`OnEnter`] and [`OnExit`] schedules
 //! can be used to great effect to ensure that you handle setup and teardown appropriately.
 //!
-//! In this case, we're transitioning from a `Menu` state to an `InGame` state.
+//! In this case, we're transitioning from a `Menu` state to an `InGame` state, which can be
+//! paused or not paused.
 use bevy::prelude::*;
 
 fn main() {

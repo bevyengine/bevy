@@ -598,7 +598,7 @@ macro_rules! on_enter {
         let matcher = |state: &$type| matches!(state.clone(), $expression);
         let matcher: StateMatcherFunction<$type> = matcher.into_state_matcher();
 
-        $type::on_enter_match(matcher)
+        $type::on_enter_matching(matcher)
     }};
     ($expression:expr) => {{
         OnEnter::matching($expression)
@@ -614,7 +614,7 @@ macro_rules! on_enter_strict {
         let matcher = |state: &$type| matches!(state.clone(), $expression);
         let matcher: StateMatcherFunction<$type> = matcher.into_state_matcher();
 
-        $type::on_enter_match_strict(matcher)
+        $type::on_enter_matching_strict(matcher)
     }};
     ($expression:expr) => {{
         OnEnter::matching_strict($expression)
@@ -630,7 +630,7 @@ macro_rules! on_exit {
         let matcher = |state: &$type| matches!(state.clone(), $expression);
         let matcher: StateMatcherFunction<$type> = matcher.into_state_matcher();
 
-        $type::on_exit_match(matcher)
+        $type::on_exit_matching(matcher)
     }};
     ($expression:expr) => {{
         OnExit::matching($expression)
@@ -646,7 +646,7 @@ macro_rules! on_exit_strict {
         let matcher = |state: &$type| matches!(state.clone(), $expression);
         let matcher: StateMatcherFunction<$type> = matcher.into_state_matcher();
 
-        $type::on_exit_match_strict(matcher)
+        $type::on_exit_matching_strict(matcher)
     }};
     ($expression:expr) => {{
         OnExit::matching_strict($expression)
