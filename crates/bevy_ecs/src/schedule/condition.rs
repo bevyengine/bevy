@@ -1196,7 +1196,7 @@ mod tests {
                 .distributive_run_if(resource_changed_or_removed::<State<TestState>>())
                 .distributive_run_if(resource_removed::<State<TestState>>())
                 .distributive_run_if(state_exists::<TestState>())
-                .distributive_run_if(in_state(TestState::A))
+                .distributive_run_if(in_state(TestState::A).or_else(in_state(TestState::B)))
                 .distributive_run_if(state_changed::<TestState>())
                 .distributive_run_if(on_event::<TestEvent>())
                 .distributive_run_if(any_with_component::<TestComponent>())
