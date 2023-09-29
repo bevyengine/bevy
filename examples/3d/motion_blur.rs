@@ -9,13 +9,18 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, CameraControllerPlugin))
+        .add_plugins((
+            DefaultPlugins,
+            CameraControllerPlugin,
+            bevy_internal::core_pipeline::experimental::taa::TemporalAntiAliasPlugin,
+        ))
         .add_systems(Startup, (setup, setup_ui))
-        .add_systems(Update, (move_spheres, update_settings).chain())
+        .add_systems(Update, (translate, rotate, scale, update_settings).chain())
         .insert_resource(AmbientLight {
-            brightness: 0.5,
+            brightness: 0.2,
             ..default()
         })
+        .insert_resource(Msaa::Off)
         .run();
 }
 
@@ -26,6 +31,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
+    #[allow(clippy::needless_update)]
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
@@ -41,12 +47,13 @@ fn setup(
             // Configure motion blur settings per-camera
             motion_blur: MotionBlur {
                 shutter_angle: 1.0,
-                max_samples: 8,
+                max_samples: 16,
                 ..default()
             },
             ..default()
         },
         CameraController::default(),
+        Fxaa::default(),
     ));
 
     // Add a light
@@ -60,17 +67,19 @@ fn setup(
         ..default()
     });
 
-    let mesh = meshes.add(Mesh::from(shape::Capsule {
+    let sphere = meshes.add(Mesh::from(shape::UVSphere {
         radius: 1.0,
         ..default()
     }));
+    let cuboid = meshes.add(Mesh::from(shape::Cube::default()));
+
     let image = asset_server.load("textures/checkered.png");
     // Acts like a skybox to allow testing the effects of full screen blur due to camera movement.
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::UVSphere::default())),
             material: materials.add(StandardMaterial {
-                base_color: Color::CYAN,
+                base_color: Color::rgb(0.1, 0.1, 0.1),
                 perceptual_roughness: 1.0,
                 reflectance: 0.0,
                 base_color_texture: Some(image.clone()),
@@ -84,11 +93,12 @@ fn setup(
     ));
     commands.spawn((PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane {
-            size: 10000.0,
-            ..default()
+            size: 500.0,
+            subdivisions: 10,
         })),
         material: materials.add(StandardMaterial {
-            base_color: Color::CYAN,
+            base_color: Color::GRAY,
+            base_color_texture: Some(image.clone()),
             perceptual_roughness: 1.0,
             reflectance: 0.0,
             ..default()
@@ -106,45 +116,45 @@ fn setup(
     };
     commands.spawn((
         PbrBundle {
-            mesh: mesh.clone(),
+            mesh: sphere.clone(),
             material: sphere_matl(Color::BLUE),
-            transform: Transform::from_xyz(0.0, 0.7, 40.0),
+            transform: Transform::from_xyz(0.0, 0.0, 40.0),
             ..default()
         },
-        Moves,
+        Translates(0.8),
     ));
     commands.spawn((
         PbrBundle {
-            mesh: mesh.clone(),
+            mesh: sphere.clone(),
             material: sphere_matl(Color::GREEN),
-            transform: Transform::from_xyz(0.0, -0.8, 30.0),
+            transform: Transform::from_xyz(0.0, 0.0, 30.0),
             ..default()
         },
-        Moves,
+        Translates(1.0),
     ));
     commands.spawn((
         PbrBundle {
-            mesh: mesh.clone(),
+            mesh: sphere.clone(),
             material: sphere_matl(Color::RED),
-            transform: Transform::from_xyz(0.0, 1.8, 20.0),
+            transform: Transform::from_xyz(0.0, 0.0, 20.0),
             ..default()
         },
-        Moves,
+        Translates(1.2),
         Trackable,
     ));
     commands.spawn((
         PbrBundle {
-            mesh: mesh.clone(),
+            mesh: sphere.clone(),
             material: sphere_matl(Color::YELLOW),
-            transform: Transform::from_xyz(0.0, -1.4, 10.0),
+            transform: Transform::from_xyz(0.0, 0.0, 10.0),
             ..default()
         },
-        Moves,
+        Translates(1.4),
     ));
 
     commands.spawn((
         PbrBundle {
-            mesh: mesh.clone(),
+            mesh: sphere.clone(),
             material: sphere_matl(Color::FUCHSIA),
             transform: Transform::from_xyz(0.0, 0.0, -30.0).with_rotation(Quat::from_euler(
                 EulerRot::XYZ,
@@ -154,7 +164,26 @@ fn setup(
             )),
             ..default()
         },
-        Scales,
+        Scales(20.0),
+    ));
+
+    commands.spawn((
+        PbrBundle {
+            mesh: cuboid.clone(),
+            material: sphere_matl(Color::BLUE),
+            transform: Transform::from_xyz(22.0, 0.0, -11.0),
+            ..default()
+        },
+        Rotates(20.0),
+    ));
+    commands.spawn((
+        PbrBundle {
+            mesh: cuboid.clone(),
+            material: sphere_matl(Color::YELLOW),
+            transform: Transform::from_xyz(20.0, 0.0, -10.0),
+            ..default()
+        },
+        Rotates(15.0),
     ));
 }
 
@@ -168,6 +197,7 @@ fn setup_ui(mut commands: Commands) {
         TextBundle::from_sections(vec![
             TextSection::new(String::new(), style.clone()),
             TextSection::new(String::new(), style.clone()),
+            TextSection::new(String::new(), style.clone()),
             TextSection::new("\n\n", style.clone()),
             TextSection::new("Controls:\n", style.clone()),
             TextSection::new(
@@ -177,6 +207,7 @@ fn setup_ui(mut commands: Commands) {
             TextSection::new("WASD + Mouse - Move camera\n", style.clone()),
             TextSection::new("1/2 - Decrease/Increase shutter angle\n", style.clone()),
             TextSection::new("3/4 - Decrease/Increase sample count\n", style.clone()),
+            TextSection::new("5/6 - Decrease/Increase depth bias\n", style.clone()),
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -188,29 +219,35 @@ fn setup_ui(mut commands: Commands) {
 }
 
 #[derive(Component)]
-struct Moves;
+struct Translates(f32);
 
 #[derive(Component)]
-struct Scales;
+struct Scales(f32);
+
+#[derive(Component)]
+struct Rotates(f32);
 
 #[derive(Component)]
 struct Trackable;
 
-/// Rotates any entity around the x and y axis
-fn move_spheres(
-    time: Res<Time>,
-    mut scales: Query<&mut Transform, (With<Scales>, Without<Moves>)>,
-    mut moves: Query<&mut Transform, With<Moves>>,
-) {
-    for mut transform in &mut moves {
-        let y = transform.translation.y;
-        transform.rotate_x(20. / (y * y) * time.delta_seconds());
+fn translate(time: Res<Time>, mut moves: Query<(&mut Transform, &Translates)>) {
+    for (mut transform, moves) in &mut moves {
+        let t = time.elapsed_seconds();
         transform.translation.x =
-            ((((time.elapsed_seconds() + y) * y * 3.0).sin() * 0.5 + 0.5).powi(4) - 0.5) * 30.0;
+            ((((t + moves.0) * moves.0 * 3.).sin() * 0.5 + 0.5).powi(4) - 0.5) * 30.;
     }
+}
 
-    for mut transform in &mut scales {
-        transform.scale = Vec3::splat(((time.elapsed_seconds() * 20.0).sin() + 1.0) * 2.0 + 1.0);
+fn rotate(time: Res<Time>, mut moves: Query<(&mut Transform, &Rotates)>) {
+    for (mut transform, rotate) in &mut moves {
+        transform.rotate_x(rotate.0 * time.delta_seconds());
+    }
+}
+
+fn scale(time: Res<Time>, mut moves: Query<(&mut Transform, &Scales)>) {
+    for (mut transform, scales) in &mut moves {
+        transform.scale =
+            Vec3::splat(((time.elapsed_seconds() * scales.0).sin() + 1.0) * 2.0 + 1.0);
     }
 }
 
@@ -258,7 +295,7 @@ fn update_settings(
 
 use bevy::input::mouse::MouseMotion;
 use bevy::window::CursorGrabMode;
-use bevy_internal::pbr::NotShadowReceiver;
+use bevy_internal::{core_pipeline::fxaa::Fxaa, pbr::NotShadowReceiver};
 
 use std::f32::consts::*;
 use std::fmt;
@@ -302,8 +339,8 @@ impl Default for CameraController {
             key_run: KeyCode::ShiftLeft,
             mouse_key_enable_mouse: MouseButton::Left,
             keyboard_key_enable_mouse: KeyCode::M,
-            walk_speed: 5.0,
-            run_speed: 15.0,
+            walk_speed: 20.0,
+            run_speed: 100.0,
             friction: 0.5,
             pitch: 0.0,
             yaw: 0.0,
@@ -342,7 +379,7 @@ pub struct CameraControllerPlugin;
 
 impl Plugin for CameraControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, camera_controller);
+        app.add_systems(PreUpdate, camera_controller);
     }
 }
 

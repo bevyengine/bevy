@@ -39,22 +39,6 @@ pub struct MotionBlur {
     /// The upper limit for how many samples will be taken per-pixel. The number of samples taken
     /// depends on the speed of an object.
     pub max_samples: u32,
-    /// Motion blur will consider fragments closer to the camera than the fragment being blurred,
-    /// but only by this small amount.
-    ///
-    /// Without considering depth, fast moving objects moving behind a stationary object will sample
-    /// this stationary object, and cause it to incorrectly smear into the moving object. To solve
-    /// this, per-object motion blur can filter out samples by depth, ignoring fragments that are
-    /// closer to the camera than the fragment being blurred.
-    ///
-    /// However, it's desireable to add some tolerance to this comparison. Consider blurring the
-    /// edge of the sphere. When sampling fragments to create blur at the edge of the sphere,
-    /// sampling the center of the sphere will fail because the center of the sphere is closer to
-    /// the camera than the edge is! The `depth_bias` adds tolerance to allow for cases like this.
-    ///
-    /// You can effectively disable this by setting the bias to -1.0. This will result in streaking,
-    /// which may be artistically desired.
-    pub depth_bias: f32,
     #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
     // WebGL2 structs must be 16 byte aligned.
     pub _webgl2_padding: bevy_math::Vec3,
@@ -63,9 +47,8 @@ pub struct MotionBlur {
 impl Default for MotionBlur {
     fn default() -> Self {
         Self {
-            shutter_angle: 1.0,
-            max_samples: 8,
-            depth_bias: -0.001,
+            shutter_angle: 0.5,
+            max_samples: 4,
             #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
             _webgl2_padding: bevy_math::Vec3::default(),
         }

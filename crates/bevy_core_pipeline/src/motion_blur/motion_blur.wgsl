@@ -16,7 +16,6 @@
 struct MotionBlur {
     shutter_angle: f32,
     max_samples: u32,
-    depth_bias: f32,
 #ifdef SIXTEEN_BYTE_ALIGNMENT
     // WebGL2 structs must be 16 byte aligned.
     _webgl2_padding: vec3<f32>
@@ -37,14 +36,17 @@ fn fragment(
     let frag_coords = vec2<i32>(in.uv * texture_size);
 
 #ifdef MULTISAMPLED
-    let motion_vector = textureLoad(motion_vectors, frag_coords, i32(sample_index)).rg;
+    let this_motion_vector = textureLoad(motion_vectors, frag_coords, i32(sample_index)).rg;
 #else
-    let motion_vector = textureSample(motion_vectors, texture_sampler, in.uv).rg;
+    let this_motion_vector = textureSample(motion_vectors, texture_sampler, in.uv).rg;
 #endif
     
-    let exposure_vector = shutter_angle * motion_vector;
+    let exposure_vector = shutter_angle * this_motion_vector;
     let speed = length(exposure_vector * texture_size);
-    let n_samples = i32(clamp(round(speed), 1.0, f32(settings.max_samples)));
+
+    // Number of samples should always be odd so we can gaurantee symmetric sampling. This also
+    // ensures we always have at least one sample, the central sample, which will be unjittered.
+    let n_samples = i32(clamp(speed, 2.0, f32(settings.max_samples)) / 2.0) * 2 + 1;
 
 #ifdef NO_DEPTH_TEXTURE_SUPPORT
     let this_depth = 0.0;
@@ -56,14 +58,18 @@ fn fragment(
 #endif
 #endif
 
-    var weight_total = 1.0;
-    var accumulator = textureSample(screen_texture, texture_sampler, in.uv);
-    let noise = hash_noise(frag_coords, globals.frame_count);
+    var weight_total = 0.0;
+    var accumulator = vec4<f32>(0.0);
+    var offset = vec2<f32>(0.0);
+    let noise = hash_noise(frag_coords, globals.frame_count) * 2.0 - 1.0;
+    let jitter = noise / f32(n_samples - 1);
 
-    for (var i = 1; i <= n_samples; i++) {
-        var offset = vec2<f32>(0.0);
-        if speed > 1.0 {
-            offset = exposure_vector * ((f32(i) + noise) / f32(n_samples) - 0.5);
+    for (var i = 0; i < n_samples; i++) {
+        let sample_percent = f32(i) / f32(n_samples - 1) - 0.5;
+
+        // We want the central sample to have an offset of zero.
+        if n_samples > 1 && abs(sample_percent) > 0.001 {
+            offset = exposure_vector * (sample_percent + jitter);
         }
         let sample_uv = in.uv + offset;
         let sample_coords = vec2<i32>(sample_uv * texture_size);
@@ -74,17 +80,36 @@ fn fragment(
         // sampling. If it is closer to the camera than this fragment (plus the user-defined bias),
         // we discard it. If the bias is too small, fragments from the same object will be filtered
         // out.
-        #ifdef NO_DEPTH_TEXTURE_SUPPORT
-            let sample_depth = 0.0;
-        #else
-        #ifdef MULTISAMPLED
-            let sample_depth = textureLoad(depth, sample_coords, i32(sample_index));
-        #else
-            let sample_depth = textureSample(depth, texture_sampler, sample_uv);
-        #endif
-        #endif
-        // The 100x multiplier ensures that these samples far outweigh the base sample
-        let weight = 100.0 * step(settings.depth_bias, this_depth - sample_depth);
+    #ifdef NO_DEPTH_TEXTURE_SUPPORT
+        let sample_depth = 0.0;
+    #else
+    #ifdef MULTISAMPLED
+        let sample_depth = textureLoad(depth, sample_coords, i32(sample_index));
+    #else
+        let sample_depth = textureSample(depth, texture_sampler, sample_uv);
+    #endif
+    #endif
+        
+    #ifdef MULTISAMPLED
+        let sample_motion_vector = textureLoad(motion_vectors, sample_coords, i32(sample_index)).rg;
+    #else
+        let sample_motion_vector = textureSample(motion_vectors, texture_sampler, sample_uv).rg;
+    #endif
+
+        var weight = 1.0;
+        // if the sampled frag is in front of this frag, we want to scale its weight by how parallel
+        // their motion vectors are.
+        if sample_depth > this_depth {
+            let this_len = length(this_motion_vector);
+            let sample_len = length(sample_motion_vector);
+            let cos_angle = dot(this_motion_vector, sample_motion_vector) / (this_len * sample_len);
+            // Varies from 0 to 1, meaning the strength is only attenueted, never boosted.
+            let how_parallel = abs(cos_angle);
+            // If the foreground sampled frag is not moving much, we definitely shouldn't sample it,
+            // because there is no way that it could've contributed to this fragment's color.
+            let len_ratio = clamp(sample_len/this_len, 0.0, 1.0);
+            weight = pow(how_parallel * len_ratio, 3.0);
+        }
         weight_total += weight;
         accumulator += weight * textureSample(screen_texture, texture_sampler, sample_uv);
     }
