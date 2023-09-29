@@ -12,7 +12,7 @@ fn main() {
         // When we check whether a state is valid, we use a `StateMatcher`.
         // In the simple example, we use pattern matching to generate one on the fly
         // But we can also use pre-defined ones, like `ShowsUI`
-        .add_systems(on_exit!(ShowsUI), cleanup_ui)
+        .add_systems(on_exit_strict!(ShowsUI), cleanup_ui)
         // In addition, all `States` also implement `StateMatcher`, so you can use them here.
         // Although there are some optimizations around `OnEnter(S)` and `OnExit(S)` that make
         // those a better choice in this case.
@@ -26,10 +26,10 @@ fn main() {
         .add_systems(on_enter!(InGame::Any), setup_game)
         // And all the same things apply with the `in_state!` macro
         .add_systems(Update, menu.run_if(in_state!(AppState::Menu)))
-        .add_systems(Update, change_color.run_if(in_state!(InGame)))
+        .add_systems(Update, change_color.run_if(in_state!(InGame::Any)))
         .add_systems(Update, toggle_pause)
         // And it still works with conditional states as well
-        .add_conditional_state::<MovementState, _>(InGame::Running)
+        .add_sub_state::<MovementState, _>(InGame::Running)
         .add_systems(Update, invert_movement.run_if(in_state!(MovementState, _)))
         .add_systems(Update, movement.run_if(in_state(MovementState::Normal)))
         .add_systems(
