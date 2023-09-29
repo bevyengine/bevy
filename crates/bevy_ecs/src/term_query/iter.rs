@@ -180,6 +180,11 @@ impl<'w, 's> FetchedTerms<'w, 's> {
         self.terms
     }
 
+    /// Returns an iterator across tuples of [`Term`] and [`FetchedTerm`]
+    pub fn iter_terms(&self) -> impl Iterator<Item = (&Term, &FetchedTerm<'w>)> {
+        self.terms.iter().zip(self.fetches.iter())
+    }
+
     /// Casts the term at `index` to type `Q`
     ///
     /// # Safety

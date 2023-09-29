@@ -8,7 +8,7 @@ use bevy::{
     ecs::{
         component::{ComponentDescriptor, ComponentId, StorageType},
         system::TermQuery,
-        term_query::{FetchedTerm, QueryBuilder, QueryTerm, QueryTermGroup, Term, TermAccess},
+        term_query::{FetchedTerm, QueryBuilder, QueryTermGroup, Term, TermAccess},
     },
     ptr::OwningPtr,
     utils::HashMap,
@@ -195,7 +195,7 @@ fn parse_query<Q: QueryTermGroup>(
         if sub_terms.len() == 1 {
             parse_term(sub_terms[0], builder, components);
         } else {
-            builder.any_of(|b| {
+            builder.or(|b| {
                 sub_terms
                     .iter()
                     .for_each(|term| parse_term(term, b, components));
@@ -205,48 +205,35 @@ fn parse_query<Q: QueryTermGroup>(
 }
 
 fn print_match(term: &Term, fetch: &FetchedTerm, world: &World) -> String {
-    if let Some(id) = term.component {
-        let name = world.components().get_name(id).unwrap();
-        if fetch.matched {
-            if term.access.is_some() {
-                let info = world.components().get_info(id).unwrap();
-                let len = info.layout().size() / std::mem::size_of::<u64>();
+    let id = term.component.unwrap();
+    let name = world.components().get_name(id).unwrap();
+    if fetch.matched {
+        if term.access.is_some() {
+            let info = world.components().get_info(id).unwrap();
+            let len = info.layout().size() / std::mem::size_of::<u64>();
 
-                let ptr = fetch.component_ptr().unwrap();
-                let data = unsafe {
-                    std::slice::from_raw_parts_mut(ptr.assert_unique().as_ptr().cast::<u64>(), len)
-                };
-                if term.access == TermAccess::Write {
-                    data.iter_mut().for_each(|data| {
-                        *data += 1;
-                    });
-                }
-
-                return format!("{}: {:?}", name, data[0..len].to_vec());
+            let ptr = fetch.component_ptr().unwrap();
+            let data = unsafe {
+                std::slice::from_raw_parts_mut(ptr.assert_unique().as_ptr().cast::<u64>(), len)
+            };
+            if term.access == TermAccess::Write {
+                data.iter_mut().for_each(|data| {
+                    *data += 1;
+                });
             }
-            return name.to_string();
-        }
-        return "None".to_string();
-    }
 
-    if let Some(sub_fetches) = fetch.sub_terms() {
-        term.sub_terms
-            .iter()
-            .zip(sub_fetches)
-            .map(|(term, fetch)| print_match(term, fetch, world))
-            .collect::<Vec<_>>()
-            .join(", ")
-    } else {
-        String::new()
+            return format!("{}: {:?}", name, data[0..len].to_vec());
+        }
+        return name.to_string();
     }
+    return "None".to_string();
 }
 
 fn query_system(mut query: TermQuery<Entity>, world: &World) {
-    query.iter_raw().for_each(|(terms, fetches)| {
-        let entity = unsafe { Entity::from_fetch(&fetches[0]) };
-        let components = terms
-            .iter()
-            .zip(fetches.iter())
+    query.iter_raw().for_each(|fetches| {
+        let entity = unsafe { fetches.cast::<Entity>(0) };
+        let components = fetches
+            .iter_terms()
             .skip(1)
             .map(|(term, fetch)| print_match(term, fetch, world))
             .collect::<Vec<_>>()
