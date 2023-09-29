@@ -21,9 +21,9 @@ pub type BoxedSystemSet = Box<dyn SystemSet>;
 /// A shorthand for `Box<dyn ScheduleLabel>`.
 pub type BoxedScheduleLabel = Box<dyn ScheduleLabel>;
 
-/// A trait that represents an item that can become a ScheduleLabel with optional BoxedCondition
+/// A trait that represents an item that can become a `ScheduleLabel` with optional `BoxedCondition`
 pub trait IntoConditionalScheduleLabel<S: ScheduleLabel> {
-    /// This converts the item to a ScheduleLabel with an optional BoxedCondition.
+    /// This converts the item to a `ScheduleLabel` with an optional `BoxedCondition`
     fn into_conditional_schedule_label(self) -> (S, Option<BoxedCondition>);
 }
 

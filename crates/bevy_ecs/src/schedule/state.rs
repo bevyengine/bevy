@@ -353,13 +353,13 @@ pub trait SetupTransitionScheduleLables<S: States> {
 
     /// Entering a state that matches the matcher from a state that doesn't
     ///
-    /// from is a matcher for the previous state
-    /// to is a matcher for the next state
+    /// `from` is a matcher for the previous state
+    /// `to` is a matcher for the next state
     ///
-    /// if from_strict is true, the transition will occur even if the next state also matches
+    /// if `from_strict` is true, the transition will occur even if the next state also matches
     /// the from matcher
     ///
-    /// if to_strict is true, the transition will occur even if the previous stata also
+    /// if `to_strict` is true, the transition will occur even if the previous stata also
     /// matches the to matcher
     fn on_transition_match<M1: StateMatcher<S>, M2: StateMatcher<S>>(
         from: M1,
@@ -486,7 +486,7 @@ impl<S: States> Debug for NextState<S> {
 impl<S: States> NextState<S> {
     /// Tentatively set a planned state transition to `Some(state)`.
     pub fn set(&mut self, state: S) {
-        *self = Self::StateValue(state)
+        *self = Self::StateValue(state);
     }
     /// Tentatively set a planned state transition to `Some(state)`.
     pub fn setter(&mut self, setter: impl Fn(S) -> S + 'static + Sync + Send) {
@@ -494,7 +494,7 @@ impl<S: States> NextState<S> {
     }
 }
 
-/// If the state doesn't exist, initializes it to default runs OnEnter
+/// If the state doesn't exist, initializes it to default runs `OnEnter`
 pub fn initialize_state_and_enter<S: States>(world: &mut World) {
     world.insert_resource(NextState::<S>::MaintainCurrent);
 
@@ -512,7 +512,7 @@ pub fn initialize_state_and_enter<S: States>(world: &mut World) {
         .ok();
 }
 
-/// If the state exists, removes it and runs OnExit
+/// If the state exists, removes it and runs `OnExit`
 pub fn remove_state_from_world<S: States>(world: &mut World) {
     world.remove_resource::<NextState<S>>();
 
@@ -586,7 +586,7 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
     }
 }
 
-/// Generate OnEnter schedules, using either:
+/// Generate `OnEnter` schedules, using either:
 /// - a pre-existing matcher, like so `on_enter!(MyMatcher)`
 /// - a matching function, like so `on_enter!(MyState, |s| false)`
 #[macro_export]
@@ -601,9 +601,9 @@ macro_rules! on_enter {
     }};
 }
 
-/// Generate strict OnEnter schedules, using either:
+/// Generate strict `OnEnter` schedules, using either:
 /// - a pre-existing matcher, like so `on_enter_strict!(MyMatcher)`
-/// - a matching function, like so `on_enter_strict!(MyState, |s| false)
+/// - a matching function, like so `on_enter_strict!(MyState, |s| false)`
 #[macro_export]
 macro_rules! on_enter_strict {
     ($type:ident, $expression:pat) => {{
@@ -616,7 +616,7 @@ macro_rules! on_enter_strict {
     }};
 }
 
-/// Generate OnExit schedules, using either:
+/// Generate `OnExit` schedules, using either:
 /// - a pre-existing matcher, like so `on_exit!(MyMatcher)`
 /// - a matching function, like so `on_exit!(MyState, |s| false)`
 #[macro_export]
@@ -631,9 +631,9 @@ macro_rules! on_exit {
     }};
 }
 
-/// Generate strict OnExit schedules, using either:
+/// Generate strict `OnExit` schedules, using either:
 /// - a pre-existing matcher, like so `on_exit_strict!(MyMatcher)`
-/// - a matching function, like so `on_exit_strict!(MyState, |s| false)
+/// - a matching function, like so `on_exit_strict!(MyState, |s| false)`
 #[macro_export]
 macro_rules! on_exit_strict {
     ($type:ident, $expression:pat) => {{
@@ -646,7 +646,7 @@ macro_rules! on_exit_strict {
     }};
 }
 
-/// Generate in_state condition using either:
+/// Generate `in_state` condition using either:
 /// - a pre-existing matcher, like so `on_exit!(MyMatcher)`
 /// - a matching function, like so `on_exit!(MyState, |s| false)`
 #[macro_export]
