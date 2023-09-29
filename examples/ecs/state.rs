@@ -236,7 +236,7 @@ fn toggle_pause(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<App
         next_state.setter(|state| match &state {
             AppState::InGame { paused } => AppState::InGame { paused: !paused },
             _ => state,
-        })
+        });
     }
 }
 
