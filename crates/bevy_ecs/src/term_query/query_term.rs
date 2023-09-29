@@ -1,13 +1,15 @@
-use bevy_ptr::{Ptr, PtrMut, UnsafeCellDeref};
+use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::all_tuples;
 
 use crate::{
     change_detection::{Mut, MutUntyped, Ticks, TicksMut},
+    component::Tick,
     entity::Entity,
     prelude::{
         Added, AnyOf, Changed, Component, EntityMut, EntityRef, Has, Or, Ref, With, Without, World,
     },
     query::DebugCheckedUnwrap,
+    world::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell},
 };
 
 use super::{FetchedTerm, Term, TermAccess, TermOperator};
@@ -64,7 +66,12 @@ pub trait QueryTerm {
     /// # Safety
     ///
     /// Caller must ensure that `fetch` is consumable as the implementing type
-    unsafe fn from_fetch<'w>(fetch: &FetchedTerm<'w>) -> Self::Item<'w>;
+    unsafe fn from_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        last_run: Tick,
+        this_run: Tick,
+        fetch: &FetchedTerm<'w>,
+    ) -> Self::Item<'w>;
 }
 
 /// A trait representing a group of types implementing [`QueryTerm`].
@@ -87,6 +94,9 @@ pub trait QueryTermGroup {
     ///
     /// Caller must ensure the `terms` is consumable as the implementing type
     unsafe fn from_fetches<'w: 'f, 'f>(
+        world: UnsafeWorldCell<'w>,
+        last_run: Tick,
+        this_run: Tick,
         terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
     ) -> Self::Item<'w>;
 }
@@ -104,9 +114,17 @@ impl<T: QueryTerm> QueryTermGroup for T {
 
     #[inline]
     unsafe fn from_fetches<'w: 'f, 'f>(
+        world: UnsafeWorldCell<'w>,
+        last_run: Tick,
+        this_run: Tick,
         terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
     ) -> Self::Item<'w> {
-        T::from_fetch(terms.next().debug_checked_unwrap())
+        T::from_fetch(
+            world,
+            last_run,
+            this_run,
+            terms.next().debug_checked_unwrap(),
+        )
     }
 }
 
@@ -126,9 +144,14 @@ macro_rules! impl_query_term_tuple {
 
             #[allow(clippy::unused_unit)]
             #[inline]
-            unsafe fn from_fetches<'w: 'f, 'f>(_terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>) -> Self::Item<'w> {
+            unsafe fn from_fetches<'w: 'f, 'f>(
+                _world: UnsafeWorldCell<'w>,
+                _last_run: Tick,
+                _this_run: Tick,
+                _terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
+            ) -> Self::Item<'w> {
                 ($(
-                    $term::from_fetches(_terms),
+                    $term::from_fetches(_world, _last_run, _this_run, _terms),
                 )*)
             }
         }
@@ -142,11 +165,16 @@ impl QueryTerm for Entity {
     type ReadOnly = Self;
 
     fn init_term(_world: &mut World) -> Term {
-        Term::entity()
+        Term::default()
     }
 
     #[inline]
-    unsafe fn from_fetch<'w>(term: &'w FetchedTerm<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(
+        _world: UnsafeWorldCell<'w>,
+        _last_run: Tick,
+        _this_run: Tick,
+        term: &FetchedTerm<'w>,
+    ) -> Self::Item<'w> {
         term.entity
     }
 }
@@ -156,12 +184,18 @@ impl QueryTerm for EntityRef<'_> {
     type ReadOnly = Self;
 
     fn init_term(_world: &mut World) -> Term {
-        Term::entity().set_access(TermAccess::Read)
+        Term::default().set_access(TermAccess::Read)
     }
 
     #[inline]
-    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
-        EntityRef::new(term.entity_cell().debug_checked_unwrap())
+    unsafe fn from_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        _last_run: Tick,
+        _this_run: Tick,
+        term: &FetchedTerm<'w>,
+    ) -> Self::Item<'w> {
+        let location = world.entities().get(term.entity).debug_checked_unwrap();
+        EntityRef::new(UnsafeEntityCell::new(world, term.entity, location))
     }
 }
 
@@ -170,12 +204,18 @@ impl<'r> QueryTerm for EntityMut<'r> {
     type ReadOnly = EntityRef<'r>;
 
     fn init_term(_world: &mut World) -> Term {
-        Term::entity().set_access(TermAccess::Write)
+        Term::default().set_access(TermAccess::Write)
     }
 
     #[inline]
-    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
-        EntityMut::new(term.entity_cell().debug_checked_unwrap())
+    unsafe fn from_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        _last_run: Tick,
+        _this_run: Tick,
+        term: &FetchedTerm<'w>,
+    ) -> Self::Item<'w> {
+        let location = world.entities().get(term.entity).debug_checked_unwrap();
+        EntityMut::new(UnsafeEntityCell::new(world, term.entity, location))
     }
 }
 
@@ -188,8 +228,14 @@ impl<T: Component> QueryTerm for With<T> {
         Term::with_id(component)
     }
 
-    #[inline(always)]
-    unsafe fn from_fetch<'w>(_term: &'w FetchedTerm<'w>) -> Self::Item<'w> {}
+    #[inline]
+    unsafe fn from_fetch<'w>(
+        _world: UnsafeWorldCell<'w>,
+        _last_run: Tick,
+        _this_run: Tick,
+        _term: &FetchedTerm<'w>,
+    ) -> Self::Item<'w> {
+    }
 }
 
 impl<T: Component> QueryTerm for Without<T> {
@@ -202,7 +248,13 @@ impl<T: Component> QueryTerm for Without<T> {
     }
 
     #[inline]
-    unsafe fn from_fetch<'w>(_term: &'w FetchedTerm<'w>) -> Self::Item<'w> {}
+    unsafe fn from_fetch<'w>(
+        _world: UnsafeWorldCell<'w>,
+        _last_run: Tick,
+        _this_run: Tick,
+        _term: &FetchedTerm<'w>,
+    ) -> Self::Item<'w> {
+    }
 }
 
 impl<T: Component> QueryTerm for Has<T> {
@@ -215,7 +267,12 @@ impl<T: Component> QueryTerm for Has<T> {
     }
 
     #[inline]
-    unsafe fn from_fetch<'w>(term: &'w FetchedTerm<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(
+        _world: UnsafeWorldCell<'w>,
+        _last_run: Tick,
+        _this_run: Tick,
+        term: &FetchedTerm<'w>,
+    ) -> Self::Item<'w> {
         term.matched
     }
 }
@@ -230,7 +287,13 @@ impl<T: Component> QueryTerm for Added<T> {
     }
 
     #[inline]
-    unsafe fn from_fetch<'w>(_term: &'w FetchedTerm<'w>) -> Self::Item<'w> {}
+    unsafe fn from_fetch<'w>(
+        _world: UnsafeWorldCell<'w>,
+        _last_run: Tick,
+        _this_run: Tick,
+        _term: &FetchedTerm<'w>,
+    ) -> Self::Item<'w> {
+    }
 }
 
 impl<T: Component> QueryTerm for Changed<T> {
@@ -243,7 +306,13 @@ impl<T: Component> QueryTerm for Changed<T> {
     }
 
     #[inline]
-    unsafe fn from_fetch<'w>(_term: &'w FetchedTerm<'w>) -> Self::Item<'w> {}
+    unsafe fn from_fetch<'w>(
+        _world: UnsafeWorldCell<'w>,
+        _last_run: Tick,
+        _this_run: Tick,
+        _term: &FetchedTerm<'w>,
+    ) -> Self::Item<'w> {
+    }
 }
 
 impl<T: Component> QueryTerm for &T {
@@ -256,7 +325,12 @@ impl<T: Component> QueryTerm for &T {
     }
 
     #[inline]
-    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(
+        _world: UnsafeWorldCell<'w>,
+        _last_run: Tick,
+        _this_run: Tick,
+        term: &FetchedTerm<'w>,
+    ) -> Self::Item<'w> {
         term.component_ptr().debug_checked_unwrap().deref()
     }
 }
@@ -271,16 +345,20 @@ impl<T: Component> QueryTerm for Ref<'_, T> {
     }
 
     #[inline]
-    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
-        let change_detection = term.change_ticks().debug_checked_unwrap();
+    unsafe fn from_fetch<'w>(
+        _world: UnsafeWorldCell<'w>,
+        last_run: Tick,
+        this_run: Tick,
+        term: &FetchedTerm<'w>,
+    ) -> Self::Item<'w> {
         Ref {
             value: term.component_ptr().debug_checked_unwrap().deref(),
             ticks: Ticks {
-                added: change_detection.added.deref(),
-                changed: change_detection.changed.deref(),
+                added: term.added().debug_checked_unwrap(),
+                changed: term.changed().debug_checked_unwrap(),
 
-                last_run: change_detection.last_run,
-                this_run: change_detection.this_run,
+                last_run,
+                this_run,
             },
         }
     }
@@ -295,7 +373,12 @@ impl QueryTerm for Ptr<'_> {
     }
 
     #[inline]
-    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(
+        _world: UnsafeWorldCell<'w>,
+        _last_run: Tick,
+        _this_run: Tick,
+        term: &FetchedTerm<'w>,
+    ) -> Self::Item<'w> {
         term.component_ptr().debug_checked_unwrap()
     }
 }
@@ -310,8 +393,12 @@ impl<'r, T: Component> QueryTerm for &'r mut T {
     }
 
     #[inline]
-    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
-        let change_detection = term.change_ticks().debug_checked_unwrap();
+    unsafe fn from_fetch<'w>(
+        _world: UnsafeWorldCell<'w>,
+        last_run: Tick,
+        this_run: Tick,
+        term: &FetchedTerm<'w>,
+    ) -> Self::Item<'w> {
         Mut {
             value: term
                 .component_ptr()
@@ -319,11 +406,11 @@ impl<'r, T: Component> QueryTerm for &'r mut T {
                 .assert_unique()
                 .deref_mut(),
             ticks: TicksMut {
-                added: change_detection.added.deref_mut(),
-                changed: change_detection.changed.deref_mut(),
+                added: term.added().debug_checked_unwrap(),
+                changed: term.changed().debug_checked_unwrap(),
 
-                last_run: change_detection.last_run,
-                this_run: change_detection.this_run,
+                last_run,
+                this_run,
             },
         }
     }
@@ -338,16 +425,20 @@ impl<'r> QueryTerm for PtrMut<'r> {
     }
 
     #[inline]
-    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
-        let change_detection = term.change_ticks().debug_checked_unwrap();
+    unsafe fn from_fetch<'w>(
+        _world: UnsafeWorldCell<'w>,
+        last_run: Tick,
+        this_run: Tick,
+        term: &FetchedTerm<'w>,
+    ) -> Self::Item<'w> {
         MutUntyped {
             value: term.component_ptr().debug_checked_unwrap().assert_unique(),
             ticks: TicksMut {
-                added: change_detection.added.deref_mut(),
-                changed: change_detection.changed.deref_mut(),
+                added: term.added().debug_checked_unwrap(),
+                changed: term.changed().debug_checked_unwrap(),
 
-                last_run: change_detection.last_run,
-                this_run: change_detection.this_run,
+                last_run,
+                this_run,
             },
         }
     }
@@ -362,9 +453,14 @@ impl<C: QueryTerm> QueryTerm for Option<C> {
     }
 
     #[inline]
-    unsafe fn from_fetch<'w>(term: &FetchedTerm<'w>) -> Self::Item<'w> {
+    unsafe fn from_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        last_run: Tick,
+        this_run: Tick,
+        term: &FetchedTerm<'w>,
+    ) -> Self::Item<'w> {
         if term.matched {
-            Some(C::from_fetch(term))
+            Some(C::from_fetch(world, last_run, this_run, term))
         } else {
             None
         }
@@ -377,16 +473,21 @@ impl<Q: QueryTermGroup> QueryTermGroup for Or<Q> {
     type Optional = ();
 
     fn init_terms(world: &mut World, terms: &mut Vec<Term>) {
-        let mut sub_terms = Vec::new();
-        Q::init_terms(world, &mut sub_terms);
-        terms.push(Term::or_terms(sub_terms));
+        let start = terms.len();
+        Q::init_terms(world, terms);
+        for i in start..terms.len() - 1 {
+            terms[i].or = true
+        }
     }
 
     #[inline]
     unsafe fn from_fetches<'w: 'f, 'f>(
+        world: UnsafeWorldCell<'w>,
+        last_run: Tick,
+        this_run: Tick,
         terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
     ) -> Self::Item<'w> {
-        terms.next();
+        Q::Optional::from_fetches(world, last_run, this_run, terms);
     }
 }
 
@@ -396,16 +497,20 @@ impl<Q: QueryTermGroup> QueryTermGroup for AnyOf<Q> {
     type Optional = ();
 
     fn init_terms(world: &mut World, terms: &mut Vec<Term>) {
-        let mut sub_terms = Vec::new();
-        Q::Optional::init_terms(world, &mut sub_terms);
-        terms.push(Term::any_of_terms(sub_terms));
+        let start = terms.len();
+        Q::init_terms(world, terms);
+        for i in start..terms.len() - 1 {
+            terms[i].or = true
+        }
     }
 
     #[inline]
     unsafe fn from_fetches<'w: 'f, 'f>(
+        world: UnsafeWorldCell<'w>,
+        last_run: Tick,
+        this_run: Tick,
         terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
     ) -> Self::Item<'w> {
-        let term = terms.next().debug_checked_unwrap();
-        Q::Optional::from_fetches(&mut term.sub_terms().debug_checked_unwrap().iter())
+        Q::Optional::from_fetches(world, last_run, this_run, terms)
     }
 }

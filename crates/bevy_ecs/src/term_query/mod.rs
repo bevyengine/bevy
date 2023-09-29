@@ -19,7 +19,7 @@ mod tests {
     use crate as bevy_ecs;
     use crate::prelude::*;
     use crate::system::TermQuery;
-    use crate::term_query::{QueryTerm, QueryTermGroup, TermQueryState};
+    use crate::term_query::TermQueryState;
 
     use super::QueryBuilder;
 
@@ -183,24 +183,24 @@ mod tests {
         let mut query = TermQueryState::<(Entity, &A, &B)>::new(&mut world);
 
         // Our result is completely untyped
-        let (_, fetches) = query.single_raw(&mut world);
+        let fetches = query.single_raw(&mut world);
 
         // Consume our fetched terms to produce a set of term items
         // SAFETY: We know the type signature associated with these fetches
-        let (e, a, b) = unsafe { <(Entity, &A, &B)>::from_fetches(&mut fetches.iter()) };
+        let (e, a, b) = unsafe { fetches.cast_many::<(Entity, &A, &B)>(0) };
 
         assert_eq!(e, entity);
         assert_eq!(0, a.0);
         assert_eq!(1, b.0);
 
         // Alternatively extract individual terms dynamically
-        let (_, fetches) = query.single_raw(&mut world);
+        let fetches = query.single_raw(&mut world);
 
         // SAFETY: We know the terms at these indices have compatible types
         unsafe {
-            assert_eq!(0, <&A>::from_fetch(&fetches[1]).0);
-            assert_eq!(e, Entity::from_fetch(&fetches[0]));
-            assert_eq!(1, <&B>::from_fetch(&fetches[2]).0);
+            assert_eq!(0, fetches.cast::<&A>(1).0);
+            assert_eq!(e, fetches.cast::<Entity>(0));
+            assert_eq!(1, fetches.cast::<&B>(2).0);
         }
     }
 
@@ -213,14 +213,13 @@ mod tests {
             .term::<(Entity, &B)>()
             .build();
 
-        let (_, fetches) = query.single_raw(&mut world);
-        let mut iter = fetches.iter();
+        let fetches = query.single_raw(&mut world);
 
         // Seperately consume our two terms
         // SAFETY: We know the first two terms match this signature
-        let (e1, a) = unsafe { <(Entity, &A)>::from_fetches(&mut iter) };
+        let (e1, a) = unsafe { fetches.cast_many::<(Entity, &A)>(0) };
         // SAFETY: We know the second two terms match this signature
-        let (e2, b) = unsafe { <(Entity, &B)>::from_fetches(&mut iter) };
+        let (e2, b) = unsafe { fetches.cast_many::<(Entity, &A)>(2) };
 
         assert_eq!(e1, entity);
         assert_eq!(e1, e2);

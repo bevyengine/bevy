@@ -1,15 +1,13 @@
-use std::cell::UnsafeCell;
-
-use bevy_ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
-use bevy_utils::prelude::default;
+use bevy_ptr::{Ptr, UnsafeCellDeref};
 
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::{ComponentId, StorageType, Tick},
-    entity::{Entity, EntityLocation},
+    entity::Entity,
+    prelude::World,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table, TableRow},
-    world::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell},
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 
 /// Defines whether a [`Term`] has mutable or immutable access to a [`Component`](crate::prelude::Component) or [`Entity`].
@@ -61,8 +59,6 @@ pub enum TermOperator {
 /// resulting [`FetchedTerm`] is populated.
 #[derive(Clone, Default, Debug)]
 pub struct Term {
-    /// Whether or not this is an entity term i.e. [`Entity`], [`EntityRef`](crate::prelude::EntityRef) or [`EntityMut`](crate::prelude::EntityMut)
-    pub entity: bool,
     /// The [`Component`](crate::prelude::Component) this term targets if any, i.e. `&T`, `&mut T`
     pub component: Option<ComponentId>,
     /// Whether this Term reads/writes the component or entity
@@ -71,24 +67,11 @@ pub struct Term {
     pub operator: TermOperator,
     /// Whether or not this term requires change detection information i.e. `&mut T` or [`Changed<T>`](crate::prelude::Changed)
     pub change_detection: bool,
-    /// Sub terms if any, used for groups like [`Or`](crate::prelude::Or) or [`AnyOf`](crate::prelude::AnyOf)
-    pub sub_terms: Vec<Term>,
+    /// Whether or not this term is connected to the following term with an or
+    pub or: bool,
 }
 
 impl Term {
-    /// Create a term representing [`Or`](crate::prelude::Or) with the given sub terms
-    pub fn or_terms(sub_terms: Vec<Term>) -> Self {
-        Term {
-            sub_terms,
-            ..default()
-        }
-    }
-
-    /// Create a term representing [`AnyOf`](crate::prelude::AnyOf) with the given sub terms
-    pub fn any_of_terms(sub_terms: Vec<Term>) -> Self {
-        Self::or_terms(sub_terms).set_access(TermAccess::Read)
-    }
-
     /// Set the target [`ComponentId`] of this [`Term`]
     pub fn set_id(mut self, id: ComponentId) -> Self {
         self.component = Some(id);
@@ -105,14 +88,6 @@ impl Term {
     pub fn set_access(mut self, access: TermAccess) -> Self {
         self.access = access;
         self
-    }
-
-    /// Creates a term representing [`Entity`]
-    pub fn entity() -> Self {
-        Term {
-            entity: true,
-            ..default()
-        }
     }
 
     /// Creates a term representing [`With<T>`](crate::prelude::With) where T is the [`Component`](crate::prelude::Component)
@@ -154,13 +129,17 @@ impl Term {
     /// Creates a term representing [`Added<T>`](crate::prelude::Added) where T is the [`Component`](crate::prelude::Component)
     /// associated with id: `id`
     pub fn added_id(id: ComponentId) -> Self {
-        Self::with_id(id).set_operator(TermOperator::Added)
+        Self::with_id(id)
+            .set_operator(TermOperator::Added)
+            .with_change_detection()
     }
 
     /// Creates a term representing [`Changed<T>`](crate::prelude::Changed) where T is the [`Component`](crate::prelude::Component)
     /// associated with id: `id`
     pub fn changed_id(id: ComponentId) -> Self {
-        Self::with_id(id).set_operator(TermOperator::Changed)
+        Self::with_id(id)
+            .set_operator(TermOperator::Changed)
+            .with_change_detection()
     }
 
     /// Adds change detection as requirement for this term
@@ -169,18 +148,28 @@ impl Term {
         self
     }
 
+    /// Returns true if this term is an [`TermOperator::Added`] or [`TermOperator::Changed`] term
+    pub fn filtered(&self) -> bool {
+        self.operator == TermOperator::Added || self.operator == TermOperator::Changed
+    }
+
+    /// Returns false if the component this term accesses is not a [`StorageType::Table`] component.
+    ///
+    /// # Safety:
+    ///  - caller must ensure any component accesses by this term exists
+    pub unsafe fn dense(&self, world: &World) -> bool {
+        if let Some(id) = self.component {
+            world.components().get_info_unchecked(id).storage_type() == StorageType::Table
+        } else {
+            true
+        }
+    }
+
     /// Whether this term can be safely interpreted as `other` i.e. `&T => With<T>` or `&mut T => &T`
     pub fn interpretable_as(&self, other: &Term) -> bool {
-        self.entity == other.entity
+        self.component == other.component
             && self.operator == other.operator
             && self.access >= other.access
-            && (!self.change_detection || other.change_detection)
-            && self.sub_terms.iter().enumerate().all(|(i, term)| {
-                other
-                    .sub_terms
-                    .get(i)
-                    .is_some_and(|other| term.interpretable_as(other))
-            })
     }
 }
 
@@ -189,84 +178,42 @@ pub(crate) enum TermStatePtr<'w> {
     // A reference to the components associated sparse set
     SparseSet(&'w ComponentSparseSet),
     // A reference to the components associated table, set in [`Term::set_table`]
-    Table(Option<Ptr<'w>>),
-    // A world reference used to construct an [`UnsafeEntityCell`]
-    World(UnsafeWorldCell<'w>),
-    // A set of sub states for group terms
-    Group(Vec<TermState<'w>>),
+    Table(Option<TablePtr<'w>>),
+    None,
 }
 
 // Stores state for change detection, ptrs gets set in [`Term::set_table`] for table components
 // and is otherwise None
-pub(crate) struct TermStateTicks<'w> {
-    ptrs: Option<(
-        ThinSlicePtr<'w, UnsafeCell<Tick>>,
-        ThinSlicePtr<'w, UnsafeCell<Tick>>,
-    )>,
+#[derive(Clone)]
+pub(crate) struct TablePtr<'w> {
+    component: Ptr<'w>,
+    added: Ptr<'w>,
+    changed: Ptr<'w>,
+}
 
-    last_run: Tick,
-    this_run: Tick,
+impl<'w> TablePtr<'w> {
+    #[inline(always)]
+    pub unsafe fn row(&self, size: usize, row: TableRow) -> Self {
+        TablePtr {
+            component: self.component.byte_add(size * row.index()),
+            added: self
+                .added
+                .byte_add(std::mem::size_of::<Tick>() * row.index()),
+            changed: self
+                .changed
+                .byte_add(std::mem::size_of::<Tick>() * row.index()),
+        }
+    }
 }
 
 // Stores the state for a single term
 pub(crate) struct TermState<'w> {
     // Pointer to wherever we need to fetch data to resolve this term
     ptr: TermStatePtr<'w>,
-    // Change detection information
-    ticks: TermStateTicks<'w>,
-
     // Size of the associated component
     size: usize,
     // Whether this term matches the associated archetype
     matches: bool,
-}
-
-impl TermState<'_> {
-    // Returns true of this state can be densely iterated
-    #[inline]
-    pub fn dense(&self) -> bool {
-        !matches!(self.ptr, TermStatePtr::SparseSet(_))
-    }
-}
-
-/// Fetched change detection data from a resolved [`Term`]
-#[derive(Clone)]
-pub struct FetchedTicks<'w> {
-    /// Added tick for this component
-    pub added: &'w UnsafeCell<Tick>,
-    /// Changed tick for this component
-    pub changed: &'w UnsafeCell<Tick>,
-
-    /// Last run tick for this query
-    pub last_run: Tick,
-    /// This run tick for this query
-    pub this_run: Tick,
-}
-
-/// Fetched pointer to data from a resolved [`Term`]
-#[derive(Clone)]
-pub enum FetchPtr<'w> {
-    /// Component fetch, e.g. `&T`
-    Component {
-        /// A pointer to the component data
-        component: Ptr<'w>,
-        /// Change detection ticks
-        change_ticks: Option<FetchedTicks<'w>>,
-    },
-    /// Entity fetch, e.g. [`EntityRef`](crate::prelude::EntityRef)
-    Entity {
-        /// The location of the entity
-        location: EntityLocation,
-        /// A world reference to construct [`UnsafeEntityCell`]
-        world: UnsafeWorldCell<'w>,
-    },
-    /// Group fetch e.g. [`AnyOf`](crate::prelude::AnyOf)
-    Group {
-        /// A set of fetched sub terms
-        sub_terms: Vec<FetchedTerm<'w>>,
-    },
-    /// Used if the term accesses no data or doesn't match
-    None,
 }
 
 /// Represents a [`Term`] that has been fetched from a [`TermQuery`](crate::prelude::TermQuery)
@@ -275,7 +222,7 @@ pub struct FetchedTerm<'w> {
     /// The [`Entity`] this [`Term`] was resolved with
     pub entity: Entity,
     /// The a pointer to the data fetched with this [`Term`]
-    pub ptr: FetchPtr<'w>,
+    component: Option<TablePtr<'w>>,
     /// Whether or not this term matched this [`Entity`]
     pub matched: bool,
 }
@@ -283,39 +230,26 @@ pub struct FetchedTerm<'w> {
 impl<'w> FetchedTerm<'w> {
     /// Helper method to get the ponter to the component data from a [`FetchedTerm`]
     pub fn component_ptr(&self) -> Option<Ptr<'w>> {
-        if let FetchPtr::Component { component, .. } = self.ptr {
-            Some(component)
+        if let Some(ptrs) = &self.component {
+            Some(ptrs.component)
         } else {
             None
         }
     }
 
     /// Helper method to get the fetched change detection data from a [`FetchedTerm`]
-    pub fn change_ticks(&self) -> Option<&FetchedTicks<'w>> {
-        if let FetchPtr::Component {
-            change_ticks: Some(change_ticks),
-            ..
-        } = &self.ptr
-        {
-            Some(change_ticks)
+    pub fn added(&self) -> Option<&'w mut Tick> {
+        if let Some(ptrs) = &self.component {
+            Some(unsafe { ptrs.added.assert_unique().deref_mut() })
         } else {
             None
         }
     }
 
-    /// Helper method to get the fetched entity cell from a [`FetchedTerm`]
-    pub fn entity_cell(&self) -> Option<UnsafeEntityCell<'w>> {
-        if let FetchPtr::Entity { location, world } = self.ptr {
-            Some(UnsafeEntityCell::new(world, self.entity, location))
-        } else {
-            None
-        }
-    }
-
-    /// Helper method to get the fetched sub terms from a [`FetchedTerm`]
-    pub fn sub_terms(&self) -> Option<&Vec<FetchedTerm<'w>>> {
-        if let FetchPtr::Group { sub_terms } = &self.ptr {
-            Some(sub_terms)
+    /// Helper method to get the fetched change detection data from a [`FetchedTerm`]
+    pub fn changed(&self) -> Option<&'w mut Tick> {
+        if let Some(ptrs) = &self.component {
+            Some(unsafe { ptrs.changed.assert_unique().deref_mut() })
         } else {
             None
         }
@@ -329,26 +263,8 @@ impl Term {
     ///
     /// - `world` must have permission to access any of the components specified in `Self::update_archetype_component_access`.
     #[inline]
-    pub(crate) unsafe fn init_state<'w>(
-        &self,
-        world: UnsafeWorldCell<'w>,
-        last_run: Tick,
-        this_run: Tick,
-    ) -> TermState<'w> {
-        let change_ticks = TermStateTicks {
-            ptrs: None,
-            last_run,
-            this_run,
-        };
-        // For entity terms we only need a reference to the world and we always match.
-        if self.entity {
-            TermState {
-                ptr: TermStatePtr::World(world),
-                ticks: change_ticks,
-                size: 0,
-                matches: true,
-            }
-        } else if let Some(component_id) = self.component {
+    pub(crate) unsafe fn init_state<'w>(&self, world: UnsafeWorldCell<'w>) -> TermState<'w> {
+        if let Some(component_id) = self.component {
             let info = world.components().get_info_unchecked(component_id);
             let storage = info.storage_type();
             match storage {
@@ -362,7 +278,6 @@ impl Term {
                     TermState {
                         ptr: TermStatePtr::SparseSet(set),
                         size: info.layout().size(),
-                        ticks: change_ticks,
                         matches: true,
                     }
                 }
@@ -370,23 +285,14 @@ impl Term {
                 StorageType::Table => TermState {
                     ptr: TermStatePtr::Table(None),
                     size: info.layout().size(),
-                    ticks: change_ticks,
                     matches: false,
                 },
             }
-
-        // Group terms initialise state for each sub term and then assemble them into a Vec
         } else {
-            let state = self
-                .sub_terms
-                .iter()
-                .map(|term| term.init_state(world, last_run, this_run))
-                .collect();
             TermState {
-                ptr: TermStatePtr::Group(state),
-                ticks: change_ticks,
+                ptr: TermStatePtr::None,
                 size: 0,
-                matches: false,
+                matches: true,
             }
         }
     }
@@ -408,16 +314,7 @@ impl Term {
         table: &'w Table,
     ) {
         state.matches = self.matches_component_set(&|id| archetype.contains(id));
-        if let TermStatePtr::Group(sub_states) = &mut state.ptr {
-            self.sub_terms
-                .iter()
-                .zip(sub_states.iter_mut())
-                .for_each(|(sub_term, sub_state)| {
-                    sub_term.set_archetype(sub_state, archetype, table);
-                    state.matches |= sub_state.matches;
-                });
-        }
-        if state.matches {
+        if state.matches && (self.change_detection || self.access.is_some()) {
             self.set_table_manual(state, table);
         }
     }
@@ -434,16 +331,7 @@ impl Term {
     #[inline]
     pub(crate) unsafe fn set_table<'w>(&self, state: &mut TermState<'w>, table: &'w Table) {
         state.matches = self.matches_component_set(&|id| table.has_column(id));
-        if let TermStatePtr::Group(sub_states) = &mut state.ptr {
-            self.sub_terms
-                .iter()
-                .zip(sub_states.iter_mut())
-                .for_each(|(sub_term, sub_state)| {
-                    sub_term.set_table(sub_state, table);
-                    state.matches |= sub_state.matches;
-                });
-        }
-        if state.matches {
+        if state.matches && (self.change_detection || self.access.is_some()) {
             self.set_table_manual(state, table);
         }
     }
@@ -451,13 +339,21 @@ impl Term {
     /// Set the table and change tick pointers for table component [`Term`]s.
     unsafe fn set_table_manual<'w>(&self, state: &mut TermState<'w>, table: &'w Table) {
         if let TermStatePtr::Table(_) = state.ptr {
-            if let Some(column) = table.get_column(self.component.debug_checked_unwrap()) {
-                state.ptr = TermStatePtr::Table(Some(column.get_data_ptr()));
-                state.ticks.ptrs = Some((
-                    column.get_added_ticks_slice().into(),
-                    column.get_changed_ticks_slice().into(),
-                ));
-            }
+            let component = self.component.debug_checked_unwrap();
+            let column = table.get_column(component).debug_checked_unwrap();
+            state.ptr = TermStatePtr::Table(Some(TablePtr {
+                component: column.get_data_ptr(),
+                added: column
+                    .get_added_ticks_slice()
+                    .get(0)
+                    .debug_checked_unwrap()
+                    .into(),
+                changed: column
+                    .get_changed_ticks_slice()
+                    .get(0)
+                    .debug_checked_unwrap()
+                    .into(),
+            }));
         }
     }
 
@@ -480,92 +376,42 @@ impl Term {
         table_row: TableRow,
     ) -> FetchedTerm<'w> {
         // If we don't match our current archetype, return an empty fetch
-        if !state.matches {
+        if !state.matches || !self.access.is_some() {
             return FetchedTerm {
                 entity,
-                ptr: FetchPtr::None,
-                matched: false,
-            };
-        }
-
-        // If we don't access any data return a match but no pointer
-        if self.access.is_none() {
-            return FetchedTerm {
-                entity,
-                ptr: FetchPtr::None,
-                matched: true,
+                component: None,
+                matched: state.matches,
             };
         }
 
         match &state.ptr {
-            // For entity terms we fetch the current location of the entity to be assembled into a ref
-            TermStatePtr::World(world) => FetchedTerm {
-                entity,
-                ptr: if self.access.is_some() {
-                    FetchPtr::Entity {
-                        world: *world,
-                        location: world.entities().get(entity).debug_checked_unwrap(),
-                    }
-                } else {
-                    FetchPtr::None
-                },
-                matched: true,
-            },
             // For table components we fetch the ptr and change ticks from the table pointer in our state
             TermStatePtr::Table(table) => FetchedTerm {
                 entity,
-                ptr: FetchPtr::Component {
-                    component: table
+                component: Some(
+                    table
+                        .as_ref()
                         .debug_checked_unwrap()
-                        .byte_add(table_row.index() * state.size),
-                    change_ticks: if self.change_detection {
-                        let (added, changed) = state.ticks.ptrs.debug_checked_unwrap();
-
-                        Some(FetchedTicks {
-                            added: added.get(table_row.index()),
-                            changed: changed.get(table_row.index()),
-
-                            last_run: state.ticks.last_run,
-                            this_run: state.ticks.this_run,
-                        })
-                    } else {
-                        None
-                    },
-                },
+                        .row(state.size, table_row),
+                ),
                 matched: true,
             },
             // For sparse set components we fetch the ptr and change ticks from the sparse set in our state
-            TermStatePtr::SparseSet(sparse_set) => FetchedTerm {
+            TermStatePtr::SparseSet(sparse_set) => {
+                let (component, ticks) = sparse_set.get_with_ticks(entity).debug_checked_unwrap();
+                FetchedTerm {
+                    entity,
+                    component: Some(TablePtr {
+                        component,
+                        added: ticks.added.into(),
+                        changed: ticks.changed.into(),
+                    }),
+                    matched: true,
+                }
+            }
+            TermStatePtr::None => FetchedTerm {
                 entity,
-                ptr: FetchPtr::Component {
-                    component: sparse_set.get(entity).debug_checked_unwrap(),
-                    change_ticks: if self.change_detection {
-                        let ticks = sparse_set.get_tick_cells(entity).debug_checked_unwrap();
-                        Some(FetchedTicks {
-                            added: ticks.added,
-                            changed: ticks.changed,
-
-                            last_run: state.ticks.last_run,
-                            this_run: state.ticks.this_run,
-                        })
-                    } else {
-                        None
-                    },
-                },
-                matched: true,
-            },
-            // For group terms we recurse into our sub terms
-            TermStatePtr::Group(sub_state) => FetchedTerm {
-                entity,
-                ptr: FetchPtr::Group {
-                    sub_terms: {
-                        self.sub_terms
-                            .iter()
-                            .zip(sub_state.iter())
-                            .map(|(term, state)| term.fetch(state, entity, table_row))
-                            .collect()
-                    },
-                },
+                component: None,
                 matched: true,
             },
         }
@@ -583,79 +429,53 @@ impl Term {
         state: &TermState<'_>,
         entity: Entity,
         table_row: TableRow,
+        last_run: Tick,
+        this_run: Tick,
     ) -> bool {
-        match &state.ptr {
-            // Entity terms always match
-            TermStatePtr::World(_) => true,
-            // Big code duplication here due to the different ways sparse set and table copmonents access their change ticks
-            // Someone smart can probably condense this, but it needs to be performant since it's in the hot loop
-            TermStatePtr::SparseSet(set) => {
-                // Determine whether the term matches based on the operator
-                match self.operator {
-                    // These are checked in matches_component_set
-                    TermOperator::Optional | TermOperator::With | TermOperator::Without => true,
-                    TermOperator::Added => {
+        match self.operator {
+            TermOperator::Added => {
+                let added = match &state.ptr {
+                    TermStatePtr::SparseSet(set) => {
                         let cells = set.get_tick_cells(entity).debug_checked_unwrap();
-                        cells
+                        Some(cells.added.deref())
+                    }
+                    TermStatePtr::Table(Some(table)) => {
+                        let added = table
                             .added
-                            .read()
-                            .is_newer_than(state.ticks.last_run, state.ticks.this_run)
+                            .byte_add(std::mem::size_of::<Tick>() * table_row.index());
+                        Some(added.deref::<Tick>())
                     }
-                    TermOperator::Changed => {
+                    _ => None,
+                }
+                .debug_checked_unwrap();
+                added.is_newer_than(last_run, this_run)
+            }
+            TermOperator::Changed => {
+                let changed = match &state.ptr {
+                    TermStatePtr::SparseSet(set) => {
                         let cells = set.get_tick_cells(entity).debug_checked_unwrap();
-                        cells
+                        Some(cells.changed.deref())
+                    }
+                    TermStatePtr::Table(Some(table)) => {
+                        let changed = table
                             .changed
-                            .read()
-                            .is_newer_than(state.ticks.last_run, state.ticks.this_run)
+                            .byte_add(std::mem::size_of::<Tick>() * table_row.index());
+                        Some(changed.deref::<Tick>())
                     }
+                    _ => None,
                 }
+                .debug_checked_unwrap();
+                changed.is_newer_than(last_run, this_run)
             }
-            TermStatePtr::Table(_) => {
-                // Determine whether the term matches based on the operator
-                match self.operator {
-                    // These are checked in matches_component_set
-                    TermOperator::Optional | TermOperator::With | TermOperator::Without => true,
-                    TermOperator::Added => {
-                        let (added, _) = state.ticks.ptrs.debug_checked_unwrap();
-                        added
-                            .get(table_row.index())
-                            .read()
-                            .is_newer_than(state.ticks.last_run, state.ticks.this_run)
-                    }
-                    TermOperator::Changed => {
-                        let (_, changed) = state.ticks.ptrs.debug_checked_unwrap();
-                        changed
-                            .get(table_row.index())
-                            .read()
-                            .is_newer_than(state.ticks.last_run, state.ticks.this_run)
-                    }
-                }
-            }
-            // Recurse to sub terms
-            TermStatePtr::Group(states) => self
-                .sub_terms
-                .iter()
-                .zip(states.iter())
-                .all(|(term, state)| term.filter_fetch(state, entity, table_row)),
+            _ => true,
         }
     }
 
     /// Adds any component accesses used by this [`Term`] to `access`.
     #[inline]
     pub fn update_component_access(&self, access: &mut FilteredAccess<ComponentId>) {
-        // Entity terms either access just the entity id, read all components or write all components
-        if self.entity {
-            debug_assert!(
-                self.access.is_none() || !access.access().has_any_write(),
-                "EntityTerm has conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
-            );
-            match self.access {
-                TermAccess::Read => access.read_all(),
-                TermAccess::Write => access.write_all(),
-                TermAccess::None => {}
-            }
         // Components terms access their corresponding component id as a filter, to read or to write
-        } else if let Some(component_id) = self.component {
+        if let Some(component_id) = self.component {
             debug_assert!(
                 self.access.is_none() || !access.access().has_write(component_id),
                 "{:?} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
@@ -666,19 +486,17 @@ impl Term {
                 TermAccess::Write => access.add_write(component_id),
                 TermAccess::None => {}
             };
-        // For groups recurse into our sub_terms building an or group
+        // Entities access all components
         } else {
-            let mut iter = self.sub_terms.iter();
-            let Some(term) = iter.next() else { return };
-            let mut new_access = access.clone();
-            term.update_component_access(&mut new_access);
-            iter.for_each(|term| {
-                let mut intermediate = access.clone();
-                term.update_component_access(&mut intermediate);
-                new_access.append_or(&intermediate);
-                new_access.extend_access(&intermediate);
-            });
-            *access = new_access;
+            debug_assert!(
+                self.access.is_none() || !access.access().has_any_write(),
+                "EntityTerm has conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
+            );
+            match self.access {
+                TermAccess::Read => access.read_all(),
+                TermAccess::Write => access.write_all(),
+                TermAccess::None => {}
+            }
         }
     }
 
@@ -689,8 +507,18 @@ impl Term {
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
     ) {
-        // Entity terms either access just the entity id, read all components or write all components
-        if self.entity {
+        // Components terms access their corresponding component id as a filter, to read or to write
+        if let Some(component_id) = self.component {
+            if let Some(archetype_component_id) = archetype.get_archetype_component_id(component_id)
+            {
+                match self.access {
+                    TermAccess::Read => access.add_read(archetype_component_id),
+                    TermAccess::Write => access.add_write(archetype_component_id),
+                    TermAccess::None => {}
+                }
+            }
+        // Entity terms access all of the components in the archetype
+        } else {
             match self.access {
                 TermAccess::Read => {
                     for component_id in archetype.components() {
@@ -708,38 +536,19 @@ impl Term {
                 }
                 TermAccess::None => {}
             }
-        // Components terms access their corresponding component id as a filter, to read or to write
-        } else if let Some(component_id) = self.component {
-            if let Some(archetype_component_id) = archetype.get_archetype_component_id(component_id)
-            {
-                match self.access {
-                    TermAccess::Read => access.add_read(archetype_component_id),
-                    TermAccess::Write => access.add_write(archetype_component_id),
-                    TermAccess::None => {}
-                }
-            }
-        // For groups recurse into our sub_terms
-        } else {
-            self.sub_terms
-                .iter()
-                .for_each(|term| term.update_archetype_component_access(archetype, access));
         }
     }
 
     /// Returns `true` if this term matches a set of components. Otherwise, returns `false`.
     #[inline]
     pub fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
-        if self.entity {
-            true
-        } else if let Some(component_id) = self.component {
+        if let Some(component_id) = self.component {
             match self.operator {
                 TermOperator::Without => !set_contains_id(component_id),
                 _ => set_contains_id(component_id),
             }
         } else {
-            self.sub_terms
-                .iter()
-                .any(|term| term.matches_component_set(set_contains_id))
+            true
         }
     }
 }

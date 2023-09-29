@@ -135,19 +135,10 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
     pub fn or(&mut self, f: impl Fn(&mut QueryBuilder)) -> &mut Self {
         let mut builder = QueryBuilder::new(self.world);
         f(&mut builder);
-        let term = Term::or_terms(builder.terms);
-        self.terms.push(term);
-        self
-    }
-
-    /// Takes a function over mutable access to a [`QueryBuilder`], calls that function
-    /// on an empty builder, adds all terms from that builder as sub terms to an [`AnyOf`]
-    /// term which is added to self     
-    pub fn any_of(&mut self, f: impl Fn(&mut QueryBuilder)) -> &mut Self {
-        let mut builder = QueryBuilder::new(self.world);
-        f(&mut builder);
-        let term = Term::any_of_terms(builder.terms);
-        self.terms.push(term);
+        builder.terms.into_iter().for_each(|mut term| {
+            term.or = true;
+            self.terms.push(term);
+        });
         self
     }
 

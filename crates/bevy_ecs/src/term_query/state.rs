@@ -13,7 +13,8 @@ use crate::{
 };
 
 use super::{
-    FetchedTerm, QueryTermGroup, Term, TermOperator, TermQueryIter, TermQueryIterUntyped, TermState,
+    FetchedTerm, FetchedTerms, QueryTermGroup, Term, TermOperator, TermQueryIter,
+    TermQueryIterUntyped, TermState,
 };
 
 // Used to avoid allocating space for fetched terms in the hot loop
@@ -67,6 +68,8 @@ pub struct TermQueryState<Q: QueryTermGroup = (), F: QueryTermGroup = ()> {
     world_id: WorldId,
     fetches: FetchBuffer,
     pub(crate) terms: Vec<Term>,
+    pub(crate) dense: bool,
+    pub(crate) filtered: bool,
     pub(crate) archetype_generation: ArchetypeGeneration,
     pub(crate) matched_tables: FixedBitSet,
     pub(crate) matched_archetypes: FixedBitSet,
@@ -100,14 +103,38 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     #[inline]
     pub unsafe fn from_terms(world: &mut World, terms: Vec<Term>) -> Self {
         let mut component_access = FilteredAccess::default();
-        terms
-            .iter()
-            .for_each(|term| term.update_component_access(&mut component_access));
+        let mut intermediate = FilteredAccess::default();
+        let mut or = false;
+
+        for term in &terms {
+            if or {
+                let mut term_access: FilteredAccess<ComponentId> = intermediate.clone();
+                term.update_component_access(&mut term_access);
+                intermediate.append_or(&term_access);
+                intermediate.extend_access(&term_access);
+
+                if !term.or {
+                    component_access = intermediate.clone();
+                }
+            } else if term.or {
+                intermediate = component_access.clone();
+                term.update_component_access(&mut intermediate);
+            } else {
+                term.update_component_access(&mut component_access);
+            }
+
+            or = term.or;
+        }
+
         let fetches = FetchBuffer::new(terms.len());
+        let dense = terms.iter().all(|t| t.dense(world));
+        let filtered = terms.iter().any(|t| t.filtered());
 
         Self {
             terms,
             fetches,
+            dense,
+            filtered,
             world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_table_ids: Vec::new(),
@@ -124,16 +151,12 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     /// (if applicable, i.e. if the archetype has any intersecting [`ComponentId`] with the current [`TermQueryState`]).
     #[inline]
     pub fn new_archetype(&mut self, archetype: &Archetype) {
-        if self.terms.iter().all(|t| {
-            t.matches_component_set(&|id| {
-                t.operator == TermOperator::Optional || archetype.contains(id)
-            })
-        }) {
-            self.terms.iter().for_each(|t| {
-                t.update_archetype_component_access(
+        if self.matches_archetype(archetype) {
+            self.terms.iter().for_each(|term| {
+                term.update_archetype_component_access(
                     archetype,
                     &mut self.archetype_component_access,
-                );
+                )
             });
 
             let archetype_index = archetype.id().index();
@@ -151,16 +174,41 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         }
     }
 
+    /// Returns true if this query matches the given archetype
+    #[inline]
+    pub fn matches_archetype(&self, archetype: &Archetype) -> bool {
+        let mut result = true;
+        let mut or = false;
+
+        for term in &self.terms {
+            // If we are part of an or group and already have a result
+            if or && result {
+                or = term.or;
+                continue;
+            }
+
+            result = term.operator == TermOperator::Optional
+                || term.matches_component_set(&|id| archetype.contains(id));
+
+            // If we are not going to be part of an or group and we have no result
+            if !term.or && !result {
+                return false;
+            }
+
+            or = term.or;
+        }
+
+        true
+    }
+
     #[inline]
     pub(crate) unsafe fn init_term_state<'w>(
         &self,
         world: UnsafeWorldCell<'w>,
-        last_run: Tick,
-        this_run: Tick,
     ) -> Vec<TermState<'w>> {
         self.terms
             .iter()
-            .map(|term| term.init_state(world, last_run, this_run))
+            .map(|term| term.init_state(world))
             .collect()
     }
 
@@ -489,7 +537,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         {
             return Err(QueryEntityError::QueryDoesNotMatch(entity));
         }
-        let mut term_state = self.init_term_state(world, last_run, this_run);
+        let mut term_state = self.init_term_state(world);
 
         let table = world
             .storages()
@@ -504,7 +552,12 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
             location.table_row,
             self.fetches.as_uninit(),
         );
-        Ok(Q::from_fetches(&mut fetches.iter()))
+        Ok(Q::from_fetches(
+            world,
+            last_run,
+            this_run,
+            &mut fetches.iter(),
+        ))
     }
 
     /// Returns a single immutable query result when there is exactly one entity matching
@@ -642,10 +695,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     /// Panics if the number of query results is not exactly one. Use
     /// [`get_single_raw`](Self::get_single_raw) to return a `Result` instead of panicking.
     #[inline]
-    pub fn single_raw<'w, 's>(
-        &'s mut self,
-        world: &'w mut World,
-    ) -> (&'s Vec<Term>, Vec<FetchedTerm<'w>>) {
+    pub fn single_raw<'w, 's>(&'s mut self, world: &'w mut World) -> FetchedTerms<'w, 's> {
         self.get_single_raw(world).unwrap()
     }
 
@@ -658,7 +708,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     pub fn get_single_raw<'w, 's>(
         &'s mut self,
         world: &'w mut World,
-    ) -> Result<(&'s Vec<Term>, Vec<FetchedTerm<'w>>), QuerySingleError> {
+    ) -> Result<FetchedTerms<'w, 's>, QuerySingleError> {
         let mut query = self.iter_raw(world);
         let first = query.next();
         let extra = query.next().is_some();
@@ -735,6 +785,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`] is unsound.
+    #[inline]
     pub(crate) unsafe fn for_each_unchecked_manual<'w, FN: FnMut(Q::Item<'w>)>(
         &self,
         world: UnsafeWorldCell<'w>,
@@ -742,12 +793,11 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         last_run: Tick,
         this_run: Tick,
     ) {
-        let mut term_state = self.init_term_state(world, last_run, this_run);
-        let dense = term_state.iter().all(|t| t.dense());
+        let mut term_state = self.init_term_state(world);
         let fetch_buffer = FetchBuffer::new(self.terms.len());
 
         let tables = &world.storages().tables;
-        if dense {
+        if self.dense {
             for table_id in &self.matched_table_ids {
                 let table = tables.get(*table_id).debug_checked_unwrap();
                 self.set_table(&mut term_state, table);
@@ -756,11 +806,18 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
                 for row in 0..table.entity_count() {
                     let entity = *entities.get_unchecked(row);
                     let row = TableRow::new(row);
-                    if !self.filter_fetch(&term_state, entity, row) {
+                    if self.filtered
+                        && !self.filter_fetch(&term_state, entity, row, last_run, this_run)
+                    {
                         continue;
                     }
                     let fetches = self.fetch(&term_state, entity, row, fetch_buffer.as_uninit());
-                    func(Q::from_fetches(&mut fetches.iter()));
+                    func(Q::from_fetches(
+                        world,
+                        last_run,
+                        this_run,
+                        &mut fetches.iter(),
+                    ));
                 }
             }
         } else {
@@ -775,12 +832,19 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
                     let archetype_entity = entities.get_unchecked(idx);
                     let entity = archetype_entity.entity();
                     let row = archetype_entity.table_row();
-                    if !self.filter_fetch(&term_state, entity, row) {
+                    if self.filtered
+                        && !self.filter_fetch(&term_state, entity, row, last_run, this_run)
+                    {
                         continue;
                     }
 
                     let fetches = self.fetch(&term_state, entity, row, fetch_buffer.as_uninit());
-                    func(Q::from_fetches(&mut fetches.iter()));
+                    func(Q::from_fetches(
+                        world,
+                        last_run,
+                        this_run,
+                        &mut fetches.iter(),
+                    ));
                 }
             }
         }
@@ -820,12 +884,13 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     }
 
     // Resolves this query against the given entity and table row, returns true if the entity matches
-    #[inline(always)]
     pub(crate) unsafe fn filter_fetch(
         &self,
         state: &[TermState<'_>],
         entity: Entity,
         table_row: TableRow,
+        last_run: Tick,
+        this_run: Tick,
     ) -> bool {
         let len = self.terms.len();
         let terms = &self.terms[..len];
@@ -834,7 +899,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         for i in 0..len {
             let term = &terms[i];
             let state = &state[i];
-            if !term.filter_fetch(state, entity, table_row) {
+            if !term.filter_fetch(state, entity, table_row, last_run, this_run) {
                 return false;
             }
         }
