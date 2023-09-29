@@ -3,6 +3,7 @@ extern crate proc_macro;
 mod component;
 mod fetch;
 mod set;
+mod state_matcher;
 mod states;
 
 use crate::{fetch::derive_world_query_impl, set::derive_set};
@@ -477,4 +478,12 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(States)]
 pub fn derive_states(input: TokenStream) -> TokenStream {
     states::derive_states(input)
+}
+
+/// A macro for generating a stract implementing StateMatcher that matches a specific pattern.
+/// Use:
+/// state_matcher!(pub MyMatcherStruct, MyStatesType, MyStatesType::AState | MyStatesType::AComplexState(false))
+#[proc_macro]
+pub fn state_matcher(input: TokenStream) -> TokenStream {
+    state_matcher::define_state_matcher(input)
 }

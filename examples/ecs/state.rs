@@ -6,7 +6,10 @@
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state.
 
 use bevy::prelude::*;
-use bevy_internal::ecs::schedule::StateMatcher;
+use bevy_internal::ecs::{
+    in_state, on_enter,
+    schedule::{state_matcher, IntoStateMatcher, StateMatcher, StateMatcherFunction},
+};
 
 fn main() {
     App::new()
@@ -17,50 +20,49 @@ fn main() {
         // All systems from the exit schedule of the state we're leaving are run first,
         // and then all systems from the enter schedule of the state we're entering are run second.
         .add_systems(OnEnter(AppState::Menu), setup_menu)
-        .add_systems(OnEnter(AppState::InGame { paused: true }), setup_paused)
         // We also have the ability to use matchers, which are structs that allow more complex matching functions
         // These can be created with either the `::matching` function, which will run if only one of the systems matches
-        // or with the `::matching_exclusive` function, which will run if the entering/exiting system matches
+        // or with the `::matching_strict` function, which will run if the entering/exiting system matches
         // regardless of whether the other system matches as well.
         .add_systems(OnEnter::matching(InGame), setup_game)
-        .add_systems(OnExit::matching_exclusive(ShowsUI), cleanup_ui)
+        .add_systems(OnExit::matching_strict(ShowsUI), cleanup_ui)
+        // You can also use the `on_enter`, `on_enter_strict`, `on_exit` or `on_exit_strict` macros
+        // The macros can either accept a matcher (or state) as a single parameter,
+        // or the state type and a pattern to match against as two parameters
+        .add_systems(on_enter!(AppState::InGame { paused: true }), setup_paused)
         // By contrast, update systems are stored in the `Update` schedule. They simply
         // check the value of the `State<T>` resource to see if they should run each frame.
+        // The in_state function can accept State values or StateMatcher's.
         .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
         .add_systems(
             Update,
             movement.run_if(in_state(AppState::InGame { paused: false })),
         )
-        // Alternatively, you can provide the `in_state` function with a matcher
-        .add_systems(Update, change_color.run_if(in_state(InGame)))
+        // Alternatively, you can use the `in_state!` macro with a type and pattern
+        .add_systems(
+            Update,
+            change_color.run_if(in_state!(AppState, AppState::InGame { .. })),
+        )
         .add_systems(Update, toggle_pause)
         .run();
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
-struct InGame;
+struct ShowsUI;
 
-impl StateMatcher<AppState> for InGame {
+// State Matchers can be implemented manually
+impl StateMatcher<AppState> for ShowsUI {
     fn match_state(&self, state: &AppState) -> bool {
         match state {
-            AppState::Menu => false,
-            AppState::InGame { .. } => true,
+            AppState::Menu => true,
+            AppState::InGame { paused } => *paused,
         }
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
-struct ShowsUI;
-
-impl StateMatcher<AppState> for ShowsUI {
-    fn match_state(&self, state: &AppState) -> bool {
-        let ui = match state {
-            AppState::Menu => true,
-            AppState::InGame { paused } => *paused,
-        };
-        ui
-    }
-}
+// State Matchers can also be implemented using the `state_matcher!` micro
+// If the matcher could be treated as a match expression
+state_matcher!(InGame, AppState, AppState::InGame { .. });
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 enum AppState {

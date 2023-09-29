@@ -11,6 +11,7 @@ use crate::reflect::ReflectResource;
 use crate::schedule::ScheduleLabel;
 use crate::system::{IntoSystem, Resource};
 use crate::world::World;
+pub use bevy_ecs_macros::state_matcher;
 pub use bevy_ecs_macros::States;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
@@ -46,16 +47,44 @@ use bevy_ecs::prelude::Res;
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {}
 
 /// Types that can match world-wide states.
-pub trait StateMatcher<S: States>:
-    'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug
-{
+pub trait StateMatcher<S: States>: 'static + Send + Sync + Clone {
     /// Check whether to match with the current state
     fn match_state(&self, state: &S) -> bool;
 }
 
-impl<S: States + Eq> StateMatcher<S> for S {
+impl<S: States> StateMatcher<S> for S {
     fn match_state(&self, state: &S) -> bool {
         self == state
+    }
+}
+
+/// A struct for containing a state matcher function
+#[derive(Clone)]
+pub struct StateMatcherFunction<S: States>(Arc<dyn Fn(&S) -> bool + 'static + Send + Sync>);
+
+impl<S: States> StateMatcher<S> for StateMatcherFunction<S> {
+    fn match_state(&self, state: &S) -> bool {
+        self.0(state)
+    }
+}
+
+/// A trait for definint items that can become a state matcher
+pub trait IntoStateMatcher<S: States, M: StateMatcher<S>> {
+    /// Transform item into a state matcher
+    fn into_state_matcher(self) -> M;
+}
+
+impl<S: States, F: Fn(&S) -> bool + 'static + Send + Sync>
+    IntoStateMatcher<S, StateMatcherFunction<S>> for F
+{
+    fn into_state_matcher(self) -> StateMatcherFunction<S> {
+        StateMatcherFunction(Arc::new(self))
+    }
+}
+
+impl<S: States, M: StateMatcher<S>> IntoStateMatcher<S, M> for M {
+    fn into_state_matcher(self) -> M {
+        self
     }
 }
 
@@ -69,26 +98,126 @@ impl<S: States> OnEnter<S> {
     pub fn matching<M: StateMatcher<S>>(matcher: M) -> OnEnterMatching<S, M> {
         OnEnterMatching {
             matcher,
-            exclusive: false,
+            strict: false,
             phantom: PhantomData::<S>,
         }
     }
 
     /// Entering a state that matches the matcher regardless of the previous state
-    pub fn matching_exclusive<M: StateMatcher<S>>(matcher: M) -> OnEnterMatching<S, M> {
+    pub fn matching_strict<M: StateMatcher<S>>(matcher: M) -> OnEnterMatching<S, M> {
         OnEnterMatching {
             matcher,
-            exclusive: true,
+            strict: true,
             phantom: PhantomData::<S>,
         }
     }
+
+    /// Entering a state that matches the matcher from a state that doesn't
+    pub fn match_function<F: Fn(&S) -> bool + 'static + Send + Sync>(
+        matcher: F,
+    ) -> OnEnterMatching<S, StateMatcherFunction<S>> {
+        let matcher = matcher.into_state_matcher();
+        OnEnterMatching {
+            matcher,
+            strict: false,
+            phantom: PhantomData::<S>,
+        }
+    }
+
+    /// Entering a state that matches the matcher from a state that doesn't
+    pub fn match_function_strict<F: Fn(&S) -> bool + 'static + Send + Sync>(
+        matcher: F,
+    ) -> OnEnterMatching<S, StateMatcherFunction<S>> {
+        let matcher = matcher.into_state_matcher();
+        OnEnterMatching {
+            matcher,
+            strict: true,
+            phantom: PhantomData::<S>,
+        }
+    }
+}
+
+/// Generate OnEnter schedules, using either:
+/// - a pre-existing matcher, like so `on_enter!(MyMatcher)`
+/// - a matching function, like so `on_enter!(MyState, |s| false)`
+#[macro_export]
+macro_rules! on_enter {
+    ($type:ident, $expression:pat) => {{
+        let matcher = |state: &$type| matches!(state.clone(), $expression);
+
+        OnEnter::match_function(matcher)
+    }};
+    ($expression:expr) => {{
+        OnEnter::matching($expression)
+    }};
+}
+
+/// Generate strict OnEnter schedules, using either:
+/// - a pre-existing matcher, like so `on_enter_strict!(MyMatcher)`
+/// - a matching function, like so `on_enter_strict!(MyState, |s| false)
+#[macro_export]
+macro_rules! on_enter_strict {
+    ($type:ident, $expression:pat) => {{
+        let matcher = |state: &$type| matches!(state.clone(), $expression);
+
+        OnEnter::match_function_strict(matcher)
+    }};
+    ($expression:expr) => {{
+        OnEnter::matching_strict($expression)
+    }};
+}
+
+/// Generate OnExit schedules, using either:
+/// - a pre-existing matcher, like so `on_exit!(MyMatcher)`
+/// - a matching function, like so `on_exit!(MyState, |s| false)`
+#[macro_export]
+macro_rules! on_exit {
+    ($type:ident, $expression:pat) => {{
+        let matcher = |state: &$type| matches!(state.clone(), $expression);
+
+        OnExit::match_function(matcher)
+    }};
+    ($expression:expr) => {{
+        OnExit::matching($expression)
+    }};
+}
+
+/// Generate strict OnExit schedules, using either:
+/// - a pre-existing matcher, like so `on_exit_strict!(MyMatcher)`
+/// - a matching function, like so `on_exit_strict!(MyState, |s| false)
+#[macro_export]
+macro_rules! on_exit_strict {
+    ($type:ident, $expression:pat) => {{
+        let matcher = |state: &$type| matches!(state.clone(), $expression);
+
+        OnExit::match_function_strict(matcher)
+    }};
+    ($expression:expr) => {{
+        OnExit::matching_strict($expression)
+    }};
+}
+
+/// Generate in_state condition using either:
+/// - a pre-existing matcher, like so `on_exit!(MyMatcher)`
+/// - a matching function, like so `on_exit!(MyState, |s| false)`
+#[macro_export]
+macro_rules! in_state {
+    ($type:ident, $expression:pat) => {{
+        let matcher = |state: &$type| matches!(state.clone(), $expression);
+        let matcher: StateMatcherFunction<$type> = matcher.into_state_matcher();
+
+        in_state(matcher)
+    }};
+    ($expression:expr) => {{
+        in_state($expression)
+    }};
 }
 
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// enters a matching state from a non-matching state.
 pub struct OnEnterMatching<S: States, M: StateMatcher<S>> {
     matcher: M,
-    exclusive: bool,
+    strict: bool,
     phantom: PhantomData<S>,
 }
 
@@ -97,7 +226,7 @@ impl<S: States, M: StateMatcher<S>> IntoConditionalScheduleLabel<OnStateEntry<S>
 {
     fn into_conditional_schedule_label(self) -> (OnStateEntry<S>, Option<super::BoxedCondition>) {
         let matcher = self.matcher;
-        let matcher: BoxedCondition = if self.exclusive {
+        let matcher: BoxedCondition = if self.strict {
             Box::new(IntoSystem::into_system(
                 move |next: Res<State<S>>, previous: Res<PreviousState<S>>| {
                     matcher.match_state(&next) && (next.0 != previous.0)
@@ -125,16 +254,40 @@ impl<S: States> OnExit<S> {
     pub fn matching<M: StateMatcher<S>>(matcher: M) -> OnExitMatching<S, M> {
         OnExitMatching {
             matcher,
-            exclusive: false,
+            strict: false,
             phantom: PhantomData::<S>,
         }
     }
 
     /// Exiting a matching state regardless of what the next state is
-    pub fn matching_exclusive<M: StateMatcher<S>>(matcher: M) -> OnExitMatching<S, M> {
+    pub fn matching_strict<M: StateMatcher<S>>(matcher: M) -> OnExitMatching<S, M> {
         OnExitMatching {
             matcher,
-            exclusive: true,
+            strict: true,
+            phantom: PhantomData::<S>,
+        }
+    }
+
+    /// Entering a state that matches the matcher from a state that doesn't
+    pub fn match_function<F: Fn(&S) -> bool + 'static + Send + Sync>(
+        matcher: F,
+    ) -> OnExitMatching<S, StateMatcherFunction<S>> {
+        let matcher = matcher.into_state_matcher();
+        OnExitMatching {
+            matcher,
+            strict: false,
+            phantom: PhantomData::<S>,
+        }
+    }
+
+    /// Entering a state that matches the matcher from a state that doesn't
+    pub fn match_function_strict<F: Fn(&S) -> bool + 'static + Send + Sync>(
+        matcher: F,
+    ) -> OnExitMatching<S, StateMatcherFunction<S>> {
+        let matcher = matcher.into_state_matcher();
+        OnExitMatching {
+            matcher,
+            strict: true,
             phantom: PhantomData::<S>,
         }
     }
@@ -144,7 +297,7 @@ impl<S: States> OnExit<S> {
 /// exits a matching state without entering another matching state.
 pub struct OnExitMatching<S: States, M: StateMatcher<S>> {
     matcher: M,
-    exclusive: bool,
+    strict: bool,
     phantom: PhantomData<S>,
 }
 
@@ -154,7 +307,7 @@ impl<S: States, M: StateMatcher<S>> IntoConditionalScheduleLabel<OnStateExit<S>>
     fn into_conditional_schedule_label(self) -> (OnStateExit<S>, Option<super::BoxedCondition>) {
         let matcher = self.matcher;
 
-        let matcher: BoxedCondition = if self.exclusive {
+        let matcher: BoxedCondition = if self.strict {
             Box::new(IntoSystem::into_system(
                 move |next: Res<State<S>>, previous: Res<PreviousState<S>>| {
                     matcher.match_state(&previous) && (next.0 != previous.0)
