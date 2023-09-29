@@ -757,6 +757,7 @@ pub mod common_conditions {
     ///     #[default]
     ///     Playing,
     ///     Paused,
+    ///     GameOver,
     /// }
     ///
     /// world.init_resource::<State<GameState>>();
@@ -764,11 +765,16 @@ pub mod common_conditions {
     /// app.add_systems((
     ///     // `in_any_state` will only return true if the
     ///     // given state equals one of the given values
-    ///     background_animation.run_if(in_any_state([GameState::Playing, GameState::Paused]))
+    ///     background_animation.run_if(in_any_state([GameState::Playing, GameState::Paused])),
+    ///     game_over.run_if(in_state(GameState::GameOver)),
     /// ));
     ///
     /// fn background_animation(mut animation: ResMut<BackgroundAnimation>) {
     ///     animation.0 = true;
+    /// }
+    ///
+    /// fn game_over(mut animation: ResMut<BackgroundAnimation>) {
+    ///     animation.0 = false;
     /// }
     ///
     /// // We default to `GameState::Playing` so `background_animation` runs
@@ -780,6 +786,12 @@ pub mod common_conditions {
     /// // Now that we are in `GameState::Pause`, `background_animation` will also run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<BackgroundAnimation>().0, true);
+    ///
+    /// *world.resource_mut::<State<GameState>>() = State::new(GameState::GameOver);
+    ///
+    /// // Now that we are in `GameState::GameOver`, only `game_over` will run
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<BackgroundAnimation>().0, false);
     /// ```
     pub fn in_any_state<S: States, const COUNT: usize>(
         states: [S; COUNT],
