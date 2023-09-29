@@ -472,6 +472,7 @@ pub fn check_visibility(
             });
         });
 
+        visible_entities.entities.clear();
         thread_queues.drain_into(&mut visible_entities.entities);
     }
 }
