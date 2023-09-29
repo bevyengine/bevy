@@ -23,18 +23,18 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_utils::{Duration, HashSet, Instant};
+use bevy_utils::{Duration, HashSet, Instant, Uuid};
 use std::borrow::Cow;
 use std::ffi::OsString;
 use std::marker::PhantomData;
 use std::ops::Range;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 
-/// Registration of default types to the `TypeRegistry` resource.
+/// Registration of default types to the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource.
 #[derive(Default)]
 pub struct TypeRegistrationPlugin;
 
@@ -59,8 +59,10 @@ fn register_rust_types(app: &mut App) {
         .register_type::<Option<bool>>()
         .register_type::<Option<f64>>()
         .register_type::<Cow<'static, str>>()
+        .register_type::<Cow<'static, Path>>()
         .register_type::<Duration>()
-        .register_type::<Instant>();
+        .register_type::<Instant>()
+        .register_type::<Uuid>();
 }
 
 fn register_math_types(app: &mut App) {
@@ -95,10 +97,12 @@ fn register_math_types(app: &mut App) {
         .register_type::<bevy_math::Mat3A>()
         .register_type::<bevy_math::Mat4>()
         .register_type::<bevy_math::DQuat>()
-        .register_type::<bevy_math::Quat>();
+        .register_type::<bevy_math::Quat>()
+        .register_type::<bevy_math::Rect>();
 }
 
-/// Setup of default task pools: `AsyncComputeTaskPool`, `ComputeTaskPool`, `IoTaskPool`.
+/// Setup of default task pools: [`AsyncComputeTaskPool`](bevy_tasks::AsyncComputeTaskPool),
+/// [`ComputeTaskPool`](bevy_tasks::ComputeTaskPool), [`IoTaskPool`](bevy_tasks::IoTaskPool).
 #[derive(Default)]
 pub struct TaskPoolPlugin {
     /// Options for the [`TaskPool`](bevy_tasks::TaskPool) created at application start.
@@ -162,8 +166,7 @@ mod tests {
     #[test]
     fn runs_spawn_local_tasks() {
         let mut app = App::new();
-        app.add_plugin(TaskPoolPlugin::default());
-        app.add_plugin(TypeRegistrationPlugin::default());
+        app.add_plugins((TaskPoolPlugin::default(), TypeRegistrationPlugin));
 
         let (async_tx, async_rx) = crossbeam_channel::unbounded();
         AsyncComputeTaskPool::get()
@@ -196,9 +199,11 @@ mod tests {
     #[test]
     fn frame_counter_update() {
         let mut app = App::new();
-        app.add_plugin(TaskPoolPlugin::default());
-        app.add_plugin(TypeRegistrationPlugin::default());
-        app.add_plugin(FrameCountPlugin::default());
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            TypeRegistrationPlugin,
+            FrameCountPlugin,
+        ));
         app.update();
 
         let frame_count = app.world.resource::<FrameCount>();

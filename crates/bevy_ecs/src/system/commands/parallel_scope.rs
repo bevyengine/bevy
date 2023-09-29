@@ -50,9 +50,7 @@ impl SystemBuffer for ParallelCommandQueue {
     #[inline]
     fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
         #[cfg(feature = "trace")]
-        let _system_span =
-            bevy_utils::tracing::info_span!("system_commands", name = _system_meta.name())
-                .entered();
+        let _system_span = _system_meta.commands_span.enter();
         for cq in self.thread_queues.iter_mut() {
             cq.apply(world);
         }
@@ -60,6 +58,9 @@ impl SystemBuffer for ParallelCommandQueue {
 }
 
 impl<'w, 's> ParallelCommands<'w, 's> {
+    /// Temporarily provides access to the [`Commands`] for the current thread.
+    ///
+    /// For an example, see the type-level documentation for [`ParallelCommands`].
     pub fn command_scope<R>(&self, f: impl FnOnce(Commands) -> R) -> R {
         self.state
             .thread_queues

@@ -4,13 +4,16 @@ use crate::{
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
-    world::{World, WorldId},
+    world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
 
 use bevy_utils::all_tuples;
 use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 
-use super::ReadOnlySystem;
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::{info_span, Span};
+
+use super::{In, IntoSystem, ReadOnlySystem};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -22,16 +25,25 @@ pub struct SystemMeta {
     // SystemParams from overriding each other
     is_send: bool,
     pub(crate) last_run: Tick,
+    #[cfg(feature = "trace")]
+    pub(crate) system_span: Span,
+    #[cfg(feature = "trace")]
+    pub(crate) commands_span: Span,
 }
 
 impl SystemMeta {
     pub(crate) fn new<T>() -> Self {
+        let name = std::any::type_name::<T>();
         Self {
-            name: std::any::type_name::<T>().into(),
+            name: name.into(),
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
             last_run: Tick::new(0),
+            #[cfg(feature = "trace")]
+            system_span: info_span!("system", name = name),
+            #[cfg(feature = "trace")]
+            commands_span: info_span!("system_commands", name = name),
         }
     }
 
@@ -60,8 +72,10 @@ impl SystemMeta {
 // (to avoid the need for unwrapping to retrieve SystemMeta)
 /// Holds on to persistent state required to drive [`SystemParam`] for a [`System`].
 ///
-/// This is a very powerful and convenient tool for working with exclusive world access,
+/// This is a powerful and convenient tool for working with exclusive world access,
 /// allowing you to fetch data from the [`World`] as if you were running a [`System`].
+/// However, simply calling `world::run_system(my_system)` using a [`World::run_system`](crate::system::World::run_system)
+/// can be significantly simpler and ensures that change detection and command flushing work as expected.
 ///
 /// Borrow-checking is handled for you, allowing you to mutably access multiple compatible system parameters at once,
 /// and arbitrary system parameters (like [`EventWriter`](crate::event::EventWriter)) can be conveniently fetched.
@@ -77,6 +91,8 @@ impl SystemMeta {
 /// - [`Local`](crate::system::Local) variables that hold state
 /// - [`EventReader`](crate::event::EventReader) system parameters, which rely on a [`Local`](crate::system::Local) to track which events have been seen
 ///
+/// Note that this is automatically handled for you when using a [`World::run_system`](crate::system::World::run_system).
+///
 /// # Example
 ///
 /// Basic usage:
@@ -85,6 +101,7 @@ impl SystemMeta {
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
 /// #
+/// # #[derive(Event)]
 /// # struct MyEvent;
 /// # #[derive(Resource)]
 /// # struct MyResource(u32);
@@ -117,6 +134,7 @@ impl SystemMeta {
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
 /// #
+/// # #[derive(Event)]
 /// # struct MyEvent;
 /// #[derive(Resource)]
 /// struct CachedSystemState {
@@ -150,6 +168,13 @@ pub struct SystemState<Param: SystemParam + 'static> {
 }
 
 impl<Param: SystemParam> SystemState<Param> {
+    /// Creates a new [`SystemState`] with default state.
+    ///
+    /// ## Note
+    /// For users of [`SystemState::get_manual`] or [`get_manual_mut`](SystemState::get_manual_mut):
+    ///
+    /// `new` does not cache any of the world's archetypes, so you must call [`SystemState::update_archetypes`]
+    /// manually before calling `get_manual{_mut}`.
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
@@ -162,6 +187,7 @@ impl<Param: SystemParam> SystemState<Param> {
         }
     }
 
+    /// Gets the metadata for this instance.
     #[inline]
     pub fn meta(&self) -> &SystemMeta {
         &self.meta
@@ -173,19 +199,20 @@ impl<Param: SystemParam> SystemState<Param> {
     where
         Param: ReadOnlySystemParam,
     {
-        self.validate_world(world);
+        self.validate_world(world.id());
         self.update_archetypes(world);
-        // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
-        unsafe { self.get_unchecked_manual(world) }
+        // SAFETY: Param is read-only and doesn't allow mutable access to World.
+        // It also matches the World this SystemState was created with.
+        unsafe { self.get_unchecked_manual(world.as_unsafe_world_cell_readonly()) }
     }
 
     /// Retrieve the mutable [`SystemParam`] values.
     #[inline]
     pub fn get_mut<'w, 's>(&'s mut self, world: &'w mut World) -> SystemParamItem<'w, 's, Param> {
-        self.validate_world(world);
+        self.validate_world(world.id());
         self.update_archetypes(world);
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
-        unsafe { self.get_unchecked_manual(world) }
+        unsafe { self.get_unchecked_manual(world.as_unsafe_world_cell()) }
     }
 
     /// Applies all state queued up for [`SystemParam`] values. For example, this will apply commands queued up
@@ -196,15 +223,38 @@ impl<Param: SystemParam> SystemState<Param> {
         Param::apply(&mut self.param_state, &self.meta, world);
     }
 
+    /// Returns `true` if `world_id` matches the [`World`] that was used to call [`SystemState::new`].
+    /// Otherwise, this returns false.
     #[inline]
-    pub fn matches_world(&self, world: &World) -> bool {
-        self.world_id == world.id()
+    pub fn matches_world(&self, world_id: WorldId) -> bool {
+        self.world_id == world_id
     }
 
-    /// Asserts that the [`SystemState`] matches the provided [`World`].
+    /// Asserts that the [`SystemState`] matches the provided world.
     #[inline]
-    fn validate_world(&self, world: &World) {
-        assert!(self.matches_world(world), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
+    #[track_caller]
+    fn validate_world(&self, world_id: WorldId) {
+        #[inline(never)]
+        #[track_caller]
+        #[cold]
+        fn panic_mismatched(this: WorldId, other: WorldId) -> ! {
+            panic!("Encountered a mismatched World. This SystemState was created from {this:?}, but a method was called using {other:?}.");
+        }
+
+        if !self.matches_world(world_id) {
+            panic_mismatched(self.world_id, world_id);
+        }
+    }
+
+    /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before fetching the parameters,
+    /// the results may not accurately reflect what is in the `world`.
+    ///
+    /// This is only required if [`SystemState::get_manual`] or [`SystemState::get_manual_mut`] is being called, and it only needs to
+    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
+    /// [`SystemState::get`] or [`SystemState::get_mut`] do not need to call this as it will be automatically called for them.
+    #[inline]
+    pub fn update_archetypes(&mut self, world: &World) {
+        self.update_archetypes_unsafe_world_cell(world.as_unsafe_world_cell_readonly());
     }
 
     /// Updates the state's internal view of the `world`'s archetypes. If this is not called before fetching the parameters,
@@ -213,8 +263,12 @@ impl<Param: SystemParam> SystemState<Param> {
     /// This is only required if [`SystemState::get_manual`] or [`SystemState::get_manual_mut`] is being called, and it only needs to
     /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
     /// [`SystemState::get`] or [`SystemState::get_mut`] do not need to call this as it will be automatically called for them.
+    ///
+    /// # Note
+    ///
+    /// This method only accesses world metadata.
     #[inline]
-    pub fn update_archetypes(&mut self, world: &World) {
+    pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
         let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
@@ -242,10 +296,11 @@ impl<Param: SystemParam> SystemState<Param> {
     where
         Param: ReadOnlySystemParam,
     {
-        self.validate_world(world);
+        self.validate_world(world.id());
         let change_tick = world.read_change_tick();
-        // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
-        unsafe { self.fetch(world, change_tick) }
+        // SAFETY: Param is read-only and doesn't allow mutable access to World.
+        // It also matches the World this SystemState was created with.
+        unsafe { self.fetch(world.as_unsafe_world_cell_readonly(), change_tick) }
     }
 
     /// Retrieve the mutable [`SystemParam`] values.  This will not update the state's view of the world's archetypes
@@ -260,10 +315,10 @@ impl<Param: SystemParam> SystemState<Param> {
         &'s mut self,
         world: &'w mut World,
     ) -> SystemParamItem<'w, 's, Param> {
-        self.validate_world(world);
+        self.validate_world(world.id());
         let change_tick = world.change_tick();
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
-        unsafe { self.fetch(world, change_tick) }
+        unsafe { self.fetch(world.as_unsafe_world_cell(), change_tick) }
     }
 
     /// Retrieve the [`SystemParam`] values. This will not update archetypes automatically.
@@ -275,7 +330,7 @@ impl<Param: SystemParam> SystemState<Param> {
     #[inline]
     pub unsafe fn get_unchecked_manual<'w, 's>(
         &'s mut self,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
     ) -> SystemParamItem<'w, 's, Param> {
         let change_tick = world.increment_change_tick();
         self.fetch(world, change_tick)
@@ -288,15 +343,10 @@ impl<Param: SystemParam> SystemState<Param> {
     #[inline]
     unsafe fn fetch<'w, 's>(
         &'s mut self,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> SystemParamItem<'w, 's, Param> {
-        let param = Param::get_param(
-            &mut self.param_state,
-            &self.meta,
-            world.as_unsafe_world_cell_migration_internal(),
-            change_tick,
-        );
+        let param = Param::get_param(&mut self.param_state, &self.meta, world, change_tick);
         self.meta.last_run = change_tick;
         param
     }
@@ -307,65 +357,6 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
         Self::new(world)
     }
 }
-
-/// Conversion trait to turn something into a [`System`].
-///
-/// Use this to get a system from a function. Also note that every system implements this trait as
-/// well.
-///
-/// # Examples
-///
-/// ```
-/// use bevy_ecs::prelude::*;
-///
-/// fn my_system_function(a_usize_local: Local<usize>) {}
-///
-/// let system = IntoSystem::into_system(my_system_function);
-/// ```
-// This trait has to be generic because we have potentially overlapping impls, in particular
-// because Rust thinks a type could impl multiple different `FnMut` combinations
-// even though none can currently
-pub trait IntoSystem<In, Out, Marker>: Sized {
-    type System: System<In = In, Out = Out>;
-    /// Turns this value into its corresponding [`System`].
-    fn into_system(this: Self) -> Self::System;
-}
-
-// Systems implicitly implement IntoSystem
-impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, ()> for Sys {
-    type System = Sys;
-    fn into_system(this: Self) -> Sys {
-        this
-    }
-}
-
-/// Wrapper type to mark a [`SystemParam`] as an input.
-///
-/// [`System`]s may take an optional input which they require to be passed to them when they
-/// are being [`run`](System::run). For [`FunctionSystems`](FunctionSystem) the input may be marked
-/// with this `In` type, but only the first param of a function may be tagged as an input. This also
-/// means a system can only have one or zero input parameters.
-///
-/// # Examples
-///
-/// Here is a simple example of a system that takes a [`usize`] returning the square of it.
-///
-/// ```
-/// use bevy_ecs::prelude::*;
-///
-/// fn main() {
-///     let mut square_system = IntoSystem::into_system(square);
-///
-///     let mut world = World::default();
-///     square_system.initialize(&mut world);
-///     assert_eq!(square_system.run(12, &mut world), 144);
-/// }
-///
-/// fn square(In(input): In<usize>) -> usize {
-///     input * input
-/// }
-/// ```
-pub struct In<In>(pub In);
 
 /// The [`System`] counter part of an ordinary function.
 ///
@@ -407,6 +398,8 @@ where
     }
 }
 
+/// A marker type used to distinguish regular function systems from exclusive function systems.
+#[doc(hidden)]
 pub struct IsFunctionSystem;
 
 impl<Marker, F> IntoSystem<F::In, F::Out, (IsFunctionSystem, Marker)> for F
@@ -476,17 +469,21 @@ where
     }
 
     #[inline]
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
+        #[cfg(feature = "trace")]
+        let _span_guard = self.system_meta.system_span.enter();
+
         let change_tick = world.increment_change_tick();
 
-        // Safety:
-        // We update the archetype component access correctly based on `Param`'s requirements
-        // in `update_archetype_component_access`.
-        // Our caller upholds the requirements.
+        // SAFETY:
+        // - The caller has invoked `update_archetype_component_access`, which will panic
+        //   if the world does not match.
+        // - All world accesses used by `F::Param` have been registered, so the caller
+        //   will ensure that there are no data access conflicts.
         let params = F::Param::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
-            world.as_unsafe_world_cell_migration_internal(),
+            world,
             change_tick,
         );
         let out = self.func.run(input, params);
@@ -503,7 +500,7 @@ where
     }
 
     #[inline]
-    fn apply_buffers(&mut self, world: &mut World) {
+    fn apply_deferred(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
         F::Param::apply(param_state, &self.system_meta, world);
     }
@@ -515,7 +512,7 @@ where
         self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
     }
 
-    fn update_archetype_component_access(&mut self, world: &World) {
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
         assert!(self.world_id == Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
@@ -547,7 +544,7 @@ where
     }
 }
 
-/// SAFETY: `F`'s param is `ReadOnlySystemParam`, so this system will only read from the world.
+/// SAFETY: `F`'s param is [`ReadOnlySystemParam`], so this system will only read from the world.
 unsafe impl<Marker, F> ReadOnlySystem for FunctionSystem<Marker, F>
 where
     Marker: 'static,

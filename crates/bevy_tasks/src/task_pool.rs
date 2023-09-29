@@ -9,9 +9,10 @@ use std::{
 
 use async_task::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
-use futures_lite::{future, FutureExt};
+use futures_lite::FutureExt;
 
 use crate::{
+    block_on,
     thread_executor::{ThreadExecutor, ThreadExecutorTicker},
     Task,
 };
@@ -93,8 +94,16 @@ impl TaskPoolBuilder {
     }
 }
 
-/// A thread pool for executing tasks. Tasks are futures that are being automatically driven by
-/// the pool on threads owned by the pool.
+/// A thread pool for executing tasks.
+///
+/// While futures usually need to be polled to be executed, Bevy tasks are being
+/// automatically driven by the pool on threads owned by the pool. The [`Task`]
+/// future only needs to be polled in order to receive the result. (For that
+/// purpose, it is often stored in a component or resource, see the
+/// `async_compute` example.)
+///
+/// If the result is not required, one may also use [`Task::detach`] and the pool
+/// will still execute a task, even if it is dropped.
 #[derive(Debug)]
 pub struct TaskPool {
     /// The executor for the pool
@@ -168,7 +177,7 @@ impl TaskPool {
                                             local_executor.tick().await;
                                         }
                                     };
-                                    future::block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
+                                    block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
                                 });
                                 if let Ok(value) = res {
                                     // Use unwrap_err because we expect a Closed error
@@ -350,7 +359,9 @@ impl TaskPool {
         let scope_executor: &'env ThreadExecutor<'env> = unsafe { mem::transmute(scope_executor) };
         let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
         // shadow the variable so that the owned value cannot be used for the rest of the function
-        let spawned: &'env ConcurrentQueue<FallibleTask<T>> = unsafe { mem::transmute(&spawned) };
+        let spawned: &'env ConcurrentQueue<
+            FallibleTask<Result<T, Box<(dyn std::any::Any + Send)>>>,
+        > = unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
             executor,
@@ -369,11 +380,18 @@ impl TaskPool {
         if spawned.is_empty() {
             Vec::new()
         } else {
-            future::block_on(async move {
+            block_on(async move {
                 let get_results = async {
                     let mut results = Vec::with_capacity(spawned.len());
                     while let Ok(task) = spawned.pop() {
-                        results.push(task.await.unwrap());
+                        if let Some(res) = task.await {
+                            match res {
+                                Ok(res) => results.push(res),
+                                Err(payload) => std::panic::resume_unwind(payload),
+                            }
+                        } else {
+                            panic!("Failed to catch panic!");
+                        }
                     }
                     results
                 };
@@ -500,11 +518,14 @@ impl TaskPool {
         execute_forever.or(get_results).await
     }
 
-    /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
-    /// canceled and "detached" allowing it to continue running without having to be polled by the
+    /// Spawns a static future onto the thread pool. The returned [`Task`] is a
+    /// future that can be polled for the result. It can also be canceled and
+    /// "detached", allowing the task to continue running even if dropped. In
+    /// any case, the pool will execute the task even without polling by the
     /// end-user.
     ///
-    /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
+    /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should
+    /// be used instead.
     pub fn spawn<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
     where
         T: Send + 'static,
@@ -512,11 +533,17 @@ impl TaskPool {
         Task::new(self.executor.spawn(future))
     }
 
-    /// Spawns a static future on the thread-local async executor for the current thread. The task
-    /// will run entirely on the thread the task was spawned on.  The returned Task is a future.
-    /// It can also be canceled and "detached" allowing it to continue running without having
-    /// to be polled by the end-user. Users should generally prefer to use [`TaskPool::spawn`]
-    /// instead, unless the provided future is not `Send`.
+    /// Spawns a static future on the thread-local async executor for the
+    /// current thread. The task will run entirely on the thread the task was
+    /// spawned on.
+    ///
+    /// The returned [`Task`] is a future that can be polled for the
+    /// result. It can also be canceled and "detached", allowing the task to
+    /// continue running even if dropped. In any case, the pool will execute the
+    /// task even without polling by the end-user.
+    ///
+    /// Users should generally prefer to use [`TaskPool::spawn`] instead,
+    /// unless the provided future is not `Send`.
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
     where
         T: 'static,
@@ -563,7 +590,7 @@ impl Drop for TaskPool {
     }
 }
 
-/// A `TaskPool` scope for running one or more non-`'static` futures.
+/// A [`TaskPool`] scope for running one or more non-`'static` futures.
 ///
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
@@ -571,7 +598,7 @@ pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
     external_executor: &'scope ThreadExecutor<'scope>,
     scope_executor: &'scope ThreadExecutor<'scope>,
-    spawned: &'scope ConcurrentQueue<FallibleTask<T>>,
+    spawned: &'scope ConcurrentQueue<FallibleTask<Result<T, Box<(dyn std::any::Any + Send)>>>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,
@@ -587,7 +614,10 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.executor.spawn(f).fallible();
+        let task = self
+            .executor
+            .spawn(AssertUnwindSafe(f).catch_unwind())
+            .fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
@@ -600,7 +630,10 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.scope_executor.spawn(f).fallible();
+        let task = self
+            .scope_executor
+            .spawn(AssertUnwindSafe(f).catch_unwind())
+            .fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
@@ -614,7 +647,10 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_external<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.external_executor.spawn(f).fallible();
+        let task = self
+            .external_executor
+            .spawn(AssertUnwindSafe(f).catch_unwind())
+            .fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
@@ -626,7 +662,7 @@ where
     T: 'scope,
 {
     fn drop(&mut self) {
-        future::block_on(async {
+        block_on(async {
             while let Ok(task) = self.spawned.pop() {
                 task.cancel().await;
             }

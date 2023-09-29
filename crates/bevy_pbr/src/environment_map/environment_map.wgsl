@@ -1,5 +1,6 @@
 #define_import_path bevy_pbr::environment_map
 
+#import bevy_pbr::mesh_view_bindings as bindings
 
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
@@ -20,9 +21,9 @@ fn environment_map_light(
     // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
     // Technically we could use textureNumLevels(environment_map_specular) - 1 here, but we use a uniform
     // because textureNumLevels() does not work on WebGL2
-    let radiance_level = perceptual_roughness * f32(lights.environment_map_smallest_specular_mip_level);
-    let irradiance = textureSample(environment_map_diffuse, environment_map_sampler, vec3(N.xy, -N.z)).rgb;
-    let radiance = textureSampleLevel(environment_map_specular, environment_map_sampler, vec3(R.xy, -R.z), radiance_level).rgb;
+    let radiance_level = perceptual_roughness * f32(bindings::lights.environment_map_smallest_specular_mip_level);
+    let irradiance = textureSample(bindings::environment_map_diffuse, bindings::environment_map_sampler, vec3(N.xy, -N.z)).rgb;
+    let radiance = textureSampleLevel(bindings::environment_map_specular, bindings::environment_map_sampler, vec3(R.xy, -R.z), radiance_level).rgb;
 
     // Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
     // Useful reference: https://bruop.github.io/ibl

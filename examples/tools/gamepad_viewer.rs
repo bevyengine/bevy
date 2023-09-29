@@ -81,14 +81,6 @@ impl FromWorld for ButtonMeshes {
         }
     }
 }
-#[derive(Resource, Deref)]
-struct FontHandle(Handle<Font>);
-impl FromWorld for FontHandle {
-    fn from_world(world: &mut World) -> Self {
-        let asset_server = world.resource::<AssetServer>();
-        Self(asset_server.load("fonts/FiraSans-Bold.ttf"))
-    }
-}
 
 #[derive(Bundle)]
 struct GamepadButtonBundle {
@@ -126,7 +118,6 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
         .init_resource::<ButtonMeshes>()
-        .init_resource::<FontHandle>()
         .add_systems(
             Startup,
             (setup, setup_sticks, setup_triggers, setup_connected),
@@ -273,7 +264,6 @@ fn setup_sticks(
     meshes: Res<ButtonMeshes>,
     materials: Res<ButtonMaterials>,
     gamepad_settings: Res<GamepadSettings>,
-    font: Res<FontHandle>,
 ) {
     let dead_upper =
         STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.deadzone_upperbound();
@@ -329,7 +319,7 @@ fn setup_sticks(
                 let style = TextStyle {
                     font_size: 16.,
                     color: TEXT_COLOR,
-                    font: font.clone(),
+                    ..default()
                 };
                 parent.spawn((
                     Text2dBundle {
@@ -392,7 +382,6 @@ fn setup_triggers(
     mut commands: Commands,
     meshes: Res<ButtonMeshes>,
     materials: Res<ButtonMaterials>,
-    font: Res<FontHandle>,
 ) {
     let mut spawn_trigger = |x, y, button_type| {
         commands
@@ -410,9 +399,9 @@ fn setup_triggers(
                         text: Text::from_section(
                             format!("{:.3}", 0.),
                             TextStyle {
-                                font: font.clone(),
                                 font_size: 16.,
                                 color: TEXT_COLOR,
+                                ..default()
                             },
                         ),
                         ..default()
@@ -434,11 +423,11 @@ fn setup_triggers(
     );
 }
 
-fn setup_connected(mut commands: Commands, font: Res<FontHandle>) {
+fn setup_connected(mut commands: Commands) {
     let style = TextStyle {
         color: TEXT_COLOR,
         font_size: 30.,
-        font: font.clone(),
+        ..default()
     };
     commands.spawn((
         TextBundle::from_sections([
@@ -477,7 +466,7 @@ fn update_button_values(
     mut events: EventReader<GamepadButtonChangedEvent>,
     mut query: Query<(&mut Text, &TextWithButtonValue)>,
 ) {
-    for button_event in events.iter() {
+    for button_event in events.read() {
         for (mut text, text_with_button_value) in query.iter_mut() {
             if button_event.button_type == **text_with_button_value {
                 text.sections[0].value = format!("{:.3}", button_event.value);
@@ -491,7 +480,7 @@ fn update_axes(
     mut query: Query<(&mut Transform, &MoveWithAxes)>,
     mut text_query: Query<(&mut Text, &TextWithAxes)>,
 ) {
-    for axis_event in axis_events.iter() {
+    for axis_event in axis_events.read() {
         let axis_type = axis_event.axis_type;
         let value = axis_event.value;
         for (mut transform, move_with) in query.iter_mut() {

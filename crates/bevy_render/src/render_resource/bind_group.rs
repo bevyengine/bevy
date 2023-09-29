@@ -92,14 +92,10 @@ impl Deref for BindGroup {
 /// In WGSL shaders, the binding would look like this:
 ///
 /// ```wgsl
-/// @group(1) @binding(0)
-/// var<uniform> color: vec4<f32>;
-/// @group(1) @binding(1)
-/// var color_texture: texture_2d<f32>;
-/// @group(1) @binding(2)
-/// var color_sampler: sampler;
-/// @group(1) @binding(3)
-/// var<storage> values: array<f32>;
+/// @group(1) @binding(0) var<uniform> color: vec4<f32>;
+/// @group(1) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(1) @binding(2) var color_sampler: sampler;
+/// @group(1) @binding(3) var<storage> values: array<f32>;
 /// ```
 /// Note that the "group" index is determined by the usage context. It is not defined in [`AsBindGroup`]. For example, in Bevy material bind groups
 /// are generally bound to group 1.
@@ -194,8 +190,7 @@ impl Deref for BindGroup {
 ///     roughness: f32,
 /// };
 ///
-/// @group(1) @binding(0)
-/// var<uniform> material: CoolMaterial;
+/// @group(1) @binding(0) var<uniform> material: CoolMaterial;
 /// ```
 ///
 /// Some less common scenarios will require "struct-level" attributes. These are the currently supported struct-level attributes:
@@ -332,5 +327,37 @@ where
     #[inline]
     fn as_bind_group_shader_type(&self, _images: &RenderAssets<Image>) -> U {
         self.into()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate as bevy_render;
+    use bevy_asset::Handle;
+
+    #[test]
+    fn texture_visibility() {
+        #[derive(AsBindGroup)]
+        pub struct TextureVisibilityTest {
+            #[texture(0, visibility(all))]
+            pub all: Handle<Image>,
+            #[texture(1, visibility(none))]
+            pub none: Handle<Image>,
+            #[texture(2, visibility(fragment))]
+            pub fragment: Handle<Image>,
+            #[texture(3, visibility(vertex))]
+            pub vertex: Handle<Image>,
+            #[texture(4, visibility(compute))]
+            pub compute: Handle<Image>,
+            #[texture(5, visibility(vertex, fragment))]
+            pub vertex_fragment: Handle<Image>,
+            #[texture(6, visibility(vertex, compute))]
+            pub vertex_compute: Handle<Image>,
+            #[texture(7, visibility(fragment, compute))]
+            pub fragment_compute: Handle<Image>,
+            #[texture(8, visibility(vertex, fragment, compute))]
+            pub vertex_fragment_compute: Handle<Image>,
+        }
     }
 }

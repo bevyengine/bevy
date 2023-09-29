@@ -5,7 +5,8 @@ use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
-    Data, DataStruct, Error, Fields, LitInt, LitStr, NestedMeta, Result, Token,
+    token::Comma,
+    Data, DataStruct, Error, Fields, LitInt, LitStr, Meta, MetaList, Result,
 };
 
 const UNIFORM_ATTRIBUTE_NAME: Symbol = Symbol("uniform");
@@ -48,7 +49,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
     // Read struct-level attributes
     for attr in &ast.attrs {
-        if let Some(attr_ident) = attr.path.get_ident() {
+        if let Some(attr_ident) = attr.path().get_ident() {
             if attr_ident == BIND_GROUP_DATA_ATTRIBUTE_NAME {
                 if let Ok(prepared_data_ident) =
                     attr.parse_args_with(|input: ParseStream| input.parse::<Ident>())
@@ -115,9 +116,22 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     };
 
     // Read field-level attributes
-    for field in fields.iter() {
+    for field in fields {
+        // Search ahead for texture attributes so we can use them with any
+        // corresponding sampler attribute.
+        let mut tex_attrs = None;
         for attr in &field.attrs {
-            let Some(attr_ident) = attr.path.get_ident() else {
+            let Some(attr_ident) = attr.path().get_ident() else {
+                continue;
+            };
+            if attr_ident == TEXTURE_ATTRIBUTE_NAME {
+                let (_binding_index, nested_meta_items) = get_binding_nested_attr(attr)?;
+                tex_attrs = Some(get_texture_attrs(nested_meta_items)?);
+            }
+        }
+
+        for attr in &field.attrs {
+            let Some(attr_ident) = attr.path().get_ident() else {
                 continue;
             };
 
@@ -203,7 +217,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         buffer,
                     } = get_storage_binding_attr(nested_meta_items)?;
                     let visibility =
-                        visibility.hygenic_quote(&quote! { #render_path::render_resource });
+                        visibility.hygienic_quote(&quote! { #render_path::render_resource });
 
                     let field_name = field.ident.as_ref().unwrap();
                     let field_ty = &field.ty;
@@ -254,10 +268,12 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         sample_type,
                         multisampled,
                         visibility,
-                    } = get_texture_attrs(nested_meta_items)?;
+                    } = tex_attrs.as_ref().unwrap();
 
                     let visibility =
-                        visibility.hygenic_quote(&quote! { #render_path::render_resource });
+                        visibility.hygienic_quote(&quote! { #render_path::render_resource });
+
+                    let fallback_image = get_fallback_image(&render_path, *dimension);
 
                     binding_impls.push(quote! {
                         #render_path::render_resource::OwnedBindingResource::TextureView({
@@ -265,7 +281,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             if let Some(handle) = handle {
                                 images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
                             } else {
-                                fallback_image.texture_view.clone()
+                                #fallback_image.texture_view.clone()
                             }
                         })
                     });
@@ -287,10 +303,16 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     let SamplerAttrs {
                         sampler_binding_type,
                         visibility,
+                        ..
                     } = get_sampler_attrs(nested_meta_items)?;
+                    let TextureAttrs { dimension, .. } = tex_attrs
+                        .as_ref()
+                        .expect("sampler attribute must have matching texture attribute");
 
                     let visibility =
-                        visibility.hygenic_quote(&quote! { #render_path::render_resource });
+                        visibility.hygienic_quote(&quote! { #render_path::render_resource });
+
+                    let fallback_image = get_fallback_image(&render_path, *dimension);
 
                     binding_impls.push(quote! {
                         #render_path::render_resource::OwnedBindingResource::Sampler({
@@ -298,7 +320,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             if let Some(handle) = handle {
                                 images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.sampler.clone()
                             } else {
-                                fallback_image.sampler.clone()
+                                #fallback_image.sampler.clone()
                             }
                         })
                     });
@@ -456,20 +478,36 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     }))
 }
 
+fn get_fallback_image(
+    render_path: &syn::Path,
+    dimension: BindingTextureDimension,
+) -> proc_macro2::TokenStream {
+    quote! {
+        match #render_path::render_resource::#dimension {
+            #render_path::render_resource::TextureViewDimension::D1 => &fallback_image.d1,
+            #render_path::render_resource::TextureViewDimension::D2 => &fallback_image.d2,
+            #render_path::render_resource::TextureViewDimension::D2Array => &fallback_image.d2_array,
+            #render_path::render_resource::TextureViewDimension::Cube => &fallback_image.cube,
+            #render_path::render_resource::TextureViewDimension::CubeArray => &fallback_image.cube_array,
+            #render_path::render_resource::TextureViewDimension::D3 => &fallback_image.d3,
+        }
+    }
+}
+
 /// Represents the arguments for the `uniform` binding attribute.
 ///
 /// If parsed, represents an attribute
 /// like `#[uniform(LitInt, Ident)]`
 struct UniformBindingMeta {
     lit_int: LitInt,
-    _comma: Token![,],
+    _comma: Comma,
     ident: Ident,
 }
 
 /// Represents the arguments for any general binding attribute.
 ///
 /// If parsed, represents an attribute
-/// like `#[foo(LitInt, ...)]` where the rest is optional `NestedMeta`.
+/// like `#[foo(LitInt, ...)]` where the rest is optional [`Meta`].
 enum BindingMeta {
     IndexOnly(LitInt),
     IndexWithOptions(BindingIndexOptions),
@@ -480,13 +518,13 @@ enum BindingMeta {
 /// This represents, for example, `#[texture(0, dimension = "2d_array")]`.
 struct BindingIndexOptions {
     lit_int: LitInt,
-    _comma: Token![,],
-    meta_list: Punctuated<NestedMeta, Token![,]>,
+    _comma: Comma,
+    meta_list: Punctuated<Meta, Comma>,
 }
 
 impl Parse for BindingMeta {
     fn parse(input: ParseStream) -> Result<Self> {
-        if input.peek2(Token![,]) {
+        if input.peek2(Comma) {
             input.parse().map(Self::IndexWithOptions)
         } else {
             input.parse().map(Self::IndexOnly)
@@ -499,7 +537,7 @@ impl Parse for BindingIndexOptions {
         Ok(Self {
             lit_int: input.parse()?,
             _comma: input.parse()?,
-            meta_list: input.parse_terminated(NestedMeta::parse)?,
+            meta_list: input.parse_terminated(Meta::parse, Comma)?,
         })
     }
 }
@@ -523,7 +561,7 @@ fn get_uniform_binding_attr(attr: &syn::Attribute) -> Result<(u32, Ident)> {
     Ok((binding_index, ident))
 }
 
-fn get_binding_nested_attr(attr: &syn::Attribute) -> Result<(u32, Vec<NestedMeta>)> {
+fn get_binding_nested_attr(attr: &syn::Attribute) -> Result<(u32, Vec<Meta>)> {
     let binding_meta = attr.parse_args_with(BindingMeta::parse)?;
 
     match binding_meta {
@@ -568,7 +606,7 @@ impl VisibilityFlags {
 }
 
 impl ShaderStageVisibility {
-    fn hygenic_quote(&self, path: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    fn hygienic_quote(&self, path: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
         match self {
             ShaderStageVisibility::All => quote! { #path::ShaderStages::all() },
             ShaderStageVisibility::None => quote! { #path::ShaderStages::NONE },
@@ -598,49 +636,52 @@ const VISIBILITY_COMPUTE: Symbol = Symbol("compute");
 const VISIBILITY_ALL: Symbol = Symbol("all");
 const VISIBILITY_NONE: Symbol = Symbol("none");
 
-fn get_visibility_flag_value(
-    nested_metas: &Punctuated<NestedMeta, Token![,]>,
-) -> Result<ShaderStageVisibility> {
-    let mut visibility = VisibilityFlags::vertex_fragment();
+fn get_visibility_flag_value(meta_list: &MetaList) -> Result<ShaderStageVisibility> {
+    let mut flags = Vec::new();
 
-    for meta in nested_metas {
-        use syn::{Meta::Path, NestedMeta::Meta};
-        match meta {
-            // Parse `visibility(all)]`.
-            Meta(Path(path)) if path == VISIBILITY_ALL => {
-                return Ok(ShaderStageVisibility::All)
+    meta_list.parse_nested_meta(|meta| {
+        flags.push(meta.path);
+        Ok(())
+    })?;
+
+    if flags.is_empty() {
+        return Err(Error::new_spanned(
+            meta_list,
+            "Invalid visibility format. Must be `visibility(flags)`, flags can be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."
+        ));
+    }
+
+    if flags.len() == 1 {
+        if let Some(flag) = flags.get(0) {
+            if flag == VISIBILITY_ALL {
+                return Ok(ShaderStageVisibility::All);
+            } else if flag == VISIBILITY_NONE {
+                return Ok(ShaderStageVisibility::None);
             }
-            // Parse `visibility(none)]`.
-            Meta(Path(path)) if path == VISIBILITY_NONE => {
-                return Ok(ShaderStageVisibility::None)
-            }
-            // Parse `visibility(vertex, ...)]`.
-            Meta(Path(path)) if path == VISIBILITY_VERTEX => {
-                visibility.vertex = true;
-            }
-            // Parse `visibility(fragment, ...)]`.
-            Meta(Path(path)) if path == VISIBILITY_FRAGMENT => {
-                visibility.fragment = true;
-            }
-            // Parse `visibility(compute, ...)]`.
-            Meta(Path(path)) if path == VISIBILITY_COMPUTE => {
-                visibility.compute = true;
-            }
-            Meta(Path(path)) => return Err(Error::new_spanned(
-                path,
+        }
+    }
+
+    let mut visibility = VisibilityFlags::default();
+
+    for flag in flags {
+        if flag == VISIBILITY_VERTEX {
+            visibility.vertex = true;
+        } else if flag == VISIBILITY_FRAGMENT {
+            visibility.fragment = true;
+        } else if flag == VISIBILITY_COMPUTE {
+            visibility.compute = true;
+        } else {
+            return Err(Error::new_spanned(
+                flag,
                 "Not a valid visibility flag. Must be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."
-            )),
-            _ => return Err(Error::new_spanned(
-                meta,
-                "Invalid visibility format: `visibility(...)`.",
-            )),
+            ));
         }
     }
 
     Ok(ShaderStageVisibility::Flags(visibility))
 }
 
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 enum BindingTextureDimension {
     D1,
     #[default]
@@ -727,7 +768,7 @@ const DEPTH: &str = "depth";
 const S_INT: &str = "s_int";
 const U_INT: &str = "u_int";
 
-fn get_texture_attrs(metas: Vec<NestedMeta>) -> Result<TextureAttrs> {
+fn get_texture_attrs(metas: Vec<Meta>) -> Result<TextureAttrs> {
     let mut dimension = Default::default();
     let mut sample_type = Default::default();
     let mut multisampled = Default::default();
@@ -737,35 +778,32 @@ fn get_texture_attrs(metas: Vec<NestedMeta>) -> Result<TextureAttrs> {
     let mut visibility = ShaderStageVisibility::vertex_fragment();
 
     for meta in metas {
-        use syn::{
-            Meta::{List, NameValue},
-            NestedMeta::Meta,
-        };
+        use syn::Meta::{List, NameValue};
         match meta {
             // Parse #[texture(0, dimension = "...")].
-            Meta(NameValue(m)) if m.path == DIMENSION => {
-                let value = get_lit_str(DIMENSION, &m.lit)?;
+            NameValue(m) if m.path == DIMENSION => {
+                let value = get_lit_str(DIMENSION, &m.value)?;
                 dimension = get_texture_dimension_value(value)?;
             }
             // Parse #[texture(0, sample_type = "...")].
-            Meta(NameValue(m)) if m.path == SAMPLE_TYPE => {
-                let value = get_lit_str(SAMPLE_TYPE, &m.lit)?;
+            NameValue(m) if m.path == SAMPLE_TYPE => {
+                let value = get_lit_str(SAMPLE_TYPE, &m.value)?;
                 sample_type = get_texture_sample_type_value(value)?;
             }
             // Parse #[texture(0, multisampled = "...")].
-            Meta(NameValue(m)) if m.path == MULTISAMPLED => {
-                multisampled = get_lit_bool(MULTISAMPLED, &m.lit)?;
+            NameValue(m) if m.path == MULTISAMPLED => {
+                multisampled = get_lit_bool(MULTISAMPLED, &m.value)?;
             }
             // Parse #[texture(0, filterable = "...")].
-            Meta(NameValue(m)) if m.path == FILTERABLE => {
-                filterable = get_lit_bool(FILTERABLE, &m.lit)?.into();
+            NameValue(m) if m.path == FILTERABLE => {
+                filterable = get_lit_bool(FILTERABLE, &m.value)?.into();
                 filterable_ident = m.path.into();
             }
             // Parse #[texture(0, visibility(...))].
-            Meta(List(m)) if m.path == VISIBILITY => {
-                visibility = get_visibility_flag_value(&m.nested)?;
+            List(m) if m.path == VISIBILITY => {
+                visibility = get_visibility_flag_value(&m)?;
             }
-            Meta(NameValue(m)) => {
+            NameValue(m) => {
                 return Err(Error::new_spanned(
                     m.path,
                     "Not a valid name. Available attributes: `dimension`, `sample_type`, `multisampled`, or `filterable`."
@@ -865,26 +903,23 @@ const FILTERING: &str = "filtering";
 const NON_FILTERING: &str = "non_filtering";
 const COMPARISON: &str = "comparison";
 
-fn get_sampler_attrs(metas: Vec<NestedMeta>) -> Result<SamplerAttrs> {
+fn get_sampler_attrs(metas: Vec<Meta>) -> Result<SamplerAttrs> {
     let mut sampler_binding_type = Default::default();
     let mut visibility = ShaderStageVisibility::vertex_fragment();
 
     for meta in metas {
-        use syn::{
-            Meta::{List, NameValue},
-            NestedMeta::Meta,
-        };
+        use syn::Meta::{List, NameValue};
         match meta {
             // Parse #[sampler(0, sampler_type = "..."))].
-            Meta(NameValue(m)) if m.path == SAMPLER_TYPE => {
-                let value = get_lit_str(DIMENSION, &m.lit)?;
+            NameValue(m) if m.path == SAMPLER_TYPE => {
+                let value = get_lit_str(DIMENSION, &m.value)?;
                 sampler_binding_type = get_sampler_binding_type_value(value)?;
             }
             // Parse #[sampler(0, visibility(...))].
-            Meta(List(m)) if m.path == VISIBILITY => {
-                visibility = get_visibility_flag_value(&m.nested)?;
+            List(m) if m.path == VISIBILITY => {
+                visibility = get_visibility_flag_value(&m)?;
             }
-            Meta(NameValue(m)) => {
+            NameValue(m) => {
                 return Err(Error::new_spanned(
                     m.path,
                     "Not a valid name. Available attributes: `sampler_type`.",
@@ -928,22 +963,22 @@ struct StorageAttrs {
 const READ_ONLY: Symbol = Symbol("read_only");
 const BUFFER: Symbol = Symbol("buffer");
 
-fn get_storage_binding_attr(metas: Vec<NestedMeta>) -> Result<StorageAttrs> {
+fn get_storage_binding_attr(metas: Vec<Meta>) -> Result<StorageAttrs> {
     let mut visibility = ShaderStageVisibility::vertex_fragment();
     let mut read_only = false;
     let mut buffer = false;
 
     for meta in metas {
-        use syn::{Meta::List, Meta::Path, NestedMeta::Meta};
+        use syn::{Meta::List, Meta::Path};
         match meta {
             // Parse #[storage(0, visibility(...))].
-            Meta(List(m)) if m.path == VISIBILITY => {
-                visibility = get_visibility_flag_value(&m.nested)?;
+            List(m) if m.path == VISIBILITY => {
+                visibility = get_visibility_flag_value(&m)?;
             }
-            Meta(Path(path)) if path == READ_ONLY => {
+            Path(path) if path == READ_ONLY => {
                 read_only = true;
             }
-            Meta(Path(path)) if path == BUFFER => {
+            Path(path) if path == BUFFER => {
                 buffer = true;
             }
             _ => {

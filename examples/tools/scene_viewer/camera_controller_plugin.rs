@@ -1,7 +1,7 @@
 //! A freecam-style camera controller plugin.
 //! To use in your own application:
-//! - Copy the code for the `CameraControllerPlugin` and add the plugin to your App.
-//! - Attach the `CameraController` component to an entity with a `Camera3dBundle`.
+//! - Copy the code for the [`CameraControllerPlugin`] and add the plugin to your App.
+//! - Attach the [`CameraController`] component to an entity with a [`Camera3dBundle`].
 
 use bevy::window::CursorGrabMode;
 use bevy::{input::mouse::MouseMotion, prelude::*};
@@ -48,7 +48,7 @@ impl Default for CameraController {
             key_right: KeyCode::D,
             key_up: KeyCode::E,
             key_down: KeyCode::Q,
-            key_run: KeyCode::LShift,
+            key_run: KeyCode::ShiftLeft,
             mouse_key_enable_mouse: MouseButton::Left,
             keyboard_key_enable_mouse: KeyCode::M,
             walk_speed: 5.0,
@@ -174,7 +174,7 @@ fn camera_controller(
                 window.cursor.visible = false;
             }
 
-            for mouse_event in mouse_events.iter() {
+            for mouse_event in mouse_events.read() {
                 mouse_delta += mouse_event.delta;
             }
         }

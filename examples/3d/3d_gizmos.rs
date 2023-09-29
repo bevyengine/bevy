@@ -1,4 +1,5 @@
 //! This example demonstrates Bevy's immediate mode drawing API intended for visual debugging.
+
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
@@ -15,7 +16,6 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),
@@ -44,22 +44,30 @@ fn setup(
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
-    // text
-    commands.spawn(TextBundle::from_section(
-        "Press 't' to toggle drawing gizmos on top of everything else in the scene",
-        TextStyle {
-            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-            font_size: 24.,
-            color: Color::WHITE,
-        },
-    ));
+
+    // example instructions
+    commands.spawn(
+        TextBundle::from_section(
+            "Press 'D' to toggle drawing gizmos on top of everything else in the scene\n\
+            Press 'P' to toggle perspective for line gizmos\n\
+            Hold 'Left' or 'Right' to change the line width",
+            TextStyle {
+                font_size: 20.,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        }),
+    );
 }
 
 fn system(mut gizmos: Gizmos, time: Res<Time>) {
     gizmos.cuboid(
-        Vec3::Y * -0.5,
-        Quat::IDENTITY,
-        Vec3::new(5., 1., 2.),
+        Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.)),
         Color::BLACK,
     );
     gizmos.rect(
@@ -69,12 +77,7 @@ fn system(mut gizmos: Gizmos, time: Res<Time>) {
         Color::GREEN,
     );
 
-    gizmos.sphere(
-        Vec3::new(1., 0.5, 0.),
-        Quat::IDENTITY,
-        0.5,
-        Color::RED.with_a(0.5),
-    );
+    gizmos.sphere(Vec3::new(1., 0.5, 0.), Quat::IDENTITY, 0.5, Color::RED);
 
     for y in [0., 0.5, 1.] {
         gizmos.ray(
@@ -101,8 +104,21 @@ fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>
     transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_seconds() / 2.));
 }
 
-fn update_config(mut gizmo_config: ResMut<GizmoConfig>, keyboard: Res<Input<KeyCode>>) {
-    if keyboard.just_pressed(KeyCode::T) {
-        gizmo_config.on_top = !gizmo_config.on_top;
+fn update_config(mut config: ResMut<GizmoConfig>, keyboard: Res<Input<KeyCode>>, time: Res<Time>) {
+    if keyboard.just_pressed(KeyCode::D) {
+        config.depth_bias = if config.depth_bias == 0. { -1. } else { 0. };
+    }
+    if keyboard.just_pressed(KeyCode::P) {
+        // Toggle line_perspective
+        config.line_perspective ^= true;
+        // Increase the line width when line_perspective is on
+        config.line_width *= if config.line_perspective { 5. } else { 1. / 5. };
+    }
+
+    if keyboard.pressed(KeyCode::Right) {
+        config.line_width += 5. * time.delta_seconds();
+    }
+    if keyboard.pressed(KeyCode::Left) {
+        config.line_width -= 5. * time.delta_seconds();
     }
 }
