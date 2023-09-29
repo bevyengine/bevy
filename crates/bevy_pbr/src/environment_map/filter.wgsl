@@ -94,7 +94,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let frame_z = normalize(dir);
     let adir = abs(dir);
 
-    // PERF: Try https://arxiv.org/pdf/2306.05044.pdf
     var color = vec4(0.0);
     for (var axis = 0u; axis < 3u; axis++) {
         let other_axis0 = 1u - (axis & 1u) - (axis >> 1u);

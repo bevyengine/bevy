@@ -59,17 +59,14 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let v0 = (f32(id.y) * 2.0 + 1.0 - 0.75) * -inv_res_lo + 1.0;
         let v1 = (f32(id.y) * 2.0 + 1.0 + 0.75) * -inv_res_lo + 1.0;
 
-        var weights = array(calc_weight(u0, v0), calc_weight(u1, v0), calc_weight(u0, v1), calc_weight(u1, v1));
-        let wsum = 0.5 / (weights[0] + weights[1] + weights[2] + weights[3]);
-        weights[0u] = weights[0u] * wsum + 0.125;
-        weights[1u] = weights[1u] * wsum + 0.125;
-        weights[2u] = weights[2u] * wsum + 0.125;
-        weights[3u] = weights[3u] * wsum + 0.125;
+        var weights = vec4(calc_weight(u0, v0), calc_weight(u1, v0), calc_weight(u0, v1), calc_weight(u1, v1));
+        let wsum = 0.5 / dot(vec4(1.0), weights);
+        weights = weights * wsum + 0.125;
 
-        var color = textureSampleLevel(tex_hi_res, bilinear, get_dir(u0, v0, id.z), 0.0) * weights[0];
-        color += textureSampleLevel(tex_hi_res, bilinear, get_dir(u1, v0, id.z), 0.0) * weights[1];
-        color += textureSampleLevel(tex_hi_res, bilinear, get_dir(u0, v1, id.z), 0.0) * weights[2];
-        color += textureSampleLevel(tex_hi_res, bilinear, get_dir(u1, v1, id.z), 0.0) * weights[3];
+        var color = textureSampleLevel(tex_hi_res, bilinear, get_dir(u0, v0, id.z), 0.0) * weights.x;
+        color += textureSampleLevel(tex_hi_res, bilinear, get_dir(u1, v0, id.z), 0.0) * weights.y;
+        color += textureSampleLevel(tex_hi_res, bilinear, get_dir(u0, v1, id.z), 0.0) * weights.z;
+        color += textureSampleLevel(tex_hi_res, bilinear, get_dir(u1, v1, id.z), 0.0) * weights.w;
 
         textureStore(tex_los_res, id.xy, id.z, color);
     }
