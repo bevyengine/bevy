@@ -37,14 +37,14 @@ use bevy_utils::{
     tracing::{trace, warn},
     Duration, Instant,
 };
-#[cfg(target_os = "android")]
-use bevy_window::PrimaryWindow;
 use bevy_window::{
     exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
     ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
     WindowCloseRequested, WindowCreated, WindowDestroyed, WindowFocused, WindowMoved,
     WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
 };
+#[cfg(target_os = "android")]
+use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity::AndroidApp;
@@ -670,9 +670,7 @@ pub fn winit_runner(mut app: App) {
                     // This will trigger the surface destruction.
                     let mut query = app.world.query_filtered::<Entity, With<PrimaryWindow>>();
                     let entity = query.single(&app.world);
-                    app.world
-                        .entity_mut(entity)
-                        .remove::<bevy_window::RawHandleWrapper>();
+                    app.world.entity_mut(entity).remove::<RawHandleWrapper>();
                     *control_flow = ControlFlow::Wait;
                 }
             }
@@ -708,7 +706,7 @@ pub fn winit_runner(mut app: App) {
                             &accessibility_requested,
                         );
 
-                        let wrapper = bevy_window::RawHandleWrapper {
+                        let wrapper = RawHandleWrapper {
                             window_handle: winit_window.raw_window_handle(),
                             display_handle: winit_window.raw_display_handle(),
                         };
