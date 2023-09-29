@@ -137,82 +137,6 @@ impl<S: States> OnEnter<S> {
     }
 }
 
-/// Generate OnEnter schedules, using either:
-/// - a pre-existing matcher, like so `on_enter!(MyMatcher)`
-/// - a matching function, like so `on_enter!(MyState, |s| false)`
-#[macro_export]
-macro_rules! on_enter {
-    ($type:ident, $expression:pat) => {{
-        let matcher = |state: &$type| matches!(state.clone(), $expression);
-
-        OnEnter::match_function(matcher)
-    }};
-    ($expression:expr) => {{
-        OnEnter::matching($expression)
-    }};
-}
-
-/// Generate strict OnEnter schedules, using either:
-/// - a pre-existing matcher, like so `on_enter_strict!(MyMatcher)`
-/// - a matching function, like so `on_enter_strict!(MyState, |s| false)
-#[macro_export]
-macro_rules! on_enter_strict {
-    ($type:ident, $expression:pat) => {{
-        let matcher = |state: &$type| matches!(state.clone(), $expression);
-
-        OnEnter::match_function_strict(matcher)
-    }};
-    ($expression:expr) => {{
-        OnEnter::matching_strict($expression)
-    }};
-}
-
-/// Generate OnExit schedules, using either:
-/// - a pre-existing matcher, like so `on_exit!(MyMatcher)`
-/// - a matching function, like so `on_exit!(MyState, |s| false)`
-#[macro_export]
-macro_rules! on_exit {
-    ($type:ident, $expression:pat) => {{
-        let matcher = |state: &$type| matches!(state.clone(), $expression);
-
-        OnExit::match_function(matcher)
-    }};
-    ($expression:expr) => {{
-        OnExit::matching($expression)
-    }};
-}
-
-/// Generate strict OnExit schedules, using either:
-/// - a pre-existing matcher, like so `on_exit_strict!(MyMatcher)`
-/// - a matching function, like so `on_exit_strict!(MyState, |s| false)
-#[macro_export]
-macro_rules! on_exit_strict {
-    ($type:ident, $expression:pat) => {{
-        let matcher = |state: &$type| matches!(state.clone(), $expression);
-
-        OnExit::match_function_strict(matcher)
-    }};
-    ($expression:expr) => {{
-        OnExit::matching_strict($expression)
-    }};
-}
-
-/// Generate in_state condition using either:
-/// - a pre-existing matcher, like so `on_exit!(MyMatcher)`
-/// - a matching function, like so `on_exit!(MyState, |s| false)`
-#[macro_export]
-macro_rules! in_state {
-    ($type:ident, $expression:pat) => {{
-        let matcher = |state: &$type| matches!(state.clone(), $expression);
-        let matcher: StateMatcherFunction<$type> = matcher.into_state_matcher();
-
-        in_state(matcher)
-    }};
-    ($expression:expr) => {{
-        in_state($expression)
-    }};
-}
-
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// enters a matching state from a non-matching state.
 pub struct OnEnterMatching<S: States, M: StateMatcher<S>> {
@@ -554,4 +478,80 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
             world.remove_resource::<PreviousState<S>>();
         }
     }
+}
+
+/// Generate OnEnter schedules, using either:
+/// - a pre-existing matcher, like so `on_enter!(MyMatcher)`
+/// - a matching function, like so `on_enter!(MyState, |s| false)`
+#[macro_export]
+macro_rules! on_enter {
+    ($type:ident, $expression:pat) => {{
+        let matcher = |state: &$type| matches!(state.clone(), $expression);
+
+        OnEnter::match_function(matcher)
+    }};
+    ($expression:expr) => {{
+        OnEnter::matching($expression)
+    }};
+}
+
+/// Generate strict OnEnter schedules, using either:
+/// - a pre-existing matcher, like so `on_enter_strict!(MyMatcher)`
+/// - a matching function, like so `on_enter_strict!(MyState, |s| false)
+#[macro_export]
+macro_rules! on_enter_strict {
+    ($type:ident, $expression:pat) => {{
+        let matcher = |state: &$type| matches!(state.clone(), $expression);
+
+        OnEnter::match_function_strict(matcher)
+    }};
+    ($expression:expr) => {{
+        OnEnter::matching_strict($expression)
+    }};
+}
+
+/// Generate OnExit schedules, using either:
+/// - a pre-existing matcher, like so `on_exit!(MyMatcher)`
+/// - a matching function, like so `on_exit!(MyState, |s| false)`
+#[macro_export]
+macro_rules! on_exit {
+    ($type:ident, $expression:pat) => {{
+        let matcher = |state: &$type| matches!(state.clone(), $expression);
+
+        OnExit::match_function(matcher)
+    }};
+    ($expression:expr) => {{
+        OnExit::matching($expression)
+    }};
+}
+
+/// Generate strict OnExit schedules, using either:
+/// - a pre-existing matcher, like so `on_exit_strict!(MyMatcher)`
+/// - a matching function, like so `on_exit_strict!(MyState, |s| false)
+#[macro_export]
+macro_rules! on_exit_strict {
+    ($type:ident, $expression:pat) => {{
+        let matcher = |state: &$type| matches!(state.clone(), $expression);
+
+        OnExit::match_function_strict(matcher)
+    }};
+    ($expression:expr) => {{
+        OnExit::matching_strict($expression)
+    }};
+}
+
+/// Generate in_state condition using either:
+/// - a pre-existing matcher, like so `on_exit!(MyMatcher)`
+/// - a matching function, like so `on_exit!(MyState, |s| false)`
+#[macro_export]
+macro_rules! in_state {
+    ($type:ident, $expression:pat) => {{
+        let matcher = |state: &$type| matches!(state.clone(), $expression);
+        let matcher: StateMatcherFunction<$type> = matcher.into_state_matcher();
+
+        in_state(matcher)
+    }};
+    ($expression:expr) => {{
+        in_state($expression)
+    }};
 }
