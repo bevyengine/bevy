@@ -1232,7 +1232,7 @@ mod tests {
         Schedule::default().add_systems(
             (test_system, test_system)
                 .distributive_run_if(run_once())
-                .distributive_run_if(run_multiple_times())
+                .distributive_run_if(run_multiple_times(3))
                 .distributive_run_if(resource_exists::<State<TestState>>())
                 .distributive_run_if(resource_added::<State<TestState>>())
                 .distributive_run_if(resource_changed::<State<TestState>>())
