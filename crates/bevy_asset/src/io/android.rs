@@ -2,7 +2,6 @@ use crate::io::{
     get_meta_path, AssetReader, AssetReaderError, AssetWatcher, PathStream, Reader, VecReader,
 };
 use anyhow::Result;
-use bevy_log::error;
 use bevy_utils::BoxedFuture;
 use futures_lite::stream;
 use std::{
@@ -15,8 +14,7 @@ use std::{
 ///
 /// Implementation details:
 ///
-/// - [`read`](AssetIo::read) and [`read_directory`](AssetIo::read_directory) use the [`AssetManager`] to load files and directories.
-/// - [`is_directory`](AssetIo::is_directory) always returns false.
+/// - [`AssetManager`] to load files and directories, and check if a path is a directory.
 /// - Watching for changes is not supported. The watcher method will do nothing.
 ///
 /// [AssetManager]: https://developer.android.com/reference/android/content/res/AssetManager
@@ -98,10 +96,21 @@ impl AssetReader for AndroidAssetReader {
 
     fn is_directory<'a>(
         &'a self,
-        _path: &'a Path,
+        path: &'a Path,
     ) -> BoxedFuture<'a, std::result::Result<bool, AssetReaderError>> {
-        error!("Reading directories is not supported with the AndroidAssetReader");
-        Box::pin(async move { Ok(false) })
+        Box::pin(async move {
+            let asset_manager = bevy_winit::ANDROID_APP
+                .get()
+                .expect("Bevy must be setup with the #[bevy_main] macro on Android")
+                .asset_manager();
+
+            // HACK: AssetManager API sucks so this hack is all we can do...
+            // This will only return either not found or true
+            asset_manager
+                .open_dir(&CString::new(path.to_str().unwrap()).unwrap())
+                .ok_or(AssetReaderError::NotFound(path.to_path_buf()))
+                .map(|_| true)
+        })
     }
 
     fn watch_for_changes(
