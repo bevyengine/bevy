@@ -96,13 +96,8 @@ pub fn on_fixed_timer(duration: Duration) -> impl FnMut(Res<FixedTime>) -> bool 
 ///     // run after 3 seconds after the app has started
 /// }
 /// ```
-pub fn time_passed_since_app_started(
-    duration: Duration,
-) -> impl FnMut(Local<f32>, Res<Time>) -> bool + Clone {
-    move |mut timer: Local<f32>, time: Res<Time>| {
-        *timer += time.delta_seconds();
-        *timer >= duration.as_secs_f32()
-    }
+pub fn time_passed_since_app_started(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
+    move |time: Res<Time>| time.elapsed() >= duration
 }
 
 #[cfg(test)]
