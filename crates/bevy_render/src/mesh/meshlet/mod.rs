@@ -7,6 +7,7 @@ use bevy_asset::{
     anyhow::{bail, Error},
     Asset, AssetApp,
 };
+use bevy_ecs::system::Resource;
 use bevy_math::Vec3;
 use bevy_reflect::TypePath;
 use meshopt::{build_meshlets, compute_meshlet_bounds_decoder, VertexDataAdapter};
@@ -21,19 +22,21 @@ impl Plugin for MeshletPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let required_features = WgpuFeatures::TEXTURE_BINDING_ARRAY
-            | WgpuFeatures::PARTIALLY_BOUND_BINDING_ARRAY
-            | WgpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING
-            | WgpuFeatures::MULTI_DRAW_INDIRECT;
+        let required_features = WgpuFeatures::MULTI_DRAW_INDIRECT;
         match app.world.get_resource::<RenderDevice>() {
             Some(render_device) if render_device.features().contains(required_features) => {}
             _ => return,
         }
 
-        // TODO: Add gpu systems
-        // app.sub_app_mut(RenderApp);
+        app.insert_resource(MeshletRenderingSupported);
+
+        app.sub_app_mut(RenderApp)
+            .insert_resource(MeshletRenderingSupported);
     }
 }
+
+#[derive(Resource)]
+pub struct MeshletRenderingSupported;
 
 #[derive(Asset, TypePath, Serialize, Deserialize)]
 pub struct MeshletMesh {
