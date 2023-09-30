@@ -1392,7 +1392,7 @@ fn try_into_grid_span(span: u16) -> Result<Option<NonZeroU16>, GridPlacementErro
     ))
 }
 
-/// Errors that occur when setting contraints for a `GridPlacement`
+/// Errors that occur when setting constraints for a `GridPlacement`
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
 pub enum GridPlacementError {
     #[error("Zero is not a valid grid position")]
