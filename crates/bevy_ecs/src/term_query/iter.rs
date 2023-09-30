@@ -153,7 +153,7 @@ impl<'w, 's> TermQueryIterUntyped<'w, 's> {
     }
 }
 
-/// A collection of [`FetchedTerm`] returned from a call to `iter_raw`
+/// A collection of [`TermState`] returned from a call to `iter_raw`
 pub struct FetchedTerms<'w, 's> {
     world: UnsafeWorldCell<'w>,
     last_run: Tick,
@@ -171,7 +171,7 @@ impl<'w, 's> FetchedTerms<'w, 's> {
     }
 
     /// Returns an iterator across tuples of [`Term`] and [`TermState`]
-    pub fn iter_terms(&self) -> impl Iterator<Item = (&Term, &TermState<'w>)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&Term, &TermState<'w>)> {
         self.terms.iter().zip(self.state.iter())
     }
 

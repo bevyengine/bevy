@@ -236,7 +236,7 @@ fn query_system(mut query: TermQuery<Entity>, world: &World) {
     query.iter_raw().for_each(|fetches| {
         let entity = unsafe { fetches.fetch::<Entity>(0) };
         let components = fetches
-            .iter_terms()
+            .iter()
             .skip(1)
             .map(|(term, state)| print_match(&fetches, term, state, world))
             .collect::<Vec<_>>()

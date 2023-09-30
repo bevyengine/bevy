@@ -521,7 +521,7 @@ impl<T: Component> QueryTerm for &T {
                 let table = component.ptr.table().debug_checked_unwrap();
                 table
                     .component
-                    .byte_add(component.size * table_row.index())
+                    .byte_add(std::mem::size_of::<T>() * table_row.index())
                     .deref()
             }
             StorageType::SparseSet => {
@@ -584,7 +584,10 @@ impl<T: Component> QueryTerm for Ref<'_, T> {
             let index = table_row.index();
             let tick_index = std::mem::size_of::<Tick>() * index;
             Ref {
-                value: table.component.byte_add(component.size * index).deref(),
+                value: table
+                    .component
+                    .byte_add(std::mem::size_of::<T>() * index)
+                    .deref(),
                 ticks: Ticks {
                     added: table
                         .added
@@ -720,7 +723,7 @@ impl<'r, T: Component> QueryTerm for &'r mut T {
                 .ptr
                 .table()
                 .debug_checked_unwrap()
-                .get_row(component.size, table_row.index());
+                .get_row(std::mem::size_of::<T>(), table_row.index());
             Mut {
                 value: table.component.assert_unique().deref_mut(),
                 ticks: TicksMut {
