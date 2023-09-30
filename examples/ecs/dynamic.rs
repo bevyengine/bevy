@@ -206,7 +206,7 @@ fn parse_query<Q: QueryTermGroup>(
     });
 }
 
-fn print_match(fetches: &FetchedTerms, term: &Term, state: &TermState, world: &World) -> String {
+fn print_match(terms: &FetchedTerms, term: &Term, state: &TermState, world: &World) -> String {
     let id = term.component.unwrap();
     let name = world.components().get_name(id).unwrap();
     if state.matches {
@@ -214,7 +214,7 @@ fn print_match(fetches: &FetchedTerms, term: &Term, state: &TermState, world: &W
             let info = world.components().get_info(id).unwrap();
             let len = info.layout().size() / std::mem::size_of::<u64>();
 
-            let ptr = unsafe { fetches.fetch_state::<Ptr>(state) };
+            let ptr = unsafe { terms.fetch_state::<Ptr>(state) };
             let data = unsafe {
                 std::slice::from_raw_parts_mut(ptr.assert_unique().as_ptr().cast::<u64>(), len)
             };
@@ -233,12 +233,12 @@ fn print_match(fetches: &FetchedTerms, term: &Term, state: &TermState, world: &W
 }
 
 fn query_system(mut query: TermQuery<Entity>, world: &World) {
-    query.iter_raw().for_each(|fetches| {
-        let entity = unsafe { fetches.fetch::<Entity>(0) };
-        let components = fetches
+    query.iter_raw().for_each(|terms| {
+        let entity = unsafe { terms.fetch::<Entity>(0) };
+        let components = terms
             .iter()
             .skip(1)
-            .map(|(term, state)| print_match(&fetches, term, state, world))
+            .map(|(term, state)| print_match(&terms, term, state, world))
             .collect::<Vec<_>>()
             .join(", ");
 

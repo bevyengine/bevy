@@ -183,24 +183,24 @@ mod tests {
         let mut query = TermQueryState::<(Entity, &A, &B)>::new(&mut world);
 
         // Our result is completely untyped
-        let fetches = query.single_raw(&mut world);
+        let terms = query.single_raw(&mut world);
 
         // Consume our fetched terms to produce a set of term items
-        // SAFETY: We know the type signature associated with these fetches
-        let (e, a, b) = unsafe { fetches.fetch_range::<(Entity, &A, &B)>(0..3) };
+        // SAFETY: We know the type signature associated with these terms
+        let (e, a, b) = unsafe { terms.fetch_range::<(Entity, &A, &B)>(0..3) };
 
         assert_eq!(e, entity);
         assert_eq!(0, a.0);
         assert_eq!(1, b.0);
 
         // Alternatively extract individual terms dynamically
-        let fetches = query.single_raw(&mut world);
+        let terms = query.single_raw(&mut world);
 
         // SAFETY: We know the terms at these indices have compatible types
         unsafe {
-            assert_eq!(0, fetches.fetch::<&A>(1).0);
-            assert_eq!(e, fetches.fetch::<Entity>(0));
-            assert_eq!(1, fetches.fetch::<&B>(2).0);
+            assert_eq!(0, terms.fetch::<&A>(1).0);
+            assert_eq!(e, terms.fetch::<Entity>(0));
+            assert_eq!(1, terms.fetch::<&B>(2).0);
         }
     }
 
@@ -213,13 +213,13 @@ mod tests {
             .term::<(Entity, &B)>()
             .build();
 
-        let fetches = query.single_raw(&mut world);
+        let terms = query.single_raw(&mut world);
 
         // Seperately consume our two terms
         // SAFETY: We know the first two terms match this signature
-        let (e1, a) = unsafe { fetches.fetch_range::<(Entity, &A)>(0..2) };
+        let (e1, a) = unsafe { terms.fetch_range::<(Entity, &A)>(0..2) };
         // SAFETY: We know the second two terms match this signature
-        let (e2, b) = unsafe { fetches.fetch_range::<(Entity, &A)>(2..4) };
+        let (e2, b) = unsafe { terms.fetch_range::<(Entity, &A)>(2..4) };
 
         assert_eq!(e1, entity);
         assert_eq!(e1, e2);
