@@ -1,5 +1,6 @@
 #[allow(clippy::module_inception)]
 mod mesh;
+pub mod meshlet;
 pub mod morph;
 /// Generation for some primitive shape meshes.
 pub mod shape;
@@ -26,6 +27,9 @@ impl Plugin for MeshPlugin {
             .register_type::<skinning::SkinnedMesh>()
             .register_type::<Vec<Entity>>()
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
-            .add_plugins(RenderAssetPlugin::<Mesh, Image>::default());
+            .add_plugins((
+                RenderAssetPlugin::<Mesh, Image>::default(),
+                meshlet::MeshletPlugin,
+            ));
     }
 }
