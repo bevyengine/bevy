@@ -3,7 +3,7 @@ extern crate proc_macro;
 mod component;
 mod fetch;
 mod set;
-mod state_matcher;
+mod state_matchers;
 mod states;
 
 use crate::{fetch::derive_world_query_impl, set::derive_set};
@@ -13,6 +13,7 @@ use bevy_macro_utils::{
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
+use state_matchers::MatchMacro;
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
     ConstParam, DeriveInput, GenericParam, Ident, Index, TypeParam,
@@ -482,8 +483,71 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
 
 /// A macro for generating a stract implementing `StateMatcher<S>` that matches a specific pattern.
 /// Use:
-/// `state_matcher!(pub MyMatcherStruct, MyStatesType, MyStatesType::AState | MyStatesType::AComplexState(false))`
+/// `state_matcher!(pub MyMatcherStruct, MyStatesType, AState | AComplexState(false))`
 #[proc_macro]
 pub fn state_matcher(input: TokenStream) -> TokenStream {
-    state_matcher::define_state_matcher(input)
+    state_matchers::define_state_matcher(input)
+}
+
+/// Generate `OnEnter` schedules, using either:
+/// - a pre-existing matcher, like so `on_enter!(MyMatcher)`
+/// - a specific state value, like so `on_enter!(MyState::Variant)` or `on_enter!(MyState::HasValue { value: true})`
+/// - a matching pattern, like so `on_enter!(MyMatcher, HasValue { .. })`. Note that with matching
+/// patterns, you do  not need to repeat the type within the pattern.
+///
+/// This schedule will only run when the previous state does not match. If you want to run
+/// the schedule whenever we enter a matching state, regardless of the previous state,
+/// use `on_enter_strict!`
+#[proc_macro]
+pub fn on_enter(input: TokenStream) -> TokenStream {
+    state_matchers::define_match_macro(MatchMacro::OnEnter, Some(false), input)
+}
+
+/// Generate `OnEnter` schedules, using either:
+/// - a pre-existing matcher, like so `on_enter_strict!(MyMatcher)`
+/// - a specific state value, like so `on_enter_strict!(MyState::Variant)` or `on_enter_strict!(MyState::HasValue { value: true})`
+/// - a matching pattern, like so `on_enter_strict!(MyMatcher, HasValue { .. })`. Note that with matching
+/// patterns, you do  not need to repeat the type within the pattern.
+///
+/// This schedule will run regardless of the previous state. If you want
+/// to run only when the previous state does not match, use `on_enter!`
+#[proc_macro]
+pub fn on_enter_strict(input: TokenStream) -> TokenStream {
+    state_matchers::define_match_macro(MatchMacro::OnEnter, Some(true), input)
+}
+
+/// Generate `OnExit` schedules, using either:
+/// - a pre-existing matcher, like so `on_exit!(MyMatcher)`
+/// - a specific state value, like so `on_exit!(MyState::Variant)` or `on_exit!(MyState::HasValue { value: true})`
+/// - a matching pattern, like so `on_exit!(MyMatcher, HasValue { .. })`. Note that with matching
+/// patterns, you do  not need to repeat the type within the pattern.
+///
+/// This schedule will only run when the next state does not match. If you want to run
+/// the schedule whenever we exit a matching state, regardless of the next state,
+/// use `on_exit_strict!`
+#[proc_macro]
+pub fn on_exit(input: TokenStream) -> TokenStream {
+    state_matchers::define_match_macro(MatchMacro::OnExit, Some(false), input)
+}
+
+/// Generate `OnExit` schedules, using either:
+/// - a pre-existing matcher, like so `on_exit_strict!(MyMatcher)`
+/// - a specific state value, like so `on_exit_strict!(MyState::Variant)` or `on_exit_strict!(MyState::HasValue { value: true})`
+/// - a matching pattern, like so `on_exit_strict!(MyMatcher, HasValue { .. })`. Note that with matching
+/// patterns, you do  not need to repeat the type within the pattern.
+///
+/// This schedule will run regardless of the next state. If you want
+/// to run only when the next state does not match, use `on_exit!`
+#[proc_macro]
+pub fn on_exit_strict(input: TokenStream) -> TokenStream {
+    state_matchers::define_match_macro(MatchMacro::OnExit, Some(true), input)
+}
+/// Generate `in_state` condition using either:
+/// /// - a pre-existing matcher, like so `in_state!(MyMatcher)`
+/// - a specific state value, like so `in_state!(MyState::Variant)` or `in_state!(MyState::HasValue { value: true})`
+/// - a matching pattern, like so `in_state!(MyMatcher, HasValue { .. })`. Note that with matching
+/// patterns, you do  not need to repeat the type within the pattern.
+#[proc_macro]
+pub fn in_state(input: TokenStream) -> TokenStream {
+    state_matchers::define_match_macro(MatchMacro::InState, None, input)
 }

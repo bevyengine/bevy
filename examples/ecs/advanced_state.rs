@@ -41,7 +41,7 @@ fn main() {
 
 // The simplest way to define a state matcher is using the `state_matcher!` macro.
 // You pass in the visibility (optionally), name, state type and match expression.
-state_matcher!(pub ShowsUI, AppState, _);
+state_matcher!(pub ShowsUI, AppState, Menu | InGame { .. } );
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 enum InGame {

@@ -31,7 +31,7 @@ fn main() {
         .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
         // But that is not all - we can use pattern matching with the `on_enter! macro
         // Which lets us run the system whenever we enter a matching state from one that doesn't maatch
-        .add_systems(on_enter!(AppState, AppState::InGame { .. }), setup_game)
+        .add_systems(on_enter!(AppState, InGame { .. }), setup_game)
         // Both `on_enter!` and `on_exit` also have `_strict` versions, which will match whenever
         // we enter/exit a matching system regardless if the previous/next system matched as well.
         // As a result, this system will run on every state transition, because every state matches
@@ -42,7 +42,7 @@ fn main() {
         // strict equality.
         .add_systems(
             Update,
-            change_color.run_if(in_state!(AppState, AppState::InGame { .. })),
+            change_color.run_if(in_state!(AppState, InGame { .. })),
         )
         // Lastly, we can also insert sub states to our app.
         // Sub states are just regular states, but they are set up so that they are automatically
