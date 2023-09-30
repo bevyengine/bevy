@@ -1,5 +1,6 @@
 use bevy_utils::all_tuples;
 
+use crate::prelude::{run_multiple_times, run_once};
 use crate::{
     schedule::{
         condition::{BoxedCondition, Condition},
@@ -8,7 +9,6 @@ use crate::{
     },
     system::{BoxedSystem, IntoSystem, System},
 };
-use crate::prelude::{run_multiple_times, run_once};
 
 fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
     let condition_system = IntoSystem::into_system(condition);
