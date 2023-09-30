@@ -274,6 +274,7 @@ pub(crate) fn audio_output_available(audio_output: Res<AudioOutput>) -> bool {
     audio_output.stream_handle.is_some()
 }
 
+/// Updates spatial audio sinks when emitter positions change.
 pub(crate) fn update_emitter_positions(
     mut emitters: Query<(&mut GlobalTransform, &SpatialAudioSink), Changed<GlobalTransform>>,
     spatial_scale: Res<SpatialScale>,
@@ -284,13 +285,26 @@ pub(crate) fn update_emitter_positions(
     }
 }
 
+/// Updates spatial audio sink ear positions when spatial listeners change.
 pub(crate) fn update_listener_positions(
-    mut emitters: Query<&SpatialAudioSink, Changed<GlobalTransform>>,
+    mut emitters: Query<&SpatialAudioSink>,
+    changed_listener: Query<
+        (),
+        (
+            Or<(Changed<SpatialListener>, Changed<GlobalTransform>)>,
+            With<SpatialListener>,
+        ),
+    >,
     listener: SpatialListenerSystemParam,
+    scale: Res<SpatialScale>,
 ) {
-    for sink in emitters.iter_mut() {
-        let (left_ear, right_ear) = listener.get_ear_positions();
+    if !scale.is_changed() && changed_listener.is_empty() {
+        return;
+    }
 
+    let (left_ear, right_ear) = listener.get_ear_positions();
+
+    for sink in emitters.iter_mut() {
         sink.set_ears_position(left_ear, right_ear);
     }
 }
