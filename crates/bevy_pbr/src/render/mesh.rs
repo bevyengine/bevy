@@ -291,8 +291,6 @@ pub fn extract_meshes(
                 previous_transform: (&previous_transform).into(),
                 flags: flags.bits(),
             };
-            // FIXME: Remove this - it is just a workaround to enable rendering to work as
-            // render commands require an entity to exist at the moment.
             let tls = thread_local_queues.get_or_default();
             let mut queue = tls.take();
             queue.push((
@@ -312,6 +310,8 @@ pub fn extract_meshes(
     render_mesh_instances.clear();
     let mut entities = Vec::with_capacity(*previous_len);
     for queue in thread_local_queues.iter_mut() {
+        // FIXME: Remove this - it is just a workaround to enable rendering to work as
+        // render commands require an entity to exist at the moment.
         entities.extend(queue.get_mut().iter().map(|(e, _)| (*e, Mesh3d)));
         render_mesh_instances.extend(queue.get_mut().drain(..));
     }
