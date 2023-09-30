@@ -1298,6 +1298,7 @@ mod tests {
         #[default]
         A,
         B,
+        C,
     }
 
     #[derive(Component)]
@@ -1322,6 +1323,7 @@ mod tests {
                 .distributive_run_if(resource_removed::<State<TestState>>())
                 .distributive_run_if(state_exists::<TestState>())
                 .distributive_run_if(in_state(TestState::A))
+                .distributive_run_if(in_any_state([TestState::A, TestState::B]))
                 .distributive_run_if(state_changed::<TestState>())
                 .distributive_run_if(on_event::<TestEvent>())
                 .distributive_run_if(any_with_component::<TestComponent>())
