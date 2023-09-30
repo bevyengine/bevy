@@ -1353,6 +1353,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "advanced_state"
+path = "examples/ecs/advanced_state.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.advanced_state]
+name = "Advanced State"
+description = "Illustrates use of some of the more advanced state concepts, such as `StateMatchers`."
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "system_piping"
 path = "examples/ecs/system_piping.rs"
 doc-scrape-examples = true
