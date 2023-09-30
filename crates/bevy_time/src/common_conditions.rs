@@ -75,7 +75,7 @@ pub fn on_fixed_timer(duration: Duration) -> impl FnMut(Res<FixedTime>) -> bool 
 }
 
 /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
-/// if the given time in seconds have passed since the app has started
+/// if the given time have passed since the app has started
 ///
 /// # Example
 ///
@@ -88,7 +88,7 @@ pub fn on_fixed_timer(duration: Duration) -> impl FnMut(Res<FixedTime>) -> bool 
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
 ///         .add_systems(Update,
-///             my_system.run_if(time_passed_since_app_started(3.)),
+///             my_system.run_if(time_passed_since_app_started(Duration::from_secs(3))),
 ///         )
 ///         .run();
 /// }
@@ -97,11 +97,11 @@ pub fn on_fixed_timer(duration: Duration) -> impl FnMut(Res<FixedTime>) -> bool 
 /// }
 /// ```
 pub fn time_passed_since_app_started(
-    seconds: f32,
+    duration: Duration,
 ) -> impl FnMut(Local<f32>, Res<Time>) -> bool + Clone {
     move |mut timer: Local<f32>, time: Res<Time>| {
         *timer += time.delta_seconds();
-        *timer >= seconds
+        *timer >= duration.as_secs_f32()
     }
 }
 
@@ -119,7 +119,7 @@ mod tests {
             (test_system, test_system)
                 .distributive_run_if(on_timer(Duration::new(1, 0)))
                 .distributive_run_if(on_fixed_timer(Duration::new(1, 0)))
-                .distributive_run_if(time_passed_since_app_started(3.)),
+                .distributive_run_if(time_passed_since_app_started(Duration::new(1, 0))),
         );
     }
 }
