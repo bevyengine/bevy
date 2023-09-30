@@ -748,10 +748,10 @@ pub mod common_conditions {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
-    /// # struct BackgroundAnimation(bool);
+    /// # struct Counter(u8);
     /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
-    /// # world.init_resource::<BackgroundAnimation>();
+    /// # world.init_resource::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
     /// enum GameState {
     ///     #[default]
@@ -765,33 +765,33 @@ pub mod common_conditions {
     /// app.add_systems((
     ///     // `in_any_state` will only return true if the
     ///     // given state equals one of the given values
-    ///     background_animation.run_if(in_any_state([GameState::Playing, GameState::Paused])),
-    ///     game_over.run_if(in_state(GameState::GameOver)),
+    ///     play_pause_system.run_if(in_any_state([GameState::Playing, GameState::Paused])),
+    ///     game_over_system.run_if(in_state(GameState::GameOver)),
     /// ));
     ///
-    /// fn background_animation(mut animation: ResMut<BackgroundAnimation>) {
-    ///     animation.0 = true;
+    /// fn play_pause_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 += 1;
     /// }
     ///
-    /// fn game_over(mut animation: ResMut<BackgroundAnimation>) {
-    ///     animation.0 = false;
+    /// fn game_over_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 -= 1;
     /// }
     ///
-    /// // We default to `GameState::Playing` so `background_animation` runs
+    /// // We default to `GameState::Playing` so `play_pause_system` runs
     /// app.run(&mut world);
-    /// assert_eq!(world.resource::<BackgroundAnimation>().0, true);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
     /// *world.resource_mut::<State<GameState>>() = State::new(GameState::Paused);
     ///
-    /// // Now that we are in `GameState::Pause`, `background_animation` will also run
+    /// // Now that we are in `GameState::Pause`, `play_pause_system` will also run
     /// app.run(&mut world);
-    /// assert_eq!(world.resource::<BackgroundAnimation>().0, true);
+    /// assert_eq!(world.resource::<Counter>().0, 2);
     ///
     /// *world.resource_mut::<State<GameState>>() = State::new(GameState::GameOver);
     ///
-    /// // Now that we are in `GameState::GameOver`, only `game_over` will run
+    /// // Now that we are in `GameState::GameOver`, only `game_over_system` will run
     /// app.run(&mut world);
-    /// assert_eq!(world.resource::<BackgroundAnimation>().0, false);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn in_any_state<S: States, const COUNT: usize>(
         states: [S; COUNT],
@@ -870,10 +870,10 @@ pub mod common_conditions {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource, Default)]
-    /// # struct BackgroundAnimation(bool);
+    /// # struct Counter(u8);
     /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
-    /// # world.init_resource::<BackgroundAnimation>();
+    /// # world.init_resource::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
     /// enum GameState {
     ///     #[default]
@@ -883,41 +883,41 @@ pub mod common_conditions {
     /// }
     ///
     /// app.add_systems((
-    ///     // `in_any_state` will only return true if the
-    ///     // given state equals one of the given values
-    ///     background_animation.run_if(state_exists_and_equals_any([GameState::Playing, GameState::Paused])),
-    ///     game_over.run_if(state_exists_and_equals(GameState::GameOver)),
+    ///     // `state_exists_and_equals_any` will only return true if the
+    ///     // given state exists and equals on of the given values
+    ///     play_pause_system.run_if(state_exists_and_equals_any([GameState::Playing, GameState::Paused])),
+    ///     game_over_system.run_if(state_exists_and_equals(GameState::GameOver)),
     /// ));
     ///
-    /// fn background_animation(mut animation: ResMut<BackgroundAnimation>) {
-    ///     animation.0 = true;
+    /// fn play_pause_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 += 1;
     /// }
     ///
-    /// fn game_over(mut animation: ResMut<BackgroundAnimation>) {
-    ///     animation.0 = false;
+    /// fn game_over_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 -= 1;
     /// }
     ///
     /// // `GameState` does not yet exists so neither system will run
     /// app.run(&mut world);
-    /// assert_eq!(world.resource::<BackgroundAnimation>().0, false);
+    /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
     /// world.init_resource::<State<GameState>>();
     ///
-    /// // We default to `GameState::Playing` so `background_animation` runs
+    /// // We default to `GameState::Playing` so `play_pause_system` runs
     /// app.run(&mut world);
-    /// assert_eq!(world.resource::<BackgroundAnimation>().0, true);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
     /// *world.resource_mut::<State<GameState>>() = State::new(GameState::Paused);
     ///
-    /// // Now that we are in `GameState::Pause`, `background_animation` will also run
+    /// // Now that we are in `GameState::Pause`, `play_pause_system` will also run
     /// app.run(&mut world);
-    /// assert_eq!(world.resource::<BackgroundAnimation>().0, true);
+    /// assert_eq!(world.resource::<Counter>().0, 2);
     ///
     /// *world.resource_mut::<State<GameState>>() = State::new(GameState::GameOver);
     ///
-    /// // Now that we are in `GameState::GameOver`, only `game_over` will run
+    /// // Now that we are in `GameState::GameOver`, only `game_over_system` will run
     /// app.run(&mut world);
-    /// assert_eq!(world.resource::<BackgroundAnimation>().0, false);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn state_exists_and_equals_any<S: States, const COUNT: usize>(
         states: [S; COUNT],
