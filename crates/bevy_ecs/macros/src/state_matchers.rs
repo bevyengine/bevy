@@ -117,7 +117,7 @@ fn inject_state_type(pattern: Pat, state_type: &Path) -> Pat {
                 .segments
                 .iter()
                 .zip(p.path.segments.iter())
-                .all(|(a, b)| a.eq(b))
+                .all(|(a, b)| a == b)
             {
                 Pat::Path(p.clone())
             } else {
@@ -137,7 +137,7 @@ fn inject_state_type(pattern: Pat, state_type: &Path) -> Pat {
                 .segments
                 .iter()
                 .zip(path.segments.iter())
-                .all(|(a, b)| a.eq(b))
+                .all(|(a, b)| a == b)
             {
                 path.clone()
             } else {
@@ -162,7 +162,7 @@ fn inject_state_type(pattern: Pat, state_type: &Path) -> Pat {
                 .segments
                 .iter()
                 .zip(path.segments.iter())
-                .all(|(a, b)| a.eq(b))
+                .all(|(a, b)| a == b)
             {
                 path.clone()
             } else {
