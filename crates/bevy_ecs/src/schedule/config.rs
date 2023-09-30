@@ -1,6 +1,5 @@
 use bevy_utils::all_tuples;
 
-use crate::prelude::{run_multiple_times, run_once};
 use crate::{
     schedule::{
         condition::{BoxedCondition, Condition},
@@ -297,16 +296,6 @@ where
     /// condition to be evaluated for each individual system, right before one is run.
     fn run_if<M>(self, condition: impl Condition<M>) -> SystemConfigs {
         self.into_configs().run_if(condition)
-    }
-
-    /// This is a shorthand for `run_if(run_once)`.
-    fn run_once(self) -> SystemConfigs {
-        self.into_configs().run_if(run_once())
-    }
-
-    /// This is a shorthand for `run_if(run_multiple_times(x))`.
-    fn run_multiple_times(self, times: u64) -> SystemConfigs {
-        self.into_configs().run_if(run_multiple_times(times))
     }
 
     /// Suppress warnings and errors that would result from these systems having ambiguities

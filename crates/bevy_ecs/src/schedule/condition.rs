@@ -242,8 +242,8 @@ pub mod common_conditions {
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
-    ///     // `run_multiple_times` will only return true the first 3 times it's evaluated
-    ///     my_system.run_if(run_multiple_times(3)),
+    ///     // `run_n_times` will only return true the first 3 times it's evaluated
+    ///     my_system.run_if(run_n_times(3)),
     /// );
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
@@ -266,7 +266,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 3);
     /// ```
-    pub fn run_multiple_times(times: u64) -> impl FnMut() -> bool + Clone {
+    pub fn run_n_times(times: u64) -> impl FnMut() -> bool + Clone {
         let mut run_times = 0;
         move || {
             if run_times < times {
@@ -1232,7 +1232,7 @@ mod tests {
         Schedule::default().add_systems(
             (test_system, test_system)
                 .distributive_run_if(run_once())
-                .distributive_run_if(run_multiple_times(3))
+                .distributive_run_if(run_n_times(3))
                 .distributive_run_if(resource_exists::<State<TestState>>())
                 .distributive_run_if(resource_added::<State<TestState>>())
                 .distributive_run_if(resource_changed::<State<TestState>>())
