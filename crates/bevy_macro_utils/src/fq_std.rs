@@ -1,6 +1,9 @@
-//! This module contains unit structs that should be used inside `quote!` and `spanned_quote!` using the variable interpolation syntax in place of their equivalent structs and traits present in `std`.
-//
-//! To create hygienic proc macros, all the names must be its fully qualified form. These unit structs help us to not specify the fully qualified name every single time.
+//! This module contains unit structs that should be used inside `quote!` and `spanned_quote!`
+//! using the variable interpolation syntax in place of their equivalent structs and traits
+//! present in `std`.
+//!
+//! To create hygienic proc macros, all the names must be its fully qualified form. These
+//! unit structs help us to not specify the fully qualified name every single time.
 //!
 //! # Example
 //! Instead of writing this:
