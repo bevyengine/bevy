@@ -221,6 +221,7 @@ impl SpatialScale {
     pub fn new(scale: f32) -> Self {
         Self(Vec3::splat(scale))
     }
+
     /// Create a new `SpatialScale` with the same value for `x` and `y`, and `0.0`
     /// for `z`.
     pub fn new_2d(scale: f32) -> Self {
