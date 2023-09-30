@@ -80,14 +80,14 @@ pub fn on_fixed_timer(duration: Duration) -> impl FnMut(Res<FixedTime>) -> bool 
 /// # Example
 ///
 /// ```rust,no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, FixedUpdate};
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
 /// # use bevy_ecs::schedule::IntoSystemConfigs;
 /// # use bevy_utils::Duration;
 /// # use bevy_time::common_conditions::time_passed_since_app_started;
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_systems(FixedUpdate,
+///         .add_systems(Update,
 ///             my_system.run_if(time_passed_since_app_started(3.)),
 ///         )
 ///         .run();
