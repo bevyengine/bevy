@@ -8,6 +8,7 @@ use crate::{
     },
     system::{BoxedSystem, IntoSystem, System},
 };
+use crate::prelude::{run_multiple_times, run_once};
 
 fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
     let condition_system = IntoSystem::into_system(condition);
@@ -296,6 +297,16 @@ where
     /// condition to be evaluated for each individual system, right before one is run.
     fn run_if<M>(self, condition: impl Condition<M>) -> SystemConfigs {
         self.into_configs().run_if(condition)
+    }
+
+    /// This is a shorthand for `run_if(run_once)`.
+    fn run_once(self) -> SystemConfigs {
+        self.into_configs().run_if(run_once())
+    }
+
+    /// This is a shorthand for `run_if(run_multiple_times(x))`.
+    fn run_multiple_times(self, times: u64) -> SystemConfigs {
+        self.into_configs().run_if(run_multiple_times(times))
     }
 
     /// Suppress warnings and errors that would result from these systems having ambiguities

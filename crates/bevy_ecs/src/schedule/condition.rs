@@ -213,7 +213,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
-    /// // This is the seconds time the condition will be evaluated so `my_system` won't run
+    /// // This is the second time the condition will be evaluated so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
@@ -222,6 +222,55 @@ pub mod common_conditions {
         move || {
             if !has_run {
                 has_run = true;
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if the first x times the condition is run and false every time after
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_resource::<Counter>();
+    /// app.add_systems(
+    ///     // `run_multiple_times` will only return true the first 3 times it's evaluated
+    ///     my_system.run_if(run_multiple_times(3)),
+    /// );
+    ///
+    /// fn my_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // This is the first time the condition will be evaluated so `my_system` will run
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    ///
+    /// // This is the second time the condition will be evaluated so `my_system` will run
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 2);
+    ///
+    /// // This is the third time the condition will be evaluated so `my_system` will run
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 3);
+    ///
+    /// // This is the fourth time the condition will be evaluated so `my_system` won't run
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 3);
+    /// ```
+    pub fn run_multiple_times(times: u64) -> impl FnMut() -> bool + Clone {
+        let mut run_times = 0;
+        move || {
+            if run_times < times {
+                run_times += 1;
                 true
             } else {
                 false
@@ -1183,6 +1232,7 @@ mod tests {
         Schedule::default().add_systems(
             (test_system, test_system)
                 .distributive_run_if(run_once())
+                .distributive_run_if(run_multiple_times())
                 .distributive_run_if(resource_exists::<State<TestState>>())
                 .distributive_run_if(resource_added::<State<TestState>>())
                 .distributive_run_if(resource_changed::<State<TestState>>())
