@@ -456,11 +456,7 @@ impl<T: Component> QueryTerm for &T {
         if T::Storage::STORAGE_TYPE == StorageType::Table {
             let component = state.component.as_mut().debug_checked_unwrap();
             let column = table.get_column(component.id).debug_checked_unwrap();
-            let ptr = match &mut component.ptr {
-                ComponentPtr::Table(ptr) => Some(ptr),
-                _ => None,
-            }
-            .debug_checked_unwrap();
+            let ptr = component.ptr.table_mut().debug_checked_unwrap();
             *ptr = Some(TablePtr {
                 component: column.get_data_ptr(),
                 added: None,
@@ -488,15 +484,18 @@ impl<T: Component> QueryTerm for &T {
         table_row: TableRow,
     ) -> Self::Item<'w> {
         let component = state.component.as_ref().debug_checked_unwrap();
-        if T::Storage::STORAGE_TYPE == StorageType::Table {
-            let table = component.ptr.table().debug_checked_unwrap();
-            table
-                .component
-                .byte_add(component.size * table_row.index())
-                .deref()
-        } else {
-            let set = component.ptr.sparse_set().debug_checked_unwrap();
-            set.get(entity).debug_checked_unwrap().deref()
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => {
+                let table = component.ptr.table().debug_checked_unwrap();
+                table
+                    .component
+                    .byte_add(component.size * table_row.index())
+                    .deref()
+            }
+            StorageType::SparseSet => {
+                let set = component.ptr.sparse_set().debug_checked_unwrap();
+                set.get(entity).debug_checked_unwrap().deref()
+            }
         }
     }
 }
@@ -520,11 +519,7 @@ impl<T: Component> QueryTerm for Ref<'_, T> {
         if T::Storage::STORAGE_TYPE == StorageType::Table {
             let component = state.component.as_mut().debug_checked_unwrap();
             let column = table.get_column(component.id).debug_checked_unwrap();
-            let ptr = match &mut component.ptr {
-                ComponentPtr::Table(ptr) => Some(ptr),
-                _ => None,
-            }
-            .debug_checked_unwrap();
+            let ptr = component.ptr.table_mut().debug_checked_unwrap();
             *ptr = Some(TablePtr {
                 component: column.get_data_ptr(),
                 added: Some(column.get_added_ticks_slice().get_unchecked(0).into()),
@@ -603,11 +598,7 @@ impl QueryTerm for Ptr<'_> {
     unsafe fn set_term_table<'w>(state: &mut TermState<'w>, table: &'w Table) {
         let component = state.component.as_mut().debug_checked_unwrap();
         if let Some(column) = table.get_column(component.id) {
-            let ptr = match &mut component.ptr {
-                ComponentPtr::Table(ptr) => Some(ptr),
-                _ => None,
-            }
-            .debug_checked_unwrap();
+            let ptr = component.ptr.table_mut().debug_checked_unwrap();
             *ptr = Some(TablePtr {
                 component: column.get_data_ptr(),
                 added: None,
@@ -664,11 +655,7 @@ impl<'r, T: Component> QueryTerm for &'r mut T {
         if T::Storage::STORAGE_TYPE == StorageType::Table {
             let component = &mut state.component.as_mut().debug_checked_unwrap();
             let column = table.get_column(component.id).debug_checked_unwrap();
-            let ptr = match &mut component.ptr {
-                ComponentPtr::Table(ptr) => Some(ptr),
-                _ => None,
-            }
-            .debug_checked_unwrap();
+            let ptr = component.ptr.table_mut().debug_checked_unwrap();
             *ptr = Some(TablePtr {
                 component: column.get_data_ptr(),
                 added: Some(column.get_added_ticks_slice().get_unchecked(0).into()),
@@ -753,11 +740,7 @@ impl<'r> QueryTerm for PtrMut<'r> {
     unsafe fn set_term_table<'w>(state: &mut TermState<'w>, table: &'w Table) {
         let component = state.component.as_mut().debug_checked_unwrap();
         if let Some(column) = table.get_column(component.id) {
-            let ptr = match &mut component.ptr {
-                ComponentPtr::Table(ptr) => Some(ptr),
-                _ => None,
-            }
-            .debug_checked_unwrap();
+            let ptr = component.ptr.table_mut().debug_checked_unwrap();
             *ptr = Some(TablePtr {
                 component: column.get_data_ptr(),
                 added: Some(column.get_added_ticks_slice().get_unchecked(0).into()),
