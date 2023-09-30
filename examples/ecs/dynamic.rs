@@ -8,11 +8,13 @@ use bevy::{
     ecs::{
         component::{ComponentDescriptor, ComponentId, StorageType},
         system::TermQuery,
-        term_query::{FetchedTerm, QueryBuilder, QueryTermGroup, Term, TermAccess},
+        term_query::{QueryBuilder, QueryTermGroup, Term, TermAccess},
     },
     ptr::OwningPtr,
+    ptr::Ptr,
     utils::HashMap,
 };
+use bevy_internal::ecs::term_query::TermState;
 
 const PROMPT: &str = "
 Commands:
@@ -204,15 +206,15 @@ fn parse_query<Q: QueryTermGroup>(
     });
 }
 
-fn print_match(term: &Term, fetch: &FetchedTerm, world: &World) -> String {
+fn print_match(fetches: &FetchedTerms, term: &Term, state: &TermState, world: &World) -> String {
     let id = term.component.unwrap();
     let name = world.components().get_name(id).unwrap();
-    if fetch.matched {
-        if term.access.is_some() {
+    if state.matches {
+        if !term.access.is_none() {
             let info = world.components().get_info(id).unwrap();
             let len = info.layout().size() / std::mem::size_of::<u64>();
 
-            let ptr = fetch.component_ptr().unwrap();
+            let ptr = unsafe { fetches.fetch_state::<Ptr>(state) };
             let data = unsafe {
                 std::slice::from_raw_parts_mut(ptr.assert_unique().as_ptr().cast::<u64>(), len)
             };
@@ -231,11 +233,11 @@ fn print_match(term: &Term, fetch: &FetchedTerm, world: &World) -> String {
 
 fn query_system(mut query: TermQuery<Entity>, world: &World) {
     query.iter_raw().for_each(|fetches| {
-        let entity = unsafe { fetches.cast::<Entity>(0) };
+        let entity = unsafe { fetches.fetch::<Entity>(0) };
         let components = fetches
             .iter_terms()
             .skip(1)
-            .map(|(term, fetch)| print_match(term, fetch, world))
+            .map(|(term, state)| print_match(&fetches, term, state, world))
             .collect::<Vec<_>>()
             .join(", ");
 

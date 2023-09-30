@@ -88,7 +88,7 @@ impl TableRow {
     }
 
     /// Gets the index of the row.
-    #[inline]
+    #[inline(always)]
     pub const fn index(self) -> usize {
         self.0 as usize
     }

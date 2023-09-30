@@ -1,4 +1,4 @@
-use std::{alloc::Layout, marker::PhantomData, mem::MaybeUninit};
+use std::marker::PhantomData;
 
 use fixedbitset::FixedBitSet;
 
@@ -13,60 +13,13 @@ use crate::{
 };
 
 use super::{
-    FetchedTerm, FetchedTerms, QueryTermGroup, Term, TermOperator, TermQueryIter,
-    TermQueryIterUntyped, TermState,
+    FetchedTerms, QueryTermGroup, Term, TermOperator, TermQueryIter, TermQueryIterUntyped,
+    TermState,
 };
-
-// Used to avoid allocating space for fetched terms in the hot loop
-// Instead we re-use a buffer we allocate when the query or iterator is created
-pub(crate) struct FetchBuffer {
-    mem: *mut u8,
-    len: usize,
-}
-
-impl FetchBuffer {
-    #[inline]
-    pub(crate) fn new(len: usize) -> Self {
-        Self {
-            // SAFETY: FetchedTerm has non-zero size
-            mem: unsafe { std::alloc::alloc(Layout::array::<FetchedTerm>(len).unwrap_unchecked()) },
-            len,
-        }
-    }
-
-    /// Access the [`FetchBuffer`] as a slice of [`FetchedTerm`]
-    ///
-    /// # Safety
-    ///
-    /// Caller must manually enforce they have unique access to [`FetchBuffer`]
-    #[allow(clippy::mut_from_ref)]
-    #[inline]
-    pub(crate) unsafe fn as_uninit<'w>(&self) -> &mut [MaybeUninit<FetchedTerm<'w>>] {
-        std::slice::from_raw_parts_mut(self.mem.cast(), self.len)
-    }
-}
-
-impl Drop for FetchBuffer {
-    fn drop(&mut self) {
-        // SAFETY: len is the same length as when the data was allocated and mem is owned by FetchBuffer
-        unsafe {
-            std::alloc::dealloc(
-                self.mem,
-                Layout::array::<FetchedTerm>(self.len).unwrap_unchecked(),
-            );
-        }
-    }
-}
-
-// SAFETY: FetchBuffer is just a pointer to memory
-unsafe impl Send for FetchBuffer {}
-// SAFETY: FetchBuffer is just a pointer to memory
-unsafe impl Sync for FetchBuffer {}
 
 /// Provides scoped access to a [`World`] state according to a given [`QueryTermGroup`]
 pub struct TermQueryState<Q: QueryTermGroup = (), F: QueryTermGroup = ()> {
     world_id: WorldId,
-    fetches: FetchBuffer,
     pub(crate) terms: Vec<Term>,
     pub(crate) dense: bool,
     pub(crate) filtered: bool,
@@ -126,13 +79,11 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
             or = term.or;
         }
 
-        let fetches = FetchBuffer::new(terms.len());
         let dense = terms.iter().all(|t| t.dense(world));
         let filtered = terms.iter().any(|t| t.filtered());
 
         Self {
             terms,
-            fetches,
             dense,
             filtered,
             world_id: world.id(),
@@ -221,6 +172,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
     }
 
     /// Re-interpret this [`TermQueryState`] as one without the associated filter type parameter
+    #[inline]
     pub fn filterless(&self) -> &TermQueryState<Q> {
         // SAFETY: The filter type parameter isn't used after construction of the state so dropping it is a nop
         unsafe { std::mem::transmute(self) }
@@ -545,18 +497,14 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
             .get(location.table_id)
             .debug_checked_unwrap();
 
-        self.set_table(&mut term_state, table);
-        let fetches = self.fetch(
-            &term_state,
-            entity,
-            location.table_row,
-            self.fetches.as_uninit(),
-        );
-        Ok(Q::from_fetches(
+        Q::set_tables(&mut term_state.iter_mut(), table);
+        Ok(Q::fetch_terms(
             world,
             last_run,
             this_run,
-            &mut fetches.iter(),
+            &mut term_state.iter(),
+            entity,
+            location.table_row,
         ))
     }
 
@@ -794,7 +742,6 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         this_run: Tick,
     ) {
         let mut term_state = self.init_term_state(world);
-        let fetch_buffer = FetchBuffer::new(self.terms.len());
 
         let tables = &world.storages().tables;
         if self.dense {
@@ -811,12 +758,13 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
                     {
                         continue;
                     }
-                    let fetches = self.fetch(&term_state, entity, row, fetch_buffer.as_uninit());
-                    func(Q::from_fetches(
+                    func(Q::fetch_terms(
                         world,
                         last_run,
                         this_run,
-                        &mut fetches.iter(),
+                        &mut term_state.iter(),
+                        entity,
+                        row,
                     ));
                 }
             }
@@ -837,13 +785,13 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
                     {
                         continue;
                     }
-
-                    let fetches = self.fetch(&term_state, entity, row, fetch_buffer.as_uninit());
-                    func(Q::from_fetches(
+                    func(Q::fetch_terms(
                         world,
                         last_run,
                         this_run,
-                        &mut fetches.iter(),
+                        &mut term_state.iter(),
+                        entity,
+                        row,
                     ));
                 }
             }
@@ -905,32 +853,5 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
         }
 
         true
-    }
-
-    /// Resolves this query against the given entity and table row, returns the fetched slice of [`FetchedTerm`]
-    ///
-    /// # Safety
-    ///
-    /// Caller must ensure that `mem` has room for the terms that will be fetched by `self.terms` and `state`
-    /// is the same state created in `init_term_state`
-    #[inline(always)]
-    pub(crate) unsafe fn fetch<'w, 's, 'f>(
-        &'s self,
-        state: &'s [TermState<'w>],
-        entity: Entity,
-        table_row: TableRow,
-        mem: &'f mut [MaybeUninit<FetchedTerm<'w>>],
-    ) -> &'f mut [FetchedTerm<'w>] {
-        let len = self.terms.len();
-        let terms = &self.terms[..len];
-        let state = &state[..len];
-
-        for i in 0..len {
-            let term = &terms[i];
-            let state = &state[i];
-            mem[i].write(term.fetch(state, entity, table_row));
-        }
-
-        std::mem::transmute(mem)
     }
 }

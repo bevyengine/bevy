@@ -55,7 +55,7 @@ pub mod prelude {
             TermQuery,
         },
         term_query::{
-            FetchedTerm, QueryBuilder, QueryTerm, QueryTermGroup, Term, TermAccess, TermQueryState,
+            FetchedTerms, QueryBuilder, QueryTerm, QueryTermGroup, Term, TermAccess, TermQueryState,
         },
         world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
     };

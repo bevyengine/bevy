@@ -187,7 +187,7 @@ mod tests {
 
         // Consume our fetched terms to produce a set of term items
         // SAFETY: We know the type signature associated with these fetches
-        let (e, a, b) = unsafe { fetches.cast_many::<(Entity, &A, &B)>(0) };
+        let (e, a, b) = unsafe { fetches.fetch_range::<(Entity, &A, &B)>(0..3) };
 
         assert_eq!(e, entity);
         assert_eq!(0, a.0);
@@ -198,9 +198,9 @@ mod tests {
 
         // SAFETY: We know the terms at these indices have compatible types
         unsafe {
-            assert_eq!(0, fetches.cast::<&A>(1).0);
-            assert_eq!(e, fetches.cast::<Entity>(0));
-            assert_eq!(1, fetches.cast::<&B>(2).0);
+            assert_eq!(0, fetches.fetch::<&A>(1).0);
+            assert_eq!(e, fetches.fetch::<Entity>(0));
+            assert_eq!(1, fetches.fetch::<&B>(2).0);
         }
     }
 
@@ -217,9 +217,9 @@ mod tests {
 
         // Seperately consume our two terms
         // SAFETY: We know the first two terms match this signature
-        let (e1, a) = unsafe { fetches.cast_many::<(Entity, &A)>(0) };
+        let (e1, a) = unsafe { fetches.fetch_range::<(Entity, &A)>(0..2) };
         // SAFETY: We know the second two terms match this signature
-        let (e2, b) = unsafe { fetches.cast_many::<(Entity, &A)>(2) };
+        let (e2, b) = unsafe { fetches.fetch_range::<(Entity, &A)>(2..4) };
 
         assert_eq!(e1, entity);
         assert_eq!(e1, e2);

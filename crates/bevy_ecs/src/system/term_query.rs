@@ -113,11 +113,11 @@ impl<'w, 's, Q: QueryTermGroup, F: QueryTermGroup> TermQuery<'w, 's, Q, F> {
     /// # struct C(usize);
     ///
     /// fn update_system(mut query: TermQuery<(&mut A, &B, &mut C)>) {
-    ///     query.iter_raw().for_each(|(terms, fetches)| {
-    ///         terms.iter().zip(fetches.iter()).for_each(|(term, fetch)| {
+    ///     query.iter_raw().for_each(|fetches| {
+    ///         fetches.iter_terms().for_each(|(term, state)| {
     ///             if term.access == TermAccess::Write {
     ///                 // SAFETY: Since all the components have the same layout we can cast them all to the same value
-    ///                 let mut component = unsafe { <&mut A>::from_fetch(fetch) };
+    ///                 let mut component = unsafe { fetches.cast_state::<&mut A>(state) };
     ///                 component.0 += 1;
     ///             }
     ///         })

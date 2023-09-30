@@ -23,11 +23,6 @@ pub enum TermAccess {
 }
 
 impl TermAccess {
-    /// True if this term accesses it's target at all i.e. Read or Write
-    pub fn is_some(&self) -> bool {
-        self > &TermAccess::None
-    }
-
     /// True if this term doesn't access it's target at all
     pub fn is_none(&self) -> bool {
         self == &TermAccess::None
@@ -149,6 +144,7 @@ impl Term {
     }
 
     /// Returns true if this term is an [`TermOperator::Added`] or [`TermOperator::Changed`] term
+    #[inline(always)]
     pub fn filtered(&self) -> bool {
         self.operator == TermOperator::Added || self.operator == TermOperator::Changed
     }
@@ -157,6 +153,7 @@ impl Term {
     ///
     /// # Safety:
     ///  - caller must ensure any component accesses by this term exists
+    #[inline(always)]
     pub unsafe fn dense(&self, world: &World) -> bool {
         if let Some(id) = self.component {
             world.components().get_info_unchecked(id).storage_type() == StorageType::Table
@@ -174,86 +171,84 @@ impl Term {
 }
 
 // Stores each possible pointer type that could be stored in [`TermState`]
-pub(crate) enum TermStatePtr<'w> {
+#[derive(Clone)]
+pub enum ComponentPtr<'w> {
     // A reference to the components associated sparse set
     SparseSet(&'w ComponentSparseSet),
     // A reference to the components associated table, set in [`Term::set_table`]
     Table(Option<TablePtr<'w>>),
-    None,
+}
+
+impl<'w> ComponentPtr<'w> {
+    #[inline(always)]
+    pub fn table(&self) -> Option<&TablePtr<'w>> {
+        match self {
+            Self::Table(Some(ptr)) => Some(ptr),
+            _ => None,
+        }
+    }
+
+    #[inline(always)]
+    pub fn table_mut(&mut self) -> Option<&mut Option<TablePtr<'w>>> {
+        match self {
+            Self::Table(ptr) => Some(ptr),
+            _ => None,
+        }
+    }
+
+    #[inline(always)]
+    pub fn sparse_set(&self) -> Option<&'w ComponentSparseSet> {
+        match self {
+            Self::SparseSet(set) => Some(set),
+            _ => None,
+        }
+    }
 }
 
 // Stores state for change detection, ptrs gets set in [`Term::set_table`] for table components
 // and is otherwise None
 #[derive(Clone)]
-pub(crate) struct TablePtr<'w> {
-    component: Ptr<'w>,
-    added: Ptr<'w>,
-    changed: Ptr<'w>,
+pub struct TablePtr<'w> {
+    pub component: Ptr<'w>,
+    pub added: Option<Ptr<'w>>,
+    pub changed: Option<Ptr<'w>>,
 }
 
 impl<'w> TablePtr<'w> {
+    const TICK_SIZE: usize = std::mem::size_of::<Tick>();
+
     #[inline(always)]
-    pub unsafe fn row(&self, size: usize, row: TableRow) -> Self {
-        TablePtr {
-            component: self.component.byte_add(size * row.index()),
-            added: self
-                .added
-                .byte_add(std::mem::size_of::<Tick>() * row.index()),
-            changed: self
-                .changed
-                .byte_add(std::mem::size_of::<Tick>() * row.index()),
+    pub unsafe fn get_row(&self, size: usize, index: usize) -> Self {
+        Self {
+            component: self.component.byte_add(size * index),
+            added: Some(
+                self.added
+                    .debug_checked_unwrap()
+                    .byte_add(Self::TICK_SIZE * index),
+            ),
+            changed: Some(
+                self.changed
+                    .debug_checked_unwrap()
+                    .byte_add(Self::TICK_SIZE * index),
+            ),
         }
     }
+}
+
+#[derive(Clone)]
+pub struct ComponentState<'w> {
+    pub ptr: ComponentPtr<'w>,
+    pub id: ComponentId,
+    pub size: usize,
 }
 
 // Stores the state for a single term
-pub(crate) struct TermState<'w> {
-    // Pointer to wherever we need to fetch data to resolve this term
-    ptr: TermStatePtr<'w>,
-    // Size of the associated component
-    size: usize,
-    // Whether this term matches the associated archetype
-    matches: bool,
-}
-
-/// Represents a [`Term`] that has been fetched from a [`TermQuery`](crate::prelude::TermQuery)
 #[derive(Clone)]
-pub struct FetchedTerm<'w> {
-    /// The [`Entity`] this [`Term`] was resolved with
-    pub entity: Entity,
-    /// The a pointer to the data fetched with this [`Term`]
-    component: Option<TablePtr<'w>>,
-    /// Whether or not this term matched this [`Entity`]
-    pub matched: bool,
-}
-
-impl<'w> FetchedTerm<'w> {
-    /// Helper method to get the ponter to the component data from a [`FetchedTerm`]
-    pub fn component_ptr(&self) -> Option<Ptr<'w>> {
-        if let Some(ptrs) = &self.component {
-            Some(ptrs.component)
-        } else {
-            None
-        }
-    }
-
-    /// Helper method to get the fetched change detection data from a [`FetchedTerm`]
-    pub fn added(&self) -> Option<&'w mut Tick> {
-        if let Some(ptrs) = &self.component {
-            Some(unsafe { ptrs.added.assert_unique().deref_mut() })
-        } else {
-            None
-        }
-    }
-
-    /// Helper method to get the fetched change detection data from a [`FetchedTerm`]
-    pub fn changed(&self) -> Option<&'w mut Tick> {
-        if let Some(ptrs) = &self.component {
-            Some(unsafe { ptrs.changed.assert_unique().deref_mut() })
-        } else {
-            None
-        }
-    }
+pub struct TermState<'w> {
+    // Pointer to wherever we need to fetch data to resolve this term
+    pub component: Option<ComponentState<'w>>,
+    // Whether this term matches the associated archetype
+    pub matches: bool,
 }
 
 impl Term {
@@ -276,22 +271,27 @@ impl Term {
                         .get(component_id)
                         .debug_checked_unwrap();
                     TermState {
-                        ptr: TermStatePtr::SparseSet(set),
-                        size: info.layout().size(),
+                        component: Some(ComponentState {
+                            ptr: ComponentPtr::SparseSet(set),
+                            id: component_id,
+                            size: info.layout().size(),
+                        }),
                         matches: true,
                     }
                 }
                 // For table components we wait until `set_table`
                 StorageType::Table => TermState {
-                    ptr: TermStatePtr::Table(None),
-                    size: info.layout().size(),
+                    component: Some(ComponentState {
+                        ptr: ComponentPtr::Table(None),
+                        id: component_id,
+                        size: info.layout().size(),
+                    }),
                     matches: false,
                 },
             }
         } else {
             TermState {
-                ptr: TermStatePtr::None,
-                size: 0,
+                component: None,
                 matches: true,
             }
         }
@@ -314,7 +314,7 @@ impl Term {
         table: &'w Table,
     ) {
         state.matches = self.matches_component_set(&|id| archetype.contains(id));
-        if state.matches && (self.change_detection || self.access.is_some()) {
+        if state.matches && (self.change_detection || !self.access.is_none()) {
             self.set_table_manual(state, table);
         }
     }
@@ -331,89 +331,22 @@ impl Term {
     #[inline]
     pub(crate) unsafe fn set_table<'w>(&self, state: &mut TermState<'w>, table: &'w Table) {
         state.matches = self.matches_component_set(&|id| table.has_column(id));
-        if state.matches && (self.change_detection || self.access.is_some()) {
+        if state.matches && (self.change_detection || !self.access.is_none()) {
             self.set_table_manual(state, table);
         }
     }
 
     /// Set the table and change tick pointers for table component [`Term`]s.
+    #[inline]
     unsafe fn set_table_manual<'w>(&self, state: &mut TermState<'w>, table: &'w Table) {
-        if let TermStatePtr::Table(_) = state.ptr {
+        if let ComponentPtr::Table(ptr) = &mut state.component.as_mut().debug_checked_unwrap().ptr {
             let component = self.component.debug_checked_unwrap();
             let column = table.get_column(component).debug_checked_unwrap();
-            state.ptr = TermStatePtr::Table(Some(TablePtr {
+            *ptr = Some(TablePtr {
                 component: column.get_data_ptr(),
-                added: column
-                    .get_added_ticks_slice()
-                    .get(0)
-                    .debug_checked_unwrap()
-                    .into(),
-                changed: column
-                    .get_changed_ticks_slice()
-                    .get(0)
-                    .debug_checked_unwrap()
-                    .into(),
-            }));
-        }
-    }
-
-    /// Fetch [`FetchedTerm`] for either the given `entity` in the current [`Table`], or
-    /// for the given `entity` in the current [`Archetype`]. This must always be called after
-    /// [`Self::set_table`] with a `table_row` in the range of the current [`Table`].
-    ///
-    /// # Safety
-    ///
-    /// Must always be called _after_ [`Self::set_table`]. `entity` and `table_row` must be
-    /// in the range of the current table and archetype.
-    ///
-    /// If `update_component_access` includes any mutable accesses, then the caller must ensure
-    /// that `fetch` is called no more than once for each `entity`/`table_row` in each archetype.
-    #[inline(always)]
-    pub(crate) unsafe fn fetch<'w>(
-        &self,
-        state: &TermState<'w>,
-        entity: Entity,
-        table_row: TableRow,
-    ) -> FetchedTerm<'w> {
-        // If we don't match our current archetype, return an empty fetch
-        if !state.matches || !self.access.is_some() {
-            return FetchedTerm {
-                entity,
-                component: None,
-                matched: state.matches,
-            };
-        }
-
-        match &state.ptr {
-            // For table components we fetch the ptr and change ticks from the table pointer in our state
-            TermStatePtr::Table(table) => FetchedTerm {
-                entity,
-                component: Some(
-                    table
-                        .as_ref()
-                        .debug_checked_unwrap()
-                        .row(state.size, table_row),
-                ),
-                matched: true,
-            },
-            // For sparse set components we fetch the ptr and change ticks from the sparse set in our state
-            TermStatePtr::SparseSet(sparse_set) => {
-                let (component, ticks) = sparse_set.get_with_ticks(entity).debug_checked_unwrap();
-                FetchedTerm {
-                    entity,
-                    component: Some(TablePtr {
-                        component,
-                        added: ticks.added.into(),
-                        changed: ticks.changed.into(),
-                    }),
-                    matched: true,
-                }
-            }
-            TermStatePtr::None => FetchedTerm {
-                entity,
-                component: None,
-                matched: true,
-            },
+                added: Some(column.get_added_ticks_slice().get_unchecked(0).into()),
+                changed: Some(column.get_changed_ticks_slice().get_unchecked(0).into()),
+            });
         }
     }
 
@@ -434,14 +367,16 @@ impl Term {
     ) -> bool {
         match self.operator {
             TermOperator::Added => {
-                let added = match &state.ptr {
-                    TermStatePtr::SparseSet(set) => {
+                let component = state.component.as_ref().debug_checked_unwrap();
+                let added = match &component.ptr {
+                    ComponentPtr::SparseSet(set) => {
                         let cells = set.get_tick_cells(entity).debug_checked_unwrap();
                         Some(cells.added.deref())
                     }
-                    TermStatePtr::Table(Some(table)) => {
+                    ComponentPtr::Table(Some(table)) => {
                         let added = table
                             .added
+                            .debug_checked_unwrap()
                             .byte_add(std::mem::size_of::<Tick>() * table_row.index());
                         Some(added.deref::<Tick>())
                     }
@@ -451,14 +386,16 @@ impl Term {
                 added.is_newer_than(last_run, this_run)
             }
             TermOperator::Changed => {
-                let changed = match &state.ptr {
-                    TermStatePtr::SparseSet(set) => {
+                let component = state.component.as_ref().debug_checked_unwrap();
+                let changed = match &component.ptr {
+                    ComponentPtr::SparseSet(set) => {
                         let cells = set.get_tick_cells(entity).debug_checked_unwrap();
                         Some(cells.changed.deref())
                     }
-                    TermStatePtr::Table(Some(table)) => {
+                    ComponentPtr::Table(Some(table)) => {
                         let changed = table
                             .changed
+                            .debug_checked_unwrap()
                             .byte_add(std::mem::size_of::<Tick>() * table_row.index());
                         Some(changed.deref::<Tick>())
                     }

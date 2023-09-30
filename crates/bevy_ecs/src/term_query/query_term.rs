@@ -1,18 +1,20 @@
-use bevy_ptr::{Ptr, PtrMut};
+use bevy_ptr::{Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::all_tuples;
 
 use crate::{
+    archetype::Archetype,
     change_detection::{Mut, MutUntyped, Ticks, TicksMut},
-    component::Tick,
+    component::{ComponentStorage, StorageType, Tick},
     entity::Entity,
     prelude::{
         Added, AnyOf, Changed, Component, EntityMut, EntityRef, Has, Or, Ref, With, Without, World,
     },
     query::DebugCheckedUnwrap,
-    world::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell},
+    storage::{Table, TableRow},
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{FetchedTerm, Term, TermAccess, TermOperator};
+use super::{ComponentPtr, TablePtr, Term, TermAccess, TermOperator, TermState};
 
 /// Types that can be fetched from a [`World`] using a [`TermQuery`](crate::prelude::TermQuery).
 ///
@@ -58,19 +60,29 @@ pub trait QueryTerm {
     /// The read-only variant of this [`QueryTerm`]
     type ReadOnly: QueryTerm;
 
+    const DENSE: bool;
+
     /// Creates a new [`Term`] instance satisfying the requirements for [`Self::from_fetch`]
     fn init_term(world: &mut World) -> Term;
 
-    /// Creates an instance of [`Self::Item`] out of a fetched [`Term`]
-    ///
-    /// # Safety
-    ///
-    /// Caller must ensure that `fetch` is consumable as the implementing type
-    unsafe fn from_fetch<'w>(
+    #[inline(always)]
+    unsafe fn set_term_table<'w>(_state: &mut TermState<'w>, _table: &'w Table) {}
+
+    #[inline(always)]
+    unsafe fn set_term_archetype<'w>(
+        _state: &mut TermState<'w>,
+        _archetype: &'w Archetype,
+        _table: &'w Table,
+    ) {
+    }
+
+    unsafe fn fetch_term<'w>(
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-        fetch: &FetchedTerm<'w>,
+        state: &TermState<'w>,
+        entity: Entity,
+        table_row: TableRow,
     ) -> Self::Item<'w>;
 }
 
@@ -85,19 +97,29 @@ pub trait QueryTermGroup {
     /// The optional variant of this [`QueryTermGroup`]
     type Optional: QueryTermGroup;
 
+    const DENSE: bool;
+
     /// Writes new [`Term`] instances to `terms`, satisfying the requirements for [`Self::from_fetches`]
     fn init_terms(world: &mut World, terms: &mut Vec<Term>);
 
-    /// Creates an instance of [`Self::Item`] out of an iterator of fetched [`Term`]s
-    ///
-    /// # Safety
-    ///
-    /// Caller must ensure the `terms` is consumable as the implementing type
-    unsafe fn from_fetches<'w: 'f, 'f>(
+    unsafe fn set_tables<'w: 'f, 'f>(
+        state: &mut impl Iterator<Item = &'f mut TermState<'w>>,
+        table: &'w Table,
+    );
+
+    unsafe fn set_archetypes<'w: 'f, 'f>(
+        state: &mut impl Iterator<Item = &'f mut TermState<'w>>,
+        archetype: &'w Archetype,
+        table: &'w Table,
+    );
+
+    unsafe fn fetch_terms<'w: 'f, 'f>(
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-        terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
+        state: &mut impl Iterator<Item = &'f TermState<'w>>,
+        entity: Entity,
+        table_row: TableRow,
     ) -> Self::Item<'w>;
 }
 
@@ -108,22 +130,45 @@ impl<T: QueryTerm> QueryTermGroup for T {
     type ReadOnly = T::ReadOnly;
     type Optional = Option<T>;
 
+    const DENSE: bool = T::DENSE;
+
     fn init_terms(world: &mut World, terms: &mut Vec<Term>) {
         terms.push(T::init_term(world));
     }
 
-    #[inline]
-    unsafe fn from_fetches<'w: 'f, 'f>(
+    #[inline(always)]
+    unsafe fn set_tables<'w: 'f, 'f>(
+        state: &mut impl Iterator<Item = &'f mut TermState<'w>>,
+        table: &'w Table,
+    ) {
+        T::set_term_table(state.next().debug_checked_unwrap(), table);
+    }
+
+    #[inline(always)]
+    unsafe fn set_archetypes<'w: 'f, 'f>(
+        state: &mut impl Iterator<Item = &'f mut TermState<'w>>,
+        archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        T::set_term_archetype(state.next().debug_checked_unwrap(), archetype, table);
+    }
+
+    #[inline(always)]
+    unsafe fn fetch_terms<'w: 'f, 'f>(
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-        terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
+        state: &mut impl Iterator<Item = &'f TermState<'w>>,
+        entity: Entity,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
-        T::from_fetch(
+        T::fetch_term(
             world,
             last_run,
             this_run,
-            terms.next().debug_checked_unwrap(),
+            state.next().debug_checked_unwrap(),
+            entity,
+            table_row,
         )
     }
 }
@@ -136,22 +181,47 @@ macro_rules! impl_query_term_tuple {
             type ReadOnly = ($($term::ReadOnly,)*);
             type Optional = ($($term::Optional,)*);
 
+            const DENSE: bool = true $(&& $term::DENSE)*;
+
             fn init_terms(_world: &mut World, _terms: &mut Vec<Term>) {
                 $(
                     $term::init_terms(_world, _terms);
                 )*
             }
 
-            #[allow(clippy::unused_unit)]
             #[inline]
-            unsafe fn from_fetches<'w: 'f, 'f>(
+            unsafe fn set_tables<'w: 'f, 'f>(
+                _state: &mut impl Iterator<Item = &'f mut TermState<'w>>,
+                _table: &'w Table,
+            ) {
+                $(
+                    $term::set_tables(_state, _table);
+                )*
+            }
+
+            #[inline]
+            unsafe fn set_archetypes<'w: 'f, 'f>(
+                _state: &mut impl Iterator<Item = &'f mut TermState<'w>>,
+                _archetype: &'w Archetype,
+                _table: &'w Table,
+            ) {
+                $(
+                    $term::set_archetypes(_state, _archetype, _table);
+                )*
+            }
+
+            #[allow(clippy::unused_unit)]
+            #[inline(always)]
+            unsafe fn fetch_terms<'w: 'f, 'f>(
                 _world: UnsafeWorldCell<'w>,
                 _last_run: Tick,
                 _this_run: Tick,
-                _terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
+                _state: &mut impl Iterator<Item = &'f TermState<'w>>,
+                _entity: Entity,
+                _table_row: TableRow,
             ) -> Self::Item<'w> {
                 ($(
-                    $term::from_fetches(_world, _last_run, _this_run, _terms),
+                    $term::fetch_terms(_world, _last_run, _this_run, _state, _entity, _table_row),
                 )*)
             }
         }
@@ -164,18 +234,22 @@ impl QueryTerm for Entity {
     type Item<'w> = Self;
     type ReadOnly = Self;
 
+    const DENSE: bool = true;
+
     fn init_term(_world: &mut World) -> Term {
         Term::default()
     }
 
-    #[inline]
-    unsafe fn from_fetch<'w>(
+    #[inline(always)]
+    unsafe fn fetch_term<'w>(
         _world: UnsafeWorldCell<'w>,
         _last_run: Tick,
         _this_run: Tick,
-        term: &FetchedTerm<'w>,
+        _state: &TermState<'w>,
+        entity: Entity,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
-        term.entity
+        entity
     }
 }
 
@@ -183,19 +257,22 @@ impl QueryTerm for EntityRef<'_> {
     type Item<'w> = EntityRef<'w>;
     type ReadOnly = Self;
 
+    const DENSE: bool = true;
+
     fn init_term(_world: &mut World) -> Term {
         Term::default().set_access(TermAccess::Read)
     }
 
-    #[inline]
-    unsafe fn from_fetch<'w>(
+    #[inline(always)]
+    unsafe fn fetch_term<'w>(
         world: UnsafeWorldCell<'w>,
         _last_run: Tick,
         _this_run: Tick,
-        term: &FetchedTerm<'w>,
+        _state: &TermState<'w>,
+        entity: Entity,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
-        let location = world.entities().get(term.entity).debug_checked_unwrap();
-        EntityRef::new(UnsafeEntityCell::new(world, term.entity, location))
+        EntityRef::new(world.get_entity(entity).debug_checked_unwrap())
     }
 }
 
@@ -203,19 +280,22 @@ impl<'r> QueryTerm for EntityMut<'r> {
     type Item<'w> = EntityMut<'w>;
     type ReadOnly = EntityRef<'r>;
 
+    const DENSE: bool = true;
+
     fn init_term(_world: &mut World) -> Term {
         Term::default().set_access(TermAccess::Write)
     }
 
-    #[inline]
-    unsafe fn from_fetch<'w>(
+    #[inline(always)]
+    unsafe fn fetch_term<'w>(
         world: UnsafeWorldCell<'w>,
         _last_run: Tick,
         _this_run: Tick,
-        term: &FetchedTerm<'w>,
+        _state: &TermState<'w>,
+        entity: Entity,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
-        let location = world.entities().get(term.entity).debug_checked_unwrap();
-        EntityMut::new(UnsafeEntityCell::new(world, term.entity, location))
+        EntityMut::new(world.get_entity(entity).debug_checked_unwrap())
     }
 }
 
@@ -223,17 +303,21 @@ impl<T: Component> QueryTerm for With<T> {
     type Item<'w> = ();
     type ReadOnly = Self;
 
+    const DENSE: bool = true;
+
     fn init_term(world: &mut World) -> Term {
         let component = world.init_component::<T>();
         Term::with_id(component)
     }
 
-    #[inline]
-    unsafe fn from_fetch<'w>(
+    #[inline(always)]
+    unsafe fn fetch_term<'w>(
         _world: UnsafeWorldCell<'w>,
         _last_run: Tick,
         _this_run: Tick,
-        _term: &FetchedTerm<'w>,
+        _state: &TermState<'w>,
+        _entity: Entity,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
     }
 }
@@ -242,17 +326,21 @@ impl<T: Component> QueryTerm for Without<T> {
     type Item<'w> = ();
     type ReadOnly = Self;
 
+    const DENSE: bool = true;
+
     fn init_term(world: &mut World) -> Term {
         let component = world.init_component::<T>();
         Term::without_id(component)
     }
 
-    #[inline]
-    unsafe fn from_fetch<'w>(
+    #[inline(always)]
+    unsafe fn fetch_term<'w>(
         _world: UnsafeWorldCell<'w>,
         _last_run: Tick,
         _this_run: Tick,
-        _term: &FetchedTerm<'w>,
+        _state: &TermState<'w>,
+        _entity: Entity,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
     }
 }
@@ -261,19 +349,39 @@ impl<T: Component> QueryTerm for Has<T> {
     type Item<'w> = bool;
     type ReadOnly = Self;
 
+    const DENSE: bool = true;
+
     fn init_term(world: &mut World) -> Term {
         let component = world.init_component::<T>();
         Term::with_id(component).set_operator(TermOperator::Optional)
     }
 
-    #[inline]
-    unsafe fn from_fetch<'w>(
+    #[inline(always)]
+    unsafe fn set_term_table<'w>(state: &mut TermState<'w>, table: &'w Table) {
+        let component = state.component.as_ref().debug_checked_unwrap();
+        state.matches = table.has_column(component.id);
+    }
+
+    #[inline(always)]
+    unsafe fn set_term_archetype<'w>(
+        state: &mut TermState<'w>,
+        archetype: &'w Archetype,
+        _table: &'w Table,
+    ) {
+        let component = state.component.as_ref().debug_checked_unwrap();
+        state.matches = archetype.contains(component.id);
+    }
+
+    #[inline(always)]
+    unsafe fn fetch_term<'w>(
         _world: UnsafeWorldCell<'w>,
         _last_run: Tick,
         _this_run: Tick,
-        term: &FetchedTerm<'w>,
+        state: &TermState<'w>,
+        _entity: Entity,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
-        term.matched
+        state.matches
     }
 }
 
@@ -281,17 +389,24 @@ impl<T: Component> QueryTerm for Added<T> {
     type Item<'w> = ();
     type ReadOnly = Self;
 
+    const DENSE: bool = match T::Storage::STORAGE_TYPE {
+        StorageType::Table => true,
+        StorageType::SparseSet => false,
+    };
+
     fn init_term(world: &mut World) -> Term {
         let component = world.init_component::<T>();
         Term::added_id(component)
     }
 
-    #[inline]
-    unsafe fn from_fetch<'w>(
+    #[inline(always)]
+    unsafe fn fetch_term<'w>(
         _world: UnsafeWorldCell<'w>,
         _last_run: Tick,
         _this_run: Tick,
-        _term: &FetchedTerm<'w>,
+        _state: &TermState<'w>,
+        _entity: Entity,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
     }
 }
@@ -300,17 +415,24 @@ impl<T: Component> QueryTerm for Changed<T> {
     type Item<'w> = ();
     type ReadOnly = Self;
 
+    const DENSE: bool = match T::Storage::STORAGE_TYPE {
+        StorageType::Table => true,
+        StorageType::SparseSet => false,
+    };
+
     fn init_term(world: &mut World) -> Term {
         let component = world.init_component::<T>();
         Term::changed_id(component)
     }
 
-    #[inline]
-    unsafe fn from_fetch<'w>(
+    #[inline(always)]
+    unsafe fn fetch_term<'w>(
         _world: UnsafeWorldCell<'w>,
         _last_run: Tick,
         _this_run: Tick,
-        _term: &FetchedTerm<'w>,
+        _state: &TermState<'w>,
+        _entity: Entity,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
     }
 }
@@ -319,19 +441,63 @@ impl<T: Component> QueryTerm for &T {
     type Item<'w> = &'w T;
     type ReadOnly = Self;
 
+    const DENSE: bool = match T::Storage::STORAGE_TYPE {
+        StorageType::Table => true,
+        StorageType::SparseSet => false,
+    };
+
     fn init_term(world: &mut World) -> Term {
         let component = world.init_component::<T>();
         Term::read_id(component)
     }
 
-    #[inline]
-    unsafe fn from_fetch<'w>(
+    #[inline(always)]
+    unsafe fn set_term_table<'w>(state: &mut TermState<'w>, table: &'w Table) {
+        if T::Storage::STORAGE_TYPE == StorageType::Table {
+            let component = state.component.as_mut().debug_checked_unwrap();
+            let column = table.get_column(component.id).debug_checked_unwrap();
+            let ptr = match &mut component.ptr {
+                ComponentPtr::Table(ptr) => Some(ptr),
+                _ => None,
+            }
+            .debug_checked_unwrap();
+            *ptr = Some(TablePtr {
+                component: column.get_data_ptr(),
+                added: None,
+                changed: None,
+            })
+        }
+    }
+
+    #[inline(always)]
+    unsafe fn set_term_archetype<'w>(
+        state: &mut TermState<'w>,
+        _archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        Self::set_term_table(state, table);
+    }
+
+    #[inline(always)]
+    unsafe fn fetch_term<'w>(
         _world: UnsafeWorldCell<'w>,
         _last_run: Tick,
         _this_run: Tick,
-        term: &FetchedTerm<'w>,
+        state: &TermState<'w>,
+        entity: Entity,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
-        term.component_ptr().debug_checked_unwrap().deref()
+        let component = state.component.as_ref().debug_checked_unwrap();
+        if T::Storage::STORAGE_TYPE == StorageType::Table {
+            let table = component.ptr.table().debug_checked_unwrap();
+            table
+                .component
+                .byte_add(component.size * table_row.index())
+                .deref()
+        } else {
+            let set = component.ptr.sparse_set().debug_checked_unwrap();
+            set.get(entity).debug_checked_unwrap().deref()
+        }
     }
 }
 
@@ -339,27 +505,86 @@ impl<T: Component> QueryTerm for Ref<'_, T> {
     type Item<'w> = Ref<'w, T>;
     type ReadOnly = Self;
 
+    const DENSE: bool = match T::Storage::STORAGE_TYPE {
+        StorageType::Table => true,
+        StorageType::SparseSet => false,
+    };
+
     fn init_term(world: &mut World) -> Term {
         let component = world.init_component::<T>();
         Term::read_id(component).with_change_detection()
     }
 
-    #[inline]
-    unsafe fn from_fetch<'w>(
+    #[inline(always)]
+    unsafe fn set_term_table<'w>(state: &mut TermState<'w>, table: &'w Table) {
+        if T::Storage::STORAGE_TYPE == StorageType::Table {
+            let component = state.component.as_mut().debug_checked_unwrap();
+            let column = table.get_column(component.id).debug_checked_unwrap();
+            let ptr = match &mut component.ptr {
+                ComponentPtr::Table(ptr) => Some(ptr),
+                _ => None,
+            }
+            .debug_checked_unwrap();
+            *ptr = Some(TablePtr {
+                component: column.get_data_ptr(),
+                added: Some(column.get_added_ticks_slice().get_unchecked(0).into()),
+                changed: Some(column.get_changed_ticks_slice().get_unchecked(0).into()),
+            })
+        }
+    }
+
+    #[inline(always)]
+    unsafe fn set_term_archetype<'w>(
+        state: &mut TermState<'w>,
+        _archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        Self::set_term_table(state, table);
+    }
+
+    #[inline(always)]
+    unsafe fn fetch_term<'w>(
         _world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-        term: &FetchedTerm<'w>,
+        state: &TermState<'w>,
+        entity: Entity,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
-        Ref {
-            value: term.component_ptr().debug_checked_unwrap().deref(),
-            ticks: Ticks {
-                added: term.added().debug_checked_unwrap(),
-                changed: term.changed().debug_checked_unwrap(),
-
-                last_run,
-                this_run,
-            },
+        let component = state.component.as_ref().debug_checked_unwrap();
+        if T::Storage::STORAGE_TYPE == StorageType::Table {
+            let table = component.ptr.table().debug_checked_unwrap();
+            let index = table_row.index();
+            let tick_index = std::mem::size_of::<Tick>() * index;
+            Ref {
+                value: table.component.byte_add(component.size * index).deref(),
+                ticks: Ticks {
+                    added: table
+                        .added
+                        .debug_checked_unwrap()
+                        .byte_add(tick_index)
+                        .deref(),
+                    changed: table
+                        .changed
+                        .debug_checked_unwrap()
+                        .byte_add(tick_index)
+                        .deref(),
+                    last_run,
+                    this_run,
+                },
+            }
+        } else {
+            let set = component.ptr.sparse_set().debug_checked_unwrap();
+            let (component, ticks) = set.get_with_ticks(entity).debug_checked_unwrap();
+            Ref {
+                value: component.deref(),
+                ticks: Ticks {
+                    added: ticks.added.deref(),
+                    changed: ticks.changed.deref(),
+                    last_run,
+                    this_run,
+                },
+            }
         }
     }
 }
@@ -368,18 +593,55 @@ impl QueryTerm for Ptr<'_> {
     type Item<'w> = Ptr<'w>;
     type ReadOnly = Self;
 
+    const DENSE: bool = false;
+
     fn init_term(_world: &mut World) -> Term {
         Term::read()
     }
 
-    #[inline]
-    unsafe fn from_fetch<'w>(
+    #[inline(always)]
+    unsafe fn set_term_table<'w>(state: &mut TermState<'w>, table: &'w Table) {
+        let component = state.component.as_mut().debug_checked_unwrap();
+        if let Some(column) = table.get_column(component.id) {
+            let ptr = match &mut component.ptr {
+                ComponentPtr::Table(ptr) => Some(ptr),
+                _ => None,
+            }
+            .debug_checked_unwrap();
+            *ptr = Some(TablePtr {
+                component: column.get_data_ptr(),
+                added: None,
+                changed: None,
+            })
+        }
+    }
+
+    #[inline(always)]
+    unsafe fn set_term_archetype<'w>(
+        state: &mut TermState<'w>,
+        _archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        Self::set_term_table(state, table);
+    }
+
+    #[inline(always)]
+    unsafe fn fetch_term<'w>(
         _world: UnsafeWorldCell<'w>,
         _last_run: Tick,
         _this_run: Tick,
-        term: &FetchedTerm<'w>,
+        state: &TermState<'w>,
+        entity: Entity,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
-        term.component_ptr().debug_checked_unwrap()
+        let component = state.component.as_ref().debug_checked_unwrap();
+        match &component.ptr {
+            ComponentPtr::Table(table) => {
+                let table = table.as_ref().debug_checked_unwrap();
+                table.component.byte_add(component.size * table_row.index())
+            }
+            ComponentPtr::SparseSet(set) => set.get(entity).debug_checked_unwrap(),
+        }
     }
 }
 
@@ -387,31 +649,92 @@ impl<'r, T: Component> QueryTerm for &'r mut T {
     type Item<'w> = Mut<'w, T>;
     type ReadOnly = &'r T;
 
+    const DENSE: bool = match T::Storage::STORAGE_TYPE {
+        StorageType::Table => true,
+        StorageType::SparseSet => false,
+    };
+
     fn init_term(world: &mut World) -> Term {
         let component = world.init_component::<T>();
         Term::write_id(component).with_change_detection()
     }
 
-    #[inline]
-    unsafe fn from_fetch<'w>(
+    #[inline(always)]
+    unsafe fn set_term_table<'w>(state: &mut TermState<'w>, table: &'w Table) {
+        if T::Storage::STORAGE_TYPE == StorageType::Table {
+            let component = &mut state.component.as_mut().debug_checked_unwrap();
+            let column = table.get_column(component.id).debug_checked_unwrap();
+            let ptr = match &mut component.ptr {
+                ComponentPtr::Table(ptr) => Some(ptr),
+                _ => None,
+            }
+            .debug_checked_unwrap();
+            *ptr = Some(TablePtr {
+                component: column.get_data_ptr(),
+                added: Some(column.get_added_ticks_slice().get_unchecked(0).into()),
+                changed: Some(column.get_changed_ticks_slice().get_unchecked(0).into()),
+            })
+        }
+    }
+
+    #[inline(always)]
+    unsafe fn set_term_archetype<'w>(
+        state: &mut TermState<'w>,
+        _archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        Self::set_term_table(state, table);
+    }
+
+    #[inline(always)]
+    unsafe fn fetch_term<'w>(
         _world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-        term: &FetchedTerm<'w>,
+        state: &TermState<'w>,
+        entity: Entity,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
-        Mut {
-            value: term
-                .component_ptr()
-                .debug_checked_unwrap()
-                .assert_unique()
-                .deref_mut(),
-            ticks: TicksMut {
-                added: term.added().debug_checked_unwrap(),
-                changed: term.changed().debug_checked_unwrap(),
-
-                last_run,
-                this_run,
-            },
+        let component = state.component.as_ref().debug_checked_unwrap();
+        if T::Storage::STORAGE_TYPE == StorageType::Table {
+            let table = component.ptr.table().debug_checked_unwrap();
+            let index = table_row.index();
+            let tick_index = std::mem::size_of::<Tick>() * index;
+            Mut {
+                value: table
+                    .component
+                    .byte_add(component.size * index)
+                    .assert_unique()
+                    .deref_mut(),
+                ticks: TicksMut {
+                    added: table
+                        .added
+                        .debug_checked_unwrap()
+                        .byte_add(tick_index)
+                        .assert_unique()
+                        .deref_mut(),
+                    changed: table
+                        .changed
+                        .debug_checked_unwrap()
+                        .byte_add(tick_index)
+                        .assert_unique()
+                        .deref_mut(),
+                    last_run,
+                    this_run,
+                },
+            }
+        } else {
+            let set = component.ptr.sparse_set().debug_checked_unwrap();
+            let (component, ticks) = set.get_with_ticks(entity).debug_checked_unwrap();
+            Mut {
+                value: component.assert_unique().deref_mut(),
+                ticks: TicksMut {
+                    added: ticks.added.deref_mut(),
+                    changed: ticks.changed.deref_mut(),
+                    last_run,
+                    this_run,
+                },
+            }
         }
     }
 }
@@ -420,26 +743,88 @@ impl<'r> QueryTerm for PtrMut<'r> {
     type Item<'w> = MutUntyped<'w>;
     type ReadOnly = Ptr<'r>;
 
+    const DENSE: bool = false;
+
     fn init_term(_world: &mut World) -> Term {
         Term::write().with_change_detection()
     }
 
-    #[inline]
-    unsafe fn from_fetch<'w>(
+    #[inline(always)]
+    unsafe fn set_term_table<'w>(state: &mut TermState<'w>, table: &'w Table) {
+        let component = state.component.as_mut().debug_checked_unwrap();
+        if let Some(column) = table.get_column(component.id) {
+            let ptr = match &mut component.ptr {
+                ComponentPtr::Table(ptr) => Some(ptr),
+                _ => None,
+            }
+            .debug_checked_unwrap();
+            *ptr = Some(TablePtr {
+                component: column.get_data_ptr(),
+                added: Some(column.get_added_ticks_slice().get_unchecked(0).into()),
+                changed: Some(column.get_changed_ticks_slice().get_unchecked(0).into()),
+            })
+        }
+    }
+
+    #[inline(always)]
+    unsafe fn set_term_archetype<'w>(
+        state: &mut TermState<'w>,
+        _archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        Self::set_term_table(state, table);
+    }
+
+    #[inline(always)]
+    unsafe fn fetch_term<'w>(
         _world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-        term: &FetchedTerm<'w>,
+        state: &TermState<'w>,
+        entity: Entity,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
-        MutUntyped {
-            value: term.component_ptr().debug_checked_unwrap().assert_unique(),
-            ticks: TicksMut {
-                added: term.added().debug_checked_unwrap(),
-                changed: term.changed().debug_checked_unwrap(),
-
-                last_run,
-                this_run,
-            },
+        let component = state.component.as_ref().debug_checked_unwrap();
+        match &component.ptr {
+            ComponentPtr::Table(table) => {
+                let table = table.as_ref().debug_checked_unwrap();
+                let index = table_row.index();
+                let tick_index = std::mem::size_of::<Tick>() * index;
+                MutUntyped {
+                    value: table
+                        .component
+                        .byte_add(component.size * index)
+                        .assert_unique(),
+                    ticks: TicksMut {
+                        added: table
+                            .added
+                            .debug_checked_unwrap()
+                            .byte_add(tick_index)
+                            .assert_unique()
+                            .deref_mut(),
+                        changed: table
+                            .changed
+                            .debug_checked_unwrap()
+                            .byte_add(tick_index)
+                            .assert_unique()
+                            .deref_mut(),
+                        last_run,
+                        this_run,
+                    },
+                }
+            }
+            ComponentPtr::SparseSet(set) => {
+                let (component, ticks) = set.get_with_ticks(entity).debug_checked_unwrap();
+                MutUntyped {
+                    value: component.assert_unique(),
+                    ticks: TicksMut {
+                        added: ticks.added.deref_mut(),
+                        changed: ticks.changed.deref_mut(),
+                        last_run,
+                        this_run,
+                    },
+                }
+            }
         }
     }
 }
@@ -448,19 +833,49 @@ impl<C: QueryTerm> QueryTerm for Option<C> {
     type Item<'w> = Option<C::Item<'w>>;
     type ReadOnly = Option<C::ReadOnly>;
 
+    const DENSE: bool = C::DENSE;
+
     fn init_term(world: &mut World) -> Term {
         C::init_term(world).set_operator(TermOperator::Optional)
     }
 
-    #[inline]
-    unsafe fn from_fetch<'w>(
+    #[inline(always)]
+    unsafe fn set_term_table<'w>(state: &mut TermState<'w>, table: &'w Table) {
+        if let Some(component) = &state.component {
+            state.matches = table.has_column(component.id);
+        }
+        if state.matches {
+            C::set_term_table(state, table)
+        }
+    }
+
+    #[inline(always)]
+    unsafe fn set_term_archetype<'w>(
+        state: &mut TermState<'w>,
+        archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        if let Some(component) = &state.component {
+            state.matches = archetype.contains(component.id);
+        }
+        if state.matches {
+            C::set_term_archetype(state, archetype, table)
+        }
+    }
+
+    #[inline(always)]
+    unsafe fn fetch_term<'w>(
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-        term: &FetchedTerm<'w>,
+        state: &TermState<'w>,
+        entity: Entity,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
-        if term.matched {
-            Some(C::from_fetch(world, last_run, this_run, term))
+        if state.matches {
+            Some(C::fetch_term(
+                world, last_run, this_run, state, entity, table_row,
+            ))
         } else {
             None
         }
@@ -472,6 +887,8 @@ impl<Q: QueryTermGroup> QueryTermGroup for Or<Q> {
     type ReadOnly = Self;
     type Optional = ();
 
+    const DENSE: bool = Q::DENSE;
+
     fn init_terms(world: &mut World, terms: &mut Vec<Term>) {
         let start = terms.len();
         Q::init_terms(world, terms);
@@ -480,14 +897,33 @@ impl<Q: QueryTermGroup> QueryTermGroup for Or<Q> {
         }
     }
 
-    #[inline]
-    unsafe fn from_fetches<'w: 'f, 'f>(
+    #[inline(always)]
+    unsafe fn set_tables<'w: 'f, 'f>(
+        state: &mut impl Iterator<Item = &'f mut TermState<'w>>,
+        table: &'w Table,
+    ) {
+        Q::set_tables(state, table);
+    }
+
+    #[inline(always)]
+    unsafe fn set_archetypes<'w: 'f, 'f>(
+        state: &mut impl Iterator<Item = &'f mut TermState<'w>>,
+        archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        Q::set_archetypes(state, archetype, table);
+    }
+
+    #[inline(always)]
+    unsafe fn fetch_terms<'w: 'f, 'f>(
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-        terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
+        state: &mut impl Iterator<Item = &'f TermState<'w>>,
+        entity: Entity,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
-        Q::Optional::from_fetches(world, last_run, this_run, terms);
+        Q::Optional::fetch_terms(world, last_run, this_run, state, entity, table_row);
     }
 }
 
@@ -496,6 +932,8 @@ impl<Q: QueryTermGroup> QueryTermGroup for AnyOf<Q> {
     type ReadOnly = Self;
     type Optional = ();
 
+    const DENSE: bool = Q::DENSE;
+
     fn init_terms(world: &mut World, terms: &mut Vec<Term>) {
         let start = terms.len();
         Q::init_terms(world, terms);
@@ -504,13 +942,32 @@ impl<Q: QueryTermGroup> QueryTermGroup for AnyOf<Q> {
         }
     }
 
-    #[inline]
-    unsafe fn from_fetches<'w: 'f, 'f>(
+    #[inline(always)]
+    unsafe fn set_tables<'w: 'f, 'f>(
+        state: &mut impl Iterator<Item = &'f mut TermState<'w>>,
+        table: &'w Table,
+    ) {
+        Q::Optional::set_tables(state, table);
+    }
+
+    #[inline(always)]
+    unsafe fn set_archetypes<'w: 'f, 'f>(
+        state: &mut impl Iterator<Item = &'f mut TermState<'w>>,
+        archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        Q::Optional::set_archetypes(state, archetype, table);
+    }
+
+    #[inline(always)]
+    unsafe fn fetch_terms<'w: 'f, 'f>(
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-        terms: &mut impl Iterator<Item = &'f FetchedTerm<'w>>,
+        state: &mut impl Iterator<Item = &'f TermState<'w>>,
+        entity: Entity,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
-        Q::Optional::from_fetches(world, last_run, this_run, terms)
+        Q::Optional::fetch_terms(world, last_run, this_run, state, entity, table_row)
     }
 }
