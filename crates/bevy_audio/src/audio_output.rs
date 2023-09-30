@@ -104,7 +104,6 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
         (Without<AudioSink>, Without<SpatialAudioSink>),
     >,
     listener: SpatialListenerSystemParam,
-    scale: Res<SpatialScale>,
     mut commands: Commands,
 ) where
     f32: rodio::cpal::FromSample<Source::DecoderItem>,
@@ -125,7 +124,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                 }
 
                 let emitter_translation = maybe_emitter_transform
-                    .map(|t| (t.translation() * scale.0).into())
+                    .map(|t| (t.translation() * listener.spatial_scale.0).into())
                     .unwrap_or_else(|| {
                         warn!("Spatial AudioBundle with no GlobalTransform component. Using zero.");
                         Vec3::ZERO.into()
@@ -296,9 +295,8 @@ pub(crate) fn update_listener_positions(
         ),
     >,
     listener: SpatialListenerSystemParam,
-    scale: Res<SpatialScale>,
 ) {
-    if !scale.is_changed() && changed_listener.is_empty() {
+    if !listener.spatial_scale.is_changed() && changed_listener.is_empty() {
         return;
     }
 
