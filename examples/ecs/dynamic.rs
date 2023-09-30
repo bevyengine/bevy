@@ -226,9 +226,10 @@ fn print_match(fetches: &FetchedTerms, term: &Term, state: &TermState, world: &W
 
             return format!("{}: {:?}", name, data[0..len].to_vec());
         }
-        return name.to_string();
+        name.to_string()
+    } else {
+        "None".to_string()
     }
-    return "None".to_string();
 }
 
 fn query_system(mut query: TermQuery<Entity>, world: &World) {

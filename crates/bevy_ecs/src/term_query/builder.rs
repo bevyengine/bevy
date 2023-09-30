@@ -130,8 +130,7 @@ impl<'w, Q: QueryTermGroup> QueryBuilder<'w, Q> {
     }
 
     /// Takes a function over mutable access to a [`QueryBuilder`], calls that function
-    /// on an empty builder, adds all terms from that builder as sub terms to an [`Or`]
-    /// term which is then added to self
+    /// on an empty builder, adds all terms from that builder joined by `||` to this builder
     pub fn or(&mut self, f: impl Fn(&mut QueryBuilder)) -> &mut Self {
         let mut builder = QueryBuilder::new(self.world);
         f(&mut builder);

@@ -151,7 +151,7 @@ impl Term {
 
     /// Returns false if the component this term accesses is not a [`StorageType::Table`] component.
     ///
-    /// # Safety:
+    /// # Safety
     ///  - caller must ensure any component accesses by this term exists
     #[inline(always)]
     pub unsafe fn dense(&self, world: &World) -> bool {
@@ -172,7 +172,7 @@ impl Term {
 
 // Stores each possible pointer type that could be stored in [`TermState`]
 #[derive(Clone)]
-pub enum ComponentPtr<'w> {
+pub(crate) enum ComponentPtr<'w> {
     // A reference to the components associated sparse set
     SparseSet(&'w ComponentSparseSet),
     // A reference to the components associated table, set in [`Term::set_table`]
@@ -208,7 +208,7 @@ impl<'w> ComponentPtr<'w> {
 // Stores state for change detection, ptrs gets set in [`Term::set_table`] for table components
 // and is otherwise None
 #[derive(Clone)]
-pub struct TablePtr<'w> {
+pub(crate) struct TablePtr<'w> {
     pub component: Ptr<'w>,
     pub added: Option<Ptr<'w>>,
     pub changed: Option<Ptr<'w>>,
@@ -235,19 +235,23 @@ impl<'w> TablePtr<'w> {
     }
 }
 
+/// State stored in [`TermState`] for a component
 #[derive(Clone)]
-pub struct ComponentState<'w> {
+pub(crate) struct ComponentState<'w> {
+    /// Pointer to the location of the data for this component
     pub ptr: ComponentPtr<'w>,
+    /// Id of this component
     pub id: ComponentId,
+    /// Size of this component
     pub size: usize,
 }
 
-// Stores the state for a single term
+/// Stores the state for a single [`Term`]
 #[derive(Clone)]
 pub struct TermState<'w> {
-    // Pointer to wherever we need to fetch data to resolve this term
-    pub component: Option<ComponentState<'w>>,
-    // Whether this term matches the associated archetype
+    /// State related to the component this term targets if any
+    pub(crate) component: Option<ComponentState<'w>>,
+    /// Whether this term matches this archetype
     pub matches: bool,
 }
 

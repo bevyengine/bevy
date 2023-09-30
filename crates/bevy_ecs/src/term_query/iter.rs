@@ -170,19 +170,31 @@ impl<'w, 's> FetchedTerms<'w, 's> {
         self.terms
     }
 
-    /// Returns an iterator across tuples of [`Term`] and [`FetchedTerm`]
+    /// Returns an iterator across tuples of [`Term`] and [`TermState`]
     pub fn iter_terms(&self) -> impl Iterator<Item = (&Term, &TermState<'w>)> {
         self.terms.iter().zip(self.state.iter())
     }
 
+    /// Returns `Q::Item` constructed from the given [`TermState`]
+    ///
+    /// # Safety
+    /// - [`TermState`] at `index` must be fetcheable as `Q::Item`
     pub unsafe fn fetch<Q: QueryTermGroup>(&self, index: usize) -> Q::Item<'w> {
         self.fetch_range::<Q>(index..index + 1)
     }
 
+    /// Returns `Q::Item` constructed from the given [`TermState`]
+    ///
+    /// # Safety
+    /// - [`TermState`] must be fetcheable as `Q::Item`
     pub unsafe fn fetch_state<Q: QueryTermGroup>(&self, state: &TermState<'w>) -> Q::Item<'w> {
         self.fetch_slice::<Q>(slice::from_ref(state))
     }
 
+    /// Returns `Q::Item` constructed from the given slice of [`TermState`]
+    ///
+    /// # Safety
+    /// - [`TermState`] in slice must be fetcheable as `Q::Item`
     pub unsafe fn fetch_slice<Q: QueryTermGroup>(&self, state: &[TermState<'w>]) -> Q::Item<'w> {
         Q::fetch_terms(
             self.world,
@@ -194,6 +206,10 @@ impl<'w, 's> FetchedTerms<'w, 's> {
         )
     }
 
+    /// Returns `Q::Item` constructed from the given range of indices
+    ///
+    /// # Safety
+    /// - [`TermState`] in given range must be fetcheable as `Q::Item`
     pub unsafe fn fetch_range<Q: QueryTermGroup>(&self, range: Range<usize>) -> Q::Item<'w> {
         self.fetch_slice::<Q>(&self.state[range])
     }
@@ -229,6 +245,10 @@ impl<'w, 's> Iterator for TermQueryIterUntyped<'w, 's> {
     }
 }
 
+/// An [`Iterator`] over query results of a [`TermQuery`](crate::system::TermQuery).
+///
+/// This struct is created by the [`TermQuery::iter`](crate::system::TermQuery::iter) and
+/// [`TermQuery::iter_mut`](crate::system::TermQuery::iter_mut) methods.
 pub struct TermQueryIter<'w, 's, Q: QueryTermGroup> {
     world: UnsafeWorldCell<'w>,
     table_id_iter: slice::Iter<'s, TableId>,
@@ -246,6 +266,9 @@ pub struct TermQueryIter<'w, 's, Q: QueryTermGroup> {
 }
 
 impl<'w, 's, Q: QueryTermGroup> TermQueryIter<'w, 's, Q> {
+    /// # Safety
+    /// - `world` must have permission to access any of the components registered in `query_state`.
+    /// - `world` must be the same one used to initialize `query_state`.
     #[inline]
     pub unsafe fn new(
         world: UnsafeWorldCell<'w>,
@@ -275,6 +298,7 @@ impl<'w, 's, Q: QueryTermGroup> Iterator for TermQueryIter<'w, 's, Q> {
 
     #[inline(always)]
     fn next(&mut self) -> Option<Q::Item<'w>> {
+        // SAFETY: invariants guaranteed by caller in `Self::new`
         unsafe {
             let tables = &self.world.storages().tables;
             let archetypes = self.world.archetypes();
@@ -287,7 +311,7 @@ impl<'w, 's, Q: QueryTermGroup> Iterator for TermQueryIter<'w, 's, Q> {
                         // SAFETY: `table` is from the world that `fetch/filter` were created for,
                         // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                         if self.query_state.filtered {
-                            self.query_state.set_table(&mut self.term_state, table)
+                            self.query_state.set_table(&mut self.term_state, table);
                         } else {
                             Q::set_tables(&mut self.term_state.iter_mut(), table);
                         }
@@ -337,7 +361,7 @@ impl<'w, 's, Q: QueryTermGroup> Iterator for TermQueryIter<'w, 's, Q> {
                         let table = tables.get(archetype.table_id()).debug_checked_unwrap();
                         if self.query_state.filtered {
                             self.query_state
-                                .set_archetype(&mut self.term_state, archetype, table)
+                                .set_archetype(&mut self.term_state, archetype, table);
                         } else {
                             Q::set_archetypes(&mut self.term_state.iter_mut(), archetype, table);
                         }

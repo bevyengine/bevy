@@ -107,7 +107,7 @@ impl<Q: QueryTermGroup, F: QueryTermGroup> TermQueryState<Q, F> {
                 term.update_archetype_component_access(
                     archetype,
                     &mut self.archetype_component_access,
-                )
+                );
             });
 
             let archetype_index = archetype.id().index();

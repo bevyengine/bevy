@@ -60,14 +60,25 @@ pub trait QueryTerm {
     /// The read-only variant of this [`QueryTerm`]
     type ReadOnly: QueryTerm;
 
+    /// True if all components accessed by this are [`StorageType::Table`]
     const DENSE: bool;
 
     /// Creates a new [`Term`] instance satisfying the requirements for [`Self::from_fetch`]
     fn init_term(world: &mut World) -> Term;
 
+    /// Adjusts internal state to account for the next [`Table`].
+    ///
+    /// # Safety
+    ///
+    /// - `table` must contain the components accessed by `state`
     #[inline(always)]
     unsafe fn set_term_table<'w>(_state: &mut TermState<'w>, _table: &'w Table) {}
 
+    /// Adjusts internal state to account for the next [`Archetype`].
+    ///
+    /// # Safety
+    ///
+    /// - `table` and `archetype` must contain the components accessed by `state`
     #[inline(always)]
     unsafe fn set_term_archetype<'w>(
         _state: &mut TermState<'w>,
@@ -76,6 +87,11 @@ pub trait QueryTerm {
     ) {
     }
 
+    /// Fetch the [`Self::Item`] for the given entity at the given table row
+    ///
+    /// # Safety
+    ///
+    /// - `state` must be fetchable to `Self::Item`
     unsafe fn fetch_term<'w>(
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
@@ -97,22 +113,38 @@ pub trait QueryTermGroup {
     /// The optional variant of this [`QueryTermGroup`]
     type Optional: QueryTermGroup;
 
+    /// True if all components accessed by this are [`StorageType::Table`]
     const DENSE: bool;
 
     /// Writes new [`Term`] instances to `terms`, satisfying the requirements for [`Self::from_fetches`]
     fn init_terms(world: &mut World, terms: &mut Vec<Term>);
 
+    /// Adjusts internal state to account for the next [`Table`].
+    ///
+    /// # Safety
+    ///
+    /// - `table` must contain the components accessed by `state`
     unsafe fn set_tables<'w: 'f, 'f>(
         state: &mut impl Iterator<Item = &'f mut TermState<'w>>,
         table: &'w Table,
     );
 
+    /// Adjusts internal state to account for the next [`Archetype`].
+    ///
+    /// # Safety
+    ///
+    /// - `table` and `archetype` must contain the components accessed by `state`
     unsafe fn set_archetypes<'w: 'f, 'f>(
         state: &mut impl Iterator<Item = &'f mut TermState<'w>>,
         archetype: &'w Archetype,
         table: &'w Table,
     );
 
+    /// Fetch the [`Self::Item`] for the given entity at the given table row
+    ///
+    /// # Safety
+    ///
+    /// - `state` must be fetchable to `Self::Item`
     unsafe fn fetch_terms<'w: 'f, 'f>(
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
@@ -461,7 +493,7 @@ impl<T: Component> QueryTerm for &T {
                 component: column.get_data_ptr(),
                 added: None,
                 changed: None,
-            })
+            });
         }
     }
 
@@ -524,7 +556,7 @@ impl<T: Component> QueryTerm for Ref<'_, T> {
                 component: column.get_data_ptr(),
                 added: Some(column.get_added_ticks_slice().get_unchecked(0).into()),
                 changed: Some(column.get_changed_ticks_slice().get_unchecked(0).into()),
-            })
+            });
         }
     }
 
@@ -603,7 +635,7 @@ impl QueryTerm for Ptr<'_> {
                 component: column.get_data_ptr(),
                 added: None,
                 changed: None,
-            })
+            });
         }
     }
 
@@ -660,7 +692,7 @@ impl<'r, T: Component> QueryTerm for &'r mut T {
                 component: column.get_data_ptr(),
                 added: Some(column.get_added_ticks_slice().get_unchecked(0).into()),
                 changed: Some(column.get_changed_ticks_slice().get_unchecked(0).into()),
-            })
+            });
         }
     }
 
@@ -684,26 +716,22 @@ impl<'r, T: Component> QueryTerm for &'r mut T {
     ) -> Self::Item<'w> {
         let component = state.component.as_ref().debug_checked_unwrap();
         if T::Storage::STORAGE_TYPE == StorageType::Table {
-            let table = component.ptr.table().debug_checked_unwrap();
-            let index = table_row.index();
-            let tick_index = std::mem::size_of::<Tick>() * index;
+            let table = component
+                .ptr
+                .table()
+                .debug_checked_unwrap()
+                .get_row(component.size, table_row.index());
             Mut {
-                value: table
-                    .component
-                    .byte_add(component.size * index)
-                    .assert_unique()
-                    .deref_mut(),
+                value: table.component.assert_unique().deref_mut(),
                 ticks: TicksMut {
                     added: table
                         .added
                         .debug_checked_unwrap()
-                        .byte_add(tick_index)
                         .assert_unique()
                         .deref_mut(),
                     changed: table
                         .changed
                         .debug_checked_unwrap()
-                        .byte_add(tick_index)
                         .assert_unique()
                         .deref_mut(),
                     last_run,
@@ -745,7 +773,7 @@ impl<'r> QueryTerm for PtrMut<'r> {
                 component: column.get_data_ptr(),
                 added: Some(column.get_added_ticks_slice().get_unchecked(0).into()),
                 changed: Some(column.get_changed_ticks_slice().get_unchecked(0).into()),
-            })
+            });
         }
     }
 
@@ -770,25 +798,21 @@ impl<'r> QueryTerm for PtrMut<'r> {
         let component = state.component.as_ref().debug_checked_unwrap();
         match &component.ptr {
             ComponentPtr::Table(table) => {
-                let table = table.as_ref().debug_checked_unwrap();
-                let index = table_row.index();
-                let tick_index = std::mem::size_of::<Tick>() * index;
+                let table = table
+                    .as_ref()
+                    .debug_checked_unwrap()
+                    .get_row(component.size, table_row.index());
                 MutUntyped {
-                    value: table
-                        .component
-                        .byte_add(component.size * index)
-                        .assert_unique(),
+                    value: table.component.assert_unique(),
                     ticks: TicksMut {
                         added: table
                             .added
                             .debug_checked_unwrap()
-                            .byte_add(tick_index)
                             .assert_unique()
                             .deref_mut(),
                         changed: table
                             .changed
                             .debug_checked_unwrap()
-                            .byte_add(tick_index)
                             .assert_unique()
                             .deref_mut(),
                         last_run,
@@ -828,7 +852,7 @@ impl<C: QueryTerm> QueryTerm for Option<C> {
             state.matches = table.has_column(component.id);
         }
         if state.matches {
-            C::set_term_table(state, table)
+            C::set_term_table(state, table);
         }
     }
 
@@ -842,7 +866,7 @@ impl<C: QueryTerm> QueryTerm for Option<C> {
             state.matches = archetype.contains(component.id);
         }
         if state.matches {
-            C::set_term_archetype(state, archetype, table)
+            C::set_term_archetype(state, archetype, table);
         }
     }
 
@@ -876,7 +900,7 @@ impl<Q: QueryTermGroup> QueryTermGroup for Or<Q> {
         let start = terms.len();
         Q::init_terms(world, terms);
         for i in start..terms.len() - 1 {
-            terms[i].or = true
+            terms[i].or = true;
         }
     }
 
@@ -921,7 +945,7 @@ impl<Q: QueryTermGroup> QueryTermGroup for AnyOf<Q> {
         let start = terms.len();
         Q::init_terms(world, terms);
         for i in start..terms.len() - 1 {
-            terms[i].or = true
+            terms[i].or = true;
         }
     }
 
