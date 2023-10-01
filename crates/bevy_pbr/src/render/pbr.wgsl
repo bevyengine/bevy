@@ -21,7 +21,8 @@ fn fragment(
         lit_color = alpha_discard(pbr_input.material, lit_color);
     }
 
-    // apply in-shader post processing (fog, tonemapping, debanding)
+    // apply in-shader post processing (fog, alpha-premultiply, and also tonemapping, debanding if the camera is non-hdr)
+    // note this does not include fullscreen postprocessing effects like bloom.
     lit_color = in_shader_post_processing(pbr_input, lit_color);
 
     return lit_color;
