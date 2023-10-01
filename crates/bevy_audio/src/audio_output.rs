@@ -59,8 +59,14 @@ pub(crate) struct SpatialListenerSystemParam<'w, 's> {
     pub(crate) spatial_scale: Res<'w, SpatialScale>,
 }
 impl<'w, 's> SpatialListenerSystemParam<'w, 's> {
+    /// Gets a set of transformed and scaled ear positions.
+    ///
+    /// If there are no listeners, use a default values. If a user has added multiple
+    /// listeners for whatever reason, using a default value might unexpected, so we will
+    /// return the first value.
     pub(crate) fn get_ear_positions(&self) -> (Vec3, Vec3) {
         let mut listener_iter = self.query.iter();
+
         let (left_ear, right_ear) = listener_iter
             .next()
             .map(|(listener_transform, listener_settings)| {
@@ -119,6 +125,8 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             if settings.spatial {
                 let (left_ear, right_ear) = listener.get_ear_positions();
 
+                // We can only use one `SpatialListener`. If there are more than that, then
+                // the user may have made a mistake.
                 if listener.query.iter().len() > 1 {
                     warn!("Multiple SpatialListeners found. Using first.");
                 }
