@@ -15,6 +15,14 @@ use bevy_render::{
 pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
 
 /// A [`Plugin`] that draws wireframes.
+///
+/// Wireframes currently do not work when using webgl or webgpu.
+/// Supported platforms:
+/// - DX12
+/// - Vulkan
+/// - Metal
+///
+/// This is a native only feature.
 #[derive(Debug, Default)]
 pub struct WireframePlugin;
 
@@ -31,8 +39,11 @@ impl Plugin for WireframePlugin {
             .register_type::<WireframeConfig>()
             .init_resource::<WireframeConfig>()
             .add_plugins(MaterialPlugin::<WireframeMaterial>::default())
-            .add_systems(Startup, setup)
-            .add_systems(Update, (apply_global, apply_material));
+            .add_systems(Startup, setup_global_wireframe_material)
+            .add_systems(
+                Update,
+                (apply_global_wireframe_material, apply_wireframe_material),
+            );
     }
 }
 
@@ -58,15 +69,18 @@ struct GlobalWireframeMaterial {
     handle: Handle<WireframeMaterial>,
 }
 
-fn setup(mut commands: Commands, mut materials: ResMut<Assets<WireframeMaterial>>) {
+fn setup_global_wireframe_material(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<WireframeMaterial>>,
+) {
     // Create the handle used for the global material
     commands.insert_resource(GlobalWireframeMaterial {
         handle: materials.add(WireframeMaterial {}),
     });
 }
 
-/// Applies the wireframe material to any mesh with a [`Wireframe`] component.
-fn apply_material(
+/// Applies or remove the wireframe material to any mesh with a [`Wireframe`] component.
+fn apply_wireframe_material(
     mut commands: Commands,
     mut materials: ResMut<Assets<WireframeMaterial>>,
     wireframes: Query<Entity, (With<Wireframe>, Without<Handle<WireframeMaterial>>)>,
@@ -87,7 +101,7 @@ fn apply_material(
 
 /// Applies or removes a wireframe material on any mesh without a [`Wireframe`] component.
 #[allow(clippy::type_complexity)]
-fn apply_global(
+fn apply_global_wireframe_material(
     mut commands: Commands,
     config: Res<WireframeConfig>,
     meshes_without_material: Query<

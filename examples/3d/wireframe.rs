@@ -1,4 +1,12 @@
 //! Showcases wireframe rendering.
+//!
+//! Wireframes currently do not work when using webgl or webgpu.
+//! Supported platforms:
+//! - DX12
+//! - Vulkan
+//! - Metal
+//!
+//! This is a native only feature.
 
 use bevy::{
     pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin},
