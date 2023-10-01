@@ -268,8 +268,8 @@ mod tests {
 
     #[test]
     fn same_interned_content() {
-        let a = Interned::<str>(Box::leak(Box::new("A")));
-        let b = Interned::<str>(Box::leak(Box::new("A")));
+        let a = Interned::<str>(Box::leak(Box::new("A".to_string())));
+        let b = Interned::<str>(Box::leak(Box::new("A".to_string())));
 
         assert_ne!(a, b);
     }
