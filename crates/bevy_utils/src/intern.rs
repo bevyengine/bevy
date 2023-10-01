@@ -8,7 +8,6 @@ use std::{
     fmt::Debug,
     hash::Hash,
     ops::Deref,
-    ptr,
     sync::{OnceLock, PoisonError, RwLock},
 };
 
@@ -60,18 +59,18 @@ impl<T: ?Sized> Copy for Interned<T> {}
 
 // Two Interned<T> should only be equal if they are clones from the same instance.
 // Therefore, we only use the pointer to determine equality.
-impl<T: ?Sized> PartialEq for Interned<T> {
+impl<T: ?Sized + Internable> PartialEq for Interned<T> {
     fn eq(&self, other: &Self) -> bool {
-        ptr::eq(self.0, other.0)
+        self.0.ref_eq(other.0)
     }
 }
 
-impl<T: ?Sized> Eq for Interned<T> {}
+impl<T: ?Sized + Internable> Eq for Interned<T> {}
 
 // Important: This must be kept in sync with the PartialEq/Eq implementation
-impl<T: ?Sized> Hash for Interned<T> {
+impl<T: ?Sized + Internable> Hash for Interned<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        ptr::hash(self.0, state);
+        self.0.ref_hash(state)
     }
 }
 
@@ -90,15 +89,30 @@ impl<T> From<&Interned<T>> for Interned<T> {
 /// A trait for leaking data.
 ///
 /// This is used by [`Interner<T>`] to create static references for values that are interned.
-pub trait Leak {
+pub trait Internable {
     /// Creates a static reference to `self`, possibly leaking memory.
     fn leak(&self) -> &'static Self;
+
+    /// Returns `true` if the two references point to the same value.
+    fn ref_eq(&self, other: &Self) -> bool;
+
+    /// Feeds the reference to the hasher.
+    fn ref_hash<H: std::hash::Hasher>(&self, state: &mut H);
 }
 
-impl Leak for str {
+impl Internable for str {
     fn leak(&self) -> &'static Self {
         let str = self.to_owned().into_boxed_str();
         Box::leak(str)
+    }
+
+    fn ref_eq(&self, other: &Self) -> bool {
+        self.len() == other.len() && self.as_ptr() == other.as_ptr()
+    }
+
+    fn ref_hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.len().hash(state);
+        self.as_ptr().hash(state);
     }
 }
 
@@ -118,7 +132,7 @@ impl<T: ?Sized> Interner<T> {
     }
 }
 
-impl<T: Leak + Hash + Eq + ?Sized> Interner<T> {
+impl<T: Internable + Hash + Eq + ?Sized> Interner<T> {
     /// Return the [`Interned<T>`] corresponding to `value`.
     ///
     /// If it is called the first time for `value`, it will possibly leak the value and return an
@@ -158,16 +172,24 @@ mod tests {
         hash::{Hash, Hasher},
     };
 
-    use crate::intern::{Interned, Interner, Leak};
+    use crate::intern::{Internable, Interned, Interner};
 
     #[test]
     fn zero_sized_type() {
         #[derive(PartialEq, Eq, Hash, Debug)]
         pub struct A;
 
-        impl Leak for A {
+        impl Internable for A {
             fn leak(&self) -> &'static Self {
                 &A
+            }
+
+            fn ref_eq(&self, other: &Self) -> bool {
+                std::ptr::eq(self, other)
+            }
+
+            fn ref_hash<H: std::hash::Hasher>(&self, state: &mut H) {
+                std::ptr::hash(self, state)
             }
         }
 
@@ -185,12 +207,20 @@ mod tests {
             Y,
         }
 
-        impl Leak for A {
+        impl Internable for A {
             fn leak(&self) -> &'static Self {
                 match self {
                     A::X => &A::X,
                     A::Y => &A::Y,
                 }
+            }
+
+            fn ref_eq(&self, other: &Self) -> bool {
+                std::ptr::eq(self, other)
+            }
+
+            fn ref_hash<H: std::hash::Hasher>(&self, state: &mut H) {
+                std::ptr::hash(self, state)
             }
         }
 
@@ -238,16 +268,16 @@ mod tests {
 
     #[test]
     fn same_interned_content() {
-        let a = Interned(Box::leak(Box::new("A")));
-        let b = Interned(Box::leak(Box::new("A")));
+        let a = Interned::<str>(Box::leak(Box::new("A")));
+        let b = Interned::<str>(Box::leak(Box::new("A")));
 
         assert_ne!(a, b);
     }
 
     #[test]
     fn different_interned_content() {
-        let a = Interned(Box::leak(Box::new("A")));
-        let b = Interned(Box::leak(Box::new("B")));
+        let a = Interned::<str>(Box::leak(Box::new("A")));
+        let b = Interned::<str>(Box::leak(Box::new("B")));
 
         assert_ne!(a, b);
     }

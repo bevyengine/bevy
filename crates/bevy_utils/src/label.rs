@@ -172,9 +172,23 @@ macro_rules! define_label {
             }
         }
 
-        impl $crate::intern::Leak for dyn $label_trait_name {
+        impl $crate::intern::Internable for dyn $label_trait_name {
             fn leak(&self) -> &'static Self {
                 Box::leak(self.dyn_clone())
+            }
+
+            fn ref_eq(&self, other: &Self) -> bool {
+                if self.as_dyn_eq().type_id() == other.as_dyn_eq().type_id() {
+                    (self as *const Self as *const ()) == (other as *const Self as *const ())
+                } else {
+                    false
+                }
+            }
+
+            fn ref_hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+                use ::std::hash::Hash;
+                self.as_dyn_eq().type_id().hash(state);
+                (self as *const Self as *const ()).hash(state);
             }
         }
 
