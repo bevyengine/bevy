@@ -15,10 +15,12 @@ use bevy_utils::HashMap;
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
 #[derive(Asset, TypePath, Debug)]
 pub struct Scene {
+    /// The world of the scene, containing its entities and resources.
     pub world: World,
 }
 
 impl Scene {
+    /// Creates a new scene with the given world.
     pub fn new(world: World) -> Self {
         Self { world }
     }

@@ -26,7 +26,9 @@ use serde::Serialize;
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
 #[derive(Asset, TypePath, Default)]
 pub struct DynamicScene {
+    /// Resources stored in the dynamic scene.
     pub resources: Vec<Box<dyn Reflect>>,
+    /// Entities contained in the dynamic scene.
     pub entities: Vec<DynamicEntity>,
 }
 
