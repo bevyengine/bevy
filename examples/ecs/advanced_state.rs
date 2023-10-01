@@ -82,7 +82,7 @@ enum AppState {
 enum MovementState {
     #[default]
     Normal,
-    Invert,
+    Inverted,
 }
 
 const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
