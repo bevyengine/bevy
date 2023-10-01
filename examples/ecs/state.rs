@@ -10,7 +10,10 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        // You need to register states for them to work
         .add_state::<AppState>()
+        // You can also add sub states - that only exist when you're in the correct parent state!
+        .add_sub_state::<PauseState, _>(AppState::InGame)
         .add_systems(Startup, setup)
         // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.
         // All systems from the exit schedule of the state we're leaving are run first,
@@ -23,8 +26,11 @@ fn main() {
         .add_systems(OnEnter(AppState::InGame), setup_game)
         .add_systems(
             Update,
-            (movement, change_color).run_if(in_state(AppState::InGame)),
+            (movement, change_color).run_if(in_state(PauseState::Running)),
         )
+        .add_systems(OnEnter(PauseState::Paused), setup_pause)
+        .add_systems(OnExit(PauseState::Paused), cleanup_pause)
+        .add_systems(Update, toggle_pause.run_if(in_state(AppState::InGame)))
         .run();
 }
 
@@ -33,6 +39,13 @@ enum AppState {
     #[default]
     Menu,
     InGame,
+}
+
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+enum PauseState {
+    #[default]
+    Running,
+    Paused,
 }
 
 #[derive(Resource)]
@@ -157,5 +170,65 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
         sprite
             .color
             .set_b((time.elapsed_seconds() * 0.5).sin() + 2.0);
+    }
+}
+
+fn setup_pause(mut commands: Commands) {
+    let button_entity = commands
+        .spawn(NodeBundle {
+            style: Style {
+                // center button
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|parent| {
+            parent
+                .spawn(ButtonBundle {
+                    style: Style {
+                        width: Val::Px(150.),
+                        height: Val::Px(65.),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent.spawn(TextBundle::from_section(
+                        "Paused",
+                        TextStyle {
+                            font_size: 40.0,
+                            color: Color::rgb(0.9, 0.9, 0.9),
+                            ..default()
+                        },
+                    ));
+                });
+        })
+        .id();
+    commands.insert_resource(MenuData { button_entity });
+}
+
+fn cleanup_pause(mut commands: Commands, menu_data: Res<MenuData>) {
+    commands.entity(menu_data.button_entity).despawn_recursive();
+}
+
+fn toggle_pause(
+    input: Res<Input<KeyCode>>,
+    mut next_state: ResMut<NextState<PauseState>>,
+    pause_state: Res<State<PauseState>>,
+) {
+    if input.just_pressed(KeyCode::Escape) {
+        let paused = match pause_state.get() {
+            PauseState::Running => PauseState::Paused,
+            PauseState::Paused => PauseState::Running,
+        };
+        next_state.set(paused);
     }
 }
