@@ -405,7 +405,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 
     let mut render_app = App::empty();
-    render_app.main_schedule_label = Box::new(Render);
+    render_app.main_schedule_label = Render.intern();
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
     extract_schedule.set_apply_final_deferred(false);

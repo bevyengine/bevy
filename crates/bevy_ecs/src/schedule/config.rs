@@ -530,13 +530,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
 
 impl<S: SystemSet> IntoSystemSetConfigs for S {
     fn into_configs(self) -> SystemSetConfigs {
-        SystemSetConfigs::NodeConfig(SystemSetConfig::new(Box::new(self)))
-    }
-}
-
-impl IntoSystemSetConfigs for BoxedSystemSet {
-    fn into_configs(self) -> SystemSetConfigs {
-        SystemSetConfigs::NodeConfig(SystemSetConfig::new(self))
+        SystemSetConfigs::NodeConfig(SystemSetConfig::new(self.intern()))
     }
 }
 

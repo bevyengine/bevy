@@ -157,7 +157,7 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 /// }
 /// ```
 pub struct Schedule {
-    name: BoxedScheduleLabel,
+    name: InternedScheduleLabel,
     graph: ScheduleGraph,
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
@@ -181,7 +181,7 @@ impl Schedule {
     /// Constructs an empty `Schedule`.
     pub fn new(label: impl ScheduleLabel) -> Self {
         Self {
-            name: label.dyn_clone(),
+            name: label.intern(),
             graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
             executor: make_executor(ExecutorKind::default()),
@@ -262,7 +262,7 @@ impl Schedule {
         if self.graph.changed {
             self.graph.initialize(world);
             self.graph
-                .update_schedule(&mut self.executable, world.components(), &self.name)?;
+                .update_schedule(&mut self.executable, world.components(), self.name)?;
             self.graph.changed = false;
             self.executor_initialized = false;
         }
@@ -564,7 +564,7 @@ impl ScheduleGraph {
                         for config in &mut configs {
                             config.in_set_inner(set.intern());
                         }
-                        let mut set_config = SystemSetConfig::new(set.dyn_clone());
+                        let mut set_config = SystemSetConfig::new(set.intern());
                         set_config.conditions.extend(collective_conditions);
                         self.configure_set_inner(set_config).unwrap();
                     } else {
@@ -877,7 +877,7 @@ impl ScheduleGraph {
     pub fn build_schedule(
         &mut self,
         components: &Components,
-        schedule_label: &BoxedScheduleLabel,
+        schedule_label: InternedScheduleLabel,
     ) -> Result<SystemSchedule, ScheduleBuildError> {
         // check hierarchy for cycles
         self.hierarchy.topsort =
@@ -1178,7 +1178,7 @@ impl ScheduleGraph {
         &mut self,
         schedule: &mut SystemSchedule,
         components: &Components,
-        schedule_label: &BoxedScheduleLabel,
+        schedule_label: InternedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if !self.uninit.is_empty() {
             return Err(ScheduleBuildError::Uninitialized);
@@ -1245,7 +1245,7 @@ impl ProcessNodeConfig for BoxedSystem {
     }
 }
 
-impl ProcessNodeConfig for BoxedSystemSet {
+impl ProcessNodeConfig for InternedSystemSet {
     fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId {
         schedule_graph.configure_set_inner(config).unwrap()
     }
@@ -1321,7 +1321,7 @@ impl ScheduleGraph {
     fn optionally_check_hierarchy_conflicts(
         &self,
         transitive_edges: &[(NodeId, NodeId)],
-        schedule_label: &BoxedScheduleLabel,
+        schedule_label: InternedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if self.settings.hierarchy_detection == LogLevel::Ignore || transitive_edges.is_empty() {
             return Ok(());
@@ -1533,7 +1533,7 @@ impl ScheduleGraph {
         &self,
         conflicts: &[(NodeId, NodeId, Vec<ComponentId>)],
         components: &Components,
-        schedule_label: &BoxedScheduleLabel,
+        schedule_label: InternedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if self.settings.ambiguity_detection == LogLevel::Ignore || conflicts.is_empty() {
             return Ok(());

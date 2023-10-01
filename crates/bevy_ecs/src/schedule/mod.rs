@@ -1010,7 +1010,7 @@ mod tests {
             schedule.graph_mut().initialize(&mut world);
             let _ = schedule
                 .graph_mut()
-                .build_schedule(world.components(), &TestSchedule.dyn_clone());
+                .build_schedule(world.components(), TestSchedule.intern());
 
             let ambiguities: Vec<_> = schedule
                 .graph()
@@ -1062,7 +1062,7 @@ mod tests {
             schedule.graph_mut().initialize(&mut world);
             let _ = schedule
                 .graph_mut()
-                .build_schedule(world.components(), &TestSchedule.dyn_clone());
+                .build_schedule(world.components(), TestSchedule.intern());
 
             let ambiguities: Vec<_> = schedule
                 .graph()
