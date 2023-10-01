@@ -363,7 +363,7 @@ impl App {
     /// the provided condition. Creates an instance of [`apply_state_transition::<S>`] in
     /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update), as
     /// well as instances of [`initialize_state_and_enter::<S>`] and [`remove_state_from_world::<S>`]
-    /// to set up and run [`OnEnter`] and [`OnExit`] schedules for [`S`] when appropriate.
+    /// to set up and run [`OnEnter`] and [`OnExit`] schedules for `S` when appropriate.
     ///
     /// Whenever the parent enters a matching state, `S` will be set to `S::default()`.
     ///
