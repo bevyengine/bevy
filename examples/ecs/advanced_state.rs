@@ -1,4 +1,4 @@
-//! This example illustrates how to use some of the more advance [`States`] functionality for high-level app control flow.
+//! This example illustrates how to use some of the more advanced [`States`] functionality for high-level app control flow.
 //!
 //! The use case here is identical to the regular [state](./state.rs) example, but we will be
 //! utilizing the `StateMatcher` trait more directly.
