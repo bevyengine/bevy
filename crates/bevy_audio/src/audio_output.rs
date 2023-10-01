@@ -55,7 +55,7 @@ pub struct PlaybackRemoveMarker;
 
 #[derive(SystemParam)]
 pub(crate) struct SpatialListenerSystemParam<'w, 's> {
-    pub(crate) query: Query<'w, 's, (&'static GlobalTransform, &'static SpatialListener)>,
+    pub(crate) query: Query<'w, 's, (Entity, &'static GlobalTransform, &'static SpatialListener)>,
     pub(crate) spatial_scale: Res<'w, SpatialScale>,
 }
 impl<'w, 's> SpatialListenerSystemParam<'w, 's> {
@@ -69,7 +69,7 @@ impl<'w, 's> SpatialListenerSystemParam<'w, 's> {
 
         let (left_ear, right_ear) = listener_iter
             .next()
-            .map(|(listener_transform, listener_settings)| {
+            .map(|(_, listener_transform, listener_settings)| {
                 let left = listener_transform.transform_point(listener_settings.left_ear_offset)
                     * self.spatial_scale.0;
                 let right = listener_transform.transform_point(listener_settings.right_ear_offset)
@@ -128,7 +128,10 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                 // We can only use one `SpatialListener`. If there are more than that, then
                 // the user may have made a mistake.
                 if listener.query.iter().len() > 1 {
-                    warn!("Multiple SpatialListeners found. Using first.");
+                    warn!(
+                        "Multiple SpatialListeners found. Using {:?}.",
+                        listener.query.iter().next().unwrap().0
+                    );
                 }
 
                 let emitter_translation = maybe_emitter_transform
