@@ -70,7 +70,7 @@ impl<S: States> StateMatcher<S> for StateMatcherFunction<S> {
     }
 }
 
-/// A trait for definint items that can become a state matcher
+/// A trait for defining items that can become a state matcher
 pub trait IntoStateMatcher<S: States, M: StateMatcher<S>> {
     /// Transform item into a state matcher
     fn into_state_matcher(self) -> M;
