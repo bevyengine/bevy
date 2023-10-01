@@ -29,9 +29,11 @@ use crate::HashSet;
 /// # use bevy_utils::intern::*;
 /// #[derive(PartialEq, Eq, Hash, Debug)]
 /// struct Value(i32);
-/// impl Leak for Value {
+/// impl Internable for Value {
 ///     // ...
 /// # fn leak(&self) -> &'static Self { Box::leak(Box::new(Value(self.0))) }
+/// # fn ref_eq(&self, other: &Self) -> bool { std::ptr::eq(self, other ) }
+/// # fn ref_hash<H: std::hash::Hasher>(&self, state: &mut H) { std::ptr::hash(self, state); }
 /// }
 /// let interner_1 = Interner::new();
 /// let interner_2 = Interner::new();
@@ -276,8 +278,8 @@ mod tests {
 
     #[test]
     fn different_interned_content() {
-        let a = Interned::<str>(Box::leak(Box::new("A")));
-        let b = Interned::<str>(Box::leak(Box::new("B")));
+        let a = Interned::<str>("A");
+        let b = Interned::<str>("B");
 
         assert_ne!(a, b);
     }
