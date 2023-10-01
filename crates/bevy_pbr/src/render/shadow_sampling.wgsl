@@ -8,7 +8,7 @@ fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i
     // NOTE: Due to non-uniform control flow above, we must use the level variant of the texture
     // sampler to avoid use of implicit derivatives causing possible undefined behavior.
 #ifdef NO_ARRAY_TEXTURES_SUPPORT
-    return textureSampleCompare(
+    return textureSampleCompareLevel(
         view_bindings::directional_shadow_textures,
         view_bindings::directional_shadow_textures_sampler,
         light_local,
