@@ -1,5 +1,5 @@
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin};
-use bevy_app::{Plugin, Update};
+use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath, TypeUuid};
@@ -31,8 +31,8 @@ impl Plugin for WireframePlugin {
             .register_type::<WireframeConfig>()
             .init_resource::<WireframeConfig>()
             .add_plugins(MaterialPlugin::<WireframeMaterial>::default())
-            .add_systems(Update, apply_global)
-            .add_systems(Update, apply_material);
+            .add_systems(Startup, setup)
+            .add_systems(Update, (apply_global, apply_material));
     }
 }
 
@@ -52,17 +52,37 @@ pub struct WireframeConfig {
     pub global: bool,
 }
 
+#[derive(Resource)]
+struct GlobalWireframeMaterial {
+    // This handle will be reused when the global config is enabled
+    handle: Handle<WireframeMaterial>,
+}
+
+fn setup(mut commands: Commands, mut materials: ResMut<Assets<WireframeMaterial>>) {
+    // Create the handle used for the global material
+    commands.insert_resource(GlobalWireframeMaterial {
+        handle: materials.add(WireframeMaterial {}),
+    });
+}
+
 /// Applies the wireframe material to any mesh with a [`Wireframe`] component.
 fn apply_material(
     mut commands: Commands,
     mut materials: ResMut<Assets<WireframeMaterial>>,
     wireframes: Query<Entity, (With<Wireframe>, Without<Handle<WireframeMaterial>>)>,
+    mut removed_wireframes: RemovedComponents<Wireframe>,
 ) {
-    for e in &wireframes {
-        commands
-            .entity(e)
-            .insert(materials.add(WireframeMaterial {}));
+    for e in removed_wireframes.iter() {
+        if let Some(mut commands) = commands.get_entity(e) {
+            commands.remove::<Handle<WireframeMaterial>>();
+        }
     }
+
+    let mut wireframes_to_spawn = vec![];
+    for e in &wireframes {
+        wireframes_to_spawn.push((e, materials.add(WireframeMaterial {})));
+    }
+    commands.insert_or_spawn_batch(wireframes_to_spawn);
 }
 
 /// Applies or removes a wireframe material on any mesh without a [`Wireframe`] component.
@@ -79,7 +99,7 @@ fn apply_global(
             Without<Handle<WireframeMaterial>>,
         ),
     >,
-    meshes_with_material: Query<
+    meshes_with_global_material: Query<
         Entity,
         (
             With<Handle<Mesh>>,
@@ -87,18 +107,22 @@ fn apply_global(
             With<Handle<WireframeMaterial>>,
         ),
     >,
+    global_material: Res<GlobalWireframeMaterial>,
 ) {
     if !config.is_changed() {
         return;
     }
 
     if config.global {
-        let global_material = materials.add(WireframeMaterial {});
+        let mut material_to_spawn = vec![];
         for e in &meshes_without_material {
-            commands.entity(e).insert(global_material.clone());
+            // We only add the material handle but not the Wireframe component
+            // This makes it easy to detect which mesh is using the global material and which ones are user specified
+            material_to_spawn.push((e, global_material.handle.clone()));
         }
+        commands.insert_or_spawn_batch(material_to_spawn);
     } else if !config.global {
-        for e in &meshes_with_material {
+        for e in &meshes_with_global_material {
             commands.entity(e).remove::<Handle<WireframeMaterial>>();
         }
     }
