@@ -189,15 +189,15 @@ impl<S: States, M: StateMatcher<S>> IntoConditionalScheduleLabel<OnStateExit<S>>
 }
 
 /// A schedule for every time a state of type S is entered
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct OnStateEntry<S: States>(PhantomData<S>);
 
 /// A schedule for every time a state of type S is changed
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct OnStateTransition<S: States>(PhantomData<S>);
 
 /// A schedule for every time a state of type S is exited
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct OnStateExit<S: States>(PhantomData<S>);
 
 /// The label of a [`Schedule`](super::Schedule) that **only** runs whenever [`State<S>`]
@@ -263,7 +263,7 @@ impl<S: States, M1: StateMatcher<S>, M2: StateMatcher<S>>
             },
         ));
 
-        (OnStateTransition::<S>(PhantomData::<S>), Some(matcher))
+        (OnStateTransition::<S>::default(), Some(matcher))
     }
 }
 
@@ -563,16 +563,13 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
         NextState::Setter(f) => Some(f(current_state.clone())),
     };
     if let Some(entered) = entered {
-        world.insert_resource(NextState::<S>::Keep);
         if current_state != entered {
             world.insert_resource(PreviousState(current_state));
             let mut state_resource = world.resource_mut::<State<S>>();
             let exited = mem::replace(&mut state_resource.0, entered.clone());
             // Try to run the schedules if they exist.
             world.try_run_schedule(OnExit(exited.clone())).ok();
-            world
-                .try_run_schedule(OnStateExit::<S>(PhantomData::<S>))
-                .ok();
+            world.try_run_schedule(OnStateExit::<S>::default()).ok();
             world
                 .try_run_schedule(OnTransition {
                     from: exited,
@@ -580,13 +577,13 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
                 })
                 .ok();
             world
-                .try_run_schedule(OnStateTransition::<S>(PhantomData))
+                .try_run_schedule(OnStateTransition::<S>::default())
                 .ok();
             world.try_run_schedule(OnEnter(entered)).ok();
-            world
-                .try_run_schedule(OnStateEntry::<S>(PhantomData::<S>))
-                .ok();
+            world.try_run_schedule(OnStateEntry::<S>::default()).ok();
             world.remove_resource::<PreviousState<S>>();
         }
+
+        world.insert_resource(NextState::<S>::Keep);
     }
 }
