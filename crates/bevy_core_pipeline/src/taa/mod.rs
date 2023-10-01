@@ -75,8 +75,8 @@ impl Plugin for TemporalAntiAliasPlugin {
             .add_render_graph_edges(
                 CORE_3D,
                 &[
-                    core_3d::graph::node::END_MAIN_PASS,
                     core_3d::graph::node::MSAA_WRITEBACK,
+                    core_3d::graph::node::END_MAIN_PASS,
                     draw_3d_graph::node::TAA,
                     core_3d::graph::node::BLOOM,
                     core_3d::graph::node::TONEMAPPING,
