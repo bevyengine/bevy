@@ -1,10 +1,13 @@
-use crate::{serde::Serializable, Reflect, TypeInfo, Typed};
-use bevy_ptr::{Ptr, PtrMut};
-use bevy_utils::{HashMap, HashSet};
+use std::{any::TypeId, fmt::Debug, sync::Arc};
+
 use downcast_rs::{impl_downcast, Downcast};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use serde::Deserialize;
-use std::{any::TypeId, fmt::Debug, sync::Arc};
+
+use bevy_ptr::{Ptr, PtrMut};
+use bevy_utils::{HashMap, HashSet};
+
+use crate::{serde::Serializable, Reflect, TypeInfo, Typed};
 
 /// A registry of [reflected] types.
 ///
@@ -599,14 +602,54 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
     }
 }
 
+/// Map a type to a `TraitTypeData`
+///
+/// For example. `dyn MyTrait` maps to `ReflectMyTrait`. `ReflectMyTrait` maps to `ReflectMyTrait` (itself).
+///
+/// This trait is implemented automatically by `#[reflect_trait]`. It map `dyn MyTrait` maps to `ReflectMyTrait`.
+///
+/// In this way. the `get_dyn_by_id::<ReflectMyTrait>` or `get_dyn_by_id::<dyn MyTrait>` to get the associated `dyn Trait`
+pub trait TypeDataMapper {
+    type TypeData: TypeData;
+}
+
+// Map to oneself
+impl<T: TraitTypeData> TypeDataMapper for T {
+    type TypeData = T;
+}
+
+/// Type data for transforming a `dyn Reflect` into a `dyn Trait` trait object.
+///
+/// This trait associates the `trait object` corresponding to [`TypeData`].
+///
+/// This trait can be implemented automatically by the `#[reflect_trait]` macro.
+///
+/// If you implement [`TypeData`] for your type yourself, you should also implement this trait if you need to dynamically get the `trait object`
+pub trait TraitTypeData: TypeData {
+    /// The corresponding trait object.
+    type Dyn: ?Sized;
+
+    /// Downcast a `&dyn Reflect` type to `&Self::Dyn`.If the type cannot be downcast, `None` is returned.
+    fn get<'a>(&self, reflect_value: &'a dyn Reflect) -> Option<&'a Self::Dyn>;
+
+    /// Downcast a `&mut dyn Reflect` type to `&mut Self::Dyn`.If the type cannot be downcast, `None` is returned.
+    fn get_mut<'a>(&self, reflect_value: &'a mut dyn Reflect) -> Option<&'a mut Self::Dyn>;
+
+    /// Downcast a `Box<dyn Reflect>` type to `Box<dyn Self::Dyn>`.If the type cannot be downcast, this will return `Err(Box<dyn Reflect>)`.
+    fn get_boxed(
+        &self,
+        reflect_value: Box<dyn Reflect>,
+    ) -> Result<Box<Self::Dyn>, Box<dyn Reflect>>;
+}
+
 #[cfg(test)]
 mod test {
-    use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration};
     use bevy_ptr::{Ptr, PtrMut};
     use bevy_utils::HashMap;
 
     use crate as bevy_reflect;
     use crate::Reflect;
+    use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration};
 
     #[test]
     fn test_reflect_from_ptr() {

@@ -11,6 +11,7 @@ mod component;
 mod entity_commands;
 mod map_entities;
 mod resource;
+mod world;
 
 pub use bundle::{ReflectBundle, ReflectBundleFns};
 pub use component::{ReflectComponent, ReflectComponentFns};
