@@ -387,7 +387,7 @@ impl<S: States> Deref for PreviousState<S> {
 /// To queue a transition, just set the contained value to `Some(next_state)`.
 /// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
-#[derive(Resource, Default, Clone)]
+#[derive(Resource, Default)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
@@ -400,7 +400,7 @@ pub enum NextState<S: States> {
     /// Change the state to a specific, pre-determined value
     Value(S),
     /// Change the state to a value determined by the given closure
-    Setter(Arc<dyn Fn(S) -> S + Sync + Send>),
+    Setter(Box<dyn Fn(S) -> S + Sync + Send>),
 }
 
 impl<S: States> Debug for NextState<S> {
@@ -420,7 +420,7 @@ impl<S: States> NextState<S> {
     }
     /// Tentatively set a planned state transition to `Some(state)`.
     pub fn setter(&mut self, setter: impl Fn(S) -> S + 'static + Sync + Send) {
-        *self = Self::Setter(Arc::new(setter));
+        *self = Self::Setter(Box::new(setter));
     }
 }
 
