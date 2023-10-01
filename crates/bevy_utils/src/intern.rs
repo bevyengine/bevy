@@ -88,10 +88,10 @@ impl<T> From<&Interned<T>> for Interned<T> {
     }
 }
 
-/// A trait for leaking data.
+/// A trait for internable values.
 ///
 /// This is used by [`Interner<T>`] to create static references for values that are interned.
-pub trait Internable {
+pub trait Internable: Hash + Eq {
     /// Creates a static reference to `self`, possibly leaking memory.
     fn leak(&self) -> &'static Self;
 
@@ -124,7 +124,7 @@ impl Internable for str {
 ///
 /// The implementation ensures that two equal values return two equal [`Interned<T>`] values.
 ///
-/// To use an [`Interner<T>`], `T` must implement [`Leak`], [`Hash`] and [`Eq`].
+/// To use an [`Interner<T>`], `T` must implement [`Internable`].
 pub struct Interner<T: ?Sized + 'static>(OnceLock<RwLock<HashSet<&'static T>>>);
 
 impl<T: ?Sized> Interner<T> {
@@ -134,7 +134,7 @@ impl<T: ?Sized> Interner<T> {
     }
 }
 
-impl<T: Internable + Hash + Eq + ?Sized> Interner<T> {
+impl<T: Internable + ?Sized> Interner<T> {
     /// Return the [`Interned<T>`] corresponding to `value`.
     ///
     /// If it is called the first time for `value`, it will possibly leak the value and return an
