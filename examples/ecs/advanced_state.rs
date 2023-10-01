@@ -1,4 +1,4 @@
-//! This example illustrates how to use some of the more advance [`States`] functionality for high-level app control flow.
+//! This example illustrates how to use some of the more advanced [`States`] functionality for high-level app control flow.
 //!
 //! The use case here is identical to the regular [state](./state.rs) example, but we will be
 //! utilizing the `StateMatcher` trait more directly.
@@ -55,7 +55,7 @@ enum InGame {
 // For example here we can determine if we want to match in
 // any InGame state, only when the game is paused, or only when it
 // is running. You can't have this kind of logic using pure equality,
-// and having it defined this ay makes it re-usable and customizable to your needs.
+// and having it defined this way makes it re-usable and customizable to your needs.
 impl StateMatcher<AppState> for InGame {
     fn match_state(&self, state: &AppState) -> bool {
         match state {
@@ -82,7 +82,7 @@ enum AppState {
 enum MovementState {
     #[default]
     Normal,
-    Invert,
+    Inverted,
 }
 
 const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
