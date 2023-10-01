@@ -5,24 +5,13 @@
 
 fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
     // Do the lookup, using HW 2x2 PCF and comparison
-    // NOTE: Due to non-uniform control flow above, we must use the level variant of the texture
-    // sampler to avoid use of implicit derivatives causing possible undefined behavior.
-#ifdef NO_ARRAY_TEXTURES_SUPPORT
-    return textureSampleCompareLevel(
-        view_bindings::directional_shadow_textures,
-        view_bindings::directional_shadow_textures_sampler,
-        light_local,
-        depth
-    );
-#else
     return textureSampleCompareLevel(
         view_bindings::directional_shadow_textures,
         view_bindings::directional_shadow_textures_sampler,
         light_local,
         array_index,
-        depth
+        depth,
     );
-#endif
 }
 
 // https://web.archive.org/web/20230210095515/http://the-witness.net/news/2013/09/shadow-mapping-summary-part-1
