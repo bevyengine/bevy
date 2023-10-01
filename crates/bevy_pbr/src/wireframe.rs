@@ -1,6 +1,6 @@
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin};
 use bevy_app::{Plugin, Startup, Update};
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath, TypeUuid};
 use bevy_render::{
@@ -72,7 +72,7 @@ fn apply_material(
     wireframes: Query<Entity, (With<Wireframe>, Without<Handle<WireframeMaterial>>)>,
     mut removed_wireframes: RemovedComponents<Wireframe>,
 ) {
-    for e in removed_wireframes.iter() {
+    for e in removed_wireframes.read() {
         if let Some(mut commands) = commands.get_entity(e) {
             commands.remove::<Handle<WireframeMaterial>>();
         }
@@ -90,7 +90,6 @@ fn apply_material(
 fn apply_global(
     mut commands: Commands,
     config: Res<WireframeConfig>,
-    mut materials: ResMut<Assets<WireframeMaterial>>,
     meshes_without_material: Query<
         Entity,
         (
@@ -128,17 +127,17 @@ fn apply_global(
     }
 }
 
-#[derive(Default, AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
+#[derive(Default, AsBindGroup, TypeUuid, TypePath, Debug, Clone, Asset)]
 #[uuid = "9e694f70-9963-4418-8bc1-3474c66b13b8"]
 struct WireframeMaterial {}
 
 impl Material for WireframeMaterial {
     fn vertex_shader() -> ShaderRef {
-        WIREFRAME_SHADER_HANDLE.typed().into()
+        WIREFRAME_SHADER_HANDLE.into()
     }
 
     fn fragment_shader() -> ShaderRef {
-        WIREFRAME_SHADER_HANDLE.typed().into()
+        WIREFRAME_SHADER_HANDLE.into()
     }
 
     fn specialize(
