@@ -61,7 +61,11 @@ impl Scene {
         let type_registry = type_registry.read();
 
         // Resources archetype
-        for (component_id, _) in self.world.storages().resources.iter() {
+        for (component_id, resource_data) in self.world.storages().resources.iter() {
+            if !resource_data.is_present() {
+                continue;
+            }
+
             let component_info = self
                 .world
                 .components()
