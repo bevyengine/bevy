@@ -1,6 +1,6 @@
 #import bevy_pbr::mesh_vertex_output    MeshVertexOutput
 #import bevy_pbr::pbr_functions         PbrInput, apply_pbr_lighting
-#import bevy_pbr::pbr_fragment          standard_material_pbr_input, in_shader_post_processing
+#import bevy_pbr::pbr_fragment          pbr_input_from_standard_material, in_shader_post_processing
 
 struct MyExtendedMaterial {
     quantize_steps: u32,
@@ -15,7 +15,7 @@ fn fragment(
     @builtin(front_facing) is_front: bool,
 ) -> @location(0) vec4<f32> {
     // generate a PbrInput struct from the StandardMaterial bindings
-    var pbr_input = standard_material_pbr_input(in, is_front);
+    var pbr_input = pbr_input_from_standard_material(in, is_front);
 
     // we can optionally modify the input before lighting is applied
     pbr_input.material.base_color.b = pbr_input.material.base_color.r;

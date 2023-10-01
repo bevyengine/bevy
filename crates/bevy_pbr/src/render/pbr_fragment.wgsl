@@ -18,7 +18,7 @@
 #import bevy_pbr::gtao_utils gtao_multibounce
 #endif
 
-fn mesh_vertex_output_pbr_input(
+fn pbr_input_from_mesh_vertex_output(
     in: MeshVertexOutput,
     is_front: bool,
     double_sided: bool,
@@ -46,13 +46,13 @@ fn mesh_vertex_output_pbr_input(
 
 // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
 // the material members
-fn standard_material_pbr_input(
+fn pbr_input_from_standard_material(
     in: MeshVertexOutput,
     is_front: bool,
 ) -> pbr_functions::PbrInput {
     let double_sided = (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
 
-    var pbr_input: pbr_functions::PbrInput = mesh_vertex_output_pbr_input(in, is_front, double_sided);
+    var pbr_input: pbr_functions::PbrInput = pbr_input_from_mesh_vertex_output(in, is_front, double_sided);
     pbr_input.material.base_color = pbr_input.material.base_color * pbr_bindings::material.base_color;
 
 #ifdef VERTEX_UVS

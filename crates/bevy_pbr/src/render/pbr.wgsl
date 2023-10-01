@@ -1,6 +1,6 @@
 #import bevy_pbr::mesh_vertex_output    MeshVertexOutput
 #import bevy_pbr::pbr_functions         PbrInput, apply_pbr_lighting, alpha_discard
-#import bevy_pbr::pbr_fragment          standard_material_pbr_input, in_shader_post_processing
+#import bevy_pbr::pbr_fragment          pbr_input_from_standard_material, in_shader_post_processing
 #import bevy_pbr::pbr_types             STANDARD_MATERIAL_FLAGS_UNLIT_BIT
 
 @fragment
@@ -9,7 +9,7 @@ fn fragment(
     @builtin(front_facing) is_front: bool,
 ) -> @location(0) vec4<f32> {
     // generate a PbrInput struct from the StandardMaterial bindings
-    let pbr_input = standard_material_pbr_input(in, is_front);
+    let pbr_input = pbr_input_from_standard_material(in, is_front);
 
     // apply lighting
     var lit_color: vec4<f32>;
