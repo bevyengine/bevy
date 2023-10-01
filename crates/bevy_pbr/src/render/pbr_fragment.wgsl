@@ -109,7 +109,7 @@ fn pbr_input_from_standard_material(
             let metallic_roughness = textureSampleBias(pbr_bindings::metallic_roughness_texture, pbr_bindings::metallic_roughness_sampler, uv, view.mip_bias);
             // Sampling from GLTF standard channels for now
             metallic *= metallic_roughness.b;
-            perceptual_roughness = perceptual_roughness * metallic_roughness.g;
+            perceptual_roughness *= metallic_roughness.g;
         }
 #endif
         pbr_input.material.metallic = metallic;
