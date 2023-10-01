@@ -2,20 +2,21 @@
 
 use std::{
     collections::VecDeque,
-    sync::{atomic::Ordering, Arc, Mutex},
+    sync::{Arc, Mutex},
 };
 
 use accesskit_winit::Adapter;
-use bevy_a11y::ActionRequest as ActionRequestWrapper;
 use bevy_a11y::{
     accesskit::{ActionHandler, ActionRequest, NodeBuilder, NodeClassSet, Role, TreeUpdate},
-    AccessKitEntityExt, AccessibilityNode, AccessibilityRequested, Focus,
+    AccessKitEntityExt, AccessibilityNode, AccessibilityRequested, AccessibilitySystem, Focus,
 };
+use bevy_a11y::{ActionRequest as ActionRequestWrapper, ManageAccessibilityUpdates};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
     query::With,
+    schedule::IntoSystemConfigs,
     system::{NonSend, NonSendMut, Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
@@ -48,17 +49,16 @@ fn handle_window_focus(
 ) {
     for event in focused.read() {
         if let Some(adapter) = adapters.get(&event.window) {
-            adapter.update_if_active(|| {
-                let focus_id = (*focus).unwrap_or_else(|| event.window);
-                TreeUpdate {
+            if let Some(focus_id) = **focus {
+                adapter.update_if_active(|| TreeUpdate {
                     focus: if event.focused {
                         Some(focus_id.to_node_id())
                     } else {
                         None
                     },
                     ..default()
-                }
-            });
+                });
+            }
         }
     }
 }
@@ -91,6 +91,7 @@ fn update_accessibility_nodes(
     focus: Res<Focus>,
     accessibility_requested: Res<AccessibilityRequested>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
+    manage_accessibility_updates: Res<ManageAccessibilityUpdates>,
     nodes: Query<(
         Entity,
         &AccessibilityNode,
@@ -99,7 +100,7 @@ fn update_accessibility_nodes(
     )>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
 ) {
-    if !accessibility_requested.load(Ordering::SeqCst) {
+    if !accessibility_requested.get() || !manage_accessibility_updates.get() {
         return;
     }
     if let Ok((primary_window_id, primary_window)) = primary_window.get_single() {
@@ -176,7 +177,8 @@ impl Plugin for AccessibilityPlugin {
                     window_closed,
                     poll_receivers,
                     update_accessibility_nodes,
-                ),
+                )
+                    .in_set(AccessibilitySystem::Update),
             );
     }
 }

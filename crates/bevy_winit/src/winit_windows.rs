@@ -1,5 +1,4 @@
 #![warn(missing_docs)]
-use std::sync::atomic::Ordering;
 
 use accesskit_winit::Adapter;
 use bevy_a11y::{
@@ -157,7 +156,7 @@ impl WinitWindows {
         let adapter = Adapter::with_action_handler(
             &winit_window,
             move || {
-                accessibility_requested.store(true, Ordering::SeqCst);
+                accessibility_requested.set(true);
                 TreeUpdate {
                     nodes: vec![(accesskit_window_id, root)],
                     tree: Some(Tree::new(accesskit_window_id)),
