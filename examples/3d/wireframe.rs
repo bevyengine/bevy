@@ -19,7 +19,6 @@ fn main() {
                     features: WgpuFeatures::POLYGON_MODE_LINE,
                     ..default()
                 }),
-                ..default()
             }),
             // You need to add this plugin to enable wireframe rendering
             WireframePlugin,
