@@ -149,9 +149,9 @@ pub struct Window {
     ///
     /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
-    /// - macOS X: Not working as expected.
+    /// - macOS: Not working as expected.
     ///
-    /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>.
+    /// macOS transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>.
     /// You should also set the window `composite_alpha_mode` to `CompositeAlphaMode::PostMultiplied`.
     pub transparent: bool,
     /// Get/set whether the window is focused.
@@ -316,9 +316,8 @@ impl Window {
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
     pub fn cursor_position(&self) -> Option<Vec2> {
-        self.internal
-            .physical_cursor_position
-            .map(|position| (position / self.scale_factor()).as_vec2())
+        self.physical_cursor_position()
+            .map(|position| (position.as_dvec2() / self.scale_factor()).as_vec2())
     }
 
     /// The cursor position in this window in physical pixels.
@@ -328,9 +327,20 @@ impl Window {
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
     pub fn physical_cursor_position(&self) -> Option<Vec2> {
-        self.internal
-            .physical_cursor_position
-            .map(|position| position.as_vec2())
+        match self.internal.physical_cursor_position {
+            Some(position) => {
+                if position.x >= 0.
+                    && position.y >= 0.
+                    && position.x < self.physical_width() as f64
+                    && position.y < self.physical_height() as f64
+                {
+                    Some(position.as_vec2())
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
     }
 
     /// Set the cursor position in this window in logical pixels.
@@ -1044,7 +1054,7 @@ pub struct EnabledButtons {
     ///
     /// macOS note: When [`Window`] `resizable` member is set to `false`
     /// the maximize button will be disabled regardless of this value.
-    /// Additionaly, when `resizable` is set to `true` the window will
+    /// Additionally, when `resizable` is set to `true` the window will
     /// be maximized when its bar is double-clicked regardless of whether
     /// the maximize button is enabled or not.
     pub maximize: bool,
@@ -1059,5 +1069,60 @@ impl Default for EnabledButtons {
             maximize: true,
             close: true,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Checks that `Window::physical_cursor_position` returns the cursor position if it is within
+    // the bounds of the window.
+    #[test]
+    fn cursor_position_within_window_bounds() {
+        let mut window = Window {
+            resolution: WindowResolution::new(800., 600.),
+            ..Default::default()
+        };
+
+        window.set_physical_cursor_position(Some(DVec2::new(0., 300.)));
+        assert_eq!(window.physical_cursor_position(), Some(Vec2::new(0., 300.)));
+
+        window.set_physical_cursor_position(Some(DVec2::new(400., 0.)));
+        assert_eq!(window.physical_cursor_position(), Some(Vec2::new(400., 0.)));
+
+        window.set_physical_cursor_position(Some(DVec2::new(799.999, 300.)));
+        assert_eq!(
+            window.physical_cursor_position(),
+            Some(Vec2::new(799.999, 300.)),
+        );
+
+        window.set_physical_cursor_position(Some(DVec2::new(400., 599.999)));
+        assert_eq!(
+            window.physical_cursor_position(),
+            Some(Vec2::new(400., 599.999))
+        );
+    }
+
+    // Checks that `Window::physical_cursor_position` returns `None` if the cursor position is not
+    // within the bounds of the window.
+    #[test]
+    fn cursor_position_not_within_window_bounds() {
+        let mut window = Window {
+            resolution: WindowResolution::new(800., 600.),
+            ..Default::default()
+        };
+
+        window.set_physical_cursor_position(Some(DVec2::new(-0.001, 300.)));
+        assert!(window.physical_cursor_position().is_none());
+
+        window.set_physical_cursor_position(Some(DVec2::new(400., -0.001)));
+        assert!(window.physical_cursor_position().is_none());
+
+        window.set_physical_cursor_position(Some(DVec2::new(800., 300.)));
+        assert!(window.physical_cursor_position().is_none());
+
+        window.set_physical_cursor_position(Some(DVec2::new(400., 600.)));
+        assert!(window.physical_cursor_position().is_none());
     }
 }

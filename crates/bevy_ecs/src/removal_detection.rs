@@ -4,9 +4,7 @@ use crate::{
     self as bevy_ecs,
     component::{Component, ComponentId, ComponentIdFor, Tick},
     entity::Entity,
-    event::{
-        Event, EventId, Events, ManualEventIterator, ManualEventIteratorWithId, ManualEventReader,
-    },
+    event::{Event, EventId, EventIterator, EventIteratorWithId, Events, ManualEventReader},
     prelude::Local,
     storage::SparseSet,
     system::{ReadOnlySystemParam, SystemMeta, SystemParam},
@@ -145,7 +143,7 @@ pub struct RemovedComponents<'w, 's, T: Component> {
 ///
 /// See [`RemovedComponents`].
 pub type RemovedIter<'a> = iter::Map<
-    iter::Flatten<option::IntoIter<iter::Cloned<ManualEventIterator<'a, RemovedComponentEntity>>>>,
+    iter::Flatten<option::IntoIter<iter::Cloned<EventIterator<'a, RemovedComponentEntity>>>>,
     fn(RemovedComponentEntity) -> Entity,
 >;
 
@@ -153,7 +151,7 @@ pub type RemovedIter<'a> = iter::Map<
 ///
 /// See [`RemovedComponents`].
 pub type RemovedIterWithId<'a> = iter::Map<
-    iter::Flatten<option::IntoIter<ManualEventIteratorWithId<'a, RemovedComponentEntity>>>,
+    iter::Flatten<option::IntoIter<EventIteratorWithId<'a, RemovedComponentEntity>>>,
     fn(
         (&RemovedComponentEntity, EventId<RemovedComponentEntity>),
     ) -> (Entity, EventId<RemovedComponentEntity>),
@@ -202,21 +200,35 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// Iterates over the events this [`RemovedComponents`] has not seen yet. This updates the
     /// [`RemovedComponents`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
-    pub fn iter(&mut self) -> RemovedIter<'_> {
+    pub fn read(&mut self) -> RemovedIter<'_> {
         self.reader_mut_with_events()
-            .map(|(reader, events)| reader.iter(events).cloned())
+            .map(|(reader, events)| reader.read(events).cloned())
             .into_iter()
             .flatten()
             .map(RemovedComponentEntity::into)
     }
 
-    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
-    pub fn iter_with_id(&mut self) -> RemovedIterWithId<'_> {
+    /// Iterates over the events this [`RemovedComponents`] has not seen yet. This updates the
+    /// [`RemovedComponents`]'s event counter, which means subsequent event reads will not include events
+    /// that happened before now.
+    #[deprecated = "use `.read()` instead."]
+    pub fn iter(&mut self) -> RemovedIter<'_> {
+        self.read()
+    }
+
+    /// Like [`read`](Self::read), except also returning the [`EventId`] of the events.
+    pub fn read_with_id(&mut self) -> RemovedIterWithId<'_> {
         self.reader_mut_with_events()
-            .map(|(reader, events)| reader.iter_with_id(events))
+            .map(|(reader, events)| reader.read_with_id(events))
             .into_iter()
             .flatten()
             .map(map_id_events)
+    }
+
+    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
+    #[deprecated = "use `.read_with_id()` instead."]
+    pub fn iter_with_id(&mut self) -> RemovedIterWithId<'_> {
+        self.read_with_id()
     }
 
     /// Determines the number of removal events available to be read from this [`RemovedComponents`] without consuming any.
@@ -235,23 +247,12 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
 
     /// Consumes all available events.
     ///
-    /// This means these events will not appear in calls to [`RemovedComponents::iter()`] or
-    /// [`RemovedComponents::iter_with_id()`] and [`RemovedComponents::is_empty()`] will return `true`.
+    /// This means these events will not appear in calls to [`RemovedComponents::read()`] or
+    /// [`RemovedComponents::read_with_id()`] and [`RemovedComponents::is_empty()`] will return `true`.
     pub fn clear(&mut self) {
         if let Some((reader, events)) = self.reader_mut_with_events() {
             reader.clear(events);
         }
-    }
-}
-
-impl<'a, 'w, 's: 'a, T> IntoIterator for &'a mut RemovedComponents<'w, 's, T>
-where
-    T: Component,
-{
-    type Item = Entity;
-    type IntoIter = RemovedIter<'a>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
     }
 }
 

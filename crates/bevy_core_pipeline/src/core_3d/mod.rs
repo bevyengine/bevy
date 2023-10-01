@@ -24,7 +24,7 @@ pub mod graph {
 }
 pub const CORE_3D: &str = graph::NAME;
 
-use std::cmp::Reverse;
+use std::{cmp::Reverse, ops::Range};
 
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
@@ -50,7 +50,7 @@ use bevy_render::{
     view::ViewDepthTexture,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{FloatOrd, HashMap};
+use bevy_utils::{nonmax::NonMaxU32, FloatOrd, HashMap};
 
 use crate::{
     prepass::{
@@ -87,17 +87,13 @@ impl Plugin for Core3dPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_core_3d_depth_textures
-                        .in_set(RenderSet::Prepare)
-                        .after(bevy_render::view::prepare_windows),
-                    prepare_prepass_textures
-                        .in_set(RenderSet::Prepare)
-                        .after(bevy_render::view::prepare_windows),
                     sort_phase_system::<Opaque3d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<AlphaMask3d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
+                    prepare_core_3d_depth_textures.in_set(RenderSet::PrepareResources),
+                    prepare_prepass_textures.in_set(RenderSet::PrepareResources),
                 ),
             );
 
@@ -136,18 +132,16 @@ impl Plugin for Core3dPlugin {
 
 pub struct Opaque3d {
     pub distance: f32,
-    // Per-object data may be bound at different dynamic offsets within a buffer. If it is, then
-    // each batch of per-object data starts at the same dynamic offset.
-    pub per_object_binding_dynamic_offset: u32,
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
+    pub batch_range: Range<u32>,
+    pub dynamic_offset: Option<NonMaxU32>,
 }
 
 impl PhaseItem for Opaque3d {
-    // NOTE: (dynamic offset, -distance)
     // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
-    type SortKey = (u32, Reverse<FloatOrd>);
+    type SortKey = Reverse<FloatOrd>;
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -156,10 +150,7 @@ impl PhaseItem for Opaque3d {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        (
-            self.per_object_binding_dynamic_offset,
-            Reverse(FloatOrd(self.distance)),
-        )
+        Reverse(FloatOrd(self.distance))
     }
 
     #[inline]
@@ -170,9 +161,27 @@ impl PhaseItem for Opaque3d {
     #[inline]
     fn sort(items: &mut [Self]) {
         // Key negated to match reversed SortKey ordering
-        radsort::sort_by_key(items, |item| {
-            (item.per_object_binding_dynamic_offset, -item.distance)
-        });
+        radsort::sort_by_key(items, |item| -item.distance);
+    }
+
+    #[inline]
+    fn batch_range(&self) -> &Range<u32> {
+        &self.batch_range
+    }
+
+    #[inline]
+    fn batch_range_mut(&mut self) -> &mut Range<u32> {
+        &mut self.batch_range
+    }
+
+    #[inline]
+    fn dynamic_offset(&self) -> Option<NonMaxU32> {
+        self.dynamic_offset
+    }
+
+    #[inline]
+    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
+        &mut self.dynamic_offset
     }
 }
 
@@ -185,18 +194,16 @@ impl CachedRenderPipelinePhaseItem for Opaque3d {
 
 pub struct AlphaMask3d {
     pub distance: f32,
-    // Per-object data may be bound at different dynamic offsets within a buffer. If it is, then
-    // each batch of per-object data starts at the same dynamic offset.
-    pub per_object_binding_dynamic_offset: u32,
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
+    pub batch_range: Range<u32>,
+    pub dynamic_offset: Option<NonMaxU32>,
 }
 
 impl PhaseItem for AlphaMask3d {
-    // NOTE: (dynamic offset, -distance)
     // NOTE: Values increase towards the camera. Front-to-back ordering for alpha mask means we need a descending sort.
-    type SortKey = (u32, Reverse<FloatOrd>);
+    type SortKey = Reverse<FloatOrd>;
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -205,10 +212,7 @@ impl PhaseItem for AlphaMask3d {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        (
-            self.per_object_binding_dynamic_offset,
-            Reverse(FloatOrd(self.distance)),
-        )
+        Reverse(FloatOrd(self.distance))
     }
 
     #[inline]
@@ -219,9 +223,27 @@ impl PhaseItem for AlphaMask3d {
     #[inline]
     fn sort(items: &mut [Self]) {
         // Key negated to match reversed SortKey ordering
-        radsort::sort_by_key(items, |item| {
-            (item.per_object_binding_dynamic_offset, -item.distance)
-        });
+        radsort::sort_by_key(items, |item| -item.distance);
+    }
+
+    #[inline]
+    fn batch_range(&self) -> &Range<u32> {
+        &self.batch_range
+    }
+
+    #[inline]
+    fn batch_range_mut(&mut self) -> &mut Range<u32> {
+        &mut self.batch_range
+    }
+
+    #[inline]
+    fn dynamic_offset(&self) -> Option<NonMaxU32> {
+        self.dynamic_offset
+    }
+
+    #[inline]
+    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
+        &mut self.dynamic_offset
     }
 }
 
@@ -237,6 +259,8 @@ pub struct Transparent3d {
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
+    pub batch_range: Range<u32>,
+    pub dynamic_offset: Option<NonMaxU32>,
 }
 
 impl PhaseItem for Transparent3d {
@@ -261,6 +285,26 @@ impl PhaseItem for Transparent3d {
     #[inline]
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
+    }
+
+    #[inline]
+    fn batch_range(&self) -> &Range<u32> {
+        &self.batch_range
+    }
+
+    #[inline]
+    fn batch_range_mut(&mut self) -> &mut Range<u32> {
+        &mut self.batch_range
+    }
+
+    #[inline]
+    fn dynamic_offset(&self) -> Option<NonMaxU32> {
+        self.dynamic_offset
+    }
+
+    #[inline]
+    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
+        &mut self.dynamic_offset
     }
 }
 
@@ -344,8 +388,22 @@ pub fn prepare_core_3d_depth_textures(
         ),
     >,
 ) {
+    let mut render_target_usage = HashMap::default();
+    for (_, camera, depth_prepass, camera_3d) in &views_3d {
+        // Default usage required to write to the depth texture
+        let mut usage: TextureUsages = camera_3d.depth_texture_usages.into();
+        if depth_prepass.is_some() {
+            // Required to read the output of the prepass
+            usage |= TextureUsages::COPY_SRC;
+        }
+        render_target_usage
+            .entry(camera.target.clone())
+            .and_modify(|u| *u |= usage)
+            .or_insert_with(|| usage);
+    }
+
     let mut textures = HashMap::default();
-    for (entity, camera, depth_prepass, camera_3d) in &views_3d {
+    for (entity, camera, _, _) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
@@ -353,19 +411,16 @@ pub fn prepare_core_3d_depth_textures(
         let cached_texture = textures
             .entry(camera.target.clone())
             .or_insert_with(|| {
-                // Default usage required to write to the depth texture
-                let mut usage = camera_3d.depth_texture_usages.into();
-                if depth_prepass.is_some() {
-                    // Required to read the output of the prepass
-                    usage |= TextureUsages::COPY_SRC;
-                }
-
                 // The size of the depth texture
                 let size = Extent3d {
                     depth_or_array_layers: 1,
                     width: physical_target_size.x,
                     height: physical_target_size.y,
                 };
+
+                let usage = *render_target_usage
+                    .get(&camera.target.clone())
+                    .expect("The depth texture usage should already exist for this target");
 
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),

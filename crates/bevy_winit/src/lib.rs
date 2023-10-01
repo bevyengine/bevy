@@ -63,11 +63,11 @@ use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin
 #[cfg(target_os = "android")]
 pub static ANDROID_APP: std::sync::OnceLock<AndroidApp> = std::sync::OnceLock::new();
 
-/// A [`Plugin`] that uses [`winit`] to create and manage windows, and receive window and input
+/// A [`Plugin`] that uses `winit` to create and manage windows, and receive window and input
 /// events.
 ///
-/// This plugin will add systems and resources that sync with the [`winit`] backend and also
-/// replace the exising [`App`] runner with one that constructs an [event loop](EventLoop) to
+/// This plugin will add systems and resources that sync with the `winit` backend and also
+/// replace the existing [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
 #[derive(Default)]
 pub struct WinitPlugin;
@@ -356,7 +356,7 @@ pub fn winit_runner(mut app: App) {
             }
 
             if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-                if app_exit_event_reader.iter(app_exit_events).last().is_some() {
+                if app_exit_event_reader.read(app_exit_events).last().is_some() {
                     *control_flow = ControlFlow::Exit;
                     return;
                 }
@@ -366,7 +366,7 @@ pub fn winit_runner(mut app: App) {
         match event {
             event::Event::NewEvents(start_cause) => match start_cause {
                 StartCause::Init => {
-                    #[cfg(any(target_os = "android", target_os = "ios", target_os = "macos"))]
+                    #[cfg(any(target_os = "ios", target_os = "macos"))]
                     {
                         #[cfg(not(target_arch = "wasm32"))]
                         let (
@@ -441,6 +441,14 @@ pub fn winit_runner(mut app: App) {
 
                 match event {
                     WindowEvent::Resized(size) => {
+                        // TODO: Remove this once we upgrade winit to a version with the fix
+                        #[cfg(target_os = "macos")]
+                        if size.width == u32::MAX || size.height == u32::MAX {
+                            // HACK to fix a bug on Macos 14
+                            // https://github.com/rust-windowing/winit/issues/2876
+                            return;
+                        }
+
                         window
                             .resolution
                             .set_physical_resolution(size.width, size.height);
@@ -723,14 +731,14 @@ pub fn winit_runner(mut app: App) {
                         if let Some(app_redraw_events) =
                             app.world.get_resource::<Events<RequestRedraw>>()
                         {
-                            if redraw_event_reader.iter(app_redraw_events).last().is_some() {
+                            if redraw_event_reader.read(app_redraw_events).last().is_some() {
                                 runner_state.redraw_requested = true;
                                 *control_flow = ControlFlow::Poll;
                             }
                         }
 
                         if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-                            if app_exit_event_reader.iter(app_exit_events).last().is_some() {
+                            if app_exit_event_reader.read(app_exit_events).last().is_some() {
                                 *control_flow = ControlFlow::Exit;
                             }
                         }

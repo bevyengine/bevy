@@ -27,11 +27,6 @@ pub struct NonSendMarker;
 
 pub struct WindowRenderPlugin;
 
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub enum WindowSystem {
-    Prepare,
-}
-
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ScreenshotPlugin);
@@ -42,8 +37,7 @@ impl Plugin for WindowRenderPlugin {
                 .init_resource::<WindowSurfaces>()
                 .init_non_send_resource::<NonSendMarker>()
                 .add_systems(ExtractSchedule, extract_windows)
-                .configure_set(Render, WindowSystem::Prepare.in_set(RenderSet::Prepare))
-                .add_systems(Render, prepare_windows.in_set(WindowSystem::Prepare));
+                .add_systems(Render, prepare_windows.in_set(RenderSet::ManageViews));
         }
     }
 
@@ -167,7 +161,7 @@ fn extract_windows(
         }
     }
 
-    for closed_window in closed.iter() {
+    for closed_window in closed.read() {
         extracted_windows.remove(&closed_window.window);
     }
     // This lock will never block because `callbacks` is `pub(crate)` and this is the singular callsite where it's locked.
@@ -236,7 +230,7 @@ pub fn prepare_windows(
             .entry(window.entity)
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
-                // As of wgpu 0.15, only failable if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
+                // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
                 let surface = render_instance
                     .create_surface(&window.handle.get_handle())
                     .expect("Failed to create wgpu surface");

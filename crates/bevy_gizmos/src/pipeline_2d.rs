@@ -13,7 +13,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    render_asset::RenderAssets,
+    render_asset::{prepare_assets, RenderAssets},
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
     texture::BevyDefault,
@@ -34,7 +34,12 @@ impl Plugin for LineGizmo2dPlugin {
         render_app
             .add_render_command::<Transparent2d, DrawLineGizmo2d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
-            .add_systems(Render, queue_line_gizmos_2d.in_set(RenderSet::Queue));
+            .add_systems(
+                Render,
+                queue_line_gizmos_2d
+                    .in_set(RenderSet::Queue)
+                    .after(prepare_assets::<LineGizmo>),
+            );
     }
 
     fn finish(&self, app: &mut App) {
@@ -92,13 +97,13 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: LINE_SHADER_HANDLE.typed(),
+                shader: LINE_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: line_gizmo_vertex_buffer_layouts(key.strip),
             },
             fragment: Some(FragmentState {
-                shader: LINE_SHADER_HANDLE.typed(),
+                shader: LINE_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -173,7 +178,8 @@ fn queue_line_gizmos_2d(
                 draw_function,
                 pipeline,
                 sort_key: FloatOrd(f32::INFINITY),
-                batch_range: None,
+                batch_range: 0..1,
+                dynamic_offset: None,
             });
         }
     }

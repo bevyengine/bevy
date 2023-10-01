@@ -5,17 +5,17 @@ use crate::{
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryItem, With},
-    schedule::{apply_deferred, IntoSystemConfigs},
+    schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_math::vec2;
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
     prelude::{Camera, Projection},
@@ -31,7 +31,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
-    view::{prepare_view_uniforms, ExtractedView, Msaa, ViewTarget},
+    view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 
@@ -42,8 +42,7 @@ mod draw_3d_graph {
     }
 }
 
-const TAA_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 656865235226276);
+const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276);
 
 /// Plugin for temporal anti-aliasing. Disables multisample anti-aliasing (MSAA).
 ///
@@ -67,12 +66,9 @@ impl Plugin for TemporalAntiAliasPlugin {
             .add_systems(
                 Render,
                 (
-                    (prepare_taa_jitter_and_mip_bias, apply_deferred)
-                        .chain()
-                        .before(prepare_view_uniforms)
-                        .in_set(RenderSet::Prepare),
-                    prepare_taa_history_textures.in_set(RenderSet::Prepare),
+                    prepare_taa_jitter_and_mip_bias.in_set(RenderSet::ManageViews),
                     prepare_taa_pipelines.in_set(RenderSet::Prepare),
+                    prepare_taa_history_textures.in_set(RenderSet::PrepareResources),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<TAANode>>(CORE_3D, draw_3d_graph::node::TAA)
@@ -395,7 +391,7 @@ impl SpecializedRenderPipeline for TAAPipeline {
             layout: vec![self.taa_bind_group_layout.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: TAA_SHADER_HANDLE.typed::<Shader>(),
+                shader: TAA_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "taa".into(),
                 targets: vec![

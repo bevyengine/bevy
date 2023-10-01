@@ -1,7 +1,7 @@
 pub mod visibility;
 pub mod window;
 
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 pub use visibility::*;
 pub use window::*;
 
@@ -19,7 +19,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec4, Vec3, Vec4, Vec4Swizzles};
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use std::sync::{
@@ -31,8 +31,7 @@ use wgpu::{
     TextureFormat, TextureUsages,
 };
 
-pub const VIEW_TYPE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 15421373904451797197);
+pub const VIEW_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(15421373904451797197);
 
 pub struct ViewPlugin;
 
@@ -40,8 +39,8 @@ impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, VIEW_TYPE_HANDLE, "view.wgsl", Shader::from_wgsl);
 
-        app.register_type::<ComputedVisibility>()
-            .register_type::<ComputedVisibilityFlags>()
+        app.register_type::<InheritedVisibility>()
+            .register_type::<ViewVisibility>()
             .register_type::<Msaa>()
             .register_type::<NoFrustumCulling>()
             .register_type::<RenderLayers>()
@@ -53,19 +52,16 @@ impl Plugin for ViewPlugin {
             .add_plugins((ExtractResourcePlugin::<Msaa>::default(), VisibilityPlugin));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<ViewUniforms>()
-                .configure_set(Render, ViewSet::PrepareUniforms.in_set(RenderSet::Prepare))
-                .add_systems(
-                    Render,
-                    (
-                        prepare_view_uniforms.in_set(ViewSet::PrepareUniforms),
-                        prepare_view_targets
-                            .after(WindowSystem::Prepare)
-                            .in_set(RenderSet::Prepare)
-                            .after(crate::render_asset::prepare_assets::<Image>),
-                    ),
-                );
+            render_app.init_resource::<ViewUniforms>().add_systems(
+                Render,
+                (
+                    prepare_view_targets
+                        .in_set(RenderSet::ManageViews)
+                        .after(prepare_windows)
+                        .after(crate::render_asset::prepare_assets::<Image>),
+                    prepare_view_uniforms.in_set(RenderSet::PrepareResources),
+                ),
+            );
         }
     }
 }
@@ -360,8 +356,15 @@ pub fn prepare_view_uniforms(
         Option<&MipBias>,
     )>,
 ) {
-    view_uniforms.uniforms.clear();
-
+    let view_iter = views.iter();
+    let view_count = view_iter.len();
+    let Some(mut writer) =
+        view_uniforms
+            .uniforms
+            .get_writer(view_count, &render_device, &render_queue)
+    else {
+        return;
+    };
     for (entity, camera, temporal_jitter, mip_bias) in &views {
         let viewport = camera.viewport.as_vec4();
         let unjittered_projection = camera.projection;
@@ -384,7 +387,7 @@ pub fn prepare_view_uniforms(
         };
 
         let view_uniforms = ViewUniformOffset {
-            offset: view_uniforms.uniforms.push(ViewUniform {
+            offset: writer.write(&ViewUniform {
                 view_proj,
                 unjittered_view_proj: unjittered_projection * inverse_view,
                 inverse_view_proj: view * inverse_projection,
@@ -401,10 +404,6 @@ pub fn prepare_view_uniforms(
 
         commands.entity(entity).insert(view_uniforms);
     }
-
-    view_uniforms
-        .uniforms
-        .write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Clone)]
@@ -516,11 +515,4 @@ fn prepare_view_targets(
             }
         }
     }
-}
-
-/// System sets for the [`view`](crate::view) module.
-#[derive(SystemSet, PartialEq, Eq, Hash, Debug, Clone)]
-pub enum ViewSet {
-    /// Prepares view uniforms
-    PrepareUniforms,
 }

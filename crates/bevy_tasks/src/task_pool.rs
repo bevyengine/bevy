@@ -9,9 +9,10 @@ use std::{
 
 use async_task::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
-use futures_lite::{future, FutureExt};
+use futures_lite::FutureExt;
 
 use crate::{
+    block_on,
     thread_executor::{ThreadExecutor, ThreadExecutorTicker},
     Task,
 };
@@ -176,7 +177,7 @@ impl TaskPool {
                                             local_executor.tick().await;
                                         }
                                     };
-                                    future::block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
+                                    block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
                                 });
                                 if let Ok(value) = res {
                                     // Use unwrap_err because we expect a Closed error
@@ -379,7 +380,7 @@ impl TaskPool {
         if spawned.is_empty() {
             Vec::new()
         } else {
-            future::block_on(async move {
+            block_on(async move {
                 let get_results = async {
                     let mut results = Vec::with_capacity(spawned.len());
                     while let Ok(task) = spawned.pop() {
@@ -661,7 +662,7 @@ where
     T: 'scope,
 {
     fn drop(&mut self) {
-        future::block_on(async {
+        block_on(async {
             while let Ok(task) = self.spawned.pop() {
                 task.cancel().await;
             }
