@@ -129,40 +129,6 @@ macro_rules! define_label {
             /// [`Hasher`]: std::hash::Hasher
             fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher);
 
-            /// Returns a static reference to a value equal to `self`, if possible.
-            /// This method is used to optimize [interning](bevy_utils::intern).
-            ///
-            /// # Invariant
-            ///
-            /// The following invariants most hold:
-            ///
-            /// `ptr_eq(a.dyn_static_ref(), b.dyn_static_ref())` if `a.dyn_eq(b)`
-            /// `ptr_neq(a.dyn_static_ref(), b.dyn_static_ref())` if `!a.dyn_eq(b)`
-            ///
-            /// where `ptr_eq` and `ptr_neq` are defined as :
-            /// ```
-            /// fn ptr_eq<T>(x: Option<&'static T>, y: Option<&'static T>) -> bool {
-            ///     match (x, y) {
-            ///         (Some(x), Some(y)) => std::ptr::eq(x, y),
-            ///         (None, None) => true,
-            ///         _ => false,
-            ///     }
-            /// }
-            ///
-            /// fn ptr_neq<T>(x: Option<&'static T>, y: Option<&'static T>) -> bool {
-            ///     match (x, y) {
-            ///         (Some(x), Some(y)) => !std::ptr::eq(x, y),
-            ///         (None, None) => true,
-            ///         _ => false,
-            ///     }
-            /// }
-            /// ```
-            ///
-            /// The provided implementation always returns `None`.
-            fn dyn_static_ref(&self) -> ::std::option::Option<&'static dyn $label_trait_name> {
-                None
-            }
-
             /// Returns an [`Interned`](bevy_utils::intern::Interned) value corresponding to `self`.
             fn intern(&self) -> $crate::intern::Interned<dyn $label_trait_name>
             where Self: Sized {
@@ -187,10 +153,6 @@ macro_rules! define_label {
                 (**self).dyn_hash(state);
             }
 
-            fn dyn_static_ref(&self) -> ::std::option::Option<&'static dyn $label_trait_name> {
-                Some(self.0)
-            }
-
             fn intern(&self) -> Self {
                 *self
             }
@@ -213,10 +175,6 @@ macro_rules! define_label {
         impl $crate::intern::Leak for dyn $label_trait_name {
             fn leak(&self) -> &'static Self {
                 Box::leak(self.dyn_clone())
-            }
-
-            fn static_ref(&self) -> ::std::option::Option<&'static dyn $label_trait_name> {
-                self.dyn_static_ref()
             }
         }
 

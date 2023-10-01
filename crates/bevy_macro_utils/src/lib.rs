@@ -4,12 +4,10 @@ extern crate proc_macro;
 
 mod attrs;
 mod shape;
-mod static_ref;
 mod symbol;
 
 pub use attrs::*;
 pub use shape::*;
-pub use static_ref::*;
 pub use symbol::*;
 
 use proc_macro::{TokenStream, TokenTree};
@@ -199,7 +197,6 @@ pub fn derive_label(
         })
         .unwrap(),
     );
-    let dyn_static_ref_impl = static_ref_impl(&input);
     (quote! {
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
             fn dyn_clone(&self) -> ::std::boxed::Box<dyn #trait_path> {
@@ -214,10 +211,6 @@ pub fn derive_label(
                 let ty_id = ::std::any::TypeId::of::<Self>();
                 ::std::hash::Hash::hash(&ty_id, &mut state);
                 ::std::hash::Hash::hash(self, &mut state);
-            }
-
-            fn dyn_static_ref(&self) -> ::std::option::Option<&'static dyn #trait_path> {
-                #dyn_static_ref_impl
             }
         }
     })

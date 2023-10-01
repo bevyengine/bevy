@@ -93,40 +93,6 @@ impl<T> From<&Interned<T>> for Interned<T> {
 pub trait Leak {
     /// Creates a static reference to `self`, possibly leaking memory.
     fn leak(&self) -> &'static Self;
-
-    /// Returns a static reference to a value equal to `self`, if possible.
-    /// This method is used by [`Interner::intern`] to optimize the interning process.
-    ///
-    /// # Invariant
-    ///
-    /// The following invariants most hold:
-    ///
-    /// `ptr_eq(a.static_ref(), b.static_ref())` if `a == b`
-    /// `ptr_neq(a.static_ref(), b.static_ref())` if `a != b`
-    ///
-    /// where `ptr_eq` and `ptr_neq` are defined as :
-    /// ```
-    /// fn ptr_eq<T>(x: Option<&'static T>, y: Option<&'static T>) -> bool {
-    ///     match (x, y) {
-    ///         (Some(x), Some(y)) => std::ptr::eq(x, y),
-    ///         (None, None) => true,
-    ///         _ => false,
-    ///     }
-    /// }
-    ///
-    /// fn ptr_neq<T>(x: Option<&'static T>, y: Option<&'static T>) -> bool {
-    ///     match (x, y) {
-    ///         (Some(x), Some(y)) => !std::ptr::eq(x, y),
-    ///         (None, None) => true,
-    ///         _ => false,
-    ///     }
-    /// }
-    /// ```
-    ///
-    /// The provided implementation always returns `None`.
-    fn static_ref(&self) -> Option<&'static Self> {
-        None
-    }
 }
 
 impl Leak for str {
@@ -158,12 +124,7 @@ impl<T: Leak + Hash + Eq + ?Sized> Interner<T> {
     /// If it is called the first time for `value`, it will possibly leak the value and return an
     /// [`Interned<T>`] using the obtained static reference. Subsequent calls for the same `value`
     /// will return [`Interned<T>`] using the same static reference.
-    ///
-    /// This uses [`Leak::static_ref`] to short-circuit the interning process.
     pub fn intern(&self, value: &T) -> Interned<T> {
-        if let Some(value) = value.static_ref() {
-            return Interned(value);
-        }
         let lock = self.0.get_or_init(Default::default);
         {
             let set = lock.read().unwrap_or_else(PoisonError::into_inner);
@@ -208,10 +169,6 @@ mod tests {
             fn leak(&self) -> &'static Self {
                 &A
             }
-
-            fn static_ref(&self) -> Option<&'static Self> {
-                Some(&A)
-            }
         }
 
         let interner = Interner::default();
@@ -234,13 +191,6 @@ mod tests {
                     A::X => &A::X,
                     A::Y => &A::Y,
                 }
-            }
-
-            fn static_ref(&self) -> Option<&'static Self> {
-                Some(match self {
-                    A::X => &A::X,
-                    A::Y => &A::Y,
-                })
             }
         }
 

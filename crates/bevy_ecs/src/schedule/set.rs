@@ -112,10 +112,6 @@ impl<T> SystemSet for SystemTypeSet<T> {
         std::any::TypeId::of::<Self>().hash(&mut state);
         self.hash(&mut state);
     }
-
-    fn dyn_static_ref(&self) -> Option<&'static dyn SystemSet> {
-        Some(&Self(PhantomData))
-    }
 }
 
 /// A [`SystemSet`] implicitly created when using
@@ -261,8 +257,6 @@ mod tests {
                 a: u32,
                 b: u32,
             },
-            EmptyTuple(),
-            EmptyStruct {},
         }
 
         #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
@@ -332,13 +326,6 @@ mod tests {
             GenericLabel::<u32>(PhantomData).intern(),
             GenericLabel::<u64>(PhantomData).intern()
         );
-
-        assert!(UnitLabel.dyn_static_ref().is_some());
-        assert!(EmptyTupleLabel().dyn_static_ref().is_some());
-        assert!(EmptyStructLabel {}.dyn_static_ref().is_some());
-        assert!(EnumLabel::Unit.dyn_static_ref().is_some());
-        assert!(EnumLabel::EmptyTuple().dyn_static_ref().is_some());
-        assert!(EnumLabel::EmptyStruct {}.dyn_static_ref().is_some());
     }
 
     #[test]
@@ -372,8 +359,6 @@ mod tests {
                 a: u32,
                 b: u32,
             },
-            EmptyTuple(),
-            EmptyStruct {},
         }
 
         #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
@@ -434,12 +419,5 @@ mod tests {
             GenericSet::<u32>(PhantomData).intern(),
             GenericSet::<u64>(PhantomData).intern()
         );
-
-        assert!(UnitSet.dyn_static_ref().is_some());
-        assert!(EmptyTupleSet().dyn_static_ref().is_some());
-        assert!(EmptyStructSet {}.dyn_static_ref().is_some());
-        assert!(EnumSet::Unit.dyn_static_ref().is_some());
-        assert!(EnumSet::EmptyTuple().dyn_static_ref().is_some());
-        assert!(EnumSet::EmptyStruct {}.dyn_static_ref().is_some());
     }
 }
