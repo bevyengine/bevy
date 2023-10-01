@@ -411,7 +411,6 @@ impl App {
             StateTransition,
             apply_state_transition::<S>.run_if(in_state(condition)),
         );
-
         self
     }
 

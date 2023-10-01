@@ -3,7 +3,6 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::Deref;
-use std::sync::Arc;
 
 use crate as bevy_ecs;
 #[cfg(feature = "bevy_reflect")]
