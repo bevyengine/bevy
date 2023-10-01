@@ -2,7 +2,7 @@
 
 use bevy::reflect::TypePath;
 use bevy::{
-    pbr::{ExtendedMaterial, StandardMaterialExtension},
+    pbr::{ExtendedMaterial, MaterialExtension},
     prelude::*,
     render::render_resource::*,
 };
@@ -10,7 +10,9 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(MaterialPlugin::<ExtendedMaterial<MyExtendedMaterial>>::default())
+        .add_plugins(MaterialPlugin::<
+            ExtendedMaterial<StandardMaterial, MyExtension>,
+        >::default())
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_things)
         .run();
@@ -19,7 +21,7 @@ fn main() {
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ExtendedMaterial<MyExtendedMaterial>>>,
+    mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, MyExtension>>>,
 ) {
     // sphere
     commands.spawn(MaterialMeshBundle {
@@ -32,11 +34,11 @@ fn setup(
         ),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(ExtendedMaterial {
-            standard: StandardMaterial {
+            base: StandardMaterial {
                 base_color: Color::RED,
                 ..Default::default()
             },
-            extended: MyExtendedMaterial { quantize_steps: 3 },
+            extension: MyExtension { quantize_steps: 3 },
         }),
         ..default()
     });
@@ -65,12 +67,12 @@ fn rotate_things(mut q: Query<&mut Transform, With<Rotate>>, time: Res<Time>) {
 }
 
 #[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
-struct MyExtendedMaterial {
+struct MyExtension {
     #[uniform(100)]
     quantize_steps: u32,
 }
 
-impl StandardMaterialExtension for MyExtendedMaterial {
+impl MaterialExtension for MyExtension {
     fn fragment_shader() -> ShaderRef {
         "shaders/extended_material.wgsl".into()
     }
