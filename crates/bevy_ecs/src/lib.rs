@@ -45,10 +45,10 @@ pub mod prelude {
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, apply_state_transition, common_conditions::*, in_state, on_enter,
-            on_enter_strict, on_exit, on_exit_strict, state_matcher, Condition, IntoStateMatcher,
-            IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfigs, NextState, OnEnter, OnExit,
-            OnTransition, Schedule, Schedules, SetupTransitionScheduleLabels, State, StateMatcher,
-            StateMatcherFunction, States, SystemSet,
+            on_enter_strict, on_exit, on_exit_strict, state_matcher, Condition, IntoSystemConfigs,
+            IntoSystemSet, IntoSystemSetConfigs, NextState, OnEnter, OnExit, OnTransition,
+            Schedule, Schedules, SetupTransitionScheduleLabels, State, StateMatcher, States,
+            SystemSet,
         },
         system::{
             Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,

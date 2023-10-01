@@ -265,8 +265,7 @@ pub fn define_match_macro(
             state_type,
             pattern,
         }) => quote!({
-            let matcher = |state: &#state_type| matches!(state.clone(), #pattern);
-            let matcher : #matcher_type_path<#state_type> = matcher.into_state_matcher();
+            let matcher : fn(&#state_type) -> bool = |state: &#state_type| matches!(state.clone(), #pattern);
 
             #call_path(matcher)
         }

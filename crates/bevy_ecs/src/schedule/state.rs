@@ -60,33 +60,9 @@ impl<S: States> StateMatcher<S> for S {
     }
 }
 
-/// A struct for containing a state matcher function
-#[derive(Clone)]
-pub struct StateMatcherFunction<S: States>(Arc<dyn Fn(&S) -> bool + 'static + Send + Sync>);
-
-impl<S: States> StateMatcher<S> for StateMatcherFunction<S> {
+impl<S: States> StateMatcher<S> for fn(&S) -> bool {
     fn match_state(&self, state: &S) -> bool {
-        self.0(state)
-    }
-}
-
-/// A trait for defining items that can become a state matcher
-pub trait IntoStateMatcher<S: States, M: StateMatcher<S>> {
-    /// Transform item into a state matcher
-    fn into_state_matcher(self) -> M;
-}
-
-impl<S: States, F: Fn(&S) -> bool + 'static + Send + Sync>
-    IntoStateMatcher<S, StateMatcherFunction<S>> for F
-{
-    fn into_state_matcher(self) -> StateMatcherFunction<S> {
-        StateMatcherFunction(Arc::new(self))
-    }
-}
-
-impl<S: States, M: StateMatcher<S>> IntoStateMatcher<S, M> for M {
-    fn into_state_matcher(self) -> M {
-        self
+        self(state)
     }
 }
 
@@ -287,30 +263,6 @@ pub trait SetupTransitionScheduleLabels<S: States> {
         }
     }
 
-    /// Entering a state that matches the matcher from a state that doesn't
-    fn on_enter_match_function<F: Fn(&S) -> bool + 'static + Send + Sync>(
-        matcher: F,
-    ) -> OnEnterMatching<S, StateMatcherFunction<S>> {
-        let matcher = matcher.into_state_matcher();
-        OnEnterMatching {
-            matcher,
-            strict: false,
-            phantom: PhantomData::<S>,
-        }
-    }
-
-    /// Entering a state that matches the matcher from a state that doesn't
-    fn on_enter_match_function_strict<F: Fn(&S) -> bool + 'static + Send + Sync>(
-        matcher: F,
-    ) -> OnEnterMatching<S, StateMatcherFunction<S>> {
-        let matcher = matcher.into_state_matcher();
-        OnEnterMatching {
-            matcher,
-            strict: true,
-            phantom: PhantomData::<S>,
-        }
-    }
-
     /// Exiting a matching state to a state that doesn't match
     fn on_exit_matching<M: StateMatcher<S>>(matcher: M) -> OnExitMatching<S, M> {
         OnExitMatching {
@@ -322,30 +274,6 @@ pub trait SetupTransitionScheduleLabels<S: States> {
 
     /// Exiting a matching state regardless of what the next state is
     fn on_exit_matching_strict<M: StateMatcher<S>>(matcher: M) -> OnExitMatching<S, M> {
-        OnExitMatching {
-            matcher,
-            strict: true,
-            phantom: PhantomData::<S>,
-        }
-    }
-
-    /// Entering a state that matches the matcher from a state that doesn't
-    fn on_exit_match_function<F: Fn(&S) -> bool + 'static + Send + Sync>(
-        matcher: F,
-    ) -> OnExitMatching<S, StateMatcherFunction<S>> {
-        let matcher = matcher.into_state_matcher();
-        OnExitMatching {
-            matcher,
-            strict: false,
-            phantom: PhantomData::<S>,
-        }
-    }
-
-    /// Entering a state that matches the matcher from a state that doesn't
-    fn on_exit_match_function_strict<F: Fn(&S) -> bool + 'static + Send + Sync>(
-        matcher: F,
-    ) -> OnExitMatching<S, StateMatcherFunction<S>> {
-        let matcher = matcher.into_state_matcher();
         OnExitMatching {
             matcher,
             strict: true,
