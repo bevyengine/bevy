@@ -1,7 +1,11 @@
 //! Demonstrates using a custom extension to the `StandardMaterial` to modify the results of the builtin pbr shader.
 
 use bevy::reflect::TypePath;
-use bevy::{pbr::ExtendedMaterial, prelude::*, render::render_resource::*};
+use bevy::{
+    pbr::{ExtendedMaterial, StandardMaterialExtension},
+    prelude::*,
+    render::render_resource::*,
+};
 
 fn main() {
     App::new()
@@ -66,7 +70,7 @@ struct MyExtendedMaterial {
     quantize_steps: u32,
 }
 
-impl Material for MyExtendedMaterial {
+impl StandardMaterialExtension for MyExtendedMaterial {
     fn fragment_shader() -> ShaderRef {
         "shaders/extended_material.wgsl".into()
     }

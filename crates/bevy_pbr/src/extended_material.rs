@@ -4,7 +4,7 @@ use bevy_render::{
     mesh::MeshVertexBufferLayout,
     render_asset::RenderAssets,
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroupLayout, RenderPipelineDescriptor,
+        AsBindGroup, AsBindGroupError, BindGroupLayout, RenderPipelineDescriptor, ShaderRef,
         SpecializedMeshPipelineError, UnpreparedBindGroup,
     },
     renderer::RenderDevice,
@@ -13,10 +13,53 @@ use bevy_render::{
 
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, StandardMaterial};
 
+/// A subset of the `Material` trait for use when extending `StandardMaterial`s.
+pub trait StandardMaterialExtension: Asset + AsBindGroup + Clone + Sized {
+    /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
+    /// will be used.
+    fn vertex_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's fragment shader. If [`ShaderRef::Default`] is returned, the default mesh fragment shader
+    /// will be used.
+    #[allow(unused_variables)]
+    fn fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the default prepass vertex shader
+    /// will be used.
+    fn prepass_vertex_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the default prepass fragment shader
+    /// will be used.
+    #[allow(unused_variables)]
+    fn prepass_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
+    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
+    /// Specialization for the StandardMaterial is applied before this function is called.
+    #[allow(unused_variables)]
+    #[inline]
+    fn specialize(
+        pipeline: &MaterialPipeline<ExtendedMaterial<Self>>,
+        descriptor: &mut RenderPipelineDescriptor,
+        layout: &MeshVertexBufferLayout,
+        key: MaterialPipelineKey<ExtendedMaterial<Self>>,
+    ) -> Result<(), SpecializedMeshPipelineError> {
+        Ok(())
+    }
+}
+
 /// A material that extends the [`StandardMaterial`] with user-defined shaders
 /// and data.
 /// The data from both the parts will be combined and made available to the shader
-/// so that the built in `pbr_fragment` function will work as expected, and custom
+/// so that the builtin pbr shader functions will work as expected, and custom
 /// data can also be used.
 /// If the material `M` returns a non-default result from `vertex_shader()` it will be used in place of the standard
 /// vertex shader (`bevy_pbr::render::mesh.wgsl`). It should return the same output as the standard vertex shader.
@@ -24,15 +67,13 @@ use crate::{Material, MaterialPipeline, MaterialPipelineKey, StandardMaterial};
 /// fragment shader (`bevy_pbr::render::pbr_fragment.wgsl`). since all the standard material fields are
 /// present, the `pbr_fragment` shader function can be called from the custom shader (see
 /// the `extended_material` example).
-/// Alpha mode from the extended material is ignored, only the standard material's alpha mode
-/// is used.
 #[derive(Asset, Clone, TypePath)]
-pub struct ExtendedMaterial<M: Material> {
+pub struct ExtendedMaterial<M: StandardMaterialExtension> {
     pub standard: StandardMaterial,
     pub extended: M,
 }
 
-impl<M: Material> AsBindGroup for ExtendedMaterial<M> {
+impl<M: StandardMaterialExtension> AsBindGroup for ExtendedMaterial<M> {
     type Data = (
         <StandardMaterial as AsBindGroup>::Data,
         <M as AsBindGroup>::Data,
@@ -86,7 +127,7 @@ impl<M: Material> AsBindGroup for ExtendedMaterial<M> {
     }
 }
 
-impl<M: Material> Material for ExtendedMaterial<M> {
+impl<M: StandardMaterialExtension> Material for ExtendedMaterial<M> {
     fn vertex_shader() -> bevy_render::render_resource::ShaderRef {
         match M::vertex_shader() {
             bevy_render::render_resource::ShaderRef::Default => StandardMaterial::vertex_shader(),
@@ -106,7 +147,7 @@ impl<M: Material> Material for ExtendedMaterial<M> {
     }
 
     fn depth_bias(&self) -> f32 {
-        M::depth_bias(&self.extended) + StandardMaterial::depth_bias(&self.standard)
+        StandardMaterial::depth_bias(&self.standard)
     }
 
     fn prepass_vertex_shader() -> bevy_render::render_resource::ShaderRef {
@@ -150,29 +191,11 @@ impl<M: Material> Material for ExtendedMaterial<M> {
         };
         let standard_key = MaterialPipelineKey::<StandardMaterial> {
             mesh_key: key.mesh_key,
-            bind_group_data: key.bind_group_data.0,
+            bind_group_data: key.bind_group_data.0.clone(),
         };
         StandardMaterial::specialize(&standard_pipeline, descriptor, layout, standard_key)?;
 
         // call custom material specialize function afterwards
-        let MaterialPipeline::<Self> {
-            mesh_pipeline,
-            material_layout,
-            vertex_shader,
-            fragment_shader,
-            ..
-        } = pipeline.clone();
-        let m_pipeline = MaterialPipeline::<M> {
-            mesh_pipeline,
-            material_layout,
-            vertex_shader,
-            fragment_shader,
-            marker: Default::default(),
-        };
-        let m_key = MaterialPipelineKey::<M> {
-            mesh_key: key.mesh_key,
-            bind_group_data: key.bind_group_data.1,
-        };
-        M::specialize(&m_pipeline, descriptor, layout, m_key)
+        M::specialize(pipeline, descriptor, layout, key)
     }
 }
