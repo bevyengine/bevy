@@ -34,7 +34,7 @@ fn main() {
         .add_systems(Update, movement.run_if(in_state(MovementState::Normal)))
         .add_systems(
             Update,
-            inverted_movement.run_if(in_state(MovementState::Invert)),
+            inverted_movement.run_if(in_state(MovementState::Inverted)),
         )
         .run();
 }
@@ -239,7 +239,7 @@ fn toggle_pause(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<App
 
 fn invert_movement(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<MovementState>>) {
     if input.just_pressed(KeyCode::ShiftLeft) {
-        next_state.set(MovementState::Invert);
+        next_state.set(MovementState::Inverted);
     }
     if input.just_released(KeyCode::ShiftLeft) {
         next_state.set(MovementState::Normal);

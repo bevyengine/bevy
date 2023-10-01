@@ -57,7 +57,7 @@ fn main() {
         .add_systems(Update, movement.run_if(in_state(MovementState::Normal)))
         .add_systems(
             Update,
-            inverted_movement.run_if(in_state(MovementState::Invert)),
+            inverted_movement.run_if(in_state(MovementState::Inverted)),
         )
         .run();
 }
@@ -75,7 +75,7 @@ enum AppState {
 enum MovementState {
     #[default]
     Normal,
-    Invert,
+    Inverted,
 }
 
 const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
@@ -232,7 +232,7 @@ fn toggle_pause(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<App
 
 fn invert_movement(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<MovementState>>) {
     if input.just_pressed(KeyCode::ShiftLeft) {
-        next_state.set(MovementState::Invert);
+        next_state.set(MovementState::Inverted);
     }
     if input.just_released(KeyCode::ShiftLeft) {
         next_state.set(MovementState::Normal);
