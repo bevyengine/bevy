@@ -130,9 +130,10 @@ impl<S: States> NextState<S> {
 
 /// Run the enter schedule (if it exists) for the current state.
 pub fn run_enter_schedule<S: States>(world: &mut World) {
-    world
-        .try_run_schedule(OnEnter(world.resource::<State<S>>().0.clone()))
-        .ok();
+    let Some(state) = world.get_resource::<State<S>>().map(|s| s.0.clone()) else {
+        return;
+    };
+    world.try_run_schedule(OnEnter(state)).ok();
 }
 
 /// If a new state is queued in [`NextState<S>`], this system:
@@ -143,11 +144,17 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 pub fn apply_state_transition<S: States>(world: &mut World) {
     // We want to take the `NextState` resource,
     // but only mark it as changed if it wasn't empty.
-    let mut next_state_resource = world.resource_mut::<NextState<S>>();
-    if let Some(entered) = next_state_resource.bypass_change_detection().0.take() {
-        next_state_resource.set_changed();
+    let Some(next_state_resource) = world.get_resource::<NextState<S>>() else {
+        return;
+    };
+    if let Some(entered) = next_state_resource.0.as_ref().cloned() {
+        {
+            world.resource_mut::<NextState<S>>().0 = None;
+        }
 
-        let mut state_resource = world.resource_mut::<State<S>>();
+        let Some(mut state_resource) = world.get_resource_mut::<State<S>>() else {
+            return;
+        };
         if *state_resource != entered {
             let exited = mem::replace(&mut state_resource.0, entered.clone());
             // Try to run the schedules if they exist.
