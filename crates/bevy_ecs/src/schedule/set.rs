@@ -209,6 +209,9 @@ mod tests {
         #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct A;
 
+        #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct B;
+
         let mut world = World::new();
 
         let mut schedule = Schedule::new(A);
@@ -224,6 +227,8 @@ mod tests {
         world.insert_resource(Flag(false));
         world.run_schedule(interned);
         assert!(world.resource::<Flag>().0);
+
+        assert_ne!(A.intern(), B.intern());
     }
 
     #[test]
