@@ -55,7 +55,7 @@ enum InGame {
 // For example here we can determine if we want to match in
 // any InGame state, only when the game is paused, or only when it
 // is running. You can't have this kind of logic using pure equality,
-// and having it defined this ay makes it re-usable and customizable to your needs.
+// and having it defined this way makes it re-usable and customizable to your needs.
 impl StateMatcher<AppState> for InGame {
     fn match_state(&self, state: &AppState) -> bool {
         match state {
