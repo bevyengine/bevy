@@ -346,6 +346,7 @@ impl App {
             .add_systems(
                 StateTransition,
                 (
+                    // We need to run the enter schedule of the initial state upon startup
                     run_enter_schedule::<S>.run_if(run_once_condition()),
                     apply_state_transition::<S>,
                 )
@@ -359,8 +360,13 @@ impl App {
         self
     }
 
-    /// Adds a [`State<S>`] and [`NextState<S>`] whenever entering a matching `Parent` state
-    /// from a `Parent` state that does not match and runs OnEnter/OnExit when those occur.
+    /// Sets up a state [`S`] that will only exist when the [`Parent`] state's matches
+    /// the provided condition. Creates an instance of [`apply_state_transition::<S>`] in
+    /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update), as
+    /// well as instances of [`initialize_state_and_enter::<S>`] and [`remove_state_from_world::<S>`]
+    /// to set up and run [`OnEnter`] and [`OnExit`] schedules for [`S`] when appropriate.
+    ///
+    /// Whenever the parent enters a matching state, [`S`] will be set to [`S::default()`].
     ///
     /// In addition, adds an instance of [`apply_state_transition::<S>`] in
     /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update).

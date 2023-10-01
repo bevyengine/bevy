@@ -33,6 +33,8 @@ use bevy_ecs::prelude::Res;
 ///
 /// # Example
 ///
+/// States are commonly defined as simple enums, with the [`States`] derive macro.
+///
 /// ```rust
 /// use bevy_ecs::prelude::States;
 ///
@@ -45,6 +47,45 @@ use bevy_ecs::prelude::Res;
 /// }
 ///
 /// ```
+///
+/// However, states can also be structs:
+///
+/// ```rust
+/// use bevy_ecs::prelude::States;
+///
+/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+/// struct Level(u32);
+/// ```
+///
+/// Or more complex structures with multiple layers:
+/// This can be useful for complex state machines to ensure that invalid states are unrepresentable.
+///
+/// ```rust {
+/// use bevy_ecs::prelude::States;
+///
+/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+/// enum AppState {
+///     #[default]
+///     Loading,
+///     MainMenu,
+///     Playing {
+///        paused: bool,
+///        game_mode: GameMode,
+///     }
+/// }
+///
+/// // Note that we're *not* deriving `States` for `GameMode` here:
+/// // we don't want to be able to set the game mode without also setting the `AppState::Playing` state.
+/// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+/// enum GameMode {
+///     #[default]
+///     SinglePlayer,
+///     Tutorial,
+///     MultiPlayer,
+/// }
+/// ```
+///
+///
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {}
 
 /// Types that can match world-wide states.
