@@ -70,7 +70,7 @@ impl<T: ?Sized + Internable> Eq for Interned<T> {}
 // Important: This must be kept in sync with the PartialEq/Eq implementation
 impl<T: ?Sized + Internable> Hash for Interned<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.ref_hash(state)
+        self.0.ref_hash(state);
     }
 }
 
@@ -189,7 +189,7 @@ mod tests {
             }
 
             fn ref_hash<H: std::hash::Hasher>(&self, state: &mut H) {
-                std::ptr::hash(self, state)
+                std::ptr::hash(self, state);
             }
         }
 
@@ -220,7 +220,7 @@ mod tests {
             }
 
             fn ref_hash<H: std::hash::Hasher>(&self, state: &mut H) {
-                std::ptr::hash(self, state)
+                std::ptr::hash(self, state);
             }
         }
 
