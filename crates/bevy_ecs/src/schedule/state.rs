@@ -4,7 +4,6 @@ use std::mem;
 use std::ops::Deref;
 
 use crate as bevy_ecs;
-use crate::change_detection::DetectChangesMut;
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
 use crate::schedule::ScheduleLabel;
@@ -134,6 +133,35 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
         return;
     };
     world.try_run_schedule(OnEnter(state)).ok();
+}
+
+/// If the state doesn't exist, initializes it to default runs `OnEnter`
+pub fn initialize_state_and_enter<S: States>(world: &mut World) {
+    world.insert_resource(NextState::<S>::default());
+
+    if world.contains_resource::<State<S>>() {
+        return;
+    }
+
+    let default = S::default();
+
+    world.insert_resource(State(default.clone()));
+
+    world.try_run_schedule(OnEnter(default)).ok();
+}
+
+/// If the state exists, removes it and runs `OnExit`
+pub fn remove_state_from_world<S: States>(world: &mut World) {
+    world.remove_resource::<NextState<S>>();
+
+    let Some(state) = world.get_resource::<State<S>>() else {
+        return;
+    };
+    let state = state.0.clone();
+
+    world.remove_resource::<State<S>>();
+
+    world.try_run_schedule(OnExit(state)).ok();
 }
 
 /// If a new state is queued in [`NextState<S>`], this system:

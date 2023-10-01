@@ -4,8 +4,9 @@ use bevy_ecs::{
     prelude::*,
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, BoxedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleBuildSettings, ScheduleLabel,
+        initialize_state_and_enter, remove_state_from_world, run_enter_schedule,
+        BoxedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs, ScheduleBuildSettings,
+        ScheduleLabel,
     },
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
@@ -349,6 +350,30 @@ impl App {
                 )
                     .chain(),
             );
+
+        // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
+        // (i.e. when the first system is added to them), and World::try_run_schedule is used to fail
+        // gracefully if they aren't present.
+
+        self
+    }
+
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
+    /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
+    /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update) and
+    /// a instance of [`run_enter_schedule::<S>`] in [`StateTransition`] with a
+    /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
+    /// initial state.
+    ///
+    /// If you would like to control how other systems run based on the current state,
+    /// you can emulate this behavior using the [`in_state`] [`Condition`](bevy_ecs::schedule::Condition).
+    ///
+    /// Note that you can also apply state transitions at other points in the schedule
+    /// by adding the [`apply_state_transition`] system manually.
+    pub fn add_sub_state<S: States, Parent: States>(&mut self, condition: Parent) -> &mut Self {
+        self.add_systems(OnEnter(condition.clone()), initialize_state_and_enter::<S>)
+            .add_systems(OnExit(condition), remove_state_from_world::<S>)
+            .add_systems(StateTransition, apply_state_transition::<S>);
 
         // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
         // (i.e. when the first system is added to them), and World::try_run_schedule is used to fail
