@@ -45,6 +45,8 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, EntityHashMap, HashMap, Hashed};
+use std::cell::Cell;
+use thread_local::ThreadLocal;
 
 use crate::render::{
     morph::{
@@ -246,6 +248,7 @@ pub fn extract_meshes(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    mut thread_local_queues: Local<ThreadLocal<Cell<Vec<(Entity, RenderMeshInstance)>>>>,
     meshes_query: Extract<
         Query<(
             Entity,
@@ -259,50 +262,58 @@ pub fn extract_meshes(
         )>,
     >,
 ) {
+    meshes_query.par_iter().for_each(
+        |(
+            entity,
+            view_visibility,
+            transform,
+            previous_transform,
+            handle,
+            not_receiver,
+            not_caster,
+            no_automatic_batching,
+        )| {
+            if !view_visibility.get() {
+                return;
+            }
+            let transform = transform.affine();
+            let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
+            let mut flags = if not_receiver.is_some() {
+                MeshFlags::empty()
+            } else {
+                MeshFlags::SHADOW_RECEIVER
+            };
+            if transform.matrix3.determinant().is_sign_positive() {
+                flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
+            }
+            let transforms = MeshTransforms {
+                transform: (&transform).into(),
+                previous_transform: (&previous_transform).into(),
+                flags: flags.bits(),
+            };
+            let tls = thread_local_queues.get_or_default();
+            let mut queue = tls.take();
+            queue.push((
+                entity,
+                RenderMeshInstance {
+                    mesh_asset_id: handle.id(),
+                    transforms,
+                    shadow_caster: not_caster.is_none(),
+                    material_bind_group_id: MaterialBindGroupId::default(),
+                    automatic_batching: !no_automatic_batching,
+                },
+            ));
+            tls.set(queue);
+        },
+    );
+
     render_mesh_instances.clear();
     let mut entities = Vec::with_capacity(*previous_len);
-
-    let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.get());
-
-    for (
-        entity,
-        _,
-        transform,
-        previous_transform,
-        handle,
-        not_receiver,
-        not_caster,
-        no_automatic_batching,
-    ) in visible_meshes
-    {
-        let transform = transform.affine();
-        let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
-        let mut flags = if not_receiver.is_some() {
-            MeshFlags::empty()
-        } else {
-            MeshFlags::SHADOW_RECEIVER
-        };
-        if transform.matrix3.determinant().is_sign_positive() {
-            flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
-        }
-        let transforms = MeshTransforms {
-            transform: (&transform).into(),
-            previous_transform: (&previous_transform).into(),
-            flags: flags.bits(),
-        };
+    for queue in thread_local_queues.iter_mut() {
         // FIXME: Remove this - it is just a workaround to enable rendering to work as
         // render commands require an entity to exist at the moment.
-        entities.push((entity, Mesh3d));
-        render_mesh_instances.insert(
-            entity,
-            RenderMeshInstance {
-                mesh_asset_id: handle.id(),
-                transforms,
-                shadow_caster: not_caster.is_none(),
-                material_bind_group_id: MaterialBindGroupId::default(),
-                automatic_batching: !no_automatic_batching,
-            },
-        );
+        entities.extend(queue.get_mut().iter().map(|(e, _)| (*e, Mesh3d)));
+        render_mesh_instances.extend(queue.get_mut().drain(..));
     }
     *previous_len = entities.len();
     commands.insert_or_spawn_batch(entities);
