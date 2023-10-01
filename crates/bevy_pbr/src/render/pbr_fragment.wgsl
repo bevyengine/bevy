@@ -53,7 +53,7 @@ fn pbr_input_from_standard_material(
     let double_sided = (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
 
     var pbr_input: pbr_functions::PbrInput = pbr_input_from_mesh_vertex_output(in, is_front, double_sided);
-    pbr_input.material.base_color = pbr_input.material.base_color * pbr_bindings::material.base_color;
+    pbr_input.material.base_color *= pbr_bindings::material.base_color;
 
 #ifdef VERTEX_UVS
     var uv = in.uv;
