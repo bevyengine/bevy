@@ -17,6 +17,7 @@ pub use timer::*;
 
 use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{tracing::warn, Duration, Instant};
+pub use crossbeam_channel::TrySendError;
 use crossbeam_channel::{Receiver, Sender};
 
 pub mod prelude {
@@ -35,7 +36,7 @@ use crate::fixed_timestep::run_fixed_update_schedule;
 pub struct TimePlugin;
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
-/// Updates the elapsed time. Any system that interacts with [Time] component should run after
+/// Updates the elapsed time. Any system that interacts with [`Time`] component should run after
 /// this.
 pub struct TimeSystem;
 

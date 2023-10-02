@@ -34,6 +34,7 @@ pub use reflect::*;
 pub use server::*;
 
 pub use anyhow;
+pub use bevy_utils::BoxedFuture;
 
 use crate::{
     io::{processor_gated::ProcessorGatedReader, AssetProvider, AssetProviders},
@@ -232,7 +233,7 @@ impl VisitAssetDependencies for Option<UntypedHandle> {
 
 impl<A: Asset> VisitAssetDependencies for Vec<Handle<A>> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        for dependency in self.iter() {
+        for dependency in self {
             visit(dependency.id().untyped());
         }
     }
@@ -240,7 +241,7 @@ impl<A: Asset> VisitAssetDependencies for Vec<Handle<A>> {
 
 impl VisitAssetDependencies for Vec<UntypedHandle> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        for dependency in self.iter() {
+        for dependency in self {
             visit(dependency.id());
         }
     }
@@ -533,7 +534,7 @@ mod tests {
         panic!("Ran out of loops to return `Some` from `predicate`");
     }
 
-    const LARGE_ITERATION_COUNT: usize = 50;
+    const LARGE_ITERATION_COUNT: usize = 10000;
 
     fn get<A: Asset>(world: &World, id: AssetId<A>) -> Option<&A> {
         world.resource::<Assets<A>>().get(id)

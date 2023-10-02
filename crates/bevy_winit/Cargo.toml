@@ -28,13 +28,15 @@ bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
 
 # other
-winit = { version = "0.28", default-features = false }
+winit = { version = "0.28.7", default-features = false }
 accesskit_winit = { version = "0.14", default-features = false }
 approx = { version = "0.5", default-features = false }
 raw-window-handle = "0.5"
 
 [target.'cfg(target_os = "android")'.dependencies]
-winit = { version = "0.28", default-features = false, features = ["android-native-activity"] }
+winit = { version = "0.28.7", default-features = false, features = [
+    "android-native-activity",
+] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }

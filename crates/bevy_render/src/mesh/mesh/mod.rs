@@ -15,7 +15,7 @@ use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_log::warn;
 use bevy_math::*;
-use bevy_reflect::TypePath;
+use bevy_reflect::Reflect;
 use bevy_utils::{tracing::error, Hashed};
 use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
@@ -110,13 +110,15 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
 ///
 // TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
-#[derive(Asset, Debug, TypePath, Clone)]
+#[derive(Asset, Debug, Clone, Reflect)]
 pub struct Mesh {
+    #[reflect(ignore)]
     primitive_topology: PrimitiveTopology,
     /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
     /// for this mesh. Attribute ids to attribute values.
     /// Uses a BTreeMap because, unlike HashMap, it has a defined iteration order,
     /// which allows easy stable VertexBuffers (i.e. same buffer order)
+    #[reflect(ignore)]
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
     morph_targets: Option<Handle<Image>>,
@@ -834,7 +836,7 @@ impl From<&VertexAttributeValues> for VertexFormat {
 /// An array of indices into the [`VertexAttributeValues`] for a mesh.
 ///
 /// It describes the order in which the vertex attributes should be joined into faces.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub enum Indices {
     U16(Vec<u16>),
     U32(Vec<u32>),
@@ -979,7 +981,7 @@ impl RenderAsset for Mesh {
 }
 
 struct MikktspaceGeometryHelper<'a> {
-    indices: &'a Indices,
+    indices: Option<&'a Indices>,
     positions: &'a Vec<[f32; 3]>,
     normals: &'a Vec<[f32; 3]>,
     uvs: &'a Vec<[f32; 2]>,
@@ -991,15 +993,19 @@ impl MikktspaceGeometryHelper<'_> {
         let index_index = face * 3 + vert;
 
         match self.indices {
-            Indices::U16(indices) => indices[index_index] as usize,
-            Indices::U32(indices) => indices[index_index] as usize,
+            Some(Indices::U16(indices)) => indices[index_index] as usize,
+            Some(Indices::U32(indices)) => indices[index_index] as usize,
+            None => index_index,
         }
     }
 }
 
 impl bevy_mikktspace::Geometry for MikktspaceGeometryHelper<'_> {
     fn num_faces(&self) -> usize {
-        self.indices.len() / 3
+        self.indices
+            .map(Indices::len)
+            .unwrap_or_else(|| self.positions.len())
+            / 3
     }
 
     fn num_vertices_of_face(&self, _: usize) -> usize {
@@ -1078,14 +1084,11 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
             ))
         }
     };
-    let indices = mesh
-        .indices()
-        .ok_or(GenerateTangentsError::MissingIndices)?;
 
     let len = positions.len();
     let tangents = vec![[0., 0., 0., 0.]; len];
     let mut mikktspace_mesh = MikktspaceGeometryHelper {
-        indices,
+        indices: mesh.indices(),
         positions,
         normals,
         uvs,

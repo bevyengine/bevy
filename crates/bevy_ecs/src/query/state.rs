@@ -1,8 +1,9 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
+    change_detection::Mut,
     component::{ComponentId, Tick},
     entity::Entity,
-    prelude::FromWorld,
+    prelude::{Component, FromWorld},
     query::{
         Access, BatchingStrategy, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter,
         QueryIter, QueryParIter, WorldQuery,
@@ -11,11 +12,14 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::Instrument;
+use bevy_utils::tracing::Span;
 use fixedbitset::FixedBitSet;
-use std::{borrow::Borrow, fmt, mem::MaybeUninit};
+use std::{any::TypeId, borrow::Borrow, fmt, mem::MaybeUninit};
 
-use super::{NopWorldQuery, QueryManyIter, ROQueryItem, ReadOnlyWorldQuery};
+use super::{
+    NopWorldQuery, QueryComponentError, QueryEntityError, QueryManyIter, QuerySingleError,
+    ROQueryItem, ReadOnlyWorldQuery,
+};
 
 /// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
 #[repr(C)]
@@ -35,6 +39,8 @@ pub struct QueryState<Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
     pub(crate) matched_archetype_ids: Vec<ArchetypeId>,
     pub(crate) fetch_state: Q::State,
     pub(crate) filter_state: F::State,
+    #[cfg(feature = "trace")]
+    par_iter_span: Span,
 }
 
 impl<Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for QueryState<Q, F> {
@@ -121,6 +127,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
             archetype_component_access: Default::default(),
+            #[cfg(feature = "trace")]
+            par_iter_span: bevy_utils::tracing::info_span!(
+                "par_for_each",
+                query = std::any::type_name::<Q>(),
+                filter = std::any::type_name::<F>(),
+            ),
         };
         state.update_archetypes(world);
         state
@@ -220,12 +232,18 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Many unsafe query methods require the world to match for soundness. This function is the easiest
     /// way of ensuring that it matches.
     #[inline]
+    #[track_caller]
     pub fn validate_world(&self, world_id: WorldId) {
-        assert!(
-            world_id == self.world_id,
-            "Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
-                std::any::type_name::<Self>(),
-        );
+        #[inline(never)]
+        #[track_caller]
+        #[cold]
+        fn panic_mismatched(this: WorldId, other: WorldId) -> ! {
+            panic!("Encountered a mismatched World. This QueryState was created from {this:?}, but a method was called using {other:?}.");
+        }
+
+        if self.world_id != world_id {
+            panic_mismatched(self.world_id, world_id);
+        }
     }
 
     /// Update the current [`QueryState`] with information from the provided [`Archetype`]
@@ -505,6 +523,110 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
             Ok(Q::fetch(&mut fetch, entity, location.table_row))
         } else {
             Err(QueryEntityError::QueryDoesNotMatch(entity))
+        }
+    }
+
+    /// Returns a shared reference to the component `T` of the given [`Entity`].
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    #[inline]
+    pub(crate) fn get_component<'w, 's, 'r, T: Component>(
+        &'s self,
+        world: UnsafeWorldCell<'w>,
+        entity: Entity,
+    ) -> Result<&'r T, QueryComponentError>
+    where
+        'w: 'r,
+    {
+        let entity_ref = world
+            .get_entity(entity)
+            .ok_or(QueryComponentError::NoSuchEntity)?;
+        let component_id = world
+            .components()
+            .get_id(TypeId::of::<T>())
+            .ok_or(QueryComponentError::MissingComponent)?;
+        let archetype_component = entity_ref
+            .archetype()
+            .get_archetype_component_id(component_id)
+            .ok_or(QueryComponentError::MissingComponent)?;
+        if self
+            .archetype_component_access
+            .has_read(archetype_component)
+        {
+            // SAFETY: `world` must have access to the component `T` for this entity,
+            // since it was registered in `self`'s archetype component access set.
+            unsafe { entity_ref.get::<T>() }.ok_or(QueryComponentError::MissingComponent)
+        } else {
+            Err(QueryComponentError::MissingReadAccess)
+        }
+    }
+
+    /// Returns a shared reference to the component `T` of the given [`Entity`].
+    ///
+    /// # Panics
+    ///
+    /// If given a nonexisting entity or mismatched component, this will panic.
+    #[inline]
+    pub(crate) fn component<'w, 's, 'r, T: Component>(
+        &'s self,
+        world: UnsafeWorldCell<'w>,
+        entity: Entity,
+    ) -> &'r T
+    where
+        'w: 'r,
+    {
+        match self.get_component(world, entity) {
+            Ok(component) => component,
+            Err(error) => {
+                panic!(
+                    "Cannot get component `{:?}` from {entity:?}: {error}",
+                    TypeId::of::<T>()
+                )
+            }
+        }
+    }
+
+    /// Returns a mutable reference to the component `T` of the given entity.
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryComponentError`] is returned instead.
+    ///
+    /// # Safety
+    ///
+    /// This function makes it possible to violate Rust's aliasing guarantees.
+    /// You must make sure this call does not result in multiple mutable references to the same component.
+    #[inline]
+    pub unsafe fn get_component_unchecked_mut<'w, 's, 'r, T: Component>(
+        &'s self,
+        world: UnsafeWorldCell<'w>,
+        entity: Entity,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Result<Mut<'r, T>, QueryComponentError>
+    where
+        'w: 'r,
+    {
+        let entity_ref = world
+            .get_entity(entity)
+            .ok_or(QueryComponentError::NoSuchEntity)?;
+        let component_id = world
+            .components()
+            .get_id(TypeId::of::<T>())
+            .ok_or(QueryComponentError::MissingComponent)?;
+        let archetype_component = entity_ref
+            .archetype()
+            .get_archetype_component_id(component_id)
+            .ok_or(QueryComponentError::MissingComponent)?;
+        if self
+            .archetype_component_access
+            .has_write(archetype_component)
+        {
+            // SAFETY: It is the responsibility of the caller to ensure it is sound to get a
+            // mutable reference to this entity's component `T`.
+            let result = unsafe { entity_ref.get_mut_using_ticks::<T>(last_run, this_run) };
+
+            result.ok_or(QueryComponentError::MissingComponent)
+        } else {
+            Err(QueryComponentError::MissingWriteAccess)
         }
     }
 
@@ -1092,7 +1214,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                     while offset < table.entity_count() {
                         let func = func.clone();
                         let len = batch_size.min(table.entity_count() - offset);
-                        let task = async move {
+                        scope.spawn(async move {
+                            #[cfg(feature = "trace")]
+                            let _span = self.par_iter_span.enter();
                             let mut fetch =
                                 Q::init_fetch(world, &self.fetch_state, last_run, this_run);
                             let mut filter =
@@ -1110,17 +1234,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 }
                                 func(Q::fetch(&mut fetch, *entity, row));
                             }
-                        };
-                        #[cfg(feature = "trace")]
-                        let span = bevy_utils::tracing::info_span!(
-                            "par_for_each",
-                            query = std::any::type_name::<Q>(),
-                            filter = std::any::type_name::<F>(),
-                            count = len,
-                        );
-                        #[cfg(feature = "trace")]
-                        let task = task.instrument(span);
-                        scope.spawn(task);
+                        });
                         offset += batch_size;
                     }
                 }
@@ -1136,7 +1250,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                     while offset < archetype.len() {
                         let func = func.clone();
                         let len = batch_size.min(archetype.len() - offset);
-                        let task = async move {
+                        scope.spawn(async move {
+                            #[cfg(feature = "trace")]
+                            let _span = self.par_iter_span.enter();
                             let mut fetch =
                                 Q::init_fetch(world, &self.fetch_state, last_run, this_run);
                             let mut filter =
@@ -1164,19 +1280,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                     archetype_entity.table_row(),
                                 ));
                             }
-                        };
+                        });
 
-                        #[cfg(feature = "trace")]
-                        let span = bevy_utils::tracing::info_span!(
-                            "par_for_each",
-                            query = std::any::type_name::<Q>(),
-                            filter = std::any::type_name::<F>(),
-                            count = len,
-                        );
-                        #[cfg(feature = "trace")]
-                        let task = task.instrument(span);
-
-                        scope.spawn(task);
                         offset += batch_size;
                     }
                 }
@@ -1197,7 +1302,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     #[track_caller]
     #[inline]
     pub fn single<'w>(&mut self, world: &'w World) -> ROQueryItem<'w, Q> {
-        self.get_single(world).unwrap()
+        match self.get_single(world) {
+            Ok(items) => items,
+            Err(error) => panic!("Cannot get single mutable query result: {error}"),
+        }
     }
 
     /// Returns a single immutable query result when there is exactly one entity matching
@@ -1236,7 +1344,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     #[inline]
     pub fn single_mut<'w>(&mut self, world: &'w mut World) -> Q::Item<'w> {
         // SAFETY: query has unique world access
-        self.get_single_mut(world).unwrap()
+        match self.get_single_mut(world) {
+            Ok(items) => items,
+            Err(error) => panic!("Cannot get single query result: {error}"),
+        }
     }
 
     /// Returns a single mutable query result when there is exactly one entity matching
@@ -1308,38 +1419,6 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
             (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
                 Self,
             >())),
-        }
-    }
-}
-
-/// An error that occurs when retrieving a specific [`Entity`]'s query result from [`Query`](crate::system::Query) or [`QueryState`].
-// TODO: return the type_name as part of this error
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum QueryEntityError {
-    /// The given [`Entity`]'s components do not match the query.
-    ///
-    /// Either it does not have a requested component, or it has a component which the query filters out.
-    QueryDoesNotMatch(Entity),
-    /// The given [`Entity`] does not exist.
-    NoSuchEntity(Entity),
-    /// The [`Entity`] was requested mutably more than once.
-    ///
-    /// See [`QueryState::get_many_mut`] for an example.
-    AliasedMutability(Entity),
-}
-
-impl std::error::Error for QueryEntityError {}
-
-impl fmt::Display for QueryEntityError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            QueryEntityError::QueryDoesNotMatch(_) => {
-                write!(f, "The given entity's components do not match the query.")
-            }
-            QueryEntityError::NoSuchEntity(_) => write!(f, "The requested entity does not exist."),
-            QueryEntityError::AliasedMutability(_) => {
-                write!(f, "The entity was requested mutably more than once.")
-            }
         }
     }
 }
@@ -1450,28 +1529,5 @@ mod tests {
 
         let mut query_state = world_1.query::<Entity>();
         let _panics = query_state.get_many_mut(&mut world_2, []);
-    }
-}
-
-/// An error that occurs when evaluating a [`Query`](crate::system::Query) or [`QueryState`] as a single expected result via
-/// [`get_single`](crate::system::Query::get_single) or [`get_single_mut`](crate::system::Query::get_single_mut).
-#[derive(Debug)]
-pub enum QuerySingleError {
-    /// No entity fits the query.
-    NoEntities(&'static str),
-    /// Multiple entities fit the query.
-    MultipleEntities(&'static str),
-}
-
-impl std::error::Error for QuerySingleError {}
-
-impl std::fmt::Display for QuerySingleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            QuerySingleError::NoEntities(query) => write!(f, "No entities fit the query {query}"),
-            QuerySingleError::MultipleEntities(query) => {
-                write!(f, "Multiple entities fit the query {query}!")
-            }
-        }
     }
 }

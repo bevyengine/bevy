@@ -166,7 +166,7 @@ impl AssetProcessor {
             let processor = _processor.clone();
             std::thread::spawn(move || {
                 processor.process_assets();
-                futures_lite::future::block_on(processor.listen_for_source_change_events());
+                bevy_tasks::block_on(processor.listen_for_source_change_events());
             });
         }
     }
@@ -190,7 +190,7 @@ impl AssetProcessor {
         });
         // This must happen _after_ the scope resolves or it will happen "too early"
         // Don't move this into the async scope above! process_assets is a blocking/sync function this is fine
-        futures_lite::future::block_on(self.finish_processing_assets());
+        bevy_tasks::block_on(self.finish_processing_assets());
         let end_time = std::time::Instant::now();
         debug!("Processing finished in {:?}", end_time - start_time);
     }
@@ -817,7 +817,7 @@ impl AssetProcessor {
                                 break;
                             }
                             LogEntryError::UnfinishedTransaction(path) => {
-                                debug!("Asset {path:?} did not finish processing. Clearning state for that asset");
+                                debug!("Asset {path:?} did not finish processing. Clearing state for that asset");
                                 if let Err(err) = self.destination_writer().remove(&path).await {
                                     match err {
                                         AssetWriterError::Io(err) => {
@@ -991,7 +991,7 @@ pub(crate) struct ProcessorAssetInfo {
     /// * when processing assets in parallel, the processor might read an asset's process_dependencies when processing new versions of those dependencies
     ///     * this second scenario almost certainly isn't possible with the current implementation, but its worth protecting against
     /// This lock defends against those scenarios by ensuring readers don't read while processed files are being written. And it ensures
-    /// Because this lock is shared across meta and asset bytes, readers can esure they don't read "old" versions of metadata with "new" asset data.  
+    /// Because this lock is shared across meta and asset bytes, readers can ensure they don't read "old" versions of metadata with "new" asset data.
     pub(crate) file_transaction_lock: Arc<async_lock::RwLock<()>>,
     status_sender: async_broadcast::Sender<ProcessStatus>,
     status_receiver: async_broadcast::Receiver<ProcessStatus>,

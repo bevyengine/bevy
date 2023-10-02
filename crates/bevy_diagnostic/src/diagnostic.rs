@@ -6,7 +6,7 @@ use std::{borrow::Cow, collections::VecDeque};
 
 use crate::MAX_DIAGNOSTIC_NAME_WIDTH;
 
-/// Unique identifier for a [Diagnostic]
+/// Unique identifier for a [`Diagnostic`].
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct DiagnosticId(pub Uuid);
 
@@ -22,7 +22,7 @@ impl Default for DiagnosticId {
     }
 }
 
-/// A single measurement of a [Diagnostic]
+/// A single measurement of a [`Diagnostic`].
 #[derive(Debug)]
 pub struct DiagnosticMeasurement {
     pub time: Instant,
@@ -195,7 +195,7 @@ impl Diagnostic {
     }
 }
 
-/// A collection of [Diagnostic]s
+/// A collection of [`Diagnostic`]s.
 #[derive(Debug, Default, Resource)]
 pub struct DiagnosticsStore {
     // This uses a [`StableHashMap`] to ensure that the iteration order is deterministic between

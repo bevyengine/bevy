@@ -573,7 +573,7 @@ impl_tick_filter!(
     Added,
     AddedFetch,
     Column::get_added_ticks_slice,
-    ComponentSparseSet::get_added_ticks
+    ComponentSparseSet::get_added_tick
 );
 
 impl_tick_filter!(
@@ -611,7 +611,7 @@ impl_tick_filter!(
     Changed,
     ChangedFetch,
     Column::get_changed_ticks_slice,
-    ComponentSparseSet::get_changed_ticks
+    ComponentSparseSet::get_changed_tick
 );
 
 /// A marker trait to indicate that the filter works at an archetype level.
