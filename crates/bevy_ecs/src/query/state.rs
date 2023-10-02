@@ -338,10 +338,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ) -> Result<[ROQueryItem<'w, Q>; N], QueryEntityError> {
         self.update_archetypes(world);
 
-        // SAFETY: update_archetypes validates the `World` matches
+        // SAFETY:
+        // - We have read-only access to the entire world.
+        // - `update_archetypes` validates that the `World` matches.
         unsafe {
             self.get_many_read_only_manual(
-                world,
+                world.as_unsafe_world_cell_readonly(),
                 entities,
                 world.last_change_tick(),
                 world.read_change_tick(),
@@ -633,11 +635,13 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// # Safety
     ///
-    /// This must be called on the same `World` that the `Query` was generated from:
+    /// * `world` must have permission to read all of the components returned from this call.
+    /// No mutable references may coexist with any of the returned references.
+    /// * This must be called on the same `World` that the `Query` was generated from:
     /// use `QueryState::validate_world` to verify this.
     pub(crate) unsafe fn get_many_read_only_manual<'w, const N: usize>(
         &self,
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         entities: [Entity; N],
         last_run: Tick,
         this_run: Tick,
@@ -647,12 +651,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         for (value, entity) in std::iter::zip(&mut values, entities) {
             // SAFETY: fetch is read-only
             // and world must be validated
-            let item = self.as_readonly().get_unchecked_manual(
-                world.as_unsafe_world_cell_readonly(),
-                entity,
-                last_run,
-                this_run,
-            )?;
+            let item = self
+                .as_readonly()
+                .get_unchecked_manual(world, entity, last_run, this_run)?;
             *value = MaybeUninit::new(item);
         }
 
