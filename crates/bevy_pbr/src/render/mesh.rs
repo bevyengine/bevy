@@ -256,8 +256,8 @@ pub fn extract_meshes(
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
-            Option<With<NotShadowReceiver>>,
-            Option<With<NotShadowCaster>>,
+            Has<NotShadowReceiver>,
+            Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
         )>,
     >,
@@ -278,7 +278,7 @@ pub fn extract_meshes(
             }
             let transform = transform.affine();
             let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
-            let mut flags = if not_receiver.is_some() {
+            let mut flags = if not_receiver {
                 MeshFlags::empty()
             } else {
                 MeshFlags::SHADOW_RECEIVER
@@ -298,7 +298,7 @@ pub fn extract_meshes(
                 RenderMeshInstance {
                     mesh_asset_id: handle.id(),
                     transforms,
-                    shadow_caster: not_caster.is_none(),
+                    shadow_caster: !not_caster,
                     material_bind_group_id: MaterialBindGroupId::default(),
                     automatic_batching: !no_automatic_batching,
                 },
