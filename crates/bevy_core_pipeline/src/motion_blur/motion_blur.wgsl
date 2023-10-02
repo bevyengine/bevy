@@ -50,7 +50,9 @@ fn fragment(
 
 #ifdef NO_DEPTH_TEXTURE_SUPPORT
     let this_depth = 0.0;
+    let depth_supported = false;
 #else
+    let depth_supported = true;
 #ifdef MULTISAMPLED
     let this_depth = textureLoad(depth, frag_coords, i32(sample_index));
 #else
@@ -99,16 +101,16 @@ fn fragment(
         var weight = 1.0;
         // if the sampled frag is in front of this frag, we want to scale its weight by how parallel
         // their motion vectors are.
-        if sample_depth > this_depth {
+        if sample_depth > this_depth || !depth_supported {
             let this_len = length(this_motion_vector);
             let sample_len = length(sample_motion_vector);
             let cos_angle = dot(this_motion_vector, sample_motion_vector) / (this_len * sample_len);
-            // Varies from 0 to 1, meaning the strength is only attenueted, never boosted.
-            let how_parallel = abs(cos_angle);
+            let motion_similarity = clamp(abs(cos_angle), 0.0, 1.0);
             // If the foreground sampled frag is not moving much, we definitely shouldn't sample it,
             // because there is no way that it could've contributed to this fragment's color.
-            let len_ratio = clamp(sample_len/this_len, 0.0, 1.0);
-            weight = pow(how_parallel * len_ratio, 3.0);
+            let length_ratio = clamp(sample_len / this_len, 0.0, 1.0);
+            // Varies from 0 to 1, meaning the strength is only attenueted, never boosted.
+            weight = pow(motion_similarity * length_ratio, 2.0);
         }
         weight_total += weight;
         accumulator += weight * textureSample(screen_texture, texture_sampler, sample_uv);
@@ -135,9 +137,4 @@ fn unormf(n: u32) -> f32 {
 fn hash_noise(ifrag_coord: vec2<i32>, frame: u32) -> f32 {
     let urnd = uhash(u32(ifrag_coord.x), (u32(ifrag_coord.y) << 11u) + frame);
     return unormf(urnd);
-}
-
-// pow() but safe for NaNs/negatives
-fn powsafe(color: vec3<f32>, power: f32) -> vec3<f32> {
-    return pow(abs(color), vec3(power)) * sign(color);
 }
