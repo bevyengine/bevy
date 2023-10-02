@@ -43,6 +43,8 @@ use bevy_window::{
     WindowCloseRequested, WindowCreated, WindowDestroyed, WindowFocused, WindowMoved,
     WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
 };
+#[cfg(target_os = "android")]
+use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity::AndroidApp;
@@ -664,16 +666,55 @@ pub fn winit_runner(mut app: App) {
                 runner_state.is_active = false;
                 #[cfg(target_os = "android")]
                 {
-                    // Android sending this event invalidates all render surfaces.
-                    // TODO
-                    // Upon resume, check if the new render surfaces are compatible with the
-                    // existing render device. If not (which should basically never happen),
-                    // then try to rebuild the renderer.
-                    *control_flow = ControlFlow::Exit;
+                    // Remove the `RawHandleWrapper` from the primary window.
+                    // This will trigger the surface destruction.
+                    let mut query = app.world.query_filtered::<Entity, With<PrimaryWindow>>();
+                    let entity = query.single(&app.world);
+                    app.world.entity_mut(entity).remove::<RawHandleWrapper>();
+                    *control_flow = ControlFlow::Wait;
                 }
             }
             event::Event::Resumed => {
                 runner_state.is_active = true;
+                #[cfg(target_os = "android")]
+                {
+                    // Get windows that are cached but without raw handles. Those window were already created, but got their
+                    // handle wrapper removed when the app was suspended.
+                    let mut query = app
+                        .world
+                        .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
+                    if let Ok((entity, window)) = query.get_single(&app.world) {
+                        use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+                        let window = window.clone();
+
+                        let (
+                            _,
+                            _,
+                            _,
+                            mut winit_windows,
+                            mut adapters,
+                            mut handlers,
+                            accessibility_requested,
+                        ) = create_window_system_state.get_mut(&mut app.world);
+
+                        let winit_window = winit_windows.create_window(
+                            event_loop,
+                            entity,
+                            &window,
+                            &mut adapters,
+                            &mut handlers,
+                            &accessibility_requested,
+                        );
+
+                        let wrapper = RawHandleWrapper {
+                            window_handle: winit_window.raw_window_handle(),
+                            display_handle: winit_window.raw_display_handle(),
+                        };
+
+                        app.world.entity_mut(entity).insert(wrapper);
+                    }
+                    *control_flow = ControlFlow::Poll;
+                }
             }
             event::Event::MainEventsCleared => {
                 if runner_state.is_active {
