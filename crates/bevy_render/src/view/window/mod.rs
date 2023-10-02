@@ -10,7 +10,10 @@ use bevy_utils::{default, tracing::debug, HashMap, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
 };
-use std::ops::{Deref, DerefMut};
+use std::{
+    ops::{Deref, DerefMut},
+    sync::PoisonError,
+};
 use wgpu::{BufferUsages, TextureFormat, TextureUsages, TextureViewDescriptor};
 
 pub mod screenshot;
@@ -168,7 +171,12 @@ fn extract_windows(
     // Even if a user had multiple copies of this system, since the system has a mutable resource access the two systems would never run
     // at the same time
     // TODO: since this is guaranteed, should the lock be replaced with an UnsafeCell to remove the overhead, or is it minor enough to be ignored?
-    for (window, screenshot_func) in screenshot_manager.callbacks.lock().drain() {
+    for (window, screenshot_func) in screenshot_manager
+        .callbacks
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .drain()
+    {
         if let Some(window) = extracted_windows.get_mut(&window) {
             window.screenshot_func = Some(screenshot_func);
         }
