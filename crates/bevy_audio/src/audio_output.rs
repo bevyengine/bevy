@@ -85,6 +85,10 @@ impl<'w, 's> EarPositions<'w, 's> {
 
         (left_ear, right_ear)
     }
+
+    pub(crate) fn multiple_listeners(&self) -> bool {
+        self.query.iter().len() > 1
+    }
 }
 
 /// Plays "queued" audio through the [`AudioOutput`] resource.
@@ -108,7 +112,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
         ),
         (Without<AudioSink>, Without<SpatialAudioSink>),
     >,
-    listener: EarPositions,
+    ear_positions: EarPositions,
     mut commands: Commands,
 ) where
     f32: rodio::cpal::FromSample<Source::DecoderItem>,
@@ -122,19 +126,19 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
         if let Some(audio_source) = audio_sources.get(source_handle) {
             // audio data is available (has loaded), begin playback and insert sink component
             if settings.spatial {
-                let (left_ear, right_ear) = listener.get();
+                let (left_ear, right_ear) = ear_positions.get();
 
                 // We can only use one `SpatialListener`. If there are more than that, then
                 // the user may have made a mistake.
-                if listener.query.iter().len() > 1 {
+                if ear_positions.multiple_listeners() {
                     warn!(
                         "Multiple SpatialListeners found. Using {:?}.",
-                        listener.query.iter().next().unwrap().0
+                        ear_positions.query.iter().next().unwrap().0
                     );
                 }
 
                 let emitter_translation = maybe_emitter_transform
-                    .map(|t| (t.translation() * listener.scale.0).into())
+                    .map(|t| (t.translation() * ear_positions.scale.0).into())
                     .unwrap_or_else(|| {
                         warn!("Spatial AudioBundle with no GlobalTransform component. Using zero.");
                         Vec3::ZERO.into()
@@ -304,13 +308,13 @@ pub(crate) fn update_listener_positions(
             With<SpatialListener>,
         ),
     >,
-    listener: EarPositions,
+    ear_positions: EarPositions,
 ) {
-    if !listener.scale.is_changed() && changed_listener.is_empty() {
+    if !ear_positions.scale.is_changed() && changed_listener.is_empty() {
         return;
     }
 
-    let (left_ear, right_ear) = listener.get();
+    let (left_ear, right_ear) = ear_positions.get();
 
     for sink in emitters.iter_mut() {
         sink.set_ears_position(left_ear, right_ear);
