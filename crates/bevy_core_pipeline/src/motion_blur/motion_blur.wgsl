@@ -78,10 +78,8 @@ fn fragment(
 
         // If depth is not considered during sampling, you can end up sampling objects in front of a
         // fast moving object, which will cause the (possibly stationary) objects in front of that
-        // fast moving object to smear. To prevent this, we check the depth of the fragment we are
-        // sampling. If it is closer to the camera than this fragment (plus the user-defined bias),
-        // we discard it. If the bias is too small, fragments from the same object will be filtered
-        // out.
+        // fast moving object to smear. To prevent this, we check the depth and velocity of the
+        // fragment we are sampling.
     #ifdef NO_DEPTH_TEXTURE_SUPPORT
         let sample_depth = 0.0;
     #else
@@ -100,7 +98,8 @@ fn fragment(
 
         var weight = 1.0;
         // if the sampled frag is in front of this frag, we want to scale its weight by how parallel
-        // their motion vectors are.
+        // their motion vectors are. This is because that means the sampled fragment is more likely
+        // to have occupied this fragment during the course of its motion.
         if sample_depth > this_depth || !depth_supported {
             let this_len = length(this_motion_vector);
             let sample_len = length(sample_motion_vector);
