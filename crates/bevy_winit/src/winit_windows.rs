@@ -2,8 +2,8 @@
 
 use accesskit_winit::Adapter;
 use bevy_a11y::{
-    accesskit::{NodeBuilder, NodeClassSet, Role, Tree, TreeUpdate},
-    AccessKitEntityExt, AccessibilityRequested,
+    accesskit::{NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate},
+    AccessibilityRequested,
 };
 use bevy_ecs::entity::Entity;
 
@@ -150,9 +150,9 @@ impl WinitWindows {
         root_builder.set_name(name.into_boxed_str());
         let root = root_builder.build(&mut NodeClassSet::lock_global());
 
-        let accesskit_window_id = entity.to_node_id();
+        let accesskit_window_id = NodeId(entity.to_bits());
         let handler = WinitActionHandler::default();
-        let accessibility_requested = (*accessibility_requested).clone();
+        let accessibility_requested = accessibility_requested.clone();
         let adapter = Adapter::with_action_handler(
             &winit_window,
             move || {
@@ -160,7 +160,7 @@ impl WinitWindows {
                 TreeUpdate {
                     nodes: vec![(accesskit_window_id, root)],
                     tree: Some(Tree::new(accesskit_window_id)),
-                    focus: None,
+                    focus: accesskit_window_id,
                 }
             },
             Box::new(handler.clone()),

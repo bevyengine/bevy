@@ -7,8 +7,10 @@ use std::{
 
 use accesskit_winit::Adapter;
 use bevy_a11y::{
-    accesskit::{ActionHandler, ActionRequest, NodeBuilder, NodeClassSet, Role, TreeUpdate},
-    AccessKitEntityExt, AccessibilityNode, AccessibilityRequested, AccessibilitySystem, Focus,
+    accesskit::{
+        ActionHandler, ActionRequest, NodeBuilder, NodeClassSet, NodeId, Role, TreeUpdate,
+    },
+    AccessibilityNode, AccessibilityRequested, AccessibilitySystem, Focus,
 };
 use bevy_a11y::{ActionRequest as ActionRequestWrapper, ManageAccessibilityUpdates};
 use bevy_app::{App, Plugin, PostUpdate};
@@ -20,8 +22,8 @@ use bevy_ecs::{
     system::{NonSend, NonSendMut, Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_utils::{default, HashMap};
-use bevy_window::{PrimaryWindow, Window, WindowClosed, WindowFocused};
+use bevy_utils::HashMap;
+use bevy_window::{PrimaryWindow, Window, WindowClosed};
 
 /// Maps window entities to their `AccessKit` [`Adapter`]s.
 #[derive(Default, Deref, DerefMut)]
@@ -36,30 +38,9 @@ pub struct WinitActionHandlers(pub HashMap<Entity, WinitActionHandler>);
 pub struct WinitActionHandler(pub Arc<Mutex<VecDeque<ActionRequest>>>);
 
 impl ActionHandler for WinitActionHandler {
-    fn do_action(&self, request: ActionRequest) {
+    fn do_action(&mut self, request: ActionRequest) {
         let mut requests = self.0.lock().unwrap();
         requests.push_back(request);
-    }
-}
-
-fn handle_window_focus(
-    focus: Res<Focus>,
-    adapters: NonSend<AccessKitAdapters>,
-    mut focused: EventReader<WindowFocused>,
-) {
-    for event in focused.read() {
-        if let Some(adapter) = adapters.get(&event.window) {
-            if let Some(focus_id) = **focus {
-                adapter.update_if_active(|| TreeUpdate {
-                    focus: if event.focused {
-                        Some(focus_id.to_node_id())
-                    } else {
-                        None
-                    },
-                    ..default()
-                });
-            }
-        }
     }
 }
 
@@ -109,37 +90,31 @@ fn update_accessibility_nodes(
             if should_run {
                 adapter.update_if_active(|| {
                     let mut to_update = vec![];
-                    let mut has_focus = false;
                     let mut name = None;
                     if primary_window.focused {
-                        has_focus = true;
                         let title = primary_window.title.clone();
                         name = Some(title.into_boxed_str());
                     }
-                    let focus_id = if has_focus {
-                        (*focus).or_else(|| Some(primary_window_id))
-                    } else {
-                        None
-                    };
+                    let focus_id = (*focus).unwrap_or_else(|| primary_window_id).to_bits();
                     let mut root_children = vec![];
                     for (entity, node, children, parent) in &nodes {
                         let mut node = (**node).clone();
                         if let Some(parent) = parent {
-                            if node_entities.get(**parent).is_err() {
-                                root_children.push(entity.to_node_id());
+                            if !node_entities.contains(**parent) {
+                                root_children.push(NodeId(entity.to_bits()));
                             }
                         } else {
-                            root_children.push(entity.to_node_id());
+                            root_children.push(NodeId(entity.to_bits()));
                         }
                         if let Some(children) = children {
                             for child in children {
-                                if node_entities.get(*child).is_ok() {
-                                    node.push_child(child.to_node_id());
+                                if node_entities.contains(*child) {
+                                    node.push_child(NodeId(child.to_bits()));
                                 }
                             }
                         }
                         to_update.push((
-                            entity.to_node_id(),
+                            NodeId(entity.to_bits()),
                             node.build(&mut NodeClassSet::lock_global()),
                         ));
                     }
@@ -149,12 +124,12 @@ fn update_accessibility_nodes(
                     }
                     root.set_children(root_children);
                     let root = root.build(&mut NodeClassSet::lock_global());
-                    let window_update = (primary_window_id.to_node_id(), root);
+                    let window_update = (NodeId(primary_window_id.to_bits()), root);
                     to_update.insert(0, window_update);
                     TreeUpdate {
                         nodes: to_update,
-                        focus: focus_id.map(|v| v.to_node_id()),
-                        ..default()
+                        tree: None,
+                        focus: NodeId(focus_id),
                     }
                 });
             }
@@ -172,12 +147,7 @@ impl Plugin for AccessibilityPlugin {
             .add_event::<ActionRequestWrapper>()
             .add_systems(
                 PostUpdate,
-                (
-                    handle_window_focus,
-                    window_closed,
-                    poll_receivers,
-                    update_accessibility_nodes,
-                )
+                (window_closed, poll_receivers, update_accessibility_nodes)
                     .in_set(AccessibilitySystem::Update),
             );
     }

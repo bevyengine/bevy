@@ -4,16 +4,13 @@
 #![allow(clippy::type_complexity)]
 #![forbid(unsafe_code)]
 
-use std::{
-    num::NonZeroU128,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
 };
 
 pub use accesskit;
-use accesskit::{NodeBuilder, NodeId};
+use accesskit::NodeBuilder;
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -88,19 +85,6 @@ pub struct AccessibilityNode(pub NodeBuilder);
 impl From<NodeBuilder> for AccessibilityNode {
     fn from(node: NodeBuilder) -> Self {
         Self(node)
-    }
-}
-
-/// Extensions to ease integrating entities with [`AccessKit`](https://accesskit.dev).
-pub trait AccessKitEntityExt {
-    /// Convert an entity to a stable [`NodeId`].
-    fn to_node_id(&self) -> NodeId;
-}
-
-impl AccessKitEntityExt for Entity {
-    fn to_node_id(&self) -> NodeId {
-        let id = NonZeroU128::new(self.to_bits() as u128 + 1);
-        NodeId(id.unwrap())
     }
 }
 
