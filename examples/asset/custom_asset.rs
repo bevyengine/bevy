@@ -1,11 +1,12 @@
 //! Implements loader for a custom asset type.
 
 use bevy::{
-    asset::{anyhow::Error, io::Reader, AssetLoader, LoadContext},
+    asset::{io::Reader, AssetLoader, LoadContext},
     prelude::*,
     reflect::TypePath,
     utils::BoxedFuture,
 };
+use bevy_internal::asset::AssetLoaderError;
 use futures_lite::AsyncReadExt;
 use serde::Deserialize;
 
@@ -25,7 +26,7 @@ impl AssetLoader for CustomAssetLoader {
         reader: &'a mut Reader,
         _settings: &'a (),
         _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Error>> {
+    ) -> BoxedFuture<'a, Result<Self::Asset, AssetLoaderError>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;

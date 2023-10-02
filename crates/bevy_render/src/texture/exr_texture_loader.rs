@@ -1,6 +1,5 @@
 use crate::texture::{Image, TextureFormatPixelInfo};
 use bevy_asset::{
-    anyhow::Error,
     io::{AsyncReadExt, Reader},
     AssetLoader, LoadContext,
 };
@@ -21,7 +20,7 @@ impl AssetLoader for ExrTextureLoader {
         reader: &'a mut Reader,
         _settings: &'a Self::Settings,
         _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Image, Error>> {
+    ) -> BoxedFuture<'a, Result<Image, AssetLoaderError>> {
         Box::pin(async move {
             let format = TextureFormat::Rgba32Float;
             debug_assert_eq!(

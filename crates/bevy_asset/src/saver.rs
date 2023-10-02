@@ -3,6 +3,7 @@ use crate::{AssetLoader, LabeledAsset};
 use bevy_utils::{BoxedFuture, CowArc, HashMap};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
+use thiserror::Error;
 
 /// Saves an [`Asset`] of a given [`AssetSaver::Asset`] type. [`AssetSaver::OutputLoader`] will then be used to load the saved asset
 /// in the final deployed application. The saver should produce asset bytes in a format that [`AssetSaver::OutputLoader`] can read.
@@ -18,8 +19,12 @@ pub trait AssetSaver: Send + Sync + 'static {
         writer: &'a mut Writer,
         asset: SavedAsset<'a, Self::Asset>,
         settings: &'a Self::Settings,
-    ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, anyhow::Error>>;
+    ) -> BoxedFuture<'a, Result<<Self::OutputLoader as AssetLoader>::Settings, AssetSaverError>>;
 }
+
+/// An error that is encountered during [`AssetSaver::save`].
+#[derive(Error, Debug)]
+pub enum AssetSaverError {}
 
 /// A type-erased dynamic variant of [`AssetSaver`] that allows callers to save assets without knowing the actual type of the [`AssetSaver`].
 pub trait ErasedAssetSaver: Send + Sync + 'static {
@@ -30,7 +35,7 @@ pub trait ErasedAssetSaver: Send + Sync + 'static {
         writer: &'a mut Writer,
         asset: &'a ErasedLoadedAsset,
         settings: &'a dyn Settings,
-    ) -> BoxedFuture<'a, Result<(), anyhow::Error>>;
+    ) -> BoxedFuture<'a, Result<(), AssetSaverError>>;
 
     /// The type name of the [`AssetSaver`].
     fn type_name(&self) -> &'static str;
@@ -42,7 +47,7 @@ impl<S: AssetSaver> ErasedAssetSaver for S {
         writer: &'a mut Writer,
         asset: &'a ErasedLoadedAsset,
         settings: &'a dyn Settings,
-    ) -> BoxedFuture<'a, Result<(), anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<(), AssetSaverError>> {
         Box::pin(async move {
             let settings = settings
                 .downcast_ref::<S::Settings>()

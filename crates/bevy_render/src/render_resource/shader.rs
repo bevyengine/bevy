@@ -1,6 +1,8 @@
 use super::ShaderDefVal;
 use crate::define_atomic_id;
-use bevy_asset::{anyhow, io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
+use bevy_asset::{
+    io::Reader, Asset, AssetLoader, AssetLoaderError, AssetPath, Handle, LoadContext,
+};
 use bevy_reflect::TypePath;
 use bevy_utils::{tracing::error, BoxedFuture};
 use futures_lite::AsyncReadExt;
@@ -240,7 +242,7 @@ impl AssetLoader for ShaderLoader {
         reader: &'a mut Reader,
         _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Shader, anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<Shader, AssetLoaderError>> {
         Box::pin(async move {
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
@@ -249,21 +251,21 @@ impl AssetLoader for ShaderLoader {
             let shader = match ext {
                 "spv" => Shader::from_spirv(bytes, load_context.path().to_string_lossy()),
                 "wgsl" => Shader::from_wgsl(
-                    String::from_utf8(bytes)?,
+                    String::from_utf8(bytes).map_err(|_| AssetLoaderError::Unknown)?,
                     load_context.path().to_string_lossy(),
                 ),
                 "vert" => Shader::from_glsl(
-                    String::from_utf8(bytes)?,
+                    String::from_utf8(bytes).map_err(|_| AssetLoaderError::Unknown)?,
                     naga::ShaderStage::Vertex,
                     load_context.path().to_string_lossy(),
                 ),
                 "frag" => Shader::from_glsl(
-                    String::from_utf8(bytes)?,
+                    String::from_utf8(bytes).map_err(|_| AssetLoaderError::Unknown)?,
                     naga::ShaderStage::Fragment,
                     load_context.path().to_string_lossy(),
                 ),
                 "comp" => Shader::from_glsl(
-                    String::from_utf8(bytes)?,
+                    String::from_utf8(bytes).map_err(|_| AssetLoaderError::Unknown)?,
                     naga::ShaderStage::Compute,
                     load_context.path().to_string_lossy(),
                 ),

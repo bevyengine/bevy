@@ -1,7 +1,8 @@
 #[cfg(feature = "serialize")]
 use crate::serde::SceneDeserializer;
 use crate::DynamicScene;
-use bevy_asset::{anyhow, io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use bevy_asset::AssetLoaderError;
+use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_ecs::world::{FromWorld, World};
 use bevy_reflect::TypeRegistryArc;
@@ -34,7 +35,7 @@ impl AssetLoader for SceneLoader {
         reader: &'a mut Reader,
         _settings: &'a (),
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<Self::Asset, AssetLoaderError>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
@@ -46,12 +47,13 @@ impl AssetLoader for SceneLoader {
                 .deserialize(&mut deserializer)
                 .map_err(|e| {
                     let span_error = deserializer.span_error(e);
-                    anyhow::anyhow!(
+                    /*anyhow::anyhow!(
                         "{} at {}:{}",
                         span_error.code,
                         load_context.path().to_string_lossy(),
                         span_error.position,
-                    )
+                    )*/
+                    AssetLoaderError::RONSpanError(span_error)
                 })
         })
     }

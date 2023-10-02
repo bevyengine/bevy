@@ -32,7 +32,7 @@ pub trait AssetLoader: Send + Sync + 'static {
         reader: &'a mut Reader,
         settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, anyhow::Error>>;
+    ) -> BoxedFuture<'a, Result<Self::Asset, AssetLoaderError>>;
 
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str];
@@ -67,12 +67,21 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
 /// An error encountered during [`AssetLoader::load`].
 #[derive(Error, Debug)]
 pub enum AssetLoaderError {
-    /// Any error that occurs during load.
+    /// Any IO error that occurs during load.
     #[error(transparent)]
-    Load(#[from] anyhow::Error),
+    IO(#[from] std::io::Error),
+    /// Any RON error that occurs during load.
+    #[error(transparent)]
+    RONSpanError(#[from] SpannedError),
     /// A failure to deserialize metadata during load.
     #[error(transparent)]
     DeserializeMeta(#[from] DeserializeMetaError),
+    /// A dependency could not be loaded.
+    #[error("A dependency could not be loaded")]
+    DependencyError { dependency: AssetPath<'static> },
+    /// An unknown Asset Loader Error.
+    #[error("An unknown Asset Loader Error")]
+    Unknown,
 }
 
 impl<L> ErasedAssetLoader for L

@@ -1,6 +1,6 @@
 use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
 use bevy_asset::{
-    anyhow, io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext,
+    io::Reader, AssetLoadError, AssetLoader, AssetLoaderError, AsyncReadExt, Handle, LoadContext,
     ReadAssetBytesError,
 };
 use bevy_core::Name;
@@ -89,11 +89,13 @@ impl AssetLoader for GltfLoader {
         reader: &'a mut Reader,
         _settings: &'a (),
         load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Gltf, anyhow::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Gltf, AssetLoaderError>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            Ok(load_gltf(self, &bytes, load_context).await?)
+            Ok(load_gltf(self, &bytes, load_context)
+                .await
+                .map_err(|_| AssetLoaderError::Unknown)?)
         })
     }
 

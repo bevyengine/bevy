@@ -1,4 +1,4 @@
-use crate::{self as bevy_asset, DeserializeMetaError, VisitAssetDependencies};
+use crate::{self as bevy_asset, AssetLoaderError, DeserializeMetaError, VisitAssetDependencies};
 use crate::{loader::AssetLoader, processor::Process, Asset, AssetPath};
 use bevy_log::error;
 use downcast_rs::{impl_downcast, Downcast};
@@ -198,7 +198,7 @@ impl AssetLoader for () {
         _reader: &'a mut crate::io::Reader,
         _settings: &'a Self::Settings,
         _load_context: &'a mut crate::LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Self::Asset, anyhow::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Self::Asset, AssetLoaderError>> {
         unreachable!();
     }
 

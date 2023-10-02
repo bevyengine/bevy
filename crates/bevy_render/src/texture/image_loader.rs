@@ -1,5 +1,4 @@
-use anyhow::Result;
-use bevy_asset::{anyhow, io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use bevy_asset::{io::Reader, AssetLoader, AssetLoaderError, AsyncReadExt, LoadContext};
 use bevy_ecs::prelude::{FromWorld, World};
 use thiserror::Error;
 
@@ -76,7 +75,7 @@ impl AssetLoader for ImageLoader {
         reader: &'a mut Reader,
         settings: &'a ImageLoaderSettings,
         load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Image, anyhow::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Image, AssetLoaderError>> {
         Box::pin(async move {
             // use the file extension for the image type
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
@@ -96,7 +95,8 @@ impl AssetLoader for ImageLoader {
             .map_err(|err| FileTextureError {
                 error: err,
                 path: format!("{}", load_context.path().display()),
-            })?)
+            })
+            .map_err(|_| AssetLoaderError::Unknown)?)
         })
     }
 

@@ -2,7 +2,7 @@ use crate::{
     io::{AssetReaderError, AssetWriterError, Writer},
     meta::{AssetAction, AssetMeta, AssetMetaDyn, ProcessDependencyInfo, ProcessedInfo, Settings},
     processor::AssetProcessor,
-    saver::{AssetSaver, SavedAsset},
+    saver::{AssetSaver, AssetSaverError, SavedAsset},
     AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, ErasedLoadedAsset,
     MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
 };
@@ -91,7 +91,7 @@ pub enum ProcessError {
     #[error("The wrong meta type was passed into a processor. This is probably an internal implementation error.")]
     WrongMetaType,
     #[error("Encountered an error while saving the asset: {0}")]
-    AssetSaveError(anyhow::Error),
+    AssetSaveError(#[from] AssetSaverError),
     #[error("Assets without extensions are not supported.")]
     ExtensionRequired,
 }

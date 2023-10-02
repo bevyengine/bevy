@@ -33,7 +33,6 @@ pub use path::*;
 pub use reflect::*;
 pub use server::*;
 
-pub use anyhow;
 pub use bevy_utils::BoxedFuture;
 
 use crate::{
@@ -422,8 +421,9 @@ mod tests {
             Reader,
         },
         loader::{AssetLoader, LoadContext},
-        Asset, AssetApp, AssetEvent, AssetId, AssetPlugin, AssetProvider, AssetProviders,
-        AssetServer, Assets, DependencyLoadState, LoadState, RecursiveDependencyLoadState,
+        Asset, AssetApp, AssetEvent, AssetId, AssetLoaderError, AssetPlugin, AssetProvider,
+        AssetProviders, AssetServer, Assets, DependencyLoadState, LoadState,
+        RecursiveDependencyLoadState,
     };
     use bevy_app::{App, Update};
     use bevy_core::TaskPoolPlugin;
@@ -472,14 +472,18 @@ mod tests {
             reader: &'a mut Reader,
             _settings: &'a Self::Settings,
             load_context: &'a mut LoadContext,
-        ) -> BoxedFuture<'a, Result<Self::Asset, anyhow::Error>> {
+        ) -> BoxedFuture<'a, Result<Self::Asset, AssetLoaderError>> {
             Box::pin(async move {
                 let mut bytes = Vec::new();
                 reader.read_to_end(&mut bytes).await?;
                 let mut ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
                 let mut embedded = String::new();
                 for dep in ron.embedded_dependencies {
-                    let loaded = load_context.load_direct(&dep).await?;
+                    let loaded = load_context.load_direct(&dep).await.map_err(|_| {
+                        AssetLoaderError::DependencyError {
+                            dependency: dep.into(),
+                        }
+                    })?;
                     let cool = loaded.get::<CoolText>().unwrap();
                     embedded.push_str(&cool.text);
                 }
