@@ -16,15 +16,16 @@ struct Vertex {
 #ifdef VERTEX_UVS
     @location(2) uv: vec2<f32>,
 #endif
+// (Alternate UVs are at location 3, but they're currently unused here.)
 #ifdef VERTEX_TANGENTS
-    @location(3) tangent: vec4<f32>,
+    @location(4) tangent: vec4<f32>,
 #endif
 #ifdef VERTEX_COLORS
-    @location(4) color: vec4<f32>,
+    @location(5) color: vec4<f32>,
 #endif
 #ifdef SKINNED
-    @location(5) joint_indices: vec4<u32>,
-    @location(6) joint_weights: vec4<f32>,
+    @location(6) joint_indices: vec4<u32>,
+    @location(7) joint_weights: vec4<f32>,
 #endif
 #ifdef MORPH_TARGETS
     @builtin(vertex_index) index: u32,
