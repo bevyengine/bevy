@@ -403,7 +403,7 @@ struct PreviousState<S: States>(S);
 
 impl<S: States> PreviousState<S> {
     /// Get the current state.
-    pub fn get(&self) -> &S {
+    fn get(&self) -> &S {
         &self.0
     }
 }
