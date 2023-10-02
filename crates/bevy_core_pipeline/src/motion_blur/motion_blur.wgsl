@@ -62,15 +62,15 @@ fn fragment(
 
     var weight_total = 0.0;
     var accumulator = vec4<f32>(0.0);
-    var offset = vec2<f32>(0.0);
     let noise = hash_noise(frag_coords, globals.frame_count) * 2.0 - 1.0;
     let jitter = noise / f32(n_samples - 1);
 
     for (var i = 0; i < n_samples; i++) {
         let sample_percent = f32(i) / f32(n_samples - 1) - 0.5;
 
-        // We want the central sample to have an offset of zero.
+        var offset = vec2<f32>(0.0);
         if n_samples > 1 && abs(sample_percent) > 0.001 {
+            // We want the central sample to have an offset of zero.
             offset = exposure_vector * (sample_percent + jitter);
         }
         let sample_uv = in.uv + offset;
