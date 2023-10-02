@@ -213,7 +213,6 @@ Example | Description
 
 Example | Description
 --- | ---
-[Advanced State](../examples/ecs/advanced_state.rs) | Illustrates use of some of the more advanced state concepts, such as `StateMatchers`.
 [Apply System Buffers](../examples/ecs/apply_deferred.rs) | Show how to use `apply_deferred` system
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type

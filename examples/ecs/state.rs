@@ -20,11 +20,7 @@ fn main() {
         // and then all systems from the enter schedule of the state we're entering are run second.
         .add_systems(OnEnter(AppState::Menu), setup_menu)
         // The `OnEnter` struct can accept any valid state object, not just enums
-        .add_systems(OnEnter(AppState::InGame { paused: true }), setup_paused)
-        .add_systems(
-            OnEnter(AppState::InGame { paused: false }),
-            setup_in_game_ui,
-        )
+        .add_systems(OnEnter(AppState::InGame(GameState::Paused)), setup_paused)
         // In addition to `OnEnter` and `OnExit`, you can run systems any other schedule as well.
         // To do so, you will want to add the `in_state()` run condition, which will check
         // if we're in the correct state every time the schedule runs. In this case - that's every frame.
@@ -32,6 +28,10 @@ fn main() {
         // But that is not all - we can use pattern matching with the `on_enter! macro
         // Which lets us run the system whenever we enter a matching state from one that doesn't maatch
         .add_systems(on_enter!(AppState, InGame { .. }), setup_game)
+        .add_systems(
+            on_enter!(AppState, InGame(GameState::Running(_))),
+            setup_in_game_ui,
+        )
         // Both `on_enter!` and `on_exit` also have `_strict` versions, which will match whenever
         // we enter/exit a matching system regardless if the previous/next system matched as well.
         // As a result, this system will run on every state transition, because every state matches
@@ -44,20 +44,21 @@ fn main() {
             Update,
             change_color.run_if(in_state!(AppState, InGame { .. })),
         )
-        // Lastly, we can also insert sub states to our app.
-        // Sub states are just regular states, but they are set up so that they are automatically
-        // removed from the world when you aren't in a matching parent state, and are added to the world
-        // with their default value whenever you are in a matching parent state.
-        // In this case - `State<MovementState>` will only exist in the world when the game is not paused.
-        .add_sub_state::<MovementState, _>(AppState::InGame { paused: false })
-        // Just like any other state, we can use the various macros and functions to relate to it.
-        // Here we are pattern matching against any value of `MovementState`, which means it will run
-        // whenever `MovementState` exists - which is when we are in an unpaused game.
-        .add_systems(Update, invert_movement.run_if(in_state!(MovementState, _)))
-        .add_systems(Update, movement.run_if(in_state(MovementState::Normal)))
         .add_systems(
             Update,
-            inverted_movement.run_if(in_state(MovementState::Inverted)),
+            invert_movement.run_if(in_state!(AppState, InGame(GameState::Running(_)))),
+        )
+        .add_systems(
+            Update,
+            movement.run_if(in_state(AppState::InGame(GameState::Running(
+                MovementState::Normal,
+            )))),
+        )
+        .add_systems(
+            Update,
+            inverted_movement.run_if(in_state(AppState::InGame(GameState::Running(
+                MovementState::Inverted,
+            )))),
         )
         .run();
 }
@@ -66,12 +67,22 @@ fn main() {
 enum AppState {
     #[default]
     Menu,
-    InGame {
-        paused: bool,
-    },
+    InGame(GameState),
 }
 
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+enum GameState {
+    Running(MovementState),
+    Paused,
+}
+
+impl Default for GameState {
+    fn default() -> Self {
+        GameState::Running(MovementState::Normal)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash)]
 enum MovementState {
     #[default]
     Normal,
@@ -140,7 +151,7 @@ fn menu(
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
                 // One way to set the next state is to set the full state value, like so
-                next_state.set(AppState::InGame { paused: true });
+                next_state.set(AppState::InGame(GameState::Paused));
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON.into();
@@ -224,18 +235,23 @@ fn toggle_pause(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<App
     if input.just_pressed(KeyCode::Escape) {
         // Alternatively, you provide next_state with a setter function, which will take the current state, and output the new state, allowing for some degree of update-in-place
         next_state.setter(|state| match &state {
-            AppState::InGame { paused } => AppState::InGame { paused: !paused },
+            AppState::InGame(state) => AppState::InGame(match state {
+                GameState::Running(_) => GameState::Paused,
+                GameState::Paused => GameState::default(),
+            }),
             _ => state,
         });
     }
 }
 
-fn invert_movement(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<MovementState>>) {
+fn invert_movement(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
     if input.just_pressed(KeyCode::ShiftLeft) {
-        next_state.set(MovementState::Inverted);
+        next_state.set(AppState::InGame(GameState::Running(
+            MovementState::Inverted,
+        )));
     }
     if input.just_released(KeyCode::ShiftLeft) {
-        next_state.set(MovementState::Normal);
+        next_state.set(AppState::InGame(GameState::Running(MovementState::Normal)));
     }
 }
 
