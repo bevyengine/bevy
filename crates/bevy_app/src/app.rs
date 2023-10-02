@@ -1,8 +1,6 @@
 use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
 pub use bevy_derive::AppLabel;
-use bevy_ecs::schedule::{
-    initialize_state_and_enter, remove_state_from_world, IntoConditionalScheduleLabel, StateMatcher,
-};
+use bevy_ecs::schedule::{IntoConditionalScheduleLabel, StateMatcher};
 use bevy_ecs::{
     prelude::*,
     schedule::{
