@@ -13,14 +13,15 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load our mesh:
-    let scene_handle = asset_server.load("models/torus/torus.gltf#Scene0");
+    let scene_handle = asset_server.load("models/character/character.gltf#Scene0");
 
-    // Any changes to the mesh will be reloaded automatically! Try making a change to torus.gltf.
+    // Any changes to the mesh will be reloaded automatically! Try making a change to character.gltf.
     // You should see the changes immediately show up in your app.
 
     // mesh
     commands.spawn(SceneBundle {
         scene: scene_handle,
+        transform: Transform::from_xyz(0.0, -1.0, 0.0).with_scale(Vec3::splat(2.0)),
         ..default()
     });
     // light
