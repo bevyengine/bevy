@@ -459,10 +459,10 @@ fn verify_no_ancestor_player(
         return true;
     };
     loop {
-        let Ok((maybe_player, parent)) = parents.get(current) else {
+        let Ok((has_player, parent)) = parents.get(current) else {
             return true;
         };
-        if maybe_player {
+        if has_player {
             return false;
         }
         if let Some(parent) = parent {
