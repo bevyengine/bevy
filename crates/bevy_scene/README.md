@@ -1,5 +1,5 @@
 # Bevy Scene
 
-Bevy Scene is a component of the [Bevy Engine](https://bevyengine.org/).
+[Bevy Scene](https://github.com/bevyengine/bevy/tree/main/crates/bevy_scene) is a component of the [Bevy Engine](https://bevyengine.org/). You can revise the list of official crates [here](https://github.com/bevyengine/bevy/tree/main/crates).
 
-It is not intended for independent use, use it only as a part of [Bevy](https://crates.io/crates/bevy).
+This crate is intended to be used as a part of [Bevy](https://crates.io/crates/bevy) and not independently. However, feel free to use it if it fits your needs.

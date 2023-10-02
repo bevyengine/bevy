@@ -1,7 +1,7 @@
 # Bevy Transform
 
-Bevy Transform is a component of the [Bevy Engine](https://bevyengine.org/).
+[Bevy Transform](https://github.com/bevyengine/bevy/tree/main/crates/bevy_transform)  is a component of the [Bevy Engine](https://bevyengine.org/). You can revise the list of official crates [here](https://github.com/bevyengine/bevy/tree/main/crates).
 
-It is not intended for independent use, use it only as a part of [Bevy](https://crates.io/crates/bevy).
+This crate is intended to be used as a part of [Bevy](https://crates.io/crates/bevy) and not independently. However, feel free to use it if it fits your needs.
 
 This crate is largely a 1:1 port from [legion_transform](https://github.com/AThilenius/legion_transform) (ecs: legion, math: nalgebra) to bevy (ecs: bevy_ecs, math: glam).
