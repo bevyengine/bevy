@@ -353,7 +353,7 @@ unsafe impl ReadOnlyWorldQueryData for Entity {}
 /// This is sound because `update_component_access` and `update_archetype_component_access` set read access for all components and panic when appropriate.
 /// Filters are unchanged.
 unsafe impl<'a> WorldQuery for EntityRef<'a> {
-    type Fetch<'w> = &'w World;
+    type Fetch<'w> = UnsafeWorldCell<'w>;
     type Item<'w> = EntityRef<'w>;
     type State = ();
 
@@ -365,7 +365,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
         _last_run: Tick,
         _this_run: Tick,
     ) -> Self::Fetch<'w> {
-        world.world()
+        world
     }
 
     #[inline]
@@ -388,7 +388,9 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
         _table_row: TableRow,
     ) -> Self::Item<'w> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        world.get_entity(entity).debug_checked_unwrap()
+        let cell = world.get_entity(entity).debug_checked_unwrap();
+        // SAFETY: Read-only access to every component has been registered.
+        EntityRef::new(cell)
     }
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
