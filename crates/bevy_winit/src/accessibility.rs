@@ -67,12 +67,17 @@ fn poll_receivers(
     }
 }
 
+fn should_update_accessibility_nodes(
+    accessibility_requested: Res<AccessibilityRequested>,
+    manage_accessibility_updates: Res<ManageAccessibilityUpdates>,
+) -> bool {
+    accessibility_requested.get() && manage_accessibility_updates.get()
+}
+
 fn update_accessibility_nodes(
     adapters: NonSend<AccessKitAdapters>,
     focus: Res<Focus>,
-    accessibility_requested: Res<AccessibilityRequested>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
-    manage_accessibility_updates: Res<ManageAccessibilityUpdates>,
     nodes: Query<(
         Entity,
         &AccessibilityNode,
@@ -81,9 +86,6 @@ fn update_accessibility_nodes(
     )>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
 ) {
-    if !accessibility_requested.get() || !manage_accessibility_updates.get() {
-        return;
-    }
     if let Ok((primary_window_id, primary_window)) = primary_window.get_single() {
         if let Some(adapter) = adapters.get(&primary_window_id) {
             let should_run = focus.is_changed() || !nodes.is_empty();
@@ -147,7 +149,12 @@ impl Plugin for AccessibilityPlugin {
             .add_event::<ActionRequestWrapper>()
             .add_systems(
                 PostUpdate,
-                (window_closed, poll_receivers, update_accessibility_nodes)
+                (window_closed, poll_receivers).in_set(AccessibilitySystem::Update),
+            )
+            .add_systems(
+                PostUpdate,
+                update_accessibility_nodes
+                    .run_if(should_update_accessibility_nodes)
                     .in_set(AccessibilitySystem::Update),
             );
     }
