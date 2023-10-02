@@ -54,33 +54,32 @@ pub struct PlaybackDespawnMarker;
 pub struct PlaybackRemoveMarker;
 
 #[derive(SystemParam)]
-pub(crate) struct SpatialListenerSystemParam<'w, 's> {
+pub(crate) struct EarPositions<'w, 's> {
     pub(crate) query: Query<'w, 's, (Entity, &'static GlobalTransform, &'static SpatialListener)>,
-    pub(crate) spatial_scale: Res<'w, SpatialScale>,
+    pub(crate) scale: Res<'w, SpatialScale>,
 }
-impl<'w, 's> SpatialListenerSystemParam<'w, 's> {
+impl<'w, 's> EarPositions<'w, 's> {
     /// Gets a set of transformed and scaled ear positions.
     ///
     /// If there are no listeners, use a default values. If a user has added multiple
     /// listeners for whatever reason, using a default value might unexpected, so we will
     /// return the first value.
-    pub(crate) fn get_ear_positions(&self) -> (Vec3, Vec3) {
+    pub(crate) fn get(&self) -> (Vec3, Vec3) {
         let mut listener_iter = self.query.iter();
 
         let (left_ear, right_ear) = listener_iter
             .next()
-            .map(|(_, listener_transform, listener_settings)| {
-                let left = listener_transform.transform_point(listener_settings.left_ear_offset)
-                    * self.spatial_scale.0;
-                let right = listener_transform.transform_point(listener_settings.right_ear_offset)
-                    * self.spatial_scale.0;
-                (left, right)
+            .map(|(_, transform, settings)| {
+                (
+                    transform.transform_point(settings.left_ear_offset) * self.scale.0,
+                    transform.transform_point(settings.right_ear_offset) * self.scale.0,
+                )
             })
             .unwrap_or_else(|| {
-                let listener_settings = SpatialListener::default();
+                let settings = SpatialListener::default();
                 (
-                    (listener_settings.left_ear_offset * self.spatial_scale.0),
-                    (listener_settings.right_ear_offset * self.spatial_scale.0),
+                    (settings.left_ear_offset * self.scale.0),
+                    (settings.right_ear_offset * self.scale.0),
                 )
             });
 
@@ -109,7 +108,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
         ),
         (Without<AudioSink>, Without<SpatialAudioSink>),
     >,
-    listener: SpatialListenerSystemParam,
+    listener: EarPositions,
     mut commands: Commands,
 ) where
     f32: rodio::cpal::FromSample<Source::DecoderItem>,
@@ -123,7 +122,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
         if let Some(audio_source) = audio_sources.get(source_handle) {
             // audio data is available (has loaded), begin playback and insert sink component
             if settings.spatial {
-                let (left_ear, right_ear) = listener.get_ear_positions();
+                let (left_ear, right_ear) = listener.get();
 
                 // We can only use one `SpatialListener`. If there are more than that, then
                 // the user may have made a mistake.
@@ -135,7 +134,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                 }
 
                 let emitter_translation = maybe_emitter_transform
-                    .map(|t| (t.translation() * listener.spatial_scale.0).into())
+                    .map(|t| (t.translation() * listener.scale.0).into())
                     .unwrap_or_else(|| {
                         warn!("Spatial AudioBundle with no GlobalTransform component. Using zero.");
                         Vec3::ZERO.into()
@@ -305,13 +304,13 @@ pub(crate) fn update_listener_positions(
             With<SpatialListener>,
         ),
     >,
-    listener: SpatialListenerSystemParam,
+    listener: EarPositions,
 ) {
-    if !listener.spatial_scale.is_changed() && changed_listener.is_empty() {
+    if !listener.scale.is_changed() && changed_listener.is_empty() {
         return;
     }
 
-    let (left_ear, right_ear) = listener.get_ear_positions();
+    let (left_ear, right_ear) = listener.get();
 
     for sink in emitters.iter_mut() {
         sink.set_ears_position(left_ear, right_ear);
