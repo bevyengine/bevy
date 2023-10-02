@@ -542,24 +542,12 @@ all_tuples!(impl_query_filter_tuple, 0, 15, F, S);
 pub struct Added<T>(PhantomData<T>);
 
 #[doc(hidden)]
-pub struct AddedFetch<'w, T> {
+#[derive(Clone)]
+pub struct AddedFetch<'w> {
     table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
-    marker: PhantomData<T>,
     sparse_set: Option<&'w ComponentSparseSet>,
     last_run: Tick,
     this_run: Tick,
-}
-
-impl<'w, T> Clone for AddedFetch<'w, T> {
-    fn clone(&self) -> Self {
-        Self {
-            table_ticks: self.table_ticks,
-            sparse_set: self.sparse_set,
-            last_run: self.last_run,
-            this_run: self.this_run,
-            marker: PhantomData,
-        }
-    }
 }
 
 /// SAFETY:
@@ -568,7 +556,7 @@ impl<'w, T> Clone for AddedFetch<'w, T> {
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Added<T> {
-    type Fetch<'w> = AddedFetch<'w, T>;
+    type Fetch<'w> = AddedFetch<'w>;
     type Item<'w> = bool;
     type State = ComponentId;
 
@@ -589,7 +577,6 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
                     .get(id)
                     .debug_checked_unwrap()
             }),
-            marker: PhantomData,
             last_run,
             this_run,
         }
@@ -720,24 +707,12 @@ impl<T: Component> WorldQueryFilter for Added<T> {
 pub struct Changed<T>(PhantomData<T>);
 
 #[doc(hidden)]
-pub struct ChangedFetch<'w, T> {
+#[derive(Clone)]
+pub struct ChangedFetch<'w> {
     table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
-    marker: PhantomData<T>,
     sparse_set: Option<&'w ComponentSparseSet>,
     last_run: Tick,
     this_run: Tick,
-}
-
-impl<'w, T> Clone for ChangedFetch<'w, T> {
-    fn clone(&self) -> Self {
-        ChangedFetch {
-            table_ticks: self.table_ticks,
-            sparse_set: self.sparse_set,
-            last_run: self.last_run,
-            this_run: self.this_run,
-            marker: PhantomData,
-        }
-    }
 }
 
 /// SAFETY:
@@ -746,7 +721,7 @@ impl<'w, T> Clone for ChangedFetch<'w, T> {
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Changed<T> {
-    type Fetch<'w> = ChangedFetch<'w, T>;
+    type Fetch<'w> = ChangedFetch<'w>;
     type Item<'w> = bool;
     type State = ComponentId;
 
@@ -767,7 +742,6 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
                     .get(id)
                     .debug_checked_unwrap()
             }),
-            marker: PhantomData,
             last_run,
             this_run,
         }
