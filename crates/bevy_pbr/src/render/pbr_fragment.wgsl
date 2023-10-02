@@ -157,7 +157,7 @@ fn pbr_input_from_standard_material(
 
 // fog, alpha premultiply
 // for non-hdr cameras, tonemapping and debanding
-fn in_shader_post_processing(
+fn main_pass_post_lighting_processing(
     pbr_input: pbr_functions::PbrInput,
     input_color: vec4<f32>,
 ) -> vec4<f32> {

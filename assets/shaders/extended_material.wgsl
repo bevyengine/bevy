@@ -1,6 +1,6 @@
 #import bevy_pbr::mesh_vertex_output    MeshVertexOutput
 #import bevy_pbr::pbr_functions         PbrInput, apply_pbr_lighting
-#import bevy_pbr::pbr_fragment          pbr_input_from_standard_material, in_shader_post_processing
+#import bevy_pbr::pbr_fragment          pbr_input_from_standard_material, main_pass_post_lighting_processing
 
 struct MyExtendedMaterial {
     quantize_steps: u32,
@@ -28,7 +28,7 @@ fn fragment(
 
     // apply in-shader post processing (fog, alpha-premultiply, and also tonemapping, debanding if the camera is non-hdr)
     // note this does not include fullscreen postprocessing effects like bloom.
-    let output_color = in_shader_post_processing(pbr_input, modified_lit_color);
+    let output_color = main_pass_post_lighting_processing(pbr_input, modified_lit_color);
 
     // we can optionally modify the final result here
     let modified_output_color = output_color * 2.0;
