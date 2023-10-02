@@ -7,15 +7,10 @@ use bevy_core_pipeline::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
-    query::ROQueryItem,
-    system::{
-        lifetimeless::{Read, SRes},
-        SystemParamItem,
-    },
+    system::{lifetimeless::SRes, SystemParamItem},
 };
 use bevy_log::error;
 use bevy_render::{
-    extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
@@ -24,9 +19,9 @@ use bevy_render::{
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, OwnedBindingResource,
-        PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
-        SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout,
+        OwnedBindingResource, PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef,
+        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
     texture::FallbackImage,
@@ -34,13 +29,13 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{FloatOrd, HashMap, HashSet};
+use bevy_utils::{EntityHashMap, FloatOrd, HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
 use crate::{
-    DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dUniform, SetMesh2dBindGroup,
-    SetMesh2dViewBindGroup,
+    DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
+    SetMesh2dBindGroup, SetMesh2dViewBindGroup,
 };
 
 /// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
@@ -144,16 +139,19 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.init_asset::<M>()
-            .add_plugins(ExtractComponentPlugin::<Handle<M>>::extract_visible());
+        app.init_asset::<M>();
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
                 .init_resource::<ExtractedMaterials2d<M>>()
                 .init_resource::<RenderMaterials2d<M>>()
+                .init_resource::<RenderMaterial2dInstances<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
-                .add_systems(ExtractSchedule, extract_materials_2d::<M>)
+                .add_systems(
+                    ExtractSchedule,
+                    (extract_materials_2d::<M>, extract_material_meshes_2d::<M>),
+                )
                 .add_systems(
                     Render,
                     (
@@ -171,6 +169,27 @@ where
     fn finish(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<Material2dPipeline<M>>();
+        }
+    }
+}
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct RenderMaterial2dInstances<M: Material2d>(EntityHashMap<Entity, AssetId<M>>);
+
+impl<M: Material2d> Default for RenderMaterial2dInstances<M> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+fn extract_material_meshes_2d<M: Material2d>(
+    mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &Handle<M>)>>,
+) {
+    material_instances.clear();
+    for (entity, view_visibility, handle) in &query {
+        if view_visibility.get() {
+            material_instances.insert(entity, handle.id());
         }
     }
 }
@@ -301,19 +320,29 @@ pub struct SetMaterial2dBindGroup<M: Material2d, const I: usize>(PhantomData<M>)
 impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
     for SetMaterial2dBindGroup<M, I>
 {
-    type Param = SRes<RenderMaterials2d<M>>;
+    type Param = (
+        SRes<RenderMaterials2d<M>>,
+        SRes<RenderMaterial2dInstances<M>>,
+    );
     type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<Handle<M>>;
+    type ItemWorldQuery = ();
 
     #[inline]
     fn render<'w>(
-        _item: &P,
+        item: &P,
         _view: (),
-        material2d_handle: ROQueryItem<'_, Self::ItemWorldQuery>,
-        materials: SystemParamItem<'w, '_, Self::Param>,
+        _item_query: (),
+        (materials, material_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material2d = materials.into_inner().get(&material2d_handle.id()).unwrap();
+        let materials = materials.into_inner();
+        let material_instances = material_instances.into_inner();
+        let Some(material_instance) = material_instances.get(&item.entity()) else {
+            return RenderCommandResult::Failure;
+        };
+        let Some(material2d) = materials.get(material_instance) else {
+            return RenderCommandResult::Failure;
+        };
         pass.set_bind_group(I, &material2d.bind_group, &[]);
         RenderCommandResult::Success
     }
@@ -343,7 +372,8 @@ pub fn queue_material2d_meshes<M: Material2d>(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials2d<M>>,
-    material2d_meshes: Query<(&Handle<M>, &Mesh2dHandle, &Mesh2dUniform)>,
+    mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
+    render_material_instances: Res<RenderMaterial2dInstances<M>>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -354,7 +384,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    if material2d_meshes.is_empty() {
+    if render_material_instances.is_empty() {
         return;
     }
 
@@ -374,15 +404,16 @@ pub fn queue_material2d_meshes<M: Material2d>(
             }
         }
         for visible_entity in &visible_entities.entities {
-            let Ok((material2d_handle, mesh2d_handle, mesh2d_uniform)) =
-                material2d_meshes.get(*visible_entity)
-            else {
+            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
-            let Some(material2d) = render_materials.get(&material2d_handle.id()) else {
+            let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
                 continue;
             };
-            let Some(mesh) = render_meshes.get(&mesh2d_handle.0) else {
+            let Some(material2d) = render_materials.get(material_asset_id) else {
+                continue;
+            };
+            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
             let mesh_key =
@@ -406,7 +437,9 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 }
             };
 
-            let mesh_z = mesh2d_uniform.transform.w_axis.z;
+            mesh_instance.material_bind_group_id = material2d.get_bind_group_id();
+
+            let mesh_z = mesh_instance.transforms.transform.translation.z;
             transparent_phase.add(Transparent2d {
                 entity: *visible_entity,
                 draw_function: draw_transparent_pbr,
@@ -416,18 +449,28 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 // -z in front of the camera, the largest distance is -far with values increasing toward the
                 // camera. As such we can just use mesh_z as the distance
                 sort_key: FloatOrd(mesh_z),
-                // This material is not batched
-                batch_size: 1,
+                // Batching is done in batch_and_prepare_render_phase
+                batch_range: 0..1,
+                dynamic_offset: None,
             });
         }
     }
 }
+
+#[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
+pub struct Material2dBindGroupId(Option<BindGroupId>);
 
 /// Data prepared for a [`Material2d`] instance.
 pub struct PreparedMaterial2d<T: Material2d> {
     pub bindings: Vec<OwnedBindingResource>,
     pub bind_group: BindGroup,
     pub key: T::Data,
+}
+
+impl<T: Material2d> PreparedMaterial2d<T> {
+    pub fn get_bind_group_id(&self) -> Material2dBindGroupId {
+        Material2dBindGroupId(Some(self.bind_group.id()))
+    }
 }
 
 #[derive(Resource)]
@@ -539,7 +582,7 @@ pub fn prepare_materials_2d<M: Material2d>(
         render_materials.remove(&removed);
     }
 
-    for (handle, material) in std::mem::take(&mut extracted_assets.extracted) {
+    for (asset_id, material) in std::mem::take(&mut extracted_assets.extracted) {
         match prepare_material2d(
             &material,
             &render_device,
@@ -548,10 +591,10 @@ pub fn prepare_materials_2d<M: Material2d>(
             &pipeline,
         ) {
             Ok(prepared_asset) => {
-                render_materials.insert(handle, prepared_asset);
+                render_materials.insert(asset_id, prepared_asset);
             }
             Err(AsBindGroupError::RetryNextUpdate) => {
-                prepare_next_frame.assets.push((handle, material));
+                prepare_next_frame.assets.push((asset_id, material));
             }
         }
     }

@@ -12,6 +12,7 @@ use crate::{
     },
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
+    removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
     system::Resource,
 };
@@ -156,7 +157,7 @@ impl<'w> UnsafeWorldCell<'w> {
         // - caller ensures there is no `&mut World` this makes it okay to make a `&World`
         // - caller ensures there is no mutable borrows of world data, this means the caller cannot
         //   misuse the returned `&World`
-        unsafe { &*self.0 }
+        unsafe { self.unsafe_world() }
     }
 
     /// Gets a reference to the [`World`] this [`UnsafeWorldCell`] belong to.
@@ -185,7 +186,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - must not be used in a way that would conflict with any
     ///   live exclusive borrows on world data
     #[inline]
-    pub(crate) unsafe fn unsafe_world(self) -> &'w World {
+    unsafe fn unsafe_world(self) -> &'w World {
         // SAFETY:
         // - caller ensures that the returned `&World` is not used in a way that would conflict
         //   with any existing mutable borrows of world data
@@ -222,6 +223,13 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.components
+    }
+
+    /// Retrieves this world's collection of [removed components](RemovedComponentEvents).
+    pub fn removed_components(self) -> &'w RemovedComponentEvents {
+        // SAFETY:
+        // - we only access world metadata
+        &unsafe { self.world_metadata() }.removed_components
     }
 
     /// Retrieves this world's [`Bundles`] collection.

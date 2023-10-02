@@ -2,9 +2,12 @@ use crate::{serde::Serializable, Reflect, TypeInfo, Typed};
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
-use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use serde::Deserialize;
-use std::{any::TypeId, fmt::Debug, sync::Arc};
+use std::{
+    any::TypeId,
+    fmt::Debug,
+    sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
+};
 
 /// A registry of [reflected] types.
 ///
@@ -35,7 +38,12 @@ pub struct TypeRegistryArc {
 
 impl Debug for TypeRegistryArc {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.internal.read().full_name_to_id.keys().fmt(f)
+        self.internal
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .full_name_to_id
+            .keys()
+            .fmt(f)
     }
 }
 
@@ -267,12 +275,14 @@ impl TypeRegistry {
 impl TypeRegistryArc {
     /// Takes a read lock on the underlying [`TypeRegistry`].
     pub fn read(&self) -> RwLockReadGuard<'_, TypeRegistry> {
-        self.internal.read()
+        self.internal.read().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Takes a write lock on the underlying [`TypeRegistry`].
     pub fn write(&self) -> RwLockWriteGuard<'_, TypeRegistry> {
-        self.internal.write()
+        self.internal
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -592,7 +602,7 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
                 unsafe { ptr.deref::<T>() as &dyn Reflect }
             },
             from_ptr_mut: |ptr| {
-                // SAFETY: same as above, but foor `as_reflect_mut`, `from_ptr_mut` and `deref_mut`.
+                // SAFETY: same as above, but for `as_reflect_mut`, `from_ptr_mut` and `deref_mut`.
                 unsafe { ptr.deref_mut::<T>() as &mut dyn Reflect }
             },
         }

@@ -15,10 +15,12 @@ use bevy_utils::HashMap;
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
 #[derive(Asset, TypePath, Debug)]
 pub struct Scene {
+    /// The world of the scene, containing its entities and resources.
     pub world: World,
 }
 
 impl Scene {
+    /// Creates a new scene with the given world.
     pub fn new(world: World) -> Self {
         Self { world }
     }
@@ -61,7 +63,11 @@ impl Scene {
         let type_registry = type_registry.read();
 
         // Resources archetype
-        for (component_id, _) in self.world.storages().resources.iter() {
+        for (component_id, resource_data) in self.world.storages().resources.iter() {
+            if !resource_data.is_present() {
+                continue;
+            }
+
             let component_info = self
                 .world
                 .components()

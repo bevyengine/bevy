@@ -116,7 +116,7 @@ impl ViewVisibility {
     /// This will be automatically reset to `false` every frame in [`VisibilityPropagate`] and then set
     /// to the proper value in [`CheckVisibility`].
     ///
-    /// You should only manaully set this if you are defining a custom visibility system,
+    /// You should only manually set this if you are defining a custom visibility system,
     /// in which case the system should be placed in the [`CheckVisibility`] set.
     /// For normal user-defined entity visibility, see [`Visibility`].
     ///
@@ -315,15 +315,15 @@ fn visibility_propagate_system(
                 Some(parent) => visibility_query.get(parent.get()).unwrap().1.get(),
             },
         };
-        let (_, mut inherited_visiblity) = visibility_query
+        let (_, mut inherited_visibility) = visibility_query
             .get_mut(entity)
             .expect("With<InheritedVisibility> ensures this query will return a value");
 
         // Only update the visibility if it has changed.
         // This will also prevent the visibility from propagating multiple times in the same frame
-        // if this entity's visiblity has been updated recursively by its parent.
-        if inherited_visiblity.get() != is_visible {
-            inherited_visiblity.0 = is_visible;
+        // if this entity's visibility has been updated recursively by its parent.
+        if inherited_visibility.get() != is_visible {
+            inherited_visibility.0 = is_visible;
 
             // Recursively update the visibility of each child.
             for &child in children.into_iter().flatten() {
@@ -343,7 +343,7 @@ fn propagate_recursive(
     // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) -> Result<(), ()> {
     // Get the visibility components for the current entity.
-    // If the entity does not have the requuired components, just return early.
+    // If the entity does not have the required components, just return early.
     let (visibility, mut inherited_visibility) = visibility_query.get_mut(entity).map_err(drop)?;
 
     let is_visible = match visibility {
@@ -458,7 +458,7 @@ pub fn check_visibility(
             let (entity, inherited_visibility, mut view_visibility, maybe_entity_mask) = query_item;
 
             // Skip computing visibility for entities that are configured to be hidden.
-            // ViewVisiblity has already been reset in `reset_view_visibility`.
+            // `ViewVisibility` has already been reset in `reset_view_visibility`.
             if !inherited_visibility.get() {
                 return;
             }
@@ -646,7 +646,7 @@ mod test {
     }
 
     #[test]
-    fn visibility_progation_change_detection() {
+    fn visibility_propagation_change_detection() {
         let mut world = World::new();
         let mut schedule = Schedule::default();
         schedule.add_systems(visibility_propagate_system);

@@ -342,14 +342,17 @@ pub fn ui_layout_system(
                 inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
 
             absolute_location += layout_location;
+
             let rounded_size = round_layout_coords(absolute_location + layout_size)
                 - round_layout_coords(absolute_location);
+
             let rounded_location =
                 round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
 
             // only trigger change detection when the new values are different
-            if node.calculated_size != rounded_size {
+            if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
                 node.calculated_size = rounded_size;
+                node.unrounded_size = layout_size;
             }
             if transform.translation.truncate() != rounded_location {
                 transform.translation = rounded_location.extend(0.);
@@ -579,8 +582,8 @@ mod tests {
 
         world.despawn(ui_entity);
 
-        // `ui_layout_system` will recieve a `RemovedComponents<Node>` event for `ui_entity`
-        // and remove `ui_entity` from  `ui_node` from the internal layout tree
+        // `ui_layout_system` will receive a `RemovedComponents<Node>` event for `ui_entity`
+        // and remove `ui_entity` from `ui_node` from the internal layout tree
         ui_schedule.run(&mut world);
 
         let ui_surface = world.resource::<UiSurface>();

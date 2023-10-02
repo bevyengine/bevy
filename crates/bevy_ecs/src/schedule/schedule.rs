@@ -251,7 +251,7 @@ impl Schedule {
 
         world.check_change_ticks();
         self.initialize(world)
-            .unwrap_or_else(|e| panic!("Error when intializing schedule {:?}: {e}", self.name));
+            .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.name));
         self.executor.run(&mut self.executable, world);
     }
 
@@ -1570,7 +1570,7 @@ impl ScheduleGraph {
         message
     }
 
-    /// convert conflics to human readable format
+    /// convert conflicts to human readable format
     pub fn conflicts_to_string<'a>(
         &'a self,
         ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],

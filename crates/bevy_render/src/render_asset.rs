@@ -156,7 +156,7 @@ impl<A: RenderAsset> RenderAssets<A> {
     }
 }
 
-/// This system extracts all crated or modified assets of the corresponding [`RenderAsset`] type
+/// This system extracts all created or modified assets of the corresponding [`RenderAsset`] type
 /// into the "render world".
 fn extract_render_asset<A: RenderAsset>(
     mut commands: Commands,

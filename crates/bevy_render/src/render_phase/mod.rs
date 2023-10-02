@@ -29,6 +29,7 @@ mod draw;
 mod draw_state;
 mod rangefinder;
 
+use bevy_utils::nonmax::NonMaxU32;
 pub use draw::*;
 pub use draw_state::*;
 pub use rangefinder::*;
@@ -38,7 +39,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
-use std::ops::Range;
+use std::{ops::Range, slice::SliceIndex};
 
 /// A collection of all rendering instructions, that will be executed by the GPU, for a
 /// single render phase for a single view.
@@ -86,22 +87,7 @@ impl<I: PhaseItem> RenderPhase<I> {
         world: &'w World,
         view: Entity,
     ) {
-        let draw_functions = world.resource::<DrawFunctions<I>>();
-        let mut draw_functions = draw_functions.write();
-        draw_functions.prepare(world);
-
-        let mut index = 0;
-        while index < self.items.len() {
-            let item = &self.items[index];
-            let batch_size = item.batch_size();
-            if batch_size > 0 {
-                let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
-                draw_function.draw(world, render_pass, view, item);
-                index += batch_size;
-            } else {
-                index += 1;
-            }
-        }
+        self.render_range(render_pass, world, view, ..);
     }
 
     /// Renders all [`PhaseItem`]s in the provided `range` (based on their index in `self.items`) using their corresponding draw functions.
@@ -110,27 +96,27 @@ impl<I: PhaseItem> RenderPhase<I> {
         render_pass: &mut TrackedRenderPass<'w>,
         world: &'w World,
         view: Entity,
-        range: Range<usize>,
+        range: impl SliceIndex<[I], Output = [I]>,
     ) {
-        let draw_functions = world.resource::<DrawFunctions<I>>();
-        let mut draw_functions = draw_functions.write();
-        draw_functions.prepare(world);
-
         let items = self
             .items
             .get(range)
             .expect("`Range` provided to `render_range()` is out of bounds");
 
+        let draw_functions = world.resource::<DrawFunctions<I>>();
+        let mut draw_functions = draw_functions.write();
+        draw_functions.prepare(world);
+
         let mut index = 0;
         while index < items.len() {
             let item = &items[index];
-            let batch_size = item.batch_size();
-            if batch_size > 0 {
+            let batch_range = item.batch_range();
+            if batch_range.is_empty() {
+                index += 1;
+            } else {
                 let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
                 draw_function.draw(world, render_pass, view, item);
-                index += batch_size;
-            } else {
-                index += 1;
+                index += batch_range.len();
             }
         }
     }
@@ -182,12 +168,14 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
         items.sort_unstable_by_key(|item| item.sort_key());
     }
 
-    /// The number of items to skip after rendering this [`PhaseItem`].
-    ///
-    /// Items with a `batch_size` of 0 will not be rendered.
-    fn batch_size(&self) -> usize {
-        1
-    }
+    /// The range of instances that the batch covers. After doing a batched draw, batch range
+    /// length phase items will be skipped. This design is to avoid having to restructure the
+    /// render phase unnecessarily.
+    fn batch_range(&self) -> &Range<u32>;
+    fn batch_range_mut(&mut self) -> &mut Range<u32>;
+
+    fn dynamic_offset(&self) -> Option<NonMaxU32>;
+    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32>;
 }
 
 /// A [`PhaseItem`] item, that automatically sets the appropriate render pipeline,
