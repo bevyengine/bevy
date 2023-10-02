@@ -4,11 +4,11 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_ecs::{bundle::Bundle, component::Component, prelude::Entity, reflect::ReflectComponent};
-use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
+use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::Mesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
-    view::{ComputedVisibility, Visibility, VisibleEntities},
+    view::{InheritedVisibility, ViewVisibility, Visibility, VisibleEntities},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::HashMap;
@@ -25,8 +25,10 @@ pub struct MaterialMeshBundle<M: Material> {
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    pub view_visibility: ViewVisibility,
 }
 
 impl<M: Material> Default for MaterialMeshBundle<M> {
@@ -37,13 +39,14 @@ impl<M: Material> Default for MaterialMeshBundle<M> {
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
-            computed_visibility: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
         }
     }
 }
 
-#[derive(Component, Clone, Debug, Default, Reflect, FromReflect)]
-#[reflect(Component, FromReflect)]
+#[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect(Component)]
 pub struct CubemapVisibleEntities {
     #[reflect(ignore)]
     data: [VisibleEntities; 6],
@@ -67,8 +70,8 @@ impl CubemapVisibleEntities {
     }
 }
 
-#[derive(Component, Clone, Debug, Default, Reflect, FromReflect)]
-#[reflect(Component, FromReflect)]
+#[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect(Component)]
 pub struct CascadesVisibleEntities {
     /// Map of view entity to the visible entities for each cascade frustum.
     #[reflect(ignore)]
@@ -85,8 +88,10 @@ pub struct PointLightBundle {
     pub global_transform: GlobalTransform,
     /// Enables or disables the light
     pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    pub view_visibility: ViewVisibility,
 }
 
 /// A component bundle for spot light entities
@@ -99,8 +104,10 @@ pub struct SpotLightBundle {
     pub global_transform: GlobalTransform,
     /// Enables or disables the light
     pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    pub view_visibility: ViewVisibility,
 }
 
 /// A component bundle for [`DirectionalLight`] entities.
@@ -115,6 +122,8 @@ pub struct DirectionalLightBundle {
     pub global_transform: GlobalTransform,
     /// Enables or disables the light
     pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    pub view_visibility: ViewVisibility,
 }

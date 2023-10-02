@@ -3,9 +3,7 @@ use crate::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::prelude::*;
-use bevy_reflect::{
-    FromReflect, Reflect, ReflectDeserialize, ReflectFromReflect, ReflectSerialize,
-};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
     camera::{Camera, CameraRenderGraph, Projection},
     extract_component::ExtractComponent,
@@ -17,9 +15,9 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for the "main 3d render graph".
-#[derive(Component, Reflect, FromReflect, Clone, ExtractComponent)]
+#[derive(Component, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component, FromReflect)]
+#[reflect(Component)]
 pub struct Camera3d {
     /// The clear color operation to perform for the main 3d pass.
     pub clear_color: ClearColorConfig,
@@ -39,8 +37,7 @@ impl Default for Camera3d {
     }
 }
 
-#[derive(Clone, Copy, Reflect, FromReflect)]
-#[reflect(FromReflect)]
+#[derive(Clone, Copy, Reflect)]
 pub struct Camera3dDepthTextureUsage(u32);
 
 impl From<TextureUsages> for Camera3dDepthTextureUsage {
@@ -55,8 +52,8 @@ impl From<Camera3dDepthTextureUsage> for TextureUsages {
 }
 
 /// The depth clear operation to perform for the main 3d pass.
-#[derive(Reflect, FromReflect, Serialize, Deserialize, Clone, Debug)]
-#[reflect(Serialize, Deserialize, FromReflect)]
+#[derive(Reflect, Serialize, Deserialize, Clone, Debug)]
+#[reflect(Serialize, Deserialize)]
 pub enum Camera3dDepthLoadOp {
     /// Clear with a specified value.
     /// Note that 0.0 is the far plane due to bevy's use of reverse-z projections.

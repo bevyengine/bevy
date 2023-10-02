@@ -34,6 +34,36 @@ impl_reflect_struct!(
 impl_reflect_struct!(
     #[reflect(Debug, Hash, PartialEq, Default)]
     #[type_path = "glam"]
+    struct I64Vec2 {
+        x: i64,
+        y: i64,
+    }
+);
+
+impl_reflect_struct!(
+    #[reflect(Debug, Hash, PartialEq, Default)]
+    #[type_path = "glam"]
+    struct I64Vec3 {
+        x: i64,
+        y: i64,
+        z: i64,
+    }
+);
+
+impl_reflect_struct!(
+    #[reflect(Debug, Hash, PartialEq, Default)]
+    #[type_path = "glam"]
+    struct I64Vec4 {
+        x: i64,
+        y: i64,
+        z: i64,
+        w: i64,
+    }
+);
+
+impl_reflect_struct!(
+    #[reflect(Debug, Hash, PartialEq, Default)]
+    #[type_path = "glam"]
     struct UVec2 {
         x: u32,
         y: u32,
@@ -58,6 +88,35 @@ impl_reflect_struct!(
         w: u32,
     }
 );
+
+impl_reflect_struct!(
+    #[reflect(Debug, Hash, PartialEq, Default)]
+    #[type_path = "glam"]
+    struct U64Vec2 {
+        x: u64,
+        y: u64,
+    }
+);
+impl_reflect_struct!(
+    #[reflect(Debug, Hash, PartialEq, Default)]
+    #[type_path = "glam"]
+    struct U64Vec3 {
+        x: u64,
+        y: u64,
+        z: u64,
+    }
+);
+impl_reflect_struct!(
+    #[reflect(Debug, Hash, PartialEq, Default)]
+    #[type_path = "glam"]
+    struct U64Vec4 {
+        x: u64,
+        y: u64,
+        z: u64,
+        w: u64,
+    }
+);
+
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]
@@ -270,6 +329,7 @@ impl_reflect_struct!(
         w: f64,
     }
 );
+
 
 impl_reflect_value!(::glam::EulerRot(Debug, Default));
 impl_reflect_value!(::glam::BVec3A(Debug, Default));

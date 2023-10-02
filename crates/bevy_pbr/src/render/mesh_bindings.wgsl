@@ -1,20 +1,21 @@
 #define_import_path bevy_pbr::mesh_bindings
 
-#import bevy_pbr::mesh_types
+#import bevy_pbr::mesh_types Mesh
 
-@group(2) @binding(0)
-var<uniform> mesh: Mesh;
+#ifdef MESH_BINDGROUP_1
 
-#ifdef SKINNED
-@group(2) @binding(1)
-var<uniform> joint_matrices: SkinnedMesh;
-#import bevy_pbr::skinning
-#endif
+#ifdef PER_OBJECT_BUFFER_BATCH_SIZE
+@group(1) @binding(0) var<uniform> mesh: array<Mesh, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
+#else
+@group(1) @binding(0) var<storage> mesh: array<Mesh>;
+#endif // PER_OBJECT_BUFFER_BATCH_SIZE
 
-#ifdef MORPH_TARGETS
-@group(2) @binding(2)
-var<uniform> morph_weights: MorphWeights;
-@group(2) @binding(3)
-var morph_targets: texture_3d<f32>;
-#import bevy_pbr::morph
-#endif
+#else // MESH_BINDGROUP_1
+
+#ifdef PER_OBJECT_BUFFER_BATCH_SIZE
+@group(2) @binding(0) var<uniform> mesh: array<Mesh, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
+#else
+@group(2) @binding(0) var<storage> mesh: array<Mesh>;
+#endif // PER_OBJECT_BUFFER_BATCH_SIZE
+
+#endif // MESH_BINDGROUP_1

@@ -1,6 +1,7 @@
 use bevy_reflect::{Reflect, TypePath};
 
 #[derive(Reflect)]
+#[reflect(from_reflect = false)]
 struct Foo<T> {
     a: T,
 }

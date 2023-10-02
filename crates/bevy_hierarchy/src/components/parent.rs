@@ -4,7 +4,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectMapEntities},
     world::{FromWorld, World},
 };
-use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
+use bevy_reflect::Reflect;
 use std::ops::Deref;
 
 /// Holds a reference to the parent entity of this entity.
@@ -14,14 +14,24 @@ use std::ops::Deref;
 ///
 /// [`HierarchyQueryExt`]: crate::query_extension::HierarchyQueryExt
 /// [`Query`]: bevy_ecs::system::Query
-#[derive(Component, Debug, Eq, PartialEq, Reflect, FromReflect)]
-#[reflect(Component, MapEntities, PartialEq, FromReflect)]
+#[derive(Component, Debug, Eq, PartialEq, Reflect)]
+#[reflect(Component, MapEntities, PartialEq)]
 pub struct Parent(pub(crate) Entity);
 
 impl Parent {
     /// Gets the [`Entity`] ID of the parent.
     pub fn get(&self) -> Entity {
         self.0
+    }
+
+    /// Gets the parent [`Entity`] as a slice of length 1.
+    ///
+    /// Useful for making APIs that require a type or homogeneous storage
+    /// for both [`Children`] & [`Parent`] that is agnostic to edge direction.
+    ///
+    /// [`Children`]: super::children::Children
+    pub fn as_slice(&self) -> &[Entity] {
+        std::slice::from_ref(&self.0)
     }
 }
 

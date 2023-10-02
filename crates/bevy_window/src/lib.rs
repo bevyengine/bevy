@@ -1,6 +1,12 @@
 #![allow(clippy::type_complexity)]
+#![warn(missing_docs)]
+//! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
+//!
+//! This crate contains types for window management and events,
+//! used by windowing implementors such as `bevy_winit`.
+//! The [`WindowPlugin`] sets up some global window-related parameters and
+//! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
 
-#[warn(missing_docs)]
 mod cursor;
 mod event;
 mod raw_handle;
@@ -14,6 +20,7 @@ pub use event::*;
 pub use system::*;
 pub use window::*;
 
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -38,12 +45,15 @@ impl Default for WindowPlugin {
 
 /// A [`Plugin`] that defines an interface for windowing support in Bevy.
 pub struct WindowPlugin {
-    /// Settings for the primary window. This will be spawned by
-    /// default, with the marker component [`PrimaryWindow`](PrimaryWindow).
-    /// If you want to run without a primary window you should set this to `None`.
+    /// Settings for the primary window.
     ///
-    /// Note that if there are no windows, by default the App will exit,
-    /// due to [`exit_on_all_closed`].
+    /// `Some(custom_window)` will spawn an entity with `custom_window` and [`PrimaryWindow`] as components.
+    /// `None` will not spawn a primary window.
+    ///
+    /// Defaults to `Some(Window::default())`.
+    ///
+    /// Note that if there are no windows the App will exit (by default) due to
+    /// [`exit_on_all_closed`].
     pub primary_window: Option<Window>,
 
     /// Whether to exit the app when there are no open windows.
@@ -74,6 +84,7 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowCreated>()
             .add_event::<WindowClosed>()
             .add_event::<WindowCloseRequested>()
+            .add_event::<WindowDestroyed>()
             .add_event::<RequestRedraw>()
             .add_event::<CursorMoved>()
             .add_event::<CursorEntered>()
@@ -140,7 +151,8 @@ impl Plugin for WindowPlugin {
             .register_type::<InternalWindowState>()
             .register_type::<MonitorSelection>()
             .register_type::<WindowResizeConstraints>()
-            .register_type::<WindowTheme>();
+            .register_type::<WindowTheme>()
+            .register_type::<EnabledButtons>();
 
         // Register `PathBuf` as it's used by `FileDragAndDrop`
         app.register_type::<PathBuf>();

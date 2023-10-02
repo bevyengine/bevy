@@ -1,14 +1,13 @@
 use crate::derive_data::{EnumVariant, EnumVariantFields, ReflectEnum, StructField};
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
-use crate::fq_std::{FQAny, FQBox, FQOption, FQResult};
 use crate::impls::{impl_type_path, impl_typed};
 use crate::utility::extend_where_clause;
-use proc_macro::TokenStream;
+use bevy_macro_utils::fq_std::{FQAny, FQBox, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use syn::Fields;
 
-pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
+pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
     let enum_path = reflect_enum.meta().type_path();
 
@@ -97,7 +96,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
 
     let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
 
-    TokenStream::from(quote! {
+    quote! {
         #get_type_registration_impl
 
         #typed_impl
@@ -291,7 +290,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
 
             #debug_fn
         }
-    })
+    }
 }
 
 struct EnumImpls {
@@ -349,7 +348,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
         ) -> Vec<proc_macro2::TokenStream> {
             let mut constructor_argument = Vec::new();
             let mut reflect_idx = 0;
-            for field in fields.iter() {
+            for field in fields {
                 if field.attrs.ignore.is_ignored() {
                     // Ignored field
                     continue;

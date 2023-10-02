@@ -51,7 +51,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                flex_basis: Val::Percent(100.0),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..Default::default()
@@ -94,13 +95,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..Default::default()
                         })
                         .with_children(|parent| {
-                            for constaint in [
+                            for constraint in [
                                 Constraint::MinWidth,
                                 Constraint::FlexBasis,
                                 Constraint::Width,
                                 Constraint::MaxWidth,
                             ] {
-                                spawn_button_row(parent, constaint, text_style.clone());
+                                spawn_button_row(parent, constraint, text_style.clone());
                             }
                         });
                 });
@@ -306,7 +307,7 @@ fn update_buttons(
     let mut style = bar_query.single_mut();
     for (button_id, interaction, constraint, value) in button_query.iter_mut() {
         match interaction {
-            Interaction::Clicked => {
+            Interaction::Pressed => {
                 button_activated_event.send(ButtonActivatedEvent(button_id));
                 match constraint {
                     Constraint::FlexBasis => {
@@ -364,7 +365,7 @@ fn update_radio_buttons_colors(
     mut text_query: Query<&mut Text>,
     children_query: Query<&Children>,
 ) {
-    for &ButtonActivatedEvent(button_id) in event_reader.iter() {
+    for &ButtonActivatedEvent(button_id) in event_reader.read() {
         let target_constraint = button_query.get_component::<Constraint>(button_id).unwrap();
         for (id, constraint, interaction) in button_query.iter() {
             if target_constraint == constraint {

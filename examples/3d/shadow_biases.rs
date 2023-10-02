@@ -26,7 +26,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let spawn_plane_depth = 500.0f32;
+    let spawn_plane_depth = 300.0f32;
     let spawn_height = 2.0;
     let sphere_radius = 0.25;
 
@@ -84,7 +84,7 @@ fn setup(
         CameraController::default(),
     ));
 
-    for z_i32 in -spawn_plane_depth as i32..=0 {
+    for z_i32 in (-spawn_plane_depth as i32..=0).step_by(2) {
         commands.spawn(PbrBundle {
             mesh: sphere_handle.clone(),
             material: white_handle.clone(),
@@ -277,7 +277,7 @@ fn camera_controller(
 
     // Handle mouse input
     let mut mouse_delta = Vec2::ZERO;
-    for mouse_event in mouse_events.iter() {
+    for mouse_event in mouse_events.read() {
         mouse_delta += mouse_event.delta;
     }
 

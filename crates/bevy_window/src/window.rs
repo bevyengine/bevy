@@ -3,7 +3,7 @@ use bevy_ecs::{
     prelude::{Component, ReflectComponent},
 };
 use bevy_math::{DVec2, IVec2, Vec2};
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, ReflectFromReflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -16,18 +16,17 @@ use crate::CursorIcon;
 ///
 /// Currently this is assumed to only exist on 1 entity at a time.
 ///
-/// [`WindowPlugin`](crate::WindowPlugin) will spawn a window entity
-/// with this component if `primary_window` is `Some`.
-#[derive(
-    Default, Debug, Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Reflect, FromReflect,
-)]
-#[reflect(Component, FromReflect)]
+/// [`WindowPlugin`](crate::WindowPlugin) will spawn a [`Window`] entity
+/// with this component if [`primary_window`](crate::WindowPlugin::primary_window)
+/// is `Some`.
+#[derive(Default, Debug, Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Reflect)]
+#[reflect(Component)]
 pub struct PrimaryWindow;
 
 /// Reference to a [`Window`], whether it be a direct link to a specific entity or
 /// a more vague defaulting choice.
 #[repr(C)]
-#[derive(Default, Copy, Clone, Debug, Reflect, FromReflect)]
+#[derive(Default, Copy, Clone, Debug, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -74,7 +73,7 @@ impl MapEntities for WindowRef {
 ///
 /// For most purposes you probably want to use the unnormalized version [`WindowRef`].
 #[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect, FromReflect)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -98,13 +97,13 @@ impl NormalizedWindowRef {
 ///
 /// This component is synchronized with `winit` through `bevy_winit`:
 /// it will reflect the current state of the window and can be modified to change this state.
-#[derive(Component, Debug, Clone, Reflect, FromReflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Component, Default, FromReflect)]
+#[reflect(Component, Default)]
 pub struct Window {
     /// The cursor of this window.
     pub cursor: Cursor,
@@ -128,13 +127,21 @@ pub struct Window {
     /// Note: This does not stop the program from fullscreening/setting
     /// the size programmatically.
     pub resizable: bool,
+    /// Specifies which window control buttons should be enabled.
+    ///
+    /// ## Platform-specific
+    ///
+    /// **`iOS`**, **`Android`**, and the **`Web`** do not have window control buttons.
+    ///
+    /// On some **`Linux`** environments these values have no effect.
+    pub enabled_buttons: EnabledButtons,
     /// Should the window have decorations enabled?
     ///
     /// (Decorations are the minimize, maximize, and close buttons on desktop apps)
     ///
-    //  ## Platform-specific
-    //
-    //  **`iOS`**, **`Android`**, and the **`Web`** do not have decorations.
+    /// ## Platform-specific
+    ///
+    /// **`iOS`**, **`Android`**, and the **`Web`** do not have decorations.
     pub decorations: bool,
     /// Should the window be transparent?
     ///
@@ -142,9 +149,9 @@ pub struct Window {
     ///
     /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
-    /// - macOS X: Not working as expected.
+    /// - macOS: Not working as expected.
     ///
-    /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>.
+    /// macOS transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>.
     /// You should also set the window `composite_alpha_mode` to `CompositeAlphaMode::PostMultiplied`.
     pub transparent: bool,
     /// Get/set whether the window is focused.
@@ -206,12 +213,22 @@ pub struct Window {
     ///
     /// - iOS / Android / Web: Unsupported.
     pub window_theme: Option<WindowTheme>,
+    /// Sets the window's visibility.
+    ///
+    /// If `false`, this will hide the window the window completely, it won't appear on the screen or in the task bar.
+    /// If `true`, this will show the window.
+    /// Note that this doesn't change its focused or minimized state.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **Android / Wayland / Web:** Unsupported.
+    pub visible: bool,
 }
 
 impl Default for Window {
     fn default() -> Self {
         Self {
-            title: "Bevy App".to_owned(),
+            title: "App".to_owned(),
             cursor: Default::default(),
             present_mode: Default::default(),
             mode: Default::default(),
@@ -223,6 +240,7 @@ impl Default for Window {
             ime_enabled: Default::default(),
             ime_position: Default::default(),
             resizable: true,
+            enabled_buttons: Default::default(),
             decorations: true,
             transparent: false,
             focused: true,
@@ -231,21 +249,22 @@ impl Default for Window {
             prevent_default_event_handling: true,
             canvas: None,
             window_theme: None,
+            visible: true,
         }
     }
 }
 
 impl Window {
-    /// Setting this to true will attempt to maximize the window.
+    /// Setting to true will attempt to maximize the window.
     ///
-    /// Setting it to false will attempt to un-maximize the window.
+    /// Setting to false will attempt to un-maximize the window.
     pub fn set_maximized(&mut self, maximized: bool) {
         self.internal.maximize_request = Some(maximized);
     }
 
-    /// Setting this to true will attempt to minimize the window.
+    /// Setting to true will attempt to minimize the window.
     ///
-    /// Setting it to false will attempt to un-minimize the window.
+    /// Setting to false will attempt to un-minimize the window.
     pub fn set_minimized(&mut self, minimized: bool) {
         self.internal.minimize_request = Some(minimized);
     }
@@ -297,9 +316,8 @@ impl Window {
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
     pub fn cursor_position(&self) -> Option<Vec2> {
-        self.internal
-            .physical_cursor_position
-            .map(|position| (position / self.scale_factor()).as_vec2())
+        self.physical_cursor_position()
+            .map(|position| (position.as_dvec2() / self.scale_factor()).as_vec2())
     }
 
     /// The cursor position in this window in physical pixels.
@@ -309,9 +327,20 @@ impl Window {
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
     pub fn physical_cursor_position(&self) -> Option<Vec2> {
-        self.internal
-            .physical_cursor_position
-            .map(|position| position.as_vec2())
+        match self.internal.physical_cursor_position {
+            Some(position) => {
+                if position.x >= 0.
+                    && position.y >= 0.
+                    && position.x < self.physical_width() as f64
+                    && position.y < self.physical_height() as f64
+                {
+                    Some(position.as_vec2())
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
     }
 
     /// Set the cursor position in this window in logical pixels.
@@ -338,13 +367,13 @@ impl Window {
 /// Please note that if the window is resizable, then when the window is
 /// maximized it may have a size outside of these limits. The functionality
 /// required to disable maximizing is not yet exposed by winit.
-#[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default, FromReflect)]
+#[reflect(Debug, PartialEq, Default)]
 pub struct WindowResizeConstraints {
     /// The minimum width the window can have.
     pub min_width: f32,
@@ -405,13 +434,13 @@ impl WindowResizeConstraints {
 }
 
 /// Cursor data for a [`Window`].
-#[derive(Debug, Copy, Clone, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, Default, FromReflect)]
+#[reflect(Debug, Default)]
 pub struct Cursor {
     /// What the cursor should look like while inside the window.
     pub icon: CursorIcon,
@@ -457,13 +486,13 @@ impl Default for Cursor {
 }
 
 /// Defines where a [`Window`] should be placed on the screen.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, FromReflect)]
+#[reflect(Debug, PartialEq)]
 pub enum WindowPosition {
     /// Position will be set by the window manager.
     /// Bevy will delegate this decision to the window manager and no guarantees can be made about where the window will be placed.
@@ -546,13 +575,13 @@ impl WindowPosition {
 /// and then setting a scale factor that makes the previous requested size within
 /// the limits of the screen will not get back that previous requested size.
 
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[derive(Debug, Clone, PartialEq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default, FromReflect)]
+#[reflect(Debug, PartialEq, Default)]
 pub struct WindowResolution {
     /// Width of the window in physical pixels.
     physical_width: u32,
@@ -721,13 +750,13 @@ impl From<bevy_math::DVec2> for WindowResolution {
 /// - **`iOS/Android`** don't have cursors.
 ///
 /// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default, FromReflect)]
+#[reflect(Debug, PartialEq, Default)]
 pub enum CursorGrabMode {
     /// The cursor can freely leave the window.
     #[default]
@@ -739,13 +768,13 @@ pub enum CursorGrabMode {
 }
 
 /// Stores internal [`Window`] state that isn't directly accessible.
-#[derive(Default, Debug, Copy, Clone, PartialEq, Reflect, FromReflect)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default, FromReflect)]
+#[reflect(Debug, PartialEq, Default)]
 pub struct InternalWindowState {
     /// If this is true then next frame we will ask to minimize the window.
     minimize_request: Option<bool>,
@@ -770,13 +799,13 @@ impl InternalWindowState {
 /// References a screen monitor.
 ///
 /// Used when centering a [`Window`] on a monitor.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, FromReflect)]
+#[reflect(Debug, PartialEq)]
 pub enum MonitorSelection {
     /// Uses the current monitor of the window.
     ///
@@ -803,59 +832,97 @@ pub enum MonitorSelection {
 /// [`Immediate`] or [`Mailbox`] will panic if not supported by the platform.
 ///
 /// [`Fifo`]: PresentMode::Fifo
+/// [`FifoRelaxed`]: PresentMode::FifoRelaxed
 /// [`Immediate`]: PresentMode::Immediate
 /// [`Mailbox`]: PresentMode::Mailbox
 /// [`AutoVsync`]: PresentMode::AutoVsync
 /// [`AutoNoVsync`]: PresentMode::AutoNoVsync
 ///
 #[repr(C)]
-#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Hash, FromReflect)]
+#[reflect(Debug, PartialEq, Hash)]
 #[doc(alias = "vsync")]
 pub enum PresentMode {
     /// Chooses FifoRelaxed -> Fifo based on availability.
     ///
     /// Because of the fallback behavior, it is supported everywhere.
-    AutoVsync = 0,
+    AutoVsync = 0, // NOTE: The explicit ordinal values mirror wgpu.
     /// Chooses Immediate -> Mailbox -> Fifo (on web) based on availability.
     ///
     /// Because of the fallback behavior, it is supported everywhere.
     AutoNoVsync = 1,
-    /// The presentation engine does **not** wait for a vertical blanking period and
-    /// the request is presented immediately. This is a low-latency presentation mode,
-    /// but visible tearing may be observed. Not optimal for mobile.
+    /// Presentation frames are kept in a First-In-First-Out queue approximately 3 frames
+    /// long. Every vertical blanking period, the presentation engine will pop a frame
+    /// off the queue to display. If there is no frame to display, it will present the same
+    /// frame again until the next vblank.
     ///
-    /// Selecting this variant will panic if not supported, it is preferred to use
-    /// [`PresentMode::AutoNoVsync`].
-    Immediate = 2,
-    /// The presentation engine waits for the next vertical blanking period to update
-    /// the current image, but frames may be submitted without delay. This is a low-latency
-    /// presentation mode and visible tearing will **not** be observed. Not optimal for mobile.
+    /// When a present command is executed on the gpu, the presented image is added on the queue.
     ///
-    /// Selecting this variant will panic if not supported, it is preferred to use
-    /// [`PresentMode::AutoNoVsync`].
-    Mailbox = 3,
-    /// The presentation engine waits for the next vertical blanking period to update
-    /// the current image. The framerate will be capped at the display refresh rate,
-    /// corresponding to the `VSync`. Tearing cannot be observed. Optimal for mobile.
+    /// No tearing will be observed.
+    ///
+    /// Calls to get_current_texture will block until there is a spot in the queue.
+    ///
+    /// Supported on all platforms.
+    ///
+    /// If you don't know what mode to choose, choose this mode. This is traditionally called "Vsync On".
     #[default]
-    Fifo = 4, // NOTE: The explicit ordinal values mirror wgpu.
+    Fifo = 2,
+    /// Presentation frames are kept in a First-In-First-Out queue approximately 3 frames
+    /// long. Every vertical blanking period, the presentation engine will pop a frame
+    /// off the queue to display. If there is no frame to display, it will present the
+    /// same frame until there is a frame in the queue. The moment there is a frame in the
+    /// queue, it will immediately pop the frame off the queue.
+    ///
+    /// When a present command is executed on the gpu, the presented image is added on the queue.
+    ///
+    /// Tearing will be observed if frames last more than one vblank as the front buffer.
+    ///
+    /// Calls to get_current_texture will block until there is a spot in the queue.
+    ///
+    /// Supported on AMD on Vulkan.
+    ///
+    /// This is traditionally called "Adaptive Vsync"
+    FifoRelaxed = 3,
+    /// Presentation frames are not queued at all. The moment a present command
+    /// is executed on the GPU, the presented image is swapped onto the front buffer
+    /// immediately.
+    ///
+    /// Tearing can be observed.
+    ///
+    /// Supported on most platforms except older DX12 and Wayland.
+    ///
+    /// This is traditionally called "Vsync Off".
+    Immediate = 4,
+    /// Presentation frames are kept in a single-frame queue. Every vertical blanking period,
+    /// the presentation engine will pop a frame from the queue. If there is no frame to display,
+    /// it will present the same frame again until the next vblank.
+    ///
+    /// When a present command is executed on the gpu, the frame will be put into the queue.
+    /// If there was already a frame in the queue, the new frame will _replace_ the old frame
+    /// on the queue.
+    ///
+    /// No tearing will be observed.
+    ///
+    /// Supported on DX11/12 on Windows 10, NVidia on Vulkan and Wayland on Vulkan.
+    ///
+    /// This is traditionally called "Fast Vsync"
+    Mailbox = 5,
 }
 
 /// Specifies how the alpha channel of the textures should be handled during compositing, for a [`Window`].
 #[repr(C)]
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Hash, FromReflect)]
+#[reflect(Debug, PartialEq, Hash)]
 pub enum CompositeAlphaMode {
     /// Chooses either [`Opaque`](CompositeAlphaMode::Opaque) or [`Inherit`](CompositeAlphaMode::Inherit)
     /// automatically, depending on the `alpha_mode` that the current surface can support.
@@ -884,13 +951,13 @@ pub enum CompositeAlphaMode {
 }
 
 /// Defines the way a [`Window`] is displayed.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, FromReflect)]
+#[reflect(Debug, PartialEq)]
 pub enum WindowMode {
     /// The window should take a portion of the screen, using the window resolution size.
     #[default]
@@ -931,13 +998,13 @@ pub enum WindowMode {
 /// ## Platform-specific
 ///
 /// - **iOS / Android / Web / Wayland:** Unsupported.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, FromReflect)]
+#[reflect(Debug, PartialEq)]
 pub enum WindowLevel {
     /// The window will always be below [`WindowLevel::Normal`] and [`WindowLevel::AlwaysOnTop`] windows.
     ///
@@ -951,17 +1018,111 @@ pub enum WindowLevel {
 }
 
 /// The [`Window`] theme variant to use.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, FromReflect)]
+#[reflect(Debug, PartialEq)]
 pub enum WindowTheme {
     /// Use the light variant.
     Light,
 
     /// Use the dark variant.
     Dark,
+}
+
+/// Specifies which [`Window`] control buttons should be enabled.
+///
+/// ## Platform-specific
+///
+/// **`iOS`**, **`Android`**, and the **`Web`** do not have window control buttons.
+///
+/// On some **`Linux`** environments these values have no effect.
+#[derive(Debug, Copy, Clone, PartialEq, Reflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Default)]
+pub struct EnabledButtons {
+    /// Enables the functionality of the minimize button.
+    pub minimize: bool,
+    /// Enables the functionality of the maximize button.
+    ///
+    /// macOS note: When [`Window`] `resizable` member is set to `false`
+    /// the maximize button will be disabled regardless of this value.
+    /// Additionally, when `resizable` is set to `true` the window will
+    /// be maximized when its bar is double-clicked regardless of whether
+    /// the maximize button is enabled or not.
+    pub maximize: bool,
+    /// Enables the functionality of the close button.
+    pub close: bool,
+}
+
+impl Default for EnabledButtons {
+    fn default() -> Self {
+        Self {
+            minimize: true,
+            maximize: true,
+            close: true,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Checks that `Window::physical_cursor_position` returns the cursor position if it is within
+    // the bounds of the window.
+    #[test]
+    fn cursor_position_within_window_bounds() {
+        let mut window = Window {
+            resolution: WindowResolution::new(800., 600.),
+            ..Default::default()
+        };
+
+        window.set_physical_cursor_position(Some(DVec2::new(0., 300.)));
+        assert_eq!(window.physical_cursor_position(), Some(Vec2::new(0., 300.)));
+
+        window.set_physical_cursor_position(Some(DVec2::new(400., 0.)));
+        assert_eq!(window.physical_cursor_position(), Some(Vec2::new(400., 0.)));
+
+        window.set_physical_cursor_position(Some(DVec2::new(799.999, 300.)));
+        assert_eq!(
+            window.physical_cursor_position(),
+            Some(Vec2::new(799.999, 300.)),
+        );
+
+        window.set_physical_cursor_position(Some(DVec2::new(400., 599.999)));
+        assert_eq!(
+            window.physical_cursor_position(),
+            Some(Vec2::new(400., 599.999))
+        );
+    }
+
+    // Checks that `Window::physical_cursor_position` returns `None` if the cursor position is not
+    // within the bounds of the window.
+    #[test]
+    fn cursor_position_not_within_window_bounds() {
+        let mut window = Window {
+            resolution: WindowResolution::new(800., 600.),
+            ..Default::default()
+        };
+
+        window.set_physical_cursor_position(Some(DVec2::new(-0.001, 300.)));
+        assert!(window.physical_cursor_position().is_none());
+
+        window.set_physical_cursor_position(Some(DVec2::new(400., -0.001)));
+        assert!(window.physical_cursor_position().is_none());
+
+        window.set_physical_cursor_position(Some(DVec2::new(800., 300.)));
+        assert!(window.physical_cursor_position().is_none());
+
+        window.set_physical_cursor_position(Some(DVec2::new(400., 600.)));
+        assert!(window.physical_cursor_position().is_none());
+    }
 }

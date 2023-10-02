@@ -1,8 +1,8 @@
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
@@ -17,11 +17,10 @@ mod node;
 use bevy_utils::default;
 pub use node::TonemappingNode;
 
-const TONEMAPPING_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17015368199668024512);
+const TONEMAPPING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17015368199668024512);
 
-const TONEMAPPING_SHARED_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2499430578245347910);
+const TONEMAPPING_SHARED_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(2499430578245347910);
 
 /// 3D LUT (look up table) textures used for tonemapping
 #[derive(Resource, Clone, ExtractResource)]
@@ -97,7 +96,7 @@ impl Plugin for TonemappingPlugin {
                 .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
                 .add_systems(
                     Render,
-                    queue_view_tonemapping_pipelines.in_set(RenderSet::Queue),
+                    prepare_view_tonemapping_pipelines.in_set(RenderSet::Prepare),
                 );
         }
     }
@@ -116,20 +115,10 @@ pub struct TonemappingPipeline {
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
 #[derive(
-    Component,
-    Debug,
-    Hash,
-    Clone,
-    Copy,
-    Reflect,
-    Default,
-    ExtractComponent,
-    PartialEq,
-    Eq,
-    FromReflect,
+    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component, FromReflect)]
+#[reflect(Component)]
 pub enum Tonemapping {
     /// Bypass tonemapping.
     None,
@@ -217,7 +206,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: TONEMAPPING_SHADER_HANDLE.typed(),
+                shader: TONEMAPPING_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -282,7 +271,7 @@ impl FromWorld for TonemappingPipeline {
 #[derive(Component)]
 pub struct ViewTonemappingPipeline(CachedRenderPipelineId);
 
-pub fn queue_view_tonemapping_pipelines(
+pub fn prepare_view_tonemapping_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,
@@ -303,20 +292,10 @@ pub fn queue_view_tonemapping_pipelines(
 }
 /// Enables a debanding shader that applies dithering to mitigate color banding in the final image for a given [`Camera`] entity.
 #[derive(
-    Component,
-    Debug,
-    Hash,
-    Clone,
-    Copy,
-    Reflect,
-    Default,
-    ExtractComponent,
-    PartialEq,
-    Eq,
-    FromReflect,
+    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component, FromReflect)]
+#[reflect(Component)]
 pub enum DebandDither {
     #[default]
     Disabled,

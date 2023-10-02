@@ -1,5 +1,5 @@
-use bevy_app::{Plugin, PreUpdate, Update};
-use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
+use bevy_app::{Plugin, PreUpdate};
+use bevy_asset::{load_internal_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     prelude::Camera3d,
     prepass::{
@@ -15,9 +15,9 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_math::Mat4;
-use bevy_reflect::TypeUuid;
+use bevy_math::{Affine3A, Mat4};
 use bevy_render::{
+    batching::batch_and_prepare_render_phase,
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
@@ -31,8 +31,8 @@ use bevy_render::{
         BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
         ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
         DynamicUniformBuffer, FragmentState, FrontFace, MultisampleState, PipelineCache,
-        PolygonMode, PrimitiveState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef,
-        ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+        PolygonMode, PrimitiveState, PushConstantRange, RenderPipelineDescriptor, Shader,
+        ShaderRef, ShaderStages, ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
         SpecializedMeshPipelines, StencilFaceState, StencilState, TextureSampleType,
         TextureViewDimension, VertexState,
     },
@@ -45,21 +45,20 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::tracing::error;
 
 use crate::{
-    prepare_lights, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material, MaterialPipeline,
-    MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, MeshUniform, RenderMaterials,
-    SetMaterialBindGroup, SetMeshBindGroup, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    prepare_materials, setup_morph_and_skinning_defs, AlphaMode, DrawMesh, Material,
+    MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey,
+    RenderMaterialInstances, RenderMaterials, RenderMeshInstances, SetMaterialBindGroup,
+    SetMeshBindGroup,
 };
 
 use std::{hash::Hash, marker::PhantomData};
 
-pub const PREPASS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 921124473254008983);
+pub const PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(921124473254008983);
 
-pub const PREPASS_BINDINGS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5533152893177403494);
+pub const PREPASS_BINDINGS_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(5533152893177403494);
 
-pub const PREPASS_UTILS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4603948296044544);
+pub const PREPASS_UTILS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4603948296044544);
 
 /// Sets up everything required to use the prepass pipeline.
 ///
@@ -105,7 +104,7 @@ where
         render_app
             .add_systems(
                 Render,
-                queue_prepass_view_bind_group::<M>.in_set(RenderSet::Queue),
+                prepare_prepass_view_bind_group::<M>.in_set(RenderSet::PrepareBindGroups),
             )
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
@@ -141,9 +140,15 @@ where
 
         if no_prepass_plugin_loaded {
             app.insert_resource(AnyPrepassPluginLoaded)
-                .add_systems(Update, update_previous_view_projections)
                 // At the start of each frame, last frame's GlobalTransforms become this frame's PreviousGlobalTransforms
-                .add_systems(PreUpdate, update_mesh_previous_global_transforms);
+                // and last frame's view projection matrices become this frame's PreviousViewProjections
+                .add_systems(
+                    PreUpdate,
+                    (
+                        update_mesh_previous_global_transforms,
+                        update_previous_view_projections,
+                    ),
+                );
         }
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -156,14 +161,11 @@ where
                 .add_systems(
                     Render,
                     (
-                        prepare_previous_view_projection_uniforms
-                            .in_set(RenderSet::Prepare)
-                            .after(PrepassLightsViewFlush),
-                        apply_deferred
-                            .in_set(RenderSet::Prepare)
-                            .in_set(PrepassLightsViewFlush)
-                            .after(prepare_lights),
-                    ),
+                        prepare_previous_view_projection_uniforms,
+                        batch_and_prepare_render_phase::<Opaque3dPrepass, MeshPipeline>,
+                        batch_and_prepare_render_phase::<AlphaMask3dPrepass, MeshPipeline>,
+                    )
+                        .in_set(RenderSet::PrepareResources),
                 );
         }
 
@@ -172,7 +174,9 @@ where
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>()
             .add_systems(
                 Render,
-                queue_prepass_material_meshes::<M>.in_set(RenderSet::Queue),
+                queue_prepass_material_meshes::<M>
+                    .in_set(RenderSet::QueueMeshes)
+                    .after(prepare_materials::<M>),
             );
     }
 }
@@ -197,7 +201,7 @@ pub fn update_previous_view_projections(
 }
 
 #[derive(Component)]
-pub struct PreviousGlobalTransform(pub Mat4);
+pub struct PreviousGlobalTransform(pub Affine3A);
 
 pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,
@@ -210,7 +214,7 @@ pub fn update_mesh_previous_global_transforms(
         for (entity, transform) in &meshes {
             commands
                 .entity(entity)
-                .insert(PreviousGlobalTransform(transform.compute_matrix()));
+                .insert(PreviousGlobalTransform(transform.affine()));
         }
     }
 }
@@ -373,14 +377,6 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_DIRECTIONAL_LIGHTS".to_string(),
-            MAX_DIRECTIONAL_LIGHTS as u32,
-        ));
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_CASCADES_PER_LIGHT".to_string(),
-            MAX_CASCADES_PER_LIGHT as u32,
-        ));
         if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO) {
             shader_defs.push("DEPTH_CLAMP_ORTHO".into());
             // PERF: This line forces the "prepass fragment shader" to always run in
@@ -471,7 +467,7 @@ where
             // Use the fragment shader from the material
             let frag_shader_handle = match self.material_fragment_shader.clone() {
                 Some(frag_shader_handle) => frag_shader_handle,
-                _ => PREPASS_SHADER_HANDLE.typed::<Shader>(),
+                _ => PREPASS_SHADER_HANDLE,
             };
 
             FragmentState {
@@ -486,8 +482,16 @@ where
         let vert_shader_handle = if let Some(handle) = &self.material_vertex_shader {
             handle.clone()
         } else {
-            PREPASS_SHADER_HANDLE.typed::<Shader>()
+            PREPASS_SHADER_HANDLE
         };
+
+        let mut push_constant_ranges = Vec::with_capacity(1);
+        if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+            push_constant_ranges.push(PushConstantRange {
+                stages: ShaderStages::VERTEX,
+                range: 0..4,
+            });
+        }
 
         let mut descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
@@ -528,7 +532,7 @@ where
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            push_constant_ranges: Vec::new(),
+            push_constant_ranges,
             label: Some("prepass_pipeline".into()),
         };
 
@@ -664,9 +668,16 @@ pub fn prepare_previous_view_projection_uniforms(
         With<MotionVectorPrepass>,
     >,
 ) {
-    view_uniforms.uniforms.clear();
-
-    for (entity, camera, maybe_previous_view_proj) in &views {
+    let views_iter = views.iter();
+    let view_count = views_iter.len();
+    let Some(mut writer) =
+        view_uniforms
+            .uniforms
+            .get_writer(view_count, &render_device, &render_queue)
+    else {
+        return;
+    };
+    for (entity, camera, maybe_previous_view_proj) in views_iter {
         let view_projection = match maybe_previous_view_proj {
             Some(previous_view) => previous_view.clone(),
             None => PreviousViewProjection {
@@ -676,13 +687,9 @@ pub fn prepare_previous_view_projection_uniforms(
         commands
             .entity(entity)
             .insert(PreviousViewProjectionUniformOffset {
-                offset: view_uniforms.uniforms.push(view_projection),
+                offset: writer.write(&view_projection),
             });
     }
-
-    view_uniforms
-        .uniforms
-        .write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Default, Resource)]
@@ -691,7 +698,7 @@ pub struct PrepassViewBindGroup {
     no_motion_vectors: Option<BindGroup>,
 }
 
-pub fn queue_prepass_view_bind_group<M: Material>(
+pub fn prepare_prepass_view_bind_group<M: Material>(
     render_device: Res<RenderDevice>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     view_uniforms: Res<ViewUniforms>,
@@ -752,8 +759,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
+    render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderMaterials<M>>,
-    material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
+    render_material_instances: Res<RenderMaterialInstances<M>>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -798,14 +806,16 @@ pub fn queue_prepass_material_meshes<M: Material>(
         let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {
-            let Ok((material_handle, mesh_handle, mesh_uniform)) = material_meshes.get(*visible_entity) else {
+            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
-
-            let (Some(material), Some(mesh)) = (
-                render_materials.get(material_handle),
-                render_meshes.get(mesh_handle),
-            ) else {
+            let Some(mesh_instance) = render_mesh_instances.get(visible_entity) else {
+                continue;
+            };
+            let Some(material) = render_materials.get(material_asset_id) else {
+                continue;
+            };
+            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
 
@@ -841,8 +851,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             };
 
-            let distance =
-                rangefinder.distance(&mesh_uniform.transform) + material.properties.depth_bias;
+            let distance = rangefinder
+                .distance_translation(&mesh_instance.transforms.transform.translation)
+                + material.properties.depth_bias;
             match alpha_mode {
                 AlphaMode::Opaque => {
                     opaque_phase.add(Opaque3dPrepass {
@@ -850,6 +861,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         draw_function: opaque_draw_prepass,
                         pipeline_id,
                         distance,
+                        batch_range: 0..1,
+                        dynamic_offset: None,
                     });
                 }
                 AlphaMode::Mask(_) => {
@@ -858,6 +871,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         draw_function: alpha_mask_draw_prepass,
                         pipeline_id,
                         distance,
+                        batch_range: 0..1,
+                        dynamic_offset: None,
                     });
                 }
                 AlphaMode::Blend

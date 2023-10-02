@@ -12,32 +12,38 @@ use bevy_ecs::{
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_pbr::{
-    MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup, MAX_CASCADES_PER_LIGHT,
-    MAX_DIRECTIONAL_LIGHTS,
-};
+use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
 use bevy_render::{
-    render_asset::RenderAssets,
+    render_asset::{prepare_assets, RenderAssets},
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
     texture::BevyDefault,
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
     Render, RenderApp, RenderSet,
 };
 
 pub struct LineGizmo3dPlugin;
 impl Plugin for LineGizmo3dPlugin {
     fn build(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app
             .add_render_command::<Transparent3d, DrawLineGizmo3d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
-            .add_systems(Render, queue_line_gizmos_3d.in_set(RenderSet::Queue));
+            .add_systems(
+                Render,
+                queue_line_gizmos_3d
+                    .in_set(RenderSet::Queue)
+                    .after(prepare_assets::<LineGizmo>),
+            );
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app.init_resource::<LineGizmoPipeline>();
     }
@@ -73,19 +79,9 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![
-            "GIZMO_3D".into(),
             #[cfg(feature = "webgl")]
             "SIXTEEN_BYTE_ALIGNMENT".into(),
         ];
-
-        shader_defs.push(ShaderDefVal::Int(
-            "MAX_DIRECTIONAL_LIGHTS".to_string(),
-            MAX_DIRECTIONAL_LIGHTS as i32,
-        ));
-        shader_defs.push(ShaderDefVal::Int(
-            "MAX_CASCADES_PER_LIGHT".to_string(),
-            MAX_CASCADES_PER_LIGHT as i32,
-        ));
 
         if key.perspective {
             shader_defs.push("PERSPECTIVE".into());
@@ -107,13 +103,13 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: LINE_SHADER_HANDLE.typed(),
+                shader: LINE_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: line_gizmo_vertex_buffer_layouts(key.strip),
             },
             fragment: Some(FragmentState {
-                shader: LINE_SHADER_HANDLE.typed(),
+                shader: LINE_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -159,16 +155,27 @@ fn queue_line_gizmos_3d(
     config: Res<GizmoConfig>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>)>,
     line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
+    mut views: Query<(
+        &ExtractedView,
+        &mut RenderPhase<Transparent3d>,
+        Option<&RenderLayers>,
+    )>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo3d>().unwrap();
 
-    for (view, mut transparent_phase) in &mut views {
+    for (view, mut transparent_phase, render_layers) in &mut views {
+        let render_layers = render_layers.copied().unwrap_or_default();
+        if !config.render_layers.intersects(&render_layers) {
+            continue;
+        }
+
         let mesh_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr);
 
         for (entity, handle) in &line_gizmos {
-            let Some(line_gizmo) = line_gizmo_assets.get(handle) else { continue };
+            let Some(line_gizmo) = line_gizmo_assets.get(handle) else {
+                continue;
+            };
 
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
@@ -185,6 +192,8 @@ fn queue_line_gizmos_3d(
                 draw_function,
                 pipeline,
                 distance: 0.,
+                batch_range: 0..1,
+                dynamic_offset: None,
             });
         }
     }
