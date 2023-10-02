@@ -360,66 +360,6 @@ impl App {
         self
     }
 
-    /// Sets up a state `S: States` that will only exist when the `Parent: States` state's matches
-    /// the provided condition. Creates an instance of [`apply_state_transition::<S>`] in
-    /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update), as
-    /// well as instances of [`initialize_state_and_enter::<S>`] and [`remove_state_from_world::<S>`]
-    /// to set up and run [`OnEnter`] and [`OnExit`] schedules for `S` when appropriate.
-    ///
-    /// Whenever the parent enters a matching state, `S` will be set to `S::default()`.
-    ///
-    /// In addition, adds an instance of [`apply_state_transition::<S>`] in
-    /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update).
-    ///
-    /// You can treat these just like any other states, but bear in mind that the `State<S>` and `NextState<S>`
-    /// resources might not exist.
-    pub fn add_sub_state<S: States, Parent: States>(
-        &mut self,
-        condition: impl StateMatcher<Parent>,
-    ) -> &mut Self {
-        self.add_systems(
-            Parent::on_enter_matching(condition.clone()),
-            initialize_state_and_enter::<S>,
-        )
-        .add_systems(
-            Parent::on_exit_matching(condition.clone()),
-            remove_state_from_world::<S>,
-        )
-        .add_systems(
-            StateTransition,
-            apply_state_transition::<S>.run_if(in_state(condition)),
-        );
-
-        self
-    }
-
-    /// Adds a [`State<S>`] and [`NextState<S>`] whenever entering a matching `Parent` state
-    /// regardless of whether the previous `Parent` state matches, and runs OnEnter/OnExit when those occur.
-    ///
-    /// In addition, adds an instance of [`apply_state_transition::<S>`] in
-    /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update).
-    ///
-    /// You can treat these just like any other states, but bear in mind that the `State<S>` and `NextState<S>`
-    /// resources might not exist.
-    pub fn add_strict_sub_state<S: States, Parent: States>(
-        &mut self,
-        condition: impl StateMatcher<Parent>,
-    ) -> &mut Self {
-        self.add_systems(
-            Parent::on_enter_matching_strict(condition.clone()),
-            initialize_state_and_enter::<S>,
-        )
-        .add_systems(
-            Parent::on_enter_matching_strict(condition.clone()),
-            remove_state_from_world::<S>,
-        )
-        .add_systems(
-            StateTransition,
-            apply_state_transition::<S>.run_if(in_state(condition)),
-        );
-        self
-    }
-
     /// Adds a system to the given schedule in this app's [`Schedules`].
     ///
     /// # Examples
