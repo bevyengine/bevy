@@ -78,7 +78,7 @@ impl Plugin for TimePlugin {
 /// Configuration resource used to determine how the time system should run.
 ///
 /// For most cases, [`TimeUpdateStrategy::Automatic`] is fine. When writing tests, dealing with
-/// networking, or similar you may prefer to set the next [`Time`] value manually.
+/// networking or similar, you may prefer to set the next [`Time`] value manually.
 #[derive(Resource, Default)]
 pub enum TimeUpdateStrategy {
     /// [`Time`] will be automatically updated each frame using an [`Instant`] sent from the render world via a [`TimeSender`].
