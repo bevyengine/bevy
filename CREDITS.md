@@ -27,6 +27,7 @@
 * FiraMono by The Mozilla Foundation and Telefonica S.A (SIL Open Font License, Version 1.1: assets/fonts/FiraMono-LICENSE)
 * Barycentric from [mk_bary_gltf](https://github.com/komadori/mk_bary_gltf) (MIT OR Apache-2.0)
 * `MorphStressTest.gltf`, [MorphStressTest] ([CC-BY 4.0] by Analytical Graphics, Inc, Model and textures by Ed Mackey)
+* character.gltf from [Starter-Kit-3D-Platformer](https://github.com/KenneyNL/Starter-Kit-3D-Platformer) (CC0 1.0 Universal)
 
 [MorphStressTest]: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/MorphStressTest
 [fox]: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/Fox
