@@ -1,12 +1,12 @@
 use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
 pub use bevy_derive::AppLabel;
-use bevy_ecs::schedule::{IntoConditionalScheduleLabel, StateMatcher};
+use bevy_ecs::schedule::IntoConditionalScheduleLabel;
 use bevy_ecs::{
     prelude::*,
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
         run_enter_schedule, BoxedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleBuildSettings, ScheduleLabel, SetupTransitionScheduleLabels,
+        ScheduleBuildSettings, ScheduleLabel,
     },
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};

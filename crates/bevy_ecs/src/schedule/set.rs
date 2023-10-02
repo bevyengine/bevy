@@ -9,10 +9,11 @@ use bevy_utils::define_boxed_label;
 use bevy_utils::label::DynHash;
 
 use crate::system::{
-    ExclusiveSystemParamFunction, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
+    ExclusiveSystemParamFunction, IntoSystem, IsExclusiveFunctionSystem, IsFunctionSystem,
+    SystemParamFunction,
 };
 
-use super::BoxedCondition;
+use super::{BoxedCondition, Condition};
 
 define_boxed_label!(ScheduleLabel);
 
@@ -20,18 +21,6 @@ define_boxed_label!(ScheduleLabel);
 pub type BoxedSystemSet = Box<dyn SystemSet>;
 /// A shorthand for `Box<dyn ScheduleLabel>`.
 pub type BoxedScheduleLabel = Box<dyn ScheduleLabel>;
-
-/// A trait that represents an item that can become a `ScheduleLabel` with optional `BoxedCondition`
-pub trait IntoConditionalScheduleLabel<S: ScheduleLabel> {
-    /// This converts the item to a `ScheduleLabel` with an optional `BoxedCondition`
-    fn into_conditional_schedule_label(self) -> (S, Option<BoxedCondition>);
-}
-
-impl<S: ScheduleLabel> IntoConditionalScheduleLabel<S> for S {
-    fn into_conditional_schedule_label(self) -> (S, Option<BoxedCondition>) {
-        (self, None)
-    }
-}
 
 /// Types that identify logical groups of systems.
 pub trait SystemSet: DynHash + Debug + Send + Sync + 'static {
@@ -190,6 +179,27 @@ where
     #[inline]
     fn into_system_set(self) -> Self::Set {
         SystemTypeSet::new()
+    }
+}
+
+type ConditionalScheduleLabel<S> = (S, Option<BoxedCondition>);
+
+/// A trait that represents an item that can become a `ScheduleLabel` with optional `BoxedCondition`
+pub trait IntoConditionalScheduleLabel<S: ScheduleLabel, Marker = ()> {
+    /// This converts the item to a `ScheduleLabel` with an optional `BoxedCondition`
+    fn into_conditional_schedule_label(self) -> ConditionalScheduleLabel<S>;
+}
+
+impl<S: ScheduleLabel> IntoConditionalScheduleLabel<S> for S {
+    fn into_conditional_schedule_label(self) -> ConditionalScheduleLabel<S> {
+        (self, None)
+    }
+}
+
+impl<S: ScheduleLabel, M, C: Condition<M>> IntoConditionalScheduleLabel<S, M> for (S, C) {
+    fn into_conditional_schedule_label(self) -> ConditionalScheduleLabel<S> {
+        let condition: BoxedCondition = Box::new(IntoSystem::into_system(self.1));
+        (self.0, Some(condition))
     }
 }
 
