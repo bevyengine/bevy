@@ -90,7 +90,7 @@ impl From<NodeBuilder> for AccessibilityNode {
 
 /// Resource representing which entity has keyboard focus, if any.
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct Focus(Option<Entity>);
+pub struct Focus(pub Option<Entity>);
 
 /// Set enum for the systems relating to accessibility
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
