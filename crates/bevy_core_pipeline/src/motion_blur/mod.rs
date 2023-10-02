@@ -47,7 +47,7 @@ pub struct MotionBlur {
 impl Default for MotionBlur {
     fn default() -> Self {
         Self {
-            shutter_angle: 0.5,
+            shutter_angle: 0.25,
             max_samples: 4,
             #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
             _webgl2_padding: bevy_math::Vec3::default(),

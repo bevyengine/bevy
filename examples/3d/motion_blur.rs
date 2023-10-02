@@ -1,11 +1,22 @@
 //! Demonstrates how to enable per-object motion blur. This rendering feature can be configured per
 //! camera using the [`MotionBlur`] component.
 //!
-//! This example animates some spheres and adds a camera controller to help visualize the effect of
+//! This example animates some meshes and adds a camera controller to help visualize the effect of
 //! the motion blur parameters.
 
-use bevy::core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle};
-use bevy::prelude::*;
+use bevy::{
+    core_pipeline::{
+        bloom::BloomSettings,
+        fxaa::Fxaa,
+        motion_blur::{MotionBlur, MotionBlurBundle},
+        tonemapping::Tonemapping,
+    },
+    input::mouse::MouseMotion,
+    pbr::NotShadowReceiver,
+    prelude::*,
+    window::CursorGrabMode,
+};
+use bevy_internal::prelude::shape::UVSphere;
 
 fn main() {
     App::new()
@@ -16,11 +27,7 @@ fn main() {
         ))
         .add_systems(Startup, (setup, setup_ui))
         .add_systems(Update, (translate, rotate, scale, update_settings).chain())
-        .insert_resource(AmbientLight {
-            brightness: 0.2,
-            ..default()
-        })
-        .insert_resource(Msaa::Off)
+        .insert_resource(Msaa::Off) //
         .run();
 }
 
@@ -40,20 +47,22 @@ fn setup(
             },
             transform: Transform::from_translation(Vec3::new(-35.0, 8.0, 45.0))
                 .looking_at(Vec3::new(0.0, -4.0, 20.0), Vec3::Y),
+            tonemapping: Tonemapping::TonyMcMapface,
             ..default()
         },
         // Adding this bundle to a camera will add motion blur to objects rendered by it.
         MotionBlurBundle {
             // Configure motion blur settings per-camera
             motion_blur: MotionBlur {
-                shutter_angle: 1.0,
-                max_samples: 16,
+                shutter_angle: 0.5,
+                max_samples: 8,
                 ..default()
             },
             ..default()
         },
         CameraController::default(),
         Fxaa::default(),
+        BloomSettings::default(),
     ));
 
     // Add a light
@@ -71,7 +80,6 @@ fn setup(
         radius: 1.0,
         ..default()
     }));
-    let cuboid = meshes.add(Mesh::from(shape::Cube::default()));
 
     let image = asset_server.load("textures/checkered.png");
     // Acts like a skybox to allow testing the effects of full screen blur due to camera movement.
@@ -97,7 +105,7 @@ fn setup(
             subdivisions: 10,
         })),
         material: materials.add(StandardMaterial {
-            base_color: Color::GRAY,
+            base_color: Color::DARK_GRAY,
             base_color_texture: Some(image.clone()),
             perceptual_roughness: 1.0,
             reflectance: 0.0,
@@ -111,6 +119,7 @@ fn setup(
         materials.add(StandardMaterial {
             base_color_texture: Some(image.clone()),
             base_color,
+            perceptual_roughness: 0.2,
             ..default()
         })
     };
@@ -169,21 +178,12 @@ fn setup(
 
     commands.spawn((
         PbrBundle {
-            mesh: cuboid.clone(),
-            material: sphere_matl(Color::BLUE),
-            transform: Transform::from_xyz(22.0, 0.0, -11.0),
+            mesh: meshes.add(UVSphere::default().into()),
+            material: sphere_matl(Color::WHITE),
+            transform: Transform::from_xyz(100.0, 50.0, -100.0).with_scale(Vec3::splat(60.0)),
             ..default()
         },
-        Rotates(20.0),
-    ));
-    commands.spawn((
-        PbrBundle {
-            mesh: cuboid.clone(),
-            material: sphere_matl(Color::YELLOW),
-            transform: Transform::from_xyz(20.0, 0.0, -10.0),
-            ..default()
-        },
-        Rotates(15.0),
+        Rotates(5.0),
     ));
 }
 
@@ -200,10 +200,7 @@ fn setup_ui(mut commands: Commands) {
             TextSection::new(String::new(), style.clone()),
             TextSection::new("\n\n", style.clone()),
             TextSection::new("Controls:\n", style.clone()),
-            TextSection::new(
-                "Spacebar - Toggle camera tracking blue sphere\n",
-                style.clone(),
-            ),
+            TextSection::new("Spacebar - Toggle camera tracking\n", style.clone()),
             TextSection::new("WASD + Mouse - Move camera\n", style.clone()),
             TextSection::new("1/2 - Decrease/Increase shutter angle\n", style.clone()),
             TextSection::new("3/4 - Decrease/Increase sample count\n", style.clone()),
@@ -292,10 +289,6 @@ fn update_settings(
         camera.look_at(trackable.single().translation, Vec3::Y);
     }
 }
-
-use bevy::input::mouse::MouseMotion;
-use bevy::window::CursorGrabMode;
-use bevy_internal::{core_pipeline::fxaa::Fxaa, pbr::NotShadowReceiver};
 
 use std::f32::consts::*;
 use std::fmt;
