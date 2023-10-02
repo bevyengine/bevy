@@ -65,9 +65,9 @@ impl<'w, 's> EarPositions<'w, 's> {
     /// listeners for whatever reason, using a default value might unexpected, so we will
     /// return the first value.
     pub(crate) fn get(&self) -> (Vec3, Vec3) {
-        let mut listener_iter = self.query.iter();
-
-        let (left_ear, right_ear) = listener_iter
+        let (left_ear, right_ear) = self
+            .query
+            .iter()
             .next()
             .map(|(_, transform, settings)| {
                 (
