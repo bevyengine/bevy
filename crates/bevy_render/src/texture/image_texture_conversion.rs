@@ -1,6 +1,6 @@
 use crate::texture::{Image, TextureFormatPixelInfo};
-use bevy_asset::anyhow;
 use image::{DynamicImage, ImageBuffer};
+use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 impl Image {
@@ -163,7 +163,7 @@ impl Image {
     /// - `TextureFormat::Bgra8UnormSrgb`
     ///
     /// To convert [`Image`] to a different format see: [`Image::convert`].
-    pub fn try_into_dynamic(self) -> Result<DynamicImage, anyhow::Error> {
+    pub fn try_into_dynamic(self) -> Result<DynamicImage, IntoDynamicImageError> {
         match self.texture_descriptor.format {
             TextureFormat::R8Unorm => ImageBuffer::from_raw(
                 self.texture_descriptor.size.width,
@@ -198,20 +198,24 @@ impl Image {
             )
             .map(DynamicImage::ImageRgba8),
             // Throw and error if conversion isn't supported
-            texture_format => {
-                return Err(anyhow::anyhow!(
-                    "Conversion into dynamic image not supported for {:?}.",
-                    texture_format
-                ))
-            }
+            texture_format => return Err(IntoDynamicImageError::UnsupportedFormat(texture_format)),
         }
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "Failed to convert into {:?}.",
-                self.texture_descriptor.format
-            )
-        })
+        .ok_or(IntoDynamicImageError::UnknownConversionError(
+            self.texture_descriptor.format,
+        ))
     }
+}
+
+/// Errors that occur while converting an [`Image`] into a [`DynamicImage`]
+#[derive(Error, Debug)]
+pub enum IntoDynamicImageError {
+    /// Conversion into dynamic image not supported for source format.
+    #[error("Conversion into dynamic image not supported for {0:?}.")]
+    UnsupportedFormat(TextureFormat),
+
+    /// Encountered an unknown error during conversion.
+    #[error("Failed to convert into {0:?}.")]
+    UnknownConversionError(TextureFormat),
 }
 
 #[cfg(test)]

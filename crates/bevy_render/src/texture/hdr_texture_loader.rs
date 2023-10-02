@@ -1,20 +1,30 @@
 use crate::texture::{Image, TextureFormatPixelInfo};
-use bevy_asset::{anyhow::Error, io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads HDR textures as Texture assets
 #[derive(Clone, Default)]
 pub struct HdrTextureLoader;
 
+#[derive(Debug, Error)]
+pub enum HdrTextureLoaderError {
+    #[error("Could load texture: {0}")]
+    IO(#[from] std::io::Error),
+    #[error("Could not extract image: {0}")]
+    Image(#[from] image::ImageError),
+}
+
 impl AssetLoader for HdrTextureLoader {
     type Asset = Image;
     type Settings = ();
+    type Error = HdrTextureLoaderError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a (),
         _load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Image, Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Image, Self::Error>> {
         Box::pin(async move {
             let format = TextureFormat::Rgba32Float;
             debug_assert_eq!(

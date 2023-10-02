@@ -1,13 +1,14 @@
 #[cfg(feature = "serialize")]
 use crate::serde::SceneDeserializer;
 use crate::DynamicScene;
-use bevy_asset::{anyhow, io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_ecs::world::{FromWorld, World};
 use bevy_reflect::TypeRegistryArc;
 use bevy_utils::BoxedFuture;
 #[cfg(feature = "serialize")]
 use serde::de::DeserializeSeed;
+use thiserror::Error;
 
 /// [`AssetLoader`] for loading serialized Bevy scene files as [`DynamicScene`].
 #[derive(Debug)]
@@ -24,17 +25,29 @@ impl FromWorld for SceneLoader {
     }
 }
 
+/// Possible errors that can be produced by [`SceneLoader`]
+#[derive(Debug, Error)]
+pub enum SceneLoaderError {
+    /// An [IO](std::io) Error
+    #[error("Could load shader: {0}")]
+    IO(#[from] std::io::Error),
+    /// A [RON](ron) Error
+    #[error("Could not parse RON: {0}")]
+    RONSpan(#[from] ron::error::SpannedError),
+}
+
 #[cfg(feature = "serialize")]
 impl AssetLoader for SceneLoader {
     type Asset = DynamicScene;
     type Settings = ();
+    type Error = SceneLoaderError;
 
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a (),
-        load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, anyhow::Error>> {
+        _load_context: &'a mut LoadContext,
+    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
@@ -42,17 +55,9 @@ impl AssetLoader for SceneLoader {
             let scene_deserializer = SceneDeserializer {
                 type_registry: &self.type_registry.read(),
             };
-            scene_deserializer
+            Ok(scene_deserializer
                 .deserialize(&mut deserializer)
-                .map_err(|e| {
-                    let span_error = deserializer.span_error(e);
-                    anyhow::anyhow!(
-                        "{} at {}:{}",
-                        span_error.code,
-                        load_context.path().to_string_lossy(),
-                        span_error.position,
-                    )
-                })
+                .map_err(|e| deserializer.span_error(e))?)
         })
     }
 
