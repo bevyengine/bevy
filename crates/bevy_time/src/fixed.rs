@@ -44,7 +44,7 @@ use crate::{time::Time, virt::Virtual, FixedUpdate};
 /// [`set_max_delta()`](Time::set_max_delta) from virtual time. If the virtual
 /// clock is paused, the [`FixedUpdate`](bevy_app::FixedUpdate) schedule will
 /// not run. It is guaranteed that the [`elapsed()`](Time::elapsed) time in
-/// `Time<Fixed>` is always between the previous `elapsed()` and the next
+/// `Time<Fixed>` is always between the previous `elapsed()` and the current
 /// `elapsed()` value in `Time<Virtual>`, so the values are compatible.
 ///
 /// Changing the timestep size while the game is running should not normally be
@@ -84,7 +84,7 @@ impl Time<Fixed> {
     ///
     /// # Panics
     ///
-    /// Panics if `seconds` is negative or not finite.
+    /// Panics if `seconds` is zero, negative or not finite.
     pub fn from_seconds(seconds: f64) -> Self {
         let mut ret = Self::default();
         ret.set_timestep_seconds(seconds);
@@ -140,7 +140,7 @@ impl Time<Fixed> {
     ///
     /// # Panics
     ///
-    /// Panics if `seconds` is negative or not finite.
+    /// Panics if `seconds` is zero, negative or not finite.
     #[inline]
     pub fn set_timestep_seconds(&mut self, seconds: f64) {
         assert!(
