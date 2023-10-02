@@ -1488,7 +1488,7 @@ impl Default for BorderColor {
 /// }
 /// ```
 ///
-/// [`Outline`] components can also be later to existing UI nodes:
+/// [`Outline`] components can also be added later to existing UI nodes:
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
@@ -1511,10 +1511,10 @@ impl Default for BorderColor {
 ///     }
 /// }
 /// ```
-/// Adding and removing an [`Outline`] component repeatedly will result in table moves, so it is generally preferable to
+/// Inserting and removing an [`Outline`] component repeatedly will result in table moves, so it is generally preferable to
 /// set `Outline::color` to `Color::NONE` to hide an outline.
 pub struct Outline {
-    /// The width of the outline
+    /// The width of the outline.
     ///
     /// Percentage `Val` values are resolved based on the width of the outlined [`Node`]
     pub width: Val,
@@ -1523,6 +1523,9 @@ pub struct Outline {
     /// Percentage `Val` values are resolved based on the width of the outlined [`Node`]
     pub offset: Val,
     /// Color of the outline
+    ///
+    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set `Color::None` to hide the outline.
+    /// This avoids the table moves that would occcur from the repeated insertion and removal of the `Outline` component.
     pub color: Color,
 }
 
