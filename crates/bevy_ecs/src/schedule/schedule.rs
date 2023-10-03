@@ -29,6 +29,8 @@ use crate::{
 #[derive(Default, Resource)]
 pub struct Schedules {
     inner: HashMap<BoxedScheduleLabel, Schedule>,
+    /// List of [`ComponentId`]s to ignore when reporting system order ambiguity conflicts
+    pub ignored_scheduling_ambiguities: BTreeSet<ComponentId>,
 }
 
 impl Schedules {
@@ -36,6 +38,7 @@ impl Schedules {
     pub fn new() -> Self {
         Self {
             inner: HashMap::new(),
+            ignored_scheduling_ambiguities: BTreeSet::new(),
         }
     }
 
@@ -111,6 +114,38 @@ impl Schedules {
         for (_, schedule) in &mut self.inner {
             schedule.set_build_settings(schedule_build_settings.clone());
         }
+    }
+
+    /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
+    pub fn allow_ambiguous_component<T: Component>(&mut self, world: &mut World) {
+        self.ignored_scheduling_ambiguities
+            .insert(world.init_component::<T>());
+    }
+
+    /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
+    pub fn allow_ambiguous_resource<T: Resource>(&mut self, world: &mut World) {
+        self.ignored_scheduling_ambiguities
+            .insert(world.components.init_resource::<T>());
+    }
+
+    /// Iterate through the [`ComponentId`]'s that will be ignored.
+    pub fn iter_ignored_ambiguities(&self) -> impl Iterator<Item = &ComponentId> + '_ {
+        self.ignored_scheduling_ambiguities.iter()
+    }
+
+    /// Prints the names of the components and resources with [`info`]
+    ///
+    /// May panic or retrieve incorrect names if [`Components`] is not from the same
+    /// world
+    pub fn print_ignored_ambiguities(&self, components: &Components) {
+        let mut message =
+            "System order ambiguities caused by conflicts on the following types are ignored:\n"
+                .to_string();
+        for id in self.iter_ignored_ambiguities() {
+            writeln!(message, "{}", components.get_name(*id).unwrap()).unwrap();
+        }
+
+        info!("{}", message);
     }
 }
 
@@ -265,13 +300,13 @@ impl Schedule {
         if self.graph.changed {
             self.graph.initialize(world);
             let ignored_ambiguities = world
-                .get_resource::<IgnoredSchedulingAmbiguities>()
-                .cloned()
-                .unwrap_or_default();
+                .get_resource_or_insert_with::<Schedules>(Schedules::default)
+                .ignored_scheduling_ambiguities
+                .clone();
             self.graph.update_schedule(
                 &mut self.executable,
                 world.components(),
-                &ignored_ambiguities.0,
+                &ignored_ambiguities,
                 &self.name,
             )?;
             self.graph.changed = false;
@@ -1730,42 +1765,6 @@ impl ScheduleBuildSettings {
             use_shortnames: true,
             report_sets: true,
         }
-    }
-}
-
-/// List of [`ComponentId`]s to ignore when reporting system order ambiguity conflicts
-#[derive(Resource, Default, Clone, Debug)]
-pub struct IgnoredSchedulingAmbiguities(BTreeSet<ComponentId>);
-
-impl IgnoredSchedulingAmbiguities {
-    /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
-    pub fn allow_ambiguous_component<T: Component>(&mut self, world: &mut World) {
-        self.0.insert(world.init_component::<T>());
-    }
-
-    /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
-    pub fn allow_ambiguous_resource<T: Resource>(&mut self, world: &mut World) {
-        self.0.insert(world.components.init_resource::<T>());
-    }
-
-    /// Iterate through the [`ComponentId`]'s that will be ignored.
-    pub fn iter(&self) -> impl Iterator<Item = &ComponentId> + '_ {
-        self.0.iter()
-    }
-
-    /// Prints the names of the components and resources with [`info`]
-    ///
-    /// May panic or retrieve incorrect names if [`Components`] is not from the same
-    /// world
-    pub fn print_names(&self, components: &Components) {
-        let mut message =
-            "System order ambiguities caused by conflicts on the following types are ignored:\n"
-                .to_string();
-        for id in self.iter() {
-            writeln!(message, "{}", components.get_name(*id).unwrap()).unwrap();
-        }
-
-        info!("{}", message);
     }
 }
 

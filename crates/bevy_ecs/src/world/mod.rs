@@ -20,7 +20,7 @@ use crate::{
     event::{Event, Events},
     query::{DebugCheckedUnwrap, QueryEntityError, QueryState, ReadOnlyWorldQuery, WorldQuery},
     removal_detection::RemovedComponentEvents,
-    schedule::{IgnoredSchedulingAmbiguities, Schedule, ScheduleLabel, Schedules},
+    schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::Resource,
     world::error::TryRunScheduleError,
@@ -2090,20 +2090,16 @@ impl World {
 
     /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
     pub fn allow_ambiguous_component<T: Component>(&mut self) {
-        let mut ignored_ambiguities = self
-            .remove_resource::<IgnoredSchedulingAmbiguities>()
-            .unwrap_or_default();
-        ignored_ambiguities.allow_ambiguous_component::<T>(self);
-        self.insert_resource(ignored_ambiguities);
+        let mut schedules = self.remove_resource::<Schedules>().unwrap_or_default();
+        schedules.allow_ambiguous_component::<T>(self);
+        self.insert_resource(schedules);
     }
 
     /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
     pub fn allow_ambiguous_resource<T: Resource>(&mut self) {
-        let mut ignored_ambiguities = self
-            .remove_resource::<IgnoredSchedulingAmbiguities>()
-            .unwrap_or_default();
-        ignored_ambiguities.allow_ambiguous_resource::<T>(self);
-        self.insert_resource(ignored_ambiguities);
+        let mut schedules = self.remove_resource::<Schedules>().unwrap_or_default();
+        schedules.allow_ambiguous_resource::<T>(self);
+        self.insert_resource(schedules);
     }
 }
 
