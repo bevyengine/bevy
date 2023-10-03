@@ -349,12 +349,12 @@ impl Camera {
 
     /// The projection matrix computed using this camera's [`CameraProjection`].
     #[inline]
-    pub fn projection_matrix(&self) -> Mat4 {
+    pub fn projection_matrix_unchecked(&self) -> Mat4 {
         self.computed.projection_matrix.unwrap_or_default()
     }
 
     #[inline]
-    fn checked_projection_matrix(&self) -> Result<Mat4, BadProjectionMatrixError> {
+    fn projection_matrix(&self) -> Result<Mat4, BadProjectionMatrixError> {
         let projection_matrix = self
             .computed
             .projection_matrix
@@ -443,7 +443,7 @@ impl Camera {
         let camera_transform_matrix = Self::finite_camera_transform_matrix(camera_transform)
             .map_err(ViewportToWorldError::CameraTransformNotFinite)?;
         let projection_matrix = self
-            .checked_projection_matrix()
+            .projection_matrix()
             .map_err(ViewportToWorldError::ProjectionMatrixNotFinite)?;
 
         let ndc_to_world = camera_transform_matrix * projection_matrix.inverse();
@@ -505,7 +505,7 @@ impl Camera {
             .map_err(WorldToNdcError::CameraTransformNotFinite)?;
 
         let projection_matrix = self
-            .checked_projection_matrix()
+            .projection_matrix()
             .map_err(WorldToNdcError::ProjectionMatrixNotFinite)?;
 
         // Build a transformation matrix to convert from world space to NDC using camera data
@@ -537,7 +537,7 @@ impl Camera {
             .map_err(NdcToWorldError::CameraTransformNotFinite)?;
 
         let projection_matrix = self
-            .checked_projection_matrix()
+            .projection_matrix()
             .map_err(NdcToWorldError::ProjectionMatrixNotFinite)?;
 
         // Build a transformation matrix to convert from NDC to world space using camera data
@@ -1037,7 +1037,7 @@ pub fn extract_cameras(
                         .unwrap_or_else(|| Exposure::default().exposure()),
                 },
                 ExtractedView {
-                    projection: camera.projection_matrix(),
+                    projection: camera.projection_matrix_unchecked(),
                     transform: *transform,
                     view_projection: None,
                     hdr: camera.hdr,

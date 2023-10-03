@@ -207,7 +207,7 @@ pub fn update_previous_view_data(
         let inverse_view = camera_transform.compute_matrix().inverse();
         commands.entity(entity).try_insert(PreviousViewData {
             inverse_view,
-            view_proj: camera.projection_matrix() * inverse_view,
+            view_proj: camera.projection_matrix_unchecked() * inverse_view,
         });
     }
 }

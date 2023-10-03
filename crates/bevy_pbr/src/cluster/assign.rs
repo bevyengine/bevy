@@ -213,7 +213,7 @@ pub(crate) fn assign_lights_to_clusters(
         let view_inv_scale = camera_transform.compute_transform().scale.recip();
         let view_inv_scale_max = view_inv_scale.abs().max_element();
         let inverse_view_transform = view_transform.inverse();
-        let is_orthographic = camera.projection_matrix().w_axis.w == 1.0;
+        let is_orthographic = camera.projection_matrix_unchecked().w_axis.w == 1.0;
 
         let far_z = match config.far_z_mode() {
             ClusterFarZMode::MaxLightRange => {
@@ -239,7 +239,8 @@ pub(crate) fn assign_lights_to_clusters(
                 // 3,2 = r * far and 2,2 = r where r = 1.0 / (far - near)
                 // rearranging r = 1.0 / (far - near), r * (far - near) = 1.0, r * far - 1.0 = r * near, near = (r * far - 1.0) / r
                 // = (3,2 - 1.0) / 2,2
-                (camera.projection_matrix().w_axis.z - 1.0) / camera.projection_matrix().z_axis.z
+                (camera.projection_matrix_unchecked().w_axis.z - 1.0)
+                    / camera.projection_matrix_unchecked().z_axis.z
             }
             (false, 1) => config.first_slice_depth().max(far_z),
             _ => config.first_slice_depth(),
@@ -271,7 +272,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let (light_aabb_min, light_aabb_max) = cluster_space_light_aabb(
                     inverse_view_transform,
                     view_inv_scale,
-                    camera.projection_matrix(),
+                    camera.projection_matrix_unchecked(),
                     &light_sphere,
                 );
 
@@ -337,7 +338,7 @@ pub(crate) fn assign_lights_to_clusters(
             clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
         );
 
-        let inverse_projection = camera.projection_matrix().inverse();
+        let inverse_projection = camera.projection_matrix_unchecked().inverse();
 
         for lights in &mut clusters.lights {
             lights.entities.clear();
@@ -434,7 +435,7 @@ pub(crate) fn assign_lights_to_clusters(
                     cluster_space_light_aabb(
                         inverse_view_transform,
                         view_inv_scale,
-                        camera.projection_matrix(),
+                        camera.projection_matrix_unchecked(),
                         &light_sphere,
                     );
 
@@ -477,7 +478,7 @@ pub(crate) fn assign_lights_to_clusters(
                     )
                 });
                 let light_center_clip =
-                    camera.projection_matrix() * view_light_sphere.center.extend(1.0);
+                    camera.projection_matrix_unchecked() * view_light_sphere.center.extend(1.0);
                 let light_center_ndc = light_center_clip.xyz() / light_center_clip.w;
                 let cluster_coordinates = ndc_position_to_cluster(
                     clusters.dimensions,
