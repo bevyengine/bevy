@@ -26,14 +26,15 @@ impl FromWorld for SceneLoader {
 }
 
 /// Possible errors that can be produced by [`SceneLoader`]
+#[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum SceneLoaderError {
     /// An [IO](std::io) Error
     #[error("Could load shader: {0}")]
-    IO(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
     /// A [RON](ron) Error
     #[error("Could not parse RON: {0}")]
-    RONSpan(#[from] ron::error::SpannedError),
+    RonSpannedError(#[from] ron::error::SpannedError),
 }
 
 #[cfg(feature = "serialize")]

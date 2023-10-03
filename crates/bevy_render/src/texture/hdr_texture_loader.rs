@@ -7,10 +7,11 @@ use wgpu::{Extent3d, TextureDimension, TextureFormat};
 #[derive(Clone, Default)]
 pub struct HdrTextureLoader;
 
+#[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum HdrTextureLoaderError {
     #[error("Could load texture: {0}")]
-    IO(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
     #[error("Could not extract image: {0}")]
     Image(#[from] image::ImageError),
 }

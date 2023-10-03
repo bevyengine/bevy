@@ -207,6 +207,7 @@ impl Image {
 }
 
 /// Errors that occur while converting an [`Image`] into a [`DynamicImage`]
+#[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum IntoDynamicImageError {
     /// Conversion into dynamic image not supported for source format.

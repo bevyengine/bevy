@@ -13,10 +13,11 @@ use wgpu::{Extent3d, TextureDimension, TextureFormat};
 pub struct ExrTextureLoader;
 
 /// Possible errors that can be produced by [`ExrTextureLoader`]
+#[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum ExrTextureLoaderError {
     #[error(transparent)]
-    IO(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
     #[error(transparent)]
     ImageError(#[from] image::ImageError),
 }

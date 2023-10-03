@@ -67,10 +67,11 @@ impl Default for ImageLoaderSettings {
     }
 }
 
+#[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum ImageLoaderError {
     #[error("Could load shader: {0}")]
-    IO(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
     #[error("Could not load texture file: {0}")]
     FileTexture(#[from] FileTextureError),
 }

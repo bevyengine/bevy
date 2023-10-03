@@ -120,9 +120,9 @@ struct CoolTextLoader;
 #[derive(Debug, Error)]
 enum CoolTextLoaderError {
     #[error(transparent)]
-    IO(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
     #[error(transparent)]
-    RONSpannedError(#[from] ron::error::SpannedError),
+    RonSpannedError(#[from] ron::error::SpannedError),
     #[error(transparent)]
     LoadDirectError(#[from] bevy::asset::LoadDirectError),
 }

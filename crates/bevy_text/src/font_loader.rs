@@ -6,11 +6,12 @@ use thiserror::Error;
 pub struct FontLoader;
 
 /// Possible errors that can be produced by [`FontLoader`]
+#[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum FontLoaderError {
     /// An [IO](std::io) Error
     #[error(transparent)]
-    IO(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
     /// An [InvalidFont](ab_glyph::InvalidFont) Error
     #[error(transparent)]
     FontInvalid(#[from] ab_glyph::InvalidFont),

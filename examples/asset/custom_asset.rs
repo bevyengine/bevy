@@ -20,14 +20,15 @@ pub struct CustomAsset {
 pub struct CustomAssetLoader;
 
 /// Possible errors that can be produced by [`CustomAssetLoader`]
+#[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum CustomAssetLoaderError {
     /// An [IO](std::io) Error
     #[error("Could load shader: {0}")]
-    IO(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
     /// A [RON](ron) Error
     #[error("Could not parse RON: {0}")]
-    RONSpan(#[from] ron::error::SpannedError),
+    RonSpannedError(#[from] ron::error::SpannedError),
 }
 
 impl AssetLoader for CustomAssetLoader {

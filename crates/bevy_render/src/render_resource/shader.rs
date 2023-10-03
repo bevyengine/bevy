@@ -232,10 +232,11 @@ impl From<&Source> for naga_oil::compose::ShaderType {
 #[derive(Default)]
 pub struct ShaderLoader;
 
+#[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum ShaderLoaderError {
-    #[error("Could load shader: {0}")]
-    IO(#[from] std::io::Error),
+    #[error("Could not load shader: {0}")]
+    Io(#[from] std::io::Error),
     #[error("Could not parse shader: {0}")]
     Parse(#[from] std::string::FromUtf8Error),
 }

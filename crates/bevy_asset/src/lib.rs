@@ -468,9 +468,9 @@ mod tests {
         #[error("Could not load dependency: {dependency}")]
         CannotLoadDependency { dependency: AssetPath<'static> },
         #[error("A RON error occurred during loading")]
-        RONSpannedError(#[from] ron::error::SpannedError),
+        RonSpannedError(#[from] ron::error::SpannedError),
         #[error("An IO error occurred during loading")]
-        IO(#[from] std::io::Error),
+        Io(#[from] std::io::Error),
     }
 
     impl AssetLoader for CoolTextLoader {

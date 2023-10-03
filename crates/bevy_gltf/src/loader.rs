@@ -73,7 +73,7 @@ pub enum GltfError {
     #[error("failed to generate morph targets: {0}")]
     MorphTarget(#[from] bevy_render::mesh::morph::MorphBuildError),
     #[error("failed to load file: {0}")]
-    IO(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.

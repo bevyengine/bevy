@@ -5,10 +5,11 @@ use thiserror::Error;
 
 pub struct CompressedImageSaver;
 
+#[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum CompressedImageSaverError {
     #[error(transparent)]
-    IO(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
 }
 
 impl AssetSaver for CompressedImageSaver {
