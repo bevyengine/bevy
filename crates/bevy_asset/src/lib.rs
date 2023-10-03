@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 pub mod io;
 pub mod meta;
 pub mod processor;

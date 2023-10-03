@@ -1,5 +1,4 @@
 #![warn(missing_docs)]
-#![allow(clippy::type_complexity)]
 #![doc = include_str!("../README.md")]
 
 mod slice;
