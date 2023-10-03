@@ -9,9 +9,8 @@ use bevy::{
     },
     prelude::*,
     reflect::TypePath,
-    utils::BoxedFuture,
+    utils::{thiserror, BoxedFuture},
 };
-use bevy_internal::utils::thiserror;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
