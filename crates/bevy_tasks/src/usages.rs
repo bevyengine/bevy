@@ -10,8 +10,8 @@ macro_rules! taskpool {
         pub struct $type(TaskPool);
 
         impl $type {
-            #[doc = concat!(" Initializes the global [`", stringify!($type), "`] instance.")]
-            pub fn init(f: impl FnOnce() -> TaskPool) -> &'static Self {
+            #[doc = concat!(" Gets the global [`", stringify!($type), "`] instance, or initializes it with `f`.")]
+            pub fn get_or_init(f: impl FnOnce() -> TaskPool) -> &'static Self {
                 $static.get_or_init(|| Self(f()))
             }
 
@@ -26,7 +26,7 @@ macro_rules! taskpool {
                         stringify!($type),
                         " has not been initialized yet. Please call ",
                         stringify!($type),
-                        "::init beforehand."
+                        "::get_or_init beforehand."
                     )
                 )
             }
