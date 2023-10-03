@@ -1506,7 +1506,7 @@ impl Default for BorderColor {
 /// # use bevy_render::prelude::Color;
 /// fn outline_hovered_button_system(
 ///     mut commands: Commands,
-///     node_query: Query<(Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
+///     mut node_query: Query<(Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
 /// ) {
 ///     for (entity, interaction, mut maybe_outline) in node_query.iter_mut() {
 ///         let outline_color =
