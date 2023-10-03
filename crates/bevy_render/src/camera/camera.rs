@@ -353,7 +353,6 @@ impl Camera {
         self.computed.projection_matrix.unwrap_or_default()
     }
 
-    #[inline]
     fn projection_matrix(&self) -> Result<Mat4, BadProjectionMatrixError> {
         let projection_matrix = self
             .computed
