@@ -142,24 +142,6 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 }
 
 #ifdef PREPASS_FRAGMENT
-struct FragmentInput {
-#ifdef VERTEX_UVS
-    @location(0) uv: vec2<f32>,
-#endif // VERTEX_UVS
-
-#ifdef NORMAL_PREPASS
-    @location(1) world_normal: vec3<f32>,
-#endif // NORMAL_PREPASS
-
-#ifdef MOTION_VECTOR_PREPASS
-    @location(3) world_position: vec4<f32>,
-    @location(4) previous_world_position: vec4<f32>,
-#endif // MOTION_VECTOR_PREPASS
-
-#ifdef DEPTH_CLAMP_ORTHO
-    @location(5) clip_position_unclamped: vec4<f32>,
-#endif // DEPTH_CLAMP_ORTHO
-}
 
 struct FragmentOutput {
 #ifdef NORMAL_PREPASS
@@ -176,7 +158,7 @@ struct FragmentOutput {
 }
 
 @fragment
-fn fragment(in: FragmentInput) -> FragmentOutput {
+fn fragment(in: VertexOutput) -> FragmentOutput {
     var out: FragmentOutput;
 
 #ifdef NORMAL_PREPASS
