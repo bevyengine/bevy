@@ -18,7 +18,7 @@ macro_rules! taskpool {
             #[doc = concat!(" Gets the global [`", stringify!($type), "`] instance.")]
             ///
             /// # Panics
-            /// Panics if no pool has been initialized yet.
+            /// Panics if the global instance has not been initialized yet.
             pub fn get() -> &'static Self {
                 $static.get().expect(
                     concat!(
@@ -55,14 +55,16 @@ taskpool! {
 taskpool! {
     /// A newtype for a task pool for CPU-intensive work that may span across multiple frames
     ///
-    /// See [`TaskPool`] documentation for details on Bevy tasks. Use [`ComputeTaskPool`] if
-    /// the work must be complete before advancing to the next frame.
+    /// See [`TaskPool`] documentation for details on Bevy tasks.
+    /// Use [`ComputeTaskPool`] if the work must be complete before advancing to the next frame.
     (ASYNC_COMPUTE_TASK_POOL, AsyncComputeTaskPool)
 }
 
 taskpool! {
     /// A newtype for a task pool for IO-intensive work (i.e. tasks that spend very little time in a
     /// "woken" state)
+    ///
+    /// See [`TaskPool`] documentation for details on Bevy tasks.
     (IO_TASK_POOL, IoTaskPool)
 }
 
