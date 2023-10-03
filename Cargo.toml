@@ -29,6 +29,12 @@ members = [
   "errors",
 ]
 
+[workspace.lints.clippy]
+type_complexity = "allow"
+
+[lints]
+workspace = true
+
 [features]
 default = [
   "animation",
