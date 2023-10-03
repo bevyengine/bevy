@@ -26,13 +26,15 @@ pub trait AssetLoader: Send + Sync + 'static {
     type Asset: crate::Asset;
     /// The settings type used by this [`AssetLoader`].
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
+    /// The type of [error](`std::error::Error`) which could be encountered by this loader.
+    type Error: std::error::Error + Send + Sync + 'static;
     /// Asynchronously loads [`AssetLoader::Asset`] (and any other labeled assets) from the bytes provided by [`Reader`].
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, AssetLoaderError>>;
+    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>>;
 
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str];
@@ -46,7 +48,10 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
         reader: &'a mut Reader,
         meta: Box<dyn AssetMetaDyn>,
         load_context: LoadContext<'a>,
-    ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, AssetLoaderError>>;
+    ) -> BoxedFuture<
+        'a,
+        Result<ErasedLoadedAsset, Box<dyn std::error::Error + Send + Sync + 'static>>,
+    >;
 
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str];
@@ -64,26 +69,6 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
     fn asset_type_id(&self) -> TypeId;
 }
 
-/// An error encountered during [`AssetLoader::load`].
-#[derive(Error, Debug)]
-pub enum AssetLoaderError {
-    /// Any IO error that occurs during load.
-    #[error(transparent)]
-    IO(#[from] std::io::Error),
-    /// Any RON error that occurs during load.
-    #[error(transparent)]
-    RONSpanError(#[from] SpannedError),
-    /// A failure to deserialize metadata during load.
-    #[error(transparent)]
-    DeserializeMeta(#[from] DeserializeMetaError),
-    /// A dependency could not be loaded.
-    #[error("A dependency could not be loaded")]
-    DependencyError { dependency: AssetPath<'static> },
-    /// An unknown Asset Loader Error.
-    #[error("An unknown Asset Loader Error")]
-    Unknown,
-}
-
 impl<L> ErasedAssetLoader for L
 where
     L: AssetLoader + Send + Sync,
@@ -94,7 +79,10 @@ where
         reader: &'a mut Reader,
         meta: Box<dyn AssetMetaDyn>,
         mut load_context: LoadContext<'a>,
-    ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, AssetLoaderError>> {
+    ) -> BoxedFuture<
+        'a,
+        Result<ErasedLoadedAsset, Box<dyn std::error::Error + Send + Sync + 'static>>,
+    > {
         Box::pin(async move {
             let settings = meta
                 .loader_settings()

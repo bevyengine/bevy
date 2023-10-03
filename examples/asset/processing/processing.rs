@@ -9,9 +9,10 @@ use bevy::{
     },
     prelude::*,
     reflect::TypePath,
-    utils::BoxedFuture,
+    utils::{thiserror, BoxedFuture},
 };
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 fn main() {
     App::new()
@@ -75,12 +76,13 @@ struct TextSettings {
 impl AssetLoader for TextLoader {
     type Asset = Text;
     type Settings = TextSettings;
+    type Error = std::io::Error;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         settings: &'a TextSettings,
         _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Text, anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<Text, Self::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
@@ -115,17 +117,29 @@ pub struct CoolText {
 #[derive(Default)]
 struct CoolTextLoader;
 
+#[derive(Debug, Error)]
+enum CoolTextLoaderError {
+    #[error(transparent)]
+    IO(#[from] std::io::Error),
+    #[error(transparent)]
+    RONSpannedError(#[from] ron::error::SpannedError),
+    #[error(transparent)]
+    LoadDirectError(#[from] bevy::asset::LoadDirectError),
+}
+
 impl AssetLoader for CoolTextLoader {
     type Asset = CoolText;
 
     type Settings = ();
+
+    type Error = CoolTextLoaderError;
 
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<CoolText, anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<CoolText, Self::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
@@ -163,13 +177,14 @@ impl AssetSaver for CoolTextSaver {
     type Asset = CoolText;
     type Settings = CoolTextSaverSettings;
     type OutputLoader = TextLoader;
+    type Error = std::io::Error;
 
     fn save<'a>(
         &'a self,
         writer: &'a mut Writer,
         asset: SavedAsset<'a, Self::Asset>,
         settings: &'a Self::Settings,
-    ) -> BoxedFuture<'a, Result<TextSettings, anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<TextSettings, Self::Error>> {
         Box::pin(async move {
             let text = format!("{}{}", asset.text.clone(), settings.appended);
             writer.write_all(text.as_bytes()).await?;

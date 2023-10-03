@@ -421,7 +421,7 @@ mod tests {
             Reader,
         },
         loader::{AssetLoader, LoadContext},
-        Asset, AssetApp, AssetEvent, AssetId, AssetLoaderError, AssetPlugin, AssetProvider,
+        Asset, AssetApp, AssetEvent, AssetId, AssetPath, AssetPlugin, AssetProvider,
         AssetProviders, AssetServer, Assets, DependencyLoadState, LoadState,
         RecursiveDependencyLoadState,
     };
@@ -435,6 +435,7 @@ mod tests {
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
     use std::path::Path;
+    use thiserror::Error;
 
     #[derive(Asset, TypePath, Debug)]
     pub struct CoolText {
@@ -462,17 +463,29 @@ mod tests {
     #[derive(Default)]
     struct CoolTextLoader;
 
+    #[derive(Error, Debug)]
+    enum CoolTextLoaderError {
+        #[error("Could not load dependency: {dependency}")]
+        CannotLoadDependency { dependency: AssetPath<'static> },
+        #[error("A RON error occurred during loading")]
+        RONSpannedError(#[from] ron::error::SpannedError),
+        #[error("An IO error occurred during loading")]
+        IO(#[from] std::io::Error),
+    }
+
     impl AssetLoader for CoolTextLoader {
         type Asset = CoolText;
 
         type Settings = ();
+
+        type Error = CoolTextLoaderError;
 
         fn load<'a>(
             &'a self,
             reader: &'a mut Reader,
             _settings: &'a Self::Settings,
             load_context: &'a mut LoadContext,
-        ) -> BoxedFuture<'a, Result<Self::Asset, AssetLoaderError>> {
+        ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
             Box::pin(async move {
                 let mut bytes = Vec::new();
                 reader.read_to_end(&mut bytes).await?;
@@ -480,7 +493,7 @@ mod tests {
                 let mut embedded = String::new();
                 for dep in ron.embedded_dependencies {
                     let loaded = load_context.load_direct(&dep).await.map_err(|_| {
-                        AssetLoaderError::DependencyError {
+                        Self::Error::CannotLoadDependency {
                             dependency: dep.into(),
                         }
                     })?;

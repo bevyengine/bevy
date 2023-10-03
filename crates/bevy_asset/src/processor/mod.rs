@@ -13,7 +13,7 @@ use crate::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
         AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
-    AssetLoadError, AssetLoaderError, AssetPath, AssetServer, DeserializeMetaError,
+    AssetLoadError, AssetPath, AssetServer, DeserializeMetaError,
     MissingAssetLoaderForExtensionError, CANNOT_WATCH_ERROR_MESSAGE,
 };
 use bevy_ecs::prelude::*;
@@ -1130,9 +1130,8 @@ impl ProcessorAssetInfos {
             Err(err) => {
                 error!("Failed to process asset {:?}: {:?}", asset_path, err);
                 // if this failed because a dependency could not be loaded, make sure it is reprocessed if that dependency is reprocessed
-                if let ProcessError::AssetLoadError(AssetLoadError::AssetLoaderError {
-                    error: AssetLoaderError::DependencyError { dependency },
-                    ..
+                if let ProcessError::AssetLoadError(AssetLoadError::CannotLoadDependency {
+                    path: dependency,
                 }) = err
                 {
                     let info = self.get_mut(&asset_path).expect("info should exist");

@@ -1,20 +1,30 @@
 use crate::texture::{Image, TextureFormatPixelInfo};
-use bevy_asset::{io::Reader, AssetLoader, AssetLoaderError, AsyncReadExt, LoadContext};
+use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads HDR textures as Texture assets
 #[derive(Clone, Default)]
 pub struct HdrTextureLoader;
 
+#[derive(Debug, Error)]
+pub enum HdrTextureLoaderError {
+    #[error("Could load texture: {0}")]
+    IO(#[from] std::io::Error),
+    #[error("Could not extract image: {0}")]
+    Image(#[from] image::ImageError),
+}
+
 impl AssetLoader for HdrTextureLoader {
     type Asset = Image;
     type Settings = ();
+    type Error = HdrTextureLoaderError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a (),
         _load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Image, AssetLoaderError>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Image, Self::Error>> {
         Box::pin(async move {
             let format = TextureFormat::Rgba32Float;
             debug_assert_eq!(
@@ -25,12 +35,9 @@ impl AssetLoader for HdrTextureLoader {
 
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            let decoder = image::codecs::hdr::HdrDecoder::new(bytes.as_slice())
-                .map_err(|_| AssetLoaderError::Unknown)?;
+            let decoder = image::codecs::hdr::HdrDecoder::new(bytes.as_slice())?;
             let info = decoder.metadata();
-            let rgb_data = decoder
-                .read_image_hdr()
-                .map_err(|_| AssetLoaderError::Unknown)?;
+            let rgb_data = decoder.read_image_hdr()?;
             let mut rgba_data = Vec::with_capacity(rgb_data.len() * format.pixel_size());
 
             for rgb in rgb_data {

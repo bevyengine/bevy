@@ -200,7 +200,9 @@ impl Image {
             // Throw and error if conversion isn't supported
             texture_format => return Err(IntoDynamicImageError::UnsupportedFormat(texture_format)),
         }
-        .ok_or_else(|| IntoDynamicImageError::UknownConversionError(self.texture_descriptor.format))
+        .ok_or(IntoDynamicImageError::UnknownConversionError(
+            self.texture_descriptor.format,
+        ))
     }
 }
 
@@ -213,7 +215,7 @@ pub enum IntoDynamicImageError {
 
     /// Encountered an unknown error during conversion.
     #[error("Failed to convert into {0:?}.")]
-    UknownConversionError(TextureFormat),
+    UnknownConversionError(TextureFormat),
 }
 
 #[cfg(test)]

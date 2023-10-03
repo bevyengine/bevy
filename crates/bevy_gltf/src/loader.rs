@@ -1,7 +1,6 @@
 use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
 use bevy_asset::{
-    io::Reader, AssetLoadError, AssetLoader, AssetLoaderError, AsyncReadExt, Handle, LoadContext,
-    ReadAssetBytesError,
+    io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext, ReadAssetBytesError,
 };
 use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3dBundle;
@@ -73,6 +72,8 @@ pub enum GltfError {
     GenerateTangentsError(#[from] bevy_render::mesh::GenerateTangentsError),
     #[error("failed to generate morph targets: {0}")]
     MorphTarget(#[from] bevy_render::mesh::morph::MorphBuildError),
+    #[error("failed to load file: {0}")]
+    IO(#[from] std::io::Error),
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
@@ -84,18 +85,17 @@ pub struct GltfLoader {
 impl AssetLoader for GltfLoader {
     type Asset = Gltf;
     type Settings = ();
+    type Error = GltfError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a (),
         load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Gltf, AssetLoaderError>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Gltf, Self::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            Ok(load_gltf(self, &bytes, load_context)
-                .await
-                .map_err(|_| AssetLoaderError::Unknown)?)
+            load_gltf(self, &bytes, load_context).await
         })
     }
 

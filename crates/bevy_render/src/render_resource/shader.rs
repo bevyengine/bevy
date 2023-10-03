@@ -1,8 +1,6 @@
 use super::ShaderDefVal;
 use crate::define_atomic_id;
-use bevy_asset::{
-    io::Reader, Asset, AssetLoader, AssetLoaderError, AssetPath, Handle, LoadContext,
-};
+use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
 use bevy_utils::{tracing::error, BoxedFuture};
 use futures_lite::AsyncReadExt;
@@ -234,15 +232,24 @@ impl From<&Source> for naga_oil::compose::ShaderType {
 #[derive(Default)]
 pub struct ShaderLoader;
 
+#[derive(Debug, Error)]
+pub enum ShaderLoaderError {
+    #[error("Could load shader: {0}")]
+    IO(#[from] std::io::Error),
+    #[error("Could not parse shader: {0}")]
+    Parse(#[from] std::string::FromUtf8Error),
+}
+
 impl AssetLoader for ShaderLoader {
     type Asset = Shader;
     type Settings = ();
+    type Error = ShaderLoaderError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Shader, AssetLoaderError>> {
+    ) -> BoxedFuture<'a, Result<Shader, Self::Error>> {
         Box::pin(async move {
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
@@ -251,21 +258,21 @@ impl AssetLoader for ShaderLoader {
             let shader = match ext {
                 "spv" => Shader::from_spirv(bytes, load_context.path().to_string_lossy()),
                 "wgsl" => Shader::from_wgsl(
-                    String::from_utf8(bytes).map_err(|_| AssetLoaderError::Unknown)?,
+                    String::from_utf8(bytes)?,
                     load_context.path().to_string_lossy(),
                 ),
                 "vert" => Shader::from_glsl(
-                    String::from_utf8(bytes).map_err(|_| AssetLoaderError::Unknown)?,
+                    String::from_utf8(bytes)?,
                     naga::ShaderStage::Vertex,
                     load_context.path().to_string_lossy(),
                 ),
                 "frag" => Shader::from_glsl(
-                    String::from_utf8(bytes).map_err(|_| AssetLoaderError::Unknown)?,
+                    String::from_utf8(bytes)?,
                     naga::ShaderStage::Fragment,
                     load_context.path().to_string_lossy(),
                 ),
                 "comp" => Shader::from_glsl(
-                    String::from_utf8(bytes).map_err(|_| AssetLoaderError::Unknown)?,
+                    String::from_utf8(bytes)?,
                     naga::ShaderStage::Compute,
                     load_context.path().to_string_lossy(),
                 ),

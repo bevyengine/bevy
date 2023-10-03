@@ -5,22 +5,33 @@ use bevy_asset::{
 };
 use bevy_utils::BoxedFuture;
 use image::ImageDecoder;
+use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads EXR textures as Texture assets
 #[derive(Clone, Default)]
 pub struct ExrTextureLoader;
 
+/// Possible errors that can be produced by [`ExrTextureLoader`]
+#[derive(Debug, Error)]
+pub enum ExrTextureLoaderError {
+    #[error(transparent)]
+    IO(#[from] std::io::Error),
+    #[error(transparent)]
+    ImageError(#[from] image::ImageError),
+}
+
 impl AssetLoader for ExrTextureLoader {
     type Asset = Image;
     type Settings = ();
+    type Error = ExrTextureLoaderError;
 
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a Self::Settings,
         _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Image, AssetLoaderError>> {
+    ) -> BoxedFuture<'a, Result<Image, Self::Error>> {
         Box::pin(async move {
             let format = TextureFormat::Rgba32Float;
             debug_assert_eq!(

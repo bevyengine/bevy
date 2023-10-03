@@ -1,4 +1,4 @@
-use bevy_asset::{io::Reader, AssetLoader, AssetLoaderError, AsyncReadExt, LoadContext};
+use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use bevy_ecs::prelude::{FromWorld, World};
 use thiserror::Error;
 
@@ -67,15 +67,24 @@ impl Default for ImageLoaderSettings {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum ImageLoaderError {
+    #[error("Could load shader: {0}")]
+    IO(#[from] std::io::Error),
+    #[error("Could not load texture file: {0}")]
+    FileTexture(#[from] FileTextureError),
+}
+
 impl AssetLoader for ImageLoader {
     type Asset = Image;
     type Settings = ImageLoaderSettings;
+    type Error = ImageLoaderError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         settings: &'a ImageLoaderSettings,
         load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Image, AssetLoaderError>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Image, Self::Error>> {
         Box::pin(async move {
             // use the file extension for the image type
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
@@ -95,8 +104,7 @@ impl AssetLoader for ImageLoader {
             .map_err(|err| FileTextureError {
                 error: err,
                 path: format!("{}", load_context.path().display()),
-            })
-            .map_err(|_| AssetLoaderError::Unknown)?)
+            })?)
         })
     }
 
