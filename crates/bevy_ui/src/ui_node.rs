@@ -1482,6 +1482,7 @@ impl Default for BorderColor {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
+/// # use bevy_render::prelude::Color;
 /// fn setup_ui(mut commands: Commands) {
 ///     commands.spawn((
 ///         NodeBundle {
@@ -1516,7 +1517,7 @@ impl Default for BorderColor {
 ///         if let Some(mut outline) = maybe_outline {
 ///             outline.color = outline_color;
 ///         } else {
-///             commands.entity(entity).insert(Outline::new(Val::Px(10.), Val::ZERO, outline.color);
+///             commands.entity(entity).insert(Outline::new(Val::Px(10.), Val::ZERO, outline.color));
 ///         }
 ///     }
 /// }
