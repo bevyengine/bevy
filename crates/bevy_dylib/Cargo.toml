@@ -13,3 +13,6 @@ crate-type = ["dylib"]
 
 [dependencies]
 bevy_internal = { path = "../bevy_internal", version = "0.12.0", default-features = false }
+
+[lints]
+workspace = true

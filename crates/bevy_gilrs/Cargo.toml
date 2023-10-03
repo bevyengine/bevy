@@ -20,3 +20,6 @@ bevy_time = { path = "../bevy_time", version = "0.12.0" }
 # other
 gilrs = "0.10.1"
 thiserror = "1.0"
+
+[lints]
+workspace = true

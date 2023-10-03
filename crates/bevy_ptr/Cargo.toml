@@ -9,3 +9,6 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy", "no_std"]
 
 [dependencies]
+
+[lints]
+workspace = true

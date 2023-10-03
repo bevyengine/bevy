@@ -11,3 +11,6 @@ publish = false
 [dev-dependencies]
 bevy_reflect = { path = "../bevy_reflect" }
 trybuild = "1.0.71"
+
+[lints]
+workspace = true

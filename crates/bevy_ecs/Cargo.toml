@@ -44,3 +44,6 @@ path = "examples/resources.rs"
 [[example]]
 name = "change_detection"
 path = "examples/change_detection.rs"
+
+[lints]
+workspace = true
