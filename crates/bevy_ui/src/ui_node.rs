@@ -1503,13 +1503,14 @@ impl Default for BorderColor {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
+/// # use bevy_render::prelude::Color;
 /// fn outline_hovered_button_system(
 ///     mut commands: Commands,
 ///     node_query: Query<(Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
 /// ) {
 ///     for (entity, interaction, mut maybe_outline) in node_query.iter_mut() {
 ///         let outline_color =
-///             if matches(*iteraction, Interaction::Hovered) {
+///             if matches!(*interaction, Interaction::Hovered) {
 ///                 Color::WHITE    
 ///             } else {
 ///                 Color::NONE
@@ -1517,7 +1518,7 @@ impl Default for BorderColor {
 ///         if let Some(mut outline) = maybe_outline {
 ///             outline.color = outline_color;
 ///         } else {
-///             commands.entity(entity).insert(Outline::new(Val::Px(10.), Val::ZERO, outline.color));
+///             commands.entity(entity).insert(Outline::new(Val::Px(10.), Val::ZERO, outline_color));
 ///         }
 ///     }
 /// }
