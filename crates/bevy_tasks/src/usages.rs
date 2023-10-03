@@ -16,9 +16,9 @@ macro_rules! taskpool {
             }
 
             #[doc = concat!(" Gets the global [`", stringify!($type), "`] instance.")]
-            ///
-            /// # Panics
-            /// Panics if the global instance has not been initialized yet.
+            #[doc = ""]
+            #[doc = " # Panics"]
+            #[doc = " Panics if the global instance has not been initialized yet."]
             pub fn get() -> &'static Self {
                 $static.get().expect(
                     concat!(
