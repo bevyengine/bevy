@@ -186,7 +186,8 @@ pub fn update_previous_view_projections(
 ) {
     for (entity, camera, camera_transform) in &query {
         commands.entity(entity).try_insert(PreviousViewProjection {
-            view_proj: camera.projection_matrix() * camera_transform.compute_matrix().inverse(),
+            view_proj: camera.projection_matrix_unchecked()
+                * camera_transform.compute_matrix().inverse(),
         });
     }
 }
