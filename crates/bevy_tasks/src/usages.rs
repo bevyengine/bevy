@@ -15,6 +15,12 @@ macro_rules! taskpool {
                 $static.get_or_init(|| Self(f()))
             }
 
+            #[doc = concat!(" Attempts to get the global [`", stringify!($type), "`] instance, \
+                or returns `None` if it is not initialized.")]
+            pub fn try_get() -> Option<&'static Self> {
+                $static.get()
+            }
+
             #[doc = concat!(" Gets the global [`", stringify!($type), "`] instance.")]
             #[doc = ""]
             #[doc = " # Panics"]
