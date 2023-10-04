@@ -3,9 +3,9 @@ use std::marker::PhantomData;
 use crate::{
     component::Tick,
     entity::Entity,
-    prelude::TermQueryState,
+    prelude::{QueryFetchGroup, TermQueryState},
     query::{QueryEntityError, QuerySingleError},
-    term_query::{QueryTermGroup, ROTermItem, TermQueryIter, TermQueryIterUntyped},
+    term_query::{ROTermItem, TermQueryIter, TermQueryIterUntyped},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -21,7 +21,7 @@ use crate::{
 /// [`Query`]: crate::prelude::Query
 /// [`Component`]: crate::prelude::Component
 /// [`World`]: crate::prelude::World
-pub struct TermQuery<'w, 's, Q: QueryTermGroup, F: QueryTermGroup = ()> {
+pub struct TermQuery<'w, 's, Q: QueryFetchGroup, F: QueryFetchGroup = ()> {
     // SAFETY: Must have access to the components registered in `state`.
     world: UnsafeWorldCell<'w>,
     state: &'s TermQueryState<Q, F>,
@@ -30,7 +30,7 @@ pub struct TermQuery<'w, 's, Q: QueryTermGroup, F: QueryTermGroup = ()> {
     _marker: PhantomData<Q>,
 }
 
-impl<'w, 's, Q: QueryTermGroup, F: QueryTermGroup> TermQuery<'w, 's, Q, F> {
+impl<'w, 's, Q: QueryFetchGroup, F: QueryFetchGroup> TermQuery<'w, 's, Q, F> {
     /// Creates a new term query.
     ///
     /// # Panics
@@ -65,7 +65,7 @@ impl<'w, 's, Q: QueryTermGroup, F: QueryTermGroup> TermQuery<'w, 's, Q, F> {
     /// - [`iter_mut`](Self::iter_mut) for mutable query items.
     /// - [`Query::iter`](crate::prelude::Query::iter) for more examples
     #[inline]
-    pub fn iter(&self) -> TermQueryIter<'_, 's, Q::ReadOnly> {
+    pub fn iter(&self) -> TermQueryIter<'_, 's, Q::ReadOnly, F> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The query is read-only, so it can be aliased even if it was originally mutable.
@@ -83,7 +83,7 @@ impl<'w, 's, Q: QueryTermGroup, F: QueryTermGroup> TermQuery<'w, 's, Q, F> {
     /// - [`iter`](Self::iter) for read-only query items.
     /// - [`Query::iter_mut`](crate::prelude::Query::iter_mut) for more examples
     #[inline]
-    pub fn iter_mut(&mut self) -> TermQueryIter<'_, 's, Q> {
+    pub fn iter_mut(&mut self) -> TermQueryIter<'_, 's, Q, F> {
         // SAFETY: `self.world` has permission to access the required components.
         unsafe {
             self.state
@@ -114,10 +114,10 @@ impl<'w, 's, Q: QueryTermGroup, F: QueryTermGroup> TermQuery<'w, 's, Q, F> {
     ///
     /// fn update_system(mut query: TermQuery<(&mut A, &B, &mut C)>) {
     ///     query.iter_raw().for_each(|fetches| {
-    ///         fetches.iter_terms().for_each(|(term, state)| {
+    ///         fetches.iter().for_each(|(term, state)| {
     ///             if term.access == TermAccess::Write {
     ///                 // SAFETY: Since all the components have the same layout we can cast them all to the same value
-    ///                 let mut component = unsafe { fetches.cast_state::<&mut A>(state) };
+    ///                 let mut component = unsafe { fetches.fetch_state::<&mut A>(state) };
     ///                 component.0 += 1;
     ///             }
     ///         })
@@ -240,9 +240,9 @@ impl<'w, 's, Q: QueryTermGroup, F: QueryTermGroup> TermQuery<'w, 's, Q, F> {
     }
 }
 
-impl<'w, 's, Q: QueryTermGroup, F: QueryTermGroup> IntoIterator for &'w TermQuery<'_, 's, Q, F> {
-    type Item = <Q::ReadOnly as QueryTermGroup>::Item<'w>;
-    type IntoIter = TermQueryIter<'w, 's, Q::ReadOnly>;
+impl<'w, 's, Q: QueryFetchGroup, F: QueryFetchGroup> IntoIterator for &'w TermQuery<'_, 's, Q, F> {
+    type Item = <Q::ReadOnly as QueryFetchGroup>::Item<'w>;
+    type IntoIter = TermQueryIter<'w, 's, Q::ReadOnly, F>;
 
     fn into_iter(self) -> Self::IntoIter {
         // SAFETY: invariants guaranteed in TermQuery::new
@@ -257,21 +257,14 @@ impl<'w, 's, Q: QueryTermGroup, F: QueryTermGroup> IntoIterator for &'w TermQuer
     }
 }
 
-impl<'w, 's, Q: QueryTermGroup, F: QueryTermGroup> IntoIterator
+impl<'w, 's, Q: QueryFetchGroup, F: QueryFetchGroup> IntoIterator
     for &'w mut TermQuery<'_, 's, Q, F>
 {
     type Item = Q::Item<'w>;
-    type IntoIter = TermQueryIter<'w, 's, Q>;
+    type IntoIter = TermQueryIter<'w, 's, Q, F>;
 
     fn into_iter(self) -> Self::IntoIter {
         // SAFETY: invariants guaranteed in TermQuery::new
-        unsafe {
-            TermQueryIter::new(
-                self.world,
-                self.state.filterless(),
-                self.last_run,
-                self.this_run,
-            )
-        }
+        unsafe { TermQueryIter::new(self.world, self.state, self.last_run, self.this_run) }
     }
 }

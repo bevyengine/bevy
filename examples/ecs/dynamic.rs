@@ -8,13 +8,12 @@ use bevy::{
     ecs::{
         component::{ComponentDescriptor, ComponentId, StorageType},
         system::TermQuery,
-        term_query::{QueryBuilder, QueryTermGroup, Term, TermAccess},
+        term_query::{QueryBuilder, Term, TermAccess},
     },
     ptr::OwningPtr,
     ptr::Ptr,
     utils::HashMap,
 };
-use bevy_internal::ecs::term_query::TermState;
 
 const PROMPT: &str = "
 Commands:
@@ -145,7 +144,7 @@ fn main() {
     }
 }
 
-fn parse_term<Q: QueryTermGroup>(
+fn parse_term<Q: QueryFetchGroup>(
     str: &str,
     builder: &mut QueryBuilder<Q>,
     components: &HashMap<String, ComponentId>,
@@ -174,7 +173,7 @@ fn parse_term<Q: QueryTermGroup>(
         }
         Some(_) => {
             if let Some(&id) = components.get(str) {
-                builder.with_by_id(id);
+                builder.push_fetch(Term::new(0).with_id(id));
                 matched = true;
             }
         }
@@ -186,7 +185,7 @@ fn parse_term<Q: QueryTermGroup>(
     }
 }
 
-fn parse_query<Q: QueryTermGroup>(
+fn parse_query<Q: QueryFetchGroup>(
     str: &str,
     builder: &mut QueryBuilder<Q>,
     components: &HashMap<String, ComponentId>,
@@ -197,7 +196,7 @@ fn parse_query<Q: QueryTermGroup>(
         if sub_terms.len() == 1 {
             parse_term(sub_terms[0], builder, components);
         } else {
-            builder.or(|b| {
+            builder.any_of(|b| {
                 sub_terms
                     .iter()
                     .for_each(|term| parse_term(term, b, components));

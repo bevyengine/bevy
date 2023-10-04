@@ -5,11 +5,12 @@ use crate::{
     change_detection::{Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
+    prelude::QueryFetchGroup,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
     system::{Query, SystemMeta},
-    term_query::{QueryTermGroup, TermQueryState},
+    term_query::TermQueryState,
     world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
 };
 use bevy_ecs_macros::impl_param_set;
@@ -230,7 +231,7 @@ fn assert_component_access_compatibility(
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this TermQuery conflicts with any prior access, a panic will occur.
-unsafe impl<Q: QueryTermGroup + 'static, F: QueryTermGroup + 'static> SystemParam
+unsafe impl<Q: QueryFetchGroup + 'static, F: QueryFetchGroup + 'static> SystemParam
     for TermQuery<'_, '_, Q, F>
 {
     type State = TermQueryState<Q, F>;

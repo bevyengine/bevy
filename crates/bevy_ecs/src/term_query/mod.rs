@@ -1,14 +1,16 @@
 //! Contains APIs for retrieving component data dynamically from the world at runtime.
 
 mod builder;
+mod fetch;
+mod filter;
 mod iter;
-mod query_term;
 mod state;
 mod term;
 
 pub use builder::*;
+pub use fetch::*;
+pub use filter::*;
 pub use iter::*;
-pub use query_term::*;
 pub use state::*;
 pub use term::*;
 
@@ -81,18 +83,18 @@ mod tests {
         world.spawn(C(0));
 
         let mut query_a = QueryBuilder::<Entity>::new(&mut world)
-            .term::<Or<(With<A>, With<B>)>>()
+            .filter::<Or<(With<A>, With<B>)>>()
             .build();
         assert_eq!(2, query_a.iter(&world).count());
 
         let mut query_b = QueryBuilder::<Entity>::new(&mut world)
             .with::<B>()
-            .term::<Or<(With<A>, Without<A>)>>()
+            .filter::<Or<(With<A>, Without<A>)>>()
             .build();
         assert_eq!(2, query_b.iter(&world).count());
 
         let mut query_c = QueryBuilder::<Entity>::new(&mut world)
-            .term::<Or<(With<A>, With<B>, With<C>)>>()
+            .filter::<Or<(With<A>, With<B>, With<C>)>>()
             .build();
         assert_eq!(3, query_c.iter(&world).count());
     }
@@ -103,9 +105,9 @@ mod tests {
         world.spawn(A(0));
         world.spawn((A(1), B(0)));
         let mut query = QueryBuilder::<()>::new(&mut world)
-            .term::<&A>()
+            .fetch::<&A>()
             .with::<B>()
-            .try_transmute::<&A>()
+            .try_transmute::<&A, ()>()
             .unwrap()
             .build();
 
@@ -122,10 +124,8 @@ mod tests {
         // SAFETY: We are only modifying dynamic terms
         let mut query = unsafe {
             QueryBuilder::<(Entity, Ptr, Ptr)>::new(&mut world)
-                .term_at(1)
-                .set_dynamic::<A>()
-                .term_at(2)
-                .set_dynamic::<B>()
+                .set_dynamic::<A>(1)
+                .set_dynamic::<B>(2)
                 .build()
         };
 
@@ -155,10 +155,8 @@ mod tests {
         // SAFETY: We are only modifying dynamic terms
         let mut query = unsafe {
             QueryBuilder::<(Entity, Ptr, Ptr)>::new(&mut world)
-                .term_at(1)
-                .set_dynamic_by_id(component_id_a)
-                .term_at(2)
-                .set_dynamic_by_id(component_id_b)
+                .set_dynamic_by_id(1, component_id_a)
+                .set_dynamic_by_id(2, component_id_b)
                 .build()
         };
 
@@ -209,8 +207,8 @@ mod tests {
         let mut world = World::new();
         let entity = world.spawn((A(0), B(1))).id();
         let mut query = QueryBuilder::<()>::new(&mut world)
-            .term::<(Entity, &A)>()
-            .term::<(Entity, &B)>()
+            .fetch::<(Entity, &A)>()
+            .fetch::<(Entity, &B)>()
             .build();
 
         let terms = query.single_raw(&mut world);
@@ -219,7 +217,7 @@ mod tests {
         // SAFETY: We know the first two terms match this signature
         let (e1, a) = unsafe { terms.fetch_range::<(Entity, &A)>(0..2) };
         // SAFETY: We know the second two terms match this signature
-        let (e2, b) = unsafe { terms.fetch_range::<(Entity, &A)>(2..4) };
+        let (e2, b) = unsafe { terms.fetch_range::<(Entity, &B)>(2..4) };
 
         assert_eq!(e1, entity);
         assert_eq!(e1, e2);
@@ -298,9 +296,12 @@ mod tests {
         let mut world = World::new();
         let entity_a = world.spawn(A(0)).id();
 
-        let mut query = QueryBuilder::<(Entity, Has<B>)>::new(&mut world)
-            .term::<Added<A>>()
+        let query = QueryBuilder::<(Entity, Has<B>)>::new(&mut world)
+            .filter::<Added<A>>()
             .build();
+        let mut query = query
+            .try_transmute::<(Entity, Has<B>), Added<A>>(&mut world)
+            .unwrap();
 
         assert_eq!((entity_a, false), query.single(&world));
 
@@ -319,9 +320,12 @@ mod tests {
         let mut world = World::new();
         let entity_a = world.spawn(A(0)).id();
 
-        let mut detection_query = QueryBuilder::<Entity>::new(&mut world)
-            .term::<Changed<A>>()
+        let detection_query = QueryBuilder::<Entity>::new(&mut world)
+            .filter::<Changed<A>>()
             .build();
+        let mut detection_query = detection_query
+            .try_transmute::<Entity, Changed<A>>(&mut world)
+            .unwrap();
 
         let mut change_query = QueryBuilder::<&mut A>::new(&mut world).build();
         assert_eq!(entity_a, detection_query.single(&world));

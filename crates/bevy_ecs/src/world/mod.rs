@@ -18,12 +18,13 @@ use crate::{
     component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, Events},
+    prelude::QueryFetchGroup,
     query::{DebugCheckedUnwrap, QueryEntityError, QueryState, ReadOnlyWorldQuery, WorldQuery},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::Resource,
-    term_query::{QueryTermGroup, TermQueryState},
+    term_query::TermQueryState,
     world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -1015,7 +1016,7 @@ impl World {
     /// it uses a dynamic implementation which trades speed for flexibility. In most use cases
     /// [`World::query`] is prefered.
     #[inline]
-    pub fn term_query<Q: QueryTermGroup>(&mut self) -> TermQueryState<Q> {
+    pub fn term_query<Q: QueryFetchGroup>(&mut self) -> TermQueryState<Q> {
         self.term_query_filtered::<Q, ()>()
     }
 
@@ -1026,7 +1027,7 @@ impl World {
     /// it uses a dynamic implementation which trades speed for flexibility. In most use cases
     /// [`World::query_filtered`] is prefered.
     #[inline]
-    pub fn term_query_filtered<Q: QueryTermGroup, F: QueryTermGroup>(
+    pub fn term_query_filtered<Q: QueryFetchGroup, F: QueryFetchGroup>(
         &mut self,
     ) -> TermQueryState<Q, F> {
         TermQueryState::new(self)

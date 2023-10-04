@@ -1,4 +1,6 @@
-use std::{ops::Range, slice};
+use std::{marker::PhantomData, mem::MaybeUninit, ops::Range, slice};
+
+use bevy_ptr::ThinSlicePtr;
 
 use crate::{
     archetype::{ArchetypeEntity, ArchetypeId, Archetypes},
@@ -9,14 +11,15 @@ use crate::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{QueryTermGroup, Term, TermQueryState, TermState};
+use super::{QueryFetchGroup, Term, TermQueryState, TermState};
 
 struct TermQueryCursorUntyped<'w, 's> {
     table_id_iter: slice::Iter<'s, TableId>,
     archetype_id_iter: slice::Iter<'s, ArchetypeId>,
     table_entities: &'w [Entity],
     archetype_entities: &'w [ArchetypeEntity],
-    term_state: Vec<TermState<'w>>,
+    fetch_state: Vec<TermState<'w>>,
+    filter_state: Vec<TermState<'w>>,
     // length of the table table or length of the archetype, depending on whether all terms are dense
     current_len: usize,
     // either table row or archetype index, depending on whether all terms are dense
@@ -27,30 +30,33 @@ struct TermQueryCursorUntyped<'w, 's> {
 
 impl<'w, 's> TermQueryCursorUntyped<'w, 's> {
     #[inline]
-    unsafe fn new<Q: QueryTermGroup>(
+    unsafe fn new<Q: QueryFetchGroup, F: QueryFetchGroup>(
         world: UnsafeWorldCell<'w>,
-        query_state: &'s TermQueryState<Q>,
+        query_state: &'s TermQueryState<Q, F>,
     ) -> Self {
-        let term_state = query_state.init_term_state(world);
+        let fetch_state = query_state.init_fetch_state(world);
+        let filter_state = query_state.init_filter_state(world);
+        let dense = fetch_state.iter().all(|t| t.dense());
         Self {
             table_id_iter: query_state.matched_table_ids.iter(),
             archetype_id_iter: query_state.matched_archetype_ids.iter(),
             table_entities: &[],
             archetype_entities: &[],
-            term_state,
+            fetch_state,
+            filter_state,
             current_len: 0,
             current_row: 0,
-            dense: query_state.dense,
-            filtered: query_state.filtered,
+            dense,
+            filtered: query_state.filter_terms.iter().any(|t| t.filtered()),
         }
     }
 
     #[inline]
-    unsafe fn next<Q: QueryTermGroup>(
+    unsafe fn next<Q: QueryFetchGroup, F: QueryFetchGroup>(
         &mut self,
         tables: &'w Tables,
         archetypes: &'w Archetypes,
-        query_state: &'s TermQueryState<Q>,
+        query_state: &'s TermQueryState<Q, F>,
         last_run: Tick,
         this_run: Tick,
     ) -> Option<(Entity, TableRow, Vec<TermState<'w>>)> {
@@ -62,7 +68,7 @@ impl<'w, 's> TermQueryCursorUntyped<'w, 's> {
                     let table = tables.get(*table_id).debug_checked_unwrap();
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                    query_state.set_table(&mut self.term_state, table);
+                    query_state.set_table(&mut self.fetch_state, &mut self.filter_state, table);
                     self.table_entities = table.entities();
                     self.current_len = table.entity_count();
                     self.current_row = 0;
@@ -81,9 +87,9 @@ impl<'w, 's> TermQueryCursorUntyped<'w, 's> {
                 //   because if it was not, then the if above would have been executed.
                 // - fetch is only called once for each `entity`.
                 if !self.filtered
-                    || query_state.filter_fetch(&self.term_state, entity, row, last_run, this_run)
+                    || query_state.filter_fetch(&self.filter_state, entity, row, last_run, this_run)
                 {
-                    return Some((entity, row, self.term_state.clone()));
+                    return Some((entity, row, self.fetch_state.clone()));
                 }
             }
         } else {
@@ -94,7 +100,12 @@ impl<'w, 's> TermQueryCursorUntyped<'w, 's> {
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     let table = tables.get(archetype.table_id()).debug_checked_unwrap();
-                    query_state.set_archetype(&mut self.term_state, archetype, table);
+                    query_state.set_archetype(
+                        &mut self.fetch_state,
+                        &mut self.filter_state,
+                        archetype,
+                        table,
+                    );
                     self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();
                     self.current_row = 0;
@@ -112,9 +123,9 @@ impl<'w, 's> TermQueryCursorUntyped<'w, 's> {
                 let entity = archetype_entity.entity();
                 let row = archetype_entity.table_row();
                 if !self.filtered
-                    || query_state.filter_fetch(&self.term_state, entity, row, last_run, this_run)
+                    || query_state.filter_fetch(&self.filter_state, entity, row, last_run, this_run)
                 {
-                    return Some((entity, row, self.term_state.clone()));
+                    return Some((entity, row, self.fetch_state.clone()));
                 }
             }
         }
@@ -137,9 +148,9 @@ impl<'w, 's> TermQueryIterUntyped<'w, 's> {
     /// - `world` must have permission to access any of the components registered in `query_state`.
     /// - `world` must be the same one used to initialize `query_state`.
     #[inline]
-    pub(crate) unsafe fn new<Q: QueryTermGroup>(
+    pub(crate) unsafe fn new<Q: QueryFetchGroup, F: QueryFetchGroup>(
         world: UnsafeWorldCell<'w>,
-        query_state: &'s TermQueryState<Q>,
+        query_state: &'s TermQueryState<Q, F>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
@@ -179,7 +190,7 @@ impl<'w, 's> FetchedTerms<'w, 's> {
     ///
     /// # Safety
     /// - [`TermState`] at `index` must be fetcheable as `Q::Item`
-    pub unsafe fn fetch<Q: QueryTermGroup>(&self, index: usize) -> Q::Item<'w> {
+    pub unsafe fn fetch<Q: QueryFetchGroup>(&self, index: usize) -> Q::Item<'w> {
         self.fetch_range::<Q>(index..index + 1)
     }
 
@@ -187,7 +198,7 @@ impl<'w, 's> FetchedTerms<'w, 's> {
     ///
     /// # Safety
     /// - [`TermState`] must be fetcheable as `Q::Item`
-    pub unsafe fn fetch_state<Q: QueryTermGroup>(&self, state: &TermState<'w>) -> Q::Item<'w> {
+    pub unsafe fn fetch_state<Q: QueryFetchGroup>(&self, state: &TermState<'w>) -> Q::Item<'w> {
         self.fetch_slice::<Q>(slice::from_ref(state))
     }
 
@@ -195,12 +206,12 @@ impl<'w, 's> FetchedTerms<'w, 's> {
     ///
     /// # Safety
     /// - [`TermState`] in slice must be fetcheable as `Q::Item`
-    pub unsafe fn fetch_slice<Q: QueryTermGroup>(&self, state: &[TermState<'w>]) -> Q::Item<'w> {
+    pub unsafe fn fetch_slice<Q: QueryFetchGroup>(&self, state: &[TermState<'w>]) -> Q::Item<'w> {
         Q::fetch_terms(
             self.world,
             self.last_run,
             self.this_run,
-            &mut state.iter(),
+            ThinSlicePtr::from(state),
             self.entity,
             self.table_row,
         )
@@ -210,7 +221,7 @@ impl<'w, 's> FetchedTerms<'w, 's> {
     ///
     /// # Safety
     /// - [`TermState`] in given range must be fetcheable as `Q::Item`
-    pub unsafe fn fetch_range<Q: QueryTermGroup>(&self, range: Range<usize>) -> Q::Item<'w> {
+    pub unsafe fn fetch_range<Q: QueryFetchGroup>(&self, range: Range<usize>) -> Q::Item<'w> {
         self.fetch_slice::<Q>(&self.state[range])
     }
 }
@@ -238,7 +249,7 @@ impl<'w, 's> Iterator for TermQueryIterUntyped<'w, 's> {
                     world: self.world,
                     last_run: self.last_run,
                     this_run: self.this_run,
-                    terms: &self.query_state.terms,
+                    terms: &self.query_state.fetch_terms,
                     state,
                 })
         }
@@ -249,105 +260,138 @@ impl<'w, 's> Iterator for TermQueryIterUntyped<'w, 's> {
 ///
 /// This struct is created by the [`TermQuery::iter`](crate::system::TermQuery::iter) and
 /// [`TermQuery::iter_mut`](crate::system::TermQuery::iter_mut) methods.
-pub struct TermQueryIter<'w, 's, Q: QueryTermGroup> {
+pub struct TermQueryIter<'w, 's, Q: QueryFetchGroup, F: QueryFetchGroup> {
     world: UnsafeWorldCell<'w>,
+    tables: &'w Tables,
+    archetypes: &'w Archetypes,
     table_id_iter: slice::Iter<'s, TableId>,
     archetype_id_iter: slice::Iter<'s, ArchetypeId>,
     table_entities: &'w [Entity],
     archetype_entities: &'w [ArchetypeEntity],
-    query_state: &'s TermQueryState<Q>,
-    term_state: Vec<TermState<'w>>,
+    // With generic_const_expr this can be [_; Q::SIZE] and eliminate the fallback
+    fetch_state: MaybeUninit<[TermState<'w>; 16]>,
+    filter_state: MaybeUninit<[TermState<'w>; 16]>,
+    fetch_state_vec: Vec<TermState<'w>>,
+    filter_state_vec: Vec<TermState<'w>>,
     // length of the table table or length of the archetype, depending on whether all terms are dense
     current_len: usize,
     // either table row or archetype index, depending on whether all terms are dense
     current_row: usize,
     last_run: Tick,
     this_run: Tick,
+    _marker: PhantomData<(Q, F)>,
 }
 
-impl<'w, 's, Q: QueryTermGroup> TermQueryIter<'w, 's, Q> {
+impl<'w, 's, Q: QueryFetchGroup, F: QueryFetchGroup> TermQueryIter<'w, 's, Q, F> {
     /// # Safety
     /// - `world` must have permission to access any of the components registered in `query_state`.
     /// - `world` must be the same one used to initialize `query_state`.
     #[inline]
     pub unsafe fn new(
         world: UnsafeWorldCell<'w>,
-        query_state: &'s TermQueryState<Q>,
+        query_state: &'s TermQueryState<Q, F>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
-        let term_state = query_state.init_term_state(world);
+        let mut fetch_state_vec = query_state.init_fetch_state(world);
+        let mut filter_state_vec = query_state.init_filter_state(world);
+        let mut fetch_state: MaybeUninit<[TermState<'_>; 16]> = MaybeUninit::uninit();
+        let mut filter_state: MaybeUninit<[TermState<'_>; 16]> = MaybeUninit::uninit();
+        if Q::SIZE <= 16 {
+            for (i, term) in fetch_state_vec.into_iter().enumerate() {
+                fetch_state.assume_init_mut()[i] = term;
+            }
+            fetch_state_vec = Vec::new();
+        }
+        if F::SIZE <= 16 {
+            for (i, term) in filter_state_vec.into_iter().enumerate() {
+                filter_state.assume_init_mut()[i] = term;
+            }
+            filter_state_vec = Vec::new();
+        }
+        let tables = &world.storages().tables;
+        let archetypes = world.archetypes();
+
         Self {
             world,
+            tables,
+            archetypes,
             table_id_iter: query_state.matched_table_ids.iter(),
             archetype_id_iter: query_state.matched_archetype_ids.iter(),
             table_entities: &[],
             archetype_entities: &[],
-            query_state,
-            term_state,
+            fetch_state,
+            filter_state,
+            fetch_state_vec,
+            filter_state_vec,
             current_len: 0,
             current_row: 0,
             last_run,
             this_run,
+            _marker: PhantomData,
         }
     }
 }
 
-impl<'w, 's, Q: QueryTermGroup> Iterator for TermQueryIter<'w, 's, Q> {
+impl<'w, 's, Q: QueryFetchGroup, F: QueryFetchGroup> Iterator for TermQueryIter<'w, 's, Q, F> {
     type Item = Q::Item<'w>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Q::Item<'w>> {
         // SAFETY: invariants guaranteed by caller in `Self::new`
         unsafe {
-            let tables = &self.world.storages().tables;
-            let archetypes = self.world.archetypes();
-            if Q::DENSE || self.query_state.dense {
+            let fetch_state = if Q::SIZE <= 16 {
+                ThinSlicePtr::from(&mut self.fetch_state.assume_init_mut()[..])
+            } else {
+                ThinSlicePtr::from(&mut self.fetch_state_vec[..])
+            };
+
+            let filter_state = if F::SIZE <= 16 {
+                ThinSlicePtr::from(&mut self.filter_state.assume_init_mut()[..])
+            } else {
+                ThinSlicePtr::from(&mut self.filter_state_vec[..])
+            };
+            if Q::DENSE && F::DENSE {
                 loop {
                     // we are on the beginning of the query, or finished processing a table, so skip to the next
                     if self.current_row == self.current_len {
                         let table_id = self.table_id_iter.next()?;
-                        let table = tables.get(*table_id).debug_checked_unwrap();
+                        let table = self.tables.get(*table_id).debug_checked_unwrap();
                         // SAFETY: `table` is from the world that `fetch/filter` were created for,
                         // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                        if self.query_state.filtered {
-                            self.query_state.set_table(&mut self.term_state, table);
-                        } else {
-                            Q::set_tables(&mut self.term_state.iter_mut(), table);
-                        }
+                        Q::set_term_tables(fetch_state, table);
+                        F::set_term_tables(filter_state, table);
+
                         self.table_entities = table.entities();
                         self.current_len = table.entity_count();
                         self.current_row = 0;
                         continue;
                     }
 
-                    // SAFETY: set_table was called prior.
-                    // `current_row` is a table row in range of the current table, because if it was not, then the if above would have been executed.
                     let entity = *self.table_entities.get_unchecked(self.current_row);
-                    let row = TableRow::new(self.current_row);
-                    self.current_row += 1;
+                    let table_row = TableRow::new(self.current_row);
 
                     // SAFETY:
                     // - set_table was called prior.
                     // - `current_row` must be a table row in range of the current table,
                     //   because if it was not, then the if above would have been executed.
                     // - fetch is only called once for each `entity`.
-                    if !self.query_state.filtered
-                        || self.query_state.filter_fetch(
-                            &self.term_state,
-                            entity,
-                            row,
-                            self.last_run,
-                            self.this_run,
-                        )
-                    {
+                    self.current_row += 1;
+                    if F::filter_terms(
+                        self.world,
+                        self.last_run,
+                        self.this_run,
+                        filter_state,
+                        entity,
+                        table_row,
+                    ) {
                         return Some(Q::fetch_terms(
                             self.world,
                             self.last_run,
                             self.this_run,
-                            &mut self.term_state.iter(),
+                            fetch_state,
                             entity,
-                            row,
+                            table_row,
                         ));
                     }
                 }
@@ -355,48 +399,38 @@ impl<'w, 's, Q: QueryTermGroup> Iterator for TermQueryIter<'w, 's, Q> {
                 loop {
                     if self.current_row == self.current_len {
                         let archetype_id = self.archetype_id_iter.next()?;
-                        let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();
+                        let archetype = self.archetypes.get(*archetype_id).debug_checked_unwrap();
                         // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                         // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                        let table = tables.get(archetype.table_id()).debug_checked_unwrap();
-                        if self.query_state.filtered {
-                            self.query_state
-                                .set_archetype(&mut self.term_state, archetype, table);
-                        } else {
-                            Q::set_archetypes(&mut self.term_state.iter_mut(), archetype, table);
-                        }
+                        let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
+                        Q::set_term_archetypes(fetch_state, archetype, table);
+                        F::set_term_archetypes(filter_state, archetype, table);
                         self.archetype_entities = archetype.entities();
                         self.current_len = archetype.len();
                         self.current_row = 0;
                         continue;
                     }
 
-                    // SAFETY:
-                    // - set_archetype was called prior.
-                    // - `current_row` must be an archetype index row in range of the current archetype,
-                    //   because if it was not, then the if above would have been executed.
-                    // - fetch is only called once for each `archetype_entity`.
                     let archetype_entity = self.archetype_entities.get_unchecked(self.current_row);
-                    self.current_row += 1;
 
+                    self.current_row += 1;
                     let entity = archetype_entity.entity();
-                    let row = archetype_entity.table_row();
-                    if !self.query_state.filtered
-                        || self.query_state.filter_fetch(
-                            &self.term_state,
-                            entity,
-                            row,
-                            self.last_run,
-                            self.this_run,
-                        )
-                    {
+                    let table_row = archetype_entity.table_row();
+                    if F::filter_terms(
+                        self.world,
+                        self.last_run,
+                        self.this_run,
+                        filter_state,
+                        entity,
+                        table_row,
+                    ) {
                         return Some(Q::fetch_terms(
                             self.world,
                             self.last_run,
                             self.this_run,
-                            &mut self.term_state.iter(),
+                            fetch_state,
                             entity,
-                            row,
+                            table_row,
                         ));
                     }
                 }

@@ -354,7 +354,7 @@ pub struct ThinSlicePtr<'a, T> {
     ptr: NonNull<T>,
     #[cfg(debug_assertions)]
     len: usize,
-    _marker: PhantomData<&'a [T]>,
+    _marker: PhantomData<&'a mut [T]>,
 }
 
 impl<'a, T> ThinSlicePtr<'a, T> {
@@ -368,6 +368,31 @@ impl<'a, T> ThinSlicePtr<'a, T> {
         debug_assert!(index < self.len);
 
         &*self.ptr.as_ptr().add(index)
+    }
+
+    #[inline]
+    /// Indexes the slice without doing bounds checks
+    ///
+    /// # Safety
+    /// `index` must be in-bounds Self must have exclusive access to it's pointee.
+    pub unsafe fn get_mut(&mut self, index: usize) -> &'a mut T {
+        #[cfg(debug_assertions)]
+        debug_assert!(index < self.len);
+
+        self.ptr.as_mut()
+    }
+
+    #[inline]
+    /// Adds to the pointer without doing bounds checks
+    ///
+    /// # Safety
+    /// `index` must be in-bounds or Self must not be accessed.
+    pub unsafe fn add(&mut self, index: usize) {
+        self.ptr = NonNull::<T>::new_unchecked(self.ptr.as_ptr().add(index));
+        #[cfg(debug_assertions)]
+        {
+            self.len -= index;
+        }
     }
 }
 
@@ -383,6 +408,60 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
     #[inline]
     fn from(slice: &'a [T]) -> Self {
         let ptr = slice.as_ptr() as *mut T;
+        Self {
+            // SAFETY: a reference can never be null
+            ptr: unsafe { NonNull::new_unchecked(ptr.debug_ensure_aligned()) },
+            #[cfg(debug_assertions)]
+            len: slice.len(),
+            _marker: PhantomData,
+        }
+    }
+}
+
+// /// Conceptually equivalent to `&'mut a [T]` but with length information cut out for performance reasons
+// pub struct ThinSlicePtrMut<'a, T> {
+//     ptr: NonNull<T>,
+//     #[cfg(debug_assertions)]
+//     len: usize,
+//     _marker: PhantomData<&'a mut [T]>,
+// }
+
+// impl<'a, T> ThinSlicePtrMut<'a, T> {
+//     #[inline]
+//     /// Indexes the slice without doing bounds checks
+//     ///
+//     /// # Safety
+//     /// `index` must be in-bounds.
+//     pub unsafe fn get(self, index: usize) -> &'a T {
+//         #[cfg(debug_assertions)]
+//         debug_assert!(index < self.len);
+
+//         &*self.ptr.as_ptr().add(index)
+//     }
+
+//     pub unsafe fn get_mut(mut self, index: usize) -> &'a mut T {
+//         #[cfg(debug_assertions)]
+//         debug_assert!(index < self.len);
+
+//         self.ptr.as_mut()
+//     }
+
+//     pub unsafe fn add(&mut self, index: usize) {
+//         #[cfg(debug_assertions)]
+//         debug_assert!(index < self.len);
+
+//         self.ptr = NonNull::<T>::new_unchecked(self.ptr.as_ptr().add(index));
+//         #[cfg(debug_assertions)]
+//         {
+//             self.len -= index;
+//         }
+//     }
+// }
+
+impl<'a, T> From<&'a mut [T]> for ThinSlicePtr<'a, T> {
+    #[inline]
+    fn from(slice: &'a mut [T]) -> Self {
+        let ptr = slice.as_mut_ptr();
         Self {
             // SAFETY: a reference can never be null
             ptr: unsafe { NonNull::new_unchecked(ptr.debug_ensure_aligned()) },

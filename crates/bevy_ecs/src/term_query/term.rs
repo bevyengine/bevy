@@ -1,10 +1,12 @@
-use bevy_ptr::{Ptr, UnsafeCellDeref};
+use std::cell::UnsafeCell;
+use std::fmt::Debug;
+
+use bevy_ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
 
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::{ComponentId, StorageType, Tick},
     entity::Entity,
-    prelude::World,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
@@ -31,7 +33,7 @@ impl TermAccess {
 
 /// Defines possible operators for a [`Term`].
 #[derive(Clone, Default, Eq, PartialEq, Copy, Debug)]
-pub enum TermOperator {
+pub enum TermFilter {
     /// An [`Entity`] must have the associated component to match this term
     #[default]
     With,
@@ -52,89 +54,51 @@ pub enum TermOperator {
 ///
 /// The [`Term`] is used while resolving a query to determine how the
 /// resulting [`FetchedTerm`] is populated.
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Debug)]
 pub struct Term {
     /// The [`Component`](crate::prelude::Component) this term targets if any, i.e. `&T`, `&mut T`
     pub component: Option<ComponentId>,
     /// Whether this Term reads/writes the component or entity
     pub access: TermAccess,
     /// The operator to use while resolving this term, see [`TermOperator`]
-    pub operator: TermOperator,
+    pub filter: TermFilter,
     /// Whether or not this term requires change detection information i.e. `&mut T` or [`Changed<T>`](crate::prelude::Changed)
     pub change_detection: bool,
     /// Whether or not this term is connected to the following term with an or
     pub or: bool,
+    /// Count of the nested brackets this term is surrounded by
+    pub depth: u8,
 }
 
 impl Term {
-    /// Set the target [`ComponentId`] of this [`Term`]
-    pub fn set_id(mut self, id: ComponentId) -> Self {
-        self.component = Some(id);
-        self
+    /// Creates an empty term with the given depth
+    pub fn new(depth: u8) -> Self {
+        Self {
+            component: None,
+            access: TermAccess::None,
+            filter: TermFilter::With,
+            change_detection: false,
+            or: false,
+            depth,
+        }
     }
 
     /// Set the [`TermOperator`] of this [`Term`]
-    pub fn set_operator(mut self, op: TermOperator) -> Self {
-        self.operator = op;
+    pub fn with_filter(mut self, op: TermFilter) -> Self {
+        self.filter = op;
         self
     }
 
     /// Set the [`TermAccess`] of this [`Term`]
-    pub fn set_access(mut self, access: TermAccess) -> Self {
+    pub fn with_access(mut self, access: TermAccess) -> Self {
         self.access = access;
         self
     }
 
-    /// Creates a term representing [`With<T>`](crate::prelude::With) where T is the [`Component`](crate::prelude::Component)
-    /// associated with id: `id`
-    pub fn with_id(id: ComponentId) -> Self {
-        Self::default().set_id(id)
-    }
-
-    /// Creates a term representing [`Without<T>`](crate::prelude::Without) where T is the [`Component`](crate::prelude::Component)
-    /// associated with id: `id`
-    pub fn without_id(id: ComponentId) -> Self {
-        Self::default()
-            .set_operator(TermOperator::Without)
-            .set_id(id)
-    }
-
-    /// Creates a term representing [`Ptr`]
-    pub fn read() -> Self {
-        Self::default().set_access(TermAccess::Read)
-    }
-
-    /// Creates a term representing `&T` where T is the [`Component`](crate::prelude::Component)
-    /// associated with id: `id`
-    pub fn read_id(id: ComponentId) -> Self {
-        Self::read().set_id(id)
-    }
-
-    /// Creates a term representing [`PtrMut`](bevy_ptr::PtrMut)
-    pub fn write() -> Self {
-        Self::default().set_access(TermAccess::Write)
-    }
-
-    /// Creates a term representing `&mut T` where T is the [`Component`](crate::prelude::Component)
-    /// associated with id: `id`
-    pub fn write_id(id: ComponentId) -> Self {
-        Self::write().set_id(id)
-    }
-
-    /// Creates a term representing [`Added<T>`](crate::prelude::Added) where T is the [`Component`](crate::prelude::Component)
-    /// associated with id: `id`
-    pub fn added_id(id: ComponentId) -> Self {
-        Self::with_id(id)
-            .set_operator(TermOperator::Added)
-            .with_change_detection()
-    }
-
-    /// Creates a term representing [`Changed<T>`](crate::prelude::Changed) where T is the [`Component`](crate::prelude::Component)
-    /// associated with id: `id`
-    pub fn changed_id(id: ComponentId) -> Self {
-        Self::with_id(id)
-            .set_operator(TermOperator::Changed)
-            .with_change_detection()
+    /// Set the [`TermAccess`] of this [`Term`]
+    pub fn with_id(mut self, id: ComponentId) -> Self {
+        self.component = Some(id);
+        self
     }
 
     /// Adds change detection as requirement for this term
@@ -146,113 +110,88 @@ impl Term {
     /// Returns true if this term is an [`TermOperator::Added`] or [`TermOperator::Changed`] term
     #[inline(always)]
     pub fn filtered(&self) -> bool {
-        self.operator == TermOperator::Added || self.operator == TermOperator::Changed
-    }
-
-    /// Returns false if the component this term accesses is not a [`StorageType::Table`] component.
-    ///
-    /// # Safety
-    ///  - caller must ensure any component accesses by this term exists
-    #[inline(always)]
-    pub unsafe fn dense(&self, world: &World) -> bool {
-        if let Some(id) = self.component {
-            world.components().get_info_unchecked(id).storage_type() == StorageType::Table
-        } else {
-            true
-        }
+        self.filter == TermFilter::Added || self.filter == TermFilter::Changed
     }
 
     /// Whether this term can be safely interpreted as `other` i.e. `&T => With<T>` or `&mut T => &T`
     pub fn interpretable_as(&self, other: &Term) -> bool {
         self.component == other.component
-            && self.operator == other.operator
+            && self.filter == other.filter
             && self.access >= other.access
     }
 }
 
-// Stores each possible pointer type that could be stored in [`TermState`]
+/// Pointer to the location of data for a component, includes the component data itself and optionally
+/// change ticks
 #[derive(Clone)]
-pub(crate) enum ComponentPtr<'w> {
-    // A reference to the components associated sparse set
-    SparseSet(&'w ComponentSparseSet),
-    // A reference to the components associated table, set in [`Term::set_table`]
-    Table(Option<TablePtr<'w>>),
-}
-
-impl<'w> ComponentPtr<'w> {
-    #[inline(always)]
-    pub fn table(&self) -> Option<&TablePtr<'w>> {
-        match self {
-            Self::Table(Some(ptr)) => Some(ptr),
-            _ => None,
-        }
-    }
-
-    #[inline(always)]
-    pub fn table_mut(&mut self) -> Option<&mut Option<TablePtr<'w>>> {
-        match self {
-            Self::Table(ptr) => Some(ptr),
-            _ => None,
-        }
-    }
-
-    #[inline(always)]
-    pub fn sparse_set(&self) -> Option<&'w ComponentSparseSet> {
-        match self {
-            Self::SparseSet(set) => Some(set),
-            _ => None,
-        }
-    }
-}
-
-// Stores state for change detection, ptrs gets set in [`Term::set_table`] for table components
-// and is otherwise None
-#[derive(Clone)]
-pub(crate) struct TablePtr<'w> {
+pub struct ComponentPtr<'w> {
+    /// Pointer to the data contained in this component
     pub component: Ptr<'w>,
-    pub added: Option<Ptr<'w>>,
-    pub changed: Option<Ptr<'w>>,
+    /// Added ticks
+    pub added: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+    /// Changed ticks
+    pub changed: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
 }
 
-impl<'w> TablePtr<'w> {
-    const TICK_SIZE: usize = std::mem::size_of::<Tick>();
-
-    #[inline(always)]
-    pub unsafe fn get_row(&self, size: usize, index: usize) -> Self {
-        Self {
-            component: self.component.byte_add(size * index),
-            added: Some(
-                self.added
-                    .debug_checked_unwrap()
-                    .byte_add(Self::TICK_SIZE * index),
-            ),
-            changed: Some(
-                self.changed
-                    .debug_checked_unwrap()
-                    .byte_add(Self::TICK_SIZE * index),
-            ),
-        }
+impl Debug for ComponentPtr<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ComponentPtr")
+            .field("added", &self.added.is_some())
+            .field("changed", &self.changed.is_some())
+            .finish()
     }
 }
 
 /// State stored in [`TermState`] for a component
-#[derive(Clone)]
-pub(crate) struct ComponentState<'w> {
+#[derive(Clone, Debug)]
+pub struct ComponentState<'w> {
     /// Pointer to the location of the data for this component
-    pub ptr: ComponentPtr<'w>,
+    pub ptr: Option<ComponentPtr<'w>>,
     /// Id of this component
     pub id: ComponentId,
     /// Size of this component
     pub size: usize,
+    /// ComponentSparseSet this component belongs too if any
+    pub set: Option<&'w ComponentSparseSet>,
 }
 
 /// Stores the state for a single [`Term`]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TermState<'w> {
     /// State related to the component this term targets if any
     pub(crate) component: Option<ComponentState<'w>>,
+    /// Whether or not matching this term is optional
+    pub optional: bool,
     /// Whether this term matches this archetype
     pub matches: bool,
+}
+
+impl<'w> TermState<'w> {
+    /// Creates an empty [`TermState`]
+    #[inline(always)]
+    pub fn empty() -> Self {
+        Self {
+            component: None,
+            optional: false,
+            matches: true,
+        }
+    }
+
+    /// Creates a [`TermState`] with the given [`ComponentState`]
+    #[inline(always)]
+    pub fn new(component: ComponentState<'w>) -> Self {
+        Self {
+            component: Some(component),
+            optional: false,
+            matches: true,
+        }
+    }
+
+    /// Returns true if we can table iterate this term
+    #[inline(always)]
+    pub fn dense(&self) -> bool {
+        !self.component.as_ref().is_some_and(|c| c.set.is_some())
+    }
 }
 
 impl Term {
@@ -274,30 +213,23 @@ impl Term {
                         .sparse_sets
                         .get(component_id)
                         .debug_checked_unwrap();
-                    TermState {
-                        component: Some(ComponentState {
-                            ptr: ComponentPtr::SparseSet(set),
-                            id: component_id,
-                            size: info.layout().size(),
-                        }),
-                        matches: true,
-                    }
-                }
-                // For table components we wait until `set_table`
-                StorageType::Table => TermState {
-                    component: Some(ComponentState {
-                        ptr: ComponentPtr::Table(None),
+                    TermState::new(ComponentState {
+                        ptr: None,
                         id: component_id,
                         size: info.layout().size(),
-                    }),
-                    matches: false,
-                },
+                        set: Some(set),
+                    })
+                }
+                // For table components we wait until `set_table`
+                StorageType::Table => TermState::new(ComponentState {
+                    ptr: None,
+                    id: component_id,
+                    size: info.layout().size(),
+                    set: None,
+                }),
             }
         } else {
-            TermState {
-                component: None,
-                matches: true,
-            }
+            TermState::empty()
         }
     }
 
@@ -318,7 +250,7 @@ impl Term {
         table: &'w Table,
     ) {
         state.matches = self.matches_component_set(&|id| archetype.contains(id));
-        if state.matches && (self.change_detection || !self.access.is_none()) {
+        if state.matches && state.component.is_some() {
             self.set_table_manual(state, table);
         }
     }
@@ -335,7 +267,7 @@ impl Term {
     #[inline]
     pub(crate) unsafe fn set_table<'w>(&self, state: &mut TermState<'w>, table: &'w Table) {
         state.matches = self.matches_component_set(&|id| table.has_column(id));
-        if state.matches && (self.change_detection || !self.access.is_none()) {
+        if state.matches && state.component.is_some() {
             self.set_table_manual(state, table);
         }
     }
@@ -343,13 +275,13 @@ impl Term {
     /// Set the table and change tick pointers for table component [`Term`]s.
     #[inline]
     unsafe fn set_table_manual<'w>(&self, state: &mut TermState<'w>, table: &'w Table) {
-        if let ComponentPtr::Table(ptr) = &mut state.component.as_mut().debug_checked_unwrap().ptr {
-            let component = self.component.debug_checked_unwrap();
-            let column = table.get_column(component).debug_checked_unwrap();
-            *ptr = Some(TablePtr {
+        let component = state.component.as_mut().debug_checked_unwrap();
+        if component.set.is_none() {
+            let column = table.get_column(component.id).debug_checked_unwrap();
+            component.ptr = Some(ComponentPtr {
                 component: column.get_data_ptr(),
-                added: Some(column.get_added_ticks_slice().get_unchecked(0).into()),
-                changed: Some(column.get_changed_ticks_slice().get_unchecked(0).into()),
+                added: Some(column.get_added_ticks_slice().into()),
+                changed: Some(column.get_changed_ticks_slice().into()),
             });
         }
     }
@@ -369,43 +301,33 @@ impl Term {
         last_run: Tick,
         this_run: Tick,
     ) -> bool {
-        match self.operator {
-            TermOperator::Added => {
+        match self.filter {
+            TermFilter::Added => {
                 let component = state.component.as_ref().debug_checked_unwrap();
-                let added = match &component.ptr {
-                    ComponentPtr::SparseSet(set) => {
-                        let cells = set.get_tick_cells(entity).debug_checked_unwrap();
-                        Some(cells.added.deref())
-                    }
-                    ComponentPtr::Table(Some(table)) => {
-                        let added = table
-                            .added
-                            .debug_checked_unwrap()
-                            .byte_add(std::mem::size_of::<Tick>() * table_row.index());
-                        Some(added.deref::<Tick>())
-                    }
-                    _ => None,
-                }
-                .debug_checked_unwrap();
+                let added = if let Some(set) = component.set {
+                    let cells = set.get_tick_cells(entity).debug_checked_unwrap();
+                    cells.added.deref()
+                } else {
+                    let ptr = component.ptr.as_ref().debug_checked_unwrap();
+                    ptr.added
+                        .debug_checked_unwrap()
+                        .get(table_row.index())
+                        .deref()
+                };
                 added.is_newer_than(last_run, this_run)
             }
-            TermOperator::Changed => {
+            TermFilter::Changed => {
                 let component = state.component.as_ref().debug_checked_unwrap();
-                let changed = match &component.ptr {
-                    ComponentPtr::SparseSet(set) => {
-                        let cells = set.get_tick_cells(entity).debug_checked_unwrap();
-                        Some(cells.changed.deref())
-                    }
-                    ComponentPtr::Table(Some(table)) => {
-                        let changed = table
-                            .changed
-                            .debug_checked_unwrap()
-                            .byte_add(std::mem::size_of::<Tick>() * table_row.index());
-                        Some(changed.deref::<Tick>())
-                    }
-                    _ => None,
-                }
-                .debug_checked_unwrap();
+                let changed = if let Some(set) = component.set {
+                    let cells = set.get_tick_cells(entity).debug_checked_unwrap();
+                    cells.changed.deref()
+                } else {
+                    let ptr = component.ptr.as_ref().debug_checked_unwrap();
+                    ptr.changed
+                        .debug_checked_unwrap()
+                        .get(table_row.index())
+                        .deref()
+                };
                 changed.is_newer_than(last_run, this_run)
             }
             _ => true,
@@ -484,12 +406,91 @@ impl Term {
     #[inline]
     pub fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         if let Some(component_id) = self.component {
-            match self.operator {
-                TermOperator::Without => !set_contains_id(component_id),
+            match self.filter {
+                TermFilter::Without => !set_contains_id(component_id),
                 _ => set_contains_id(component_id),
             }
         } else {
             true
         }
+    }
+
+    /// Update the current [`TermQueryState`] with information from the provided [`Archetype`]
+    /// (if applicable, i.e. if the archetype has any intersecting [`ComponentId`] with the current [`TermQueryState`]).
+    pub fn matches_archetype(terms: &[Term], archetype: &Archetype) -> bool {
+        let matches = |term: &Term| {
+            term.filter == TermFilter::Optional
+                || term.matches_component_set(&|id| archetype.contains(id))
+        };
+
+        let set_bit = |mut mask: u32, index: u8, val: bool| -> u32 {
+            if val {
+                mask |= 1 << index;
+            } else {
+                mask &= !(1 << index);
+            }
+            mask
+        };
+
+        let mut result_mask: u32 = u32::MAX;
+        let mut or_mask: u32 = 0;
+        let mut depth = 0;
+        let mut skip_depth = false;
+
+        for term in terms {
+            if skip_depth && term.depth >= depth {
+                continue;
+            };
+            if term.depth > depth {
+                for d in (depth + 1)..=term.depth {
+                    result_mask = set_bit(result_mask, d, true);
+                    or_mask = set_bit(or_mask, d, false);
+                }
+                depth = term.depth;
+            }
+
+            if term.depth < depth {
+                for d in (term.depth..depth).rev() {
+                    if or_mask & (1 << d) > 0 {
+                        result_mask |= (result_mask >> 1) & (1 << d);
+                    } else {
+                        result_mask &= (result_mask >> 1) & (1 << d);
+                    }
+                }
+                depth = term.depth;
+            }
+
+            let matches = matches(term);
+            // If we are part of an or group
+            if or_mask & (1 << term.depth) > 0 {
+                // If we already have a true
+                if result_mask & (1 << term.depth) > 0 {
+                    or_mask = set_bit(or_mask, term.depth, term.or);
+                    continue;
+                }
+            } else {
+                // If we already have a false
+                if result_mask & (1 << term.depth) == 0 {
+                    or_mask = set_bit(or_mask, term.depth, term.or);
+                    skip_depth = true;
+                    continue;
+                }
+            }
+
+            result_mask = set_bit(result_mask, term.depth, matches);
+            or_mask = set_bit(or_mask, term.depth, term.or);
+        }
+
+        if depth > 0 {
+            for d in (0..depth).rev() {
+                if or_mask & (1 << d) > 0 {
+                    result_mask |= (result_mask >> 1) & (1 << d);
+                } else {
+                    result_mask &= (result_mask >> 1) & (1 << d);
+                }
+            }
+        }
+
+        result_mask & 1 > 0
     }
 }
