@@ -78,21 +78,26 @@ impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
         let mut event_loop_builder = EventLoopBuilder::<()>::with_user_event();
 
-        #[cfg(feature = "x11")]
+        // This is needed because the X11 feature
+        // might be enabled for macos too.
+        #[cfg(target_os = "linux")]
         {
-            use winit::platform::x11::EventLoopBuilderExtX11;
+            #[cfg(feature = "x11")]
+            {
+                use winit::platform::x11::EventLoopBuilderExtX11;
 
-            // This allows a Bevy app to be started and ran outside of the main thread.
-            // A use case for this is to allow external applications to spawn a thread
-            // which runs a Bevy app without requiring the Bevy app to need to reside on
-            // the main thread, which can be problematic.
-            event_loop_builder.with_any_thread(true);
-        }
+                // This allows a Bevy app to be started and ran outside of the main thread.
+                // A use case for this is to allow external applications to spawn a thread
+                // which runs a Bevy app without requiring the Bevy app to need to reside on
+                // the main thread, which can be problematic.
+                event_loop_builder.with_any_thread(true);
+            }
 
-        #[cfg(feature = "wayland")]
-        {
-            use winit::platform::wayland::EventLoopBuilderExtWayland;
-            event_loop_builder.with_any_thread(true);
+            #[cfg(feature = "wayland")]
+            {
+                use winit::platform::wayland::EventLoopBuilderExtWayland;
+                event_loop_builder.with_any_thread(true);
+            }
         }
 
         #[cfg(target_os = "android")]
