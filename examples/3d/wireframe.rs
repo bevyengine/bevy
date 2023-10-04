@@ -1,7 +1,7 @@
 //! Showcases wireframe rendering.
 
 use bevy::{
-    pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin},
+    pbr::wireframe::{NeverRenderWireframe, Wireframe, WireframeConfig, WireframePlugin},
     prelude::*,
     render::{render_resource::WgpuFeatures, settings::WgpuSettings, RenderPlugin},
 };
@@ -48,7 +48,7 @@ fn setup(
             transform: Transform::from_xyz(-1.0, 0.5, -1.0),
             ..default()
         })
-        .insert(Wireframe::NeverRender);
+        .insert(NeverRenderWireframe);
     // Orange cube: Follows global wireframe setting
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
@@ -64,7 +64,7 @@ fn setup(
             transform: Transform::from_xyz(1.0, 0.5, 1.0),
             ..default()
         })
-        .insert(Wireframe::AlwaysRender);
+        .insert(Wireframe);
 
     // light
     commands.spawn(PointLightBundle {
