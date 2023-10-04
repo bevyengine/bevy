@@ -1,15 +1,13 @@
-use crate::MeshPipeline;
 use crate::{
-    DrawMesh, MeshPipelineKey, RenderMeshInstance, RenderMeshInstances, SetMeshBindGroup,
-    SetMeshViewBindGroup,
+    DrawMesh, MeshPipeline, MeshPipelineKey, RenderMeshInstance, RenderMeshInstances,
+    SetMeshBindGroup, SetMeshViewBindGroup,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -23,9 +21,7 @@ use bevy_render::{
     RenderApp, RenderSet,
 };
 use bevy_render::{Extract, ExtractSchedule, Render};
-use bevy_utils::hashbrown::HashSet;
-use bevy_utils::tracing::error;
-use bevy_utils::{EntityHash, EntityHashMap, EntityHashSet};
+use bevy_utils::{tracing::error, EntityHashSet};
 
 pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
 
