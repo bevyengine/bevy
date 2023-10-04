@@ -159,9 +159,10 @@ impl PlaybackSettings {
     }
 }
 
-/// Settings for the listener for a spatial audio source.
+/// Settings for the listener for spatial audio sources.
 ///
-
+/// This must be accompanied by `Transform` and `GlobalTransform`.
+/// Only one entity with a `SpatialListener` should be present at any given time.
 #[derive(Component, Clone, Debug)]
 pub struct SpatialListener {
     /// Left ear position relative to the `GlobalTransform`.
@@ -177,7 +178,7 @@ impl Default for SpatialListener {
 }
 
 impl SpatialListener {
-    /// Configure spatial audio coming from the `emitter` position and heard by a `listener`.
+    /// Creates a new `SpatialListener` component.
     ///
     /// `gap` is the distance between the left and right "ears" of the listener. Ears are
     /// positioned on the x axis.
