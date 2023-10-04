@@ -24,7 +24,7 @@ use bevy_render::{
 };
 use bevy_render::{Extract, ExtractSchedule, Render};
 use bevy_utils::tracing::error;
-use bevy_utils::EntityHashSet;
+use bevy_utils::EntityHashMap;
 
 pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
 
@@ -62,27 +62,38 @@ impl Plugin for WireframePlugin {
     }
 }
 
-/// Controls whether an entity should rendered in wireframe-mode if the [`WireframePlugin`] is enabled
-#[derive(Component, Debug, Clone, Default, Reflect)]
+/// Overrides the global [`WireframeConfig`] for a single mesh.
+#[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
 #[reflect(Component, Default)]
-pub struct Wireframe;
+pub enum Wireframe {
+    /// Always render the wireframe for this entity, regardless of global config.
+    #[default]
+    AlwaysRender,
+    /// Never render the wireframe for this entity, regardless of global config.
+    NeverRender,
+}
 
 #[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct WireframeConfig {
-    /// Whether to show wireframes for all meshes. If `false`, only meshes with a [`Wireframe`] component will be rendered.
+    /// Whether to show wireframes for all meshes.
+    /// Can be overridden for individual meshes by adding a [`Wireframe`] component.
     pub global: bool,
 }
 
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct Wireframes(EntityHashSet<Entity>);
+pub struct Wireframes(EntityHashMap<Entity, Wireframe>);
 
 fn extract_wireframes(
     mut wireframes: ResMut<Wireframes>,
-    query: Extract<Query<Entity, With<Wireframe>>>,
+    query: Extract<Query<(Entity, &Wireframe)>>,
 ) {
     wireframes.clear();
-    wireframes.extend(&query);
+    wireframes.extend(
+        query
+            .iter()
+            .map(|(entity, wireframe)| (entity, wireframe.clone())),
+    );
 }
 
 #[derive(Resource, Clone)]
@@ -170,31 +181,23 @@ fn queue_wireframes(
             });
         };
 
-        if wireframe_config.global {
-            visible_entities
-                .entities
-                .iter()
-                .filter_map(|visible_entity| {
+        visible_entities
+            .entities
+            .iter()
+            .filter_map(|visible_entity| {
+                let wireframe_override = wireframes.get(visible_entity);
+
+                if (wireframe_config.global || wireframe_override == Some(&Wireframe::AlwaysRender))
+                    && wireframe_override != Some(&Wireframe::NeverRender)
+                {
                     render_mesh_instances
                         .get(visible_entity)
                         .map(|mesh_instance| (*visible_entity, mesh_instance))
-                })
-                .for_each(add_render_phase);
-        } else {
-            visible_entities
-                .entities
-                .iter()
-                .filter_map(|visible_entity| {
-                    if wireframes.contains(visible_entity) {
-                        render_mesh_instances
-                            .get(visible_entity)
-                            .map(|mesh_instance| (*visible_entity, mesh_instance))
-                    } else {
-                        None
-                    }
-                })
-                .for_each(add_render_phase);
-        }
+                } else {
+                    None
+                }
+            })
+            .for_each(add_render_phase);
     }
 }
 
