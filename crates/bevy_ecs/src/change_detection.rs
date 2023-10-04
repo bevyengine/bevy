@@ -381,6 +381,15 @@ macro_rules! impl_methods {
                     ticks: self.ticks,
                 }
             }
+
+            /// Allows you access to the dereferenced value of this pointer without immediately
+            /// triggering change detection.
+            pub fn as_deref_mut(&mut self) -> Mut<'_, <$target as Deref>::Target>
+                where $target: DerefMut
+            {
+                self.reborrow().map_unchanged(|v| v.deref_mut())
+            }
+
         }
     };
 }
@@ -907,6 +916,7 @@ mod tests {
     use bevy_ecs_macros::Resource;
     use bevy_ptr::PtrMut;
     use bevy_reflect::{FromType, ReflectFromPtr};
+    use std::ops::{Deref, DerefMut};
 
     use crate::{
         self as bevy_ecs,
@@ -928,6 +938,19 @@ mod tests {
 
     #[derive(Resource, PartialEq)]
     struct R2(u8);
+
+    impl Deref for R2 {
+        type Target = u8;
+        fn deref(&self) -> &u8 {
+            &self.0
+        }
+    }
+
+    impl DerefMut for R2 {
+        fn deref_mut(&mut self) -> &mut u8 {
+            &mut self.0
+        }
+    }
 
     #[test]
     fn change_expiration() {
@@ -1137,6 +1160,32 @@ mod tests {
         );
 
         r.set_if_neq(R2(3));
+        assert!(
+            r.is_changed(),
+            "Resource must be changed after setting to a different value."
+        );
+    }
+
+    #[test]
+    fn as_deref_mut() {
+        let mut world = World::new();
+
+        world.insert_resource(R2(0));
+        // Resources are Changed when first added
+        world.increment_change_tick();
+        // This is required to update world::last_change_tick
+        world.clear_trackers();
+
+        let mut r = world.resource_mut::<R2>();
+        assert!(!r.is_changed(), "Resource must begin unchanged.");
+
+        let mut r = r.as_deref_mut();
+        assert!(
+            !r.is_changed(),
+            "Dereferencing should not mark the item as changed yet"
+        );
+
+        r.set_if_neq(3);
         assert!(
             r.is_changed(),
             "Resource must be changed after setting to a different value."

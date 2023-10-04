@@ -17,6 +17,7 @@ pub use timer::*;
 
 use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{tracing::warn, Duration, Instant};
+pub use crossbeam_channel::TrySendError;
 use crossbeam_channel::{Receiver, Sender};
 
 pub mod prelude {

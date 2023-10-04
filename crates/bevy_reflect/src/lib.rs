@@ -515,6 +515,7 @@ pub mod prelude {
     pub use crate::{
         reflect_trait, FromReflect, GetField, GetPath, GetTupleStructField, Reflect,
         ReflectDeserialize, ReflectFromReflect, ReflectPath, ReflectSerialize, Struct, TupleStruct,
+        TypePath,
     };
 }
 

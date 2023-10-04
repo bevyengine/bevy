@@ -6,8 +6,11 @@ use crate::{
 use ab_glyph::PxScale;
 use bevy_asset::{AssetId, Assets, Handle};
 use bevy_ecs::component::Component;
+use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::system::Resource;
 use bevy_math::Vec2;
+use bevy_reflect::prelude::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::HashMap;
@@ -22,7 +25,8 @@ pub struct TextPipeline {
 /// Render information for a corresponding [`Text`](crate::Text) component.
 ///
 ///  Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`].
-#[derive(Component, Clone, Default, Debug)]
+#[derive(Component, Clone, Default, Debug, Reflect)]
+#[reflect(Component, Default)]
 pub struct TextLayoutInfo {
     pub glyphs: Vec<PositionedGlyph>,
     pub logical_size: Vec2,

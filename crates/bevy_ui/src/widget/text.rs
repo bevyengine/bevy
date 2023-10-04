@@ -166,7 +166,10 @@ fn queue_text(
             Vec2::splat(f32::INFINITY)
         } else {
             // `scale_factor` is already multiplied by `UiScale`
-            node.physical_size(scale_factor, 1.)
+            Vec2::new(
+                (node.unrounded_size.x as f64 * scale_factor) as f32,
+                (node.unrounded_size.y as f64 * scale_factor) as f32,
+            )
         };
 
         match text_pipeline.queue_text(
