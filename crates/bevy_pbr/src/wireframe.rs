@@ -146,10 +146,6 @@ fn apply_global_wireframe_material(
 struct WireframeMaterial {}
 
 impl Material for WireframeMaterial {
-    fn vertex_shader() -> ShaderRef {
-        WIREFRAME_SHADER_HANDLE.into()
-    }
-
     fn fragment_shader() -> ShaderRef {
         WIREFRAME_SHADER_HANDLE.into()
     }
