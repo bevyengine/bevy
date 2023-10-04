@@ -78,8 +78,8 @@ impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
         let mut event_loop_builder = EventLoopBuilder::<()>::with_user_event();
 
-        // This is needed because the X11 feature
-        // might be enabled for macos too.
+        // This is needed because the features checked in the inner
+        // block might be enabled on other platforms than linux.
         #[cfg(target_os = "linux")]
         {
             #[cfg(feature = "x11")]
