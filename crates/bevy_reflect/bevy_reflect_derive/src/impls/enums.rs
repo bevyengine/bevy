@@ -2,7 +2,7 @@ use crate::derive_data::{EnumVariant, EnumVariantFields, ReflectEnum, StructFiel
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::impls::{impl_full_reflect, impl_type_path, impl_typed};
 use crate::utility::extend_where_clause;
-use bevy_macro_utils::fq_std::{FQAny, FQBox, FQOption, FQResult};
+use bevy_macro_utils::fq_std::{FQBox, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use syn::Fields;

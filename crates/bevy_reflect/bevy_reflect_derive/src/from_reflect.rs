@@ -4,7 +4,7 @@ use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::field_attributes::DefaultBehavior;
 use crate::utility::{extend_where_clause, ident_or_index, WhereClauseOptions};
 use crate::{ReflectMeta, ReflectStruct};
-use bevy_macro_utils::fq_std::{FQAny, FQClone, FQDefault, FQOption};
+use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption};
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
 use syn::{Field, Ident, Lit, LitInt, LitStr, Member};

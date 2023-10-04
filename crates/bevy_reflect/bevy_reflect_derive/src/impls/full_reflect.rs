@@ -2,9 +2,9 @@ use quote::quote;
 
 use crate::{
     derive_data::ReflectMeta,
-    fq_std::{FQAny, FQBox, FQResult},
     utility::{extend_where_clause, WhereClauseOptions},
 };
+use bevy_macro_utils::fq_std::{FQAny, FQBox, FQResult};
 
 pub(crate) fn impl_full_reflect(
     meta: &ReflectMeta,

@@ -9,7 +9,7 @@ use crate::{
     prelude::Bundle,
     world::{EntityWorldMut, FromWorld, World},
 };
-use bevy_reflect::{FromType, Reflect, ReflectRef, TypeRegistry};
+use bevy_reflect::{FromType, PartialReflect, Reflect, ReflectRef, TypeRegistry};
 
 use super::ReflectComponent;
 
@@ -28,11 +28,11 @@ pub struct ReflectBundleFns {
     /// Function pointer implementing [`ReflectBundle::from_world()`].
     pub from_world: fn(&mut World) -> Box<dyn Reflect>,
     /// Function pointer implementing [`ReflectBundle::insert()`].
-    pub insert: fn(&mut EntityWorldMut, &dyn Reflect),
+    pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectBundle::apply()`].
-    pub apply: fn(&mut EntityWorldMut, &dyn Reflect, &TypeRegistry),
+    pub apply: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn Reflect, &TypeRegistry),
+    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::remove()`].
     pub remove: fn(&mut EntityWorldMut),
 }
@@ -55,7 +55,7 @@ impl ReflectBundle {
     }
 
     /// Insert a reflected [`Bundle`] into the entity like [`insert()`](crate::world::EntityWorldMut::insert).
-    pub fn insert(&self, entity: &mut EntityWorldMut, bundle: &dyn Reflect) {
+    pub fn insert(&self, entity: &mut EntityWorldMut, bundle: &dyn PartialReflect) {
         (self.0.insert)(entity, bundle);
     }
 
@@ -67,7 +67,7 @@ impl ReflectBundle {
     pub fn apply(
         &self,
         entity: &mut EntityWorldMut,
-        bundle: &dyn Reflect,
+        bundle: &dyn PartialReflect,
         registry: &TypeRegistry,
     ) {
         (self.0.apply)(entity, bundle, registry);
@@ -77,7 +77,7 @@ impl ReflectBundle {
     pub fn apply_or_insert(
         &self,
         entity: &mut EntityWorldMut,
-        bundle: &dyn Reflect,
+        bundle: &dyn PartialReflect,
         registry: &TypeRegistry,
     ) {
         (self.0.apply_or_insert)(entity, bundle, registry);
@@ -176,7 +176,7 @@ impl<B: Bundle + Reflect + FromWorld> FromType<B> for ReflectBundle {
 
 fn insert_field<B: 'static>(
     entity: &mut EntityWorldMut,
-    field: &dyn Reflect,
+    field: &dyn PartialReflect,
     registry: &TypeRegistry,
 ) {
     if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(field.type_id()) {
@@ -202,7 +202,7 @@ fn insert_field<B: 'static>(
 
 fn apply_or_insert_field<B: 'static>(
     entity: &mut EntityWorldMut,
-    field: &dyn Reflect,
+    field: &dyn PartialReflect,
     registry: &TypeRegistry,
 ) {
     if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(field.type_id()) {

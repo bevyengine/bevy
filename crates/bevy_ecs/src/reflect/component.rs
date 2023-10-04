@@ -84,39 +84,26 @@ pub struct ReflectComponent(ReflectComponentFns);
 #[derive(Clone)]
 pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::from_world()`].
-    pub from_world: fn(&mut World) -> Box<dyn PartialReflect>,
+    pub from_world: fn(&mut World) -> Box<dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::insert()`].
-<<<<<<< HEAD
-    pub insert: fn(&mut EntityMut, &dyn PartialReflect),
+    pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectComponent::apply()`].
-    pub apply: fn(&mut EntityMut, &dyn PartialReflect),
+    pub apply: fn(&mut EntityWorldMut, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectComponent::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut EntityMut, &dyn PartialReflect),
-=======
-    pub insert: fn(&mut EntityWorldMut, &dyn Reflect),
-    /// Function pointer implementing [`ReflectComponent::apply()`].
-    pub apply: fn(&mut EntityWorldMut, &dyn Reflect),
-    /// Function pointer implementing [`ReflectComponent::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn Reflect),
->>>>>>> upstream/main
+    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectComponent::remove()`].
     pub remove: fn(&mut EntityWorldMut),
     /// Function pointer implementing [`ReflectComponent::contains()`].
     pub contains: fn(EntityRef) -> bool,
     /// Function pointer implementing [`ReflectComponent::reflect()`].
-    pub reflect: fn(EntityRef) -> Option<&dyn PartialReflect>,
+    pub reflect: fn(EntityRef) -> Option<&dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
-<<<<<<< HEAD
-    pub reflect_mut: for<'a> fn(&'a mut EntityMut<'_>) -> Option<Mut<'a, dyn PartialReflect>>,
-=======
     pub reflect_mut: for<'a> fn(&'a mut EntityWorldMut<'_>) -> Option<Mut<'a, dyn Reflect>>,
->>>>>>> upstream/main
     /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut()`].
     ///
     /// # Safety
     /// The function may only be called with an [`UnsafeEntityCell`] that can be used to mutably access the relevant component on the given entity.
-    pub reflect_unchecked_mut:
-        unsafe fn(UnsafeEntityCell<'_>) -> Option<Mut<'_, dyn PartialReflect>>,
+    pub reflect_unchecked_mut: unsafe fn(UnsafeEntityCell<'_>) -> Option<Mut<'_, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::copy()`].
     pub copy: fn(&World, &mut World, Entity, Entity),
 }
@@ -134,17 +121,12 @@ impl ReflectComponentFns {
 
 impl ReflectComponent {
     /// Constructs default reflected [`Component`] from world using [`from_world()`](FromWorld::from_world).
-    pub fn from_world(&self, world: &mut World) -> Box<dyn PartialReflect> {
+    pub fn from_world(&self, world: &mut World) -> Box<dyn Reflect> {
         (self.0.from_world)(world)
     }
 
-<<<<<<< HEAD
-    /// Insert a reflected [`Component`] into the entity like [`insert()`](crate::world::EntityMut::insert).
-    pub fn insert(&self, entity: &mut EntityMut, component: &dyn PartialReflect) {
-=======
     /// Insert a reflected [`Component`] into the entity like [`insert()`](crate::world::EntityWorldMut::insert).
-    pub fn insert(&self, entity: &mut EntityWorldMut, component: &dyn Reflect) {
->>>>>>> upstream/main
+    pub fn insert(&self, entity: &mut EntityWorldMut, component: &dyn PartialReflect) {
         (self.0.insert)(entity, component);
     }
 
@@ -153,20 +135,12 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if there is no [`Component`] of the given type.
-<<<<<<< HEAD
-    pub fn apply(&self, entity: &mut EntityMut, component: &dyn PartialReflect) {
-=======
-    pub fn apply(&self, entity: &mut EntityWorldMut, component: &dyn Reflect) {
->>>>>>> upstream/main
+    pub fn apply(&self, entity: &mut EntityWorldMut, component: &dyn PartialReflect) {
         (self.0.apply)(entity, component);
     }
 
     /// Uses reflection to set the value of this [`Component`] type in the entity to the given value or insert a new one if it does not exist.
-<<<<<<< HEAD
-    pub fn apply_or_insert(&self, entity: &mut EntityMut, component: &dyn PartialReflect) {
-=======
-    pub fn apply_or_insert(&self, entity: &mut EntityWorldMut, component: &dyn Reflect) {
->>>>>>> upstream/main
+    pub fn apply_or_insert(&self, entity: &mut EntityWorldMut, component: &dyn PartialReflect) {
         (self.0.apply_or_insert)(entity, component);
     }
 
@@ -181,20 +155,15 @@ impl ReflectComponent {
     }
 
     /// Gets the value of this [`Component`] type from the entity as a reflected reference.
-    pub fn reflect<'a>(&self, entity: EntityRef<'a>) -> Option<&'a dyn PartialReflect> {
+    pub fn reflect<'a>(&self, entity: EntityRef<'a>) -> Option<&'a dyn Reflect> {
         (self.0.reflect)(entity)
     }
 
     /// Gets the value of this [`Component`] type from the entity as a mutable reflected reference.
     pub fn reflect_mut<'a>(
         &self,
-<<<<<<< HEAD
-        entity: &'a mut EntityMut<'_>,
-    ) -> Option<Mut<'a, dyn PartialReflect>> {
-=======
         entity: &'a mut EntityWorldMut<'_>,
     ) -> Option<Mut<'a, dyn Reflect>> {
->>>>>>> upstream/main
         (self.0.reflect_mut)(entity)
     }
 
@@ -206,7 +175,7 @@ impl ReflectComponent {
     pub unsafe fn reflect_unchecked_mut<'a>(
         &self,
         entity: UnsafeEntityCell<'a>,
-    ) -> Option<Mut<'a, dyn PartialReflect>> {
+    ) -> Option<Mut<'a, dyn Reflect>> {
         // SAFETY: safety requirements deferred to caller
         (self.0.reflect_unchecked_mut)(entity)
     }
@@ -301,10 +270,10 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                     .entity_mut(destination_entity)
                     .insert(destination_component);
             },
-            reflect: |entity| entity.get::<C>().map(|c| c as &dyn PartialReflect),
+            reflect: |entity| entity.get::<C>().map(|c| c as &dyn Reflect),
             reflect_mut: |entity| {
                 entity.get_mut::<C>().map(|c| Mut {
-                    value: c.value as &mut dyn PartialReflect,
+                    value: c.value as &mut dyn Reflect,
                     ticks: c.ticks,
                 })
             },
@@ -313,7 +282,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                 // `reflect_unchecked_mut` which must be called with an UnsafeEntityCell with access to the component `C` on the `entity`
                 unsafe {
                     entity.get_mut::<C>().map(|c| Mut {
-                        value: c.value as &mut dyn PartialReflect,
+                        value: c.value as &mut dyn Reflect,
                         ticks: c.ticks,
                     })
                 }
