@@ -62,8 +62,7 @@ impl<'w, 's> EarPositions<'w, 's> {
     /// Gets a set of transformed and scaled ear positions.
     ///
     /// If there are no listeners, use the default values. If a user has added multiple
-    /// listeners for whatever reason, using a default value might unexpected, so we will
-    /// return the first value.
+    /// listeners for whatever reason, we will return the first value.
     pub(crate) fn get(&self) -> (Vec3, Vec3) {
         let (left_ear, right_ear) = self
             .query
