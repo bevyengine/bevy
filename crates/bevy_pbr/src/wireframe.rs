@@ -98,9 +98,9 @@ fn extract_wireframes(
     never_render_wireframe_query: Extract<Query<Entity, With<NeverRenderWireframe>>>,
 ) {
     wireframes.clear();
-    wireframes.extend(wireframe_query.iter().map(|entity| entity));
+    wireframes.extend(wireframe_query.iter());
     never_render_wireframes.clear();
-    never_render_wireframes.extend(never_render_wireframe_query.iter().map(|entity| entity));
+    never_render_wireframes.extend(never_render_wireframe_query.iter());
 }
 
 #[derive(Resource, Clone)]
