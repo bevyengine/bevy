@@ -167,13 +167,9 @@ impl<'a> Serialize for EntitySerializer<'a> {
 /// Note that having several entries of the same type in `entries` will lead to an error when using the RON format and
 /// deserializing through [`SceneMapDeserializer`].
 pub struct SceneMapSerializer<'a> {
-<<<<<<< HEAD
-    pub entries: &'a [Box<dyn PartialReflect>],
-=======
     /// List of boxed values of unique type to serialize.
-    pub entries: &'a [Box<dyn Reflect>],
+    pub entries: &'a [Box<dyn PartialReflect>],
     /// Type registry in which the types used in `entries` are registered.
->>>>>>> upstream/main
     pub registry: &'a TypeRegistryArc,
 }
 

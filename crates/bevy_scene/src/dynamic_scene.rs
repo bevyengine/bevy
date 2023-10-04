@@ -4,11 +4,7 @@ use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
-<<<<<<< HEAD
-use bevy_reflect::{PartialReflect, TypePath, TypeRegistryArc, TypeUuid};
-=======
-use bevy_reflect::{Reflect, TypePath, TypeRegistryArc};
->>>>>>> upstream/main
+use bevy_reflect::{PartialReflect, TypePath, TypeRegistryArc};
 use bevy_utils::HashMap;
 use std::any::TypeId;
 
@@ -30,13 +26,9 @@ use serde::Serialize;
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
 #[derive(Asset, TypePath, Default)]
 pub struct DynamicScene {
-<<<<<<< HEAD
-    pub resources: Vec<Box<dyn PartialReflect>>,
-=======
     /// Resources stored in the dynamic scene.
-    pub resources: Vec<Box<dyn Reflect>>,
+    pub resources: Vec<Box<dyn PartialReflect>>,
     /// Entities contained in the dynamic scene.
->>>>>>> upstream/main
     pub entities: Vec<DynamicEntity>,
 }
 
