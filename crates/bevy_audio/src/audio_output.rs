@@ -61,7 +61,7 @@ pub(crate) struct EarPositions<'w, 's> {
 impl<'w, 's> EarPositions<'w, 's> {
     /// Gets a set of transformed and scaled ear positions.
     ///
-    /// If there are no listeners, use a default values. If a user has added multiple
+    /// If there are no listeners, use the default values. If a user has added multiple
     /// listeners for whatever reason, using a default value might unexpected, so we will
     /// return the first value.
     pub(crate) fn get(&self) -> (Vec3, Vec3) {
