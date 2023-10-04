@@ -116,7 +116,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     };
 
     // Read field-level attributes
-    for field in fields.iter() {
+    for field in fields {
         // Search ahead for texture attributes so we can use them with any
         // corresponding sampler attribute.
         let mut tex_attrs = None;

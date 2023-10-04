@@ -161,10 +161,10 @@ impl<const SEND: bool> ResourceData<SEND> {
         if self.is_present() {
             self.validate_access();
             self.column.replace_untracked(Self::ROW, value);
-            *self.column.get_added_ticks_unchecked(Self::ROW).deref_mut() = change_ticks.added;
+            *self.column.get_added_tick_unchecked(Self::ROW).deref_mut() = change_ticks.added;
             *self
                 .column
-                .get_changed_ticks_unchecked(Self::ROW)
+                .get_changed_tick_unchecked(Self::ROW)
                 .deref_mut() = change_ticks.changed;
         } else {
             if !SEND {

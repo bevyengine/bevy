@@ -1,4 +1,4 @@
-use std::{fmt, num::ParseIntError};
+use std::{fmt, num::ParseIntError, str::from_utf8_unchecked};
 
 use thiserror::Error;
 
@@ -33,28 +33,37 @@ enum Error<'a> {
 
 pub(super) struct PathParser<'a> {
     path: &'a str,
-    offset: usize,
+    remaining: &'a [u8],
 }
 impl<'a> PathParser<'a> {
     pub(super) fn new(path: &'a str) -> Self {
-        PathParser { path, offset: 0 }
+        let remaining = path.as_bytes();
+        PathParser { path, remaining }
     }
 
     fn next_token(&mut self) -> Option<Token<'a>> {
-        let input = &self.path[self.offset..];
+        let to_parse = self.remaining;
 
         // Return with `None` if empty.
-        let first_char = input.chars().next()?;
+        let (first_byte, remaining) = to_parse.split_first()?;
 
-        if let Some(token) = Token::symbol_from_char(first_char) {
-            self.offset += 1; // NOTE: we assume all symbols are ASCII
+        if let Some(token) = Token::symbol_from_byte(*first_byte) {
+            self.remaining = remaining; // NOTE: all symbols are ASCII
             return Some(token);
         }
         // We are parsing either `0123` or `field`.
         // If we do not find a subsequent token, we are at the end of the parse string.
-        let ident = input.split_once(Token::SYMBOLS).map_or(input, |t| t.0);
+        let ident_len = to_parse.iter().position(|t| Token::SYMBOLS.contains(t));
+        let (ident, remaining) = to_parse.split_at(ident_len.unwrap_or(to_parse.len()));
+        // SAFETY: This relies on `self.remaining` always remaining valid UTF8:
+        // - self.remaining is a slice derived from self.path (valid &str)
+        // - The slice's end is either the same as the valid &str or
+        //   the last byte before an ASCII utf-8 character (ie: it is a char
+        //   boundary).
+        // - The slice always starts after a symbol ie: an ASCII character's boundary.
+        let ident = unsafe { from_utf8_unchecked(ident) };
 
-        self.offset += ident.len();
+        self.remaining = remaining;
         Some(Token::Ident(Ident(ident)))
     }
 
@@ -82,13 +91,17 @@ impl<'a> PathParser<'a> {
             }
         }
     }
+
+    fn offset(&self) -> usize {
+        self.path.len() - self.remaining.len()
+    }
 }
 impl<'a> Iterator for PathParser<'a> {
     type Item = (Result<Access<'a>, ReflectPathError<'a>>, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
         let token = self.next_token()?;
-        let offset = self.offset;
+        let offset = self.offset();
         let err = |error| ReflectPathError::ParseError {
             offset,
             path: self.path,
@@ -114,33 +127,38 @@ impl<'a> Ident<'a> {
     }
 }
 
+// NOTE: We use repr(u8) so that the `match byte` in `Token::symbol_from_byte`
+// becomes a "check `byte` is one of SYMBOLS and forward its value" this makes
+// the optimizer happy, and shaves off a few cycles.
 #[derive(Debug, PartialEq, Eq)]
+#[repr(u8)]
 enum Token<'a> {
-    Dot,
-    Pound,
-    OpenBracket,
-    CloseBracket,
+    Dot = b'.',
+    Pound = b'#',
+    OpenBracket = b'[',
+    CloseBracket = b']',
     Ident(Ident<'a>),
 }
 impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Token::Dot => f.write_str("."),
-            Token::Pound => f.write_str("#"),
-            Token::OpenBracket => f.write_str("["),
-            Token::CloseBracket => f.write_str("]"),
-            Token::Ident(ident) => f.write_str(ident.0),
-        }
+        let text = match self {
+            Token::Dot => ".",
+            Token::Pound => "#",
+            Token::OpenBracket => "[",
+            Token::CloseBracket => "]",
+            Token::Ident(ident) => ident.0,
+        };
+        f.write_str(text)
     }
 }
 impl<'a> Token<'a> {
-    const SYMBOLS: &[char] = &['.', '#', '[', ']'];
-    fn symbol_from_char(char: char) -> Option<Self> {
-        match char {
-            '.' => Some(Self::Dot),
-            '#' => Some(Self::Pound),
-            '[' => Some(Self::OpenBracket),
-            ']' => Some(Self::CloseBracket),
+    const SYMBOLS: &'static [u8] = b".#[]";
+    fn symbol_from_byte(byte: u8) -> Option<Self> {
+        match byte {
+            b'.' => Some(Self::Dot),
+            b'#' => Some(Self::Pound),
+            b'[' => Some(Self::OpenBracket),
+            b']' => Some(Self::CloseBracket),
             _ => None,
         }
     }

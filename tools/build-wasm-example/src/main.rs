@@ -71,7 +71,6 @@ fn main() {
             features.push("zstd");
             features.push("vorbis");
             features.push("x11");
-            features.push("filesystem_watcher");
             features.push("bevy_gizmos");
             features.push("android_shared_stdcxx");
             features.push("tonemapping_luts");

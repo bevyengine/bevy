@@ -62,11 +62,11 @@ impl Parse for AllTuples {
 /// }
 ///
 /// all_tuples!(impl_wrapped_in_foo, 0, 15, T);
-/// // impl_wrapp_in_foo!();
-/// // impl_wrapp_in_foo!(P0);
-/// // impl_wrapp_in_foo!(P0, P1);
+/// // impl_wrapped_in_foo!();
+/// // impl_wrapped_in_foo!(P0);
+/// // impl_wrapped_in_foo!(P0, P1);
 /// // ..
-/// // impl_wrapp_in_foo!(P0 .. P14);
+/// // impl_wrapped_in_foo!(P0 .. P14);
 /// ```
 /// Multiple parameters.
 /// ```

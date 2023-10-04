@@ -1,15 +1,12 @@
 #import bevy_pbr::mesh_vertex_output MeshVertexOutput
 
 #ifdef CUBEMAP_ARRAY
-@group(1) @binding(0)
-var base_color_texture: texture_cube_array<f32>;
+@group(1) @binding(0) var base_color_texture: texture_cube_array<f32>;
 #else
-@group(1) @binding(0)
-var base_color_texture: texture_cube<f32>;
+@group(1) @binding(0) var base_color_texture: texture_cube<f32>;
 #endif
 
-@group(1) @binding(1)
-var base_color_sampler: sampler;
+@group(1) @binding(1) var base_color_sampler: sampler;
 
 @fragment
 fn fragment(

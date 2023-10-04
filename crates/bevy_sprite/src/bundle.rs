@@ -5,12 +5,12 @@ use crate::{
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
-    texture::{Image, DEFAULT_IMAGE_HANDLE},
-    view::{ComputedVisibility, Visibility},
+    texture::Image,
+    view::{InheritedVisibility, ViewVisibility, Visibility},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
-#[derive(Bundle, Clone)]
+#[derive(Bundle, Clone, Default)]
 pub struct SpriteBundle {
     pub sprite: Sprite,
     pub transform: Transform,
@@ -18,22 +18,12 @@ pub struct SpriteBundle {
     pub texture: Handle<Image>,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    pub view_visibility: ViewVisibility,
 }
 
-impl Default for SpriteBundle {
-    fn default() -> Self {
-        Self {
-            sprite: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            texture: DEFAULT_IMAGE_HANDLE.typed(),
-            visibility: Default::default(),
-            computed_visibility: Default::default(),
-        }
-    }
-}
 /// A Bundle of components for drawing a single sprite from a sprite sheet (also referred
 /// to as a `TextureAtlas`)
 #[derive(Bundle, Clone, Default)]
@@ -47,6 +37,7 @@ pub struct SpriteSheetBundle {
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    pub view_visibility: ViewVisibility,
 }

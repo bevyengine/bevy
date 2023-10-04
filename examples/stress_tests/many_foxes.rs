@@ -270,13 +270,13 @@ fn keyboard_animation_control(
         }
 
         if keyboard_input.just_pressed(KeyCode::Left) {
-            let elapsed = player.elapsed();
-            player.set_elapsed(elapsed - 0.1);
+            let elapsed = player.seek_time();
+            player.seek_to(elapsed - 0.1);
         }
 
         if keyboard_input.just_pressed(KeyCode::Right) {
-            let elapsed = player.elapsed();
-            player.set_elapsed(elapsed + 0.1);
+            let elapsed = player.seek_time();
+            player.seek_to(elapsed + 0.1);
         }
 
         if keyboard_input.just_pressed(KeyCode::Return) {

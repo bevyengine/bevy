@@ -93,6 +93,9 @@ where
     }
 
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+        #[cfg(feature = "trace")]
+        let _span_guard = self.system_meta.system_span.enter();
+
         let saved_last_tick = world.last_change_tick;
         world.last_change_tick = self.system_meta.last_run;
 

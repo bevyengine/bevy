@@ -500,8 +500,13 @@ impl Debug for DynamicStruct {
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
+<<<<<<< HEAD
 pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn PartialReflect) -> Option<bool> {
     let ReflectRef::Struct(struct_value) = b.reflect_ref()  else {
+=======
+pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
+    let ReflectRef::Struct(struct_value) = b.reflect_ref() else {
+>>>>>>> upstream/main
         return Some(false);
     };
 

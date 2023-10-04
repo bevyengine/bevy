@@ -8,6 +8,7 @@
 #endif
 
 struct Vertex {
+    @builtin(instance_index) instance_index: u32,
 #ifdef VERTEX_POSITIONS
     @location(0) position: vec3<f32>,
 #endif
@@ -33,20 +34,21 @@ fn vertex(vertex: Vertex) -> MeshVertexOutput {
 #endif
 
 #ifdef VERTEX_POSITIONS
+    var model = mesh_functions::get_model_matrix(vertex.instance_index);
     out.world_position = mesh_functions::mesh2d_position_local_to_world(
-        mesh.model, 
+        model,
         vec4<f32>(vertex.position, 1.0)
     );
     out.position = mesh_functions::mesh2d_position_world_to_clip(out.world_position);
 #endif
 
 #ifdef VERTEX_NORMALS
-    out.world_normal = mesh_functions::mesh2d_normal_local_to_world(vertex.normal);
+    out.world_normal = mesh_functions::mesh2d_normal_local_to_world(vertex.normal, vertex.instance_index);
 #endif
 
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_functions::mesh2d_tangent_local_to_world(
-        mesh.model, 
+        model,
         vertex.tangent
     );
 #endif

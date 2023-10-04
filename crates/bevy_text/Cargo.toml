@@ -26,7 +26,6 @@ bevy_window = { path = "../bevy_window", version = "0.12.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 
 # other
-anyhow = "1.0.4"
 ab_glyph = "0.2.6"
 glyph_brush_layout = "0.2.1"
 thiserror = "1.0"

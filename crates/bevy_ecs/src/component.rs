@@ -202,7 +202,7 @@ pub enum StorageType {
 }
 
 /// Stores metadata for a type of component or resource stored in a specific [`World`].
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ComponentInfo {
     id: ComponentId,
     descriptor: ComponentDescriptor,
@@ -282,6 +282,10 @@ impl ComponentInfo {
 /// A `ComponentId` is tightly coupled to its parent `World`. Attempting to use a `ComponentId` from
 /// one `World` to access the metadata of a `Component` in a different `World` is undefined behavior
 /// and must not be attempted.
+///
+/// Given a type `T` which implements [`Component`], the `ComponentId` for `T` can be retrieved
+/// from a `World` using [`World::component_id()`] or via [`Components::component_id()`]. Access
+/// to the `ComponentId` for a [`Resource`] is available via [`Components::resource_id()`].
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ComponentId(usize);
 
@@ -315,6 +319,7 @@ impl SparseSetIndex for ComponentId {
 }
 
 /// A value describing a component or resource, which may or may not correspond to a Rust type.
+#[derive(Clone)]
 pub struct ComponentDescriptor {
     name: Cow<'static, str>,
     // SAFETY: This must remain private. It must match the statically known StorageType of the
@@ -442,6 +447,11 @@ impl Components {
     /// Initializes a component of type `T` with this instance.
     /// If a component of this type has already been initialized, this will return
     /// the ID of the pre-existing component.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::component_id()`]
+    /// * [`Components::init_component_with_descriptor()`]
     #[inline]
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let type_id = TypeId::of::<T>();
@@ -463,6 +473,11 @@ impl Components {
     ///
     /// If this method is called multiple times with identical descriptors, a distinct `ComponentId`
     /// will be created for each one.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::component_id()`]
+    /// * [`Components::init_component()`]
     pub fn init_component_with_descriptor(
         &mut self,
         storages: &mut Storages,
@@ -525,7 +540,7 @@ impl Components {
         self.components.get_unchecked(id.0)
     }
 
-    /// Type-erased equivalent of [`Components::component_id`].
+    /// Type-erased equivalent of [`Components::component_id()`].
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.indices.get(&type_id).map(|index| ComponentId(*index))
@@ -538,7 +553,7 @@ impl Components {
     /// instance.
     ///
     /// Returns [`None`] if the `Component` type has not
-    /// yet been initialized using [`Components::init_component`].
+    /// yet been initialized using [`Components::init_component()`].
     ///
     /// ```rust
     /// use bevy_ecs::prelude::*;
@@ -552,12 +567,18 @@ impl Components {
     ///
     /// assert_eq!(component_a_id, world.components().component_id::<ComponentA>().unwrap())
     /// ```
+    ///
+    /// # See also
+    ///
+    /// * [`Components::get_id()`]
+    /// * [`Components::resource_id()`]
+    /// * [`World::component_id()`]
     #[inline]
     pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
         self.get_id(TypeId::of::<T>())
     }
 
-    /// Type-erased equivalent of [`Components::resource_id`].
+    /// Type-erased equivalent of [`Components::resource_id()`].
     #[inline]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.resource_indices
@@ -572,7 +593,7 @@ impl Components {
     /// instance.
     ///
     /// Returns [`None`] if the `Resource` type has not
-    /// yet been initialized using [`Components::init_resource`].
+    /// yet been initialized using [`Components::init_resource()`].
     ///
     /// ```rust
     /// use bevy_ecs::prelude::*;
@@ -586,6 +607,11 @@ impl Components {
     ///
     /// assert_eq!(resource_a_id, world.components().resource_id::<ResourceA>().unwrap())
     /// ```
+    ///
+    /// # See also
+    ///
+    /// * [`Components::component_id()`]
+    /// * [`Components::get_resource_id()`]
     #[inline]
     pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
         self.get_resource_id(TypeId::of::<T>())
@@ -594,6 +620,10 @@ impl Components {
     /// Initializes a [`Resource`] of type `T` with this instance.
     /// If a resource of this type has already been initialized, this will return
     /// the ID of the pre-existing resource.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::resource_id()`]
     #[inline]
     pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]

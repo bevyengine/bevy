@@ -349,7 +349,7 @@ impl BundleInfo {
         &'b self,
         entities: &'a mut Entities,
         archetypes: &'a mut Archetypes,
-        components: &mut Components,
+        components: &Components,
         storages: &'a mut Storages,
         archetype_id: ArchetypeId,
         change_tick: Tick,
@@ -409,7 +409,7 @@ impl BundleInfo {
         &'b self,
         entities: &'a mut Entities,
         archetypes: &'a mut Archetypes,
-        components: &mut Components,
+        components: &Components,
         storages: &'a mut Storages,
         change_tick: Tick,
     ) -> BundleSpawner<'a, 'b> {
@@ -495,7 +495,7 @@ impl BundleInfo {
         &self,
         archetypes: &mut Archetypes,
         storages: &mut Storages,
-        components: &mut Components,
+        components: &Components,
         archetype_id: ArchetypeId,
     ) -> ArchetypeId {
         if let Some(add_bundle_id) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
@@ -853,7 +853,7 @@ impl Bundles {
     /// provided [`Components`].
     pub(crate) fn init_dynamic_info(
         &mut self,
-        components: &mut Components,
+        components: &Components,
         component_ids: &[ComponentId],
     ) -> (&BundleInfo, &Vec<StorageType>) {
         let bundle_infos = &mut self.bundle_infos;
@@ -883,7 +883,7 @@ impl Bundles {
     /// Panics if the provided [`ComponentId`] does not exist in the provided [`Components`].
     pub(crate) fn init_component_info(
         &mut self,
-        components: &mut Components,
+        components: &Components,
         component_id: ComponentId,
     ) -> (&BundleInfo, StorageType) {
         let bundle_infos = &mut self.bundle_infos;

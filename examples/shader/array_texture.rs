@@ -1,7 +1,7 @@
 use bevy::{
     asset::LoadState,
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
@@ -65,7 +65,7 @@ fn create_array_texture(
     mut materials: ResMut<Assets<ArrayTextureMaterial>>,
 ) {
     if loading_texture.is_loaded
-        || asset_server.get_load_state(loading_texture.handle.clone()) != LoadState::Loaded
+        || asset_server.load_state(loading_texture.handle.clone()) != LoadState::Loaded
     {
         return;
     }
@@ -91,8 +91,7 @@ fn create_array_texture(
     }
 }
 
-#[derive(AsBindGroup, Debug, Clone, TypeUuid, TypePath)]
-#[uuid = "9c5a0ddf-1eaf-41b4-9832-ed736fd26af3"]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 struct ArrayTextureMaterial {
     #[texture(0, dimension = "2d_array")]
     #[sampler(1)]

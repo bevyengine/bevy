@@ -28,7 +28,7 @@ fn play_pitch(
     mut events: EventReader<PlayPitch>,
     mut commands: Commands,
 ) {
-    for _ in events.iter() {
+    for _ in events.read() {
         info!("playing pitch with frequency: {}", frequency.0);
         commands.spawn(PitchBundle {
             source: pitch_assets.add(Pitch::new(frequency.0, Duration::new(1, 0))),

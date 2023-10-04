@@ -1,3 +1,5 @@
+//! The touch input functionality.
+
 use bevy_ecs::event::{Event, EventReader};
 use bevy_ecs::system::{ResMut, Resource};
 use bevy_math::Vec2;
@@ -364,7 +366,7 @@ pub fn touch_screen_input_system(
 ) {
     touch_state.update();
 
-    for event in touch_input_events.iter() {
+    for event in touch_input_events.read() {
         touch_state.process_touch_event(event);
     }
 }

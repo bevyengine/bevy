@@ -144,6 +144,6 @@ fn print_sprite_count(
     timer.tick(time.delta());
 
     if timer.just_finished() {
-        info!("Sprites: {}", sprites.iter().count(),);
+        info!("Sprites: {}", sprites.iter().count());
     }
 }

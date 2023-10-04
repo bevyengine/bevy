@@ -162,12 +162,7 @@ fn spawn_nested_text_bundle(
         .spawn(NodeBundle {
             style: Style {
                 margin,
-                padding: UiRect {
-                    top: Val::Px(1.),
-                    left: Val::Px(5.),
-                    right: Val::Px(5.),
-                    bottom: Val::Px(1.),
-                },
+                padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
                 ..Default::default()
             },
             background_color: BackgroundColor(background_color),

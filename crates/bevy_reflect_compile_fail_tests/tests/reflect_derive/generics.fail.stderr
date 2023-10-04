@@ -11,14 +11,14 @@ error[E0277]: the trait bound `NoReflect: Reflect` is not satisfied
    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `NoReflect`
    |
    = help: the following other types implement trait `Reflect`:
-             &'static Path
-             ()
-             (A, B)
-             (A, B, C)
-             (A, B, C, D)
-             (A, B, C, D, E)
-             (A, B, C, D, E, F)
-             (A, B, C, D, E, F, G)
+             bool
+             char
+             isize
+             i8
+             i16
+             i32
+             i64
+             i128
            and $N others
 note: required for `Foo<NoReflect>` to implement `Reflect`
   --> tests/reflect_derive/generics.fail.rs:3:10

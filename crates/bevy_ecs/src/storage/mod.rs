@@ -29,7 +29,7 @@ pub use resource::*;
 pub use sparse_set::*;
 pub use table::*;
 
-/// The raw data stores of a [World](crate::world::World)
+/// The raw data stores of a [`World`](crate::world::World)
 #[derive(Default)]
 pub struct Storages {
     /// Backing storage for [`SparseSet`] components.

@@ -4,10 +4,8 @@
 #import bevy_core_pipeline::tonemapping tone_mapping
 #import bevy_pbr::pbr_functions as fns
 
-@group(1) @binding(0)
-var my_array_texture: texture_2d_array<f32>;
-@group(1) @binding(1)
-var my_array_texture_sampler: sampler;
+@group(1) @binding(0) var my_array_texture: texture_2d_array<f32>;
+@group(1) @binding(1) var my_array_texture_sampler: sampler;
 
 @fragment
 fn fragment(

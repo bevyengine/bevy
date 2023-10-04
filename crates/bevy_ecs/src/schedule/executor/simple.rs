@@ -77,13 +77,9 @@ impl SystemExecutor for SimpleExecutor {
             }
 
             let system = &mut schedule.systems[system_index];
-            #[cfg(feature = "trace")]
-            let system_span = info_span!("system", name = &*name).entered();
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                 system.run((), world);
             }));
-            #[cfg(feature = "trace")]
-            system_span.exit();
             if let Err(payload) = res {
                 eprintln!("Encountered a panic in system `{}`!", &*system.name());
                 std::panic::resume_unwind(payload);
@@ -113,10 +109,6 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     #[allow(clippy::unnecessary_fold)]
     conditions
         .iter_mut()
-        .map(|condition| {
-            #[cfg(feature = "trace")]
-            let _condition_span = info_span!("condition", name = &*condition.name()).entered();
-            condition.run((), world)
-        })
+        .map(|condition| condition.run((), world))
         .fold(true, |acc, res| acc && res)
 }

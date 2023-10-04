@@ -98,7 +98,7 @@ fn setup(
         style: Style {
             position_type: PositionType::Absolute,
             top: Val::Px(130.0),
-            right: Val::Px(0.0),
+            right: Val::ZERO,
             ..default()
         },
         transform: Transform {
@@ -151,8 +151,8 @@ fn environment_map_load_finish(
     label_query: Query<Entity, With<EnvironmentMapLabel>>,
 ) {
     if let Ok(environment_map) = environment_maps.get_single() {
-        if asset_server.get_load_state(&environment_map.diffuse_map) == LoadState::Loaded
-            && asset_server.get_load_state(&environment_map.specular_map) == LoadState::Loaded
+        if asset_server.load_state(&environment_map.diffuse_map) == LoadState::Loaded
+            && asset_server.load_state(&environment_map.specular_map) == LoadState::Loaded
         {
             if let Ok(label_entity) = label_query.get_single() {
                 commands.entity(label_entity).despawn();

@@ -16,7 +16,7 @@ impl Plugin for UpscalingPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 Render,
-                queue_view_upscaling_pipelines.in_set(RenderSet::Queue),
+                prepare_view_upscaling_pipelines.in_set(RenderSet::Prepare),
             );
         }
     }
@@ -25,7 +25,7 @@ impl Plugin for UpscalingPlugin {
 #[derive(Component)]
 pub struct ViewUpscalingPipeline(CachedRenderPipelineId);
 
-fn queue_view_upscaling_pipelines(
+fn prepare_view_upscaling_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,

@@ -43,6 +43,8 @@ use bevy_window::{
     WindowCloseRequested, WindowCreated, WindowDestroyed, WindowFocused, WindowMoved,
     WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
 };
+#[cfg(target_os = "android")]
+use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity::AndroidApp;
@@ -63,11 +65,11 @@ use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin
 #[cfg(target_os = "android")]
 pub static ANDROID_APP: std::sync::OnceLock<AndroidApp> = std::sync::OnceLock::new();
 
-/// A [`Plugin`] that uses [`winit`] to create and manage windows, and receive window and input
+/// A [`Plugin`] that uses `winit` to create and manage windows, and receive window and input
 /// events.
 ///
-/// This plugin will add systems and resources that sync with the [`winit`] backend and also
-/// replace the exising [`App`] runner with one that constructs an [event loop](EventLoop) to
+/// This plugin will add systems and resources that sync with the `winit` backend and also
+/// replace the existing [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
 #[derive(Default)]
 pub struct WinitPlugin;
@@ -356,7 +358,7 @@ pub fn winit_runner(mut app: App) {
             }
 
             if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-                if app_exit_event_reader.iter(app_exit_events).last().is_some() {
+                if app_exit_event_reader.read(app_exit_events).last().is_some() {
                     *control_flow = ControlFlow::Exit;
                     return;
                 }
@@ -366,7 +368,7 @@ pub fn winit_runner(mut app: App) {
         match event {
             event::Event::NewEvents(start_cause) => match start_cause {
                 StartCause::Init => {
-                    #[cfg(any(target_os = "android", target_os = "ios", target_os = "macos"))]
+                    #[cfg(any(target_os = "ios", target_os = "macos"))]
                     {
                         #[cfg(not(target_arch = "wasm32"))]
                         let (
@@ -422,20 +424,20 @@ pub fn winit_runner(mut app: App) {
                     event_writer_system_state.get_mut(&mut app.world);
 
                 let Some(window_entity) = winit_windows.get_window_entity(window_id) else {
-                        warn!(
-                            "Skipped event {:?} for unknown winit Window Id {:?}",
-                            event, window_id
-                        );
-                        return;
-                    };
+                    warn!(
+                        "Skipped event {:?} for unknown winit Window Id {:?}",
+                        event, window_id
+                    );
+                    return;
+                };
 
                 let Ok((mut window, mut cache)) = windows.get_mut(window_entity) else {
-                        warn!(
-                            "Window {:?} is missing `Window` component, skipping event {:?}",
-                            window_entity, event
-                        );
-                        return;
-                    };
+                    warn!(
+                        "Window {:?} is missing `Window` component, skipping event {:?}",
+                        window_entity, event
+                    );
+                    return;
+                };
 
                 runner_state.window_event_received = true;
 
@@ -664,16 +666,55 @@ pub fn winit_runner(mut app: App) {
                 runner_state.is_active = false;
                 #[cfg(target_os = "android")]
                 {
-                    // Android sending this event invalidates all render surfaces.
-                    // TODO
-                    // Upon resume, check if the new render surfaces are compatible with the
-                    // existing render device. If not (which should basically never happen),
-                    // then try to rebuild the renderer.
-                    *control_flow = ControlFlow::Exit;
+                    // Remove the `RawHandleWrapper` from the primary window.
+                    // This will trigger the surface destruction.
+                    let mut query = app.world.query_filtered::<Entity, With<PrimaryWindow>>();
+                    let entity = query.single(&app.world);
+                    app.world.entity_mut(entity).remove::<RawHandleWrapper>();
+                    *control_flow = ControlFlow::Wait;
                 }
             }
             event::Event::Resumed => {
                 runner_state.is_active = true;
+                #[cfg(target_os = "android")]
+                {
+                    // Get windows that are cached but without raw handles. Those window were already created, but got their
+                    // handle wrapper removed when the app was suspended.
+                    let mut query = app
+                        .world
+                        .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
+                    if let Ok((entity, window)) = query.get_single(&app.world) {
+                        use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+                        let window = window.clone();
+
+                        let (
+                            _,
+                            _,
+                            _,
+                            mut winit_windows,
+                            mut adapters,
+                            mut handlers,
+                            accessibility_requested,
+                        ) = create_window_system_state.get_mut(&mut app.world);
+
+                        let winit_window = winit_windows.create_window(
+                            event_loop,
+                            entity,
+                            &window,
+                            &mut adapters,
+                            &mut handlers,
+                            &accessibility_requested,
+                        );
+
+                        let wrapper = RawHandleWrapper {
+                            window_handle: winit_window.raw_window_handle(),
+                            display_handle: winit_window.raw_display_handle(),
+                        };
+
+                        app.world.entity_mut(entity).insert(wrapper);
+                    }
+                    *control_flow = ControlFlow::Poll;
+                }
             }
             event::Event::MainEventsCleared => {
                 if runner_state.is_active {
@@ -723,14 +764,14 @@ pub fn winit_runner(mut app: App) {
                         if let Some(app_redraw_events) =
                             app.world.get_resource::<Events<RequestRedraw>>()
                         {
-                            if redraw_event_reader.iter(app_redraw_events).last().is_some() {
+                            if redraw_event_reader.read(app_redraw_events).last().is_some() {
                                 runner_state.redraw_requested = true;
                                 *control_flow = ControlFlow::Poll;
                             }
                         }
 
                         if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-                            if app_exit_event_reader.iter(app_exit_events).last().is_some() {
+                            if app_exit_event_reader.read(app_exit_events).last().is_some() {
                                 *control_flow = ControlFlow::Exit;
                             }
                         }

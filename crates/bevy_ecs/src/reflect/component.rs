@@ -25,7 +25,7 @@
 //! implementation of `ReflectComponent`.
 //!
 //! The `FromType<C>` impl creates a function per field of [`ReflectComponentFns`].
-//! In those functions, we call generic methods on [`World`] and [`EntityMut`].
+//! In those functions, we call generic methods on [`World`] and [`EntityWorldMut`].
 //!
 //! The result is a `ReflectComponent` completely independent of `C`, yet capable
 //! of using generic ECS methods such as `entity.get::<C>()` to get `&dyn Reflect`
@@ -50,7 +50,7 @@ use crate::{
     change_detection::Mut,
     component::Component,
     entity::Entity,
-    world::{unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, FromWorld, World},
+    world::{unsafe_world_cell::UnsafeEntityCell, EntityRef, EntityWorldMut, FromWorld, World},
 };
 use bevy_reflect::{FromType, PartialReflect, Reflect};
 
@@ -86,19 +86,31 @@ pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::from_world()`].
     pub from_world: fn(&mut World) -> Box<dyn PartialReflect>,
     /// Function pointer implementing [`ReflectComponent::insert()`].
+<<<<<<< HEAD
     pub insert: fn(&mut EntityMut, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectComponent::apply()`].
     pub apply: fn(&mut EntityMut, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectComponent::apply_or_insert()`].
     pub apply_or_insert: fn(&mut EntityMut, &dyn PartialReflect),
+=======
+    pub insert: fn(&mut EntityWorldMut, &dyn Reflect),
+    /// Function pointer implementing [`ReflectComponent::apply()`].
+    pub apply: fn(&mut EntityWorldMut, &dyn Reflect),
+    /// Function pointer implementing [`ReflectComponent::apply_or_insert()`].
+    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn Reflect),
+>>>>>>> upstream/main
     /// Function pointer implementing [`ReflectComponent::remove()`].
-    pub remove: fn(&mut EntityMut),
+    pub remove: fn(&mut EntityWorldMut),
     /// Function pointer implementing [`ReflectComponent::contains()`].
     pub contains: fn(EntityRef) -> bool,
     /// Function pointer implementing [`ReflectComponent::reflect()`].
     pub reflect: fn(EntityRef) -> Option<&dyn PartialReflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
+<<<<<<< HEAD
     pub reflect_mut: for<'a> fn(&'a mut EntityMut<'_>) -> Option<Mut<'a, dyn PartialReflect>>,
+=======
+    pub reflect_mut: for<'a> fn(&'a mut EntityWorldMut<'_>) -> Option<Mut<'a, dyn Reflect>>,
+>>>>>>> upstream/main
     /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut()`].
     ///
     /// # Safety
@@ -126,8 +138,13 @@ impl ReflectComponent {
         (self.0.from_world)(world)
     }
 
+<<<<<<< HEAD
     /// Insert a reflected [`Component`] into the entity like [`insert()`](crate::world::EntityMut::insert).
     pub fn insert(&self, entity: &mut EntityMut, component: &dyn PartialReflect) {
+=======
+    /// Insert a reflected [`Component`] into the entity like [`insert()`](crate::world::EntityWorldMut::insert).
+    pub fn insert(&self, entity: &mut EntityWorldMut, component: &dyn Reflect) {
+>>>>>>> upstream/main
         (self.0.insert)(entity, component);
     }
 
@@ -136,17 +153,25 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if there is no [`Component`] of the given type.
+<<<<<<< HEAD
     pub fn apply(&self, entity: &mut EntityMut, component: &dyn PartialReflect) {
+=======
+    pub fn apply(&self, entity: &mut EntityWorldMut, component: &dyn Reflect) {
+>>>>>>> upstream/main
         (self.0.apply)(entity, component);
     }
 
     /// Uses reflection to set the value of this [`Component`] type in the entity to the given value or insert a new one if it does not exist.
+<<<<<<< HEAD
     pub fn apply_or_insert(&self, entity: &mut EntityMut, component: &dyn PartialReflect) {
+=======
+    pub fn apply_or_insert(&self, entity: &mut EntityWorldMut, component: &dyn Reflect) {
+>>>>>>> upstream/main
         (self.0.apply_or_insert)(entity, component);
     }
 
     /// Removes this [`Component`] type from the entity. Does nothing if it doesn't exist.
-    pub fn remove(&self, entity: &mut EntityMut) {
+    pub fn remove(&self, entity: &mut EntityWorldMut) {
         (self.0.remove)(entity);
     }
 
@@ -163,8 +188,13 @@ impl ReflectComponent {
     /// Gets the value of this [`Component`] type from the entity as a mutable reflected reference.
     pub fn reflect_mut<'a>(
         &self,
+<<<<<<< HEAD
         entity: &'a mut EntityMut<'_>,
     ) -> Option<Mut<'a, dyn PartialReflect>> {
+=======
+        entity: &'a mut EntityWorldMut<'_>,
+    ) -> Option<Mut<'a, dyn Reflect>> {
+>>>>>>> upstream/main
         (self.0.reflect_mut)(entity)
     }
 
@@ -280,7 +310,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
             },
             reflect_unchecked_mut: |entity| {
                 // SAFETY: reflect_unchecked_mut is an unsafe function pointer used by
-                // `reflect_unchecked_mut` which must be called with an UnsafeEntityCell with access to the the component `C` on the `entity`
+                // `reflect_unchecked_mut` which must be called with an UnsafeEntityCell with access to the component `C` on the `entity`
                 unsafe {
                     entity.get_mut::<C>().map(|c| Mut {
                         value: c.value as &mut dyn PartialReflect,

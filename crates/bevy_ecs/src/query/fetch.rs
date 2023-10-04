@@ -5,7 +5,7 @@ use crate::{
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, EntityRef, Mut, Ref, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityRef, Mut, Ref, World},
 };
 pub use bevy_ecs_macros::WorldQuery;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -410,6 +410,9 @@ pub unsafe trait WorldQuery {
     ///
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     /// `table_row` must be in the range of the current table and archetype.
+    ///
+    /// If this includes any mutable access, then this should never be called
+    /// while the return value of [`WorldQuery::fetch`] for the same entity is live.
     #[allow(unused_variables)]
     #[inline(always)]
     unsafe fn filter_fetch(
@@ -524,8 +527,8 @@ unsafe impl WorldQuery for Entity {
 unsafe impl ReadOnlyWorldQuery for Entity {}
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<'a> WorldQuery for EntityRef<'a> {
-    type Fetch<'w> = &'w World;
+unsafe impl WorldQuery for EntityRef<'_> {
+    type Fetch<'w> = UnsafeWorldCell<'w>;
     type Item<'w> = EntityRef<'w>;
     type ReadOnly = Self;
     type State = ();
@@ -544,8 +547,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
         _last_run: Tick,
         _this_run: Tick,
     ) -> Self::Fetch<'w> {
-        // SAFE: EntityRef has permission to access the whole world immutably thanks to update_component_access and update_archetype_component_access
-        world.world()
+        world
     }
 
     #[inline]
@@ -568,7 +570,9 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
         _table_row: TableRow,
     ) -> Self::Item<'w> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        unsafe { world.get_entity(entity).debug_checked_unwrap() }
+        let cell = world.get_entity(entity).debug_checked_unwrap();
+        // SAFETY: Read-only access to every component has been registered.
+        EntityRef::new(cell)
     }
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -599,8 +603,85 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     }
 }
 
-/// SAFETY: access is read only
-unsafe impl<'a> ReadOnlyWorldQuery for EntityRef<'a> {}
+/// SAFETY: Access is read-only.
+unsafe impl ReadOnlyWorldQuery for EntityRef<'_> {}
+
+/// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
+unsafe impl<'a> WorldQuery for EntityMut<'a> {
+    type Fetch<'w> = UnsafeWorldCell<'w>;
+    type Item<'w> = EntityMut<'w>;
+    type ReadOnly = EntityRef<'a>;
+    type State = ();
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
+
+    const IS_DENSE: bool = true;
+
+    const IS_ARCHETYPAL: bool = true;
+
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        _state: &Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        world
+    }
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _archetype: &'w Archetype,
+        _table: &Table,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    }
+
+    #[inline(always)]
+    unsafe fn fetch<'w>(
+        world: &mut Self::Fetch<'w>,
+        entity: Entity,
+        _table_row: TableRow,
+    ) -> Self::Item<'w> {
+        // SAFETY: `fetch` must be called with an entity that exists in the world
+        let cell = world.get_entity(entity).debug_checked_unwrap();
+        // SAFETY: mutable access to every component has been registered.
+        EntityMut::new(cell)
+    }
+
+    fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+        assert!(
+            !access.access().has_any_read(),
+            "EntityMut conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
+        );
+        access.write_all();
+    }
+
+    fn update_archetype_component_access(
+        _state: &Self::State,
+        archetype: &Archetype,
+        access: &mut Access<ArchetypeComponentId>,
+    ) {
+        for component_id in archetype.components() {
+            access.add_write(archetype.get_archetype_component_id(component_id).unwrap());
+        }
+    }
+
+    fn init_state(_world: &mut World) {}
+
+    fn matches_component_set(
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+}
 
 #[doc(hidden)]
 pub struct ReadFetch<'w, T> {
@@ -1140,10 +1221,15 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     }
 
     fn update_component_access(state: &T::State, access: &mut FilteredAccess<ComponentId>) {
-        // We don't want to add the `with`/`without` of `T` as `Option<T>` will match things regardless of
-        // `T`'s filters. for example `Query<(Option<&U>, &mut V)>` will match every entity with a `V` component
-        // regardless of whether it has a `U` component. If we don't do this the query will not conflict with
-        // `Query<&mut V, Without<U>>` which would be unsound.
+        // FilteredAccess::add_[write,read] adds the component to the `with` filter.
+        // Those methods are called on `access` in `T::update_component_access`.
+        // But in `Option<T>`, we specifically don't filter on `T`,
+        // since `(Option<T>, &OtherComponent)` should be a valid item, even
+        // if `Option<T>` is `None`.
+        //
+        // We pass a clone of the `FilteredAccess` to `T`, and only update the `Access`
+        // using `extend_access` so that we can apply `T`'s component_access
+        // without updating the `with` filters of `access`.
         let mut intermediate = access.clone();
         T::update_component_access(state, &mut intermediate);
         access.extend_access(&intermediate);

@@ -88,7 +88,7 @@ pub fn dds_format_to_texture_format(
                     TextureFormat::Bc3RgbaUnorm
                 }
             }
-            D3DFormat::A16B16G16R16 => TextureFormat::Rgba16Uint,
+            D3DFormat::A16B16G16R16 => TextureFormat::Rgba16Unorm,
             D3DFormat::Q16W16V16U16 => TextureFormat::Rgba16Sint,
             D3DFormat::R16F => TextureFormat::R16Float,
             D3DFormat::G16R16F => TextureFormat::Rg16Float,

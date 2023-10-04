@@ -23,7 +23,7 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_utils::{Duration, HashSet, Instant};
+use bevy_utils::{Duration, HashSet, Instant, Uuid};
 use std::borrow::Cow;
 use std::ffi::OsString;
 use std::marker::PhantomData;
@@ -61,7 +61,8 @@ fn register_rust_types(app: &mut App) {
         .register_type::<Cow<'static, str>>()
         .register_type::<Cow<'static, Path>>()
         .register_type::<Duration>()
-        .register_type::<Instant>();
+        .register_type::<Instant>()
+        .register_type::<Uuid>();
 }
 
 fn register_math_types(app: &mut App) {

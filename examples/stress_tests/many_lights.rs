@@ -144,7 +144,7 @@ fn print_light_count(time: Res<Time>, mut timer: Local<PrintingTimer>, lights: Q
     timer.0.tick(time.delta());
 
     if timer.0.just_finished() {
-        info!("Lights: {}", lights.iter().len(),);
+        info!("Lights: {}", lights.iter().len());
     }
 }
 

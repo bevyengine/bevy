@@ -135,7 +135,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
             "#[derive(WorldQuery)]` only supports structs",
         )
         .into_compile_error()
-        .into()
+        .into();
     };
 
     let mut field_attrs = Vec::new();

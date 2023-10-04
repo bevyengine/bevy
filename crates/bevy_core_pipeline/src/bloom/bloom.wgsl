@@ -14,13 +14,10 @@ struct BloomUniforms {
     aspect: f32,
 };
 
-@group(0) @binding(0)
-var input_texture: texture_2d<f32>;
-@group(0) @binding(1)
-var s: sampler;
+@group(0) @binding(0) var input_texture: texture_2d<f32>;
+@group(0) @binding(1) var s: sampler;
 
-@group(0) @binding(2)
-var<uniform> uniforms: BloomUniforms;
+@group(0) @binding(2) var<uniform> uniforms: BloomUniforms;
 
 #ifdef FIRST_DOWNSAMPLE
 // https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4

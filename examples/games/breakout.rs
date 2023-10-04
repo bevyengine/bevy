@@ -249,11 +249,6 @@ fn setup(
     commands.spawn(WallBundle::new(WallLocation::Top));
 
     // Bricks
-    // Negative scales result in flipped sprites / meshes,
-    // which is definitely not what we want here
-    assert!(BRICK_SIZE.x > 0.0);
-    assert!(BRICK_SIZE.y > 0.0);
-
     let total_width_of_bricks = (RIGHT_WALL - LEFT_WALL) - 2. * GAP_BETWEEN_BRICKS_AND_SIDES;
     let bottom_edge_of_bricks = paddle_y + GAP_BETWEEN_PADDLE_AND_BRICKS;
     let total_height_of_bricks = TOP_WALL - bottom_edge_of_bricks - GAP_BETWEEN_BRICKS_AND_CEILING;

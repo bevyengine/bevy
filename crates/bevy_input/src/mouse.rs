@@ -1,3 +1,5 @@
+//! The mouse input functionality.
+
 use crate::{ButtonState, Input};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::{
@@ -142,7 +144,7 @@ pub fn mouse_button_input_system(
     mut mouse_button_input_events: EventReader<MouseButtonInput>,
 ) {
     mouse_button_input.bypass_change_detection().clear();
-    for event in mouse_button_input_events.iter() {
+    for event in mouse_button_input_events.read() {
         match event.state {
             ButtonState::Pressed => mouse_button_input.press(event.button),
             ButtonState::Released => mouse_button_input.release(event.button),

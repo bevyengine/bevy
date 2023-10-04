@@ -95,7 +95,7 @@ fn set_camera_viewports(
     // We need to dynamically resize the camera's viewports whenever the window size changes
     // so then each camera always takes up half the screen.
     // A resize_event is sent when the window is first created, allowing us to reuse this system for initial setup.
-    for resize_event in resize_events.iter() {
+    for resize_event in resize_events.read() {
         let window = windows.get(resize_event.window).unwrap();
         let mut left_camera = left_camera.single_mut();
         left_camera.viewport = Some(Viewport {

@@ -1,6 +1,9 @@
 use crate::texture::{Image, TextureFormatPixelInfo};
-use anyhow::Result;
-use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
+use bevy_asset::{
+    anyhow::Error,
+    io::{AsyncReadExt, Reader},
+    AssetLoader, LoadContext,
+};
 use bevy_utils::BoxedFuture;
 use image::ImageDecoder;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
@@ -10,11 +13,15 @@ use wgpu::{Extent3d, TextureDimension, TextureFormat};
 pub struct ExrTextureLoader;
 
 impl AssetLoader for ExrTextureLoader {
+    type Asset = Image;
+    type Settings = ();
+
     fn load<'a>(
         &'a self,
-        bytes: &'a [u8],
-        load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<()>> {
+        reader: &'a mut Reader,
+        _settings: &'a Self::Settings,
+        _load_context: &'a mut LoadContext,
+    ) -> BoxedFuture<'a, Result<Image, Error>> {
         Box::pin(async move {
             let format = TextureFormat::Rgba32Float;
             debug_assert_eq!(
@@ -23,6 +30,8 @@ impl AssetLoader for ExrTextureLoader {
                 "Format should have 32bit x 4 size"
             );
 
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
             let decoder = image::codecs::openexr::OpenExrDecoder::with_alpha_preference(
                 std::io::Cursor::new(bytes),
                 Some(true),
@@ -34,7 +43,7 @@ impl AssetLoader for ExrTextureLoader {
             let mut buf = vec![0u8; total_bytes];
             decoder.read_image(buf.as_mut_slice())?;
 
-            let texture = Image::new(
+            Ok(Image::new(
                 Extent3d {
                     width,
                     height,
@@ -43,10 +52,7 @@ impl AssetLoader for ExrTextureLoader {
                 TextureDimension::D2,
                 buf,
                 format,
-            );
-
-            load_context.set_default_asset(LoadedAsset::new(texture));
-            Ok(())
+            ))
         })
     }
 

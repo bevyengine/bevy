@@ -199,6 +199,7 @@ impl_reflect_value!(::core::num::NonZeroI8(
     Serialize,
     Deserialize
 ));
+impl_reflect_value!(::std::sync::Arc<T: Send + Sync>);
 
 // `Serialize` and `Deserialize` only for platforms supported by serde:
 // https://github.com/serde-rs/serde/blob/3ffb86fc70efd3d329519e2dddfa306cc04f167c/serde/src/de/impls.rs#L1732

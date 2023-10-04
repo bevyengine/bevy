@@ -2,7 +2,7 @@ use crate::components::{Children, Parent};
 use bevy_ecs::{
     entity::Entity,
     system::{Command, EntityCommands},
-    world::{EntityMut, World},
+    world::{EntityWorldMut, World},
 };
 use bevy_utils::tracing::debug;
 
@@ -103,7 +103,7 @@ impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
     }
 }
 
-impl<'w> DespawnRecursiveExt for EntityMut<'w> {
+impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
     /// Despawns the provided entity and its children.
     fn despawn_recursive(self) {
         let entity = self.id();

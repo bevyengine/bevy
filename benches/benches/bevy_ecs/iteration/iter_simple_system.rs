@@ -41,6 +41,7 @@ impl Benchmark {
         Self(world, Box::new(system))
     }
 
+    #[inline(never)]
     pub fn run(&mut self) {
         self.1.run((), &mut self.0);
     }

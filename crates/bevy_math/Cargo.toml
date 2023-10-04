@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
-glam = { version = "0.24", features = ["bytemuck"] }
+glam = { version = "0.24.1", features = ["bytemuck"] }
 serde = { version = "1", features = ["derive"], optional = true }
 
 [features]

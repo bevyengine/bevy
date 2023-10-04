@@ -35,6 +35,7 @@ fn assign_clips(
     scene_handle: Res<SceneHandle>,
     clips: Res<Assets<AnimationClip>>,
     gltf_assets: Res<Assets<Gltf>>,
+    assets: Res<AssetServer>,
     mut commands: Commands,
     mut setup: Local<bool>,
 ) {
@@ -56,7 +57,7 @@ fn assign_clips(
         let clips = clips
             .iter()
             .filter_map(|(k, v)| v.compatible_with(name).then_some(k))
-            .map(|id| clips.get_handle(id))
+            .map(|id| assets.get_id_handle(id).unwrap())
             .collect();
         let animations = Clips::new(clips);
         player.play(animations.current()).repeat();
@@ -91,7 +92,7 @@ fn handle_inputs(
 
             let resume = !player.is_paused();
             // set the current animation to its start and pause it to reset to its starting state
-            player.set_elapsed(0.0).pause();
+            player.seek_to(0.0).pause();
 
             clips.advance_to_next();
             let current_clip = clips.current();

@@ -13,13 +13,12 @@ cargo fmt --all
 Can be automatically run with [`cargo run -p ci`](../tools/ci) (which also runs other checks) or manually with this command:
 
 ```bash
-cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip
+cargo clippy --workspace --all-targets --all-features -- -D warnings
 ```
 
 Explanation:
 
 * `-D warnings`: No warnings are allowed in the codebase.
-* `-A clippy::type_complexity`: type complexity must be ignored because we use huge templates for queries.
 
 ## [super-linter](https://github.com/github/super-linter)
 

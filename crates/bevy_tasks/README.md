@@ -31,19 +31,3 @@ The determining factor for what kind of work should go in each pool is latency r
 [bevy]: https://bevyengine.org
 [rayon]: https://github.com/rayon-rs/rayon
 [async-executor]: https://github.com/stjepang/async-executor
-
-## Dependencies
-
-A very small dependency list is a key feature of this module
-
-```text
-├── async-executor
-│   ├── async-task
-│   ├── concurrent-queue
-│   │   └── cache-padded
-│   └── fastrand
-├── num_cpus
-│   └── libc
-├── parking
-└── futures-lite
-```

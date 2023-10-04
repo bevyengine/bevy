@@ -23,12 +23,9 @@ struct CASUniforms {
     sharpness: f32,
 };
 
-@group(0) @binding(0)
-var screenTexture: texture_2d<f32>;
-@group(0) @binding(1)
-var samp: sampler;
-@group(0) @binding(2)
-var<uniform> uniforms: CASUniforms;
+@group(0) @binding(0) var screenTexture: texture_2d<f32>;
+@group(0) @binding(1) var samp: sampler;
+@group(0) @binding(2) var<uniform> uniforms: CASUniforms;
 
 // This is set at the limit of providing unnatural results for sharpening.
 const FSR_RCAS_LIMIT = 0.1875;

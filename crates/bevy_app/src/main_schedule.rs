@@ -161,13 +161,13 @@ pub struct MainSchedulePlugin;
 impl Plugin for MainSchedulePlugin {
     fn build(&self, app: &mut App) {
         // simple "facilitator" schedules benefit from simpler single threaded scheduling
-        let mut main_schedule = Schedule::new();
+        let mut main_schedule = Schedule::new(Main);
         main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
-        let mut fixed_update_loop_schedule = Schedule::new();
+        let mut fixed_update_loop_schedule = Schedule::new(RunFixedUpdateLoop);
         fixed_update_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
 
-        app.add_schedule(Main, main_schedule)
-            .add_schedule(RunFixedUpdateLoop, fixed_update_loop_schedule)
+        app.add_schedule(main_schedule)
+            .add_schedule(fixed_update_loop_schedule)
             .init_resource::<MainScheduleOrder>()
             .add_systems(Main, Main::run_main);
     }

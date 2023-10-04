@@ -466,7 +466,7 @@ fn update_button_values(
     mut events: EventReader<GamepadButtonChangedEvent>,
     mut query: Query<(&mut Text, &TextWithButtonValue)>,
 ) {
-    for button_event in events.iter() {
+    for button_event in events.read() {
         for (mut text, text_with_button_value) in query.iter_mut() {
             if button_event.button_type == **text_with_button_value {
                 text.sections[0].value = format!("{:.3}", button_event.value);
@@ -480,7 +480,7 @@ fn update_axes(
     mut query: Query<(&mut Transform, &MoveWithAxes)>,
     mut text_query: Query<(&mut Text, &TextWithAxes)>,
 ) {
-    for axis_event in axis_events.iter() {
+    for axis_event in axis_events.read() {
         let axis_type = axis_event.axis_type;
         let value = axis_event.value;
         for (mut transform, move_with) in query.iter_mut() {

@@ -160,7 +160,7 @@ fn spin(time: Res<Time>, mut query: Query<(&mut Transform, &Spin)>) {
     }
 }
 
-// Camera positions to cycle through when left-clickig.
+// Camera positions to cycle through when left-clicking.
 const CAMERA_POSITIONS: &[Transform] = &[
     Transform {
         translation: Vec3::new(1.5, 1.5, 1.5),

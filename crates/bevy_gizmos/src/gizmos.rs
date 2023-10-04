@@ -152,7 +152,7 @@ impl<'s> Gizmos<'s> {
     /// ```
     #[inline]
     pub fn linestrip(&mut self, positions: impl IntoIterator<Item = Vec3>, color: Color) {
-        self.extend_strip_positions(positions.into_iter());
+        self.extend_strip_positions(positions);
         let len = self.buffer.strip_positions.len();
         self.buffer
             .strip_colors

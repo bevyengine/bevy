@@ -23,6 +23,7 @@ fn setup(mut commands: Commands) {
         .spawn(NodeBundle {
             style: Style {
                 width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()

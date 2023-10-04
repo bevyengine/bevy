@@ -174,7 +174,7 @@ fn camera_controller(
                 window.cursor.visible = false;
             }
 
-            for mouse_event in mouse_events.iter() {
+            for mouse_event in mouse_events.read() {
                 mouse_delta += mouse_event.delta;
             }
         }

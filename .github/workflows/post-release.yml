@@ -9,9 +9,10 @@ env:
 
 jobs:
   ci:
+    if: github.repository == 'bevyengine/bevy'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Install cargo-release
         run: cargo install cargo-release

@@ -11,7 +11,7 @@ use super::{QueryItem, QueryState, ReadOnlyWorldQuery, WorldQuery};
 ///
 /// By default, this batch size is automatically determined by dividing
 /// the size of the largest matched archetype by the number
-/// of threads. This attempts to minimize the overhead of scheduling
+/// of threads (rounded up). This attempts to minimize the overhead of scheduling
 /// tasks onto multiple threads, but assumes each entity has roughly the
 /// same amount of work to be done, which may not hold true in every
 /// workload.
@@ -197,7 +197,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
                 .max()
                 .unwrap_or(0)
         };
-        let batch_size = max_size / (thread_count * self.batching_strategy.batches_per_thread);
+
+        let batches = thread_count * self.batching_strategy.batches_per_thread;
+        // Round up to the nearest batch size.
+        let batch_size = (max_size + batches - 1) / batches;
         batch_size.clamp(
             self.batching_strategy.batch_size_limits.start,
             self.batching_strategy.batch_size_limits.end,

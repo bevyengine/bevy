@@ -139,7 +139,7 @@ pub fn ktx2_buffer_to_image(
                                     rgba[i * 4 + 2] = level_data[offset + 2];
                                     offset += 3;
                                 }
-                                transcoded[level].extend_from_slice(&rgba[0..n_pixels]);
+                                transcoded[level].extend_from_slice(&rgba[0..n_pixels * 4]);
                             }
                         }
                     }

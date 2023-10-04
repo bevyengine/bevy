@@ -566,7 +566,8 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         reflect_trait, FromReflect, GetField, GetTupleStructField, PartialReflect, Reflect,
-        ReflectDeserialize, ReflectFromReflect, ReflectSerialize, Struct, TupleStruct,
+        ReflectDeserialize, ReflectFromReflect, ReflectPath, ReflectSerialize, Struct, TupleStruct,
+        TypePath,
     };
 }
 
@@ -625,14 +626,14 @@ pub mod __macro_exports {
 #[cfg(test)]
 #[allow(clippy::disallowed_types, clippy::approx_constant)]
 mod tests {
-    #[cfg(feature = "glam")]
-    use ::glam::{vec3, Vec3};
-    use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use bevy_utils::HashMap;
+    #[cfg(feature = "glam")]
+    use glam::{vec3, Vec3};
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
+    use serde::{de::DeserializeSeed, Deserialize, Serialize};
     use std::{
         any::TypeId,
         borrow::Cow,

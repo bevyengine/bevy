@@ -1,16 +1,15 @@
 use crate::Anchor;
-use bevy_asset::Handle;
+use bevy_asset::{Asset, AssetId, Handle};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_render::{color::Color, texture::Image};
 use bevy_utils::HashMap;
 
 /// An atlas containing multiple textures (like a spritesheet or a tilemap).
 /// [Example usage animating sprite.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
 /// [Example usage loading sprite sheet.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
-#[derive(Reflect, Debug, Clone, TypeUuid)]
-#[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
+#[derive(Asset, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct TextureAtlas {
     /// The handle to the texture in which the sprites are stored
@@ -20,7 +19,7 @@ pub struct TextureAtlas {
     /// The specific areas of the atlas where each texture can be found
     pub textures: Vec<Rect>,
     /// Mapping from texture handle to index
-    pub texture_handles: Option<HashMap<Handle<Image>, usize>>,
+    pub(crate) texture_handles: Option<HashMap<AssetId<Image>, usize>>,
 }
 
 #[derive(Component, Debug, Clone, Reflect)]
@@ -148,9 +147,10 @@ impl TextureAtlas {
     }
 
     /// Returns the index of the texture corresponding to the given image handle in the [`TextureAtlas`]
-    pub fn get_texture_index(&self, texture: &Handle<Image>) -> Option<usize> {
+    pub fn get_texture_index(&self, texture: impl Into<AssetId<Image>>) -> Option<usize> {
+        let id = texture.into();
         self.texture_handles
             .as_ref()
-            .and_then(|texture_handles| texture_handles.get(texture).cloned())
+            .and_then(|texture_handles| texture_handles.get(&id).cloned())
     }
 }

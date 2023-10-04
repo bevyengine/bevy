@@ -19,7 +19,7 @@ pub struct ThreadExecutor<'a>(PhantomData<&'a ()>);
 impl<'a> ThreadExecutor<'a> {
     /// Creates a new `ThreadExecutor`
     pub fn new() -> Self {
-        Self(PhantomData::default())
+        Self::default()
     }
 }
 

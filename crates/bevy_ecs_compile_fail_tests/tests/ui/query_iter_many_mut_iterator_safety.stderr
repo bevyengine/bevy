@@ -7,14 +7,14 @@ error[E0277]: the trait bound `&mut A: ReadOnlyWorldQuery` is not satisfied
    |     required by a bound introduced by this call
    |
    = help: the following other types implement trait `ReadOnlyWorldQuery`:
-             &T
-             ()
-             (F0, F1)
-             (F0, F1, F2)
-             (F0, F1, F2, F3)
-             (F0, F1, F2, F3, F4)
-             (F0, F1, F2, F3, F4, F5)
-             (F0, F1, F2, F3, F4, F5, F6)
+             bevy_ecs::change_detection::Ref<'__w, T>
+             Has<T>
+             AnyOf<()>
+             AnyOf<(F0,)>
+             AnyOf<(F0, F1)>
+             AnyOf<(F0, F1, F2)>
+             AnyOf<(F0, F1, F2, F3)>
+             AnyOf<(F0, F1, F2, F3, F4)>
            and $N others
    = note: `ReadOnlyWorldQuery` is implemented for `&A`, but not for `&mut A`
    = note: required for `QueryManyIter<'_, '_, &mut A, (), std::array::IntoIter<bevy_ecs::entity::Entity, 1>>` to implement `Iterator`

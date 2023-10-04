@@ -1,11 +1,9 @@
-use crate::fq_std::{FQBox, FQDefault, FQOption, FQResult};
-use crate::impls::{impl_type_path, impl_typed};
+use crate::impls::{impl_full_reflect, impl_type_path, impl_typed};
 use crate::utility::extend_where_clause;
 use crate::ReflectStruct;
+use bevy_macro_utils::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use quote::{quote, ToTokens};
 use syn::{Index, Member};
-
-use super::impl_full_reflect;
 
 /// Implements `TupleStruct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
 pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
