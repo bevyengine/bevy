@@ -1,10 +1,8 @@
 use crate::fq_std::{FQBox, FQDefault, FQOption, FQResult};
-use crate::impls::{impl_type_path, impl_typed};
+use crate::impls::{impl_full_reflect, impl_type_path, impl_typed};
 use crate::utility::{extend_where_clause, ident_or_index};
 use crate::ReflectStruct;
 use quote::{quote, ToTokens};
-
-use super::impl_full_reflect;
 
 /// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
 pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {

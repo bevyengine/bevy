@@ -1,5 +1,6 @@
 use crate::{
-    ArrayInfo, EnumInfo, ListInfo, MapInfo, PartialReflect, StructInfo, TupleInfo, TupleStructInfo,
+    ArrayInfo, EnumInfo, ListInfo, MapInfo, PartialReflect, Reflect, StructInfo, TupleInfo,
+    TupleStructInfo,
 };
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
@@ -80,7 +81,7 @@ use std::fmt::Debug;
 /// ```
 ///
 /// [utility]: crate::utility
-pub trait Typed: PartialReflect {
+pub trait Typed: Reflect {
     /// Returns the compile-time [info] for the underlying type.
     ///
     /// [info]: TypeInfo

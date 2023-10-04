@@ -243,7 +243,13 @@ impl Debug for dyn PartialReflect {
     }
 }
 
-impl Typed for dyn PartialReflect {
+impl Debug for dyn Reflect {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.debug(f)
+    }
+}
+
+impl Typed for dyn Reflect {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
         CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
@@ -391,18 +397,5 @@ impl dyn Reflect {
     #[inline]
     pub fn downcast_mut<T: Reflect>(&mut self) -> Option<&mut T> {
         self.as_any_mut().downcast_mut::<T>()
-    }
-}
-
-impl Debug for dyn Reflect {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.debug(f)
-    }
-}
-
-impl Typed for dyn Reflect {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
     }
 }
