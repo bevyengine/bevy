@@ -32,8 +32,8 @@ struct Vertex {
 #endif // MORPH_TARGETS
 }
 
-struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
+struct PrepassMeshVertexOutput {
+    @builtin(position) position: vec4<f32>,
 
 #ifdef VERTEX_UVS
     @location(0) uv: vec2<f32>,
@@ -78,8 +78,8 @@ fn morph_vertex(vertex_in: Vertex) -> Vertex {
 #endif
 
 @vertex
-fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
-    var out: VertexOutput;
+fn vertex(vertex_no_morph: Vertex) -> PrepassMeshVertexOutput {
+    var out: PrepassMeshVertexOutput;
 
 #ifdef MORPH_TARGETS
     var vertex = morph_vertex(vertex_no_morph);
@@ -95,10 +95,10 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var model = bevy_pbr::mesh_functions::get_model_matrix(vertex_no_morph.instance_index);
 #endif // SKINNED
 
-    out.clip_position = bevy_pbr::mesh_functions::mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
+    out.position = bevy_pbr::mesh_functions::mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
 #ifdef DEPTH_CLAMP_ORTHO
-    out.clip_position_unclamped = out.clip_position;
-    out.clip_position.z = min(out.clip_position.z, 1.0);
+    out.clip_position_unclamped = out.position;
+    out.position.z = min(out.position.z, 1.0);
 #endif // DEPTH_CLAMP_ORTHO
 
 #ifdef VERTEX_UVS
@@ -142,7 +142,6 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 }
 
 #ifdef PREPASS_FRAGMENT
-
 struct FragmentOutput {
 #ifdef NORMAL_PREPASS
     @location(0) normal: vec4<f32>,
@@ -158,7 +157,7 @@ struct FragmentOutput {
 }
 
 @fragment
-fn fragment(in: VertexOutput) -> FragmentOutput {
+fn fragment(in: PrepassMeshVertexOutput) -> FragmentOutput {
     var out: FragmentOutput;
 
 #ifdef NORMAL_PREPASS
