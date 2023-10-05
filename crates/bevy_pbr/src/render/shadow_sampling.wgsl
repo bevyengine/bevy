@@ -3,8 +3,16 @@
 #import bevy_pbr::mesh_view_bindings as view_bindings
 #import bevy_pbr::utils PI
 
+// Do the lookup, using HW 2x2 PCF and comparison
 fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
-    // Do the lookup, using HW 2x2 PCF and comparison
+#ifdef NO_ARRAY_TEXTURES_SUPPORT
+    return textureSampleCompareLevel(
+        view_bindings::directional_shadow_textures,
+        view_bindings::directional_shadow_textures_sampler,
+        light_local,
+        depth,
+    );
+#else
     return textureSampleCompareLevel(
         view_bindings::directional_shadow_textures,
         view_bindings::directional_shadow_textures_sampler,
@@ -12,6 +20,7 @@ fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i
         array_index,
         depth,
     );
+#endif
 }
 
 // https://web.archive.org/web/20230210095515/http://the-witness.net/news/2013/09/shadow-mapping-summary-part-1
