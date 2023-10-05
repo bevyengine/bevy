@@ -379,7 +379,7 @@ pub fn ui_layout_system(
             &ui_surface,
             &mut node_transform_query,
             &just_children_query,
-            inverse_target_scale_factor as f32,
+            inverse_target_scale_factor,
             Vec2::ZERO,
             Vec2::ZERO,
         );
@@ -396,7 +396,7 @@ pub fn resolve_outlines_system(
         .get_single()
         .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
         .unwrap_or(Vec2::ZERO)
-        / ui_scale.0 as f32;
+        / ui_scale.0;
 
     for (outline, mut node) in outlines_query.iter_mut() {
         let node = node.bypass_change_detection();
@@ -803,7 +803,7 @@ mod tests {
             .copied()
             .collect::<Vec<Entity>>();
 
-        for r in [2, 3, 5, 7, 11, 13, 17, 19, 21, 23, 29, 31].map(|n| (n as f64).recip()) {
+        for r in [2, 3, 5, 7, 11, 13, 17, 19, 21, 23, 29, 31].map(|n| (n as f32).recip()) {
             let mut s = r;
             while s <= 5. {
                 world.resource_mut::<UiScale>().0 = s;

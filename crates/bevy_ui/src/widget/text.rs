@@ -153,7 +153,7 @@ fn queue_text(
     textures: &mut Assets<Image>,
     text_settings: &TextSettings,
     scale_factor: f32,
-    inverse_scale_factor: f64,
+    inverse_scale_factor: f32,
     text: &Text,
     node: Ref<Node>,
     mut text_flags: Mut<TextFlags>,
@@ -167,8 +167,8 @@ fn queue_text(
         } else {
             // `scale_factor` is already multiplied by `UiScale`
             Vec2::new(
-                (node.unrounded_size.x as f64 * scale_factor) as f32,
-                (node.unrounded_size.y as f64 * scale_factor) as f32,
+                node.unrounded_size.x * scale_factor,
+                node.unrounded_size.y * scale_factor,
             )
         };
 

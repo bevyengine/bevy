@@ -43,10 +43,10 @@ impl Node {
 
     /// Returns the size of the node in physical pixels based on the given scale factor and `UiScale`.
     #[inline]
-    pub fn physical_size(&self, scale_factor: f64, ui_scale: f32) -> Vec2 {
+    pub fn physical_size(&self, scale_factor: f32, ui_scale: f32) -> Vec2 {
         Vec2::new(
-            (self.calculated_size.x * scale_factor * ui_scale),
-            (self.calculated_size.y * scale_factor * ui_scale),
+            self.calculated_size.x * scale_factor * ui_scale,
+            self.calculated_size.y * scale_factor * ui_scale,
         )
     }
 
@@ -67,12 +67,12 @@ impl Node {
         let rect = self.logical_rect(transform);
         Rect {
             min: Vec2::new(
-                (rect.min.x * scale_factor * ui_scale),
-                (rect.min.y * scale_factor * ui_scale),
+                rect.min.x * scale_factor * ui_scale,
+                rect.min.y * scale_factor * ui_scale,
             ),
             max: Vec2::new(
-                (rect.max.x * scale_factor * ui_scale),
-                (rect.max.y * scale_factor * ui_scale),
+                rect.max.x * scale_factor * ui_scale,
+                rect.max.y * scale_factor * ui_scale,
             ),
         }
     }
