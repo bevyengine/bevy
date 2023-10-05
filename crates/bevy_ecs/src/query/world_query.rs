@@ -12,8 +12,6 @@ use bevy_utils::all_tuples;
 /// Types that implement this should also implement either [`WorldQueryData`] or [`WorldQueryFilter`]
 ///
 ///
-/// Implementing the trait manually can allow for a fundamentally new type of behavior.
-///
 /// # Safety
 ///
 /// Implementor must ensure that
@@ -24,10 +22,13 @@ use bevy_utils::all_tuples;
 /// - For each component readonly accessed by [`fetch`], [`update_component_access`] should add read access unless write access has already been added, in which case it should panic.
 /// - For each component mutably accessed by [`fetch`], [`update_archetype_component_access`] should add write access if that component belongs to the archetype.
 /// - For each component readonly accessed by [`fetch`], [`update_archetype_component_access`] should add read access if that component belongs to the archetype.
-/// - If `fetch` mutably accesses a component and also accesses the same component again, [`update_component_access`] should panic.
-/// - [`update_component_access`] may not add a `With` filter for a component unless [`matches_component_set`] always returns `false` if the component set doesn't contain that component.
+/// - If `fetch` mutably accesses the same component twice, [`update_component_access`] should panic.
 /// - [`update_component_access`] may not add a `Without` filter for a component unless [`matches_component_set`] always returns `false` when the component set contains that component.
-/// - [`update_component_access`] may replace the filters with a disjunction where every member of the disjunction is a conjunction of the previous filters and the filters of a soundly implemented [`WorldQuery`] so long as [`matches_component_set`] is a disjunction of the implementations in those [`WorldQuery`]s.
+/// - [`update_component_access`] may not add a `With` filter for a component unless [`matches_component_set`] always returns `false` when the component set doesn't contain that component.
+/// - In cases where the query represents a disjunction (such as an `Or` filter) where each element is a valid [`WorldQuery`], the following rules must be obeyed:
+///     - [`matches_component_set`] must be a disjunction of the element's implementations
+///     - [`update_component_access`] must replace the filters with a disjunction of filters
+///     - Each filter in that disjunction must be a conjunction of the corresponding element's filter with the previous `access`
 ///
 /// When implementing [`update_component_access`], note that `add_read` and `add_write` both also add a `With` filter, whereas `extend_access` does not change the filters.
 ///

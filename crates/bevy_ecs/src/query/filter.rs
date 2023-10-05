@@ -14,7 +14,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// There are many types that natively implement this trait:
 /// - **Component filters.**
-///   [`With`] and [`Without`] filters can be applied to check if the queried entity contains or not a particular component.
+///   [`With`] and [`Without`] filters can be applied to check if the queried entity does or does not contain a particular component.
 /// - **Change detection filters.**
 ///   [`Added`] and [`Changed`] filters can be applied to detect component changes to an entity.
 /// - **`WorldQueryFilter` tuples.**
