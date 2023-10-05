@@ -5,6 +5,11 @@
 //!
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state, which can be
 //! paused or not paused.
+
+// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
+// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
+#![allow(clippy::type_complexity)]
+
 use bevy::prelude::*;
 
 fn main() {

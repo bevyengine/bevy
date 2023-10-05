@@ -1,7 +1,7 @@
-use crate::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use crate::impls::{impl_type_path, impl_typed};
 use crate::utility::extend_where_clause;
 use crate::ReflectStruct;
+use bevy_macro_utils::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use quote::{quote, ToTokens};
 use syn::{Index, Member};
 
