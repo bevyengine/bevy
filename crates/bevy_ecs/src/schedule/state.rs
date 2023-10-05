@@ -87,7 +87,17 @@ use crate::prelude::Res;
 /// ```
 ///
 ///
-pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {}
+pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {
+    fn on_state_entry_schedule() -> OnStateEntry<Self> {
+        OnStateEntry::default()
+    }
+    fn on_state_exit_schedule() -> OnStateExit<Self> {
+        OnStateExit::default()
+    }
+    fn on_state_transition_schedule() -> OnStateTransition<Self> {
+        OnStateTransition::default()
+    }
+}
 
 mod sealed {
     pub(crate) struct IsFnPointer;
@@ -109,12 +119,6 @@ impl<S: States> StateMatcher<S, IsStruct> for S {
 }
 
 impl<S: States, F: 'static + Send + Sync + Fn(&S) -> bool> StateMatcher<S> for F {
-    fn match_state(&self, state: &S) -> bool {
-        self(state)
-    }
-}
-
-impl<S: States> StateMatcher<S, IsFnPointer> for fn(&S) -> bool {
     fn match_state(&self, state: &S) -> bool {
         self(state)
     }
@@ -169,6 +173,41 @@ fn run_condition_every_match<
     )
 }
 
+/// Get a [`Condition`] for running a closure to test `MainResource<S>` & `SecondaryResource<S>`
+/// The closure should be of the form `|main: &S, secondary: Option<&S>| -> bool`
+fn run_condition_closure<
+    MainResource: crate::prelude::Resource + Deref<Target = S>,
+    SecondaryResource: crate::prelude::Resource + Deref<Target = S>,
+    S: States,
+>(
+    matcher: impl Fn(&S, Option<&S>) -> bool + Send + Sync + 'static,
+) -> impl Condition<()> {
+    IntoSystem::into_system(
+        move |main: Option<Res<MainResource>>, secondary: Option<Res<SecondaryResource>>| {
+            let Some(main) = main.as_ref().map(|v| v.as_ref()) else {
+                return false;
+            };
+            let Some(secondary) = secondary.as_ref().map(|v| v.as_ref()) else {
+                return matcher(main, None);
+            };
+
+            main.deref() != secondary.deref() && matcher(main, Some(secondary))
+        },
+    )
+}
+
+/// Get a run [`Condition`] for a closure testing a transition between two points.
+/// The closure should be of the form `|from: Option<&S>, to: Option<&S>| -> bool`
+pub fn run_condition_closure_transition<S: States>(
+    f: impl Fn(Option<&S>, Option<&S>) -> bool + Send + Sync + 'static,
+) -> impl Condition<()> {
+    IntoSystem::into_system(
+        move |from: Option<Res<PreviousState<S>>>, to: Option<Res<State<S>>>| {
+            f(from.as_ref().map(|v| v.get()), to.as_ref().map(|v| v.get()))
+        },
+    )
+}
+
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// enters this state.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
@@ -208,11 +247,12 @@ impl<S: States> OnStateEntry<S> {
     /// from a non-matching `S`
     ///
     /// designed to be used via [`on_enter!`] macro
-    pub fn matching<M: StateMatcher<S, Marker>, Marker>(
-        matcher: M,
+    pub fn matching<Marker>(
+        self,
+        matcher: impl StateMatcher<S, Marker>,
     ) -> impl ConditionalScheduleLabel<Self, ()> {
         (
-            Self::default(),
+            self,
             run_condition_on_match::<State<S>, PreviousState<S>, _, _>(matcher),
         )
     }
@@ -220,12 +260,26 @@ impl<S: States> OnStateEntry<S> {
     /// Get a `ConditionalScheduleLabel` for whenever we enter a matching `S`
     ///
     /// designed to be used via [`every_entrance!`] macro
-    pub fn every_entrance<M: StateMatcher<S, Marker>, Marker>(
-        matcher: M,
+    pub fn every_entrance<Marker>(
+        self,
+        matcher: impl StateMatcher<S, Marker>,
     ) -> impl ConditionalScheduleLabel<Self, ()> {
         (
-            Self::default(),
+            self,
             run_condition_every_match::<State<S>, PreviousState<S>, _, _>(matcher),
+        )
+    }
+    /// Get a `ConditionalScheduleLabel` for determining whether to execute on entering
+    /// a state `S` using a closure
+    ///
+    /// The closure should take the form `|next: &S, previous: Option<&S>| -> bool`
+    pub fn from_closure(
+        self,
+        f: impl Fn(&S, Option<&S>) -> bool + Send + Sync + 'static,
+    ) -> impl ConditionalScheduleLabel<Self, ()> {
+        (
+            self,
+            run_condition_closure::<State<S>, PreviousState<S>, _>(f),
         )
     }
 }
@@ -235,11 +289,12 @@ impl<S: States> OnStateExit<S> {
     /// to a non-matching `S`
     ///
     /// designed to be used via [`on_exit!`] macro
-    pub fn matching<M: StateMatcher<S, Marker>, Marker>(
-        matcher: M,
+    pub fn matching<Marker>(
+        self,
+        matcher: impl StateMatcher<S, Marker>,
     ) -> impl ConditionalScheduleLabel<Self, ()> {
         (
-            Self::default(),
+            self,
             run_condition_on_match::<PreviousState<S>, State<S>, _, _>(matcher),
         )
     }
@@ -247,12 +302,26 @@ impl<S: States> OnStateExit<S> {
     /// Get a `ConditionalScheduleLabel` for whenever we exit a matching `S`
     ///
     /// designed to be used via [`every_exit!`] macro
-    pub fn every_exit<M: StateMatcher<S, Marker>, Marker>(
-        matcher: M,
+    pub fn every_exit<Marker>(
+        self,
+        matcher: impl StateMatcher<S, Marker>,
+    ) -> impl ConditionalScheduleLabel<Self, ()> {
+        (
+            self,
+            run_condition_every_match::<PreviousState<S>, State<S>, _, _>(matcher),
+        )
+    }
+    /// Get a `ConditionalScheduleLabel` for determining whether to execute on exiting
+    /// a state `S` using a closure
+    ///
+    /// The closure should take the form `|previous: &S, next: Option<&S>| -> bool`
+    pub fn from_closure(
+        self,
+        f: impl Fn(&S, Option<&S>) -> bool + Send + Sync + 'static,
     ) -> impl ConditionalScheduleLabel<Self, ()> {
         (
             Self::default(),
-            run_condition_every_match::<PreviousState<S>, State<S>, _, _>(matcher),
+            run_condition_closure::<PreviousState<S>, State<S>, _>(f),
         )
     }
 }
@@ -260,17 +329,13 @@ impl<S: States> OnStateExit<S> {
 impl<S: States> OnStateTransition<S> {
     /// Get a `ConditionalScheduleLabel` for whenever we move from a state that matches `from` and not `to`,
     /// to a state that matches `to` and not `from`
-    pub fn from_matching_to_matching<
-        M1: StateMatcher<S, Marker1>,
-        Marker1,
-        M2: StateMatcher<S, Marker2>,
-        Marker2,
-    >(
-        from: M1,
-        to: M2,
+    pub fn from_matching_to_matching<Marker1, Marker2>(
+        self,
+        from: impl StateMatcher<S, Marker1>,
+        to: impl StateMatcher<S, Marker2>,
     ) -> impl ConditionalScheduleLabel<Self, ()> {
         (
-            Self::default(),
+            self,
             run_condition_on_match::<State<S>, PreviousState<S>, _, _>(from).and_then(
                 run_condition_on_match::<PreviousState<S>, State<S>, _, _>(to),
             ),
@@ -278,17 +343,13 @@ impl<S: States> OnStateTransition<S> {
     }
     /// Get a `ConditionalScheduleLabel` for whenever we move from a state that matches `from`,
     /// to a state that matches `to` and not `from`
-    pub fn from_every_to_matching<
-        M1: StateMatcher<S, Marker1>,
-        Marker1,
-        M2: StateMatcher<S, Marker2>,
-        Marker2,
-    >(
-        from: M1,
-        to: M2,
+    pub fn from_every_to_matching<Marker1, Marker2>(
+        self,
+        from: impl StateMatcher<S, Marker1>,
+        to: impl StateMatcher<S, Marker2>,
     ) -> impl ConditionalScheduleLabel<Self, ()> {
         (
-            Self::default(),
+            self,
             run_condition_every_match::<State<S>, PreviousState<S>, _, _>(from).and_then(
                 run_condition_on_match::<PreviousState<S>, State<S>, _, _>(to),
             ),
@@ -296,37 +357,36 @@ impl<S: States> OnStateTransition<S> {
     }
     /// Get a `ConditionalScheduleLabel` for whenever we move from a state that matches `from` and not `to`,
     /// to a state that matches `to`
-    pub fn from_matching_to_every<
-        M1: StateMatcher<S, Marker1>,
-        Marker1,
-        M2: StateMatcher<S, Marker2>,
-        Marker2,
-    >(
-        from: M1,
-        to: M2,
+    pub fn from_matching_to_every<Marker1, Marker2>(
+        self,
+        from: impl StateMatcher<S, Marker1>,
+        to: impl StateMatcher<S, Marker2>,
     ) -> impl ConditionalScheduleLabel<Self, ()> {
         (
-            Self::default(),
+            self,
             run_condition_on_match::<State<S>, PreviousState<S>, _, _>(from)
                 .and_then(run_condition_every_match::<PreviousState<S>, State<S>, _, _>(to)),
         )
     }
     /// Get a `ConditionalScheduleLabel` for whenever we move from a state that matches `from`,
     /// to a state that matches `to`
-    pub fn from_every_to_every<
-        M1: StateMatcher<S, Marker1>,
-        Marker1,
-        M2: StateMatcher<S, Marker2>,
-        Marker2,
-    >(
-        from: M1,
-        to: M2,
+    pub fn from_every_to_every<Marker1, Marker2>(
+        self,
+        from: impl StateMatcher<S, Marker1>,
+        to: impl StateMatcher<S, Marker2>,
     ) -> impl ConditionalScheduleLabel<Self, ()> {
         (
-            Self::default(),
+            self,
             run_condition_every_match::<State<S>, PreviousState<S>, _, _>(from)
                 .and_then(run_condition_every_match::<PreviousState<S>, State<S>, _, _>(to)),
         )
+    }
+    /// Get a `ConditionalScheduleLabel` for detecting state transitions using a closure
+    pub fn from_closure(
+        self,
+        f: impl Fn(Option<&S>, Option<&S>) -> bool + Send + Sync + 'static,
+    ) -> impl ConditionalScheduleLabel<Self, ()> {
+        (self, run_condition_closure_transition(f))
     }
 }
 

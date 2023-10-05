@@ -36,7 +36,20 @@ fn main() {
         // we enter/exit a matching system regardless if the previous/next system matched as well.
         // As a result, this system will run on every state transition, because every state matches
         // the pattern. If it were not strict, this system would never run.
-        .add_systems(every_exit!(AppState, _), cleanup_ui)
+        .add_systems(
+            on_exit!(AppState, |to: &AppState, from: Option<&AppState>| {
+                match to {
+                    AppState::Menu => true,
+                    AppState::InGame(g) => match g {
+                        GameState::Running(_) => {
+                            !matches!(from, Some(AppState::InGame(GameState::Running(_))))
+                        }
+                        GameState::Paused => true,
+                    },
+                }
+            }),
+            cleanup_ui,
+        )
         // You can also use pattern matching when in a state, using the `in_state!` macro
         // This works just like the `in_state()` function, but relies on pattern matching rather than
         // strict equality.

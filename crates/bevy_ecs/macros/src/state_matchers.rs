@@ -4,6 +4,7 @@ use quote::ToTokens;
 use quote::{format_ident, quote};
 use syn::parse::Parser;
 use syn::parse_str;
+use syn::ExprClosure;
 use syn::{
     parse::Parse, parse_macro_input, Expr, ExprPath, Ident, Pat, PatTupleStruct, Path, Token,
     Visibility,
@@ -38,9 +39,15 @@ struct MatcherPattern {
     every: bool,
 }
 
+struct MatcherClosure {
+    state_type: Path,
+    closure: ExprClosure,
+}
+
 enum Matcher {
     Expression(Expr),
     Pattern(MatcherPattern),
+    Closure(MatcherClosure),
 }
 
 impl Parse for Matcher {
@@ -48,6 +55,7 @@ impl Parse for Matcher {
         let state_type = if let Ok(expr) = Expr::parse(input) {
             match &expr {
                 Expr::Path(p) => Some(p.path.clone()),
+                Expr::Closure(_) => return Err(syn::Error::new(Span::call_site(), "Closures must define the state type at the start of the matcher macro, like so !(StateType, |...| {})")),
                 _ => {
                     return Ok(Self::Expression(expr));
                 }
@@ -58,27 +66,18 @@ impl Parse for Matcher {
 
         if let Some(state_type) = state_type {
             if input.parse::<Token![,]>().is_ok() {
-                let every = {
-                    let ahead = input.fork();
-                    if let Ok(every) = ahead.parse::<Ident>() {
-                        if every.to_string() == "every" {
-                            input.parse::<Ident>()?;
-                            true
-                        } else {
-                            false
-                        }
-                    } else {
-                        false
-                    }
-                };
-                let pattern = Pat::parse_multi_with_leading_vert(input)?;
-
-                let pattern = inject_state_type(pattern, &state_type);
-                Ok(Self::Pattern(MatcherPattern {
-                    state_type,
-                    pattern,
-                    every,
-                }))
+                let is_closure = input.peek(Token![|]);
+                if is_closure {
+                    Ok(Self::Closure(MatcherClosure::parse_with_state_type(
+                        input,
+                        Some(state_type),
+                    )?))
+                } else {
+                    Ok(Self::Pattern(MatcherPattern::parse_with_state_type(
+                        input,
+                        Some(state_type),
+                    )?))
+                }
             } else {
                 Ok(Self::Expression(Expr::Path(ExprPath {
                     attrs: vec![],
@@ -94,14 +93,34 @@ impl Parse for Matcher {
 
 impl Parse for MatcherPattern {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let state_type = Path::parse(input)?;
-        input.parse::<Token![,]>()?;
+        Self::parse_with_state_type(input, None)
+    }
+}
+
+impl MatcherPattern {
+    fn parse_with_state_type(
+        input: syn::parse::ParseStream,
+        state_type: Option<Path>,
+    ) -> syn::Result<Self> {
+        let state_type = if let Some(state_type) = state_type {
+            state_type
+        } else {
+            let state_type = Path::parse(input)?;
+            input.parse::<Token![,]>()?;
+            state_type
+        };
+
         let every = {
             let ahead = input.fork();
-            let every: Ident = ahead.parse()?;
-            if every.to_string() == "every" {
-                input.parse::<Ident>()?;
-                true
+            let every: syn::Result<Ident> = ahead.parse();
+
+            if let Ok(every) = every {
+                if every == "every" {
+                    input.parse::<Ident>()?;
+                    true
+                } else {
+                    false
+                }
             } else {
                 false
             }
@@ -114,6 +133,34 @@ impl Parse for MatcherPattern {
             state_type,
             pattern,
             every,
+        })
+    }
+}
+
+impl Parse for MatcherClosure {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        Self::parse_with_state_type(input, None)
+    }
+}
+
+impl MatcherClosure {
+    fn parse_with_state_type(
+        input: syn::parse::ParseStream,
+        state_type: Option<Path>,
+    ) -> syn::Result<Self> {
+        let state_type = if let Some(state_type) = state_type {
+            state_type
+        } else {
+            let state_type = Path::parse(input)?;
+            input.parse::<Token![,]>()?;
+            state_type
+        };
+
+        let closure = ExprClosure::parse(input)?;
+
+        Ok(Self {
+            state_type,
+            closure,
         })
     }
 }
@@ -257,6 +304,10 @@ pub enum MatchMacroResult {
         tokens: TokenStream,
         state_type: Path,
     },
+    Closure {
+        tokens: TokenStream,
+        state_type: Path,
+    },
 }
 
 pub fn define_match_macro(input: proc_macro::TokenStream) -> syn::Result<MatchMacroResult> {
@@ -277,6 +328,13 @@ pub fn define_match_macro(input: proc_macro::TokenStream) -> syn::Result<MatchMa
             every,
             state_type: state_type.clone(),
             tokens: quote!(matches!(state, #pattern)).into(),
+        },
+        Matcher::Closure(MatcherClosure {
+            state_type,
+            closure: pattern,
+        }) => MatchMacroResult::Closure {
+            tokens: quote!(#pattern),
+            state_type,
         },
     })
 }
@@ -310,27 +368,23 @@ pub fn simple_state_transition_macros(
             state_type,
         } => {
             let every = every || every_override;
+            let mut module_path = state_type.clone();
             let state_type = state_type.clone().into_token_stream();
 
             match macro_type {
                 MatchMacro::OnEnter => {
                     module_path
                         .segments
-                        .push(format_ident!("OnStateEntry").into());
-                    module_path.segments.push(
-                        format_ident!("{}", if every { "every_entrance" } else { "matching" })
-                            .into(),
-                    );
+                        .push(format_ident!("on_state_entry_schedule").into());
                 }
                 MatchMacro::OnExit => {
                     module_path
                         .segments
-                        .push(format_ident!("OnStateExit").into());
-                    module_path.segments.push(
-                        format_ident!("{}", if every { "every_exit" } else { "matching" }).into(),
-                    );
+                        .push(format_ident!("on_state_exit_schedule").into());
                 }
             }
+
+            let call = format_ident!("{}", if every { "every_entrance" } else { "matching" });
 
             let matches = quote!(fn matches(state: &#state_type) -> bool {
                 #tokens
@@ -339,7 +393,31 @@ pub fn simple_state_transition_macros(
             quote!({
                 #matches
 
-                #module_path(matches)
+                #module_path().#call::<()>(matches)
+            })
+            .into()
+        }
+        MatchMacroResult::Closure { tokens, state_type } => {
+            let mut module_path = state_type.clone();
+            match macro_type {
+                MatchMacro::OnEnter => {
+                    module_path
+                        .segments
+                        .push(format_ident!("on_state_entry_schedule").into());
+                }
+                MatchMacro::OnExit => {
+                    module_path
+                        .segments
+                        .push(format_ident!("on_state_exit_schedule").into());
+                }
+            }
+
+            let matches = quote!(let matches = #tokens;);
+
+            quote!({
+                #matches
+
+                #module_path().from_closure(matches)
             })
             .into()
         }
@@ -367,6 +445,17 @@ pub fn state_matches_macro(match_result: MatchMacroResult) -> proc_macro::TokenS
             let state : &#state_type = &state;
             #tokens
         })
+        .into(),
+        MatchMacroResult::Closure { tokens, state_type } => quote!(
+            |state: Option<Res<State<#state_type>>>| {
+                let Some(state) = state else {
+                    return false;
+                };
+                let f = #tokens;
+
+                f(&state)
+            }
+        )
         .into(),
     }
 }
