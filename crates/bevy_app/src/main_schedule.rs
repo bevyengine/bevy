@@ -74,6 +74,14 @@ pub struct RunFixedUpdateLoop;
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FixedUpdate;
 
+/// Indicates that fixed updates are currently running.
+/// This is automatically set by `bevy_time`.
+#[derive(Resource)]
+pub struct FixedUpdateScheduleIsCurrentlyRunning {
+    /// Sequentially increasing with each fixed update.
+    pub update: u64,
+}
+
 /// The schedule that contains app logic.
 /// This is run by the [`Main`] schedule.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]

@@ -16,6 +16,7 @@ webgl = []
 bevy_pbr = { path = "../bevy_pbr", version = "0.12.0-dev", optional = true }
 bevy_sprite = { path = "../bevy_sprite", version = "0.12.0-dev", optional = true }
 bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.12.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.12.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.12.0-dev" }
