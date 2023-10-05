@@ -113,7 +113,7 @@ impl TargetScale {
 
     fn current_scale(&self) -> f32 {
         let completion = self.target_time.percent();
-        let multiplier = ease_in_expo(completion as f64);
+        let multiplier = ease_in_expo(completion as f32);
         self.start_scale + (self.target_scale - self.start_scale) * multiplier as f32
     }
 
@@ -139,10 +139,10 @@ fn apply_scaling(
     ui_scale.0 = target_scale.current_scale();
 }
 
-fn ease_in_expo(x: f64) -> f64 {
+fn ease_in_expo(x: f32) -> f32 {
     if x == 0. {
         0.
     } else {
-        (2.0f64).powf(5. * x - 5.)
+        (2.0f32).powf(5. * x - 5.)
     }
 }
