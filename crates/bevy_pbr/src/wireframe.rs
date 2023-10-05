@@ -36,6 +36,7 @@ impl Plugin for WireframePlugin {
         );
 
         app.register_type::<Wireframe>()
+            .register_type::<NoWireframe>()
             .register_type::<WireframeConfig>()
             .init_resource::<WireframeConfig>()
             .add_plugins(MaterialPlugin::<WireframeMaterial>::default())
@@ -47,19 +48,27 @@ impl Plugin for WireframePlugin {
     }
 }
 
-/// Toggles wireframe rendering for any entity it is attached to.
+/// Enables wireframe rendering for any entity it is attached to.
+/// It will ignore the [`WireframeConfig`] global setting.
 ///
 /// This requires the [`WireframePlugin`] to be enabled.
-#[derive(Component, Debug, Clone, Default, Reflect)]
+#[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
 #[reflect(Component, Default)]
 pub struct Wireframe;
 
-/// Configuration resource for [`WireframePlugin`].
+/// Disables wireframe rendering for any entity it is attached to.
+/// It will ignore the [`WireframeConfig`] global setting.
+///
+/// This requires the [`WireframePlugin`] to be enabled.
+#[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
+#[reflect(Component, Default)]
+pub struct NoWireframe;
+
 #[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes.
-    /// If `false`, only meshes with a [`Wireframe`] component will be rendered.
+    /// Can be overridden for individual meshes by adding a [`Wireframe`] or [`NoWireframe`] component.
     pub global: bool,
 }
 

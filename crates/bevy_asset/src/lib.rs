@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 pub mod io;
 pub mod meta;
 pub mod processor;
@@ -261,6 +263,9 @@ pub trait AssetApp {
     /// * Registering the [`Asset`] in the [`AssetServer`]
     /// * Initializing the [`AssetEvent`] resource for the [`Asset`]
     /// * Adding other relevant systems and resources for the [`Asset`]
+    /// * Ignoring schedule ambiguities in [`Assets`] resource. Any time a system takes
+    /// mutable access to this resource this causes a conflict, but they rarely actually
+    /// modify the same underlying asset.
     fn init_asset<A: Asset>(&mut self) -> &mut Self;
     /// Registers the asset type `T` using `[App::register]`,
     /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
@@ -301,6 +306,7 @@ impl AssetApp for App {
                 ));
         }
         self.insert_resource(assets)
+            .allow_ambiguous_resource::<Assets<A>>()
             .add_event::<AssetEvent<A>>()
             .register_type::<Handle<A>>()
             .register_type::<AssetId<A>>()
@@ -427,8 +433,11 @@ mod tests {
     };
     use bevy_app::{App, Update};
     use bevy_core::TaskPoolPlugin;
-    use bevy_ecs::event::ManualEventReader;
     use bevy_ecs::prelude::*;
+    use bevy_ecs::{
+        event::ManualEventReader,
+        schedule::{LogLevel, ScheduleBuildSettings},
+    };
     use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
     use bevy_utils::BoxedFuture;
@@ -1165,5 +1174,24 @@ mod tests {
             }
             None
         });
+    }
+
+    #[test]
+    fn ignore_system_ambiguities_on_assets() {
+        let mut app = App::new();
+        app.add_plugins(AssetPlugin::default())
+            .init_asset::<CoolText>();
+
+        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
+        app.add_systems(Update, (uses_assets, uses_assets));
+        app.edit_schedule(Update, |s| {
+            s.set_build_settings(ScheduleBuildSettings {
+                ambiguity_detection: LogLevel::Error,
+                ..Default::default()
+            });
+        });
+
+        // running schedule does not error on ambiguity between the 2 uses_assets systems
+        app.world.run_schedule(Update);
     }
 }

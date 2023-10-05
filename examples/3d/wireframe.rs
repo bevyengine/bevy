@@ -9,7 +9,7 @@
 //! This is a native only feature.
 
 use bevy::{
-    pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin},
+    pbr::wireframe::{NoWireframe, Wireframe, WireframeConfig, WireframePlugin},
     prelude::*,
     render::{
         render_resource::WgpuFeatures,
@@ -31,8 +31,12 @@ fn main() {
             // You need to add this plugin to enable wireframe rendering
             WireframePlugin,
         ))
+        .insert_resource(WireframeToggleTimer(Timer::from_seconds(
+            1.0,
+            TimerMode::Repeating,
+        )))
         .add_systems(Startup, setup)
-        .add_systems(Update, toggle_global_wireframe)
+        .add_systems(Update, toggle_global_wireframe_setting)
         .run();
 }
 
@@ -42,24 +46,38 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // cube
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-            transform: Transform::from_xyz(0.0, 0.5, 0.0),
-            ..default()
-        },
-        // This enables wireframe drawing on this entity
-        Wireframe,
-    ));
-
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(Mesh::from(shape::Plane::from_size(5.0))),
+        material: materials.add(Color::rgb(0.3, 0.3, 0.5).into()),
         ..default()
     });
+
+    // Red cube: Never renders a wireframe
+    commands
+        .spawn(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            material: materials.add(Color::rgb(0.8, 0.1, 0.1).into()),
+            transform: Transform::from_xyz(-1.0, 0.5, -1.0),
+            ..default()
+        })
+        .insert(NoWireframe);
+    // Orange cube: Follows global wireframe setting
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        material: materials.add(Color::rgb(0.8, 0.8, 0.1).into()),
+        transform: Transform::from_xyz(0.0, 0.5, 0.0),
+        ..default()
+    });
+    // Green cube: Always renders a wireframe
+    commands
+        .spawn(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            material: materials.add(Color::rgb(0.1, 0.8, 0.1).into()),
+            transform: Transform::from_xyz(1.0, 0.5, 1.0),
+            ..default()
+        })
+        .insert(Wireframe);
 
     // light
     commands.spawn(PointLightBundle {
@@ -73,12 +91,21 @@ fn setup(
     });
 }
 
-fn toggle_global_wireframe(
+/// This timer is used to periodically toggle the wireframe rendering.
+#[derive(Resource)]
+struct WireframeToggleTimer(Timer);
+
+/// Periodically turns the global wireframe setting on and off, to show the differences between
+/// [`Wireframe`], [`NoWireframe`], and just a mesh.
+fn toggle_global_wireframe_setting(
+    time: Res<Time>,
+    mut timer: ResMut<WireframeToggleTimer>,
     mut wireframe_config: ResMut<WireframeConfig>,
-    keyboard_input: Res<Input<KeyCode>>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::T) {
-        // To draw the wireframe on all entities, set this to 'true'
+    if timer.0.tick(time.delta()).just_finished() {
+        // The global wireframe config enables drawing of wireframes on every mesh,
+        // except those with `NoWireframe`. Meshes with `Wireframe` will always have a wireframe,
+        // regardless of the global configuration.
         wireframe_config.global = !wireframe_config.global;
     }
 }

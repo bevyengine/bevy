@@ -918,4 +918,23 @@ mod tests {
         assert!(!thread_check_failed.load(Ordering::Acquire));
         assert_eq!(count.load(Ordering::Acquire), 200);
     }
+
+    // This test will often freeze on other executors.
+    #[test]
+    fn test_nested_scopes() {
+        let pool = TaskPool::new();
+        let count = Arc::new(AtomicI32::new(0));
+
+        pool.scope(|scope| {
+            scope.spawn(async {
+                pool.scope(|scope| {
+                    scope.spawn(async {
+                        count.fetch_add(1, Ordering::Relaxed);
+                    });
+                });
+            });
+        });
+
+        assert_eq!(count.load(Ordering::Acquire), 1);
+    }
 }
