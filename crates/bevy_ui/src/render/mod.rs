@@ -296,7 +296,7 @@ pub fn extract_uinode_borders(
         .unwrap_or(Vec2::ZERO)
         // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
         // so we have to divide by `UiScale` to get the size of the UI viewport.
-        / ui_scale.0 as f32;
+        / ui_scale.0;
 
     for (node, global_transform, style, border_color, parent, view_visibility, clip) in
         uinode_query.iter()
@@ -545,7 +545,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
     ui_scale: Extract<Res<UiScale>>,
     query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
 ) {
-    let scale = (ui_scale.0 as f32).recip();
+    let scale = (ui_scale.0).recip();
     for (entity, camera, camera_ui) in &query {
         // ignore cameras with disabled ui
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {

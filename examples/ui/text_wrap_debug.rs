@@ -11,11 +11,11 @@ use bevy::winit::WinitSettings;
 struct Args {
     #[argh(option)]
     /// window scale factor
-    scale_factor: Option<f64>,
+    scale_factor: Option<f32>,
 
     #[argh(option, default = "1.")]
     /// ui scale factor
-    ui_scale: f64,
+    ui_scale: f32,
 }
 
 fn main() {
