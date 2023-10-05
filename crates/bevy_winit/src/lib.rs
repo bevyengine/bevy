@@ -72,7 +72,20 @@ pub static ANDROID_APP: std::sync::OnceLock<AndroidApp> = std::sync::OnceLock::n
 /// replace the existing [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
 #[derive(Default)]
-pub struct WinitPlugin;
+pub struct WinitPlugin {
+    /// Allows the window (and the event loop) to be created on any thread
+    /// instead of only the main thread.
+    ///
+    /// See [`winit with_any_thread`].
+    ///
+    /// # Supported platforms
+    ///
+    /// Only works on Linux (X11/Wayland) and Windows.
+    /// This field is ignored on other platforms.
+    ///
+    /// [`winit with_any_thread`]: https://docs.rs/winit/latest/winit/event_loop/struct.EventLoopBuilder.html#method.with_any_thread
+    pub run_on_any_thread: bool,
+}
 
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
@@ -90,20 +103,20 @@ impl Plugin for WinitPlugin {
                 // A use case for this is to allow external applications to spawn a thread
                 // which runs a Bevy app without requiring the Bevy app to need to reside on
                 // the main thread, which can be problematic.
-                event_loop_builder.with_any_thread(true);
+                event_loop_builder.with_any_thread(self.run_on_any_thread);
             }
 
             #[cfg(feature = "wayland")]
             {
                 use winit::platform::wayland::EventLoopBuilderExtWayland;
-                event_loop_builder.with_any_thread(true);
+                event_loop_builder.with_any_thread(self.run_on_any_thread);
             }
         }
 
         #[cfg(target_os = "windows")]
         {
             use winit::platform::windows::EventLoopBuilderExtWindows;
-            event_loop_builder.with_any_thread(true);
+            event_loop_builder.with_any_thread(self.run_on_any_thread);
         }
 
         #[cfg(target_os = "android")]
