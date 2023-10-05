@@ -504,21 +504,6 @@ pub fn on_enter(input: TokenStream) -> TokenStream {
     simple_state_transition_macros(MatchMacro::OnEnter, false, result)
 }
 
-/// Generate `OnEnter` schedules, using either:
-/// - a pre-existing matcher, like so `on_enter_strict!(MyMatcher)`
-/// - a specific state value, like so `on_enter_strict!(MyState::Variant)` or `on_enter_strict!(MyState::HasValue { value: true})`
-/// - a matching pattern, like so `on_enter_strict!(MyMatcher, HasValue { .. })`. Note that with matching
-/// patterns, you do  not need to repeat the type within the pattern.
-///
-/// This schedule will run regardless of the previous state. If you want
-/// to run only when the previous state does not match, use `on_enter!`
-#[proc_macro]
-pub fn every_entrance(input: TokenStream) -> TokenStream {
-    let result =
-        state_matchers::define_match_macro(input).expect("Couldn't parse `every_entrance!`");
-    simple_state_transition_macros(MatchMacro::OnEnter, true, result)
-}
-
 /// Generate `OnExit` schedules, using either:
 /// - a pre-existing matcher, like so `on_exit!(MyMatcher)`
 /// - a specific state value, like so `on_exit!(MyState::Variant)` or `on_exit!(MyState::HasValue { value: true})`
@@ -534,19 +519,6 @@ pub fn on_exit(input: TokenStream) -> TokenStream {
     simple_state_transition_macros(MatchMacro::OnExit, false, result)
 }
 
-/// Generate `OnExit` schedules, using either:
-/// - a pre-existing matcher, like so `on_exit_strict!(MyMatcher)`
-/// - a specific state value, like so `on_exit_strict!(MyState::Variant)` or `on_exit_strict!(MyState::HasValue { value: true})`
-/// - a matching pattern, like so `on_exit_strict!(MyMatcher, HasValue { .. })`. Note that with matching
-/// patterns, you do  not need to repeat the type within the pattern.
-///
-/// This schedule will run regardless of the next state. If you want
-/// to run only when the next state does not match, use `on_exit!`
-#[proc_macro]
-pub fn every_exit(input: TokenStream) -> TokenStream {
-    let result = state_matchers::define_match_macro(input).expect("Couldn't parse `every_exit!`");
-    simple_state_transition_macros(MatchMacro::OnExit, true, result)
-}
 /// Generate `in_state` condition using either:
 /// /// - a pre-existing matcher, like so `in_state!(MyMatcher)`
 /// - a specific state value, like so `in_state!(MyState::Variant)` or `in_state!(MyState::HasValue { value: true})`

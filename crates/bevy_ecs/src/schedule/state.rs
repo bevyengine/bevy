@@ -13,9 +13,7 @@ use crate::schedule::ScheduleLabel;
 use crate::system::{IntoSystem, Resource};
 use crate::world::World;
 pub use bevy_ecs_macros::States;
-pub use bevy_ecs_macros::{
-    every_entrance, every_exit, on_enter, on_exit, state_matcher, state_matches,
-};
+pub use bevy_ecs_macros::{on_enter, on_exit, state_matcher, state_matches};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
 
@@ -262,7 +260,7 @@ impl<S: States> OnStateEntry<S> {
 
     /// Get a `ConditionalScheduleLabel` for whenever we enter a matching `S`
     ///
-    /// designed to be used via [`every_entrance!`] macro
+    /// designed to be used via [`on_enter!`] macro
     pub fn every_entrance<Marker>(
         self,
         matcher: impl StateMatcher<S, Marker>,
@@ -304,7 +302,7 @@ impl<S: States> OnStateExit<S> {
 
     /// Get a `ConditionalScheduleLabel` for whenever we exit a matching `S`
     ///
-    /// designed to be used via [`every_exit!`] macro
+    /// designed to be used via [`on_exit!`] macro
     pub fn every_exit<Marker>(
         self,
         matcher: impl StateMatcher<S, Marker>,
