@@ -33,7 +33,7 @@ impl<C: Component> DynamicUniformIndex<C> {
 /// Describes how a component gets extracted for rendering.
 ///
 /// Therefore the component is transferred from the "app world" into the "render world"
-/// in the [`ExtractSchedule`](crate::ExtractSchedule) step.
+/// in the [`ExtractSchedule`] step.
 pub trait ExtractComponent: Component {
     /// ECS [`WorldQuery`] to fetch the components to extract.
     type Query: WorldQuery + ReadOnlyWorldQuery;
@@ -68,7 +68,7 @@ pub trait ExtractComponent: Component {
 /// For referencing the newly created uniforms a [`DynamicUniformIndex`] is inserted
 /// for every processed entity.
 ///
-/// Therefore it sets up the [`RenderSet::Prepare`](crate::RenderSet::Prepare) step
+/// Therefore it sets up the [`RenderSet::Prepare`] step
 /// for the specified [`ExtractComponent`].
 pub struct UniformComponentPlugin<C>(PhantomData<fn() -> C>);
 
@@ -157,7 +157,7 @@ fn prepare_uniform_components<C: Component>(
 
 /// This plugin extracts the components into the "render world".
 ///
-/// Therefore it sets up the [`ExtractSchedule`](crate::ExtractSchedule) step
+/// Therefore it sets up the [`ExtractSchedule`] step
 /// for the specified [`ExtractComponent`].
 pub struct ExtractComponentPlugin<C, F = ()> {
     only_extract_visible: bool,
