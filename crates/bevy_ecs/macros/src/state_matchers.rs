@@ -1,6 +1,9 @@
-use proc_macro::TokenStream;
 use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use quote::ToTokens;
 use quote::{format_ident, quote};
+use syn::parse::Parser;
+use syn::parse_str;
 use syn::{
     parse::Parse, parse_macro_input, Expr, ExprPath, Ident, Pat, PatTupleStruct, Path, Token,
     Visibility,
@@ -32,6 +35,7 @@ impl Parse for StateMatcher {
 struct MatcherPattern {
     state_type: Path,
     pattern: Pat,
+    every: bool,
 }
 
 enum Matcher {
@@ -54,12 +58,26 @@ impl Parse for Matcher {
 
         if let Some(state_type) = state_type {
             if input.parse::<Token![,]>().is_ok() {
+                let every = {
+                    let ahead = input.fork();
+                    if let Ok(every) = ahead.parse::<Ident>() {
+                        if every.to_string() == "every" {
+                            input.parse::<Ident>()?;
+                            true
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                };
                 let pattern = Pat::parse_multi_with_leading_vert(input)?;
 
                 let pattern = inject_state_type(pattern, &state_type);
                 Ok(Self::Pattern(MatcherPattern {
                     state_type,
                     pattern,
+                    every,
                 }))
             } else {
                 Ok(Self::Expression(Expr::Path(ExprPath {
@@ -78,6 +96,16 @@ impl Parse for MatcherPattern {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let state_type = Path::parse(input)?;
         input.parse::<Token![,]>()?;
+        let every = {
+            let ahead = input.fork();
+            let every: Ident = ahead.parse()?;
+            if every.to_string() == "every" {
+                input.parse::<Ident>()?;
+                true
+            } else {
+                false
+            }
+        };
         let pattern = Pat::parse_multi_with_leading_vert(input)?;
 
         let pattern = inject_state_type(pattern, &state_type);
@@ -85,6 +113,7 @@ impl Parse for MatcherPattern {
         Ok(Self {
             state_type,
             pattern,
+            every,
         })
     }
 }
@@ -177,16 +206,19 @@ fn inject_state_type(pattern: Pat, state_type: &Path) -> Pat {
     }
 }
 
-pub fn define_state_matcher(input: TokenStream) -> TokenStream {
+pub fn define_state_matcher(
+    input: proc_macro::TokenStream,
+) -> syn::Result<proc_macro::TokenStream> {
     let StateMatcher {
         visibility,
         name,
         matcher,
-    } = parse_macro_input!(input as StateMatcher);
+    } = syn::parse(input)?;
 
     let MatcherPattern {
         state_type,
         pattern,
+        every,
     } = matcher;
 
     let mut trait_path = bevy_ecs_path();
@@ -195,7 +227,7 @@ pub fn define_state_matcher(input: TokenStream) -> TokenStream {
         .segments
         .push(format_ident!("StateMatcher").into());
 
-    quote! {
+    Ok(quote! {
 
        #[derive(Debug, Eq, PartialEq, Hash, Clone)]
         #visibility struct #name;
@@ -210,66 +242,131 @@ pub fn define_state_matcher(input: TokenStream) -> TokenStream {
         }
 
     }
-    .into()
+    .into())
 }
 
 pub enum MatchMacro {
     OnEnter,
     OnExit,
-    InState,
 }
 
-pub fn define_match_macro(
-    match_macro: MatchMacro,
-    strict: Option<bool>,
-    input: TokenStream,
-) -> TokenStream {
-    let matcher = parse_macro_input!(input as Matcher);
+pub enum MatchMacroResult {
+    SimpleEquality(TokenStream),
+    Pattern {
+        every: bool,
+        tokens: TokenStream,
+        state_type: Path,
+    },
+}
 
-    let mut module_path = bevy_ecs_path();
-    module_path.segments.push(format_ident!("prelude").into());
+pub fn define_match_macro(input: proc_macro::TokenStream) -> syn::Result<MatchMacroResult> {
+    let matcher = syn::parse::<Matcher>(input)?;
 
-    let mut matcher_type_path = module_path.clone();
-    matcher_type_path
-        .segments
-        .push(Ident::new("StateMatcherFunction", Span::call_site()).into());
-
-    let mut call_path = module_path.clone();
-    let call = match match_macro {
-        MatchMacro::OnEnter => "OnEnter",
-        MatchMacro::OnExit => "OnExit",
-        MatchMacro::InState => "in_state",
-    };
-
-    call_path
-        .segments
-        .push(Ident::new(call, Span::call_site()).into());
-
-    if let Some(strict) = strict {
-        let call = if strict {
-            "matching_strict"
-        } else {
-            "matching"
-        };
-        call_path
-            .segments
-            .push(Ident::new(call, Span::call_site()).into());
-    }
-
-    match matcher {
-        Matcher::Expression(exp) => quote!(
-            #call_path(#exp)
-        )
-        .into(),
+    Ok(match matcher {
+        Matcher::Expression(exp) => MatchMacroResult::SimpleEquality(
+            quote!(
+                #exp
+            )
+            .into(),
+        ),
         Matcher::Pattern(MatcherPattern {
             state_type,
             pattern,
-        }) => quote!({
-            let matcher : fn(&#state_type) -> bool = |state: &#state_type| matches!(state.clone(), #pattern);
+            every,
+        }) => MatchMacroResult::Pattern {
+            every,
+            state_type: state_type.clone(),
+            tokens: quote!(matches!(state, #pattern)).into(),
+        },
+    })
+}
 
-            #call_path(matcher)
+pub fn simple_state_transition_macros(
+    macro_type: MatchMacro,
+    every_override: bool,
+    match_result: MatchMacroResult,
+) -> proc_macro::TokenStream {
+    let mut module_path = bevy_ecs_path();
+    module_path.segments.push(format_ident!("schedule").into());
+
+    match match_result {
+        MatchMacroResult::SimpleEquality(expr) => {
+            module_path.segments.push(
+                Ident::new(
+                    match macro_type {
+                        MatchMacro::OnEnter => "OnEnter",
+                        MatchMacro::OnExit => "OnExit",
+                    },
+                    Span::call_site(),
+                )
+                .into(),
+            );
+
+            quote!(#module_path(#expr)).into()
         }
-        )
+        MatchMacroResult::Pattern {
+            every,
+            tokens,
+            state_type,
+        } => {
+            let every = every || every_override;
+            let state_type = state_type.clone().into_token_stream();
+
+            match macro_type {
+                MatchMacro::OnEnter => {
+                    module_path
+                        .segments
+                        .push(format_ident!("OnStateEntry").into());
+                    module_path.segments.push(
+                        format_ident!("{}", if every { "every_entrance" } else { "matching" })
+                            .into(),
+                    );
+                }
+                MatchMacro::OnExit => {
+                    module_path
+                        .segments
+                        .push(format_ident!("OnStateExit").into());
+                    module_path.segments.push(
+                        format_ident!("{}", if every { "every_exit" } else { "matching" }).into(),
+                    );
+                }
+            }
+
+            let matches = quote!(fn matches(state: &#state_type) -> bool {
+                #tokens
+            });
+
+            quote!({
+                #matches
+
+                #module_path(matches)
+            })
+            .into()
+        }
+    }
+}
+
+pub fn state_matches_macro(match_result: MatchMacroResult) -> proc_macro::TokenStream {
+    let mut module_path = bevy_ecs_path();
+    module_path.segments.push(format_ident!("schedule").into());
+    match match_result {
+        MatchMacroResult::SimpleEquality(expr) => {
+            module_path
+                .segments
+                .push(Ident::new("in_state", Span::call_site()).into());
+            quote!(#module_path(#expr)).into()
+        }
+        MatchMacroResult::Pattern {
+            every,
+            tokens,
+            state_type,
+        } => quote!(|state: Option<Res<State<#state_type>>>| {
+            let Some(state) = state else {
+                return false;
+            };
+            let state : &#state_type = &state;
+            #tokens
+        })
         .into(),
     }
 }

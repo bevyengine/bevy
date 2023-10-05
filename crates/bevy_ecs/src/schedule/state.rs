@@ -8,17 +8,18 @@ use crate as bevy_ecs;
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
 use crate::schedule::ScheduleLabel;
-use crate::system::{IntoSystem, Resource};
+use crate::system::{IntoSystem, ReadOnlySystem, Resource};
 use crate::world::World;
 pub use bevy_ecs_macros::States;
 pub use bevy_ecs_macros::{
-    in_state, on_enter, on_enter_strict, on_exit, on_exit_strict, state_matcher,
+    every_entrance, every_exit, on_enter, on_exit, state_matcher, state_matches,
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
+use bevy_utils::label::DynHash;
 
-use super::{BoxedCondition, IntoConditionalScheduleLabel};
-use bevy_ecs::prelude::Res;
+use super::{Condition, ConditionalScheduleLabel};
+use crate::prelude::Res;
 
 /// Types that can define world-wide states in a finite-state machine.
 ///
@@ -88,22 +89,84 @@ use bevy_ecs::prelude::Res;
 ///
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {}
 
+mod sealed {
+    pub(crate) struct IsFnPointer;
+    pub(crate) struct IsStruct;
+}
+
+use sealed::*;
+
 /// Types that can match world-wide states.
-pub trait StateMatcher<S: States>: 'static + Send + Sync + Clone {
+pub trait StateMatcher<S: States, Marker = ()>: Send + Sync + Sized + 'static {
     /// Check whether to match with the current state
     fn match_state(&self, state: &S) -> bool;
 }
 
-impl<S: States> StateMatcher<S> for S {
+impl<S: States> StateMatcher<S, IsStruct> for S {
     fn match_state(&self, state: &S) -> bool {
         self == state
     }
 }
 
-impl<S: States> StateMatcher<S> for fn(&S) -> bool {
+impl<S: States, F: 'static + Send + Sync + Fn(&S) -> bool> StateMatcher<S> for F {
     fn match_state(&self, state: &S) -> bool {
         self(state)
     }
+}
+
+impl<S: States> StateMatcher<S, IsFnPointer> for fn(&S) -> bool {
+    fn match_state(&self, state: &S) -> bool {
+        self(state)
+    }
+}
+
+/// Get a [`Condition`] for running whenever `MainResource<S>` matches regardless of whether `SecondaryResource<S>` matches,
+/// so long as they are not identical
+fn run_condition_on_match<
+    MainResource: crate::prelude::Resource + Deref<Target = S>,
+    SecondaryResource: crate::prelude::Resource + Deref<Target = S>,
+    S: States,
+    M,
+>(
+    matcher: impl StateMatcher<S, M>,
+) -> impl Condition<()> {
+    IntoSystem::into_system(
+        move |main: Option<Res<MainResource>>, secondary: Option<Res<SecondaryResource>>| {
+            let Some(main) = main.as_ref().map(|v| v.as_ref()) else {
+                return false;
+            };
+            let Some(secondary) = secondary.as_ref().map(|v| v.as_ref()) else {
+                return matcher.match_state(main);
+            };
+
+            main.deref() != secondary.deref()
+                && matcher.match_state(main)
+                && !matcher.match_state(secondary)
+        },
+    )
+}
+
+/// Get a [`Condition`] for running whenever `MainResource<S>` matches and `SecondaryResource<S>` does not match
+fn run_condition_every_match<
+    MainResource: crate::prelude::Resource + Deref<Target = S>,
+    SecondaryResource: crate::prelude::Resource + Deref<Target = S>,
+    S: States,
+    M,
+>(
+    matcher: impl StateMatcher<S, M>,
+) -> impl Condition<()> {
+    IntoSystem::into_system(
+        move |main: Option<Res<MainResource>>, secondary: Option<Res<SecondaryResource>>| {
+            let Some(main) = main.as_ref().map(|v| v.as_ref()) else {
+                return false;
+            };
+            let Some(secondary) = secondary.as_ref().map(|v| v.as_ref()) else {
+                return matcher.match_state(main);
+            };
+
+            main.deref() != secondary.deref() && matcher.match_state(main)
+        },
+    )
 }
 
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
@@ -111,97 +174,21 @@ impl<S: States> StateMatcher<S> for fn(&S) -> bool {
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnEnter<S: States>(pub S);
 
-impl<S: States> OnEnter<S> {
-    /// Generate a matching schedule label for on exit
-    pub fn matching<M: StateMatcher<S>>(matcher: M) -> OnEnterMatching<S, M> {
-        S::on_enter_matching(matcher)
-    }
-    /// Generate a strict matching schedule label for on exit
-    pub fn matching_strict<M: StateMatcher<S>>(matcher: M) -> OnEnterMatching<S, M> {
-        S::on_enter_matching_strict(matcher)
-    }
-}
-/// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
-/// enters a matching state from a non-matching state.
-pub struct OnEnterMatching<S: States, M: StateMatcher<S>> {
-    matcher: M,
-    strict: bool,
-    phantom: PhantomData<S>,
-}
-
-impl<S: States, M: StateMatcher<S>> IntoConditionalScheduleLabel<OnStateEntry<S>>
-    for OnEnterMatching<S, M>
-{
-    fn into_conditional_schedule_label(self) -> (OnStateEntry<S>, Option<super::BoxedCondition>) {
-        let matcher = self.matcher;
-        let matcher: BoxedCondition = if self.strict {
-            Box::new(IntoSystem::into_system(
-                move |next: Res<State<S>>, previous: Option<Res<PreviousState<S>>>| match previous {
-                    Some(previous) => matcher.match_state(&next) && (next.0 != previous.0),
-                    None => matcher.match_state(&next),
-                },
-            ))
-        } else {
-            Box::new(IntoSystem::into_system(
-                move |next: Res<State<S>>, previous: Option<Res<PreviousState<S>>>| match previous {
-                    Some(previous) => matcher.match_state(&next) && !matcher.match_state(&previous),
-                    None => matcher.match_state(&next),
-                },
-            ))
-        };
-
-        (OnStateEntry::<S>(PhantomData::<S>), Some(matcher))
-    }
-}
-
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// exits this state.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnExit<S: States>(pub S);
 
-impl<S: States> OnExit<S> {
-    /// Generate a matching schedule label for on exit
-    pub fn matching<M: StateMatcher<S>>(matcher: M) -> OnExitMatching<S, M> {
-        S::on_exit_matching(matcher)
-    }
-    /// Generate a strict matching schedule label for on exit
-    pub fn matching_strict<M: StateMatcher<S>>(matcher: M) -> OnExitMatching<S, M> {
-        S::on_exit_matching_strict(matcher)
-    }
-}
-
-/// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
-/// exits a matching state without entering another matching state.
-pub struct OnExitMatching<S: States, M: StateMatcher<S>> {
-    matcher: M,
-    strict: bool,
-    phantom: PhantomData<S>,
-}
-
-impl<S: States, M: StateMatcher<S>> IntoConditionalScheduleLabel<OnStateExit<S>>
-    for OnExitMatching<S, M>
-{
-    fn into_conditional_schedule_label(self) -> (OnStateExit<S>, Option<super::BoxedCondition>) {
-        let matcher = self.matcher;
-
-        let matcher: BoxedCondition = if self.strict {
-            Box::new(IntoSystem::into_system(
-                move |next: Option<Res<State<S>>>, previous: Res<PreviousState<S>>| match next {
-                    Some(next) => matcher.match_state(&previous) && (next.0 != previous.0),
-                    None => matcher.match_state(&previous),
-                },
-            ))
-        } else {
-            Box::new(IntoSystem::into_system(
-                move |next: Option<Res<State<S>>>, previous: Res<PreviousState<S>>| match next {
-                    Some(next) => !matcher.match_state(&next) && matcher.match_state(&previous),
-                    None => matcher.match_state(&previous),
-                },
-            ))
-        };
-
-        (OnStateExit::<S>(PhantomData::<S>), Some(matcher))
-    }
+/// The label of a [`Schedule`](super::Schedule) that **only** runs whenever [`State<S>`]
+/// exits the `from` state, AND enters the `to` state.
+///
+/// Systems added to this schedule are always ran *after* [`OnExit`], and *before* [`OnEnter`].
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct OnTransition<S: States> {
+    /// The state being exited.
+    pub from: S,
+    /// The state being entered.
+    pub to: S,
 }
 
 /// A schedule for every time a state of type S is entered
@@ -216,138 +203,132 @@ pub struct OnStateTransition<S: States>(PhantomData<S>);
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct OnStateExit<S: States>(PhantomData<S>);
 
-/// The label of a [`Schedule`](super::Schedule) that **only** runs whenever [`State<S>`]
-/// exits the `from` state, AND enters the `to` state.
-///
-/// Systems added to this schedule are always ran *after* [`OnExit`], and *before* [`OnEnter`].
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct OnTransition<S: States> {
-    /// The state being exited.
-    pub from: S,
-    /// The state being entered.
-    pub to: S,
-}
+impl<S: States> OnStateEntry<S> {
+    /// Get a `ConditionalScheduleLabel` for whenever we enter a matching `S`
+    /// from a non-matching `S`
+    ///
+    /// designed to be used via [`on_enter!`] macro
+    pub fn matching<M: StateMatcher<S, Marker>, Marker>(
+        matcher: M,
+    ) -> impl ConditionalScheduleLabel<Self, ()> {
+        (
+            Self::default(),
+            run_condition_on_match::<State<S>, PreviousState<S>, _, _>(matcher),
+        )
+    }
 
-/// The label of a [`Schedule`](super::Schedule) that **only** runs whenever [`State<S>`]
-/// exits the `from` state, AND enters the `to` state.
-///
-/// Systems added to this schedule are always ran *after* [`OnExit`], and *before* [`OnEnter`].
-pub struct OnTransitionMatching<S: States, M1: StateMatcher<S>, M2: StateMatcher<S>> {
-    from_matcher: M1,
-    to_matcher: M2,
-    from_strict: bool,
-    to_strict: bool,
-    phantom: PhantomData<S>,
-}
-
-impl<S: States, M1: StateMatcher<S>, M2: StateMatcher<S>>
-    IntoConditionalScheduleLabel<OnStateTransition<S>> for OnTransitionMatching<S, M1, M2>
-{
-    fn into_conditional_schedule_label(
-        self,
-    ) -> (OnStateTransition<S>, Option<super::BoxedCondition>) {
-        let Self {
-            from_matcher,
-            to_matcher,
-            from_strict,
-            to_strict,
-            ..
-        } = self;
-
-        let matcher: BoxedCondition = Box::new(IntoSystem::into_system(
-            move |next: Option<Res<State<S>>>, previous: Option<Res<PreviousState<S>>>| {
-                let Some(next) = next else {
-                    return false;
-                };
-                let Some(previous) = previous else {
-                    return false;
-                };
-
-                if !from_matcher.match_state(&previous) || !to_matcher.match_state(&next) {
-                    return false;
-                }
-
-                if !from_strict && from_matcher.match_state(&next) {
-                    return false;
-                }
-
-                if !to_strict && to_matcher.match_state(&previous) {
-                    return false;
-                }
-
-                true
-            },
-        ));
-
-        (OnStateTransition::<S>::default(), Some(matcher))
+    /// Get a `ConditionalScheduleLabel` for whenever we enter a matching `S`
+    ///
+    /// designed to be used via [`every_entrance!`] macro
+    pub fn every_entrance<M: StateMatcher<S, Marker>, Marker>(
+        matcher: M,
+    ) -> impl ConditionalScheduleLabel<Self, ()> {
+        (
+            Self::default(),
+            run_condition_every_match::<State<S>, PreviousState<S>, _, _>(matcher),
+        )
     }
 }
 
-/// A trait to add the capacity for States to be used to create matcher-based schedule labels
-pub trait SetupTransitionScheduleLabels<S: States> {
-    /// Entering a state that matches the matcher from a state that doesn't
-    fn on_enter_matching<M: StateMatcher<S>>(matcher: M) -> OnEnterMatching<S, M> {
-        OnEnterMatching {
-            matcher,
-            strict: false,
-            phantom: PhantomData::<S>,
-        }
-    }
-
-    /// Entering a state that matches the matcher regardless of the previous state
-    fn on_enter_matching_strict<M: StateMatcher<S>>(matcher: M) -> OnEnterMatching<S, M> {
-        OnEnterMatching {
-            matcher,
-            strict: true,
-            phantom: PhantomData::<S>,
-        }
-    }
-
-    /// Exiting a matching state to a state that doesn't match
-    fn on_exit_matching<M: StateMatcher<S>>(matcher: M) -> OnExitMatching<S, M> {
-        OnExitMatching {
-            matcher,
-            strict: false,
-            phantom: PhantomData::<S>,
-        }
-    }
-
-    /// Exiting a matching state regardless of what the next state is
-    fn on_exit_matching_strict<M: StateMatcher<S>>(matcher: M) -> OnExitMatching<S, M> {
-        OnExitMatching {
-            matcher,
-            strict: true,
-            phantom: PhantomData::<S>,
-        }
-    }
-
-    /// Entering a state that matches the matcher from a state that doesn't
+impl<S: States> OnStateExit<S> {
+    /// Get a `ConditionalScheduleLabel` for whenever we exit a matching `S`
+    /// to a non-matching `S`
     ///
-    /// `from` is a matcher for the previous state
-    /// `to` is a matcher for the next state
+    /// designed to be used via [`on_exit!`] macro
+    pub fn matching<M: StateMatcher<S, Marker>, Marker>(
+        matcher: M,
+    ) -> impl ConditionalScheduleLabel<Self, ()> {
+        (
+            Self::default(),
+            run_condition_on_match::<PreviousState<S>, State<S>, _, _>(matcher),
+        )
+    }
+
+    /// Get a `ConditionalScheduleLabel` for whenever we exit a matching `S`
     ///
-    /// if `from_strict` is true, the transition will occur even if the next state also matches
-    /// the from matcher
-    ///
-    /// if `to_strict` is true, the transition will occur even if the previous stata also
-    /// matches the to matcher
-    fn on_transition_match<M1: StateMatcher<S>, M2: StateMatcher<S>>(
+    /// designed to be used via [`every_exit!`] macro
+    pub fn every_exit<M: StateMatcher<S, Marker>, Marker>(
+        matcher: M,
+    ) -> impl ConditionalScheduleLabel<Self, ()> {
+        (
+            Self::default(),
+            run_condition_every_match::<PreviousState<S>, State<S>, _, _>(matcher),
+        )
+    }
+}
+
+impl<S: States> OnStateTransition<S> {
+    /// Get a `ConditionalScheduleLabel` for whenever we move from a state that matches `from` and not `to`,
+    /// to a state that matches `to` and not `from`
+    pub fn from_matching_to_matching<
+        M1: StateMatcher<S, Marker1>,
+        Marker1,
+        M2: StateMatcher<S, Marker2>,
+        Marker2,
+    >(
         from: M1,
         to: M2,
-        from_strict: bool,
-        to_strict: bool,
-    ) -> OnTransitionMatching<S, M1, M2> {
-        OnTransitionMatching {
-            from_matcher: from,
-            to_matcher: to,
-            from_strict,
-            to_strict,
-            phantom: PhantomData,
-        }
+    ) -> impl ConditionalScheduleLabel<Self, ()> {
+        (
+            Self::default(),
+            run_condition_on_match::<State<S>, PreviousState<S>, _, _>(from).and_then(
+                run_condition_on_match::<PreviousState<S>, State<S>, _, _>(to),
+            ),
+        )
+    }
+    /// Get a `ConditionalScheduleLabel` for whenever we move from a state that matches `from`,
+    /// to a state that matches `to` and not `from`
+    pub fn from_every_to_matching<
+        M1: StateMatcher<S, Marker1>,
+        Marker1,
+        M2: StateMatcher<S, Marker2>,
+        Marker2,
+    >(
+        from: M1,
+        to: M2,
+    ) -> impl ConditionalScheduleLabel<Self, ()> {
+        (
+            Self::default(),
+            run_condition_every_match::<State<S>, PreviousState<S>, _, _>(from).and_then(
+                run_condition_on_match::<PreviousState<S>, State<S>, _, _>(to),
+            ),
+        )
+    }
+    /// Get a `ConditionalScheduleLabel` for whenever we move from a state that matches `from` and not `to`,
+    /// to a state that matches `to`
+    pub fn from_matching_to_every<
+        M1: StateMatcher<S, Marker1>,
+        Marker1,
+        M2: StateMatcher<S, Marker2>,
+        Marker2,
+    >(
+        from: M1,
+        to: M2,
+    ) -> impl ConditionalScheduleLabel<Self, ()> {
+        (
+            Self::default(),
+            run_condition_on_match::<State<S>, PreviousState<S>, _, _>(from)
+                .and_then(run_condition_every_match::<PreviousState<S>, State<S>, _, _>(to)),
+        )
+    }
+    /// Get a `ConditionalScheduleLabel` for whenever we move from a state that matches `from`,
+    /// to a state that matches `to`
+    pub fn from_every_to_every<
+        M1: StateMatcher<S, Marker1>,
+        Marker1,
+        M2: StateMatcher<S, Marker2>,
+        Marker2,
+    >(
+        from: M1,
+        to: M2,
+    ) -> impl ConditionalScheduleLabel<Self, ()> {
+        (
+            Self::default(),
+            run_condition_every_match::<State<S>, PreviousState<S>, _, _>(from)
+                .and_then(run_condition_every_match::<PreviousState<S>, State<S>, _, _>(to)),
+        )
     }
 }
-
-impl<S: States> SetupTransitionScheduleLabels<S> for S {}
 
 /// A finite-state machine whose transitions have associated schedules
 /// ([`OnEnter(state)`] and [`OnExit(state)`]).

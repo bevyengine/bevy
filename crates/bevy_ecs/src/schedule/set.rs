@@ -9,11 +9,10 @@ use bevy_utils::define_boxed_label;
 use bevy_utils::label::DynHash;
 
 use crate::system::{
-    ExclusiveSystemParamFunction, IntoSystem, IsExclusiveFunctionSystem, IsFunctionSystem,
-    SystemParamFunction,
+    ExclusiveSystemParamFunction, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
 };
 
-use super::{BoxedCondition, Condition};
+use super::{Condition, IntoSystemConfigs, IntoSystemSetConfigs, SystemConfigs, SystemSetConfigs};
 
 define_boxed_label!(ScheduleLabel);
 
@@ -182,24 +181,72 @@ where
     }
 }
 
-type ConditionalScheduleLabel<S> = (S, Option<BoxedCondition>);
-
-/// A trait that represents an item that can become a `ScheduleLabel` with optional `BoxedCondition`
-pub trait IntoConditionalScheduleLabel<S: ScheduleLabel, Marker = ()> {
-    /// This converts the item to a `ScheduleLabel` with an optional `BoxedCondition`
-    fn into_conditional_schedule_label(self) -> ConditionalScheduleLabel<S>;
+/// A trait that represents an item that can apply a set of conditions and extract a [`ScheduleLabel`]
+pub trait ConditionalScheduleLabel<S: ScheduleLabel, Marker = ()> {
+    /// Applies the condition to the provided [`IntoSystemConfigs`], and returns the [`ScheduleLabel`] and [`SystemConfigs`]
+    fn apply_condition_to_systems<M>(
+        self,
+        configs: impl IntoSystemConfigs<M>,
+    ) -> (S, SystemConfigs);
+    /// Applies the condition to the provided [`IntoSystemSetConfigs`], and returns the [`ScheduleLabel`] and [`SystemSetConfigs`]
+    fn apply_condition_to_system_sets(
+        self,
+        configs: impl IntoSystemSetConfigs,
+    ) -> (S, SystemSetConfigs);
 }
 
-impl<S: ScheduleLabel> IntoConditionalScheduleLabel<S> for S {
-    fn into_conditional_schedule_label(self) -> ConditionalScheduleLabel<S> {
-        (self, None)
+impl<S: ScheduleLabel> ConditionalScheduleLabel<S> for S {
+    fn apply_condition_to_systems<M>(
+        self,
+        configs: impl IntoSystemConfigs<M>,
+    ) -> (S, SystemConfigs) {
+        (self, configs.into_configs())
+    }
+
+    fn apply_condition_to_system_sets(
+        self,
+        configs: impl IntoSystemSetConfigs,
+    ) -> (S, SystemSetConfigs) {
+        (self, configs.into_configs())
     }
 }
 
-impl<S: ScheduleLabel, M, C: Condition<M>> IntoConditionalScheduleLabel<S, M> for (S, C) {
-    fn into_conditional_schedule_label(self) -> ConditionalScheduleLabel<S> {
-        let condition: BoxedCondition = Box::new(IntoSystem::into_system(self.1));
-        (self.0, Some(condition))
+impl<S: ScheduleLabel, Marker, C: Condition<Marker>> ConditionalScheduleLabel<S, Marker>
+    for (S, C)
+{
+    fn apply_condition_to_systems<M>(
+        self,
+        configs: impl IntoSystemConfigs<M>,
+    ) -> (S, SystemConfigs) {
+        let (label, condition) = self;
+        let configs = configs.run_if(condition);
+        (label, configs)
+    }
+
+    fn apply_condition_to_system_sets(
+        self,
+        configs: impl IntoSystemSetConfigs,
+    ) -> (S, SystemSetConfigs) {
+        let (label, condition) = self;
+        let configs = configs.run_if(condition);
+        (label, configs)
+    }
+}
+
+pub trait IntoConditionalScheduleLabel<
+    S: ScheduleLabel,
+    C: ConditionalScheduleLabel<S, Marker>,
+    Marker = (),
+>
+{
+    fn into_conditional_schedule_label(self) -> C;
+}
+
+impl<S: ScheduleLabel, Marker, L: ConditionalScheduleLabel<S, Marker>>
+    IntoConditionalScheduleLabel<S, L, Marker> for L
+{
+    fn into_conditional_schedule_label(self) -> L {
+        self
     }
 }
 

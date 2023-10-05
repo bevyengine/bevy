@@ -13,7 +13,7 @@ use bevy_macro_utils::{
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
-use state_matchers::MatchMacro;
+use state_matchers::{simple_state_transition_macros, state_matches_macro, MatchMacro};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
     ConstParam, DeriveInput, GenericParam, Ident, Index, TypeParam,
@@ -486,7 +486,7 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
 /// `state_matcher!(pub MyMatcherStruct, MyStatesType, AState | AComplexState(false))`
 #[proc_macro]
 pub fn state_matcher(input: TokenStream) -> TokenStream {
-    state_matchers::define_state_matcher(input)
+    state_matchers::define_state_matcher(input).expect("Couldn't parse `state_matcher!`")
 }
 
 /// Generate `OnEnter` schedules, using either:
@@ -500,7 +500,8 @@ pub fn state_matcher(input: TokenStream) -> TokenStream {
 /// use `on_enter_strict!`
 #[proc_macro]
 pub fn on_enter(input: TokenStream) -> TokenStream {
-    state_matchers::define_match_macro(MatchMacro::OnEnter, Some(false), input)
+    let result = state_matchers::define_match_macro(input).expect("Couldn't parse `on_enter!`");
+    simple_state_transition_macros(MatchMacro::OnEnter, false, result)
 }
 
 /// Generate `OnEnter` schedules, using either:
@@ -512,8 +513,10 @@ pub fn on_enter(input: TokenStream) -> TokenStream {
 /// This schedule will run regardless of the previous state. If you want
 /// to run only when the previous state does not match, use `on_enter!`
 #[proc_macro]
-pub fn on_enter_strict(input: TokenStream) -> TokenStream {
-    state_matchers::define_match_macro(MatchMacro::OnEnter, Some(true), input)
+pub fn every_entrance(input: TokenStream) -> TokenStream {
+    let result =
+        state_matchers::define_match_macro(input).expect("Couldn't parse `every_entrance!`");
+    simple_state_transition_macros(MatchMacro::OnEnter, true, result)
 }
 
 /// Generate `OnExit` schedules, using either:
@@ -527,7 +530,8 @@ pub fn on_enter_strict(input: TokenStream) -> TokenStream {
 /// use `on_exit_strict!`
 #[proc_macro]
 pub fn on_exit(input: TokenStream) -> TokenStream {
-    state_matchers::define_match_macro(MatchMacro::OnExit, Some(false), input)
+    let result = state_matchers::define_match_macro(input).expect("Couldn't parse `on_exit!`");
+    simple_state_transition_macros(MatchMacro::OnExit, false, result)
 }
 
 /// Generate `OnExit` schedules, using either:
@@ -539,8 +543,9 @@ pub fn on_exit(input: TokenStream) -> TokenStream {
 /// This schedule will run regardless of the next state. If you want
 /// to run only when the next state does not match, use `on_exit!`
 #[proc_macro]
-pub fn on_exit_strict(input: TokenStream) -> TokenStream {
-    state_matchers::define_match_macro(MatchMacro::OnExit, Some(true), input)
+pub fn every_exit(input: TokenStream) -> TokenStream {
+    let result = state_matchers::define_match_macro(input).expect("Couldn't parse `every_exit!`");
+    simple_state_transition_macros(MatchMacro::OnExit, true, result)
 }
 /// Generate `in_state` condition using either:
 /// /// - a pre-existing matcher, like so `in_state!(MyMatcher)`
@@ -548,6 +553,8 @@ pub fn on_exit_strict(input: TokenStream) -> TokenStream {
 /// - a matching pattern, like so `in_state!(MyMatcher, HasValue { .. })`. Note that with matching
 /// patterns, you do  not need to repeat the type within the pattern.
 #[proc_macro]
-pub fn in_state(input: TokenStream) -> TokenStream {
-    state_matchers::define_match_macro(MatchMacro::InState, None, input)
+pub fn state_matches(input: TokenStream) -> TokenStream {
+    let result =
+        state_matchers::define_match_macro(input).expect("Couldn't parse `state_matches!`");
+    state_matches_macro(result)
 }

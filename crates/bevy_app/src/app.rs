@@ -1,6 +1,6 @@
 use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
 pub use bevy_derive::AppLabel;
-use bevy_ecs::schedule::IntoConditionalScheduleLabel;
+use bevy_ecs::schedule::ConditionalScheduleLabel;
 use bevy_ecs::{
     prelude::*,
     schedule::{
@@ -377,18 +377,12 @@ impl App {
     /// ```
     pub fn add_systems<M, S: ScheduleLabel>(
         &mut self,
-        schedule: impl IntoConditionalScheduleLabel<S>,
+        schedule: impl ConditionalScheduleLabel<S>,
         systems: impl IntoSystemConfigs<M>,
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        let (schedule, condition) = schedule.into_conditional_schedule_label();
-
-        let mut systems = systems.into_configs();
-
-        if let Some(condition) = condition {
-            systems.run_if_dyn(condition);
-        }
+        let (schedule, systems) = schedule.apply_condition_to_systems(systems);
 
         if let Some(schedule) = schedules.get_mut(&schedule) {
             schedule.add_systems(systems);
@@ -406,7 +400,7 @@ impl App {
     #[track_caller]
     pub fn configure_set<S: ScheduleLabel>(
         &mut self,
-        schedule: impl IntoConditionalScheduleLabel<S>,
+        schedule: impl ConditionalScheduleLabel<S>,
         set: impl IntoSystemSetConfigs,
     ) -> &mut Self {
         self.configure_sets(schedule, set)
@@ -416,17 +410,12 @@ impl App {
     #[track_caller]
     pub fn configure_sets<S: ScheduleLabel>(
         &mut self,
-        schedule: impl IntoConditionalScheduleLabel<S>,
+        schedule: impl ConditionalScheduleLabel<S>,
         sets: impl IntoSystemSetConfigs,
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
-        let (schedule, condition) = schedule.into_conditional_schedule_label();
 
-        let mut sets = sets.into_configs();
-
-        if let Some(condition) = condition {
-            sets.run_if_dyn(condition);
-        }
+        let (schedule, sets) = schedule.apply_condition_to_system_sets(sets);
 
         if let Some(schedule) = schedules.get_mut(&schedule) {
             schedule.configure_sets(sets);

@@ -36,17 +36,17 @@ fn main() {
         // we enter/exit a matching system regardless if the previous/next system matched as well.
         // As a result, this system will run on every state transition, because every state matches
         // the pattern. If it were not strict, this system would never run.
-        .add_systems(on_exit_strict!(AppState, _), cleanup_ui)
+        .add_systems(every_exit!(AppState, _), cleanup_ui)
         // You can also use pattern matching when in a state, using the `in_state!` macro
         // This works just like the `in_state()` function, but relies on pattern matching rather than
         // strict equality.
         .add_systems(
             Update,
-            change_color.run_if(in_state!(AppState, InGame { .. })),
+            change_color.run_if(state_matches!(AppState, InGame { .. })),
         )
         .add_systems(
             Update,
-            invert_movement.run_if(in_state!(AppState, InGame(GameState::Running(_)))),
+            invert_movement.run_if(state_matches!(AppState, InGame(GameState::Running(_)))),
         )
         .add_systems(
             Update,
