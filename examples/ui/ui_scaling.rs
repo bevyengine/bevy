@@ -113,8 +113,8 @@ impl TargetScale {
 
     fn current_scale(&self) -> f32 {
         let completion = self.target_time.percent();
-        let multiplier = ease_in_expo(completion as f32);
-        self.start_scale + (self.target_scale - self.start_scale) * multiplier as f32
+        let multiplier = ease_in_expo(completion);
+        self.start_scale + (self.target_scale - self.start_scale) * multiplier
     }
 
     fn tick(&mut self, delta: Duration) -> &Self {
