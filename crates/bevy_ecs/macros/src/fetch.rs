@@ -135,7 +135,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
             "#[derive(WorldQuery)]` only supports structs",
         )
         .into_compile_error()
-        .into()
+        .into();
     };
 
     let mut field_attrs = Vec::new();
@@ -237,6 +237,16 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                 #marker_name: &'__w (),
             }
 
+            impl #user_impl_generics_with_world Clone for #fetch_struct_name #user_ty_generics_with_world
+            #user_where_clauses_with_world {
+                fn clone(&self) -> Self {
+                    Self {
+                        #(#named_field_idents: self.#named_field_idents.clone(),)*
+                        #marker_name: &(),
+                    }
+                }
+            }
+
             // SAFETY: `update_component_access` and `update_archetype_component_access` are called on every field
             unsafe impl #user_impl_generics #path::query::WorldQuery
                 for #struct_name #user_ty_generics #user_where_clauses {
@@ -270,17 +280,6 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                                 _last_run,
                                 _this_run,
                             ),
-                        )*
-                        #marker_name: &(),
-                    }
-                }
-
-                unsafe fn clone_fetch<'__w>(
-                    _fetch: &<Self as #path::query::WorldQuery>::Fetch<'__w>
-                ) -> <Self as #path::query::WorldQuery>::Fetch<'__w> {
-                    #fetch_struct_name {
-                        #(
-                            #named_field_idents: <#field_types>::clone_fetch(& _fetch. #named_field_idents),
                         )*
                         #marker_name: &(),
                     }

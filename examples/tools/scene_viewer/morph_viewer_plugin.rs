@@ -1,6 +1,6 @@
 //! Enable controls for morph targets detected in a loaded scene.
 //!
-//! Collect morph targets and assing keys to them,
+//! Collect morph targets and assign keys to them,
 //! shows on screen additional controls for morph targets.
 //!
 //! Illustrates how to access and modify individual morph target weights.
@@ -181,7 +181,9 @@ fn update_text(
     mut text: Query<&mut Text>,
     morphs: Query<&MorphWeights>,
 ) {
-    let Some(mut controls) = controls else { return; };
+    let Some(mut controls) = controls else {
+        return;
+    };
     for (i, target) in controls.weights.iter_mut().enumerate() {
         let Ok(weights) = morphs.get(target.entity) else {
             continue;
@@ -203,7 +205,9 @@ fn update_morphs(
     input: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
-    let Some(mut controls) = controls else { return; };
+    let Some(mut controls) = controls else {
+        return;
+    };
     for (i, target) in controls.weights.iter_mut().enumerate() {
         if !AVAILABLE_KEYS[i].active(&input) {
             continue;

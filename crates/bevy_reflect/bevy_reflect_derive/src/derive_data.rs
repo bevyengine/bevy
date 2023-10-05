@@ -195,7 +195,8 @@ impl<'a> ReflectDerive<'a> {
                     let syn::Expr::Lit(syn::ExprLit {
                         lit: syn::Lit::Str(lit),
                         ..
-                    }) = &pair.value else {
+                    }) = &pair.value
+                    else {
                         return Err(syn::Error::new(
                             pair.span(),
                             format_args!("`#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` must be a string literal"),
@@ -211,7 +212,8 @@ impl<'a> ReflectDerive<'a> {
                     let syn::Expr::Lit(syn::ExprLit {
                         lit: syn::Lit::Str(lit),
                         ..
-                    }) = &pair.value else {
+                    }) = &pair.value
+                    else {
                         return Err(syn::Error::new(
                             pair.span(),
                             format_args!("`#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` must be a string literal"),
@@ -384,7 +386,7 @@ impl<'a> ReflectMeta<'a> {
     /// The `FromReflect` attributes on this type.
     #[allow(clippy::wrong_self_convention)]
     pub fn from_reflect(&self) -> &FromReflectAttrs {
-        self.traits.from_reflect()
+        self.traits.from_reflect_attrs()
     }
 
     /// The name of this struct.
@@ -567,7 +569,7 @@ impl<'a> EnumVariant<'a> {
 ///     custom_path: None,
 /// };
 ///
-/// // Eqivalent to "core::marker".
+/// // Equivalent to "core::marker".
 /// let module_path = type_path.module_path();
 /// # Ok::<(), syn::Error>(())
 /// ```
@@ -577,7 +579,7 @@ pub(crate) enum ReflectTypePath<'a> {
     Primitive(&'a Ident),
     /// Using `::my_crate::foo::Bar` syntax.
     ///
-    /// May have a seperate custom path used for the `TypePath` implementation.
+    /// May have a separate custom path used for the `TypePath` implementation.
     External {
         path: &'a Path,
         custom_path: Option<Path>,
@@ -587,7 +589,7 @@ pub(crate) enum ReflectTypePath<'a> {
     ///
     /// The type must be able to be reached with just its name.
     ///
-    /// May have a seperate alias path used for the `TypePath` implementation.
+    /// May have a separate alias path used for the `TypePath` implementation.
     ///
     /// Module and crate are found with [`module_path!()`](core::module_path),
     /// if there is no custom path specified.

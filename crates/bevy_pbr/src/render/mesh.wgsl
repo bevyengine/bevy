@@ -3,8 +3,10 @@
 #import bevy_pbr::morph
 #import bevy_pbr::mesh_bindings       mesh
 #import bevy_pbr::mesh_vertex_output  MeshVertexOutput
+#import bevy_render::instance_index   get_instance_index
 
 struct Vertex {
+    @builtin(instance_index) instance_index: u32,
 #ifdef VERTEX_POSITIONS
     @location(0) position: vec3<f32>,
 #endif
@@ -14,15 +16,16 @@ struct Vertex {
 #ifdef VERTEX_UVS
     @location(2) uv: vec2<f32>,
 #endif
+// (Alternate UVs are at location 3, but they're currently unused here.)
 #ifdef VERTEX_TANGENTS
-    @location(3) tangent: vec4<f32>,
+    @location(4) tangent: vec4<f32>,
 #endif
 #ifdef VERTEX_COLORS
-    @location(4) color: vec4<f32>,
+    @location(5) color: vec4<f32>,
 #endif
 #ifdef SKINNED
-    @location(5) joint_indices: vec4<u32>,
-    @location(6) joint_weights: vec4<f32>,
+    @location(6) joint_indices: vec4<u32>,
+    @location(7) joint_weights: vec4<f32>,
 #endif
 #ifdef MORPH_TARGETS
     @builtin(vertex_index) index: u32,
@@ -63,14 +66,21 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
 #ifdef SKINNED
     var model = bevy_pbr::skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
 #else
-    var model = mesh.model;
+    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+    // See https://github.com/gfx-rs/naga/issues/2416 .
+    var model = mesh_functions::get_model_matrix(vertex_no_morph.instance_index);
 #endif
 
 #ifdef VERTEX_NORMALS
 #ifdef SKINNED
     out.world_normal = bevy_pbr::skinning::skin_normals(model, vertex.normal);
 #else
-    out.world_normal = mesh_functions::mesh_normal_local_to_world(vertex.normal);
+    out.world_normal = mesh_functions::mesh_normal_local_to_world(
+        vertex.normal,
+        // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+        // See https://github.com/gfx-rs/naga/issues/2416
+        get_instance_index(vertex_no_morph.instance_index)
+    );
 #endif
 #endif
 
@@ -84,11 +94,23 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
 #endif
 
 #ifdef VERTEX_TANGENTS
-    out.world_tangent = mesh_functions::mesh_tangent_local_to_world(model, vertex.tangent);
+    out.world_tangent = mesh_functions::mesh_tangent_local_to_world(
+        model,
+        vertex.tangent,
+        // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+        // See https://github.com/gfx-rs/naga/issues/2416
+        get_instance_index(vertex_no_morph.instance_index)
+    );
 #endif
 
 #ifdef VERTEX_COLORS
     out.color = vertex.color;
+#endif
+
+#ifdef VERTEX_OUTPUT_INSTANCE_INDEX
+    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+    // See https://github.com/gfx-rs/naga/issues/2416
+    out.instance_index = get_instance_index(vertex_no_morph.instance_index);
 #endif
 
     return out;
