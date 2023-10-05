@@ -99,7 +99,7 @@ impl MatcherType {
 
         if let Some(state_type) = state_type {
             if input.parse::<Token![,]>().is_ok() {
-                let is_closure = input.peek(Token![|]);
+                let is_closure = input.peek(Token![|]) || input.peek(Token![move]);
                 if is_closure {
                     Ok(Self::Closure(MatcherClosure::parse_with_state_type(
                         input, state_type,
