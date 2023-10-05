@@ -1,15 +1,13 @@
-use crate::MeshPipeline;
 use crate::{
-    DrawMesh, MeshPipelineKey, RenderMeshInstance, RenderMeshInstances, SetMeshBindGroup,
-    SetMeshViewBindGroup,
+    DrawMesh, MeshPipeline, MeshPipelineKey, RenderMeshInstance, RenderMeshInstances,
+    SetMeshBindGroup, SetMeshViewBindGroup,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -23,8 +21,7 @@ use bevy_render::{
     RenderApp, RenderSet,
 };
 use bevy_render::{Extract, ExtractSchedule, Render};
-use bevy_utils::tracing::error;
-use bevy_utils::EntityHashMap;
+use bevy_utils::{tracing::error, EntityHashSet};
 
 pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
 
@@ -41,6 +38,7 @@ impl Plugin for WireframePlugin {
         );
 
         app.register_type::<Wireframe>()
+            .register_type::<NoWireframe>()
             .register_type::<WireframeConfig>()
             .init_resource::<WireframeConfig>()
             .add_plugins((ExtractResourcePlugin::<WireframeConfig>::default(),));
@@ -50,6 +48,7 @@ impl Plugin for WireframePlugin {
                 .add_render_command::<Opaque3d, DrawWireframes>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
                 .init_resource::<Wireframes>()
+                .init_resource::<NoWireframes>()
                 .add_systems(ExtractSchedule, extract_wireframes)
                 .add_systems(Render, queue_wireframes.in_set(RenderSet::QueueMeshes));
         }
@@ -62,38 +61,46 @@ impl Plugin for WireframePlugin {
     }
 }
 
-/// Overrides the global [`WireframeConfig`] for a single mesh.
+/// Enables wireframe rendering for any entity it is attached to.
+/// It will ignore the [`WireframeConfig`] global setting.
+///
+/// This requires the [`WireframePlugin`] to be enabled.
 #[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
 #[reflect(Component, Default)]
-pub enum Wireframe {
-    /// Always render the wireframe for this entity, regardless of global config.
-    #[default]
-    AlwaysRender,
-    /// Never render the wireframe for this entity, regardless of global config.
-    NeverRender,
-}
+pub struct Wireframe;
+
+/// Disables wireframe rendering for any entity it is attached to.
+/// It will ignore the [`WireframeConfig`] global setting.
+///
+/// This requires the [`WireframePlugin`] to be enabled.
+#[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
+#[reflect(Component, Default)]
+pub struct NoWireframe;
 
 #[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes.
-    /// Can be overridden for individual meshes by adding a [`Wireframe`] component.
+    /// Can be overridden for individual meshes by adding a [`Wireframe`] or [`NoWireframe`] component.
     pub global: bool,
 }
 
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct Wireframes(EntityHashMap<Entity, Wireframe>);
+pub struct Wireframes(EntityHashSet<Entity>);
+
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct NoWireframes(EntityHashSet<Entity>);
 
 fn extract_wireframes(
     mut wireframes: ResMut<Wireframes>,
-    query: Extract<Query<(Entity, &Wireframe)>>,
+    mut no_wireframes: ResMut<NoWireframes>,
+    wireframe_query: Extract<Query<Entity, With<Wireframe>>>,
+    no_wireframe_query: Extract<Query<Entity, With<NoWireframe>>>,
 ) {
     wireframes.clear();
-    wireframes.extend(
-        query
-            .iter()
-            .map(|(entity, wireframe)| (entity, wireframe.clone())),
-    );
+    wireframes.extend(wireframe_query.iter());
+    no_wireframes.clear();
+    no_wireframes.extend(no_wireframe_query.iter());
 }
 
 #[derive(Resource, Clone)]
@@ -137,6 +144,7 @@ fn queue_wireframes(
     render_meshes: Res<RenderAssets<Mesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     wireframes: Res<Wireframes>,
+    no_wireframes: Res<NoWireframes>,
     wireframe_config: Res<WireframeConfig>,
     wireframe_pipeline: Res<WireframePipeline>,
     mut pipelines: ResMut<SpecializedMeshPipelines<WireframePipeline>>,
@@ -185,11 +193,11 @@ fn queue_wireframes(
             .entities
             .iter()
             .filter_map(|visible_entity| {
-                let wireframe_override = wireframes.get(visible_entity);
+                if no_wireframes.get(visible_entity).is_some() {
+                    return None;
+                }
 
-                if (wireframe_config.global || wireframe_override == Some(&Wireframe::AlwaysRender))
-                    && wireframe_override != Some(&Wireframe::NeverRender)
-                {
+                if wireframe_config.global || wireframes.get(visible_entity).is_some() {
                     render_mesh_instances
                         .get(visible_entity)
                         .map(|mesh_instance| (*visible_entity, mesh_instance))

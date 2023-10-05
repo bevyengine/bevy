@@ -1,7 +1,7 @@
 //! Showcases wireframe rendering.
 
 use bevy::{
-    pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin},
+    pbr::wireframe::{NoWireframe, Wireframe, WireframeConfig, WireframePlugin},
     prelude::*,
     render::{render_resource::WgpuFeatures, settings::WgpuSettings, RenderPlugin},
 };
@@ -48,7 +48,7 @@ fn setup(
             transform: Transform::from_xyz(-1.0, 0.5, -1.0),
             ..default()
         })
-        .insert(Wireframe::NeverRender);
+        .insert(NoWireframe);
     // Orange cube: Follows global wireframe setting
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
@@ -64,7 +64,7 @@ fn setup(
             transform: Transform::from_xyz(1.0, 0.5, 1.0),
             ..default()
         })
-        .insert(Wireframe::AlwaysRender);
+        .insert(Wireframe);
 
     // light
     commands.spawn(PointLightBundle {
@@ -83,16 +83,16 @@ fn setup(
 struct WireframeToggleTimer(Timer);
 
 /// Periodically turns the global wireframe setting on and off, to show the differences between
-/// [`Wireframe::AlwaysRender`], [`Wireframe::NeverRender`], and no override.
+/// [`Wireframe`], [`NoWireframe`], and just a mesh.
 fn toggle_global_wireframe_setting(
     time: Res<Time>,
     mut timer: ResMut<WireframeToggleTimer>,
     mut wireframe_config: ResMut<WireframeConfig>,
 ) {
     if timer.0.tick(time.delta()).just_finished() {
-        // The global wireframe config enables drawing of wireframes on every mesh, except those with
-        // `WireframeOverride::NeverRender`. Meshes with `WireframeOverride::AlwaysRender` will
-        // always have a wireframe, regardless of the global configuration.
+        // The global wireframe config enables drawing of wireframes on every mesh,
+        // except those with `NoWireframe`. Meshes with `Wireframe` will always have a wireframe,
+        // regardless of the global configuration.
         wireframe_config.global = !wireframe_config.global;
     }
 }
