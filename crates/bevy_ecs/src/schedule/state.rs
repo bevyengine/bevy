@@ -40,13 +40,7 @@ pub use bevy_ecs_macros::States;
 /// }
 ///
 /// ```
-pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {
-    /// The type returned when iterating over all [`variants`](States::variants) of this type.
-    type Iter: Iterator<Item = Self>;
-
-    /// Returns an iterator over all the state variants.
-    fn variants() -> Self::Iter;
-}
+pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {}
 
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// enters this state.

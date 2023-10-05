@@ -2087,6 +2087,20 @@ impl World {
     pub fn run_schedule(&mut self, label: impl AsRef<dyn ScheduleLabel>) {
         self.schedule_scope(label, |world, sched| sched.run(world));
     }
+
+    /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
+    pub fn allow_ambiguous_component<T: Component>(&mut self) {
+        let mut schedules = self.remove_resource::<Schedules>().unwrap_or_default();
+        schedules.allow_ambiguous_component::<T>(self);
+        self.insert_resource(schedules);
+    }
+
+    /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
+    pub fn allow_ambiguous_resource<T: Resource>(&mut self) {
+        let mut schedules = self.remove_resource::<Schedules>().unwrap_or_default();
+        schedules.allow_ambiguous_resource::<T>(self);
+        self.insert_resource(schedules);
+    }
 }
 
 impl fmt::Debug for World {
