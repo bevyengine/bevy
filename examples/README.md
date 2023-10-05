@@ -275,6 +275,7 @@ Example | Description
 Example | Description
 --- | ---
 [Scene](../examples/scene/scene.rs) | Demonstrates loading from and saving scenes to files
+[Scene Builder](../examples/scene/scene_builder.rs) | Demonstrates building a fine-tuned scene from a world
 
 ## Shaders
 

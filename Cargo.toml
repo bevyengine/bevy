@@ -1642,6 +1642,16 @@ description = "Demonstrates loading from and saving scenes to files"
 category = "Scene"
 wasm = false
 
+[[example]]
+name = "scene_builder"
+path = "examples/scene/scene_builder.rs"
+
+[package.metadata.example.scene_builder]
+name = "Scene Builder"
+description = "Demonstrates building a fine-tuned scene from a world"
+category = "Scene"
+wasm = false
+
 # Shaders
 [[package.metadata.example_category]]
 name = "Shaders"
