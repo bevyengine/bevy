@@ -760,7 +760,7 @@ pub mod common_conditions {
     /// struct Playing;
     ///
     /// impl StateMatcher<GameState> for Playing {
-    ///     fn match_state(&self, state: &S) -> bool {
+    ///     fn match_state(&self, state: &GameState) -> bool {
     ///         *state == GameState::Playing
     ///     }
     /// }
