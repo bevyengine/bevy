@@ -2,13 +2,8 @@ use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use quote::{format_ident, quote};
-use syn::parse::Parser;
-use syn::parse_str;
 use syn::ExprClosure;
-use syn::{
-    parse::Parse, parse_macro_input, Expr, ExprPath, Ident, Pat, PatTupleStruct, Path, Token,
-    Visibility,
-};
+use syn::{parse::Parse, Expr, ExprPath, Ident, Pat, PatTupleStruct, Path, Token, Visibility};
 
 use crate::bevy_ecs_path;
 
@@ -265,7 +260,7 @@ pub fn define_state_matcher(
     let MatcherPattern {
         state_type,
         pattern,
-        every,
+        ..
     } = matcher;
 
     let mut trait_path = bevy_ecs_path();
@@ -314,12 +309,9 @@ pub fn define_match_macro(input: proc_macro::TokenStream) -> syn::Result<MatchMa
     let matcher = syn::parse::<Matcher>(input)?;
 
     Ok(match matcher {
-        Matcher::Expression(exp) => MatchMacroResult::SimpleEquality(
-            quote!(
-                #exp
-            )
-            .into(),
-        ),
+        Matcher::Expression(exp) => MatchMacroResult::SimpleEquality(quote!(
+            #exp
+        )),
         Matcher::Pattern(MatcherPattern {
             state_type,
             pattern,
@@ -327,7 +319,7 @@ pub fn define_match_macro(input: proc_macro::TokenStream) -> syn::Result<MatchMa
         }) => MatchMacroResult::Pattern {
             every,
             state_type: state_type.clone(),
-            tokens: quote!(matches!(state, #pattern)).into(),
+            tokens: quote!(matches!(state, #pattern)),
         },
         Matcher::Closure(MatcherClosure {
             state_type,
@@ -435,9 +427,7 @@ pub fn state_matches_macro(match_result: MatchMacroResult) -> proc_macro::TokenS
             quote!(#module_path(#expr)).into()
         }
         MatchMacroResult::Pattern {
-            every,
-            tokens,
-            state_type,
+            tokens, state_type, ..
         } => quote!(|state: Option<Res<State<#state_type>>>| {
             let Some(state) = state else {
                 return false;

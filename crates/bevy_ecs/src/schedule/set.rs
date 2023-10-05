@@ -233,23 +233,6 @@ impl<S: ScheduleLabel, Marker, C: Condition<Marker>> ConditionalScheduleLabel<S,
     }
 }
 
-pub trait IntoConditionalScheduleLabel<
-    S: ScheduleLabel,
-    C: ConditionalScheduleLabel<S, Marker>,
-    Marker = (),
->
-{
-    fn into_conditional_schedule_label(self) -> C;
-}
-
-impl<S: ScheduleLabel, Marker, L: ConditionalScheduleLabel<S, Marker>>
-    IntoConditionalScheduleLabel<S, L, Marker> for L
-{
-    fn into_conditional_schedule_label(self) -> L {
-        self
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{

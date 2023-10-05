@@ -4,11 +4,13 @@ use std::marker::PhantomData;
 use std::mem;
 use std::ops::Deref;
 
+use super::{Condition, ConditionalScheduleLabel};
 use crate as bevy_ecs;
+use crate::prelude::Res;
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectResource;
 use crate::schedule::ScheduleLabel;
-use crate::system::{IntoSystem, ReadOnlySystem, Resource};
+use crate::system::{IntoSystem, Resource};
 use crate::world::World;
 pub use bevy_ecs_macros::States;
 pub use bevy_ecs_macros::{
@@ -16,10 +18,6 @@ pub use bevy_ecs_macros::{
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
-use bevy_utils::label::DynHash;
-
-use super::{Condition, ConditionalScheduleLabel};
-use crate::prelude::Res;
 
 /// Types that can define world-wide states in a finite-state machine.
 ///
@@ -87,20 +85,25 @@ use crate::prelude::Res;
 /// ```
 ///
 ///
+
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {
+    /// Provides a default instance of the [`OnStateEntry`] schedule label for this state type
     fn on_state_entry_schedule() -> OnStateEntry<Self> {
         OnStateEntry::default()
     }
+
+    /// Provides a default instance of the [`OnStateExit`] schedule label for this state type
     fn on_state_exit_schedule() -> OnStateExit<Self> {
         OnStateExit::default()
     }
+
+    /// Provides a default instance of the [`OnStateTransition`] schedule label for this state type
     fn on_state_transition_schedule() -> OnStateTransition<Self> {
         OnStateTransition::default()
     }
 }
 
 mod sealed {
-    pub(crate) struct IsFnPointer;
     pub(crate) struct IsStruct;
 }
 
