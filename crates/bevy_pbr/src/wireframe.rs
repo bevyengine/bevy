@@ -118,6 +118,7 @@ fn apply_global_wireframe_material(
         (
             With<Handle<Mesh>>,
             Without<Wireframe>,
+            Without<NoWireframe>,
             Without<Handle<WireframeMaterial>>,
         ),
     >,
@@ -126,6 +127,7 @@ fn apply_global_wireframe_material(
         (
             With<Handle<Mesh>>,
             Without<Wireframe>,
+            Without<NoWireframe>,
             With<Handle<WireframeMaterial>>,
         ),
     >,
