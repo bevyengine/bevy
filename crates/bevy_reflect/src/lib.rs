@@ -1340,8 +1340,8 @@ mod tests {
 
         // TypeInfo (unsized)
         assert_eq!(
-            std::any::TypeId::of::<dyn PartialReflect>(),
-            <dyn PartialReflect as Typed>::type_info().type_id()
+            std::any::TypeId::of::<dyn Reflect>(),
+            <dyn Reflect as Typed>::type_info().type_id()
         );
 
         // TypeInfo (instance)
