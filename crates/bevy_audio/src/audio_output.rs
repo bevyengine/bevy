@@ -13,7 +13,7 @@ use crate::AudioSink;
 ///
 /// ## Note
 ///
-/// Initializing this resource will leak [`rodio::OutputStream`](rodio::OutputStream)
+/// Initializing this resource will leak [`rodio::OutputStream`]
 /// using [`std::mem::forget`].
 /// This is done to avoid storing this in the struct (and making this `!Send`)
 /// while preventing it from dropping (to avoid halting of audio).
