@@ -561,7 +561,53 @@ pub fn state_matches_macro(match_result: MatchMacroResult) -> proc_macro::TokenS
     let state_type = match_result.state_type;
 
     if match_result.matchers.len() > 1 {
-        todo!()
+        let Some(state_type) = state_type else {
+            panic!("Couldn't determine state type");
+        };
+        let tokens = match_result
+            .matchers
+            .iter()
+            .map(|(_, matcher)| match matcher {
+                MatchTypes::Expression(e) => {
+                    quote!(if #e.match_state(main) { return true; }
+                    )
+                }
+                MatchTypes::Pattern(tokens) => {
+                    quote!({
+                            fn matches(state: &#state_type) -> bool {
+                                #tokens
+                            }
+
+                            if matches(main) { return true; }
+                        }
+                    )
+                }
+                MatchTypes::Closure(tokens) => {
+                    quote!({
+                            let matches = #tokens;
+
+                            if matches(main) { return true; }
+                        }
+                    )
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let tokens = TokenStream::from_iter(tokens);
+
+        let result = quote!({
+
+            |state: Option<Res<State<#state_type>>>| {
+                let Some(state) = state else {
+                    return false;
+                };
+                let f = #tokens;
+
+                f(&state)
+            }
+        });
+
+        result.into()
     } else if let Some((_, match_result)) = match_result.matchers.first() {
         match match_result {
             MatchTypes::Expression(expr) => {
