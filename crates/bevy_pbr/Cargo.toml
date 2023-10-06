@@ -34,3 +34,4 @@ bytemuck = { version = "1", features = ["derive"] }
 naga_oil = { git = "https://github.com/jms55/naga_oil.git", branch = "solari" }
 radsort = "0.1"
 smallvec = "1.6"
+thread_local = "1.0"

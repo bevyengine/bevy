@@ -149,9 +149,9 @@ pub struct Window {
     ///
     /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
-    /// - macOS X: Not working as expected.
+    /// - macOS: Not working as expected.
     ///
-    /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>.
+    /// macOS transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>.
     /// You should also set the window `composite_alpha_mode` to `CompositeAlphaMode::PostMultiplied`.
     pub transparent: bool,
     /// Get/set whether the window is focused.
@@ -1054,7 +1054,7 @@ pub struct EnabledButtons {
     ///
     /// macOS note: When [`Window`] `resizable` member is set to `false`
     /// the maximize button will be disabled regardless of this value.
-    /// Additionaly, when `resizable` is set to `true` the window will
+    /// Additionally, when `resizable` is set to `true` the window will
     /// be maximized when its bar is double-clicked regardless of whether
     /// the maximize button is enabled or not.
     pub maximize: bool,

@@ -12,6 +12,7 @@ use crate::{
     },
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
+    removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
     system::Resource,
 };
@@ -156,7 +157,7 @@ impl<'w> UnsafeWorldCell<'w> {
         // - caller ensures there is no `&mut World` this makes it okay to make a `&World`
         // - caller ensures there is no mutable borrows of world data, this means the caller cannot
         //   misuse the returned `&World`
-        unsafe { &*self.0 }
+        unsafe { self.unsafe_world() }
     }
 
     /// Gets a reference to the [`World`] this [`UnsafeWorldCell`] belong to.
@@ -185,7 +186,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - must not be used in a way that would conflict with any
     ///   live exclusive borrows on world data
     #[inline]
-    pub(crate) unsafe fn unsafe_world(self) -> &'w World {
+    unsafe fn unsafe_world(self) -> &'w World {
         // SAFETY:
         // - caller ensures that the returned `&World` is not used in a way that would conflict
         //   with any existing mutable borrows of world data
@@ -200,7 +201,7 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe { self.world_metadata() }.id()
     }
 
-    /// Retrieves this world's [Entities] collection
+    /// Retrieves this world's [`Entities`] collection.
     #[inline]
     pub fn entities(self) -> &'w Entities {
         // SAFETY:
@@ -208,7 +209,7 @@ impl<'w> UnsafeWorldCell<'w> {
         &unsafe { self.world_metadata() }.entities
     }
 
-    /// Retrieves this world's [Archetypes] collection
+    /// Retrieves this world's [`Archetypes`] collection.
     #[inline]
     pub fn archetypes(self) -> &'w Archetypes {
         // SAFETY:
@@ -216,7 +217,7 @@ impl<'w> UnsafeWorldCell<'w> {
         &unsafe { self.world_metadata() }.archetypes
     }
 
-    /// Retrieves this world's [Components] collection
+    /// Retrieves this world's [`Components`] collection.
     #[inline]
     pub fn components(self) -> &'w Components {
         // SAFETY:
@@ -224,7 +225,14 @@ impl<'w> UnsafeWorldCell<'w> {
         &unsafe { self.world_metadata() }.components
     }
 
-    /// Retrieves this world's [Bundles] collection
+    /// Retrieves this world's collection of [removed components](RemovedComponentEvents).
+    pub fn removed_components(self) -> &'w RemovedComponentEvents {
+        // SAFETY:
+        // - we only access world metadata
+        &unsafe { self.world_metadata() }.removed_components
+    }
+
+    /// Retrieves this world's [`Bundles`] collection.
     #[inline]
     pub fn bundles(self) -> &'w Bundles {
         // SAFETY:
@@ -838,8 +846,8 @@ impl<'w> UnsafeEntityCell<'w> {
         }
     }
 
-    /// Retrieves a mutable untyped reference to the given `entity`'s [Component] of the given [`ComponentId`].
-    /// Returns [None] if the `entity` does not have a [Component] of the given type.
+    /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
+    /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
     ///
     /// **You should prefer to use the typed API [`UnsafeEntityCell::get_mut`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
@@ -953,8 +961,8 @@ unsafe fn get_component_and_ticks(
             Some((
                 components.get_data_unchecked(location.table_row),
                 TickCells {
-                    added: components.get_added_ticks_unchecked(location.table_row),
-                    changed: components.get_changed_ticks_unchecked(location.table_row),
+                    added: components.get_added_tick_unchecked(location.table_row),
+                    changed: components.get_changed_tick_unchecked(location.table_row),
                 },
             ))
         }

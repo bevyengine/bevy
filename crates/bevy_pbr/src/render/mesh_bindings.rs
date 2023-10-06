@@ -1,5 +1,6 @@
 //! Bind group layout related definitions for the mesh pipeline.
 
+use bevy_math::Mat4;
 use bevy_render::{
     mesh::morph::MAX_MORPH_WEIGHTS,
     render_resource::{
@@ -9,13 +10,17 @@ use bevy_render::{
     renderer::RenderDevice,
 };
 
+use crate::render::skin::MAX_JOINTS;
+
 const MORPH_WEIGHT_SIZE: usize = std::mem::size_of::<f32>();
 pub const MORPH_BUFFER_SIZE: usize = MAX_MORPH_WEIGHTS * MORPH_WEIGHT_SIZE;
 
+const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
+pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
+
 /// Individual layout entries.
 mod layout_entry {
-    use super::MORPH_BUFFER_SIZE;
-    use crate::render::mesh::JOINT_BUFFER_SIZE;
+    use super::{JOINT_BUFFER_SIZE, MORPH_BUFFER_SIZE};
     use crate::MeshUniform;
     use bevy_render::{
         render_resource::{
@@ -66,8 +71,7 @@ mod layout_entry {
 /// Individual [`BindGroupEntry`](bevy_render::render_resource::BindGroupEntry)
 /// for bind groups.
 mod entry {
-    use super::MORPH_BUFFER_SIZE;
-    use crate::render::mesh::JOINT_BUFFER_SIZE;
+    use super::{JOINT_BUFFER_SIZE, MORPH_BUFFER_SIZE};
     use bevy_render::render_resource::{
         BindGroupEntry, BindingResource, Buffer, BufferBinding, BufferSize, TextureView,
     };

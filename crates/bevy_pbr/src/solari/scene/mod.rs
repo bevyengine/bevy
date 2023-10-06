@@ -6,9 +6,8 @@ use self::{
 pub use self::{bind_group::SolariSceneBindGroup, bind_group_layout::SolariSceneBindGroupLayout};
 use super::SolariEnabled;
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{prelude::resource_exists, schedule::IntoSystemConfigs};
-use bevy_reflect::TypeUuid;
 use bevy_render::{render_resource::Shader, ExtractSchedule, Render, RenderApp, RenderSet};
 
 mod bind_group;
@@ -17,10 +16,8 @@ mod blas;
 mod helpers;
 mod scene_types;
 
-const SOLARI_SCENE_TYPES_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 0017171717171755);
-const SOLARI_SCENE_BINDINGS_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 0017171717171756);
+const SOLARI_SCENE_TYPES_SHADER: Handle<Shader> = Handle::weak_from_u128(0017171717171755);
+const SOLARI_SCENE_BINDINGS_SHADER: Handle<Shader> = Handle::weak_from_u128(0017171717171756);
 
 pub struct SolariScenePlugin;
 

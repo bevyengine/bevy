@@ -1,4 +1,4 @@
-use bevy_asset::{Handle, HandleId};
+use bevy_asset::{AssetId, Handle};
 use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_render::{
     mesh::{GpuBufferInfo, GpuMesh},
@@ -14,7 +14,7 @@ use std::ops::Deref;
 
 #[derive(Resource, Default)]
 pub struct BlasStorage {
-    storage: HashMap<HandleId, Blas>,
+    storage: HashMap<AssetId<Mesh>, Blas>,
 }
 
 impl BlasStorage {
@@ -65,15 +65,9 @@ pub fn prepare_blas(
                     desc: vec![blas_size.clone()],
                 },
             );
-            blas_storage.storage.insert(mesh.id(), blas);
+            blas_storage.storage.insert(*mesh, blas);
 
-            (
-                mesh.clone_weak(),
-                gpu_mesh,
-                blas_size,
-                index_buffer,
-                index_buffer_offset,
-            )
+            (mesh, gpu_mesh, blas_size, index_buffer, index_buffer_offset)
         })
         .collect::<Vec<_>>();
 
@@ -82,7 +76,7 @@ pub fn prepare_blas(
         .iter()
         .map(
             |(mesh, gpu_mesh, blas_size, index_buffer, index_buffer_offset)| BlasBuildEntry {
-                blas: blas_storage.get(&mesh).unwrap(),
+                blas: blas_storage.storage.get(*mesh).unwrap(),
                 geometry: BlasGeometries::TriangleGeometries(vec![BlasTriangleGeometry {
                     size: &blas_size,
                     vertex_buffer: &gpu_mesh.vertex_buffer,
@@ -106,11 +100,11 @@ pub fn prepare_blas(
 }
 
 fn filter_compatible_meshes(
-    mesh: &Handle<Mesh>,
+    mesh: &AssetId<Mesh>,
     gpu_mesh: &GpuMesh,
     blas_storage: &BlasStorage,
 ) -> bool {
-    !blas_storage.storage.contains_key(&mesh.id())
+    !blas_storage.storage.contains_key(mesh)
         && gpu_mesh.primitive_topology == PrimitiveTopology::TriangleList
         && gpu_mesh.layout.attribute_ids()
             == &[

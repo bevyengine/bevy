@@ -5,10 +5,9 @@ use self::{
 };
 use super::SolariEnabled;
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::core_3d::CORE_3D;
 use bevy_ecs::{component::Component, prelude::resource_exists, schedule::IntoSystemConfigs};
-use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
@@ -23,22 +22,16 @@ mod view_resources;
 
 const WORLD_CACHE_SIZE: u64 = 1048576;
 
-const SOLARI_VIEW_BINDINGS_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 0717171717171755);
-const SOLARI_WORLD_CACHE_QUERY_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1717171717171755);
-const SOLARI_WORLD_CACHE_COMPACT_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2717171717171755);
-const SOLARI_WORLD_CACHE_UPDATE_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3717171717171755);
-const SOLARI_SCREEN_PROBES_UPDATE_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4717171717171755);
-const SOLARI_SCREEN_PROBES_MERGE_CASCADES_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5717171717171755);
-const SOLARI_SCREEN_PROBES_INTEPOLATE_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6717171717171755);
-const SOLARI_UTILS_SHADER: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7717171717171755);
+const SOLARI_VIEW_BINDINGS_SHADER: Handle<Shader> = Handle::weak_from_u128(0717171717171755);
+const SOLARI_WORLD_CACHE_QUERY_SHADER: Handle<Shader> = Handle::weak_from_u128(1717171717171755);
+const SOLARI_WORLD_CACHE_COMPACT_SHADER: Handle<Shader> = Handle::weak_from_u128(2717171717171755);
+const SOLARI_WORLD_CACHE_UPDATE_SHADER: Handle<Shader> = Handle::weak_from_u128(3717171717171755);
+const SOLARI_SCREEN_PROBES_UPDATE_SHADER: Handle<Shader> = Handle::weak_from_u128(4717171717171755);
+const SOLARI_SCREEN_PROBES_MERGE_CASCADES_SHADER: Handle<Shader> =
+    Handle::weak_from_u128(5717171717171755);
+const SOLARI_SCREEN_PROBES_INTEPOLATE_SHADER: Handle<Shader> =
+    Handle::weak_from_u128(6717171717171755);
+const SOLARI_UTILS_SHADER: Handle<Shader> = Handle::weak_from_u128(7717171717171755);
 
 pub struct SolariGlobalIlluminationPlugin;
 

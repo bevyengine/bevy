@@ -135,7 +135,7 @@ impl SpecializedComputePipeline for SolariGlobalIlluminationPipelines {
             label: Some(format!("solari_global_illumination_{entry_point}_pipeline").into()),
             layout: vec![self.scene_bind_group_layout.clone(), view_layout.clone()],
             push_constant_ranges,
-            shader: shader.typed(),
+            shader,
             shader_defs,
             entry_point: entry_point.into(),
         }
