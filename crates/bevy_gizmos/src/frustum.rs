@@ -86,7 +86,7 @@ fn frustum_gizmos(
     for (entity, frustum, gizmo, line_handle) in &query {
         let color = gizmo
             .color
-            .or(config.aabb.default_color)
+            .or(config.frustum.default_color)
             .unwrap_or_else(|| color_from_entity(entity));
 
         frustum_inner(
@@ -111,7 +111,7 @@ fn all_frustum_gizmos(
 ) {
     for (entity, frustum, line_handle) in &query {
         let color = config
-            .aabb
+            .frustum
             .default_color
             .unwrap_or_else(|| color_from_entity(entity));
 
