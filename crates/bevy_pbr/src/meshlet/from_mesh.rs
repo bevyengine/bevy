@@ -59,9 +59,9 @@ impl MeshletMesh {
         }
 
         Ok(Self {
-            vertex_data: vertex_buffer.into_boxed_slice(),
-            meshlet_vertex_buffer: meshlets.vertices.into_boxed_slice(),
-            meshlet_index_buffer: meshlets.triangles.into_boxed_slice(),
+            vertex_data: vertex_buffer.into(),
+            meshlet_vertex_buffer: meshlets.vertices.into(),
+            meshlet_index_buffer: meshlets.triangles.into(),
             meshlets: meshlets
                 .meshlets
                 .into_iter()
@@ -72,8 +72,8 @@ impl MeshletMesh {
                     meshlet_triangle_count: m.triangle_count,
                 })
                 .collect(),
-            meshlet_bounding_spheres: meshlet_bounding_spheres.into_boxed_slice(),
-            meshlet_bounding_cones: meshlet_bounding_cones.into_boxed_slice(),
+            meshlet_bounding_spheres: meshlet_bounding_spheres.into(),
+            meshlet_bounding_cones: meshlet_bounding_cones.into(),
         })
     }
 }

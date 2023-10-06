@@ -2,6 +2,7 @@ use bevy_asset::Asset;
 use bevy_math::Vec3;
 use bevy_reflect::TypePath;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Asset, TypePath, Serialize, Deserialize, Clone)]
 pub struct MeshletMesh {
