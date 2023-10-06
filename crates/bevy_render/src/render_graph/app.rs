@@ -4,7 +4,7 @@ use bevy_log::warn;
 
 use super::{Node, RenderGraph};
 
-/// Adds common [`RenderGraph`] operations to [`SubApp`] (and [`App`](bevy_app::App)).
+/// Adds common [`RenderGraph`] operations to [`SubApp`] (and [`App`]).
 pub trait RenderGraphApp {
     // Add a sub graph to the [`RenderGraph`]
     fn add_render_sub_graph(&mut self, sub_graph_name: &'static str) -> &mut Self;
