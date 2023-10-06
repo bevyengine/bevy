@@ -22,7 +22,7 @@ pub struct TextPipeline {
     map_font_id: HashMap<AssetId<Font>, FontId>,
 }
 
-/// Render information for a corresponding [`Text`](crate::Text) component.
+/// Render information for a corresponding [`Text`] component.
 ///
 ///  Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`].
 #[derive(Component, Clone, Default, Debug, Reflect)]

@@ -13,8 +13,8 @@ use crate::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
         AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
-    AssetLoadError, AssetLoaderError, AssetPath, AssetServer, DeserializeMetaError,
-    LoadDirectError, MissingAssetLoaderForExtensionError, CANNOT_WATCH_ERROR_MESSAGE,
+    AssetLoadError, AssetPath, AssetServer, DeserializeMetaError,
+    MissingAssetLoaderForExtensionError, CANNOT_WATCH_ERROR_MESSAGE,
 };
 use bevy_ecs::prelude::*;
 use bevy_log::{debug, error, trace, warn};
@@ -1130,20 +1130,17 @@ impl ProcessorAssetInfos {
             Err(err) => {
                 error!("Failed to process asset {:?}: {:?}", asset_path, err);
                 // if this failed because a dependency could not be loaded, make sure it is reprocessed if that dependency is reprocessed
-                if let ProcessError::AssetLoadError(AssetLoadError::AssetLoaderError {
-                    error: AssetLoaderError::Load(loader_error),
-                    ..
+                if let ProcessError::AssetLoadError(AssetLoadError::CannotLoadDependency {
+                    path: dependency,
                 }) = err
                 {
-                    if let Some(error) = loader_error.downcast_ref::<LoadDirectError>() {
-                        let info = self.get_mut(&asset_path).expect("info should exist");
-                        info.processed_info = Some(ProcessedInfo {
-                            hash: AssetHash::default(),
-                            full_hash: AssetHash::default(),
-                            process_dependencies: vec![],
-                        });
-                        self.add_dependant(&error.dependency, asset_path.to_owned());
-                    }
+                    let info = self.get_mut(&asset_path).expect("info should exist");
+                    info.processed_info = Some(ProcessedInfo {
+                        hash: AssetHash::default(),
+                        full_hash: AssetHash::default(),
+                        process_dependencies: vec![],
+                    });
+                    self.add_dependant(&dependency, asset_path.to_owned());
                 }
 
                 let info = self.get_mut(&asset_path).expect("info should exist");

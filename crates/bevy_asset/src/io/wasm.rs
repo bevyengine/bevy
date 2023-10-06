@@ -2,7 +2,6 @@ use crate::io::{
     get_meta_path, AssetReader, AssetReaderError, AssetWatcher, EmptyPathStream, PathStream,
     Reader, VecReader,
 };
-use anyhow::Result;
 use bevy_log::error;
 use bevy_utils::BoxedFuture;
 use js_sys::{Uint8Array, JSON};

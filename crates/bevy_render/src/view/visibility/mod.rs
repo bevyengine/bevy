@@ -129,7 +129,7 @@ impl ViewVisibility {
 }
 
 /// A [`Bundle`] of the [`Visibility`], [`InheritedVisibility`], and [`ViewVisibility`]
-/// [`Component`](bevy_ecs::component::Component)s, which describe the visibility of an entity.
+/// [`Component`]s, which describe the visibility of an entity.
 ///
 /// * To show or hide an entity, you should set its [`Visibility`].
 /// * To get the inherited visibility of an entity, you should get its [`InheritedVisibility`].

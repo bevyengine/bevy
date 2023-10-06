@@ -383,7 +383,7 @@ impl World {
         }
     }
 
-    /// Returns the components of an [`Entity`](crate::entity::Entity) through [`ComponentInfo`](crate::component::ComponentInfo).
+    /// Returns the components of an [`Entity`] through [`ComponentInfo`].
     #[inline]
     pub fn inspect_entity(&self, entity: Entity) -> Vec<&ComponentInfo> {
         let entity_location = self
@@ -1766,7 +1766,7 @@ impl World {
     /// Iterates all component change ticks and clamps any older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
     ///
-    /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
+    /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`]
     /// times since the previous pass.
     // TODO: benchmark and optimize
     pub fn check_change_ticks(&mut self) {
