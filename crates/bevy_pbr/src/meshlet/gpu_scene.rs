@@ -28,6 +28,7 @@ pub fn extract_meshlet_meshes(
         let scene_slice = gpu_scene.queue_meshlet_mesh_upload(handle, &assets);
         render_world_commands.entity(entity).insert(scene_slice);
 
+        // TODO: I don't think this actually works
         main_world_commands
             .entity(entity)
             .remove::<Handle<MeshletMesh>>();
