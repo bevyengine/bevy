@@ -425,10 +425,6 @@ impl Reflect for AssetPath<'static> {
 
 impl FromReflect for AssetPath<'static> {
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        if let Some(path) = reflect.try_downcast_ref::<Self>() {
-            Some(path.clone())
-        } else {
-            None
-        }
+        reflect.try_downcast_ref::<Self>().cloned()
     }
 }
