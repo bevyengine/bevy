@@ -181,18 +181,19 @@ fn run_condition_closure<
     SecondaryResource: crate::prelude::Resource + Deref<Target = S>,
     S: States,
 >(
-    matcher: impl Fn(&S, Option<&S>) -> bool + Send + Sync + 'static,
+    matcher: impl Fn(Option<&S>, Option<&S>) -> bool + Send + Sync + 'static,
 ) -> impl Condition<()> {
     IntoSystem::into_system(
         move |main: Option<Res<MainResource>>, secondary: Option<Res<SecondaryResource>>| {
-            let Some(main) = main.as_ref().map(|v| v.as_ref()) else {
-                return false;
-            };
-            let Some(secondary) = secondary.as_ref().map(|v| v.as_ref()) else {
-                return matcher(main, None);
-            };
-
-            main.deref() != secondary.deref() && matcher(main, Some(secondary))
+            if let (Some(from), Some(to)) = (main.as_ref(), secondary.as_ref()) {
+                if from.as_ref().deref() == to.as_ref().deref() {
+                    return false;
+                }
+            }
+            matcher(
+                main.as_ref().map(|v| v.as_ref().deref()),
+                secondary.as_ref().map(|v| v.as_ref().deref()),
+            )
         },
     )
 }
@@ -273,10 +274,10 @@ impl<S: States> OnStateEntry<S> {
     /// Get a `ConditionalScheduleLabel` for determining whether to execute on entering
     /// a state `S` using a closure
     ///
-    /// The closure should take the form `|next: &S, previous: Option<&S>| -> bool`
+    /// The closure should take the form `|next: Option<&S>, previous: Option<&S>| -> bool`
     pub fn from_closure(
         self,
-        f: impl Fn(&S, Option<&S>) -> bool + Send + Sync + 'static,
+        f: impl Fn(Option<&S>, Option<&S>) -> bool + Send + Sync + 'static,
     ) -> impl ConditionalScheduleLabel<Self, ()> {
         (
             self,
@@ -315,10 +316,10 @@ impl<S: States> OnStateExit<S> {
     /// Get a `ConditionalScheduleLabel` for determining whether to execute on exiting
     /// a state `S` using a closure
     ///
-    /// The closure should take the form `|previous: &S, next: Option<&S>| -> bool`
+    /// The closure should take the form `|previous: Option<&S>, next: Option<&S>| -> bool`
     pub fn from_closure(
         self,
-        f: impl Fn(&S, Option<&S>) -> bool + Send + Sync + 'static,
+        f: impl Fn(Option<&S>, Option<&S>) -> bool + Send + Sync + 'static,
     ) -> impl ConditionalScheduleLabel<Self, ()> {
         (
             Self::default(),

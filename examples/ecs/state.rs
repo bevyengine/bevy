@@ -23,7 +23,7 @@ fn main() {
         // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.
         // All systems from the exit schedule of the state we're leaving are run first,
         // and then all systems from the enter schedule of the state we're entering are run second.
-        .add_systems(OnEnter(AppState::Menu), setup_menu)
+        .add_systems(on_enter!(AppState::Menu), setup_menu)
         // The `OnEnter` struct can accept any valid state object, not just enums
         .add_systems(OnEnter(AppState::InGame(GameState::Paused)), setup_paused)
         // In addition to `OnEnter` and `OnExit`, you can run systems any other schedule as well.
@@ -41,7 +41,10 @@ fn main() {
         // we enter/exit a matching system regardless if the previous/next system matched as well.
         // As a result, this system will run on every state transition, because every state matches
         // the pattern. If it were not strict, this system would never run.
-        .add_systems(on_exit!(AppState, every _), cleanup_ui)
+        .add_systems(
+            on_exit!(AppState, InGame(GameState::Running(_)), every _),
+            cleanup_ui,
+        )
         // You can also use pattern matching when in a state, using the `in_state!` macro
         // This works just like the `in_state()` function, but relies on pattern matching rather than
         // strict equality.

@@ -501,7 +501,7 @@ pub fn state_matcher(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn on_enter(input: TokenStream) -> TokenStream {
     let result = state_matchers::define_match_macro(input).expect("Couldn't parse `on_enter!`");
-    simple_state_transition_macros(MatchMacro::OnEnter, false, result)
+    simple_state_transition_macros(MatchMacro::OnEnter, result)
 }
 
 /// Generate `OnExit` schedules, using either:
@@ -516,7 +516,7 @@ pub fn on_enter(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn on_exit(input: TokenStream) -> TokenStream {
     let result = state_matchers::define_match_macro(input).expect("Couldn't parse `on_exit!`");
-    simple_state_transition_macros(MatchMacro::OnExit, false, result)
+    simple_state_transition_macros(MatchMacro::OnExit, result)
 }
 
 /// Generate `in_state` condition using either:
