@@ -83,7 +83,7 @@ pub struct WinitPlugin {
     /// Only works on Linux (X11/Wayland) and Windows.
     /// This field is ignored on other platforms.
     ///
-    /// [`winit with_any_thread`]: https://docs.rs/winit/latest/winit/event_loop/struct.EventLoopBuilder.html#method.with_any_thread
+    /// [`winit with_any_thread`]: winit::event_loop::EventLoopBuilder::with_any_thread
     pub run_on_any_thread: bool,
 }
 
