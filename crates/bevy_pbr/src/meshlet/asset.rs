@@ -5,12 +5,12 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Asset, TypePath, Serialize, Deserialize, Clone)]
 pub struct MeshletMesh {
-    pub vertex_data: Box<[u8]>,
-    pub meshlet_vertex_buffer: Box<[u32]>,
-    pub meshlet_index_buffer: Box<[u8]>,
-    pub meshlets: Box<[Meshlet]>,
-    pub meshlet_bounding_spheres: Box<[MeshletBoundingSphere]>,
-    pub meshlet_bounding_cones: Box<[MeshletBoundingCone]>,
+    pub vertex_data: Arc<[u8]>,
+    pub meshlet_vertex_buffer: Arc<[u32]>,
+    pub meshlet_index_buffer: Arc<[u8]>,
+    pub meshlets: Arc<[Meshlet]>,
+    pub meshlet_bounding_spheres: Arc<[MeshletBoundingSphere]>,
+    pub meshlet_bounding_cones: Arc<[MeshletBoundingCone]>,
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone)]
