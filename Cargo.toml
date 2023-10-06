@@ -1730,6 +1730,16 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "instanced_mesh_material_pipeline"
+path = "examples/shader/instanced_mesh_material_pipeline.rs"
+
+[package.metadata.example.instanced_mesh_material_pipeline]
+name = "Instanced Mesh Material Pipeline"
+description = "A pipeline allowing mesh instances to use the same material"
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "shader_instancing"
 path = "examples/shader/shader_instancing.rs"
 doc-scrape-examples = true
