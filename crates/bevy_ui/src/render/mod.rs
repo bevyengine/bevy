@@ -624,14 +624,14 @@ impl Default for UiMeta {
     }
 }
 
-pub const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
+pub(crate) const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
     Vec3::new(-0.5, -0.5, 0.0),
     Vec3::new(0.5, -0.5, 0.0),
     Vec3::new(0.5, 0.5, 0.0),
     Vec3::new(-0.5, 0.5, 0.0),
 ];
 
-pub const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
+pub(crate) const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
 #[derive(Component)]
 pub struct UiBatch {
