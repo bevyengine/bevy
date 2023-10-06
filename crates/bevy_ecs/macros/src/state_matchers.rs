@@ -395,26 +395,25 @@ pub fn simple_state_transition_macros(
             let match_function = generate_match_function(format_ident!("matcher"), &state_type, &matchers);
 
             let mut module_path = state_type.clone();
-                let state_type = state_type.clone().into_token_stream();
 
-                match macro_type {
-                    MatchMacro::OnEnter => {
-                        module_path
-                            .segments
-                            .push(format_ident!("on_state_entry_schedule").into());
-                    }
-                    MatchMacro::OnExit => {
-                        module_path
-                            .segments
-                            .push(format_ident!("on_state_exit_schedule").into());
-                    }
+            match macro_type {
+                MatchMacro::OnEnter => {
+                    module_path
+                        .segments
+                        .push(format_ident!("on_state_entry_schedule").into());
                 }
+                MatchMacro::OnExit => {
+                    module_path
+                        .segments
+                        .push(format_ident!("on_state_exit_schedule").into());
+                }
+            }
 
-                quote!({
-                    #match_function
+            quote!({
+                #match_function
 
-                    #module_path().matching(matcher)
-                })
+                #module_path().matching(matcher)
+            })
         }
         _ => panic!("No State Type")
     }.into()
@@ -439,18 +438,18 @@ pub fn state_matches_macro(match_result: MatchMacroResult) -> proc_macro::TokenS
         (Some(state_type), _, _) => {
             let match_function = generate_match_function(format_ident!("matcher"), &state_type, &matchers);
 
-                let state_type = state_type.clone().into_token_stream();
+            let state_type = state_type.clone().into_token_stream();
 
 
-                quote!(
-                |state: Option<Res<State<#state_type>>>| {
-                    let Some(state) = state else {
-                        return false;
-                    };
-                    #match_function
+            quote!(
+            |state: Option<Res<State<#state_type>>>| {
+                let Some(state) = state else {
+                    return false;
+                };
+                #match_function
 
-                    matcher.match_state(&state)
-                })
+                matcher.match_state(&state)
+            })
         }
         _ => panic!("No State Type")
     }.into()

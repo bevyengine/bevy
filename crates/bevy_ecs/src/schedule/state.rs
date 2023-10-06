@@ -132,10 +132,17 @@ pub struct TransitionFnMatcher;
 /// `Fn(Option<&S>, Option<&S>) -> MatchesStateTransition`
 pub struct OptionalTransitionFnMatcher;
 
+/// An enum describing the possible result of a state transition match.
+///
+/// If you are just matching a single state, treat `TransitionMatches` and `MainMatches` as truthy
+/// If you are matching a transition between two states, only `TransitionMatches` should be considered truthy
 #[derive(Eq, Clone, Copy, PartialEq, Debug)]
 pub enum MatchesStateTransition {
+    /// This means the transition is considered valid by the matcher.
     TransitionMatches,
+    /// This means that the Main value matches, but the transition as a whole might not. Useful for inferring the `match_state` function in a matcher, handling `every` macros.
     MainMatches,
+    /// This means that neither the Main value doesn't match, and the transition is invalid.
     NoMatch,
 }
 
