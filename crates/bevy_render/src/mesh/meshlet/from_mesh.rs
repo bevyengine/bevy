@@ -18,7 +18,7 @@ impl MeshletMesh {
                 Mesh::ATTRIBUTE_TANGENT.id,
             ]
         {
-            bail!("Mesh attributes were not [POSITION, NORMAL, UV_0, TANGENT]");
+            bail!("Mesh attributes were not {{POSITION, NORMAL, UV_0, TANGENT}}");
         }
         let indices = match mesh.indices() {
             Some(Indices::U32(indices)) => indices,
