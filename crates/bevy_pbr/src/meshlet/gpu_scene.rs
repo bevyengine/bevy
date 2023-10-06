@@ -3,7 +3,6 @@ use bevy_asset::{AssetId, Assets, Handle};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::Without,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -15,29 +14,17 @@ use bevy_utils::HashMap;
 use std::ops::Range;
 
 pub fn extract_meshlet_meshes(
-    mut main_world_commands: Extract<Commands>,
-    mut render_world_commands: Commands,
-    new_entities: Extract<Query<(Entity, &Handle<MeshletMesh>), Without<MeshletMeshGpuSceneSlice>>>,
-    existing_entities: Extract<
-        Query<(Entity, &MeshletMeshGpuSceneSlice), Without<Handle<MeshletMesh>>>,
-    >,
+    mut commands: Commands,
+    query: Extract<Query<(Entity, &Handle<MeshletMesh>)>>,
     assets: Extract<Res<Assets<MeshletMesh>>>,
     mut gpu_scene: ResMut<MeshletGpuScene>,
 ) {
-    for (entity, handle) in &new_entities {
+    for (entity, handle) in &query {
         let scene_slice = gpu_scene.queue_meshlet_mesh_upload(handle, &assets);
-        render_world_commands.entity(entity).insert(scene_slice);
 
-        // TODO: I don't think this actually works
-        main_world_commands
-            .entity(entity)
-            .remove::<Handle<MeshletMesh>>();
-    }
+        commands.entity(entity).insert(scene_slice);
 
-    for (entity, scene_slice) in &existing_entities {
-        render_world_commands
-            .entity(entity)
-            .insert(scene_slice.clone());
+        // TODO: Unload MeshletMesh asset
     }
 }
 
