@@ -1,6 +1,6 @@
 use super::ShaderDefVal;
 use crate::define_atomic_id;
-use bevy_asset::{anyhow, io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
+use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
 use bevy_utils::{tracing::error, BoxedFuture};
 use futures_lite::AsyncReadExt;
@@ -238,15 +238,25 @@ impl From<&Source> for naga_oil::compose::ShaderType {
 #[derive(Default)]
 pub struct ShaderLoader;
 
+#[non_exhaustive]
+#[derive(Debug, Error)]
+pub enum ShaderLoaderError {
+    #[error("Could not load shader: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Could not parse shader: {0}")]
+    Parse(#[from] std::string::FromUtf8Error),
+}
+
 impl AssetLoader for ShaderLoader {
     type Asset = Shader;
     type Settings = ();
+    type Error = ShaderLoaderError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Shader, anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<Shader, Self::Error>> {
         Box::pin(async move {
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
