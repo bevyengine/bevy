@@ -176,7 +176,7 @@ pub struct GizmoConfig {
     pub depth_bias: f32,
     /// Configuration for the [`AabbGizmo`].
     pub aabb: AabbGizmoConfig,
-    /// Configuration for the [`FrustumGizmo`].
+    /// Configuration for the [`frustum::FrustumGizmo`].
     pub frustum: FrustumGizmoConfig,
     /// Describes which rendering layers gizmos will be rendered to.
     ///
