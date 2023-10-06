@@ -336,14 +336,17 @@ async fn load_gltf<'a, 'b, 'c>(
 
             // Read vertex attributes
             for (semantic, accessor) in primitive.attributes() {
-                match convert_attribute(
-                    semantic,
-                    accessor,
-                    &buffer_data,
-                    &loader.custom_vertex_attributes,
-                ) {
-                    Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
-                    Err(err) => warn!("{}", err),
+                // TODO: Don't skip loading texture coords 1
+                if semantic != gltf::Semantic::TexCoords(1) {
+                    match convert_attribute(
+                        semantic,
+                        accessor,
+                        &buffer_data,
+                        &loader.custom_vertex_attributes,
+                    ) {
+                        Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
+                        Err(err) => warn!("{}", err),
+                    }
                 }
             }
 
