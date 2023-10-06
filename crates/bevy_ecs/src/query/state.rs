@@ -182,7 +182,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
                 query = std::any::type_name::<NewQ>(),
-                filter = std::any::type_name::<NewF>(),
+                filter = std::any::type_name::<()>(),
             ),
         }
     }
