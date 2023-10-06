@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     change_detection::{Ticks, TicksMut},
-    component::{Component, ComponentId, ComponentStorage, StorageType, Tick, Components},
+    component::{Component, ComponentId, ComponentStorage, Components, StorageType, Tick},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table, TableRow},
@@ -1406,7 +1406,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
     }
-    
+
     fn new_state(components: &Components) -> ComponentId {
         components.component_id::<T>().unwrap()
     }
