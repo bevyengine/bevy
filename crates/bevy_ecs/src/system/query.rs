@@ -320,11 +320,11 @@ use std::{any::TypeId, borrow::Borrow};
 /// [`single_mut`]: Self::single_mut
 /// [`SparseSet`]: crate::storage::SparseSet
 /// [System parameter]: crate::system::SystemParam
-/// [`Table`]: crate::storage::Table
 /// [`With`]: crate::query::With
+/// [`Table`]: crate::storage::Table
 /// [`Without`]: crate::query::Without
+// SAFETY: Must have access to the components registered in `state`.
 pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
-    // SAFETY: Must have access to the components registered in `state`.
     world: UnsafeWorldCell<'world>,
     state: &'state QueryState<Q, F>,
     last_run: Tick,
@@ -397,6 +397,19 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
                 // on this field for more details
                 true,
             )
+        }
+    }
+
+    /// Returns another `Query` that returns a subset of the data that the original query does. This can be
+    /// useful for passing the query to another function.
+    pub fn generalize<NewQ: WorldQuery>(self) -> GeneralizedQuery<'w, NewQ> {
+        let new_state = self.state.generalize(self.world);
+
+        GeneralizedQuery {
+            state: new_state,
+            world: self.world,
+            last_run: self.last_run,
+            this_run: self.this_run,
         }
     }
 
@@ -1516,6 +1529,27 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
             self.state
                 .as_readonly()
                 .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+        }
+    }
+}
+
+/// A type used to store the generalized query's state.
+pub struct GeneralizedQuery<'world, NewQ: WorldQuery> {
+    world: UnsafeWorldCell<'world>,
+    state: QueryState<NewQ, ()>,
+    last_run: Tick,
+    this_run: Tick,
+}
+
+impl<'world, NewQ: WorldQuery> GeneralizedQuery<'world, NewQ> {
+    /// get the query associated with Generalized Query
+    pub fn query(&self) -> Query<'world, '_, NewQ, ()> {
+        Query {
+            world: self.world,
+            state: &self.state,
+            last_run: self.last_run,
+            this_run: self.this_run,
+            force_read_only_component_access: false,
         }
     }
 }

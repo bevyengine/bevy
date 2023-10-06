@@ -142,10 +142,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// not have the same access this will panic.
     /// Probably should not call update archetype generation on this query state as the results will
     /// be very unpredictable as new archetypes could be added that don't match old query
-    pub fn generalize<NewQ: WorldQuery>(
-        self,
-        world: UnsafeWorldCell,
-    ) -> QueryState<NewQ, ()> {
+    pub fn generalize<NewQ: WorldQuery>(&self, world: UnsafeWorldCell) -> QueryState<NewQ, ()> {
         if !Q::IS_ARCHETYPAL || !F::IS_ARCHETYPAL || !NewQ::IS_ARCHETYPAL {
             panic!("generalizing is not allow with queries that use `Changed` or `Added`");
         }
@@ -173,8 +170,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
-            matched_table_ids: self.matched_table_ids,
-            matched_archetype_ids: self.matched_archetype_ids,
+            matched_table_ids: self.matched_table_ids.clone(),
+            matched_archetype_ids: self.matched_archetype_ids.clone(),
             fetch_state,
             filter_state,
             component_access,

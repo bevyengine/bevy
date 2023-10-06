@@ -801,4 +801,29 @@ mod tests {
         let values = world.query::<&B>().iter(&world).collect::<Vec<&B>>();
         assert_eq!(values, vec![&B(2)]);
     }
+
+    #[test]
+    fn generalize() {
+        let mut world = World::new();
+
+        world.spawn((A(10), B(5)));
+
+        fn function_that_takes_a_query(query: &Query<&A>) {
+            assert_eq!(query.single().0, 10);
+        }
+
+        fn system_1(query: Query<&A>) {
+            function_that_takes_a_query(&query);
+        }
+
+        fn system_2(query: Query<(&A, &B)>) {
+            let gen_q = query.generalize::<&A>();
+            let q = gen_q.query();
+            function_that_takes_a_query(&q);
+        }
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems((system_1, system_2));
+        schedule.run(&mut world);
+    }
 }
