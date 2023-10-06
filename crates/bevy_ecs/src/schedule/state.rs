@@ -101,30 +101,152 @@ pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug 
     }
 }
 
-mod sealed {
-    pub(crate) struct IsStruct;
+/// A marker struct denoting that the StateMatcher
+/// is on a [`States`] object directly, and relies
+/// on it's Eq implementation
+pub struct StatesInherentMatcher;
+
+/// A marker struct denoting that the StateMatcher is derived from a function or closure
+/// that takes in a single state reference:
+///
+/// `Fn(&S) -> bool`
+pub struct SimpleFnMatcher;
+/// A marker struct denoting that the StateMatcher is derived from a function or closure
+/// that takes in a single state reference and an optional secondary state reference:
+///
+/// `Fn(&S, Option<&S>) -> bool`
+pub struct SimpleTransitionFnMatcher;
+/// A marker struct denoting that the StateMatcher is derived from a function or closure
+/// that takes in a single state reference and an optional secondary state reference:
+///
+/// `Fn(Option<&S>, Option<&S>) -> bool`
+pub struct SimpleOptionalTransitionFnMatcher;
+/// A marker struct denoting that the StateMatcher is derived from a function or closure
+/// that takes in a single state reference and an optional secondary state reference:
+///
+/// `Fn(&S, Option<&S>) -> MatchesStateTransition`
+pub struct TransitionFnMatcher;
+/// A marker struct denoting that the StateMatcher is derived from a function or closure
+/// that takes in a single state reference and an optional secondary state reference:
+///
+/// `Fn(Option<&S>, Option<&S>) -> MatchesStateTransition`
+pub struct OptionalTransitionFnMatcher;
+
+#[derive(Eq, Clone, Copy, PartialEq, Debug)]
+pub enum MatchesStateTransition {
+    TransitionMatches,
+    MainMatches,
+    NoMatch,
 }
 
-use sealed::*;
+impl From<bool> for MatchesStateTransition {
+    fn from(value: bool) -> Self {
+        match value {
+            true => MatchesStateTransition::TransitionMatches,
+            false => MatchesStateTransition::NoMatch,
+        }
+    }
+}
 
 /// Types that can match world-wide states.
 pub trait StateMatcher<S: States, Marker = ()>: Send + Sync + Sized + 'static {
     /// Check whether to match with the current state
-    fn match_state(&self, state: &S) -> bool;
+    fn match_state(&self, state: &S) -> bool {
+        self.match_state_transition(Some(state), None) != MatchesStateTransition::NoMatch
+    }
+
+    /// Check whether to match a state transition
+    fn match_state_transition(
+        &self,
+        main: Option<&S>,
+        secondary: Option<&S>,
+    ) -> MatchesStateTransition;
 }
 
-impl<S: States> StateMatcher<S, IsStruct> for S {
-    fn match_state(&self, state: &S) -> bool {
-        self == state
+impl<S: States> StateMatcher<S, StatesInherentMatcher> for S {
+    fn match_state_transition(&self, state: Option<&S>, _: Option<&S>) -> MatchesStateTransition {
+        let Some(state) = state else {
+            return false.into();
+        };
+        (self == state).into()
     }
 }
 
-impl<S: States, F: 'static + Send + Sync + Fn(&S) -> bool> StateMatcher<S> for F {
-    fn match_state(&self, state: &S) -> bool {
-        self(state)
+impl<S: States, F: 'static + Send + Sync + Fn(&S) -> bool> StateMatcher<S, SimpleFnMatcher> for F {
+    fn match_state_transition(&self, state: Option<&S>, _: Option<&S>) -> MatchesStateTransition {
+        let Some(state) = state else {
+            return false.into();
+        };
+        self(state).into()
     }
 }
 
+impl<S: States, F: 'static + Send + Sync + Fn(&S, Option<&S>) -> MatchesStateTransition>
+    StateMatcher<S, TransitionFnMatcher> for F
+{
+    fn match_state_transition(
+        &self,
+        main: Option<&S>,
+        secondary: Option<&S>,
+    ) -> MatchesStateTransition {
+        let Some(main) = main else {
+            return false.into();
+        };
+        self(main, secondary)
+    }
+}
+
+impl<
+        S: States,
+        F: 'static + Send + Sync + Fn(Option<&S>, Option<&S>) -> MatchesStateTransition,
+    > StateMatcher<S, OptionalTransitionFnMatcher> for F
+{
+    fn match_state_transition(
+        &self,
+        main: Option<&S>,
+        secondary: Option<&S>,
+    ) -> MatchesStateTransition {
+        self(main, secondary)
+    }
+}
+impl<S: States, F: 'static + Send + Sync + Fn(&S, Option<&S>) -> bool>
+    StateMatcher<S, SimpleTransitionFnMatcher> for F
+{
+    fn match_state_transition(
+        &self,
+        main: Option<&S>,
+        secondary: Option<&S>,
+    ) -> MatchesStateTransition {
+        let Some(main) = main else {
+            return false.into();
+        };
+        if !self(main, None) {
+            return false.into();
+        }
+        match self(main, secondary) {
+            true => MatchesStateTransition::TransitionMatches,
+            false => MatchesStateTransition::MainMatches,
+        }
+    }
+}
+
+impl<S: States, F: 'static + Send + Sync + Fn(Option<&S>, Option<&S>) -> bool>
+    StateMatcher<S, SimpleOptionalTransitionFnMatcher> for F
+{
+    fn match_state_transition(
+        &self,
+        main: Option<&S>,
+        secondary: Option<&S>,
+    ) -> MatchesStateTransition {
+        if !self(main, None) {
+            return false.into();
+        }
+        match self(main, secondary) {
+            true => MatchesStateTransition::TransitionMatches,
+            false => MatchesStateTransition::MainMatches,
+        }
+    }
+}
 /// Get a [`Condition`] for running whenever `MainResource<S>` matches regardless of whether `SecondaryResource<S>` matches,
 /// so long as they are not identical
 fn run_condition_on_match<
@@ -137,75 +259,20 @@ fn run_condition_on_match<
 ) -> impl Condition<()> {
     IntoSystem::into_system(
         move |main: Option<Res<MainResource>>, secondary: Option<Res<SecondaryResource>>| {
-            let Some(main) = main.as_ref().map(|v| v.as_ref()) else {
-                return false;
-            };
-            let Some(secondary) = secondary.as_ref().map(|v| v.as_ref()) else {
-                return matcher.match_state(main);
-            };
+            let main = main.as_ref().map(|v| v.as_ref().deref());
+            let secondary = secondary.as_ref().map(|v| v.as_ref().deref());
 
-            main.deref() != secondary.deref()
-                && matcher.match_state(main)
-                && !matcher.match_state(secondary)
-        },
-    )
-}
-
-/// Get a [`Condition`] for running whenever `MainResource<S>` matches and `SecondaryResource<S>` does not match
-fn run_condition_every_match<
-    MainResource: crate::prelude::Resource + Deref<Target = S>,
-    SecondaryResource: crate::prelude::Resource + Deref<Target = S>,
-    S: States,
-    M,
->(
-    matcher: impl StateMatcher<S, M>,
-) -> impl Condition<()> {
-    IntoSystem::into_system(
-        move |main: Option<Res<MainResource>>, secondary: Option<Res<SecondaryResource>>| {
-            let Some(main) = main.as_ref().map(|v| v.as_ref()) else {
-                return false;
-            };
-            let Some(secondary) = secondary.as_ref().map(|v| v.as_ref()) else {
-                return matcher.match_state(main);
-            };
-
-            main.deref() != secondary.deref() && matcher.match_state(main)
-        },
-    )
-}
-
-/// Get a [`Condition`] for running a closure to test `MainResource<S>` & `SecondaryResource<S>`
-/// The closure should be of the form `|main: &S, secondary: Option<&S>| -> bool`
-fn run_condition_closure<
-    MainResource: crate::prelude::Resource + Deref<Target = S>,
-    SecondaryResource: crate::prelude::Resource + Deref<Target = S>,
-    S: States,
->(
-    matcher: impl Fn(Option<&S>, Option<&S>) -> bool + Send + Sync + 'static,
-) -> impl Condition<()> {
-    IntoSystem::into_system(
-        move |main: Option<Res<MainResource>>, secondary: Option<Res<SecondaryResource>>| {
-            if let (Some(from), Some(to)) = (main.as_ref(), secondary.as_ref()) {
-                if from.as_ref().deref() == to.as_ref().deref() {
+            if let (Some(main), Some(secondary)) = (main, secondary) {
+                if main == secondary {
                     return false;
                 }
             }
-            matcher(
-                main.as_ref().map(|v| v.as_ref().deref()),
-                secondary.as_ref().map(|v| v.as_ref().deref()),
-            )
-        },
-    )
-}
 
-/// Get a run [`Condition`] for a closure testing a transition between two points.
-/// The closure should be of the form `|from: Option<&S>, to: Option<&S>| -> bool`
-pub fn run_condition_closure_transition<S: States>(
-    f: impl Fn(Option<&S>, Option<&S>) -> bool + Send + Sync + 'static,
-) -> impl Condition<()> {
-    IntoSystem::into_system(
-        move |from: Option<Res<PreviousState<S>>>, to: Option<Res<State<S>>>| {
-            f(from.as_ref().map(|v| v.get()), to.as_ref().map(|v| v.get()))
+            println!("Running Condition on Match {main:?} - {secondary:?}");
+
+            let result = matcher.match_state_transition(main, secondary);
+            println!("result - {result:?}");
+            result == MatchesStateTransition::TransitionMatches
         },
     )
 }
@@ -258,32 +325,6 @@ impl<S: States> OnStateEntry<S> {
             run_condition_on_match::<State<S>, PreviousState<S>, _, _>(matcher),
         )
     }
-
-    /// Get a `ConditionalScheduleLabel` for whenever we enter a matching `S`
-    ///
-    /// designed to be used via [`on_enter!`] macro
-    pub fn every_entrance<Marker>(
-        self,
-        matcher: impl StateMatcher<S, Marker>,
-    ) -> impl ConditionalScheduleLabel<Self, ()> {
-        (
-            self,
-            run_condition_every_match::<State<S>, PreviousState<S>, _, _>(matcher),
-        )
-    }
-    /// Get a `ConditionalScheduleLabel` for determining whether to execute on entering
-    /// a state `S` using a closure
-    ///
-    /// The closure should take the form `|next: Option<&S>, previous: Option<&S>| -> bool`
-    pub fn from_closure(
-        self,
-        f: impl Fn(Option<&S>, Option<&S>) -> bool + Send + Sync + 'static,
-    ) -> impl ConditionalScheduleLabel<Self, ()> {
-        (
-            self,
-            run_condition_closure::<State<S>, PreviousState<S>, _>(f),
-        )
-    }
 }
 
 impl<S: States> OnStateExit<S> {
@@ -300,38 +341,12 @@ impl<S: States> OnStateExit<S> {
             run_condition_on_match::<PreviousState<S>, State<S>, _, _>(matcher),
         )
     }
-
-    /// Get a `ConditionalScheduleLabel` for whenever we exit a matching `S`
-    ///
-    /// designed to be used via [`on_exit!`] macro
-    pub fn every_exit<Marker>(
-        self,
-        matcher: impl StateMatcher<S, Marker>,
-    ) -> impl ConditionalScheduleLabel<Self, ()> {
-        (
-            self,
-            run_condition_every_match::<PreviousState<S>, State<S>, _, _>(matcher),
-        )
-    }
-    /// Get a `ConditionalScheduleLabel` for determining whether to execute on exiting
-    /// a state `S` using a closure
-    ///
-    /// The closure should take the form `|previous: Option<&S>, next: Option<&S>| -> bool`
-    pub fn from_closure(
-        self,
-        f: impl Fn(Option<&S>, Option<&S>) -> bool + Send + Sync + 'static,
-    ) -> impl ConditionalScheduleLabel<Self, ()> {
-        (
-            Self::default(),
-            run_condition_closure::<PreviousState<S>, State<S>, _>(f),
-        )
-    }
 }
 
 impl<S: States> OnStateTransition<S> {
     /// Get a `ConditionalScheduleLabel` for whenever we move from a state that matches `from` and not `to`,
     /// to a state that matches `to` and not `from`
-    pub fn from_matching_to_matching<Marker1, Marker2>(
+    pub fn matching<Marker1, Marker2>(
         self,
         from: impl StateMatcher<S, Marker1>,
         to: impl StateMatcher<S, Marker2>,
@@ -342,53 +357,6 @@ impl<S: States> OnStateTransition<S> {
                 run_condition_on_match::<PreviousState<S>, State<S>, _, _>(to),
             ),
         )
-    }
-    /// Get a `ConditionalScheduleLabel` for whenever we move from a state that matches `from`,
-    /// to a state that matches `to` and not `from`
-    pub fn from_every_to_matching<Marker1, Marker2>(
-        self,
-        from: impl StateMatcher<S, Marker1>,
-        to: impl StateMatcher<S, Marker2>,
-    ) -> impl ConditionalScheduleLabel<Self, ()> {
-        (
-            self,
-            run_condition_every_match::<State<S>, PreviousState<S>, _, _>(from).and_then(
-                run_condition_on_match::<PreviousState<S>, State<S>, _, _>(to),
-            ),
-        )
-    }
-    /// Get a `ConditionalScheduleLabel` for whenever we move from a state that matches `from` and not `to`,
-    /// to a state that matches `to`
-    pub fn from_matching_to_every<Marker1, Marker2>(
-        self,
-        from: impl StateMatcher<S, Marker1>,
-        to: impl StateMatcher<S, Marker2>,
-    ) -> impl ConditionalScheduleLabel<Self, ()> {
-        (
-            self,
-            run_condition_on_match::<State<S>, PreviousState<S>, _, _>(from)
-                .and_then(run_condition_every_match::<PreviousState<S>, State<S>, _, _>(to)),
-        )
-    }
-    /// Get a `ConditionalScheduleLabel` for whenever we move from a state that matches `from`,
-    /// to a state that matches `to`
-    pub fn from_every_to_every<Marker1, Marker2>(
-        self,
-        from: impl StateMatcher<S, Marker1>,
-        to: impl StateMatcher<S, Marker2>,
-    ) -> impl ConditionalScheduleLabel<Self, ()> {
-        (
-            self,
-            run_condition_every_match::<State<S>, PreviousState<S>, _, _>(from)
-                .and_then(run_condition_every_match::<PreviousState<S>, State<S>, _, _>(to)),
-        )
-    }
-    /// Get a `ConditionalScheduleLabel` for detecting state transitions using a closure
-    pub fn from_closure(
-        self,
-        f: impl Fn(Option<&S>, Option<&S>) -> bool + Send + Sync + 'static,
-    ) -> impl ConditionalScheduleLabel<Self, ()> {
-        (self, run_condition_closure_transition(f))
     }
 }
 

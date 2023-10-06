@@ -367,166 +367,36 @@ pub fn simple_state_transition_macros(
     macro_type: MatchMacro,
     match_result: MatchMacroResult,
 ) -> proc_macro::TokenStream {
-    let mut module_path = bevy_ecs_path();
-    module_path.segments.push(format_ident!("schedule").into());
+    if match_result.matchers.is_empty() {
+        panic!("No matchers found");        
+    }
 
-    let state_type = match_result.state_type;
+    let MatchMacroResult { state_type, matchers} = match_result;
 
-    if match_result.matchers.len() > 1 {
-        let Some(state_type) = state_type else {
-            panic!("Couldn't determine state type");
-        };
-        let mut module_path = state_type.clone();
-        match macro_type {
-            MatchMacro::OnEnter => {
-                module_path
-                    .segments
-                    .push(format_ident!("on_state_entry_schedule").into());
-            }
-            MatchMacro::OnExit => {
-                module_path
-                    .segments
-                    .push(format_ident!("on_state_exit_schedule").into());
-            }
+    match (state_type, matchers.first(), matchers.len()) {
+        (_, Some((_, MatchTypes::Expression(expr))), 1) => {
+
+            let mut module_path = bevy_ecs_path();
+            module_path.segments.push(format_ident!("schedule").into());
+            module_path.segments.push(
+                Ident::new(
+                    match macro_type {
+                        MatchMacro::OnEnter => "OnEnter",
+                        MatchMacro::OnExit => "OnExit",
+                    },
+                    Span::call_site(),
+                )
+                .into(),
+            );
+
+            quote!(#module_path(#expr))
         }
+        (Some(state_type), _, _) => {
+            let match_function = generate_match_function(format_ident!("matcher"), &state_type, &matchers);
 
-        let tokens = match_result
-            .matchers
-            .iter()
-            .map(|(every, matcher)| match matcher {
-                MatchTypes::Expression(e) => {
-                    if *every {
-                        quote!(if #e.match_state(main) { return true; }
-                        )
-                    } else {
-                        quote!(if #e.match_state(main) {
-                                if let Some(secondary) = secondary {
-                                    return !#e.match_state(secondary);
-                                }
-                                return false;
-                            }
-                        )
-                    }
-                }
-                MatchTypes::Pattern(tokens) => {
-                    if *every {
-                        quote!({
-                                fn matches(state: &#state_type) -> bool {
-                                    #tokens
-                                }
-
-                                if matches(main) { return true; }
-                            }
-                        )
-                    } else {
-                        quote!({
-                                fn matches(state: &#state_type) -> bool {
-                                    #tokens
-                                }
-
-                                if matches(main) {  if let Some(secondary) = secondary {
-                                    return !matches(secondary);
-                                } }
-                            }
-                        )
-                    }
-                }
-                MatchTypes::Closure(tokens) => {
-                    if *every {
-                        quote!({
-                                let matches = #tokens;
-
-                                if matches(main) { return true; }
-                            }
-                        )
-                    } else {
-                        quote!({
-                                let matches = #tokens;
-
-                                if matches(main) {  if let Some(secondary) = secondary {
-                                    return !matches(secondary);
-                                } }
-                            }
-                        )
-                    }
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let tokens = TokenStream::from_iter(tokens);
-
-        let result = quote!({
-            let matcher = |main: Option<&#state_type>, secondary: Option<&#state_type>| {
-                let Some(main) = main else {
-                    return false;
-                };
-
-                #tokens
-
-                return false;
-            };
-
-            #module_path().from_closure(matcher)
-        });
-
-        result.into()
-    } else if let Some((every, match_result)) = match_result.matchers.first() {
-        let every = *every;
-        match match_result {
-            MatchTypes::Expression(expr) => {
-                module_path.segments.push(
-                    Ident::new(
-                        match macro_type {
-                            MatchMacro::OnEnter => "OnEnter",
-                            MatchMacro::OnExit => "OnExit",
-                        },
-                        Span::call_site(),
-                    )
-                    .into(),
-                );
-
-                quote!(#module_path(#expr)).into()
-            }
-            MatchTypes::Pattern(tokens) => {
-                let Some(state_type) = state_type else {
-                    panic!("Couldn't determine state type");
-                };
-                let mut module_path = state_type.clone();
+            let mut module_path = state_type.clone();
                 let state_type = state_type.clone().into_token_stream();
 
-                let call = match macro_type {
-                    MatchMacro::OnEnter => {
-                        module_path
-                            .segments
-                            .push(format_ident!("on_state_entry_schedule").into());
-
-                        format_ident!("{}", if every { "every_entrance" } else { "matching" })
-                    }
-                    MatchMacro::OnExit => {
-                        module_path
-                            .segments
-                            .push(format_ident!("on_state_exit_schedule").into());
-
-                        format_ident!("{}", if every { "every_exit" } else { "matching" })
-                    }
-                };
-
-                let matches = quote!(fn matches(state: &#state_type) -> bool {
-                    #tokens
-                });
-
-                quote!({
-                    #matches
-
-                    #module_path().#call::<()>(matches)
-                })
-                .into()
-            }
-            MatchTypes::Closure(tokens) => {
-                let Some(state_type) = state_type else {
-                    panic!("Couldn't determine state type");
-                };
-                let mut module_path = state_type.clone();
                 match macro_type {
                     MatchMacro::OnEnter => {
                         module_path
@@ -540,113 +410,138 @@ pub fn simple_state_transition_macros(
                     }
                 }
 
-                let matches = quote!(let matches = #tokens;);
-
                 quote!({
-                    #matches
+                    #match_function
 
-                    #module_path().from_closure(matches)
+                    #module_path().matching(matcher)
                 })
-                .into()
-            }
         }
-    } else {
-        panic!("No matchers found");
-    }
+        _ => panic!("No State Type")
+    }.into()
 }
 
 pub fn state_matches_macro(match_result: MatchMacroResult) -> proc_macro::TokenStream {
+
+
+    let MatchMacroResult { state_type, matchers} = match_result;
+
+    match (state_type, matchers.first(), matchers.len()) {
+        (_, Some((_, MatchTypes::Expression(expr))), 1) => {
+
+            let mut module_path = bevy_ecs_path();
+            module_path.segments.push(format_ident!("condition").into());
+            module_path.segments.push(
+                format_ident!("state_matches").into()
+            );
+
+            quote!(#module_path(#expr))
+        }
+        (Some(state_type), _, _) => {
+            let match_function = generate_match_function(format_ident!("matcher"), &state_type, &matchers);
+
+                let state_type = state_type.clone().into_token_stream();
+
+
+                quote!(
+                |state: Option<Res<State<#state_type>>>| {
+                    let Some(state) = state else {
+                        return false;
+                    };
+                    #match_function
+
+                    matcher.match_state(&state)
+                })
+        }
+        _ => panic!("No State Type")
+    }.into()
+}
+
+fn generate_match_function(
+    match_function_name: Ident,
+    state_type: &Path,
+    matchers: &[(bool, MatchTypes)],
+) -> TokenStream {
     let mut module_path = bevy_ecs_path();
     module_path.segments.push(format_ident!("schedule").into());
-    let state_type = match_result.state_type;
 
-    if match_result.matchers.len() > 1 {
-        let Some(state_type) = state_type else {
-            panic!("Couldn't determine state type");
-        };
-        let tokens = match_result
-            .matchers
-            .iter()
-            .map(|(_, matcher)| match matcher {
-                MatchTypes::Expression(e) => {
+    let tokens = matchers
+        .iter()
+        .map(|(every, matcher)| match matcher {
+            MatchTypes::Expression(e) => {
+                if *every {
                     quote!(if #e.match_state(main) { return true; }
                     )
+                } else {
+                    quote!(match #e.match_state_transition(main) {
+                            #module_path::MatchesStateTransition::TransitionMatches => { return true; },
+                            #module_path::MatchesStateTransition::MainMatches => { return false; },
+                            _ => {}
+                        }
+                    )
                 }
-                MatchTypes::Pattern(tokens) => {
+            }
+            MatchTypes::Pattern(tokens) => {
+                if *every {
                     quote!({
                             fn matches(state: &#state_type) -> bool {
                                 #tokens
                             }
 
                             if matches(main) { return true; }
+                            
+                        }
+                    )
+                } else {
+                    quote!({
+                            fn matches(state: &#state_type) -> bool {
+                                #tokens
+                            }
+
+                            if matches(main) {  if let Some(secondary) = secondary {
+                                return !matches(secondary);
+                            } else {
+                                return true;
+                            } }
                         }
                     )
                 }
-                MatchTypes::Closure(tokens) => {
+            }
+            MatchTypes::Closure(tokens) => {
+                if *every {
                     quote!({
                             let matches = #tokens;
 
                             if matches(main) { return true; }
                         }
                     )
+                } else {
+                    quote!({
+                            let matches = #tokens;
+
+                            
+                            match matches.match_state_transition(main) {
+                                #module_path::MatchesStateTransition::TransitionMatches => { return true; },
+                                #module_path::MatchesStateTransition::MainMatches => { return false; },
+                                _ => {}
+                            }
+                        }
+                    )
                 }
-            })
-            .collect::<Vec<_>>();
-
-        let tokens = TokenStream::from_iter(tokens);
-
-        let result = quote!({
-
-            |state: Option<Res<State<#state_type>>>| {
-                let Some(state) = state else {
-                    return false;
-                };
-                let f = #tokens;
-
-                f(&state)
             }
-        });
+        })
+        .collect::<Vec<_>>();
 
-        result.into()
-    } else if let Some((_, match_result)) = match_result.matchers.first() {
-        match match_result {
-            MatchTypes::Expression(expr) => {
-                module_path
-                    .segments
-                    .push(Ident::new("in_state", Span::call_site()).into());
-                quote!(#module_path(#expr)).into()
-            }
-            MatchTypes::Pattern(tokens) => {
-                let Some(state_type) = state_type else {
-                    panic!("Couldn't determine state type");
-                };
-                quote!(|state: Option<Res<State<#state_type>>>| {
-                    let Some(state) = state else {
-                        return false;
-                    };
-                    let state : &#state_type = &state;
-                    #tokens
-                })
-                .into()
-            }
-            MatchTypes::Closure(tokens) => {
-                let Some(state_type) = state_type else {
-                    panic!("Couldn't determine state type");
-                };
-                quote!(
-                    |state: Option<Res<State<#state_type>>>| {
-                        let Some(state) = state else {
-                            return false;
-                        };
-                        let f = #tokens;
+    let tokens = TokenStream::from_iter(tokens);
 
-                        f(&state)
-                    }
-                )
-                .into()
-            }
-        }
-    } else {
-        panic!("No matchers found");
-    }
+    quote!(
+        let #match_function_name = |main: Option<&#state_type>, secondary: Option<&#state_type>| {
+            let Some(main) = main else {
+                return false;
+            };
+
+            #tokens
+
+            return false;
+        };
+    )
 }
