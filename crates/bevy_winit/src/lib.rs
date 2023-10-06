@@ -76,14 +76,12 @@ pub struct WinitPlugin {
     /// Allows the window (and the event loop) to be created on any thread
     /// instead of only the main thread.
     ///
-    /// See [`winit with_any_thread`].
+    /// See [`EventLoopBuilder::build`] for more information on this.
     ///
     /// # Supported platforms
     ///
     /// Only works on Linux (X11/Wayland) and Windows.
     /// This field is ignored on other platforms.
-    ///
-    /// [`winit with_any_thread`]: winit::event_loop::EventLoopBuilder::with_any_thread
     pub run_on_any_thread: bool,
 }
 
