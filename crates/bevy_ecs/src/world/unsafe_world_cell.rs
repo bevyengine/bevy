@@ -26,14 +26,14 @@ use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData};
 /// In rust, having a `&mut World` means that there are absolutely no other references to the safe world alive at the same time,
 /// without exceptions. Not even unsafe code can change this.
 ///
-/// But there are situations where careful shared mutable access through a type is possible and safe. For this, rust provides the [`UnsafeCell`](std::cell::UnsafeCell)
+/// But there are situations where careful shared mutable access through a type is possible and safe. For this, rust provides the [`UnsafeCell`]
 /// escape hatch, which allows you to get a `*mut T` from a `&UnsafeCell<T>` and around which safe abstractions can be built.
 ///
 /// Access to resources and components can be done uniquely using [`World::resource_mut`] and [`World::entity_mut`], and shared using [`World::resource`] and [`World::entity`].
 /// These methods use lifetimes to check at compile time that no aliasing rules are being broken.
 ///
 /// This alone is not enough to implement bevy systems where multiple systems can access *disjoint* parts of the world concurrently. For this, bevy stores all values of
-/// resources and components (and [`ComponentTicks`](crate::component::ComponentTicks)) in [`UnsafeCell`](std::cell::UnsafeCell)s, and carefully validates disjoint access patterns using
+/// resources and components (and [`ComponentTicks`]) in [`UnsafeCell`]s, and carefully validates disjoint access patterns using
 /// APIs like [`System::component_access`](crate::system::System::component_access).
 ///
 /// A system then can be executed using [`System::run_unsafe`](crate::system::System::run_unsafe) with a `&World` and use methods with interior mutability to access resource values.
@@ -909,7 +909,7 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 }
 
-/// Get an untyped pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`] in the provided [`World`](crate::world::World).
+/// Get an untyped pointer to a particular [`Component`] on a particular [`Entity`] in the provided [`World`].
 ///
 /// # Safety
 /// - `location` must refer to an archetype that contains `entity`
@@ -937,7 +937,7 @@ unsafe fn get_component(
     }
 }
 
-/// Get an untyped pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`]
+/// Get an untyped pointer to a particular [`Component`] and its [`ComponentTicks`]
 ///
 /// # Safety
 /// - `location` must refer to an archetype that contains `entity`

@@ -334,7 +334,7 @@ impl App {
     /// initial state.
     ///
     /// If you would like to control how other systems run based on the current state,
-    /// you can emulate this behavior using the [`in_state`] [`Condition`](bevy_ecs::schedule::Condition).
+    /// you can emulate this behavior using the [`in_state`] [`Condition`].
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.

@@ -422,7 +422,7 @@ impl<'a> ReflectStruct<'a> {
 
     /// Access the data about which fields should be ignored during serialization.
     ///
-    /// The returned bitset is a collection of indices obtained from the [`members_to_serialization_denylist`](crate::utility::members_to_serialization_denylist) function.
+    /// The returned bitset is a collection of indices obtained from the [`members_to_serialization_denylist`] function.
     #[allow(dead_code)]
     pub fn serialization_denylist(&self) -> &BitSet<u32> {
         &self.serialization_denylist
