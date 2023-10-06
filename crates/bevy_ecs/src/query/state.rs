@@ -138,6 +138,58 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         state
     }
 
+    /// Transform a query into a more generic query. If the original query state did
+    /// not have the same access this will panic.
+    /// Probably should not call update archetype generation on this query state as the results will
+    /// be very unpredictable as new archetypes could be added that don't match old query
+    pub fn generalize<NewQ: WorldQuery>(
+        self,
+        world: UnsafeWorldCell,
+    ) -> QueryState<NewQ, ()> {
+        if !Q::IS_ARCHETYPAL || !F::IS_ARCHETYPAL || !NewQ::IS_ARCHETYPAL {
+            panic!("generalizing is not allow with queries that use `Changed` or `Added`");
+        }
+        // SAFETY: we are using unsafe world to access &Components which should always be safe
+        let fetch_state = unsafe { NewQ::new_state(world.world().components()) };
+        #[allow(clippy::let_unit_value)]
+        // the archetypal filters have already been applied, so we don't need them.
+        // SAFETY: we are using unsafe world to access &Components which should always be safe
+        let filter_state = unsafe { <()>::new_state(world.world().components()) };
+
+        let mut component_access = FilteredAccess::default();
+        NewQ::update_component_access(&fetch_state, &mut component_access);
+
+        let mut filter_component_access = FilteredAccess::default();
+        <()>::update_component_access(&filter_state, &mut filter_component_access);
+
+        // Merge the temporary filter access with the main access. This ensures that filter access is
+        // properly considered in a global "cross-query" context (both within systems and across systems).
+        component_access.extend(&filter_component_access);
+
+        if !component_access.is_subset(&self.component_access) {
+            panic!("access is not compatible with new query type");
+        }
+
+        QueryState {
+            world_id: self.world_id,
+            archetype_generation: self.archetype_generation,
+            matched_table_ids: self.matched_table_ids,
+            matched_archetype_ids: self.matched_archetype_ids,
+            fetch_state,
+            filter_state,
+            component_access,
+            matched_tables: Default::default(),
+            matched_archetypes: Default::default(),
+            archetype_component_access: Default::default(),
+            #[cfg(feature = "trace")]
+            par_iter_span: bevy_utils::tracing::info_span!(
+                "par_for_each",
+                query = std::any::type_name::<NewQ>(),
+                filter = std::any::type_name::<NewF>(),
+            ),
+        }
+    }
+
     /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
     ///
     /// # Panics
@@ -1424,6 +1476,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
 
 #[cfg(test)]
 mod tests {
+    use crate as bevy_ecs;
     use crate::{prelude::*, query::QueryEntityError};
 
     #[test]
@@ -1528,5 +1581,83 @@ mod tests {
 
         let mut query_state = world_1.query::<Entity>();
         let _panics = query_state.get_many_mut(&mut world_2, []);
+    }
+
+    #[test]
+    fn generalize_query_state() {
+        #[derive(Component)]
+        struct A(pub usize);
+
+        #[derive(Component)]
+        struct B;
+
+        let mut world = World::new();
+        world.spawn((A(22), B));
+
+        let query_state = world.query::<(&A, &B)>();
+        let mut new_query_state = query_state.generalize::<&A>(world.as_unsafe_world_cell());
+        assert_eq!(new_query_state.iter(&world).len(), 1);
+        let a = new_query_state.single(&world);
+
+        assert_eq!(a.0, 22);
+    }
+
+    #[test]
+    fn generalize_query_cannot_get_unmatched_data() {
+        #[derive(Component)]
+        struct A(pub usize);
+
+        #[derive(Component)]
+        struct B;
+
+        #[derive(Component)]
+        struct C;
+
+        let mut world = World::new();
+        world.spawn((A(22), B));
+        world.spawn((A(23), B, C));
+
+        let query_state = world.query_filtered::<(&A, &B), Without<C>>();
+        let mut new_query_state = query_state.generalize::<&A>(world.as_unsafe_world_cell());
+        // even though we change the query to not have Without<C>, we cannot get the component with C.
+        let a = new_query_state.single(&world);
+
+        assert_eq!(a.0, 22);
+    }
+
+    #[test]
+    #[should_panic]
+    fn generalize_to_no_included_components_not_allowed() {
+        #[derive(Component)]
+        struct A(pub usize);
+
+        #[derive(Component)]
+        struct B;
+
+        let mut world = World::new();
+        world.init_component::<A>();
+        world.init_component::<B>();
+        world.spawn(A(22));
+
+        let query_state = world.query::<&A>();
+        let mut _new_query_state = query_state.generalize::<(&A, &B)>(world.as_unsafe_world_cell());
+    }
+
+    #[test]
+    #[should_panic]
+    fn generalize_non_archtypal_not_allowed() {
+        #[derive(Component)]
+        struct A(pub usize);
+
+        #[derive(Component)]
+        struct B;
+
+        let mut world = World::new();
+        world.init_component::<A>();
+        world.init_component::<B>();
+        world.spawn(A(22));
+
+        let query_state = world.query_filtered::<(&A, &B), Added<B>>();
+        let mut _new_query_state = query_state.generalize::<&A>(world.as_unsafe_world_cell());
     }
 }

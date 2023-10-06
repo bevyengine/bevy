@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
+    component::{Component, ComponentId, ComponentStorage, StorageType, Tick, Components},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table, TableRow},
@@ -105,6 +105,10 @@ unsafe impl<T: Component> WorldQuery for With<T> {
         world.init_component::<T>()
     }
 
+    fn new_state(components: &Components) -> Self::State {
+        components.component_id::<T>().unwrap()
+    }
+
     fn matches_component_set(
         &id: &ComponentId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -204,6 +208,10 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
+    }
+
+    fn new_state(components: &Components) -> Self::State {
+        components.component_id::<T>().unwrap()
     }
 
     fn matches_component_set(
@@ -370,6 +378,10 @@ macro_rules! impl_query_filter_tuple {
                 ($($filter::init_state(world),)*)
             }
 
+            fn new_state(components: &Components) -> Self::State {
+                ($($filter::new_state(components),)*)
+            }
+
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($filter,)*) = _state;
                 false $(|| $filter::matches_component_set($filter, _set_contains_id))*
@@ -531,6 +543,10 @@ macro_rules! impl_tick_filter {
 
             fn init_state(world: &mut World) -> ComponentId {
                 world.init_component::<T>()
+            }
+
+            fn new_state(components: &Components) -> ComponentId {
+                components.component_id::<T>().unwrap()
             }
 
             fn matches_component_set(&id: &ComponentId, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {

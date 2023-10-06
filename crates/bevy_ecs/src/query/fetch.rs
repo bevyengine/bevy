@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     change_detection::{Ticks, TicksMut},
-    component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
+    component::{Component, ComponentId, ComponentStorage, StorageType, Tick, Components},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table, TableRow},
@@ -440,6 +440,9 @@ pub unsafe trait WorldQuery {
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
     fn init_state(world: &mut World) -> Self::State;
 
+    /// Creates a [`State`](WorldQuery::State) for this [`WorldQuery`] type
+    fn new_state(components: &Components) -> Self::State;
+
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
     fn matches_component_set(
         state: &Self::State,
@@ -514,6 +517,8 @@ unsafe impl WorldQuery for Entity {
     }
 
     fn init_state(_world: &mut World) {}
+
+    fn new_state(_components: &Components) {}
 
     fn matches_component_set(
         _state: &Self::State,
@@ -594,6 +599,7 @@ unsafe impl WorldQuery for EntityRef<'_> {
     }
 
     fn init_state(_world: &mut World) {}
+    fn new_state(_components: &Components) {}
 
     fn matches_component_set(
         _state: &Self::State,
@@ -674,6 +680,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     }
 
     fn init_state(_world: &mut World) {}
+    fn new_state(_components: &Components) {}
 
     fn matches_component_set(
         _state: &Self::State,
@@ -813,6 +820,10 @@ unsafe impl<T: Component> WorldQuery for &T {
 
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
+    }
+
+    fn new_state(components: &Components) -> ComponentId {
+        components.component_id::<T>().unwrap()
     }
 
     fn matches_component_set(
@@ -976,6 +987,10 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         world.init_component::<T>()
     }
 
+    fn new_state(components: &Components) -> ComponentId {
+        components.component_id::<T>().unwrap()
+    }
+
     fn matches_component_set(
         &state: &ComponentId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -1137,6 +1152,10 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         world.init_component::<T>()
     }
 
+    fn new_state(components: &Components) -> ComponentId {
+        components.component_id::<T>().unwrap()
+    }
+
     fn matches_component_set(
         &state: &ComponentId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -1247,6 +1266,10 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
 
     fn init_state(world: &mut World) -> T::State {
         T::init_state(world)
+    }
+
+    fn new_state(components: &Components) -> T::State {
+        T::new_state(components)
     }
 
     fn matches_component_set(
@@ -1383,6 +1406,10 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
     }
+    
+    fn new_state(components: &Components) -> ComponentId {
+        components.component_id::<T>().unwrap()
+    }
 
     fn matches_component_set(
         _state: &Self::State,
@@ -1478,6 +1505,10 @@ macro_rules! impl_tuple_fetch {
 
             fn init_state(_world: &mut World) -> Self::State {
                 ($($name::init_state(_world),)*)
+            }
+
+            fn new_state(_components: &Components) -> Self::State {
+                ($($name::new_state(_components),)*)
             }
 
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
@@ -1603,6 +1634,10 @@ macro_rules! impl_anytuple_fetch {
                 ($($name::init_state(_world),)*)
             }
 
+            fn new_state(_components: &Components) -> Self::State {
+                ($($name::new_state(_components),)*)
+            }
+
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = _state;
                 false $(|| $name::matches_component_set($name, _set_contains_id))*
@@ -1677,6 +1712,10 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
         Q::init_state(world)
     }
 
+    fn new_state(components: &Components) -> Self::State {
+        Q::new_state(components)
+    }
+
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -1739,6 +1778,8 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     }
 
     fn init_state(_world: &mut World) -> Self::State {}
+
+    fn new_state(_components: &Components) -> Self::State {}
 
     fn matches_component_set(
         _state: &Self::State,
