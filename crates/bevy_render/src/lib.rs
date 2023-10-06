@@ -44,13 +44,14 @@ pub use extract_param::Extract;
 use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
+use render_resource::update_buffer_cache_system;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
 use crate::{
     camera::CameraPlugin,
     mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
     render_asset::prepare_assets,
-    render_resource::{PipelineCache, Shader, ShaderLoader},
+    render_resource::{BufferCache, PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     settings::RenderCreation,
     view::{ViewPlugin, WindowRenderPlugin},
@@ -271,6 +272,7 @@ impl Plugin for RenderPlugin {
                         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
                             backends,
                             dx12_shader_compiler: settings.dx12_shader_compiler.clone(),
+                            gles_minor_version: Default::default(),
                         });
                         let surface = primary_window.map(|wrapper| unsafe {
                             // SAFETY: Plugins should be set up on the main thread.
@@ -371,6 +373,7 @@ impl Plugin for RenderPlugin {
             render_app
                 .insert_resource(instance)
                 .insert_resource(PipelineCache::new(device.clone()))
+                .init_resource::<BufferCache>()
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
@@ -427,7 +430,7 @@ unsafe fn initialize_render_app(app: &mut App) {
                     render_system,
                 )
                     .in_set(RenderSet::Render),
-                World::clear_entities.in_set(RenderSet::Cleanup),
+                (World::clear_entities, update_buffer_cache_system).in_set(RenderSet::Cleanup),
             ),
         );
 

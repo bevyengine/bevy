@@ -339,14 +339,17 @@ async fn load_gltf<'a, 'b, 'c>(
 
             // Read vertex attributes
             for (semantic, accessor) in primitive.attributes() {
-                match convert_attribute(
-                    semantic,
-                    accessor,
-                    &buffer_data,
-                    &loader.custom_vertex_attributes,
-                ) {
-                    Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
-                    Err(err) => warn!("{}", err),
+                // TODO: Don't skip loading texture coords 1
+                if semantic != gltf::Semantic::TexCoords(1) {
+                    match convert_attribute(
+                        semantic,
+                        accessor,
+                        &buffer_data,
+                        &loader.custom_vertex_attributes,
+                    ) {
+                        Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
+                        Err(err) => warn!("{}", err),
+                    }
                 }
             }
 
@@ -354,8 +357,9 @@ async fn load_gltf<'a, 'b, 'c>(
             let reader = primitive.reader(|buffer| Some(buffer_data[buffer.index()].as_slice()));
             if let Some(indices) = reader.read_indices() {
                 mesh.set_indices(Some(match indices {
-                    ReadIndices::U8(is) => Indices::U16(is.map(|x| x as u16).collect()),
-                    ReadIndices::U16(is) => Indices::U16(is.collect()),
+                    // TODO: Don't hardcode this to be U32
+                    ReadIndices::U8(is) => Indices::U32(is.map(|x| x as u32).collect()),
+                    ReadIndices::U16(is) => Indices::U32(is.map(|x| x as u32).collect()),
                     ReadIndices::U32(is) => Indices::U32(is.collect()),
                 }));
             };

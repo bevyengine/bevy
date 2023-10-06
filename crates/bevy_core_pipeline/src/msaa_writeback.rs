@@ -87,7 +87,7 @@ impl Node for MsaaWritebackNode {
                     load: LoadOp::Clear(Default::default()),
                     store: true,
                 }))],
-                depth_stencil_attachment: None,
+                ..Default::default()
             };
 
             let bind_group =

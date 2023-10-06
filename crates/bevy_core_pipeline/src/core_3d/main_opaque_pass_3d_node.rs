@@ -99,6 +99,7 @@ impl ViewNode for MainOpaquePass3dNode {
                 }),
                 stencil_ops: None,
             }),
+            ..Default::default()
         });
 
         if let Some(viewport) = camera.viewport.as_ref() {

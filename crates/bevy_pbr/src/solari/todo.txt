@@ -1,0 +1,23 @@
+* World cache improvements
+    * Tie world cache to camera, use a log scale for cell size
+    * Short trace distance for sampling from other cells
+    * Reservoir sampling for the world cache update method
+        * Light sources and other cache entries via choosing a random slice of world_cache_active_cell_indices
+    * Think about hashing ray direction, instead of hit position
+    * If visible last frame, reproject last frame's lighting
+* Screen cache interpolation weights
+    * Use plane distance over depth weights?
+    * Relax reprojection weights for higher cascades?
+* Screen cache improvements
+    * Deinterleaved layout for faster upper probe textupbre reads when merging?
+    * Consider 4x4 probes for the first cascade
+    * 1/2 or 1/4 checkerboard probe update rate
+* Faster temporal reactivity
+
+* Specular lighting
+* Cleanup, remaining TODOs, performance profiling, documentation, etc
+    * "A Fast and Robust Method for Avoiding Self-Intersection"
+
+* SolariDirectIlluminationPlugin - ReSTIR for per-pixel direct light sampling
+    * https://benedikt-bitterli.me/restir/bitterli20restir.pdf
+    * https://d1qx31qr3h6wln.cloudfront.net/publications/hpg21_rearchitectingReSTIR.pdf

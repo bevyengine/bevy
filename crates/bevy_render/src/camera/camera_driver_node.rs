@@ -80,7 +80,7 @@ impl Node for CameraDriverNode {
                         store: true,
                     },
                 })],
-                depth_stencil_attachment: None,
+                ..Default::default()
             };
 
             render_context

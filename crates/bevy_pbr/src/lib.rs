@@ -1,5 +1,6 @@
 #![allow(clippy::type_complexity)]
 
+pub mod solari;
 pub mod wireframe;
 
 mod alpha;
@@ -51,6 +52,7 @@ pub mod draw_3d_graph {
     }
 }
 
+use crate::solari::SolariPlugin;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
@@ -182,6 +184,7 @@ impl Plugin for PbrPlugin {
                 EnvironmentMapPlugin,
                 ExtractResourcePlugin::<AmbientLight>::default(),
                 FogPlugin,
+                SolariPlugin,
             ))
             .configure_sets(
                 PostUpdate,

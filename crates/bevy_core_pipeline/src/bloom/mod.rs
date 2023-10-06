@@ -204,7 +204,7 @@ impl ViewNode for BloomNode {
                         resolve_target: None,
                         ops: Operations::default(),
                     })],
-                    depth_stencil_attachment: None,
+                    ..Default::default()
                 });
             downsampling_first_pass.set_render_pipeline(downsampling_first_pipeline);
             downsampling_first_pass.set_bind_group(
@@ -226,7 +226,7 @@ impl ViewNode for BloomNode {
                         resolve_target: None,
                         ops: Operations::default(),
                     })],
-                    depth_stencil_attachment: None,
+                    ..Default::default()
                 });
             downsampling_pass.set_render_pipeline(downsampling_pipeline);
             downsampling_pass.set_bind_group(
@@ -251,7 +251,7 @@ impl ViewNode for BloomNode {
                             store: true,
                         },
                     })],
-                    depth_stencil_attachment: None,
+                    ..Default::default()
                 });
             upsampling_pass.set_render_pipeline(upsampling_pipeline);
             upsampling_pass.set_bind_group(
@@ -282,6 +282,7 @@ impl ViewNode for BloomNode {
                         },
                     ))],
                     depth_stencil_attachment: None,
+                    ..Default::default()
                 });
             upsampling_final_pass.set_render_pipeline(upsampling_final_pipeline);
             upsampling_final_pass.set_bind_group(

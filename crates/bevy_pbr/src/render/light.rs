@@ -46,16 +46,16 @@ pub struct ExtractedPointLight {
     spot_light_angles: Option<(f32, f32)>,
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Default, Debug)]
 pub struct ExtractedDirectionalLight {
-    color: Color,
-    illuminance: f32,
-    transform: GlobalTransform,
-    shadows_enabled: bool,
-    shadow_depth_bias: f32,
-    shadow_normal_bias: f32,
-    cascade_shadow_config: CascadeShadowConfig,
-    cascades: HashMap<Entity, Vec<Cascade>>,
+    pub(crate) color: Color,
+    pub(crate) illuminance: f32,
+    pub(crate) transform: GlobalTransform,
+    pub(crate) shadows_enabled: bool,
+    pub(crate) shadow_depth_bias: f32,
+    pub(crate) shadow_normal_bias: f32,
+    pub(crate) cascade_shadow_config: CascadeShadowConfig,
+    pub(crate) cascades: HashMap<Entity, Vec<Cascade>>,
 }
 
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
@@ -1774,6 +1774,7 @@ impl Node for ShadowPassNode {
                             }),
                             stencil_ops: None,
                         }),
+                        ..Default::default()
                     });
 
                 shadow_phase.render(&mut render_pass, world, view_light_entity);
