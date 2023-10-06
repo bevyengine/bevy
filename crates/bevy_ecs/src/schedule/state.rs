@@ -254,8 +254,8 @@ impl<S: States, F: 'static + Send + Sync + Fn(Option<&S>, Option<&S>) -> bool>
         }
     }
 }
-/// Get a [`Condition`] for running whenever `MainResource<S>` matches regardless of whether `SecondaryResource<S>` matches,
-/// so long as they are not identical
+/// Get a [`Condition`] for running whenever `MainResource<S>` matches regardless of
+/// whether `SecondaryResource<S>` matches, so long as they are not identical
 fn run_condition_on_match<
     MainResource: crate::prelude::Resource + Deref<Target = S>,
     SecondaryResource: crate::prelude::Resource + Deref<Target = S>,
