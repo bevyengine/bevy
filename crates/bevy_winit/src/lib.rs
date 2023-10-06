@@ -72,11 +72,51 @@ pub static ANDROID_APP: std::sync::OnceLock<AndroidApp> = std::sync::OnceLock::n
 /// replace the existing [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
 #[derive(Default)]
-pub struct WinitPlugin;
+pub struct WinitPlugin {
+    /// Allows the window (and the event loop) to be created on any thread
+    /// instead of only the main thread.
+    ///
+    /// See [`EventLoopBuilder::build`] for more information on this.
+    ///
+    /// # Supported platforms
+    ///
+    /// Only works on Linux (X11/Wayland) and Windows.
+    /// This field is ignored on other platforms.
+    pub run_on_any_thread: bool,
+}
 
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
         let mut event_loop_builder = EventLoopBuilder::<()>::with_user_event();
+
+        // This is needed because the features checked in the inner
+        // block might be enabled on other platforms than linux.
+        #[cfg(target_os = "linux")]
+        {
+            #[cfg(feature = "x11")]
+            {
+                use winit::platform::x11::EventLoopBuilderExtX11;
+
+                // This allows a Bevy app to be started and ran outside of the main thread.
+                // A use case for this is to allow external applications to spawn a thread
+                // which runs a Bevy app without requiring the Bevy app to need to reside on
+                // the main thread, which can be problematic.
+                event_loop_builder.with_any_thread(self.run_on_any_thread);
+            }
+
+            #[cfg(feature = "wayland")]
+            {
+                use winit::platform::wayland::EventLoopBuilderExtWayland;
+                event_loop_builder.with_any_thread(self.run_on_any_thread);
+            }
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            use winit::platform::windows::EventLoopBuilderExtWindows;
+            event_loop_builder.with_any_thread(self.run_on_any_thread);
+        }
+
         #[cfg(target_os = "android")]
         {
             use winit::platform::android::EventLoopBuilderExtAndroid;
