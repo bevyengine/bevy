@@ -12,8 +12,7 @@ use crate::reflect::ReflectResource;
 use crate::schedule::ScheduleLabel;
 use crate::system::{IntoSystem, Resource};
 use crate::world::World;
-pub use bevy_ecs_macros::States;
-pub use bevy_ecs_macros::{on_enter, on_exit, state_matcher, state_matches};
+pub use bevy_ecs_macros::{on_enter, on_exit, on_transition, state_matches, StateMatcher, States};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
 

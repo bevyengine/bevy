@@ -48,10 +48,7 @@ fn main() {
         // You can also use pattern matching when in a state, using the `in_state!` macro
         // This works just like the `in_state()` function, but relies on pattern matching rather than
         // strict equality.
-        .add_systems(
-            Update,
-            change_color.run_if(state_matches!(AppState, InGame { .. })),
-        )
+        .add_systems(Update, change_color.run_if(state_matches!(InGame)))
         .add_systems(
             Update,
             invert_movement.run_if(state_matches!(AppState, InGame(GameState::Running(_)))),
@@ -88,6 +85,22 @@ impl Default for GameState {
     fn default() -> Self {
         GameState::Running(MovementState::Normal)
     }
+}
+
+#[derive(StateMatcher)]
+#[state_type(AppState)]
+#[matcher(InGame(_))]
+struct InGame;
+
+#[derive(StateMatcher)]
+#[state_type(AppState)]
+enum MenuDisplay {
+    #[matcher(Menu | InGame(GameState::Paused))]
+    Any,
+    #[matcher(Menu)]
+    Menu,
+    #[matcher(InGame(GameState::Paused))]
+    Paused,
 }
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash)]

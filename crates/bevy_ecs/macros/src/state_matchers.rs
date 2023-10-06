@@ -2,48 +2,15 @@ use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use quote::{format_ident, quote};
+use syn::DeriveInput;
 use syn::Error;
 use syn::ExprClosure;
 use syn::braced;
+use syn::parse::ParseBuffer;
+use syn::parse_macro_input;
 use syn::{parse::Parse, Expr, ExprPath, Ident, Pat, PatTupleStruct, Path, Token, Visibility};
 
 use crate::bevy_ecs_path;
-
-struct StateMatcher {
-    visibility: Visibility,
-    name: Ident,
-    matcher: MatcherPattern,
-    state_type: Option<Path>,
-}
-
-impl Parse for StateMatcher {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let visibility: Visibility = input.parse()?;
-        let name: Ident = input.parse()?;
-        input.parse::<Token![,]>()?;
-        let matcher: Matcher = input.parse()?;
-        let state_type = matcher.state_type.clone();
-
-        let matcher = matcher.matchers.first().ok_or(syn::Error::new(
-            Span::call_site(),
-            "State Matcher must have a matcher set",
-        ))?;
-
-        let (_, MatcherType::Pattern(matcher)) = matcher else {
-            return Err(syn::Error::new(
-                Span::call_site(),
-                "State Matcher must be given a pattern",
-            ));
-        };
-
-        Ok(Self {
-            state_type,
-            visibility,
-            name,
-            matcher: matcher.clone(),
-        })
-    }
-}
 
 #[derive(Clone)]
 
@@ -116,41 +83,45 @@ impl Parse for Matcher {
 }
 impl Matcher {
     fn parse_with_state_type(input: syn::parse::ParseStream, state_type: Option<Path>) -> syn::Result<Self> {
-        let state_type = if state_type.is_some() {
+        let state_type = if let Some(state_type) = state_type {
             state_type
-        } else if let Ok(expr) = Expr::parse(input) {
-            match &expr {
-                Expr::Path(p) => Some(p.path.clone()),
-                Expr::Closure(_) => return Err(syn::Error::new(Span::call_site(), "Closures must define the state type at the start of the matcher macro, like so !(StateType, |...| {})")),
-                _ => {
-                    return Ok(Self { state_type: None, matchers: vec![(false, MatcherType::Expression(expr))]});
-                }
-            }
         } else {
-            None
-        };
+            let state_type = if let Ok(expr) = Expr::parse(input) {
+                match &expr {
+                    Expr::Path(p) => Some(p.path.clone()),
+                    Expr::Closure(_) => return Err(syn::Error::new(Span::call_site(), "Closures must define the state type at the start of the matcher macro, like so !(StateType, |...| {})")),
+                    _ => {
+                        return Ok(Self { state_type: None, matchers: vec![(false, MatcherType::Expression(expr))]});
+                    }
+                }
+            } else {
+                None
+            };
 
-        let Some(state_type) = state_type else {
-            return Err(syn::Error::new(Span::call_site(), "Couldn't determine the state type. Define the state type at the start of the matcher macro, like so !(StateType, Pattern or Closure)"));
-        };
+            let Some(state_type) = state_type else {
+                return Err(syn::Error::new(Span::call_site(), "Couldn't determine the state type. Define the state type at the start of the matcher macro, like so !(StateType, Pattern or Closure)"));
+            };
 
-        if !input.peek(Token![,]) {
-            return Ok(Self {
-                state_type: None,
-                matchers: vec![(
-                    false,
-                    MatcherType::Expression(Expr::Path(ExprPath {
-                        path: state_type,
-                        attrs: vec![],
-                        qself: None,
-                    })),
-                )],
-            });
-        }
+            if !input.peek(Token![,]) {
+                return Ok(Self {
+                    state_type: None,
+                    matchers: vec![(
+                        false,
+                        MatcherType::Expression(Expr::Path(ExprPath {
+                            path: state_type,
+                            attrs: vec![],
+                            qself: None,
+                        })),
+                    )],
+                });
+            }
+            input.parse::<Token![,]>()?;
+            state_type
+        };
 
         let mut matchers = vec![];
 
-        while input.parse::<Token![,]>().is_ok() {
+        loop {
             matchers.push(
                 MatcherType::parse_with_state_type(input, &state_type).map_err(|e| {
                     Error::new(
@@ -159,6 +130,9 @@ impl Matcher {
                     )
                 })?,
             );
+            if input.parse::<Token![,]>().is_err() {
+                break;
+            }
         }
 
         Ok(Self {
@@ -316,49 +290,6 @@ fn inject_state_type(pattern: Pat, state_type: &Path) -> Pat {
     }
 }
 
-pub fn define_state_matcher(
-    input: proc_macro::TokenStream,
-) -> syn::Result<proc_macro::TokenStream> {
-    let StateMatcher {
-        visibility,
-        name,
-        state_type,
-        matcher,
-    } = syn::parse(input)?;
-
-    let Some(state_type) = state_type else {
-        return Err(syn::Error::new(
-            Span::call_site(),
-            "Couldn't determine state type",
-        ));
-    };
-
-    let MatcherPattern { pattern, .. } = matcher;
-
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("StateMatcher").into());
-
-    Ok(quote! {
-
-       #[derive(Debug, Eq, PartialEq, Hash, Clone)]
-        #visibility struct #name;
-
-        impl #trait_path<#state_type> for #name {
-            fn match_state(&self, state: &#state_type) -> bool {
-                match state {
-                    #pattern => true,
-                    _ => false
-                }
-            }
-        }
-
-    }
-    .into())
-}
-
 pub enum MatchMacro {
     OnEnter,
     OnExit,
@@ -479,9 +410,10 @@ pub fn state_matches_macro(match_result: MatchMacroResult) -> proc_macro::TokenS
         (_, Some((_, MatchTypes::Expression(expr))), 1) => {
 
             let mut module_path = bevy_ecs_path();
-            module_path.segments.push(format_ident!("condition").into());
+            module_path.segments.push(format_ident!("schedule").into());
+            module_path.segments.push(format_ident!("common_conditions").into());
             module_path.segments.push(
-                format_ident!("state_matches").into()
+                format_ident!("state_matching").into()
             );
 
             quote!(#module_path(#expr))
@@ -528,6 +460,181 @@ pub fn on_transition_macro(input: proc_macro::TokenStream) -> proc_macro::TokenS
     }).into()
 }
 
+pub fn derive_state_matcher(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let attrs = ast.attrs;
+
+    let Some(state_type) = attrs.iter().find(|attr| {
+        attr.path().get_ident().filter(|i| *i == "state_type").is_some()
+    }) else {
+        return 
+        syn::Error::new(
+            Span::call_site(),
+            "derive(StateMatcher) requires a [state_type=S] attribute",
+        )
+        .into_compile_error()
+        .into();
+    };
+
+    let Ok(state_type) = state_type.parse_args::<Path>() else {
+        return 
+        syn::Error::new(
+            Span::call_site(),
+            "S in [state_type = S] attribute must be a valid Path to a States type",
+        )
+        .into_compile_error()
+        .into();
+    };
+
+    let error = || {
+        syn::Error::new(
+            Span::call_site(),
+            "derive(StateMatcher) only supports fieldless enums and unit structs",
+        )
+        .into_compile_error()
+        .into()
+    };
+
+    let matcher = match ast.data {
+        syn::Data::Struct(s) => {
+            if !s.fields.is_empty() {
+                return error();
+            }
+            let Some(matcher) = attrs.iter().find(|attr| {
+                attr.path().get_ident().filter(|i| *i == "matcher").is_some()
+            }) else {
+                return 
+                syn::Error::new(
+                    Span::call_site(),
+                    "derive(StateMatcher) on a unit struct requires a [matcher = matcher_pattern] attribute",
+                )
+                .into_compile_error()
+                .into();
+            };
+            
+            let matcher = match ({
+                let state_type = state_type.clone();
+                matcher.parse_args_with(move |input: &ParseBuffer<'_>| {
+                Matcher::parse_with_state_type(input, Some(state_type))
+            })}) {
+                Ok(matcher) => matcher,
+                Err(e) => {
+                return syn::Error::new(
+                        Span::call_site(),
+                        format!("Couldn't parse matcher pattern - {e:?}"),
+                    )
+                    .into_compile_error()
+                    .into();
+                }
+            };
+
+            let matcher = MatchTypes::from_matcher_type_vec(matcher.matchers);
+            let matcher = generate_match_function(format_ident!("matcher"), &state_type, &matcher);
+
+            quote!(
+                #matcher
+                
+
+                matcher(main, secondary)
+            )
+        },
+        syn::Data::Enum(e) => {
+            let contents = e.variants.iter().map(|v| {
+                if !v.fields.is_empty() {
+                    return Err(syn::Error::new(
+                        Span::call_site(),
+                        "derive(StateMatcher) only supports fieldless enums and unit structs",
+                    ));
+                }
+
+                let Some(matcher) = v.attrs.iter().find(|attr| {
+                    attr.path().get_ident().filter(|i| *i == "matcher").is_some()
+                }) else {
+                    return 
+                    Err(syn::Error::new(
+                        Span::call_site(),
+                        "derive(StateMatcher) on an enum requires a [matcher = matcher_pattern] attribute on every variant",
+                    ));
+                };
+
+                let matcher = {
+                    let state_type = state_type.clone();
+                    matcher.parse_args_with(move |input: &ParseBuffer<'_>| {
+                    Matcher::parse_with_state_type(input, Some(state_type))
+                })};
+                
+                let matcher = match matcher {
+                    Ok(matcher) => matcher,
+                    Err(e) => {
+                    return Err(syn::Error::new(
+                            Span::call_site(),
+                            format!("Couldn't parse matcher pattern in variant - {e:?}"),
+                        ));
+                    }
+                };
+    
+                let matcher = MatchTypes::from_matcher_type_vec(matcher.matchers);
+
+                let name = &v.ident;
+
+                let matcher = generate_match_function(format_ident!("matcher"), &state_type, &matcher);
+    
+                Ok(quote!(
+                    Self::#name => {
+                        #matcher
+
+                        matcher(main, secondary)
+                    }
+                ))
+            }).collect::<syn::Result<Vec<_>>>();
+            match contents {                
+                Ok(contents) => {
+                    let contents=  TokenStream::from_iter(contents);
+                    quote!(
+                        match self {
+                            #contents
+                        }                        
+                    )
+                }
+
+                Err(e) => {
+                    return syn::Error::new(
+                        Span::call_site(),
+                        format!("Couldn't process enum: {e:?}"),
+                    )
+                    .into_compile_error()
+                    .into();
+                }
+            }
+            
+        },
+        _ => {
+            return error();
+        }
+    };
+
+    let generics = ast.generics;
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
+    let mut trait_path = bevy_ecs_path();
+    trait_path.segments.push(format_ident!("schedule").into());
+    let struct_name = &ast.ident;
+
+    quote! {
+        impl #impl_generics #trait_path::StateMatcher<#state_type> for #struct_name #ty_generics #where_clause {
+            fn match_state_transition(
+                &self,
+                main: Option<&#state_type>,
+                secondary: Option<&#state_type>,
+            ) -> #trait_path::MatchesStateTransition {
+                #matcher
+            }
+        }
+    }
+    .into()
+}
+
 fn generate_match_function(
     match_function_name: Ident,
     state_type: &Path,
@@ -541,12 +648,12 @@ fn generate_match_function(
         .map(|(every, matcher)| match matcher {
             MatchTypes::Expression(e) => {
                 if *every {
-                    quote!(if #e.match_state(main) { return true; }
+                    quote!(if #e.match_state(main) { return #module_path::MatchesStateTransition::TransitionMatches; }
                     )
                 } else {
                     quote!(match #e.match_state_transition(main) {
-                            #module_path::MatchesStateTransition::TransitionMatches => { return true; },
-                            #module_path::MatchesStateTransition::MainMatches => { return false; },
+                            #module_path::MatchesStateTransition::TransitionMatches => { return #module_path::MatchesStateTransition::TransitionMatches; },
+                            #module_path::MatchesStateTransition::MainMatches => { return #module_path::MatchesStateTransition::MainMatches; },
                             _ => {}
                         }
                     )
@@ -559,7 +666,7 @@ fn generate_match_function(
                                 #tokens
                             }
 
-                            if matches(main) { return true; }
+                            if matches(main) { return #module_path::MatchesStateTransition::TransitionMatches; }
                             
                         }
                     )
@@ -570,9 +677,13 @@ fn generate_match_function(
                             }
 
                             if matches(main) {  if let Some(secondary) = secondary {
-                                return !matches(secondary);
+                                if matches(secondary) {
+                                    return #module_path::MatchesStateTransition::MainMatches; 
+                                } else {
+                                    return #module_path::MatchesStateTransition::TransitionMatches;
+                                }
                             } else {
-                                return true;
+                                return #module_path::MatchesStateTransition::TransitionMatches;
                             } }
                         }
                     )
@@ -583,7 +694,7 @@ fn generate_match_function(
                     quote!({
                             let matches = #tokens;
 
-                            if matches(main) { return true; }
+                            if matches(main) { return #module_path::MatchesStateTransition::TransitionMatches; }
                         }
                     )
                 } else {
@@ -592,8 +703,8 @@ fn generate_match_function(
 
                             
                             match matches.match_state_transition(main) {
-                                #module_path::MatchesStateTransition::TransitionMatches => { return true; },
-                                #module_path::MatchesStateTransition::MainMatches => { return false; },
+                                #module_path::MatchesStateTransition::TransitionMatches => { return #module_path::MatchesStateTransition::TransitionMatches; },
+                                #module_path::MatchesStateTransition::MainMatches => { return #module_path::MatchesStateTransition::MainMatches; },
                                 _ => {}
                             }
                         }
@@ -608,12 +719,12 @@ fn generate_match_function(
     quote!(
         let #match_function_name = |main: Option<&#state_type>, secondary: Option<&#state_type>| {
             let Some(main) = main else {
-                return false;
+                return  #module_path::MatchesStateTransition::NoMatch;
             };
 
             #tokens
 
-            return false;
+            return  #module_path::MatchesStateTransition::NoMatch;
         };
     )
 }

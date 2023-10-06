@@ -483,14 +483,6 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
     states::derive_states(input)
 }
 
-/// A macro for generating a struct implementing `StateMatcher<S>` that matches a specific pattern.
-/// Use:
-/// `state_matcher!(pub MyMatcherStruct, MyStatesType, AState | AComplexState(false))`
-#[proc_macro]
-pub fn state_matcher(input: TokenStream) -> TokenStream {
-    state_matchers::define_state_matcher(input).expect("Couldn't parse `state_matcher!`")
-}
-
 /// Generate `OnEnter` schedules, using either:
 /// - a pre-existing matcher, like so `on_enter!(MyMatcher)`
 /// - a specific state value, like so `on_enter!(MyState::Variant)` or `on_enter!(MyState::HasValue { value: true})`
@@ -545,4 +537,9 @@ pub fn state_matches(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn on_transition(input: TokenStream) -> TokenStream {
     on_transition_macro(input)
+}
+
+#[proc_macro_derive(StateMatcher, attributes(matcher, state_type))]
+pub fn derive_state_matcher(input: TokenStream) -> TokenStream {
+    state_matchers::derive_state_matcher(input)
 }
