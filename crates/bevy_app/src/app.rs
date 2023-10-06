@@ -11,7 +11,7 @@ use bevy_ecs::{
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug, HashMap};
+use bevy_utils::{intern::Interned, thiserror::Error, tracing::debug};
 use std::fmt::Debug;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 
@@ -115,10 +115,7 @@ impl App {
     /// Use this constructor if you want to customize scheduling, exit handling, cleanup, etc.
     pub fn empty() -> App {
         Self {
-            sub_apps: SubApps {
-                main: SubApp::new(),
-                sub_apps: HashMap::new(),
-            },
+            sub_apps: SubApps::new(),
             tls: ThreadLocalStorage::new(),
             runner: Some(Box::new(run_once)),
         }
@@ -171,7 +168,7 @@ impl App {
             let thread = std::thread::spawn(move || {
                 let result = catch_unwind(AssertUnwindSafe(|| {
                     sub_apps.update();
-                    send.send(AppEvent::Exit(Box::new(sub_apps))).unwrap();
+                    send.send(AppEvent::Exit(sub_apps)).unwrap();
                 }));
 
                 if let Some(payload) = result.err() {
@@ -186,10 +183,8 @@ impl App {
                     AppEvent::Task(f) => {
                         f(&mut tls.lock());
                     }
-                    AppEvent::Exit(boxed) => {
-                        // SAFETY: `Box::<T>::into_raw` returns a pointer that is properly aligned
-                        // and points to an initialized value of `T`.
-                        sub_apps = unsafe { std::ptr::read(Box::into_raw(boxed)) };
+                    AppEvent::Exit(x) => {
+                        sub_apps = x;
                         thread.join().unwrap();
                         break;
                     }
@@ -931,7 +926,7 @@ fn run_once(mut app: App) {
         let thread = std::thread::spawn(move || {
             let result = catch_unwind(AssertUnwindSafe(|| {
                 sub_apps.update();
-                send.send(AppEvent::Exit(Box::new(sub_apps))).unwrap();
+                send.send(AppEvent::Exit(sub_apps)).unwrap();
             }));
 
             if let Some(payload) = result.err() {

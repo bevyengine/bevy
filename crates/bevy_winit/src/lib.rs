@@ -1544,7 +1544,7 @@ mod runner {
                                 trace!("exiting app");
                                 // return sub-apps to the main thread
                                 if event_loop_proxy
-                                    .send_event(AppEvent::Exit(Box::new(sub_apps)))
+                                    .send_event(AppEvent::Exit(sub_apps))
                                     .is_err()
                                 {
                                     trace!("terminating app because event loop disconnected");

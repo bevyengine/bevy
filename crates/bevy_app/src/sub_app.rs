@@ -360,12 +360,19 @@ impl SubApp {
 #[derive(Default)]
 pub struct SubApps {
     /// The primary sub-app that contains the "main" world.
-    pub main: SubApp,
+    pub main: Box<SubApp>,
     /// Other, labeled sub-apps.
     pub sub_apps: HashMap<InternedAppLabel, SubApp>,
 }
 
 impl SubApps {
+    pub(crate) fn new() -> Self {
+        Self {
+            main: Box::new(SubApp::new()),
+            sub_apps: HashMap::new(),
+        }
+    }
+
     /// Calls [`update`](SubApp::update) for the main sub-app, and then calls
     /// [`extract`](SubApp::extract) and [`update`](SubApp::update) for the rest.
     pub fn update(&mut self) {
@@ -388,11 +395,11 @@ impl SubApps {
 
     /// Returns an iterator over the sub-apps (starting with the main one).
     pub fn iter(&self) -> impl Iterator<Item = &SubApp> + '_ {
-        std::iter::once(&self.main).chain(self.sub_apps.values())
+        std::iter::once(self.main.as_ref()).chain(self.sub_apps.values())
     }
 
     /// Returns a mutable iterator over the sub-apps (starting with the main one).
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut SubApp> + '_ {
-        std::iter::once(&mut self.main).chain(self.sub_apps.values_mut())
+        std::iter::once(self.main.as_mut()).chain(self.sub_apps.values_mut())
     }
 }

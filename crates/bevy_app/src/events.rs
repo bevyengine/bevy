@@ -7,7 +7,7 @@ pub enum AppEvent {
     /// The app has sent a task with access to [`ThreadLocals`](bevy_ecs::prelude::ThreadLocals).
     Task(ThreadLocalTask),
     /// The app has exited.
-    Exit(Box<crate::SubApps>),
+    Exit(crate::SubApps),
     /// The app has errored.
     Error(Box<dyn Any + Send>),
 }

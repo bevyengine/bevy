@@ -129,7 +129,7 @@ impl Plugin for ScheduleRunnerPlugin {
                                     }
                                 }
 
-                                send.send(AppEvent::Exit(Box::new(sub_apps))).unwrap();
+                                send.send(AppEvent::Exit(sub_apps)).unwrap();
                             }));
 
                             if let Some(payload) = result.err() {
