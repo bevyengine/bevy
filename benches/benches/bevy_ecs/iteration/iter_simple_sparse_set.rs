@@ -35,6 +35,7 @@ impl<'w> Benchmark<'w> {
         Self(world, query)
     }
 
+    #[inline(never)]
     pub fn run(&mut self) {
         for (velocity, mut position) in self.1.iter_mut(&mut self.0) {
             position.0 += velocity.0;

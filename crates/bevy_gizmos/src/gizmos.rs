@@ -1,4 +1,4 @@
-//! A module for the [`Gizmos`](crate::gizmos::Gizmos) [`SystemParam`](bevy_ecs::system::SystemParam).
+//! A module for the [`Gizmos`] [`SystemParam`].
 
 use std::{f32::consts::TAU, iter};
 
@@ -23,7 +23,7 @@ pub(crate) struct GizmoStorage {
     pub strip_colors: Vec<ColorItem>,
 }
 
-/// A [`SystemParam`](bevy_ecs::system::SystemParam) for drawing gizmos.
+/// A [`SystemParam`] for drawing gizmos.
 ///
 /// They are drawn in immediate mode, which means they will be rendered only for
 /// the frames in which they are spawned.

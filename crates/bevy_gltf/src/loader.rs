@@ -48,28 +48,43 @@ use thiserror::Error;
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
 pub enum GltfError {
+    /// Unsupported primitive mode.
     #[error("unsupported primitive mode")]
-    UnsupportedPrimitive { mode: Mode },
+    UnsupportedPrimitive {
+        /// The primitive mode.
+        mode: Mode,
+    },
+    /// Invalid glTF file.
     #[error("invalid glTF file: {0}")]
     Gltf(#[from] gltf::Error),
+    /// Binary blob is missing.
     #[error("binary blob is missing")]
     MissingBlob,
+    /// Decoding the base64 mesh data failed.
     #[error("failed to decode base64 mesh data")]
     Base64Decode(#[from] base64::DecodeError),
+    /// Unsupported buffer format.
     #[error("unsupported buffer format")]
     BufferFormatUnsupported,
+    /// Invalid image mime type.
     #[error("invalid image mime type: {0}")]
     InvalidImageMimeType(String),
+    /// Error when loading a texture. Might be due to a disabled image file format feature.
     #[error("You may need to add the feature for the file format: {0}")]
     ImageError(#[from] TextureError),
+    /// Failed to read bytes from an asset path.
     #[error("failed to read bytes from an asset path: {0}")]
     ReadAssetBytesError(#[from] ReadAssetBytesError),
+    /// Failed to load asset from an asset path.
     #[error("failed to load asset from an asset path: {0}")]
     AssetLoadError(#[from] AssetLoadError),
+    /// Missing sampler for an animation.
     #[error("Missing sampler for animation {0}")]
     MissingAnimationSampler(usize),
+    /// Failed to generate tangents.
     #[error("failed to generate tangents: {0}")]
     GenerateTangentsError(#[from] bevy_render::mesh::GenerateTangentsError),
+    /// Failed to generate morph targets.
     #[error("failed to generate morph targets: {0}")]
     MorphTarget(#[from] bevy_render::mesh::morph::MorphBuildError),
     #[error("failed to load file: {0}")]
@@ -78,7 +93,13 @@ pub enum GltfError {
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
 pub struct GltfLoader {
+    /// List of compressed image formats handled by the loader.
     pub supported_compressed_formats: CompressedImageFormats,
+    /// Custom vertex attributes that will be recognized when loading a glTF file.
+    ///
+    /// Keys must be the attribute names as found in the glTF data, which must start with an underscore.
+    /// See [this section of the glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
+    /// for additional details on custom attributes.
     pub custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
 }
 

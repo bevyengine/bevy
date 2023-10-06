@@ -34,6 +34,9 @@ pub struct Shader {
     pub additional_imports: Vec<naga_oil::compose::ImportDefinition>,
     // any shader defs that will be included when this module is used
     pub shader_defs: Vec<ShaderDefVal>,
+    // we must store strong handles to our dependencies to stop them
+    // from being immediately dropped if we are the only user.
+    pub file_dependencies: Vec<Handle<Shader>>,
 }
 
 impl Shader {
@@ -75,6 +78,7 @@ impl Shader {
             source: Source::Wgsl(source),
             additional_imports: Default::default(),
             shader_defs: Default::default(),
+            file_dependencies: Default::default(),
         }
     }
 
@@ -104,6 +108,7 @@ impl Shader {
             source: Source::Glsl(source, stage),
             additional_imports: Default::default(),
             shader_defs: Default::default(),
+            file_dependencies: Default::default(),
         }
     }
 
@@ -116,6 +121,7 @@ impl Shader {
             source: Source::SpirV(source.into()),
             additional_imports: Default::default(),
             shader_defs: Default::default(),
+            file_dependencies: Default::default(),
         }
     }
 
@@ -256,7 +262,7 @@ impl AssetLoader for ShaderLoader {
 
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            let shader = match ext {
+            let mut shader = match ext {
                 "spv" => Shader::from_spirv(bytes, load_context.path().to_string_lossy()),
                 "wgsl" => Shader::from_wgsl(
                     String::from_utf8(bytes)?,
@@ -280,11 +286,10 @@ impl AssetLoader for ShaderLoader {
                 _ => panic!("unhandled extension: {ext}"),
             };
 
-            // collect file dependencies
+            // collect and store file dependencies
             for import in &shader.imports {
                 if let ShaderImport::AssetPath(asset_path) = import {
-                    // TODO: should we just allow this handle to be dropped?
-                    let _handle: Handle<Shader> = load_context.load(asset_path);
+                    shader.file_dependencies.push(load_context.load(asset_path));
                 }
             }
             Ok(shader)
