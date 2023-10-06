@@ -1,8 +1,12 @@
-use super::{Meshlet, MeshletBoundingCone, MeshletBoundingSphere, MeshletMesh};
-use crate::mesh::{Indices, Mesh};
+use super::{
+    asset::Meshlet, asset::MeshletBoundingCone, asset::MeshletBoundingSphere, asset::MeshletMesh,
+};
 use bevy_asset::anyhow::{bail, Error};
+use bevy_render::{
+    mesh::{Indices, Mesh},
+    render_resource::PrimitiveTopology,
+};
 use meshopt::{build_meshlets, compute_meshlet_bounds_decoder, VertexDataAdapter};
-use wgpu::PrimitiveTopology;
 
 impl MeshletMesh {
     pub fn from_mesh(mesh: &Mesh) -> Result<Self, Error> {
@@ -20,6 +24,7 @@ impl MeshletMesh {
         {
             bail!("Mesh attributes were not {{POSITION, NORMAL, UV_0, TANGENT}}");
         }
+        // TODO: Handle u16 indices and non-indexed meshes
         let indices = match mesh.indices() {
             Some(Indices::U32(indices)) => indices,
             _ => bail!("Mesh indicies were not Some(Indices::U32)"),
@@ -54,7 +59,7 @@ impl MeshletMesh {
         }
 
         Ok(Self {
-            mesh_vertex_data: vertex_buffer.into_boxed_slice(),
+            vertex_data: vertex_buffer.into_boxed_slice(),
             meshlet_vertex_buffer: meshlets.vertices.into_boxed_slice(),
             meshlet_index_buffer: meshlets.triangles.into_boxed_slice(),
             meshlets: meshlets

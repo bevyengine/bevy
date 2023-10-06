@@ -1,5 +1,6 @@
 #![allow(clippy::type_complexity)]
 
+pub mod meshlet;
 pub mod wireframe;
 
 mod alpha;
@@ -62,6 +63,7 @@ use bevy_render::{
 };
 use bevy_transform::TransformSystem;
 use environment_map::EnvironmentMapPlugin;
+use meshlet::MeshletPlugin;
 
 pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1708015359337029744);
 pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5635987986427308186);
@@ -178,6 +180,7 @@ impl Plugin for PbrPlugin {
                     prepass_enabled: self.prepass_enabled,
                     ..Default::default()
                 },
+                MeshletPlugin,
                 ScreenSpaceAmbientOcclusionPlugin,
                 EnvironmentMapPlugin,
                 ExtractResourcePlugin::<AmbientLight>::default(),
