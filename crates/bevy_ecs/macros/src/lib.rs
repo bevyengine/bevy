@@ -13,7 +13,9 @@ use bevy_macro_utils::{
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
-use state_matchers::{simple_state_transition_macros, state_matches_macro, MatchMacro};
+use state_matchers::{
+    on_transition_macro, simple_state_transition_macros, state_matches_macro, MatchMacro,
+};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
     ConstParam, DeriveInput, GenericParam, Ident, Index, TypeParam,
@@ -529,4 +531,18 @@ pub fn state_matches(input: TokenStream) -> TokenStream {
     let result =
         state_matchers::define_match_macro(input).expect("Couldn't parse `state_matches!`");
     state_matches_macro(result)
+}
+
+/// Generate `OnExit` schedules, using either:
+/// - a pre-existing matcher, like so `on_exit!(MyMatcher)`
+/// - a specific state value, like so `on_exit!(MyState::Variant)` or `on_exit!(MyState::HasValue { value: true})`
+/// - a matching pattern, like so `on_exit!(MyMatcher, HasValue { .. })`. Note that with matching
+/// patterns, you do  not need to repeat the type within the pattern.
+///
+/// This schedule will only run when the next state does not match. If you want to run
+/// the schedule whenever we exit a matching state, regardless of the next state,
+/// use `on_exit_strict!`
+#[proc_macro]
+pub fn on_transition(input: TokenStream) -> TokenStream {
+    on_transition_macro(input)
 }
