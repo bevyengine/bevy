@@ -365,15 +365,15 @@ pub fn simple_state_transition_macros(
             module_path.segments.push(
                 Ident::new(
                     match macro_type {
-                        MatchMacro::OnEnter => "OnEnter",
-                        MatchMacro::OnExit => "OnExit",
+                        MatchMacro::OnEnter => "OnStateEntry",
+                        MatchMacro::OnExit => "OnStateExit",
                     },
                     Span::call_site(),
                 )
                 .into(),
             );
 
-            quote!(#module_path(#expr))
+            quote!(#module_path::default().matching(#expr))
         }
         (Some(state_type), _, _) => {
             let match_function = generate_match_function(format_ident!("matcher"), &state_type, &matchers);
@@ -694,7 +694,7 @@ fn generate_match_function(
                     quote!({
                             let matches = #tokens;
 
-                            if matches(main) { return #module_path::MatchesStateTransition::TransitionMatches; }
+                            if matches.match_state(main) { return #module_path::MatchesStateTransition::TransitionMatches; }
                         }
                     )
                 } else {
