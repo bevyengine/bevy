@@ -10,7 +10,6 @@
 // type aliases tends to obfuscate code while offering no improvement in code cleanliness.
 #![allow(clippy::type_complexity)]
 
-use bevy::ecs::schedule::{OnStateEntry, OnStateExit};
 use bevy::prelude::*;
 
 fn main() {
