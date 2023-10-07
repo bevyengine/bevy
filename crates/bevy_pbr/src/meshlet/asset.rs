@@ -15,7 +15,8 @@ pub struct MeshletMesh {
     pub meshlet_bounding_cones: Arc<[MeshletBoundingCone]>,
 }
 
-#[derive(Serialize, Deserialize, Copy, Clone)]
+#[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
+#[repr(C)]
 pub struct Meshlet {
     pub meshlet_vertices_index: u32,
     pub meshlet_indices_index: u32,

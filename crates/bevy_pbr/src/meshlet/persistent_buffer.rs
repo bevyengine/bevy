@@ -9,7 +9,7 @@ use std::{borrow::Cow, ops::Range};
 pub struct PersistentGpuBuffer<T: PersistentGpuBufferable> {
     label: &'static str,
     buffer: Buffer,
-    write_queue: Vec<T>,
+    write_queue: Vec<(T, T::ExtraData)>,
     last_write_address: u64,
     next_queued_write_address: u64,
 }
@@ -30,11 +30,11 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
         }
     }
 
-    pub fn queue_write(&mut self, data: T) -> Range<u64> {
+    pub fn queue_write(&mut self, data: T, extra_data: T::ExtraData) -> Range<u64> {
         let start_address = self.next_queued_write_address;
         self.next_queued_write_address += data.size_in_bytes();
 
-        self.write_queue.push(data);
+        self.write_queue.push((data, extra_data));
 
         start_address..self.next_queued_write_address
     }
@@ -46,8 +46,8 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
 
         // TODO: Maybe create a large storage buffer to use as the staging buffer,
         // instead of many small writes?
-        for item in self.write_queue.drain(..) {
-            let bytes = item.as_bytes_le(self.last_write_address);
+        for (data, extra_data) in self.write_queue.drain(..) {
+            let bytes = data.as_bytes_le(extra_data);
             render_queue.write_buffer(&self.buffer, self.last_write_address, &bytes);
             self.last_write_address += bytes.len() as u64;
         }
@@ -78,9 +78,9 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
 /// SAFETY: All data must be a multiple of wgpu::COPY_BUFFER_ALIGNMENT bytes.
 /// The size given by size_in_bytes() must match as_bytes_le().
 pub trait PersistentGpuBufferable {
+    type ExtraData;
+
     fn size_in_bytes(&self) -> u64;
 
-    // TODO: This API is actually wrong. It's not the start address of the current
-    // buffer that we need, but a _different_ buffer
-    fn as_bytes_le<'a>(&'a self, start_address: u64) -> Cow<'a, [u8]>;
+    fn as_bytes_le<'a>(&'a self, extra_data: Self::ExtraData) -> Cow<'a, [u8]>;
 }
