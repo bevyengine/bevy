@@ -54,6 +54,8 @@ use std::collections::BTreeMap;
 /// builder.extract_entity(entity);
 /// let dynamic_scene = builder.build();
 /// ```
+///
+/// [`Reflect`]: bevy_reflect::Reflect
 pub struct DynamicSceneBuilder<'w> {
     extracted_resources: BTreeMap<ComponentId, Box<dyn PartialReflect>>,
     extracted_scene: BTreeMap<Entity, DynamicEntity>,
