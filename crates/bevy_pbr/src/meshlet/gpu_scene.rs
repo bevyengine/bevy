@@ -10,7 +10,10 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    render_resource::{BindGroup, BindGroupLayout, BindGroupLayoutDescriptor},
+    render_resource::{
+        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntry, BindingType, BufferBindingType, ShaderStages,
+    },
     renderer::{RenderDevice, RenderQueue},
     Extract,
 };
@@ -96,7 +99,75 @@ impl FromWorld for MeshletGpuScene {
             meshlet_mesh_slices: HashMap::new(),
             bind_group_layout: render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("meshlet_gpu_scene_bind_group_layout"),
-                entries: &[], // TODO
+                // TODO: min_binding_sizes
+                entries: &[
+                    // Vertex data
+                    BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStages::COMPUTE,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    // Meshlet vertices
+                    BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: ShaderStages::COMPUTE,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    // Meshlet indices
+                    BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: ShaderStages::COMPUTE,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    // Meshlets
+                    BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: ShaderStages::COMPUTE,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    // Meshlet bounding spheres
+                    BindGroupLayoutEntry {
+                        binding: 4,
+                        visibility: ShaderStages::COMPUTE,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    // Meshlet bounding cones
+                    BindGroupLayoutEntry {
+                        binding: 5,
+                        visibility: ShaderStages::COMPUTE,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
             }),
         }
     }
@@ -143,8 +214,37 @@ impl MeshletGpuScene {
         &self.bind_group_layout
     }
 
-    pub fn create_per_frame_bind_group(&self) -> BindGroup {
-        todo!()
+    pub fn create_per_frame_bind_group(&self, render_device: &RenderDevice) -> BindGroup {
+        render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("meshlet_gpu_scene_bind_group"),
+            layout: &self.bind_group_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: self.vertex_data.binding(),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: self.meshlet_vertices.binding(),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: self.meshlet_indices.binding(),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: self.meshlets.binding(),
+                },
+                BindGroupEntry {
+                    binding: 4,
+                    resource: self.meshlet_bounding_spheres.binding(),
+                },
+                BindGroupEntry {
+                    binding: 5,
+                    resource: self.meshlet_bounding_cones.binding(),
+                },
+            ],
+        })
     }
 }
 
