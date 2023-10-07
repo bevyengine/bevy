@@ -83,22 +83,7 @@ use bevy_reflect::std_traits::ReflectDefault;
 ///
 ///
 
-pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {
-    /// Provides a default instance of the [`OnStateEntry`] schedule label for this state type
-    fn entering() -> OnStateEntry<Self> {
-        OnStateEntry::default()
-    }
-
-    /// Provides a default instance of the [`OnStateExit`] schedule label for this state type
-    fn exiting() -> OnStateExit<Self> {
-        OnStateExit::default()
-    }
-
-    /// Provides a default instance of the [`OnStateTransition`] schedule label for this state type
-    fn transitioning() -> OnStateTransition<Self> {
-        OnStateTransition::default()
-    }
-}
+pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {}
 
 /// A marker struct denoting that the StateMatcher
 /// is on a [`States`] object directly, and relies
@@ -302,51 +287,16 @@ pub struct OnTransition<S: States> {
     pub to: S,
 }
 
-/// A schedule for every time a state of type S is entered
+/// A schedule for every time a state is entered
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
-pub struct OnStateEntry<S: States>(PhantomData<S>);
-
-/// A schedule for every time a state of type S is changed
+pub struct Entering;
+/// A schedule for every time a state is changed
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
-pub struct OnStateTransition<S: States>(PhantomData<S>);
+pub struct Transitioning;
 
-/// A schedule for every time a state of type S is exited
+/// A schedule for every time a state is exited
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
-pub struct OnStateExit<S: States>(PhantomData<S>);
-
-impl<S: States> OnStateEntry<S> {
-    /// Get a `ConditionalScheduleLabel` for whenever we enter a matching `S`
-    /// from a non-matching `S`
-    ///
-    /// designed to be used via [`entering!`] macro
-    pub fn matching<Marker>(self, matcher: impl StateMatcher<S, Marker>) -> impl Condition<()> {
-        run_condition_on_match::<State<S>, PreviousState<S>, _, _>(matcher)
-    }
-}
-
-impl<S: States> OnStateExit<S> {
-    /// Get a `ConditionalScheduleLabel` for whenever we exit a matching `S`
-    /// to a non-matching `S`
-    ///
-    /// designed to be used via [`exiting!`] macro
-    pub fn matching<Marker>(self, matcher: impl StateMatcher<S, Marker>) -> impl Condition<()> {
-        run_condition_on_match::<PreviousState<S>, State<S>, _, _>(matcher)
-    }
-}
-
-impl<S: States> OnStateTransition<S> {
-    /// Get a `ConditionalScheduleLabel` for whenever we move from a state that matches `from` and not `to`,
-    /// to a state that matches `to` and not `from`
-    pub fn matching<Marker1, Marker2>(
-        self,
-        from: impl StateMatcher<S, Marker1>,
-        to: impl StateMatcher<S, Marker2>,
-    ) -> impl Condition<()> {
-        run_condition_on_match::<State<S>, PreviousState<S>, _, _>(from).and_then(
-            run_condition_on_match::<PreviousState<S>, State<S>, _, _>(to),
-        )
-    }
-}
+pub struct Exiting;
 
 /// A finite-state machine whose transitions have associated schedules
 /// ([`OnEnter(state)`] and [`OnExit(state)`]).
@@ -469,9 +419,7 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
         return;
     };
     world.try_run_schedule(OnEnter(state)).ok();
-    world
-        .try_run_schedule(OnStateEntry::<S>(PhantomData::<S>))
-        .ok();
+    world.try_run_schedule(Entering).ok();
 }
 
 /// If a new state is queued in [`NextState<S>`], this system:
@@ -498,18 +446,16 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
             let exited = mem::replace(&mut state_resource.0, entered.clone());
             // Try to run the schedules if they exist.
             world.try_run_schedule(OnExit(exited.clone())).ok();
-            world.try_run_schedule(OnStateExit::<S>::default()).ok();
+            world.try_run_schedule(Exiting).ok();
             world
                 .try_run_schedule(OnTransition {
                     from: exited,
                     to: entered.clone(),
                 })
                 .ok();
-            world
-                .try_run_schedule(OnStateTransition::<S>::default())
-                .ok();
+            world.try_run_schedule(Transitioning).ok();
             world.try_run_schedule(OnEnter(entered)).ok();
-            world.try_run_schedule(OnStateEntry::<S>::default()).ok();
+            world.try_run_schedule(Entering).ok();
             world.remove_resource::<PreviousState<S>>();
         }
 

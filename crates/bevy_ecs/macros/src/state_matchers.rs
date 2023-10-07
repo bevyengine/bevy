@@ -362,41 +362,41 @@ pub fn simple_state_transition_macros(
 
             let mut module_path = bevy_ecs_path();
             module_path.segments.push(format_ident!("schedule").into());
+            module_path.segments.push(format_ident!("common_conditions").into());
             module_path.segments.push(
                 Ident::new(
                     match macro_type {
-                        MatchMacro::OnEnter => "OnStateEntry",
-                        MatchMacro::OnExit => "OnStateExit",
+                        MatchMacro::OnEnter => "entering",
+                        MatchMacro::OnExit => "exiting",
                     },
                     Span::call_site(),
                 )
                 .into(),
             );
 
-            quote!(#module_path::default().matching(#expr))
+            quote!(#module_path(#expr))
         }
         (Some(state_type), _, _) => {
             let match_function = generate_match_function(format_ident!("matcher"), &state_type, &matchers);
 
-            let mut module_path = state_type.clone();
-
-            match macro_type {
-                MatchMacro::OnEnter => {
-                    module_path
-                        .segments
-                        .push(format_ident!("entering").into());
-                }
-                MatchMacro::OnExit => {
-                    module_path
-                        .segments
-                        .push(format_ident!("exiting").into());
-                }
-            }
+            let mut module_path = bevy_ecs_path();
+            module_path.segments.push(format_ident!("schedule").into());
+            module_path.segments.push(format_ident!("common_conditions").into());
+            module_path.segments.push(
+                Ident::new(
+                    match macro_type {
+                        MatchMacro::OnEnter => "entering",
+                        MatchMacro::OnExit => "exiting",
+                    },
+                    Span::call_site(),
+                )
+                .into(),
+            );
 
             quote!({
                 #match_function
 
-                #module_path().matching(matcher)
+                #module_path::<#state_type, _>(matcher)
             })
         }
         _ => panic!("No State Type")
@@ -446,7 +446,9 @@ pub fn transitioning_macro(input: proc_macro::TokenStream) -> proc_macro::TokenS
     let to_matchers = MatchTypes::from_matcher_type_vec(to_matchers);
     let to_function = generate_match_function(format_ident!("to_matcher"), &state_type, &to_matchers);
 
-    let mut module_path = state_type.clone();
+    let mut module_path = bevy_ecs_path();
+    module_path.segments.push(format_ident!("schedule").into());
+    module_path.segments.push(format_ident!("common_conditions").into());
     module_path
         .segments
         .push(format_ident!("transitioning").into());
@@ -456,7 +458,7 @@ pub fn transitioning_macro(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
         #to_function
 
-        #module_path().matching(from_matcher, to_matcher)
+        #module_path::<#state_type, _, _>(from_matcher, to_matcher)
     }).into()
 }
 

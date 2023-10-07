@@ -10,6 +10,7 @@
 // type aliases tends to obfuscate code while offering no improvement in code cleanliness.
 #![allow(clippy::type_complexity)]
 
+use bevy::ecs::schedule::{Entering, Exiting};
 use bevy::prelude::*;
 
 fn main() {
@@ -23,10 +24,7 @@ fn main() {
         // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.
         // All systems from the exit schedule of the state we're leaving are run first,
         // and then all systems from the enter schedule of the state we're entering are run second.
-        .add_systems(
-            AppState::entering(),
-            setup_menu.run_if(entering!(AppState::Menu)),
-        )
+        .add_systems(Entering, setup_menu.run_if(entering!(AppState::Menu)))
         // The `OnEnter` struct can accept any valid state object, not just enums
         .add_systems(OnEnter(AppState::InGame(GameState::Paused)), setup_paused)
         // In addition to `OnEnter` and `OnExit`, you can run systems any other schedule as well.
@@ -36,11 +34,11 @@ fn main() {
         // But that is not all - we can use pattern matching with the `entering! macro
         // Which lets us run the system whenever we enter a matching state from one that doesn't maatch
         .add_systems(
-            AppState::entering(),
+            Entering,
             setup_game.run_if(entering!(AppState, InGame { .. })),
         )
         .add_systems(
-            AppState::entering(),
+            Entering,
             setup_in_game_ui.run_if(entering!(AppState, InGame(GameState::Running(_)))),
         )
         // Both `entering!` and `exiting` also have `_strict` versions, which will match whenever
@@ -48,7 +46,7 @@ fn main() {
         // As a result, this system will run on every state transition, because every state matches
         // the pattern. If it were not strict, this system would never run.
         .add_systems(
-            AppState::exiting(),
+            Exiting,
             cleanup_ui.run_if(exiting!(AppState, InGame(GameState::Running(_)), every _)),
         )
         // You can also use pattern matching when in a state, using the `in_state!` macro
