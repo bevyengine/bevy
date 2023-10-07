@@ -787,7 +787,7 @@ pub mod common_conditions {
     ///
     /// *world.resource_mut::<State<GameState>>() = State::new(GameState::Paused);
     /// ```
-    pub fn state_matching<S: States, M: StateMatcher<S, Marker>, Marker>(
+    pub fn state_matches<S: States, M: StateMatcher<S, Marker>, Marker>(
         matcher: M,
     ) -> impl FnMut(Option<Res<State<S>>>) -> bool {
         move |current_state: Option<Res<State<S>>>| match current_state {

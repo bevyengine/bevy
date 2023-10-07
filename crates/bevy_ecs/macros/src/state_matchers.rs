@@ -413,7 +413,7 @@ pub fn state_matches_macro(match_result: MatchMacroResult) -> proc_macro::TokenS
             module_path.segments.push(format_ident!("schedule").into());
             module_path.segments.push(format_ident!("common_conditions").into());
             module_path.segments.push(
-                format_ident!("state_matching").into()
+                format_ident!("state_matches").into()
             );
 
             quote!(#module_path(#expr))
@@ -624,8 +624,8 @@ pub fn derive_state_matcher(input: proc_macro::TokenStream) -> proc_macro::Token
     let struct_name = &ast.ident;
 
     quote! {
-        impl #impl_generics #trait_path::StateMatcher<#state_type> for #struct_name #ty_generics #where_clause {
-            fn match_state_transition(
+        impl #impl_generics #trait_path::TransitionStateMatcher<#state_type> for #struct_name #ty_generics #where_clause {
+            fn match_transition(
                 &self,
                 main: Option<&#state_type>,
                 secondary: Option<&#state_type>,
