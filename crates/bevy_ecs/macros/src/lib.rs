@@ -483,41 +483,66 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
     states::derive_states(input)
 }
 
-/// Generate `OnEnter` schedules, using either:
-/// - a pre-existing matcher, like so `on_enter!(MyMatcher)`
-/// - a specific state value, like so `on_enter!(MyState::Variant)` or `on_enter!(MyState::HasValue { value: true})`
-/// - a matching pattern, like so `on_enter!(MyMatcher, HasValue { .. })`. Note that with matching
-/// patterns, you do  not need to repeat the type within the pattern.
+#[proc_macro_derive(StateMatcher, attributes(matcher, state_type))]
+pub fn derive_state_matcher(input: TokenStream) -> TokenStream {
+    state_matchers::derive_state_matcher(input)
+}
+
+/// Schedule your systems to run when entering a matching state.
 ///
-/// This schedule will only run when the previous state does not match. If you want to run
-/// the schedule whenever we enter a matching state, regardless of the previous state,
-/// use `on_enter_strict!`
+/// This can be done by:
+/// - passing in pre-existing `StateMatcher<S>`, like so `on_enter!(AppStateMatcher)`
+/// - using matching pattern, like so `on_enter!(AppState, InGame { .. })`. Note that when matching
+/// enums, you do  not need to repeat the type within the pattern.
+/// - using a closure with a type that automatically implements `StateMatcher<S>`, like so `on_enter!(AppState, |state| { /// some logic here - return a bool})`
+///
+/// Using the `every` keyword before a pattern or closure ensures that the state will trigger every time you enter a matching state, regardless of whether the previous state also matched.
+/// By default, it will skip execution if the previous state matched as well.
+///
+/// For example, when moving from `AppState::InGame(GameState::PlayerTurn)` to `AppState::InGame(GameState::EnemyTurn)`, systems added with the `on_enter!(AppState, every AppState::InGame(_))` schedule will run, will systems added with the `on_enter(AppState, AppState::InGame(_))` will not run.
+/// However, both wil run if moving from `AppState::MainMenu` to `AppState::InGame(PlayerTurn)` or `AppState::InGame(EnemyTurn)`.
+///
+/// Lastly, you can also add additional patterns or closures - which will be evaluated in order.
+///
+/// For example, `on_enter!(AppState, InGame(_), every _)` will trigger whenever I enter any `InGame` state from a non-`InGame` state, as well as any time I enter any other state.
 #[proc_macro]
 pub fn on_enter(input: TokenStream) -> TokenStream {
     let result = state_matchers::define_match_macro(input).expect("Couldn't parse `on_enter!`");
     simple_state_transition_macros(MatchMacro::OnEnter, result)
 }
 
-/// Generate `OnExit` schedules, using either:
-/// - a pre-existing matcher, like so `on_exit!(MyMatcher)`
-/// - a specific state value, like so `on_exit!(MyState::Variant)` or `on_exit!(MyState::HasValue { value: true})`
-/// - a matching pattern, like so `on_exit!(MyMatcher, HasValue { .. })`. Note that with matching
-/// patterns, you do  not need to repeat the type within the pattern.
+/// Schedule your systems to run when exiting a matching state.
 ///
-/// This schedule will only run when the next state does not match. If you want to run
-/// the schedule whenever we exit a matching state, regardless of the next state,
-/// use `on_exit_strict!`
+/// This can be done by:
+/// - passing in pre-existing `StateMatcher<S>`, like so `on_exit!(AppStateMatcher)`
+/// - using matching pattern, like so `on_exit!(AppState, InGame { .. })`. Note that when matching
+/// enums, you do  not need to repeat the type within the pattern.
+/// - using a closure with a type that automatically implements `StateMatcher<S>`, like so `on_exit!(AppState, |state| { /// some logic here - return a bool})`
+///
+/// Using the `every` keyword before a pattern or closure ensures that the state will trigger every time you exit a matching state, regardless of whether the next state also matched.
+/// By default, it will skip execution if the next state matched as well.
+///
+/// For example, when moving from `AppState::InGame(GameState::PlayerTurn)` to `AppState::InGame(GameState::EnemyTurn)`, systems added with the `on_exit!(AppState, every AppState::InGame(_))` schedule will run, will systems added with the `on_exit(AppState, AppState::InGame(_))` will not run.
+/// However, both wil run if moving from either `AppState::InGame(PlayerTurn)` or `AppState::InGame(EnemyTurn)` to `AppState::MainMenu`.
+///
+/// Lastly, you can also add additional patterns or closures - which will be evaluated in order.
+///
+/// For example, `on_exit!(AppState, InGame(_), every _)` will trigger whenever I exit any `InGame` state to a non-`InGame` state, as well as any time I exit any other state.
 #[proc_macro]
 pub fn on_exit(input: TokenStream) -> TokenStream {
     let result = state_matchers::define_match_macro(input).expect("Couldn't parse `on_exit!`");
     simple_state_transition_macros(MatchMacro::OnExit, result)
 }
 
-/// Generate `in_state` condition using either:
-/// /// - a pre-existing matcher, like so `in_state!(MyMatcher)`
-/// - a specific state value, like so `in_state!(MyState::Variant)` or `in_state!(MyState::HasValue { value: true})`
-/// - a matching pattern, like so `in_state!(MyMatcher, HasValue { .. })`. Note that with matching
-/// patterns, you do  not need to repeat the type within the pattern.
+/// Run a system only if the current state matches the provided expressions.
+///
+/// This can be done by:
+/// - passing in pre-existing `StateMatcher<S>`, like so `state_matches!(AppStateMatcher)`
+/// - using matching pattern, like so `state_matches!(AppState, InGame { .. })`. Note that when matching
+/// enums, you do  not need to repeat the type within the pattern.
+/// - using a closure with a type that automatically implements `StateMatcher<S>`, like so `state_matches!(AppState, |state| { /// some logic here - return a bool})`
+///
+/// You can also add additional patterns or closures - which will be evaluated in order.
 #[proc_macro]
 pub fn state_matches(input: TokenStream) -> TokenStream {
     let result =
@@ -525,21 +550,29 @@ pub fn state_matches(input: TokenStream) -> TokenStream {
     state_matches_macro(result)
 }
 
-/// Generate `OnExit` schedules, using either:
-/// - a pre-existing matcher, like so `on_exit!(MyMatcher)`
-/// - a specific state value, like so `on_exit!(MyState::Variant)` or `on_exit!(MyState::HasValue { value: true})`
-/// - a matching pattern, like so `on_exit!(MyMatcher, HasValue { .. })`. Note that with matching
-/// patterns, you do  not need to repeat the type within the pattern.
+/// Schedule your systems to run when transitions from a state matching the `from` matcher, to one matching the `to` matcher
 ///
-/// This schedule will only run when the next state does not match. If you want to run
-/// the schedule whenever we exit a matching state, regardless of the next state,
-/// use `on_exit_strict!`
+/// To use this macro, first provide the state type `S` for your transitions, and then provide your matching patterns or closures like so:
+///
+/// `on_transition!(S, { from matching patterns and closures }, { to matching patterns and closures })`
+///
+/// The matching patterns and closures are enclosed in bracets, but otherwise follow the same syntax as the `on_enter`, `on_exit` and `state_matches` macros:
+/// - using matching pattern, like so `on_transition!(AppState, { InGame { .. } }, { AppState::MainMenu | AppState::Paused })`. Note that when matching
+/// enums, you do  not need to repeat the type within the pattern.
+/// - using a closure with a type that automatically implements `StateMatcher<S>`, like so `on_transition!(AppState, { |from_state| { /// some logic here - return a bool} }, { | to_state| { /// some logic here - return a bool}})`
+///
+/// Using the `every` keyword before a pattern or closure in the `from` section ensures that the state will trigger every time you exit a matching state, regardless of whether the next state also matched.
+/// By default, it will skip execution if the next state matched as well.
+///
+/// /// Using the `every` keyword before a pattern or closure in the `to` section ensures that the state will trigger every time you exit a matching state, regardless of whether the previous state also matched.
+/// By default, it will skip execution if the previous state matched as well.
+///
+/// For example, when moving from `AppState::InGame(GameState::PlayerTurn)` to `AppState::InGame(GameState::EnemyTurn)`, systems added with the `on_transition!(AppState, { every AppState::InGame(_) | AppState::Paused }, { AppState::InGame(_) })` schedule will run, will systems added with the `on_transition(AppState, { AppState::InGame(_) | AppState::Paused }, { AppState::InGame(GameState::EnemyTurn) })` will not run.
+//
+/// However, both wil run if moving from `AppState::Paused` to `AppState::InGame(GameState::EnemyTurn)`
+///
+/// Lastly, you can also add additional patterns or closures - which will be evaluated in order.
 #[proc_macro]
 pub fn on_transition(input: TokenStream) -> TokenStream {
     on_transition_macro(input)
-}
-
-#[proc_macro_derive(StateMatcher, attributes(matcher, state_type))]
-pub fn derive_state_matcher(input: TokenStream) -> TokenStream {
-    state_matchers::derive_state_matcher(input)
 }
