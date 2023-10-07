@@ -931,8 +931,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                     ticks: Ticks::new(
                         added_ticks.get(table_row.index()).deref(),
                         changed_ticks.get(table_row.index()).deref(),
-                        fetch.this_run,
                         fetch.last_run,
+                        fetch.this_run,
                     ),
                 }
             }
@@ -1092,8 +1092,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     ticks: TicksMut::new(
                         added_ticks.get(table_row.index()).deref_mut(),
                         changed_ticks.get(table_row.index()).deref_mut(),
-                        fetch.this_run,
                         fetch.last_run,
+                        fetch.this_run,
                     ),
                 }
             }
