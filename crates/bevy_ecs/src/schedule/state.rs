@@ -85,6 +85,14 @@ use bevy_reflect::std_traits::ReflectDefault;
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {}
 
 /// A marker struct denoting that the StateMatcher
+/// is derived from a SimpleStateMatcher impl
+pub struct FromSimpleStateMatcher;
+
+/// A marker struct denoting that the StateMatcher
+/// is derived from a TransitionStateMatcher impl
+pub struct FromTransitionStateMatcher;
+
+/// A marker struct denoting that the StateMatcher
 /// is on a [`States`] object directly, and relies
 /// on it's Eq implementation
 pub struct StatesInherentMatcher;
@@ -141,9 +149,7 @@ impl From<bool> for MatchesStateTransition {
 /// Types that can match world-wide states.
 pub trait StateMatcher<S: States, Marker = ()>: Send + Sync + Sized + 'static {
     /// Check whether to match with the current state
-    fn match_state(&self, state: &S) -> bool {
-        self.match_state_transition(Some(state), None) != MatchesStateTransition::NoMatch
-    }
+    fn match_state(&self, state: &S) -> bool;
 
     /// Check whether to match a state transition
     fn match_state_transition(
@@ -153,21 +159,70 @@ pub trait StateMatcher<S: States, Marker = ()>: Send + Sync + Sized + 'static {
     ) -> MatchesStateTransition;
 }
 
-impl<S: States> StateMatcher<S, StatesInherentMatcher> for S {
-    fn match_state_transition(&self, state: Option<&S>, _: Option<&S>) -> MatchesStateTransition {
-        let Some(state) = state else {
-            return false.into();
-        };
-        (self == state).into()
+/// Define a state matcher using a single state conditional
+pub trait SingleStateMatcher<S: States, Marker = ()>: Send + Sync + Sized + 'static {
+    /// Check whether to match with the current state
+    fn match_single_state(&self, state: &S) -> bool;
+}
+
+/// Define a state matcher with custom transition logic
+pub trait TransitionStateMatcher<S: States, Marker = ()>: Send + Sync + Sized + 'static {
+    /// Check whether to match a state transition
+    fn match_transition(&self, main: Option<&S>, secondary: Option<&S>) -> MatchesStateTransition;
+}
+
+impl<S: States, M, Matcher: SingleStateMatcher<S, M>> StateMatcher<S, (FromSimpleStateMatcher, M)>
+    for Matcher
+{
+    fn match_state(&self, state: &S) -> bool {
+        self.match_single_state(state)
+    }
+
+    fn match_state_transition(
+        &self,
+        main: Option<&S>,
+        secondary: Option<&S>,
+    ) -> MatchesStateTransition {
+        match main.map(|s| self.match_single_state(s)) {
+            Some(true) => match secondary {
+                Some(s) => match self.match_single_state(s) {
+                    true => MatchesStateTransition::TransitionMatches,
+                    false => MatchesStateTransition::NoMatch,
+                },
+                None => MatchesStateTransition::MainMatches,
+            },
+            _ => MatchesStateTransition::NoMatch,
+        }
     }
 }
 
-impl<S: States, F: 'static + Send + Sync + Fn(&S) -> bool> StateMatcher<S, SimpleFnMatcher> for F {
-    fn match_state_transition(&self, state: Option<&S>, _: Option<&S>) -> MatchesStateTransition {
-        let Some(state) = state else {
-            return false.into();
-        };
-        self(state).into()
+impl<S: States, M, Matcher: TransitionStateMatcher<S, M>>
+    StateMatcher<S, (FromTransitionStateMatcher, M)> for Matcher
+{
+    fn match_state(&self, state: &S) -> bool {
+        self.match_transition(Some(state), None) != MatchesStateTransition::NoMatch
+    }
+
+    fn match_state_transition(
+        &self,
+        main: Option<&S>,
+        secondary: Option<&S>,
+    ) -> MatchesStateTransition {
+        self.match_transition(main, secondary)
+    }
+}
+
+impl<S: States> SingleStateMatcher<S, StatesInherentMatcher> for S {
+    fn match_single_state(&self, state: &S) -> bool {
+        state == self
+    }
+}
+
+impl<S: States, F: 'static + Send + Sync + Fn(&S) -> bool> SingleStateMatcher<S, SimpleFnMatcher>
+    for F
+{
+    fn match_single_state(&self, state: &S) -> bool {
+        self(state)
     }
 }
 
@@ -184,18 +239,18 @@ impl<S: States, F: 'static + Send + Sync + Fn(&S, Option<&S>) -> MatchesStateTra
         };
         self(main, secondary)
     }
+
+    fn match_state(&self, state: &S) -> bool {
+        self(state, None) != MatchesStateTransition::NoMatch
+    }
 }
 
 impl<
         S: States,
         F: 'static + Send + Sync + Fn(Option<&S>, Option<&S>) -> MatchesStateTransition,
-    > StateMatcher<S, OptionalTransitionFnMatcher> for F
+    > TransitionStateMatcher<S, OptionalTransitionFnMatcher> for F
 {
-    fn match_state_transition(
-        &self,
-        main: Option<&S>,
-        secondary: Option<&S>,
-    ) -> MatchesStateTransition {
+    fn match_transition(&self, main: Option<&S>, secondary: Option<&S>) -> MatchesStateTransition {
         self(main, secondary)
     }
 }
@@ -218,6 +273,10 @@ impl<S: States, F: 'static + Send + Sync + Fn(&S, Option<&S>) -> bool>
             false => MatchesStateTransition::MainMatches,
         }
     }
+
+    fn match_state(&self, state: &S) -> bool {
+        self(state, None)
+    }
 }
 
 impl<S: States, F: 'static + Send + Sync + Fn(Option<&S>, Option<&S>) -> bool>
@@ -235,6 +294,9 @@ impl<S: States, F: 'static + Send + Sync + Fn(Option<&S>, Option<&S>) -> bool>
             true => MatchesStateTransition::TransitionMatches,
             false => MatchesStateTransition::MainMatches,
         }
+    }
+    fn match_state(&self, state: &S) -> bool {
+        self(Some(state), None)
     }
 }
 /// Get a [`Condition`] for running whenever `MainResource<S>` matches regardless of

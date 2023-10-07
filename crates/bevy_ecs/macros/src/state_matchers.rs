@@ -653,7 +653,7 @@ fn generate_match_function(
                     quote!(if #e.match_state(main) { return #module_path::MatchesStateTransition::TransitionMatches; }
                     )
                 } else {
-                    quote!(match #e.match_state_transition(main) {
+                    quote!(match #e.match_state_transition(Some(main), secondary) {
                             #module_path::MatchesStateTransition::TransitionMatches => { return #module_path::MatchesStateTransition::TransitionMatches; },
                             #module_path::MatchesStateTransition::MainMatches => { return #module_path::MatchesStateTransition::MainMatches; },
                             _ => {}
@@ -704,7 +704,7 @@ fn generate_match_function(
                             let matches = #tokens;
 
                             
-                            match matches.match_state_transition(main) {
+                            match matches.match_state_transition(Some(main), secondary) {
                                 #module_path::MatchesStateTransition::TransitionMatches => { return #module_path::MatchesStateTransition::TransitionMatches; },
                                 #module_path::MatchesStateTransition::MainMatches => { return #module_path::MatchesStateTransition::MainMatches; },
                                 _ => {}
