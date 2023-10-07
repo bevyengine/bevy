@@ -1,9 +1,5 @@
 use super::{
-    persistent_buffer::PersistentGpuBuffer,
-    psb_wrappers::{
-        ByteArrayPsb, MeshletMeshBoundingConesPsb, MeshletMeshBoundingSpheresPsb,
-        MeshletMeshMeshletsPsb, MeshletMeshVerticesPsb,
-    },
+    persistent_buffer::PersistentGpuBuffer, Meshlet, MeshletBoundingCone, MeshletBoundingSphere,
     MeshletMesh,
 };
 use bevy_asset::{AssetId, Assets, Handle};
@@ -62,12 +58,12 @@ pub fn perform_pending_meshlet_mesh_writes(
 
 #[derive(Resource)]
 pub struct MeshletGpuScene {
-    vertex_data: PersistentGpuBuffer<ByteArrayPsb>,
-    meshlet_vertices: PersistentGpuBuffer<MeshletMeshVerticesPsb>,
-    meshlet_indices: PersistentGpuBuffer<ByteArrayPsb>,
-    meshlets: PersistentGpuBuffer<MeshletMeshMeshletsPsb>,
-    meshlet_bounding_spheres: PersistentGpuBuffer<MeshletMeshBoundingSpheresPsb>,
-    meshlet_bounding_cones: PersistentGpuBuffer<MeshletMeshBoundingConesPsb>,
+    vertex_data: PersistentGpuBuffer<Arc<[u8]>>,
+    meshlet_vertices: PersistentGpuBuffer<Arc<[u32]>>,
+    meshlet_indices: PersistentGpuBuffer<Arc<[u8]>>,
+    meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
+    meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSphere]>>,
+    meshlet_bounding_cones: PersistentGpuBuffer<Arc<[MeshletBoundingCone]>>,
     meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, MeshletMeshGpuSceneSlice>,
 
     bind_group_layout: BindGroupLayout,
@@ -117,26 +113,22 @@ impl MeshletGpuScene {
 
             let vertex_data_slice = self
                 .vertex_data
-                .queue_write(ByteArrayPsb(Arc::clone(&meshlet_mesh.vertex_data)), ());
+                .queue_write(Arc::clone(&meshlet_mesh.vertex_data), ());
             let meshlet_vertices_slice = self.meshlet_vertices.queue_write(
-                MeshletMeshVerticesPsb(Arc::clone(&meshlet_mesh.meshlet_vertices)),
+                Arc::clone(&meshlet_mesh.meshlet_vertices),
                 vertex_data_slice.start,
             );
             let meshlet_indices_slice = self
                 .meshlet_indices
-                .queue_write(ByteArrayPsb(Arc::clone(&meshlet_mesh.meshlet_indices)), ());
+                .queue_write(Arc::clone(&meshlet_mesh.meshlet_indices), ());
             let meshlet_slice = self.meshlets.queue_write(
-                MeshletMeshMeshletsPsb(Arc::clone(&meshlet_mesh.meshlets)),
+                Arc::clone(&meshlet_mesh.meshlets),
                 (meshlet_vertices_slice.start, meshlet_indices_slice.start),
             );
-            self.meshlet_bounding_spheres.queue_write(
-                MeshletMeshBoundingSpheresPsb(Arc::clone(&meshlet_mesh.meshlet_bounding_spheres)),
-                (),
-            );
-            self.meshlet_bounding_cones.queue_write(
-                MeshletMeshBoundingConesPsb(Arc::clone(&meshlet_mesh.meshlet_bounding_cones)),
-                (),
-            );
+            self.meshlet_bounding_spheres
+                .queue_write(Arc::clone(&meshlet_mesh.meshlet_bounding_spheres), ());
+            self.meshlet_bounding_cones
+                .queue_write(Arc::clone(&meshlet_mesh.meshlet_bounding_cones), ());
 
             MeshletMeshGpuSceneSlice((meshlet_slice.start / 16)..(meshlet_slice.end / 16))
         };
