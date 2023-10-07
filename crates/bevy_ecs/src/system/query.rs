@@ -320,11 +320,11 @@ use std::{any::TypeId, borrow::Borrow};
 /// [`single_mut`]: Self::single_mut
 /// [`SparseSet`]: crate::storage::SparseSet
 /// [System parameter]: crate::system::SystemParam
-/// [`With`]: crate::query::With
 /// [`Table`]: crate::storage::Table
+/// [`With`]: crate::query::With
 /// [`Without`]: crate::query::Without
-// SAFETY: Must have access to the components registered in `state`.
 pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
+    // SAFETY: Must have access to the components registered in `state`.
     world: UnsafeWorldCell<'world>,
     state: &'state QueryState<Q, F>,
     last_run: Tick,
