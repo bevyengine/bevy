@@ -1,6 +1,5 @@
 use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
 pub use bevy_derive::AppLabel;
-use bevy_ecs::schedule::ConditionalScheduleLabel;
 use bevy_ecs::{
     prelude::*,
     schedule::{
@@ -327,14 +326,15 @@ impl App {
         self.plugin_registry = plugin_registry;
     }
 
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, an instance of [`apply_state_transition::<S>`] in
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
+    /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
     /// [`StateTransition`] so that transitions happen before [`Update`](crate::Update) and
     /// a instance of [`run_enter_schedule::<S>`] in [`StateTransition`] with a
     /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
     /// initial state.
     ///
     /// If you would like to control how other systems run based on the current state,
-    /// you can emulate this behavior using the [`in_state()`] or [`state_matches()`] [`Condition`](bevy_ecs::schedule::Condition)s.
+    /// you can emulate this behavior using the [`in_state`] [`Condition`].
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
@@ -344,7 +344,6 @@ impl App {
             .add_systems(
                 StateTransition,
                 (
-                    // We need to run the enter schedule of the initial state upon startup
                     run_enter_schedule::<S>.run_if(run_once_condition()),
                     apply_state_transition::<S>,
                 )
@@ -375,14 +374,12 @@ impl App {
     /// app.add_systems(Update, (system_a, system_b, system_c));
     /// app.add_systems(Update, (system_a, system_b).run_if(should_run));
     /// ```
-    pub fn add_systems<M, S: ScheduleLabel>(
+    pub fn add_systems<M>(
         &mut self,
-        schedule: impl ConditionalScheduleLabel<S>,
+        schedule: impl ScheduleLabel,
         systems: impl IntoSystemConfigs<M>,
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
-
-        let (schedule, systems) = schedule.apply_condition_to_systems(systems);
 
         if let Some(schedule) = schedules.get_mut(&schedule) {
             schedule.add_systems(systems);
@@ -398,9 +395,9 @@ impl App {
     /// Configures a system set in the default schedule, adding the set if it does not exist.
     #[deprecated(since = "0.12.0", note = "Please use `configure_sets` instead.")]
     #[track_caller]
-    pub fn configure_set<S: ScheduleLabel>(
+    pub fn configure_set(
         &mut self,
-        schedule: impl ConditionalScheduleLabel<S>,
+        schedule: impl ScheduleLabel,
         set: impl IntoSystemSetConfigs,
     ) -> &mut Self {
         self.configure_sets(schedule, set)
@@ -408,15 +405,12 @@ impl App {
 
     /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.
     #[track_caller]
-    pub fn configure_sets<S: ScheduleLabel>(
+    pub fn configure_sets(
         &mut self,
-        schedule: impl ConditionalScheduleLabel<S>,
+        schedule: impl ScheduleLabel,
         sets: impl IntoSystemSetConfigs,
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
-
-        let (schedule, sets) = schedule.apply_condition_to_system_sets(sets);
-
         if let Some(schedule) = schedules.get_mut(&schedule) {
             schedule.configure_sets(sets);
         } else {
