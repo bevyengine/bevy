@@ -4,7 +4,9 @@ use super::{
 };
 use bevy_asset::{AssetId, Assets, Handle};
 use bevy_ecs::{
-    system::{Query, Res, ResMut, Resource},
+    component::Component,
+    entity::Entity,
+    system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_render::{
@@ -19,12 +21,14 @@ use bevy_utils::HashMap;
 use std::{ops::Range, sync::Arc};
 
 pub fn extract_meshlet_meshes(
-    query: Extract<Query<&Handle<MeshletMesh>>>,
+    mut commands: Commands,
+    query: Extract<Query<(Entity, &Handle<MeshletMesh>)>>,
     assets: Extract<Res<Assets<MeshletMesh>>>,
     mut gpu_scene: ResMut<MeshletGpuScene>,
 ) {
-    for handle in &query {
-        gpu_scene.queue_meshlet_mesh_upload(handle, &assets);
+    for (entity, handle) in &query {
+        let scene_slice = gpu_scene.queue_meshlet_mesh_upload(handle, &assets);
+        commands.entity(entity).insert(scene_slice);
 
         // TODO: Unload MeshletMesh asset
     }
@@ -64,7 +68,7 @@ pub struct MeshletGpuScene {
     meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSphere]>>,
     meshlet_bounding_cones: PersistentGpuBuffer<Arc<[MeshletBoundingCone]>>,
 
-    meshlet_mesh_meshlet_slices: HashMap<AssetId<MeshletMesh>, Range<u64>>,
+    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, MeshletMeshGpuSceneSlice>,
     bind_group_layout: BindGroupLayout,
 }
 
@@ -92,7 +96,7 @@ impl FromWorld for MeshletGpuScene {
                 render_device,
             ),
 
-            meshlet_mesh_meshlet_slices: HashMap::new(),
+            meshlet_mesh_slices: HashMap::new(),
             bind_group_layout: render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("meshlet_gpu_scene_bind_group_layout"),
                 // TODO: min_binding_sizes
@@ -174,7 +178,7 @@ impl MeshletGpuScene {
         &mut self,
         handle: &Handle<MeshletMesh>,
         assets: &Assets<MeshletMesh>,
-    ) {
+    ) -> MeshletMeshGpuSceneSlice {
         let queue_meshlet_mesh = |asset_id: &AssetId<MeshletMesh>| {
             let meshlet_mesh = assets.get(*asset_id).expect("TODO");
 
@@ -197,12 +201,13 @@ impl MeshletGpuScene {
             self.meshlet_bounding_cones
                 .queue_write(Arc::clone(&meshlet_mesh.meshlet_bounding_cones), ());
 
-            (meshlet_slice.start / 16)..(meshlet_slice.end / 16)
+            MeshletMeshGpuSceneSlice((meshlet_slice.start / 16)..(meshlet_slice.end / 16))
         };
 
-        self.meshlet_mesh_meshlet_slices
+        self.meshlet_mesh_slices
             .entry(handle.id())
-            .or_insert_with_key(queue_meshlet_mesh);
+            .or_insert_with_key(queue_meshlet_mesh)
+            .clone()
     }
 
     pub fn bind_group_layout(&self) -> &BindGroupLayout {
@@ -242,3 +247,6 @@ impl MeshletGpuScene {
         })
     }
 }
+
+#[derive(Component, Clone)]
+pub struct MeshletMeshGpuSceneSlice(Range<u64>);
