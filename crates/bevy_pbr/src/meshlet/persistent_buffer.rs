@@ -67,9 +67,10 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
     }
 
     fn expand_buffer(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
+        let size = (self.buffer.size() * 2).max(4 + self.next_queued_write_address);
         let new_buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some(self.label),
-            size: self.buffer.size() * 2,
+            size,
             usage: BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
