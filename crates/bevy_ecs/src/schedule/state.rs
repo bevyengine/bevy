@@ -186,10 +186,10 @@ impl<S: States, M, Matcher: SingleStateMatcher<S, M>> StateMatcher<S, (FromSimpl
         match main.map(|s| self.match_single_state(s)) {
             Some(true) => match secondary {
                 Some(s) => match self.match_single_state(s) {
-                    true => MatchesStateTransition::TransitionMatches,
-                    false => MatchesStateTransition::NoMatch,
+                    true => MatchesStateTransition::MainMatches,
+                    false => MatchesStateTransition::TransitionMatches,
                 },
-                None => MatchesStateTransition::MainMatches,
+                None => MatchesStateTransition::TransitionMatches,
             },
             _ => MatchesStateTransition::NoMatch,
         }
@@ -502,6 +502,7 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
     };
     if let Some(entered) = entered {
         if current_state != entered {
+            println!("moving from {current_state:?} to {entered:?}");
             world.insert_resource(PreviousState(current_state));
             let mut state_resource = world.resource_mut::<State<S>>();
             let exited = mem::replace(&mut state_resource.0, entered.clone());
