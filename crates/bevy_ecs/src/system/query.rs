@@ -400,17 +400,61 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns another `Query` that returns a subset of the data that the original query does. This can be
-    /// useful for passing the query to another function.
-    pub fn generalize<NewQ: WorldQuery>(self) -> GeneralizedQuery<'w, NewQ> {
+    /// Returns a [`QueryLens`] that can be used to get a query with a more restricted fetch.
+    /// i.e. Tranform a `Query<(&A, &mut B)>` to a `Query<&B>`.
+    /// This can be useful for passing the query to another function.
+    ///
+    /// ## Panics
+    ///
+    /// This will panic if `NewQ` is not a subset of `Q` or if `F` includes `Added` or `Changed`.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::system::QueryLens;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct A(usize);
+    /// #
+    /// # #[derive(Component)]
+    /// # struct B(usize);
+    /// #
+    /// # let mut world = World::new();
+    /// #
+    /// # world.spawn((A(10), B(5)));
+    ///
+    /// fn function_that_uses_a_query(lens: &QueryLens<&A>) {
+    ///     assert_eq!(lens.query().single().0, 10);
+    /// }
+    ///
+    /// fn system_1(query: Query<&A>) {
+    ///     function_that_uses_a_query(&query.into_query_lens());
+    /// }
+    ///
+    /// fn system_2(query: Query<(&mut A, &B)>) {
+    ///     let lens = query.restrict_fetch::<&A>();
+    ///     function_that_uses_a_query(&lens);
+    /// }
+    ///
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_systems((system_1, system_2));
+    /// # schedule.run(&mut world);
+    /// ```
+    pub fn restrict_fetch<NewQ: WorldQuery>(&mut self) -> QueryLens<'_, NewQ> {
         let new_state = self.state.generalize(self.world);
 
-        GeneralizedQuery {
+        QueryLens {
             state: new_state,
             world: self.world,
             last_run: self.last_run,
             this_run: self.this_run,
         }
+    }
+
+    /// helper method to get a QueryLens with the same fetch as the existing query
+    pub fn into_query_lens(&mut self) -> QueryLens<'_, Q> {
+        self.restrict_fetch()
     }
 
     /// Returns an [`Iterator`] over the read-only query items.
@@ -1534,14 +1578,14 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 }
 
 /// A type used to store the generalized query's state.
-pub struct GeneralizedQuery<'world, NewQ: WorldQuery> {
+pub struct QueryLens<'world, NewQ: WorldQuery> {
     world: UnsafeWorldCell<'world>,
     state: QueryState<NewQ, ()>,
     last_run: Tick,
     this_run: Tick,
 }
 
-impl<'world, NewQ: WorldQuery> GeneralizedQuery<'world, NewQ> {
+impl<'world, NewQ: WorldQuery> QueryLens<'world, NewQ> {
     /// get the query associated with Generalized Query
     pub fn query(&self) -> Query<'world, '_, NewQ, ()> {
         Query {

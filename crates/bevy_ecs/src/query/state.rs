@@ -138,7 +138,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         state
     }
 
-    /// Transform a query into a more generic query. If the original query state did
+    /// Transform a [`QueryState`] into a more generic [`QueryState`]. If the original query state did
     /// not have the same access this will panic.
     /// Probably should not call update archetype generation on this query state as the results will
     /// be very unpredictable as new archetypes could be added that don't match old query
