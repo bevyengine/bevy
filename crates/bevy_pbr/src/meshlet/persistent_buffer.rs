@@ -44,8 +44,10 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
             self.expand_buffer(render_device, render_queue);
         }
 
-        // TODO: Maybe create a large storage buffer to use as the staging buffer,
-        // instead of many small writes?
+        // TODO: Create a large storage buffer to use as the staging buffer,
+        // and write bytes directly into it, instead of many small GPU writes.
+        //
+        // Have PersistentGpuBufferable take a &mut Vec<u8> to write to.
         for (data, extra_data) in self.write_queue.drain(..) {
             let bytes = data.as_bytes_le(extra_data);
             render_queue.write_buffer(&self.buffer, self.last_write_address, &bytes);

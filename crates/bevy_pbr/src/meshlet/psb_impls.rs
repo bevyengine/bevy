@@ -44,8 +44,6 @@ impl PersistentGpuBufferable for Arc<[Meshlet]> {
         let vertex_offset = vertex_offset as u32 / 4;
         let index_offset = index_offset as u32;
 
-        // TODO: This allocation can probably be avoided by modifying self in place
-        // and then using bytemuck::cast_slice()
         self.iter()
             .flat_map(|meshlet| {
                 bytemuck::cast::<_, [u8; 16]>(Meshlet {
