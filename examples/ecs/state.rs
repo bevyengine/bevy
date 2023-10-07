@@ -25,8 +25,8 @@ fn main() {
         // All systems from the exit schedule of the state we're leaving are run first,
         // and then all systems from the enter schedule of the state we're entering are run second.
         .add_systems(
-            OnStateEntry::<AppState>::default(),
-            setup_menu.run_if(on_enter!(AppState::Menu)),
+            AppState::entering(),
+            setup_menu.run_if(entering!(AppState::Menu)),
         )
         // The `OnEnter` struct can accept any valid state object, not just enums
         .add_systems(OnEnter(AppState::InGame(GameState::Paused)), setup_paused)
@@ -34,23 +34,23 @@ fn main() {
         // To do so, you will want to add the `in_state()` run condition, which will check
         // if we're in the correct state every time the schedule runs. In this case - that's every frame.
         .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
-        // But that is not all - we can use pattern matching with the `on_enter! macro
+        // But that is not all - we can use pattern matching with the `entering! macro
         // Which lets us run the system whenever we enter a matching state from one that doesn't maatch
         .add_systems(
-            OnStateEntry::<AppState>::default(),
-            setup_game.run_if(on_enter!(AppState, InGame { .. })),
+            AppState::entering(),
+            setup_game.run_if(entering!(AppState, InGame { .. })),
         )
         .add_systems(
-            OnStateEntry::<AppState>::default(),
-            setup_in_game_ui.run_if(on_enter!(AppState, InGame(GameState::Running(_)))),
+            AppState::entering(),
+            setup_in_game_ui.run_if(entering!(AppState, InGame(GameState::Running(_)))),
         )
-        // Both `on_enter!` and `on_exit` also have `_strict` versions, which will match whenever
+        // Both `entering!` and `exiting` also have `_strict` versions, which will match whenever
         // we enter/exit a matching system regardless if the previous/next system matched as well.
         // As a result, this system will run on every state transition, because every state matches
         // the pattern. If it were not strict, this system would never run.
         .add_systems(
-            OnStateExit::<AppState>::default(),
-            cleanup_ui.run_if(on_exit!(AppState, InGame(GameState::Running(_)), every _)),
+            AppState::exiting(),
+            cleanup_ui.run_if(exiting!(AppState, InGame(GameState::Running(_)), every _)),
         )
         // You can also use pattern matching when in a state, using the `in_state!` macro
         // This works just like the `in_state()` function, but relies on pattern matching rather than

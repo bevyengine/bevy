@@ -12,7 +12,7 @@ use crate::reflect::ReflectResource;
 use crate::schedule::ScheduleLabel;
 use crate::system::{IntoSystem, Resource};
 use crate::world::World;
-pub use bevy_ecs_macros::{on_enter, on_exit, on_transition, state_matches, StateMatcher, States};
+pub use bevy_ecs_macros::{entering, exiting, state_matches, transitioning, StateMatcher, States};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
 
@@ -85,17 +85,17 @@ use bevy_reflect::std_traits::ReflectDefault;
 
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {
     /// Provides a default instance of the [`OnStateEntry`] schedule label for this state type
-    fn on_state_entry_schedule() -> OnStateEntry<Self> {
+    fn entering() -> OnStateEntry<Self> {
         OnStateEntry::default()
     }
 
     /// Provides a default instance of the [`OnStateExit`] schedule label for this state type
-    fn on_state_exit_schedule() -> OnStateExit<Self> {
+    fn exiting() -> OnStateExit<Self> {
         OnStateExit::default()
     }
 
     /// Provides a default instance of the [`OnStateTransition`] schedule label for this state type
-    fn on_state_transition_schedule() -> OnStateTransition<Self> {
+    fn transitioning() -> OnStateTransition<Self> {
         OnStateTransition::default()
     }
 }
@@ -318,7 +318,7 @@ impl<S: States> OnStateEntry<S> {
     /// Get a `ConditionalScheduleLabel` for whenever we enter a matching `S`
     /// from a non-matching `S`
     ///
-    /// designed to be used via [`on_enter!`] macro
+    /// designed to be used via [`entering!`] macro
     pub fn matching<Marker>(self, matcher: impl StateMatcher<S, Marker>) -> impl Condition<()> {
         run_condition_on_match::<State<S>, PreviousState<S>, _, _>(matcher)
     }
@@ -328,7 +328,7 @@ impl<S: States> OnStateExit<S> {
     /// Get a `ConditionalScheduleLabel` for whenever we exit a matching `S`
     /// to a non-matching `S`
     ///
-    /// designed to be used via [`on_exit!`] macro
+    /// designed to be used via [`exiting!`] macro
     pub fn matching<Marker>(self, matcher: impl StateMatcher<S, Marker>) -> impl Condition<()> {
         run_condition_on_match::<PreviousState<S>, State<S>, _, _>(matcher)
     }

@@ -384,12 +384,12 @@ pub fn simple_state_transition_macros(
                 MatchMacro::OnEnter => {
                     module_path
                         .segments
-                        .push(format_ident!("on_state_entry_schedule").into());
+                        .push(format_ident!("entering").into());
                 }
                 MatchMacro::OnExit => {
                     module_path
                         .segments
-                        .push(format_ident!("on_state_exit_schedule").into());
+                        .push(format_ident!("exiting").into());
                 }
             }
 
@@ -438,7 +438,7 @@ pub fn state_matches_macro(match_result: MatchMacroResult) -> proc_macro::TokenS
     }.into()
 }
 
-pub fn on_transition_macro(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn transitioning_macro(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let TransitionMatcher { state_type, from_matchers, to_matchers } = syn::parse(input).expect("Couldn't parse transition matcher");
     
     let from_matchers = MatchTypes::from_matcher_type_vec(from_matchers);
@@ -449,7 +449,7 @@ pub fn on_transition_macro(input: proc_macro::TokenStream) -> proc_macro::TokenS
     let mut module_path = state_type.clone();
     module_path
         .segments
-        .push(format_ident!("on_state_transition_schedule").into());
+        .push(format_ident!("transitioning").into());
 
     quote!({
         #from_function
