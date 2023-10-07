@@ -188,7 +188,7 @@ pub mod common_conditions {
         system::{IntoSystem, Res, Resource, System},
     };
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the first time the condition is run and false every time after
     ///
     /// # Example
@@ -229,7 +229,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the resource exists.
     ///
     /// # Example
@@ -264,7 +264,7 @@ pub mod common_conditions {
         move |res: Option<Res<T>>| res.is_some()
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the resource is equal to `value`.
     ///
     /// # Panics
@@ -304,7 +304,7 @@ pub mod common_conditions {
         move |res: Res<T>| *res == value
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the resource exists and is equal to `value`.
     ///
     /// The condition will return `false` if the resource does not exist.
@@ -349,7 +349,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the resource of the given type has been added since the condition was last checked.
     ///
     /// # Example
@@ -390,7 +390,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the resource of the given type has had its value changed since the condition
     /// was last checked.
     ///
@@ -444,7 +444,7 @@ pub mod common_conditions {
         move |res: Res<T>| res.is_changed()
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the resource of the given type has had its value changed since the condition
     /// was last checked.
     ///
@@ -504,7 +504,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the resource of the given type has had its value changed since the condition
     /// was last checked.
     ///
@@ -584,7 +584,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the resource of the given type has been removed since the condition was last checked.
     ///
     /// # Example
@@ -639,7 +639,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the state machine exists.
     ///
     /// # Example
@@ -682,7 +682,7 @@ pub mod common_conditions {
         move |current_state: Option<Res<State<S>>>| current_state.is_some()
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the state machine is currently in `state`.
     ///
     /// The condition will return `false` if the state does not exist.
@@ -737,7 +737,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the state machine is in a state that matches the provided `matcher`.
     ///
     /// # Example
@@ -760,14 +760,14 @@ pub mod common_conditions {
     /// struct Playing;
     ///
     /// impl SingleStateMatcher<GameState> for Playing {
-    ///     fn match_state(&self, state: &GameState) -> bool {
+    ///     fn match_single_state(&self, state: &GameState) -> bool {
     ///         *state == GameState::Playing
     ///     }
     /// }
     ///
     /// world.init_resource::<State<GameState>>();
     ///
-    /// app.add_systems(Update,
+    /// app.add_systems(
     ///     // `state_matches` will only return true if the
     ///     // given state matches the matcher
     ///     play_system.run_if(state_matches(Playing)),
@@ -792,7 +792,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if `matcher.match_state_transition(next: &S, previous: &S)` returns `MatchesStateTransition::TransitionMatches`
     ///
     /// # Example
@@ -802,6 +802,8 @@ pub mod common_conditions {
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
     /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # let mut transition_schedule = Schedule::new(Entering);
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
@@ -815,14 +817,15 @@ pub mod common_conditions {
     /// struct Pause;
     ///
     /// impl SingleStateMatcher<GameState> for Pause {
-    ///     fn match_state(&self, state: &GameState) -> bool {
-    ///         *state == GameState::Pause
+    ///     fn match_single_state(&self, state: &GameState) -> bool {
+    ///         *state == GameState::Paused
     ///     }
     /// }
     ///
     /// world.init_resource::<State<GameState>>();
+    /// world.init_resource::<NextState<GameState>>();
     ///
-    /// app.add_systems(Entering,
+    /// transition_schedule.add_systems(
     ///     // `state_matches` will only return true if the
     ///     // given state matches the matcher
     ///     pause_system.run_if(entering(Pause)),
@@ -832,6 +835,12 @@ pub mod common_conditions {
     /// fn pause_system(mut counter: ResMut<Counter>) {
     ///     counter.0 += 1;
     /// }
+    ///
+    /// app.add_systems(apply_state_transition::<GameState>);
+    ///
+    /// let mut schedules = Schedules::new();
+    /// schedules.insert(transition_schedule);
+    /// world.insert_resource(schedules);
     ///
     /// // We default to `GameState::Playing` so nothing runs.
     /// app.run(&mut world);
@@ -845,16 +854,18 @@ pub mod common_conditions {
         run_condition_on_match::<State<S>, PreviousState<S>, S, M>(matcher)
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if `matcher.match_state_transition(previous: &S, next: &S)` returns `MatchesStateTransition::TransitionMatches`
     ///
     /// # Example
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::schedule::apply_state_transition;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
     /// # let mut app = Schedule::default();
+    /// # let mut transition_schedule = Schedule::new(Exiting);
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
@@ -868,14 +879,15 @@ pub mod common_conditions {
     /// struct Pause;
     ///
     /// impl SingleStateMatcher<GameState> for Pause {
-    ///     fn match_state(&self, state: &GameState) -> bool {
-    ///         *state == GameState::Pause
+    ///     fn match_single_state(&self, state: &GameState) -> bool {
+    ///         *state == GameState::Paused
     ///     }
     /// }
     ///
     /// world.init_resource::<State<GameState>>();
+    /// world.init_resource::<NextState<GameState>>();
     ///
-    /// app.add_systems(Entering,
+    /// transition_schedule.add_systems(
     ///     // `state_matches` will only return true if the
     ///     // given state matches the matcher
     ///     pause_system.run_if(exiting(Pause)),
@@ -885,6 +897,12 @@ pub mod common_conditions {
     /// fn pause_system(mut counter: ResMut<Counter>) {
     ///     counter.0 += 1;
     /// }
+    ///
+    /// app.add_systems(apply_state_transition::<GameState>);
+    ///
+    /// let mut schedules = Schedules::new();
+    /// schedules.insert(transition_schedule);
+    /// world.insert_resource(schedules);
     ///
     /// // We default to `GameState::Playing` so nothing runs.
     /// app.run(&mut world);
@@ -902,7 +920,7 @@ pub mod common_conditions {
         run_condition_on_match::<PreviousState<S>, State<S>, S, M>(matcher)
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if `from_matcher.match_state_transition(previous, next)` returns `MatchesStateTransition::TransitionMatches`
     /// and `to_matcher.match_state_transition(next, previous)` returns `MatchesStateTransition::TransitionMatches`
     ///
@@ -910,9 +928,11 @@ pub mod common_conditions {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::schedule::apply_state_transition;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
     /// # let mut app = Schedule::default();
+    /// # let mut transition_schedule = Schedule::new(Transitioning);
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
@@ -923,9 +943,11 @@ pub mod common_conditions {
     ///     SpecialMode,
     /// }
     ///
-    /// world.init_resource::<State<GameState>>();
     ///
-    /// app.add_systems(Entering,
+    /// world.init_resource::<State<GameState>>();
+    /// world.init_resource::<NextState<GameState>>();
+    ///
+    /// transition_schedule.add_systems(
     ///     // `state_matches` will only return true if the
     ///     // given state matches the matcher
     ///     special_system.run_if(transitioning(GameState::Playing, GameState::SpecialMode)),
@@ -935,6 +957,12 @@ pub mod common_conditions {
     /// fn special_system(mut counter: ResMut<Counter>) {
     ///     counter.0 += 1;
     /// }
+    ///
+    /// let mut schedules = Schedules::new();
+    /// schedules.insert(transition_schedule);
+    /// world.insert_resource(schedules);
+    ///
+    /// app.add_systems(apply_state_transition::<GameState>);
     ///
     /// // We default to `GameState::Playing` so nothing runs.
     /// app.run(&mut world);
@@ -962,7 +990,7 @@ pub mod common_conditions {
         )
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the state machine changed state.
     ///
     /// To do things on transitions to/from specific states, use their respective OnEnter/OnExit
@@ -976,6 +1004,7 @@ pub mod common_conditions {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::schedule::apply_state_transition;
     /// # #[derive(Resource, Default)]
     /// # struct Counter(u8);
     /// # let mut app = Schedule::default();
@@ -1019,7 +1048,7 @@ pub mod common_conditions {
         move |current_state: Res<State<S>>| current_state.is_changed()
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if there are any new events of the given type since it was last called.
     ///
     /// # Example
@@ -1063,7 +1092,7 @@ pub mod common_conditions {
         move |mut reader: EventReader<T>| reader.read().count() > 0
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if there are any entities with the given component type.
     ///
     /// # Example
@@ -1100,7 +1129,7 @@ pub mod common_conditions {
         move |query: Query<(), With<T>>| !query.is_empty()
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if there are any entity with a component of the given type removed.
     pub fn any_component_removed<T: Component>() -> impl FnMut(RemovedComponents<T>) -> bool {
         // `RemovedComponents` based on events and therefore events need to be consumed,
@@ -1111,7 +1140,7 @@ pub mod common_conditions {
         move |mut removals: RemovedComponents<T>| removals.read().count() != 0
     }
 
-    /// Generates a [`Condition`](super::Condition) that inverses the result of passed one.
+    /// Generates a [`Condition`] that inverses the result of passed one.
     ///
     /// # Example
     ///

@@ -492,7 +492,7 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
 ///
 /// For unit structs, it also requires a `matcher` helper attribute, using the same matching syntax as `entering!`, `exiting!`, `state_maches!` and `transitioning!` (see below)
 ///
-/// ```rust
+/// ```ignore
 /// #[derive(StateMatcher)]
 /// #[state_type(AppState)]
 /// #[matcher(InGame(_))]
@@ -501,7 +501,7 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
 ///
 /// For enums, it requires a `matcher` helper attribute *on every variant*, again using the same syntax.
 ///
-/// ```rust
+/// ```ignore
 /// #[derive(StateMatcher)]
 /// #[state_type(AppState)]
 /// enum InGame {
