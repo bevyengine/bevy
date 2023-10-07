@@ -24,7 +24,7 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
                 usage: BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
                 mapped_at_creation: false,
             }),
-            write_queue: Vec::new(),
+            write_queue: Vec::with_capacity(50),
             last_write_address: 0,
             next_queued_write_address: 0,
         }
@@ -44,6 +44,8 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
             self.expand_buffer(render_device, render_queue);
         }
 
+        let queue_count = self.write_queue.len();
+
         // TODO: Create a large storage buffer to use as the staging buffer,
         // and write bytes directly into it, instead of many small GPU writes.
         //
@@ -52,6 +54,11 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
             let bytes = data.as_bytes_le(extra_data);
             render_queue.write_buffer(&self.buffer, self.last_write_address, &bytes);
             self.last_write_address += bytes.len() as u64;
+        }
+
+        let queue_saturation = queue_count as f32 / self.write_queue.capacity() as f32;
+        if queue_saturation < 0.3 {
+            self.write_queue.shrink_to(50);
         }
     }
 
