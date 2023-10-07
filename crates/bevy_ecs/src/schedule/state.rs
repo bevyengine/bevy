@@ -326,6 +326,7 @@ impl<S: States, F: 'static + Send + Sync + Fn(Option<&S>, Option<&S>) -> bool>
         self(Some(state), None)
     }
 }
+
 /// Get a [`Condition`] for running whenever `MainResource<S>` matches regardless of
 /// whether `SecondaryResource<S>` matches, so long as they are not identical
 pub(crate) fn run_condition_on_match<
@@ -513,9 +514,9 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 
 /// If a new state is queued in [`NextState<S>`], this system:
 /// - Takes the new state value from [`NextState<S>`] and updates [`State<S>`].
-/// - Runs the [`OnExit(exited_state)`] schedule, if it exists.
-/// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
-/// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
+/// - Runs the [`OnExit(exited_state)`] and [`Exiting`] schedules, if they exist.
+/// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition) and [`Transitioning`] schedules, if they exist.
+/// - Runs the [`OnEnter(entered_state)`] and [`Entering`] schedules, if they exist.
 pub fn apply_state_transition<S: States>(world: &mut World) {
     let Some(next_state_resource) = world.get_resource::<NextState<S>>() else {
         return;

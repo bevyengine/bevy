@@ -759,7 +759,7 @@ pub mod common_conditions {
     /// #[derive(Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
     /// struct Playing;
     ///
-    /// impl StateMatcher<GameState> for Playing {
+    /// impl SingleStateMatcher<GameState> for Playing {
     ///     fn match_state(&self, state: &GameState) -> bool {
     ///         *state == GameState::Playing
     ///     }
@@ -767,18 +767,14 @@ pub mod common_conditions {
     ///
     /// world.init_resource::<State<GameState>>();
     ///
-    /// app.add_systems((
-    ///     // `state_matching` will only return true if the
+    /// app.add_systems(Update,
+    ///     // `state_matches` will only return true if the
     ///     // given state matches the matcher
-    ///     play_system.run_if(state_matching(Playing)),
-    /// ));
+    ///     play_system.run_if(state_matches(Playing)),
+    /// );
     ///
     /// fn play_system(mut counter: ResMut<Counter>) {
     ///     counter.0 += 1;
-    /// }
-    ///
-    /// fn pause_system(mut counter: ResMut<Counter>) {
-    ///     counter.0 -= 1;
     /// }
     ///
     /// // We default to `GameState::Playing` so `play_system` runs
@@ -797,20 +793,166 @@ pub mod common_conditions {
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
-    /// if `matcher.match_state_transition(IncomingState, OutgoingState)` returns `MatchesStateTransition::TransitionMatches`
+    /// if `matcher.match_state_transition(next: &S, previous: &S)` returns `MatchesStateTransition::TransitionMatches`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_resource::<Counter>();
+    /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
+    /// enum GameState {
+    ///     #[default]
+    ///     Playing,
+    ///     Paused,
+    /// }
+    ///
+    /// #[derive(Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
+    /// struct Pause;
+    ///
+    /// impl SingleStateMatcher<GameState> for Pause {
+    ///     fn match_state(&self, state: &GameState) -> bool {
+    ///         *state == GameState::Pause
+    ///     }
+    /// }
+    ///
+    /// world.init_resource::<State<GameState>>();
+    ///
+    /// app.add_systems(Entering,
+    ///     // `state_matches` will only return true if the
+    ///     // given state matches the matcher
+    ///     pause_system.run_if(entering(Pause)),
+    /// );
+    ///
+    ///
+    /// fn pause_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // We default to `GameState::Playing` so nothing runs.
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 0);
+    /// *world.resource_mut::<NextState<GameState>>() = NextState::Value(GameState::Paused);
+    ///
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    /// ```
     pub fn entering<S: States, M>(matcher: impl StateMatcher<S, M>) -> impl Condition<()> {
         run_condition_on_match::<State<S>, PreviousState<S>, S, M>(matcher)
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
-    /// if `matcher.match_state_transition(OutgoingState, IncomingState)` returns `MatchesStateTransition::TransitionMatches`
+    /// if `matcher.match_state_transition(previous: &S, next: &S)` returns `MatchesStateTransition::TransitionMatches`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_resource::<Counter>();
+    /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
+    /// enum GameState {
+    ///     #[default]
+    ///     Playing,
+    ///     Paused,
+    /// }
+    ///
+    /// #[derive(Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
+    /// struct Pause;
+    ///
+    /// impl SingleStateMatcher<GameState> for Pause {
+    ///     fn match_state(&self, state: &GameState) -> bool {
+    ///         *state == GameState::Pause
+    ///     }
+    /// }
+    ///
+    /// world.init_resource::<State<GameState>>();
+    ///
+    /// app.add_systems(Entering,
+    ///     // `state_matches` will only return true if the
+    ///     // given state matches the matcher
+    ///     pause_system.run_if(exiting(Pause)),
+    /// );
+    ///
+    ///
+    /// fn pause_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // We default to `GameState::Playing` so nothing runs.
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 0);
+    ///
+    /// *world.resource_mut::<NextState<GameState>>() = NextState::Value(GameState::Paused);
+    ///
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 0);
+    /// *world.resource_mut::<NextState<GameState>>() = NextState::Value(GameState::Playing);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    /// ```
     pub fn exiting<S: States, M>(matcher: impl StateMatcher<S, M>) -> impl Condition<()> {
         run_condition_on_match::<PreviousState<S>, State<S>, S, M>(matcher)
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
-    /// if `from_matcher.match_state_transition(OutgoingState, IncomingState)` returns `MatchesStateTransition::TransitionMatches`
-    /// and `to_matcher.match_state_transition(IncomingState, OutgoingState)` returns `MatchesStateTransition::TransitionMatches`
+    /// if `from_matcher.match_state_transition(previous, next)` returns `MatchesStateTransition::TransitionMatches`
+    /// and `to_matcher.match_state_transition(next, previous)` returns `MatchesStateTransition::TransitionMatches`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_resource::<Counter>();
+    /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
+    /// enum GameState {
+    ///     #[default]
+    ///     Playing,
+    ///     Paused,
+    ///     SpecialMode,
+    /// }
+    ///
+    /// world.init_resource::<State<GameState>>();
+    ///
+    /// app.add_systems(Entering,
+    ///     // `state_matches` will only return true if the
+    ///     // given state matches the matcher
+    ///     special_system.run_if(transitioning(GameState::Playing, GameState::SpecialMode)),
+    /// );
+    ///
+    ///
+    /// fn special_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // We default to `GameState::Playing` so nothing runs.
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 0);
+    /// *world.resource_mut::<NextState<GameState>>() = NextState::Value(GameState::Paused);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 0);
+    /// *world.resource_mut::<NextState<GameState>>() = NextState::Value(GameState::SpecialMode);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 0);
+    /// *world.resource_mut::<NextState<GameState>>() = NextState::Value(GameState::Playing);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 0);
+    /// *world.resource_mut::<NextState<GameState>>() = NextState::Value(GameState::SpecialMode);
+    ///
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    /// ```
     pub fn transitioning<S: States, M1, M2>(
         from_matcher: impl StateMatcher<S, M1>,
         to_matcher: impl StateMatcher<S, M2>,
