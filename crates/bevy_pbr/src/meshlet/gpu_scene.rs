@@ -25,6 +25,8 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use std::{ops::Range, sync::Arc};
 
+// TODO: Use ExtractToRenderInstance
+// https://github.com/bevyengine/bevy/pull/10002
 pub fn extract_meshlet_meshes(
     mut commands: Commands,
     query: Extract<
