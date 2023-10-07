@@ -105,7 +105,8 @@ pub struct MeshletGpuScene {
     meshlet_bounding_cones: PersistentGpuBuffer<Arc<[MeshletBoundingCone]>>,
 
     meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, MeshletMeshGpuSceneSlice>,
-    total_instanced_meshlet_count: u64,
+    total_instanced_meshlet_count: u64, // TODO: Will need to be a hashmap per-material
+
     bind_group_layout: BindGroupLayout,
 }
 
@@ -135,6 +136,7 @@ impl FromWorld for MeshletGpuScene {
 
             meshlet_mesh_slices: HashMap::new(),
             total_instanced_meshlet_count: 0,
+
             bind_group_layout: render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("meshlet_gpu_scene_bind_group_layout"),
                 // TODO: min_binding_sizes
@@ -257,7 +259,7 @@ impl MeshletGpuScene {
         &self.bind_group_layout
     }
 
-    pub fn create_per_render_pipeline_bind_group(&self, render_device: &RenderDevice) -> BindGroup {
+    pub fn create_bind_group(&self, render_device: &RenderDevice) -> BindGroup {
         render_device.create_bind_group(&BindGroupDescriptor {
             label: Some("meshlet_gpu_scene_bind_group"),
             layout: &self.bind_group_layout,
