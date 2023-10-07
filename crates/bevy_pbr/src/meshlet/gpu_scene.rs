@@ -28,6 +28,31 @@ pub fn extract_meshlet_meshes(
     }
 }
 
+pub fn perform_pending_meshlet_mesh_writes(
+    mut gpu_scene: ResMut<MeshletGpuScene>,
+    render_queue: Res<RenderQueue>,
+    render_device: Res<RenderDevice>,
+) {
+    gpu_scene
+        .vertex_data
+        .perform_writes(&render_queue, &render_device);
+    gpu_scene
+        .meshlet_vertices
+        .perform_writes(&render_queue, &render_device);
+    gpu_scene
+        .meshlet_indices
+        .perform_writes(&render_queue, &render_device);
+    gpu_scene
+        .meshlets
+        .perform_writes(&render_queue, &render_device);
+    gpu_scene
+        .meshlet_bounding_spheres
+        .perform_writes(&render_queue, &render_device);
+    gpu_scene
+        .meshlet_bounding_cones
+        .perform_writes(&render_queue, &render_device);
+}
+
 #[derive(Resource)]
 pub struct MeshletGpuScene {
     vertex_data: PersistentStorageBuffer<()>,
@@ -106,31 +131,6 @@ impl MeshletGpuScene {
             .entry(handle.id())
             .or_insert_with_key(queue_meshlet_mesh)
             .clone()
-    }
-
-    pub(super) fn upload_pending_meshlet_meshes(
-        mut gpu_scene: ResMut<Self>,
-        render_queue: Res<RenderQueue>,
-        render_device: Res<RenderDevice>,
-    ) {
-        gpu_scene
-            .vertex_data
-            .perform_writes(&render_queue, &render_device);
-        gpu_scene
-            .meshlet_vertices
-            .perform_writes(&render_queue, &render_device);
-        gpu_scene
-            .meshlet_indices
-            .perform_writes(&render_queue, &render_device);
-        gpu_scene
-            .meshlets
-            .perform_writes(&render_queue, &render_device);
-        gpu_scene
-            .meshlet_bounding_spheres
-            .perform_writes(&render_queue, &render_device);
-        gpu_scene
-            .meshlet_bounding_cones
-            .perform_writes(&render_queue, &render_device);
     }
 
     pub fn bind_group_layout(&self) -> &BindGroupLayout {

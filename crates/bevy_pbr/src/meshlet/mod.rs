@@ -5,7 +5,9 @@ mod persistent_buffer;
 
 pub use self::asset::{Meshlet, MeshletBoundingCone, MeshletBoundingSphere, MeshletMesh};
 
-use self::gpu_scene::{extract_meshlet_meshes, MeshletGpuScene};
+use self::gpu_scene::{
+    extract_meshlet_meshes, perform_pending_meshlet_mesh_writes, MeshletGpuScene,
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetApp;
 use bevy_ecs::{schedule::IntoSystemConfigs, system::Resource};
@@ -35,7 +37,7 @@ impl Plugin for MeshletPlugin {
             .add_systems(ExtractSchedule, extract_meshlet_meshes)
             .add_systems(
                 Render,
-                MeshletGpuScene::upload_pending_meshlet_meshes.in_set(RenderSet::PrepareAssets),
+                perform_pending_meshlet_mesh_writes.in_set(RenderSet::PrepareAssets),
             );
     }
 }
