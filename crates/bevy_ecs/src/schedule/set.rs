@@ -12,8 +12,6 @@ use crate::system::{
     ExclusiveSystemParamFunction, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
 };
 
-use super::{Condition, IntoSystemConfigs, IntoSystemSetConfigs, SystemConfigs, SystemSetConfigs};
-
 define_boxed_label!(ScheduleLabel);
 
 /// A shorthand for `Box<dyn SystemSet>`.
