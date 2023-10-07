@@ -216,19 +216,23 @@ Example | Description
 [Apply System Buffers](../examples/ecs/apply_deferred.rs) | Show how to use `apply_deferred` system
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
+[Custom State Matchers](../examples/ecs/custom_state_matchers.rs) | Building on top of the Struct State example to illustrate the use of custom `StateMatcher`s
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 [Event](../examples/ecs/event.rs) | Illustrates event creation, activation, and reception
 [Fixed Timestep](../examples/ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
 [Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
 [Iter Combinations](../examples/ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results
+[Nested State](../examples/ecs/nested_state.rs) | Illustrates how to use Nested States and state matching to control transitioning from a Menu into a game, pausing it and similar changes in a more ergonomic way
 [Nondeterministic System Order](../examples/ecs/nondeterministic_system_order.rs) | Systems run in parallel, but their order isn't always deterministic. Here's how to detect and fix this.
 [One Shot Systems](../examples/ecs/one_shot_systems.rs) | Shows how to flexibly run systems without scheduling them
 [Parallel Query](../examples/ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
 [Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed earlier in the current frame
 [Run Conditions](../examples/ecs/run_conditions.rs) | Run systems only when one or multiple conditions are met
 [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
-[State](../examples/ecs/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
+[State](../examples/ecs/state.rs) | Illustrates how to use States to control transitioning from a Menu into a game, pausing it, and similar changes
+[State Transitions](../examples/ecs/state_transitions.rs) | Illustrates the various ways to handle robust state transitions
+[Struct-based State](../examples/ecs/struct_state.rs) | Illustrates how to use Struct-based States and state matching to control transitioning from a Menu into a game, pausing it and similar changes in a more ergonomic way
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
