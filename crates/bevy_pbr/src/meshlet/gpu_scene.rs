@@ -26,6 +26,8 @@ pub fn extract_meshlet_meshes(
     assets: Extract<Res<Assets<MeshletMesh>>>,
     mut gpu_scene: ResMut<MeshletGpuScene>,
 ) {
+    gpu_scene.total_instanced_meshlet_count = 0;
+
     for (entity, handle) in &query {
         let scene_slice = gpu_scene.queue_meshlet_mesh_upload(handle, &assets);
         commands.entity(entity).insert(scene_slice);
@@ -69,6 +71,7 @@ pub struct MeshletGpuScene {
     meshlet_bounding_cones: PersistentGpuBuffer<Arc<[MeshletBoundingCone]>>,
 
     meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, MeshletMeshGpuSceneSlice>,
+    total_instanced_meshlet_count: u64,
     bind_group_layout: BindGroupLayout,
 }
 
@@ -97,6 +100,7 @@ impl FromWorld for MeshletGpuScene {
             ),
 
             meshlet_mesh_slices: HashMap::new(),
+            total_instanced_meshlet_count: 0,
             bind_group_layout: render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("meshlet_gpu_scene_bind_group_layout"),
                 // TODO: min_binding_sizes
@@ -104,7 +108,7 @@ impl FromWorld for MeshletGpuScene {
                     // Vertex data
                     BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: ShaderStages::COMPUTE,
+                        visibility: ShaderStages::VERTEX,
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
@@ -115,7 +119,7 @@ impl FromWorld for MeshletGpuScene {
                     // Meshlet vertices
                     BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: ShaderStages::COMPUTE,
+                        visibility: ShaderStages::VERTEX,
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
@@ -126,7 +130,7 @@ impl FromWorld for MeshletGpuScene {
                     // Meshlet indices
                     BindGroupLayoutEntry {
                         binding: 2,
-                        visibility: ShaderStages::COMPUTE,
+                        visibility: ShaderStages::VERTEX,
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
@@ -137,7 +141,7 @@ impl FromWorld for MeshletGpuScene {
                     // Meshlets
                     BindGroupLayoutEntry {
                         binding: 3,
-                        visibility: ShaderStages::COMPUTE,
+                        visibility: ShaderStages::VERTEX,
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
@@ -204,10 +208,15 @@ impl MeshletGpuScene {
             MeshletMeshGpuSceneSlice((meshlet_slice.start / 16)..(meshlet_slice.end / 16))
         };
 
-        self.meshlet_mesh_slices
+        let scene_slice = self
+            .meshlet_mesh_slices
             .entry(handle.id())
             .or_insert_with_key(queue_meshlet_mesh)
-            .clone()
+            .clone();
+
+        self.total_instanced_meshlet_count += scene_slice.0.end - scene_slice.0.start;
+
+        scene_slice
     }
 
     pub fn bind_group_layout(&self) -> &BindGroupLayout {
