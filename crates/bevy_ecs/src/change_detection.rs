@@ -898,6 +898,16 @@ impl std::fmt::Debug for MutUntyped<'_> {
     }
 }
 
+impl<'a, T: ?Sized> From<Mut<'a, T>> for MutUntyped<'a> {
+    fn from(mut_ref: Mut<'a, T>) -> Self {
+        let Mut { value, ticks } = mut_ref;
+        Self {
+            value: value.into(),
+            ticks,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bevy_ecs_macros::Resource;
