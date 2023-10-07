@@ -84,14 +84,6 @@ use bevy_reflect::std_traits::ReflectDefault;
 
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {}
 
-/// A marker struct denoting that the StateMatcher
-/// is derived from a SimpleStateMatcher impl
-pub struct FromSimpleStateMatcher;
-
-/// A marker struct denoting that the StateMatcher
-/// is derived from a TransitionStateMatcher impl
-pub struct FromTransitionStateMatcher;
-
 /// An enum describing the possible result of a state transition match.
 ///
 /// If you are just matching a single state, treat `TransitionMatches` and `MainMatches` as truthy
@@ -140,7 +132,7 @@ pub trait TransitionStateMatcher<S: States, Marker = ()>: Send + Sync + Sized + 
     fn match_transition(&self, main: Option<&S>, secondary: Option<&S>) -> MatchesStateTransition;
 }
 
-impl<S: States, M, Matcher: SingleStateMatcher<S, M>> StateMatcher<S, (FromSimpleStateMatcher, M)>
+impl<S: States, M, Matcher: SingleStateMatcher<S, M>> StateMatcher<S, (((), ()), (M, ()))>
     for Matcher
 {
     fn match_state(&self, state: &S) -> bool {
@@ -165,8 +157,8 @@ impl<S: States, M, Matcher: SingleStateMatcher<S, M>> StateMatcher<S, (FromSimpl
     }
 }
 
-impl<S: States, M, Matcher: TransitionStateMatcher<S, M>>
-    StateMatcher<S, (FromTransitionStateMatcher, M)> for Matcher
+impl<S: States, M, Matcher: TransitionStateMatcher<S, M>> StateMatcher<S, ((), (M, ()), ())>
+    for Matcher
 {
     fn match_state(&self, state: &S) -> bool {
         self.match_transition(Some(state), None) != MatchesStateTransition::NoMatch
@@ -267,8 +259,8 @@ impl<
     }
 }
 
-impl<S: States, F: 'static + Send + Sync + Fn(&S, &S) -> bool> StateMatcher<S, (((), ()), ((), ()))>
-    for F
+impl<S: States, F: 'static + Send + Sync + Fn(&S, &S) -> bool>
+    StateMatcher<S, (((), ()), ((), (), (), ()))> for F
 {
     fn match_state_transition(
         &self,
