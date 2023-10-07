@@ -373,7 +373,7 @@ fn invert_movement(input: Res<Input<KeyCode>>, mut next_state: ResMut<NextState<
         next_state.setter(|s| s.invert_movement());
     }
     if input.just_released(KeyCode::ShiftLeft) {
-        next_state.setter(|s| s.reset_movement())
+        next_state.setter(|s| s.reset_movement());
     }
 }
 
