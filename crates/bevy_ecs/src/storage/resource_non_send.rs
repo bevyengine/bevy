@@ -505,20 +505,20 @@ impl ThreadLocal<'_, '_> {
             unreachable!()
         };
 
+        let system_tick = *self.last_run;
         let (result_tx, result_rx) = std::sync::mpsc::sync_channel(1);
-        let task = |tls: &mut ThreadLocals| {
+        let task = move |tls: &mut ThreadLocals| {
             tls.update_change_tick();
-            let saved = std::mem::replace(&mut tls.last_tick, *self.last_run);
+            let saved = std::mem::replace(&mut tls.last_tick, system_tick);
             // we want to propagate to caller instead of panicking in the main thread
-            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(tls)));
+            let result =
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| (f(tls), tls.last_tick)));
             tls.last_tick = saved;
 
-            *self.last_run = tls.last_tick;
             result_tx.send(result).unwrap();
         };
 
         let task: Box<dyn FnOnce(&mut ThreadLocals) + Send> = Box::new(task);
-
         let task: Box<dyn FnOnce(&mut ThreadLocals) + Send + 'static> =
             // SAFETY: This function will block the calling thread until `f` completes,
             // so any captured references in `f` will remain valid until then.
@@ -531,7 +531,10 @@ impl ThreadLocal<'_, '_> {
 
         // Wait to receive result back from the main thread.
         match result_rx.recv().unwrap() {
-            Ok(result) => result,
+            Ok((result, last_run)) => {
+                *self.last_run = last_run;
+                result
+            }
             Err(payload) => {
                 std::panic::resume_unwind(payload);
             }
