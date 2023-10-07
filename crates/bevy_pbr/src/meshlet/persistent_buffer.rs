@@ -4,7 +4,7 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
 };
-use std::ops::Range;
+use std::{borrow::Cow, ops::Range};
 
 pub struct PersistentGpuBuffer<T: PersistentGpuBufferable> {
     label: &'static str,
@@ -48,7 +48,7 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
         // instead of many small writes?
         for item in self.write_queue.drain(..) {
             let bytes = item.as_bytes_le(self.last_write_address);
-            render_queue.write_buffer(&self.buffer, self.last_write_address, bytes);
+            render_queue.write_buffer(&self.buffer, self.last_write_address, &bytes);
             self.last_write_address += bytes.len() as u64;
         }
     }
@@ -80,5 +80,7 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
 pub trait PersistentGpuBufferable {
     fn size_in_bytes(&self) -> u64;
 
-    fn as_bytes_le(&self, start_address: u64) -> &[u8];
+    // TODO: This API is actually wrong. It's not the start address of the current
+    // buffer that we need, but a _different_ buffer
+    fn as_bytes_le<'a>(&'a self, start_address: u64) -> Cow<'a, [u8]>;
 }

@@ -1,6 +1,7 @@
 use bevy_asset::Asset;
 use bevy_math::Vec3;
 use bevy_reflect::TypePath;
+use bytemuck::{Pod, Zeroable};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -16,13 +17,14 @@ pub struct MeshletMesh {
 
 #[derive(Serialize, Deserialize, Copy, Clone)]
 pub struct Meshlet {
-    pub meshlet_vertex_buffer_index: u32,
-    pub meshlet_index_buffer_index: u32,
+    pub meshlet_vertices_index: u32,
+    pub meshlet_indices_index: u32,
     pub meshlet_vertex_count: u32,
     pub meshlet_triangle_count: u32,
 }
 
-#[derive(Serialize, Deserialize, Copy, Clone)]
+#[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
+#[repr(C)]
 pub struct MeshletBoundingSphere {
     pub center: Vec3,
     pub radius: f32,

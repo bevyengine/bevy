@@ -71,8 +71,8 @@ impl MeshletMesh {
                 .meshlets
                 .into_iter()
                 .map(|m| Meshlet {
-                    meshlet_vertex_buffer_index: m.vertex_offset,
-                    meshlet_index_buffer_index: m.triangle_offset,
+                    meshlet_vertices_index: m.vertex_offset,
+                    meshlet_indices_index: m.triangle_offset,
                     meshlet_vertex_count: m.vertex_count,
                     meshlet_triangle_count: m.triangle_count,
                 })
