@@ -2,10 +2,14 @@ use super::{
     persistent_buffer::PersistentGpuBuffer, Meshlet, MeshletBoundingCone, MeshletBoundingSphere,
     MeshletMesh,
 };
+use crate::{
+    MeshFlags, MeshTransforms, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
+};
 use bevy_asset::{AssetId, Assets, Handle};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    query::Has,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -17,20 +21,49 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     Extract,
 };
+use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use std::{ops::Range, sync::Arc};
 
 pub fn extract_meshlet_meshes(
     mut commands: Commands,
-    query: Extract<Query<(Entity, &Handle<MeshletMesh>)>>,
+    query: Extract<
+        Query<(
+            Entity,
+            &Handle<MeshletMesh>,
+            &GlobalTransform,
+            Option<&PreviousGlobalTransform>,
+            Has<NotShadowReceiver>,
+            Has<NotShadowCaster>,
+        )>,
+    >,
     assets: Extract<Res<Assets<MeshletMesh>>>,
     mut gpu_scene: ResMut<MeshletGpuScene>,
 ) {
     gpu_scene.total_instanced_meshlet_count = 0;
 
-    for (entity, handle) in &query {
+    for (entity, handle, transform, previous_transform, not_shadow_receiver, not_shadow_caster) in
+        &query
+    {
         let scene_slice = gpu_scene.queue_meshlet_mesh_upload(handle, &assets);
-        commands.entity(entity).insert(scene_slice);
+
+        let transform = transform.affine();
+        let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
+        let mut flags = if not_shadow_receiver {
+            MeshFlags::empty()
+        } else {
+            MeshFlags::SHADOW_RECEIVER
+        };
+        if transform.matrix3.determinant().is_sign_positive() {
+            flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
+        }
+        let transforms = MeshTransforms {
+            transform: (&transform).into(),
+            previous_transform: (&previous_transform).into(),
+            flags: flags.bits(),
+        };
+
+        commands.entity(entity).insert((scene_slice, transforms));
 
         // TODO: Unload MeshletMesh asset
     }
