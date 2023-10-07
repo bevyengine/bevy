@@ -7,8 +7,8 @@ use std::sync::Arc;
 #[derive(Asset, TypePath, Serialize, Deserialize, Clone)]
 pub struct MeshletMesh {
     pub vertex_data: Arc<[u8]>,
-    pub meshlet_vertex_buffer: Arc<[u32]>,
-    pub meshlet_index_buffer: Arc<[u8]>,
+    pub meshlet_vertices: Arc<[u32]>,
+    pub meshlet_indices: Arc<[u8]>,
     pub meshlets: Arc<[Meshlet]>,
     pub meshlet_bounding_spheres: Arc<[MeshletBoundingSphere]>,
     pub meshlet_bounding_cones: Arc<[MeshletBoundingCone]>,

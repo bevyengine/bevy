@@ -7,6 +7,7 @@ use bevy_render::{
     render_resource::PrimitiveTopology,
 };
 use meshopt::{build_meshlets, compute_meshlet_bounds_decoder, VertexDataAdapter};
+use std::iter;
 
 impl MeshletMesh {
     pub fn from_mesh(mesh: &Mesh) -> Result<Self, Error> {
@@ -36,7 +37,7 @@ impl MeshletMesh {
             0,
         )?;
 
-        let meshlets = build_meshlets(indices, &vertices, 126, 64, 0.5);
+        let mut meshlets = build_meshlets(indices, &vertices, 126, 64, 0.5);
 
         let mut meshlet_bounding_spheres = Vec::with_capacity(meshlets.meshlets.len());
         let mut meshlet_bounding_cones = Vec::with_capacity(meshlets.meshlets.len());
@@ -58,10 +59,14 @@ impl MeshletMesh {
             });
         }
 
+        // Buffer copies need to be in multiples of 4 bytes
+        let padding = ((meshlets.triangles.len() + 3) & !0x3) - meshlets.triangles.len();
+        meshlets.triangles.extend(iter::repeat(0).take(padding));
+
         Ok(Self {
             vertex_data: vertex_buffer.into(),
-            meshlet_vertex_buffer: meshlets.vertices.into(),
-            meshlet_index_buffer: meshlets.triangles.into(),
+            meshlet_vertices: meshlets.vertices.into(),
+            meshlet_indices: meshlets.triangles.into(),
             meshlets: meshlets
                 .meshlets
                 .into_iter()

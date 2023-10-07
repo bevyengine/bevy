@@ -1,14 +1,17 @@
 mod asset;
 mod from_mesh;
 mod gpu_scene;
+mod persistent_buffer;
 
 pub use self::asset::{Meshlet, MeshletBoundingCone, MeshletBoundingSphere, MeshletMesh};
 
 use self::gpu_scene::{extract_meshlet_meshes, MeshletGpuScene};
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetApp;
-use bevy_ecs::system::Resource;
-use bevy_render::{renderer::RenderDevice, settings::WgpuFeatures, ExtractSchedule, RenderApp};
+use bevy_ecs::{schedule::IntoSystemConfigs, system::Resource};
+use bevy_render::{
+    renderer::RenderDevice, settings::WgpuFeatures, ExtractSchedule, Render, RenderApp, RenderSet,
+};
 
 pub struct MeshletPlugin;
 
@@ -29,7 +32,11 @@ impl Plugin for MeshletPlugin {
         app.sub_app_mut(RenderApp)
             .insert_resource(MeshletRenderingSupported)
             .init_resource::<MeshletGpuScene>()
-            .add_systems(ExtractSchedule, extract_meshlet_meshes);
+            .add_systems(ExtractSchedule, extract_meshlet_meshes)
+            .add_systems(
+                Render,
+                MeshletGpuScene::upload_pending_meshlet_meshes.in_set(RenderSet::PrepareAssets),
+            );
     }
 }
 
