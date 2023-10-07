@@ -274,10 +274,7 @@ fn run_condition_on_match<
                 }
             }
 
-            println!("Running Condition on Match {main:?} - {secondary:?}");
-
             let result = matcher.match_state_transition(main, secondary);
-            println!("result - {result:?}");
             result == MatchesStateTransition::TransitionMatches
         },
     )
