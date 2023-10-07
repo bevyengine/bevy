@@ -178,13 +178,13 @@ mod sealed {
 
 /// A collection of [run conditions](Condition) that may be useful in any bevy app.
 pub mod common_conditions {
-    use super::NotSystem;
+    use super::{Condition, NotSystem};
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
         prelude::{Component, Query, With},
         removal_detection::RemovedComponents,
-        schedule::{State, StateMatcher, States},
+        schedule::{run_condition_on_match, PreviousState, State, StateMatcher, States},
         system::{IntoSystem, Res, Resource, System},
     };
 
@@ -738,7 +738,7 @@ pub mod common_conditions {
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
-    /// if the state machine in a state that matches the provided `matcher`.
+    /// if the state machine is in a state that matches the provided `matcher`.
     ///
     /// # Example
     ///
@@ -794,6 +794,30 @@ pub mod common_conditions {
             Some(current_state) => matcher.match_state(current_state.as_ref()),
             None => false,
         }
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if `matcher.match_state_transition(IncomingState, OutgoingState)` returns `MatchesStateTransition::TransitionMatches`
+    pub fn entering<S: States, M>(matcher: impl StateMatcher<S, M>) -> impl Condition<()> {
+        run_condition_on_match::<State<S>, PreviousState<S>, S, M>(matcher)
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if `matcher.match_state_transition(OutgoingState, IncomingState)` returns `MatchesStateTransition::TransitionMatches`
+    pub fn exiting<S: States, M>(matcher: impl StateMatcher<S, M>) -> impl Condition<()> {
+        run_condition_on_match::<PreviousState<S>, State<S>, S, M>(matcher)
+    }
+
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// if `matcher_1.match_state_transition(IncomingState, OutgoingState)` returns `MatchesStateTransition::TransitionMatches`
+    /// and `matcher_2.match_state_transition(OutgoingState, IncomingState)` returns `MatchesStateTransition::TransitionMatches`
+    pub fn transitioning<S: States, M1, M2>(
+        matcher_1: impl StateMatcher<S, M1>,
+        matcher_2: impl StateMatcher<S, M2>,
+    ) -> impl Condition<()> {
+        run_condition_on_match::<State<S>, PreviousState<S>, S, M1>(matcher_1).and_then(
+            run_condition_on_match::<PreviousState<S>, State<S>, S, M2>(matcher_2),
+        )
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`

@@ -255,7 +255,7 @@ impl<S: States, F: 'static + Send + Sync + Fn(Option<&S>, Option<&S>) -> bool>
 }
 /// Get a [`Condition`] for running whenever `MainResource<S>` matches regardless of
 /// whether `SecondaryResource<S>` matches, so long as they are not identical
-fn run_condition_on_match<
+pub(crate) fn run_condition_on_match<
     MainResource: crate::prelude::Resource + Deref<Target = S>,
     SecondaryResource: crate::prelude::Resource + Deref<Target = S>,
     S: States,
@@ -398,11 +398,11 @@ impl<S: States> Deref for State<S> {
     derive(bevy_reflect::Reflect),
     reflect(Resource, Default)
 )]
-struct PreviousState<S: States>(S);
+pub(crate) struct PreviousState<S: States>(S);
 
 impl<S: States> PreviousState<S> {
     /// Get the current state.
-    fn get(&self) -> &S {
+    pub(crate) fn get(&self) -> &S {
         &self.0
     }
 }
