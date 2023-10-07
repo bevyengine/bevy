@@ -659,23 +659,34 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_AGX                = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_TONY_MC_MAPFACE     = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_BLENDER_FILMIC      = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_RESERVED_BITS = Self::SHADOW_FILTER_METHOD_MASK_BITS << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_HARDWARE_2X2  = 0 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_CASTANO_13    = 1 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_JIMENEZ_14    = 2 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
     }
 }
 
 impl MeshPipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
+
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
     const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 =
         Self::MSAA_SHIFT_BITS - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones();
+
     const BLEND_MASK_BITS: u32 = 0b11;
     const BLEND_SHIFT_BITS: u32 =
         Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::BLEND_MASK_BITS.count_ones();
+
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
         Self::BLEND_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
+
+    const SHADOW_FILTER_METHOD_MASK_BITS: u32 = 0b11;
+    const SHADOW_FILTER_METHOD_SHIFT_BITS: u32 =
+        Self::TONEMAP_METHOD_SHIFT_BITS - Self::SHADOW_FILTER_METHOD_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -904,6 +915,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("TAA".into());
         }
 
+        let shadow_filter_method =
+            key.intersection(MeshPipelineKey::SHADOW_FILTER_METHOD_RESERVED_BITS);
+        if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2 {
+            shader_defs.push("SHADOW_FILTER_METHOD_HARDWARE_2X2".into());
+        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13 {
+            shader_defs.push("SHADOW_FILTER_METHOD_CASTANO_13".into());
+        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14 {
+            shader_defs.push("SHADOW_FILTER_METHOD_JIMENEZ_14".into());
+        }
+
         let format = if key.contains(MeshPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
@@ -1069,10 +1090,12 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&EnvironmentMapLight>,
         &Tonemapping,
     )>,
-    images: Res<RenderAssets<Image>>,
-    mut fallback_images: FallbackImagesMsaa,
-    mut fallback_depths: FallbackImagesDepth,
-    fallback_cubemap: Res<FallbackImageCubemap>,
+    (images, mut fallback_images, mut fallback_depths, fallback_cubemap): (
+        Res<RenderAssets<Image>>,
+        FallbackImagesMsaa,
+        FallbackImagesDepth,
+        Res<FallbackImageCubemap>,
+    ),
     msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
     tonemapping_luts: Res<TonemappingLuts>,
