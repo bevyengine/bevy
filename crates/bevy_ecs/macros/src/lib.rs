@@ -483,6 +483,44 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
     states::derive_states(input)
 }
 
+/// Derive macro generating an impl of the trait `StateMatcher<S>`
+///
+/// Only supports unit structs and field-less enums.
+///
+/// For both, it requires a `state_type` helper attribute providing the type `S`:
+/// `#[state_type(S)]`
+///
+/// For unit structs, it also requires a `matcher` helper attribute, using the same matching syntax as `on_enter!`, `on_exit!`, `state_maches!` and `on_transition!` (see below)
+///
+/// ```rust
+/// #[derive(StateMatcher)]
+/// #[state_type(AppState)]
+/// #[matcher(InGame(_))]
+/// struct InGame;
+/// ```
+///
+/// For enums, it requires a `matcher` helper attribute *on every variant*, again using the same syntax.
+///
+/// ```rust
+/// #[derive(StateMatcher)]
+/// #[state_type(AppState)]
+/// enum InGame {
+///     #[matcher(InGame(_))]
+///     Any,
+///     #[matcher(InGame(GameState::Running))]
+///     Running
+/// }
+/// ```
+///
+/// The matcher syntax can contain:
+/// - a matching pattern, like so `on_enter!(AppState, InGame { .. })`. Note that when matching
+/// enums, you do  not need to repeat the type within the pattern.
+/// - a closure with a type that automatically implements `StateMatcher<S>`, like so `on_enter!(AppState, |state| { /// some logic here - return a bool})`
+///
+/// Using the `every` keyword before a pattern or closure has no effect when it's used for simple state matching, but when matching a transition it will run the transition systems whenever the "main state" (previous or next state, depending on if we're looking at the exit or entrance) matches regardless of the "secondary state".
+/// Otherwise, it will only execute if the "main state" matches while the "secondary state" does not.
+///
+/// Lastly, you can also add additional comma-separated patterns or closures - which will be evaluated in order.
 #[proc_macro_derive(StateMatcher, attributes(matcher, state_type))]
 pub fn derive_state_matcher(input: TokenStream) -> TokenStream {
     state_matchers::derive_state_matcher(input)
@@ -502,7 +540,7 @@ pub fn derive_state_matcher(input: TokenStream) -> TokenStream {
 /// For example, when moving from `AppState::InGame(GameState::PlayerTurn)` to `AppState::InGame(GameState::EnemyTurn)`, systems added with the `on_enter!(AppState, every AppState::InGame(_))` schedule will run, will systems added with the `on_enter(AppState, AppState::InGame(_))` will not run.
 /// However, both wil run if moving from `AppState::MainMenu` to `AppState::InGame(PlayerTurn)` or `AppState::InGame(EnemyTurn)`.
 ///
-/// Lastly, you can also add additional patterns or closures - which will be evaluated in order.
+/// Lastly, you can also add additional comma-separated patterns or closures - which will be evaluated in order.
 ///
 /// For example, `on_enter!(AppState, InGame(_), every _)` will trigger whenever I enter any `InGame` state from a non-`InGame` state, as well as any time I enter any other state.
 #[proc_macro]
@@ -525,7 +563,7 @@ pub fn on_enter(input: TokenStream) -> TokenStream {
 /// For example, when moving from `AppState::InGame(GameState::PlayerTurn)` to `AppState::InGame(GameState::EnemyTurn)`, systems added with the `on_exit!(AppState, every AppState::InGame(_))` schedule will run, will systems added with the `on_exit(AppState, AppState::InGame(_))` will not run.
 /// However, both wil run if moving from either `AppState::InGame(PlayerTurn)` or `AppState::InGame(EnemyTurn)` to `AppState::MainMenu`.
 ///
-/// Lastly, you can also add additional patterns or closures - which will be evaluated in order.
+/// Lastly, you can also add additional comma-separated patterns or closures - which will be evaluated in order.
 ///
 /// For example, `on_exit!(AppState, InGame(_), every _)` will trigger whenever I exit any `InGame` state to a non-`InGame` state, as well as any time I exit any other state.
 #[proc_macro]
@@ -542,7 +580,7 @@ pub fn on_exit(input: TokenStream) -> TokenStream {
 /// enums, you do  not need to repeat the type within the pattern.
 /// - using a closure with a type that automatically implements `StateMatcher<S>`, like so `state_matches!(AppState, |state| { /// some logic here - return a bool})`
 ///
-/// You can also add additional patterns or closures - which will be evaluated in order.
+/// You can also add additional comma-separated patterns or closures - which will be evaluated in order.
 #[proc_macro]
 pub fn state_matches(input: TokenStream) -> TokenStream {
     let result =
@@ -571,7 +609,7 @@ pub fn state_matches(input: TokenStream) -> TokenStream {
 //
 /// However, both wil run if moving from `AppState::Paused` to `AppState::InGame(GameState::EnemyTurn)`
 ///
-/// Lastly, you can also add additional patterns or closures - which will be evaluated in order.
+/// Lastly, you can also add additional comma-separated patterns or closures - which will be evaluated in order.
 #[proc_macro]
 pub fn on_transition(input: TokenStream) -> TokenStream {
     on_transition_macro(input)
