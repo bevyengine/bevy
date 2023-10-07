@@ -4,7 +4,10 @@ use crate::{
     prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
     skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
-use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_ecs::{
+    prelude::{Has, World},
+    query::QueryItem,
+};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -31,9 +34,9 @@ impl ViewNode for MainOpaquePass3dNode {
         &'static Camera3d,
         &'static ViewTarget,
         &'static ViewDepthTexture,
-        Option<&'static DepthPrepass>,
-        Option<&'static NormalPrepass>,
-        Option<&'static MotionVectorPrepass>,
+        Has<DepthPrepass>,
+        Has<NormalPrepass>,
+        Has<MotionVectorPrepass>,
         Option<&'static SkyboxPipelineId>,
         Option<&'static SkyboxBindGroup>,
         &'static ViewUniformOffset,
@@ -83,10 +86,7 @@ impl ViewNode for MainOpaquePass3dNode {
                 view: &depth.view,
                 // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
                 depth_ops: Some(Operations {
-                    load: if depth_prepass.is_some()
-                        || normal_prepass.is_some()
-                        || motion_vector_prepass.is_some()
-                    {
+                    load: if depth_prepass || normal_prepass || motion_vector_prepass {
                         // if any prepass runs, it will generate a depth buffer so we should use it,
                         // even if only the normal_prepass is used.
                         Camera3dDepthLoadOp::Load
