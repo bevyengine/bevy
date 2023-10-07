@@ -75,7 +75,7 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
         });
 
         let mut command_encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some("persistent_storage_buffer_expand"),
+            label: Some("persistent_gpu_buffer_expand"),
         });
         command_encoder.copy_buffer_to_buffer(&self.buffer, 0, &new_buffer, 0, self.buffer.size());
         render_queue.submit([command_encoder.finish()]);

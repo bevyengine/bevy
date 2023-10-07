@@ -64,8 +64,8 @@ pub struct MeshletGpuScene {
     meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
     meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSphere]>>,
     meshlet_bounding_cones: PersistentGpuBuffer<Arc<[MeshletBoundingCone]>>,
-    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, MeshletMeshGpuSceneSlice>,
 
+    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, MeshletMeshGpuSceneSlice>,
     bind_group_layout: BindGroupLayout,
 }
 
@@ -92,8 +92,8 @@ impl FromWorld for MeshletGpuScene {
                 "meshlet_gpu_scene_meshlet_bounding_cones",
                 render_device,
             ),
-            meshlet_mesh_slices: HashMap::new(),
 
+            meshlet_mesh_slices: HashMap::new(),
             bind_group_layout: render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("meshlet_gpu_scene_bind_group_layout"),
                 entries: &[], // TODO
