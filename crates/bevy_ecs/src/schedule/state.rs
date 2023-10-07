@@ -92,37 +92,6 @@ pub struct FromSimpleStateMatcher;
 /// is derived from a TransitionStateMatcher impl
 pub struct FromTransitionStateMatcher;
 
-/// A marker struct denoting that the StateMatcher
-/// is on a [`States`] object directly, and relies
-/// on it's Eq implementation
-pub struct StatesInherentMatcher;
-
-/// A marker struct denoting that the StateMatcher is derived from a function or closure
-/// that takes in a single state reference:
-///
-/// `Fn(&S) -> bool`
-pub struct SimpleFnMatcher;
-/// A marker struct denoting that the StateMatcher is derived from a function or closure
-/// that takes in a single state reference and an optional secondary state reference:
-///
-/// `Fn(&S, Option<&S>) -> bool`
-pub struct SimpleTransitionFnMatcher;
-/// A marker struct denoting that the StateMatcher is derived from a function or closure
-/// that takes in a single state reference and an optional secondary state reference:
-///
-/// `Fn(Option<&S>, Option<&S>) -> bool`
-pub struct SimpleOptionalTransitionFnMatcher;
-/// A marker struct denoting that the StateMatcher is derived from a function or closure
-/// that takes in a single state reference and an optional secondary state reference:
-///
-/// `Fn(&S, Option<&S>) -> MatchesStateTransition`
-pub struct TransitionFnMatcher;
-/// A marker struct denoting that the StateMatcher is derived from a function or closure
-/// that takes in a single state reference and an optional secondary state reference:
-///
-/// `Fn(Option<&S>, Option<&S>) -> MatchesStateTransition`
-pub struct OptionalTransitionFnMatcher;
-
 /// An enum describing the possible result of a state transition match.
 ///
 /// If you are just matching a single state, treat `TransitionMatches` and `MainMatches` as truthy
@@ -212,22 +181,65 @@ impl<S: States, M, Matcher: TransitionStateMatcher<S, M>>
     }
 }
 
-impl<S: States> SingleStateMatcher<S, StatesInherentMatcher> for S {
+impl<S: States> SingleStateMatcher<S, ((), (), ())> for S {
     fn match_single_state(&self, state: &S) -> bool {
         state == self
     }
 }
 
-impl<S: States, F: 'static + Send + Sync + Fn(&S) -> bool> SingleStateMatcher<S, SimpleFnMatcher>
-    for F
-{
+impl<S: States, F: 'static + Send + Sync + Fn(&S) -> bool> SingleStateMatcher<S, ((), ())> for F {
     fn match_single_state(&self, state: &S) -> bool {
         self(state)
     }
 }
 
+impl<S: States, F: 'static + Send + Sync + Fn(Option<&S>) -> bool> StateMatcher<S, ((), ((), ()))>
+    for F
+{
+    fn match_state(&self, state: &S) -> bool {
+        self(Some(state))
+    }
+
+    fn match_state_transition(
+        &self,
+        main: Option<&S>,
+        secondary: Option<&S>,
+    ) -> MatchesStateTransition {
+        if self(main) {
+            match self(secondary) {
+                true => MatchesStateTransition::MainMatches,
+                false => MatchesStateTransition::TransitionMatches,
+            }
+        } else {
+            MatchesStateTransition::NoMatch
+        }
+    }
+}
+
+impl<S: States, F: 'static + Send + Sync + Fn(&S, &S) -> MatchesStateTransition>
+    StateMatcher<S, ((), ())> for F
+{
+    fn match_state_transition(
+        &self,
+        main: Option<&S>,
+        secondary: Option<&S>,
+    ) -> MatchesStateTransition {
+        let Some(main) = main else {
+            return false.into();
+        };
+        let Some(secondary) = secondary else {
+            return false.into();
+        };
+        self(main, secondary)
+    }
+
+    fn match_state(&self, _: &S) -> bool {
+        false
+    }
+}
+
 impl<S: States, F: 'static + Send + Sync + Fn(&S, Option<&S>) -> MatchesStateTransition>
-    StateMatcher<S, TransitionFnMatcher> for F
+    StateMatcher<S, ((), (), ())> for F
 {
     fn match_state_transition(
         &self,
@@ -248,14 +260,37 @@ impl<S: States, F: 'static + Send + Sync + Fn(&S, Option<&S>) -> MatchesStateTra
 impl<
         S: States,
         F: 'static + Send + Sync + Fn(Option<&S>, Option<&S>) -> MatchesStateTransition,
-    > TransitionStateMatcher<S, OptionalTransitionFnMatcher> for F
+    > TransitionStateMatcher<S, (((), ()), ())> for F
 {
     fn match_transition(&self, main: Option<&S>, secondary: Option<&S>) -> MatchesStateTransition {
         self(main, secondary)
     }
 }
+
+impl<S: States, F: 'static + Send + Sync + Fn(&S, &S) -> bool> StateMatcher<S, (((), ()), ((), ()))>
+    for F
+{
+    fn match_state_transition(
+        &self,
+        main: Option<&S>,
+        secondary: Option<&S>,
+    ) -> MatchesStateTransition {
+        let Some(main) = main else {
+            return false.into();
+        };
+        let Some(secondary) = secondary else {
+            return false.into();
+        };
+        self(main, secondary).into()
+    }
+
+    fn match_state(&self, _: &S) -> bool {
+        false
+    }
+}
+
 impl<S: States, F: 'static + Send + Sync + Fn(&S, Option<&S>) -> bool>
-    StateMatcher<S, SimpleTransitionFnMatcher> for F
+    StateMatcher<S, ((), (), (), ())> for F
 {
     fn match_state_transition(
         &self,
@@ -280,7 +315,7 @@ impl<S: States, F: 'static + Send + Sync + Fn(&S, Option<&S>) -> bool>
 }
 
 impl<S: States, F: 'static + Send + Sync + Fn(Option<&S>, Option<&S>) -> bool>
-    StateMatcher<S, SimpleOptionalTransitionFnMatcher> for F
+    StateMatcher<S, ((), (), (), ((), ()))> for F
 {
     fn match_state_transition(
         &self,
@@ -480,6 +515,7 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
         return;
     };
     world.try_run_schedule(OnEnter(state)).ok();
+    world.try_run_schedule(Transitioning).ok(); // we are running the transition schedule because you could be transitioning from having no State resource to having one
     world.try_run_schedule(Entering).ok();
 }
 
@@ -502,7 +538,6 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
     };
     if let Some(entered) = entered {
         if current_state != entered {
-            println!("moving from {current_state:?} to {entered:?}");
             world.insert_resource(PreviousState(current_state));
             let mut state_resource = world.resource_mut::<State<S>>();
             let exited = mem::replace(&mut state_resource.0, entered.clone());

@@ -809,14 +809,14 @@ pub mod common_conditions {
     }
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
-    /// if `matcher_1.match_state_transition(IncomingState, OutgoingState)` returns `MatchesStateTransition::TransitionMatches`
-    /// and `matcher_2.match_state_transition(OutgoingState, IncomingState)` returns `MatchesStateTransition::TransitionMatches`
+    /// if `from_matcher.match_state_transition(OutgoingState, IncomingState)` returns `MatchesStateTransition::TransitionMatches`
+    /// and `to_matcher.match_state_transition(IncomingState, OutgoingState)` returns `MatchesStateTransition::TransitionMatches`
     pub fn transitioning<S: States, M1, M2>(
-        matcher_1: impl StateMatcher<S, M1>,
-        matcher_2: impl StateMatcher<S, M2>,
+        from_matcher: impl StateMatcher<S, M1>,
+        to_matcher: impl StateMatcher<S, M2>,
     ) -> impl Condition<()> {
-        run_condition_on_match::<State<S>, PreviousState<S>, S, M1>(matcher_1).and_then(
-            run_condition_on_match::<PreviousState<S>, State<S>, S, M2>(matcher_2),
+        run_condition_on_match::<State<S>, PreviousState<S>, S, M2>(to_matcher).and_then(
+            run_condition_on_match::<PreviousState<S>, State<S>, S, M1>(from_matcher),
         )
     }
 
