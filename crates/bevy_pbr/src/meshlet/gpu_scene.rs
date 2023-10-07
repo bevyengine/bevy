@@ -255,7 +255,7 @@ impl MeshletGpuScene {
         &self.bind_group_layout
     }
 
-    pub fn create_per_frame_bind_group(&self, render_device: &RenderDevice) -> BindGroup {
+    pub fn create_per_render_pipeline_bind_group(&self, render_device: &RenderDevice) -> BindGroup {
         render_device.create_bind_group(&BindGroupDescriptor {
             label: Some("meshlet_gpu_scene_bind_group"),
             layout: &self.bind_group_layout,
