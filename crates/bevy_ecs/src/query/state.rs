@@ -146,12 +146,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         if !Q::IS_ARCHETYPAL || !F::IS_ARCHETYPAL || !NewQ::IS_ARCHETYPAL {
             panic!("generalizing is not allow with queries that use `Changed` or `Added`");
         }
-        // SAFETY: we are using unsafe world to access &Components which should always be safe
-        let fetch_state = unsafe { NewQ::new_state(world.world().components()) };
+        let fetch_state = NewQ::new_state(world.components());
         #[allow(clippy::let_unit_value)]
         // the archetypal filters have already been applied, so we don't need them.
-        // SAFETY: we are using unsafe world to access &Components which should always be safe
-        let filter_state = unsafe { <()>::new_state(world.world().components()) };
+        let filter_state = <()>::new_state(world.components());
 
         let mut component_access = FilteredAccess::default();
         NewQ::update_component_access(&fetch_state, &mut component_access);
