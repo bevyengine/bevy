@@ -46,6 +46,7 @@ pub fn extract_meshlet_meshes(
         &query
     {
         let scene_slice = gpu_scene.queue_meshlet_mesh_upload(handle, &assets);
+        // TODO: Unload MeshletMesh asset
 
         let transform = transform.affine();
         let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
@@ -64,8 +65,6 @@ pub fn extract_meshlet_meshes(
         };
 
         commands.entity(entity).insert((scene_slice, transforms));
-
-        // TODO: Unload MeshletMesh asset
     }
 }
 
