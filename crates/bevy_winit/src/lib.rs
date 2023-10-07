@@ -16,10 +16,10 @@ mod winit_config;
 mod winit_windows;
 
 use accessibility::AccessibilityPlugin;
-pub use runner::*;
+use runner::*;
 use system::{changed_windows, create_windows, despawn_windows};
 #[cfg(target_arch = "wasm32")]
-use web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
+use web_resize::CanvasParentResizePlugin;
 pub use winit_config::*;
 pub use winit_windows::*;
 
@@ -28,8 +28,8 @@ use winit::event_loop::EventLoopBuilder;
 pub use winit::platform::android::activity::AndroidApp;
 
 #[cfg(not(target_arch = "wasm32"))]
-use bevy_app::AppEvent;
-use bevy_app::{App, First, Last, Plugin};
+use bevy_app::First;
+use bevy_app::{App, AppEvent, Last, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_ecs::storage::{ThreadLocalTask, ThreadLocalTaskSendError, ThreadLocalTaskSender};

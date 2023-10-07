@@ -11,6 +11,8 @@ use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, WINIT_CANVAS_SELECTOR};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::WinitWindowEntityMap;
 use crate::{
     accessibility::{AccessKitAdapters, WinitActionHandlers},
     attempt_grab,
@@ -18,8 +20,7 @@ use crate::{
         convert_cursor_icon, convert_enabled_buttons, convert_window_level, convert_window_theme,
         convert_winit_theme,
     },
-    get_best_videomode, get_fitting_videomode, EventLoopWindowTarget, WinitWindowEntityMap,
-    WinitWindows,
+    get_best_videomode, get_fitting_videomode, EventLoopWindowTarget, WinitWindows,
 };
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
