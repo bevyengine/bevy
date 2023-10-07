@@ -142,14 +142,20 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// not have the same access this will panic.
     /// Probably should not call update archetype generation on this query state as the results will
     /// be very unpredictable as new archetypes could be added that don't match old query
-    pub fn generalize<NewQ: WorldQuery>(&self, world: UnsafeWorldCell) -> QueryState<NewQ, ()> {
+    pub fn restrict_fetch<NewQ: WorldQuery>(&self, world: UnsafeWorldCell) -> QueryState<NewQ, ()> {
         if !Q::IS_ARCHETYPAL || !F::IS_ARCHETYPAL || !NewQ::IS_ARCHETYPAL {
             panic!("generalizing is not allow with queries that use `Changed` or `Added`");
         }
-        let fetch_state = NewQ::new_state(world.components()).unwrap();
+        let fetch_state = NewQ::new_state(world.components()).expect(
+            "Could not create fetch_state. Make \
+            sure you initialize the QueryState before calling this method.",
+        );
         #[allow(clippy::let_unit_value)]
         // the archetypal filters have already been applied, so we don't need them.
-        let filter_state = <()>::new_state(world.components()).unwrap();
+        let filter_state = <()>::new_state(world.components()).expect(
+            "Could not create filter_state. Make \
+            sure you initialize the QueryState before calling this method.",
+        );
 
         let mut component_access = FilteredAccess::default();
         NewQ::update_component_access(&fetch_state, &mut component_access);
@@ -1590,7 +1596,7 @@ mod tests {
         world.spawn((A(22), B));
 
         let query_state = world.query::<(&A, &B)>();
-        let mut new_query_state = query_state.generalize::<&A>(world.as_unsafe_world_cell());
+        let mut new_query_state = query_state.restrict_fetch::<&A>(world.as_unsafe_world_cell());
         assert_eq!(new_query_state.iter(&world).len(), 1);
         let a = new_query_state.single(&world);
 
@@ -1613,7 +1619,7 @@ mod tests {
         world.spawn((A(23), B, C));
 
         let query_state = world.query_filtered::<(&A, &B), Without<C>>();
-        let mut new_query_state = query_state.generalize::<&A>(world.as_unsafe_world_cell());
+        let mut new_query_state = query_state.restrict_fetch::<&A>(world.as_unsafe_world_cell());
         // even though we change the query to not have Without<C>, we cannot get the component with C.
         let a = new_query_state.single(&world);
 
@@ -1635,7 +1641,8 @@ mod tests {
         world.spawn(A(22));
 
         let query_state = world.query::<&A>();
-        let mut _new_query_state = query_state.generalize::<(&A, &B)>(world.as_unsafe_world_cell());
+        let mut _new_query_state =
+            query_state.restrict_fetch::<(&A, &B)>(world.as_unsafe_world_cell());
     }
 
     #[test]
@@ -1653,6 +1660,6 @@ mod tests {
         world.spawn(A(22));
 
         let query_state = world.query_filtered::<(&A, &B), Added<B>>();
-        let mut _new_query_state = query_state.generalize::<&A>(world.as_unsafe_world_cell());
+        let mut _new_query_state = query_state.restrict_fetch::<&A>(world.as_unsafe_world_cell());
     }
 }
