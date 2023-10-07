@@ -91,6 +91,26 @@ pub struct WindowClosed {
     /// by the time this event is received.
     pub window: Entity,
 }
+
+/// An event that is sent whenever a window is destroyed by the underlying window system.
+///
+/// Note that if your application only has a single window, this event may be your last chance to
+/// persist state before the application terminates.
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct WindowDestroyed {
+    /// Window that has been destroyed.
+    ///
+    /// Note that this entity probably no longer exists
+    /// by the time this event is received.
+    pub window: Entity,
+}
+
 /// An event reporting that the mouse cursor has moved inside a window.
 ///
 /// The event is sent only if the cursor is over one of the application's windows.
@@ -293,7 +313,7 @@ pub struct WindowMoved {
     pub position: IVec2,
 }
 
-/// An event sent when system changed window theme.
+/// An event sent when the system theme changes for a window.
 ///
 /// This event is only sent when the window is relying on the system theme to control its appearance.
 /// i.e. It is only sent when [`Window::window_theme`](crate::window::Window::window_theme) is `None` and the system theme changes.
@@ -305,6 +325,8 @@ pub struct WindowMoved {
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowThemeChanged {
+    /// Window for which the system theme has changed.
     pub window: Entity,
+    /// The new system theme.
     pub theme: WindowTheme,
 }

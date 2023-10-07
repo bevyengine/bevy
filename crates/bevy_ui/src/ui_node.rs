@@ -1,16 +1,13 @@
-use crate::UiRect;
+use crate::{UiRect, Val};
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
-use bevy_render::{
-    color::Color,
-    texture::{Image, DEFAULT_IMAGE_HANDLE},
-};
+use bevy_render::{color::Color, texture::Image};
 use bevy_transform::prelude::GlobalTransform;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use std::ops::{Div, DivAssign, Mul, MulAssign};
+use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
 
 /// Describes the size of a UI node
@@ -20,6 +17,15 @@ pub struct Node {
     /// The size of the node as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub(crate) calculated_size: Vec2,
+    /// The width of this node's outline
+    /// If this value is `Auto`, negative or `0.` then no outline will be rendered
+    /// automatically calculated by [`super::layout::resolve_outlines_system`]
+    pub(crate) outline_width: f32,
+    // The amount of space between the outline and the edge of the node
+    pub(crate) outline_offset: f32,
+    /// The unrounded size of the node as width and height in logical pixels
+    /// automatically calculated by [`super::layout::ui_layout_system`]
+    pub(crate) unrounded_size: Vec2,
 }
 
 impl Node {
@@ -29,12 +35,18 @@ impl Node {
         self.calculated_size
     }
 
-    /// Returns the size of the node in physical pixels based on the given scale factor.
+    /// The calculated node size as width and height in logical pixels before rounding
+    /// automatically calculated by [`super::layout::ui_layout_system`]
+    pub const fn unrounded_size(&self) -> Vec2 {
+        self.unrounded_size
+    }
+
+    /// Returns the size of the node in physical pixels based on the given scale factor and `UiScale`.
     #[inline]
-    pub fn physical_size(&self, scale_factor: f64) -> Vec2 {
+    pub fn physical_size(&self, scale_factor: f64, ui_scale: f64) -> Vec2 {
         Vec2::new(
-            (self.calculated_size.x as f64 * scale_factor) as f32,
-            (self.calculated_size.y as f64 * scale_factor) as f32,
+            (self.calculated_size.x as f64 * scale_factor * ui_scale) as f32,
+            (self.calculated_size.y as f64 * scale_factor * ui_scale) as f32,
         )
     }
 
@@ -46,233 +58,45 @@ impl Node {
 
     /// Returns the physical pixel coordinates of the UI node, based on its [`GlobalTransform`] and the scale factor.
     #[inline]
-    pub fn physical_rect(&self, transform: &GlobalTransform, scale_factor: f64) -> Rect {
+    pub fn physical_rect(
+        &self,
+        transform: &GlobalTransform,
+        scale_factor: f64,
+        ui_scale: f64,
+    ) -> Rect {
         let rect = self.logical_rect(transform);
         Rect {
             min: Vec2::new(
-                (rect.min.x as f64 * scale_factor) as f32,
-                (rect.min.y as f64 * scale_factor) as f32,
+                (rect.min.x as f64 * scale_factor * ui_scale) as f32,
+                (rect.min.y as f64 * scale_factor * ui_scale) as f32,
             ),
             max: Vec2::new(
-                (rect.max.x as f64 * scale_factor) as f32,
-                (rect.max.y as f64 * scale_factor) as f32,
+                (rect.max.x as f64 * scale_factor * ui_scale) as f32,
+                (rect.max.y as f64 * scale_factor * ui_scale) as f32,
             ),
         }
+    }
+
+    #[inline]
+    /// Returns the thickness of the UI node's outline.
+    /// If this value is negative or `0.` then no outline will be rendered.
+    pub fn outline_width(&self) -> f32 {
+        self.outline_width
     }
 }
 
 impl Node {
     pub const DEFAULT: Self = Self {
         calculated_size: Vec2::ZERO,
+        outline_width: 0.,
+        outline_offset: 0.,
+        unrounded_size: Vec2::ZERO,
     };
 }
 
 impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
-    }
-}
-
-/// Represents the possible value types for layout properties.
-///
-/// This enum allows specifying values for various [`Style`] properties in different units,
-/// such as logical pixels, percentages, or automatically determined values.
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
-pub enum Val {
-    /// Automatically determine the value based on the context and other [`Style`] properties.
-    Auto,
-    /// Set this value in logical pixels.
-    Px(f32),
-    /// Set the value as a percentage of its parent node's length along a specific axis.
-    ///
-    /// If the UI node has no parent, the percentage is calculated based on the window's length
-    /// along the corresponding axis.
-    ///
-    /// The chosen axis depends on the `Style` field set:
-    /// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
-    /// * For `gap`, `min_size`, `size`, and `max_size`:
-    ///   - `width` is relative to the parent's width.
-    ///   - `height` is relative to the parent's height.
-    /// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent node's width.
-    /// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
-    Percent(f32),
-    /// Set this value in percent of the viewport width
-    Vw(f32),
-    /// Set this value in percent of the viewport height
-    Vh(f32),
-    /// Set this value in percent of the viewport's smaller dimension.
-    VMin(f32),
-    /// Set this value in percent of the viewport's larger dimension.
-    VMax(f32),
-}
-
-impl Val {
-    pub const DEFAULT: Self = Self::Auto;
-}
-
-impl Default for Val {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
-impl Mul<f32> for Val {
-    type Output = Val;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        match self {
-            Val::Auto => Val::Auto,
-            Val::Px(value) => Val::Px(value * rhs),
-            Val::Percent(value) => Val::Percent(value * rhs),
-            Val::Vw(value) => Val::Vw(value * rhs),
-            Val::Vh(value) => Val::Vh(value * rhs),
-            Val::VMin(value) => Val::VMin(value * rhs),
-            Val::VMax(value) => Val::VMax(value * rhs),
-        }
-    }
-}
-
-impl MulAssign<f32> for Val {
-    fn mul_assign(&mut self, rhs: f32) {
-        match self {
-            Val::Auto => {}
-            Val::Px(value)
-            | Val::Percent(value)
-            | Val::Vw(value)
-            | Val::Vh(value)
-            | Val::VMin(value)
-            | Val::VMax(value) => *value *= rhs,
-        }
-    }
-}
-
-impl Div<f32> for Val {
-    type Output = Val;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        match self {
-            Val::Auto => Val::Auto,
-            Val::Px(value) => Val::Px(value / rhs),
-            Val::Percent(value) => Val::Percent(value / rhs),
-            Val::Vw(value) => Val::Vw(value / rhs),
-            Val::Vh(value) => Val::Vh(value / rhs),
-            Val::VMin(value) => Val::VMin(value / rhs),
-            Val::VMax(value) => Val::VMax(value / rhs),
-        }
-    }
-}
-
-impl DivAssign<f32> for Val {
-    fn div_assign(&mut self, rhs: f32) {
-        match self {
-            Val::Auto => {}
-            Val::Px(value)
-            | Val::Percent(value)
-            | Val::Vw(value)
-            | Val::Vh(value)
-            | Val::VMin(value)
-            | Val::VMax(value) => *value /= rhs,
-        }
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
-pub enum ValArithmeticError {
-    #[error("the variants of the Vals don't match")]
-    NonIdenticalVariants,
-    #[error("the given variant of Val is not evaluateable (non-numeric)")]
-    NonEvaluateable,
-}
-
-impl Val {
-    /// Tries to add the values of two [`Val`]s.
-    /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
-    /// When adding non-numeric [`Val`]s, it returns the value unchanged.
-    pub fn try_add(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
-        match (self, rhs) {
-            (Val::Auto, Val::Auto) => Ok(*self),
-            (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value + rhs_value)),
-            (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value + rhs_value)),
-            _ => Err(ValArithmeticError::NonIdenticalVariants),
-        }
-    }
-
-    /// Adds `rhs` to `self` and assigns the result to `self` (see [`Val::try_add`])
-    pub fn try_add_assign(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
-        *self = self.try_add(rhs)?;
-        Ok(())
-    }
-
-    /// Tries to subtract the values of two [`Val`]s.
-    /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
-    /// When adding non-numeric [`Val`]s, it returns the value unchanged.
-    pub fn try_sub(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
-        match (self, rhs) {
-            (Val::Auto, Val::Auto) => Ok(*self),
-            (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value - rhs_value)),
-            (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value - rhs_value)),
-            _ => Err(ValArithmeticError::NonIdenticalVariants),
-        }
-    }
-
-    /// Subtracts `rhs` from `self` and assigns the result to `self` (see [`Val::try_sub`])
-    pub fn try_sub_assign(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
-        *self = self.try_sub(rhs)?;
-        Ok(())
-    }
-
-    /// A convenience function for simple evaluation of [`Val::Percent`] variant into a concrete [`Val::Px`] value.
-    /// Returns a [`ValArithmeticError::NonEvaluateable`] if the [`Val`] is impossible to evaluate into [`Val::Px`].
-    /// Otherwise it returns an [`f32`] containing the evaluated value in pixels.
-    ///
-    /// **Note:** If a [`Val::Px`] is evaluated, it's inner value returned unchanged.
-    pub fn evaluate(&self, size: f32) -> Result<f32, ValArithmeticError> {
-        match self {
-            Val::Percent(value) => Ok(size * value / 100.0),
-            Val::Px(value) => Ok(*value),
-            _ => Err(ValArithmeticError::NonEvaluateable),
-        }
-    }
-
-    /// Similar to [`Val::try_add`], but performs [`Val::evaluate`] on both values before adding.
-    /// Returns an [`f32`] value in pixels.
-    pub fn try_add_with_size(&self, rhs: Val, size: f32) -> Result<f32, ValArithmeticError> {
-        let lhs = self.evaluate(size)?;
-        let rhs = rhs.evaluate(size)?;
-
-        Ok(lhs + rhs)
-    }
-
-    /// Similar to [`Val::try_add_assign`], but performs [`Val::evaluate`] on both values before adding.
-    /// The value gets converted to [`Val::Px`].
-    pub fn try_add_assign_with_size(
-        &mut self,
-        rhs: Val,
-        size: f32,
-    ) -> Result<(), ValArithmeticError> {
-        *self = Val::Px(self.evaluate(size)? + rhs.evaluate(size)?);
-        Ok(())
-    }
-
-    /// Similar to [`Val::try_sub`], but performs [`Val::evaluate`] on both values before subtracting.
-    /// Returns an [`f32`] value in pixels.
-    pub fn try_sub_with_size(&self, rhs: Val, size: f32) -> Result<f32, ValArithmeticError> {
-        let lhs = self.evaluate(size)?;
-        let rhs = rhs.evaluate(size)?;
-
-        Ok(lhs - rhs)
-    }
-
-    /// Similar to [`Val::try_sub_assign`], but performs [`Val::evaluate`] on both values before adding.
-    /// The value gets converted to [`Val::Px`].
-    pub fn try_sub_assign_with_size(
-        &mut self,
-        rhs: Val,
-        size: f32,
-    ) -> Result<(), ValArithmeticError> {
-        *self = Val::Px(self.try_add_with_size(rhs, size)?);
-        Ok(())
     }
 }
 
@@ -283,14 +107,14 @@ impl Val {
 ///
 /// ### Flexbox
 ///
-/// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
-/// - [A Complete Guide To Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/) by CSS Tricks. This is detailed guide with illustrations and comphrehensive written explanation of the different Flexbox properties and how they work.
-/// - [Flexbox Froggy](https://flexboxfroggy.com/). An interactive tutorial/game that teaches the essential parts of Flebox in a fun engaging way.
+/// - [MDN: Basic Concepts of Flexbox](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flexible_Box_Layout/Basic_Concepts_of_Flexbox)
+/// - [A Complete Guide To Flexbox](https://css-tricks.com/snippets/css/a-guide-to-flexbox/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.
+/// - [Flexbox Froggy](https://flexboxfroggy.com/). An interactive tutorial/game that teaches the essential parts of Flexbox in a fun engaging way.
 ///
 /// ### CSS Grid
 ///
-/// - [MDN: Basic Concepts of Flexbox](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flexible_Box_Layout/Basic_Concepts_of_Flexbox)
-/// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comphrehensive written explanation of the different CSS Grid properties and how they work.
+/// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
+/// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
@@ -385,58 +209,46 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/aspect-ratio>
     pub aspect_ratio: Option<f32>,
 
-    /// For Flexbox containers:
-    ///   - Sets default cross-axis alignment of the child items.
-    /// For CSS Grid containers:
-    ///   - Controls block (vertical) axis alignment of children of this grid container within their grid areas
+    /// - For Flexbox containers, sets default cross-axis alignment of the child items.
+    /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
     ///
-    /// This value is overriden [`JustifySelf`] on the child node is set.
+    /// This value is overridden if [`AlignSelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
     pub align_items: AlignItems,
 
-    /// For Flexbox containers:
-    ///   - This property has no effect. See `justify_content` for main-axis alignment of flex items.
-    /// For CSS Grid containers:
-    ///   - Sets default inline (horizontal) axis alignment of child items within their grid areas
+    /// - For Flexbox containers, this property has no effect. See `justify_content` for main-axis alignment of flex items.
+    /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
     ///
-    /// This value is overriden [`JustifySelf`] on the child node is set.
+    /// This value is overridden if [`JustifySelf`] on the child node is set.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
     pub justify_items: JustifyItems,
 
-    /// For Flexbox items:
-    ///   - Controls cross-axis alignment of the item.
-    /// For CSS Grid items:
-    ///   - Controls block (vertical) axis alignment of a grid item within it's grid area
+    /// - For Flexbox items, controls cross-axis alignment of the item.
+    /// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within it's grid area.
     ///
     /// If set to `Auto`, alignment is inherited from the value of [`AlignItems`] set on the parent node.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
     pub align_self: AlignSelf,
 
-    /// For Flexbox items:
-    ///   - This property has no effect. See `justify_content` for main-axis alignment of flex items.
-    /// For CSS Grid items:
-    ///   - Controls inline (horizontal) axis alignment of a grid item within it's grid area.
+    /// - For Flexbox items, this property has no effect. See `justify_content` for main-axis alignment of flex items.
+    /// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within it's grid area.
     ///
     /// If set to `Auto`, alignment is inherited from the value of [`JustifyItems`] set on the parent node.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
     pub justify_self: JustifySelf,
 
-    /// For Flexbox containers:
-    ///   - Controls alignment of lines if flex_wrap is set to [`FlexWrap::Wrap`] and there are multiple lines of items
-    /// For CSS Grid container:
-    ///   - Controls alignment of grid rows
+    /// - For Flexbox containers, controls alignment of lines if flex_wrap is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
+    /// - For CSS Grid containers, controls alignment of grid rows.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
     pub align_content: AlignContent,
 
-    /// For Flexbox containers:
-    ///   - Controls alignment of items in the main axis
-    /// For CSS Grid containers:
-    ///   - Controls alignment of grid columns
+    /// - For Flexbox containers, controls alignment of items in the main axis.
+    /// - For CSS Grid containers, controls alignment of grid columns.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
     pub justify_content: JustifyContent,
@@ -490,8 +302,6 @@ pub struct Style {
     /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
     ///
     /// The size of the node will be expanded if there are constraints that prevent the layout algorithm from placing the border within the existing node boundary.
-    ///
-    /// Rendering for borders is not yet implemented.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
     pub border: UiRect,
@@ -561,7 +371,7 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-rows>
     pub grid_auto_rows: Vec<GridTrack>,
     /// Defines the size of implicitly created columns. Columns are created implicitly when grid items are given explicit placements that are out of bounds
-    /// of the columns explicitly created using `grid_template_columms`.
+    /// of the columns explicitly created using `grid_template_columns`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-template-columns>
     pub grid_auto_columns: Vec<GridTrack>,
@@ -608,8 +418,8 @@ impl Style {
         max_height: Val::Auto,
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
-        row_gap: Val::Px(0.0),
-        column_gap: Val::Px(0.0),
+        row_gap: Val::ZERO,
+        column_gap: Val::ZERO,
         grid_auto_flow: GridAutoFlow::DEFAULT,
         grid_template_rows: Vec::new(),
         grid_template_columns: Vec::new(),
@@ -660,7 +470,7 @@ impl Default for AlignItems {
     }
 }
 
-/// How items are aligned according to the cross axis
+/// How items are aligned according to the main axis
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifyItems {
@@ -674,7 +484,7 @@ pub enum JustifyItems {
     Center,
     /// Items are aligned at the baseline.
     Baseline,
-    /// Items are stretched across the whole cross axis.
+    /// Items are stretched across the whole main axis.
     Stretch,
 }
 
@@ -723,12 +533,12 @@ impl Default for AlignSelf {
     }
 }
 
-/// How this item is aligned according to the cross axis.
-/// Overrides [`AlignItems`].
+/// How this item is aligned according to the main axis.
+/// Overrides [`JustifyItems`].
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifySelf {
-    /// Use the parent node's [`AlignItems`] value to determine how this item should be aligned.
+    /// Use the parent node's [`JustifyItems`] value to determine how this item should be aligned.
     Auto,
     /// This item will be aligned with the start of the axis.
     Start,
@@ -738,7 +548,7 @@ pub enum JustifySelf {
     Center,
     /// This item will be aligned at the baseline.
     Baseline,
-    /// This item will be stretched across the whole cross axis.
+    /// This item will be stretched across the whole main axis.
     Stretch,
 }
 
@@ -906,7 +716,7 @@ impl Default for FlexDirection {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub struct Overflow {
-    /// Whether to show or clip overflowing items on the x axis        
+    /// Whether to show or clip overflowing items on the x axis
     pub x: OverflowAxis,
     /// Whether to show or clip overflowing items on the y axis
     pub y: OverflowAxis,
@@ -1000,7 +810,7 @@ pub enum PositionType {
 }
 
 impl PositionType {
-    const DEFAULT: Self = Self::Relative;
+    pub const DEFAULT: Self = Self::Relative;
 }
 
 impl Default for PositionType {
@@ -1022,7 +832,7 @@ pub enum FlexWrap {
 }
 
 impl FlexWrap {
-    const DEFAULT: Self = Self::NoWrap;
+    pub const DEFAULT: Self = Self::NoWrap;
 }
 
 impl Default for FlexWrap {
@@ -1052,7 +862,7 @@ pub enum GridAutoFlow {
 }
 
 impl GridAutoFlow {
-    const DEFAULT: Self = Self::Row;
+    pub const DEFAULT: Self = Self::Row;
 }
 
 impl Default for GridAutoFlow {
@@ -1109,7 +919,7 @@ pub struct GridTrack {
 }
 
 impl GridTrack {
-    const DEFAULT: Self = Self {
+    pub const DEFAULT: Self = Self {
         min_sizing_function: MinTrackSizingFunction::Auto,
         max_sizing_function: MaxTrackSizingFunction::Auto,
     };
@@ -1430,105 +1240,150 @@ impl From<RepeatedGridTrack> for Vec<RepeatedGridTrack> {
 ///
 /// The default `span` is 1. If neither `start` or `end` is set then the item will be placed automatically.
 ///
-/// Generally, at most two fields should be set. If all three fields are specifed then `span` will be ignored. If `end` specifies an earlier
+/// Generally, at most two fields should be set. If all three fields are specified then `span` will be ignored. If `end` specifies an earlier
 /// grid line than `start` then `end` will be ignored and the item will have a span of 1.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Line-based_Placement_with_CSS_Grid>
 pub struct GridPlacement {
     /// The grid line at which the item should start. Lines are 1-indexed. Negative indexes count backwards from the end of the grid. Zero is not a valid index.
-    pub(crate) start: Option<i16>,
+    pub(crate) start: Option<NonZeroI16>,
     /// How many grid tracks the item should span. Defaults to 1.
-    pub(crate) span: Option<u16>,
-    /// The grid line at which the node should end. Lines are 1-indexed. Negative indexes count backwards from the end of the grid. Zero is not a valid index.
-    pub(crate) end: Option<i16>,
+    pub(crate) span: Option<NonZeroU16>,
+    /// The grid line at which the item should end. Lines are 1-indexed. Negative indexes count backwards from the end of the grid. Zero is not a valid index.
+    pub(crate) end: Option<NonZeroI16>,
 }
 
 impl GridPlacement {
-    const DEFAULT: Self = Self {
+    pub const DEFAULT: Self = Self {
         start: None,
-        span: Some(1),
+        span: Some(unsafe { NonZeroU16::new_unchecked(1) }),
         end: None,
     };
 
     /// Place the grid item automatically (letting the `span` default to `1`).
     pub fn auto() -> Self {
-        Self {
-            start: None,
-            end: None,
-            span: Some(1),
-        }
+        Self::DEFAULT
     }
 
     /// Place the grid item automatically, specifying how many tracks it should `span`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `span` is `0`
     pub fn span(span: u16) -> Self {
         Self {
             start: None,
             end: None,
-            span: Some(span),
+            span: try_into_grid_span(span).expect("Invalid span value of 0."),
         }
     }
 
     /// Place the grid item specifying the `start` grid line (letting the `span` default to `1`).
+    ///
+    /// # Panics
+    ///
+    /// Panics if `start` is `0`
     pub fn start(start: i16) -> Self {
         Self {
-            start: Some(start),
-            end: None,
-            span: Some(1),
+            start: try_into_grid_index(start).expect("Invalid start value of 0."),
+            ..Self::DEFAULT
         }
     }
 
     /// Place the grid item specifying the `end` grid line (letting the `span` default to `1`).
+    ///
+    /// # Panics
+    ///
+    /// Panics if `end` is `0`
     pub fn end(end: i16) -> Self {
         Self {
-            start: None,
-            end: Some(end),
-            span: Some(1),
+            end: try_into_grid_index(end).expect("Invalid end value of 0."),
+            ..Self::DEFAULT
         }
     }
 
     /// Place the grid item specifying the `start` grid line and how many tracks it should `span`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `start` or `span` is `0`
     pub fn start_span(start: i16, span: u16) -> Self {
         Self {
-            start: Some(start),
+            start: try_into_grid_index(start).expect("Invalid start value of 0."),
             end: None,
-            span: Some(span),
+            span: try_into_grid_span(span).expect("Invalid span value of 0."),
         }
     }
 
     /// Place the grid item specifying `start` and `end` grid lines (`span` will be inferred)
+    ///
+    /// # Panics
+    ///
+    /// Panics if `start` or `end` is `0`
     pub fn start_end(start: i16, end: i16) -> Self {
         Self {
-            start: Some(start),
-            end: Some(end),
+            start: try_into_grid_index(start).expect("Invalid start value of 0."),
+            end: try_into_grid_index(end).expect("Invalid end value of 0."),
             span: None,
         }
     }
 
     /// Place the grid item specifying the `end` grid line and how many tracks it should `span`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `end` or `span` is `0`
     pub fn end_span(end: i16, span: u16) -> Self {
         Self {
             start: None,
-            end: Some(end),
-            span: Some(span),
+            end: try_into_grid_index(end).expect("Invalid end value of 0."),
+            span: try_into_grid_span(span).expect("Invalid span value of 0."),
         }
     }
 
     /// Mutate the item, setting the `start` grid line
+    ///
+    /// # Panics
+    ///
+    /// Panics if `start` is `0`
     pub fn set_start(mut self, start: i16) -> Self {
-        self.start = Some(start);
+        self.start = try_into_grid_index(start).expect("Invalid start value of 0.");
         self
     }
 
     /// Mutate the item, setting the `end` grid line
+    ///
+    /// # Panics
+    ///
+    /// Panics if `end` is `0`
     pub fn set_end(mut self, end: i16) -> Self {
-        self.end = Some(end);
+        self.end = try_into_grid_index(end).expect("Invalid end value of 0.");
         self
     }
 
     /// Mutate the item, setting the number of tracks the item should `span`
+    ///
+    /// # Panics
+    ///
+    /// Panics if `span` is `0`
     pub fn set_span(mut self, span: u16) -> Self {
-        self.span = Some(span);
+        self.span = try_into_grid_span(span).expect("Invalid span value of 0.");
         self
+    }
+
+    /// Returns the grid line at which the item should start, or `None` if not set.
+    pub fn get_start(self) -> Option<i16> {
+        self.start.map(NonZeroI16::get)
+    }
+
+    /// Returns the grid line at which the item should end, or `None` if not set.
+    pub fn get_end(self) -> Option<i16> {
+        self.end.map(NonZeroI16::get)
+    }
+
+    /// Returns span for this grid item, or `None` if not set.
+    pub fn get_span(self) -> Option<u16> {
+        self.span.map(NonZeroU16::get)
     }
 }
 
@@ -1536,6 +1391,29 @@ impl Default for GridPlacement {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+/// Convert an `i16` to `NonZeroI16`, fails on `0` and returns the `InvalidZeroIndex` error.
+fn try_into_grid_index(index: i16) -> Result<Option<NonZeroI16>, GridPlacementError> {
+    Ok(Some(
+        NonZeroI16::new(index).ok_or(GridPlacementError::InvalidZeroIndex)?,
+    ))
+}
+
+/// Convert a `u16` to `NonZeroU16`, fails on `0` and returns the `InvalidZeroSpan` error.
+fn try_into_grid_span(span: u16) -> Result<Option<NonZeroU16>, GridPlacementError> {
+    Ok(Some(
+        NonZeroU16::new(span).ok_or(GridPlacementError::InvalidZeroSpan)?,
+    ))
+}
+
+/// Errors that occur when setting constraints for a `GridPlacement`
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
+pub enum GridPlacementError {
+    #[error("Zero is not a valid grid position")]
+    InvalidZeroIndex,
+    #[error("Spans cannot be zero length")]
+    InvalidZeroSpan,
 }
 
 /// The background color of the node
@@ -1595,8 +1473,87 @@ impl Default for BorderColor {
     }
 }
 
+#[derive(Component, Copy, Clone, Default, Debug, Reflect)]
+#[reflect(Component, Default)]
+/// The [`Outline`] component adds an outline outside the edge of a UI node.
+/// Outlines do not take up space in the layout
+///
+/// To add an [`Outline`] to a ui node you can spawn a `(NodeBundle, Outline)` tuple bundle:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ui::prelude::*;
+/// # use bevy_render::prelude::Color;
+/// fn setup_ui(mut commands: Commands) {
+///     commands.spawn((
+///         NodeBundle {
+///             style: Style {
+///                 width: Val::Px(100.),
+///                 height: Val::Px(100.),
+///                 ..Default::default()
+///             },
+///             background_color: Color::BLUE.into(),
+///             ..Default::default()
+///         },
+///         Outline::new(Val::Px(10.), Val::ZERO, Color::RED)
+///     ));
+/// }
+/// ```
+///
+/// [`Outline`] components can also be added later to existing UI nodes:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ui::prelude::*;
+/// # use bevy_render::prelude::Color;
+/// fn outline_hovered_button_system(
+///     mut commands: Commands,
+///     mut node_query: Query<(Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
+/// ) {
+///     for (entity, interaction, mut maybe_outline) in node_query.iter_mut() {
+///         let outline_color =
+///             if matches!(*interaction, Interaction::Hovered) {
+///                 Color::WHITE    
+///             } else {
+///                 Color::NONE
+///             };
+///         if let Some(mut outline) = maybe_outline {
+///             outline.color = outline_color;
+///         } else {
+///             commands.entity(entity).insert(Outline::new(Val::Px(10.), Val::ZERO, outline_color));
+///         }
+///     }
+/// }
+/// ```
+/// Inserting and removing an [`Outline`] component repeatedly will result in table moves, so it is generally preferable to
+/// set `Outline::color` to `Color::NONE` to hide an outline.
+pub struct Outline {
+    /// The width of the outline.
+    ///
+    /// Percentage `Val` values are resolved based on the width of the outlined [`Node`]
+    pub width: Val,
+    /// The amount of space between a node's outline the edge of the node
+    ///
+    /// Percentage `Val` values are resolved based on the width of the outlined [`Node`]
+    pub offset: Val,
+    /// Color of the outline
+    ///
+    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set `Color::None` to hide the outline.
+    /// This avoids the table moves that would occcur from the repeated insertion and removal of the `Outline` component.
+    pub color: Color,
+}
+
+impl Outline {
+    /// Create a new outline
+    pub const fn new(width: Val, offset: Val, color: Color) -> Self {
+        Self {
+            width,
+            offset,
+            color,
+        }
+    }
+}
+
 /// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct UiImage {
     /// Handle to the texture
@@ -1605,16 +1562,6 @@ pub struct UiImage {
     pub flip_x: bool,
     /// Whether the image should be flipped along its y-axis
     pub flip_y: bool,
-}
-
-impl Default for UiImage {
-    fn default() -> UiImage {
-        UiImage {
-            texture: DEFAULT_IMAGE_HANDLE.typed(),
-            flip_x: false,
-            flip_y: false,
-        }
-    }
 }
 
 impl UiImage {
@@ -1685,152 +1632,31 @@ impl Default for ZIndex {
 
 #[cfg(test)]
 mod tests {
-    use crate::ValArithmeticError;
-
-    use super::Val;
+    use crate::GridPlacement;
 
     #[test]
-    fn val_try_add() {
-        let auto_sum = Val::Auto.try_add(Val::Auto).unwrap();
-        let px_sum = Val::Px(20.).try_add(Val::Px(22.)).unwrap();
-        let percent_sum = Val::Percent(50.).try_add(Val::Percent(50.)).unwrap();
-
-        assert_eq!(auto_sum, Val::Auto);
-        assert_eq!(px_sum, Val::Px(42.));
-        assert_eq!(percent_sum, Val::Percent(100.));
+    fn invalid_grid_placement_values() {
+        assert!(std::panic::catch_unwind(|| GridPlacement::span(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(-1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_start(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_end(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_span(0)).is_err());
     }
 
     #[test]
-    fn val_try_add_to_self() {
-        let mut val = Val::Px(5.);
-
-        val.try_add_assign(Val::Px(3.)).unwrap();
-
-        assert_eq!(val, Val::Px(8.));
-    }
-
-    #[test]
-    fn val_try_sub() {
-        let auto_sum = Val::Auto.try_sub(Val::Auto).unwrap();
-        let px_sum = Val::Px(72.).try_sub(Val::Px(30.)).unwrap();
-        let percent_sum = Val::Percent(100.).try_sub(Val::Percent(50.)).unwrap();
-
-        assert_eq!(auto_sum, Val::Auto);
-        assert_eq!(px_sum, Val::Px(42.));
-        assert_eq!(percent_sum, Val::Percent(50.));
-    }
-
-    #[test]
-    fn different_variant_val_try_add() {
-        let different_variant_sum_1 = Val::Px(50.).try_add(Val::Percent(50.));
-        let different_variant_sum_2 = Val::Percent(50.).try_add(Val::Auto);
-
-        assert_eq!(
-            different_variant_sum_1,
-            Err(ValArithmeticError::NonIdenticalVariants)
-        );
-        assert_eq!(
-            different_variant_sum_2,
-            Err(ValArithmeticError::NonIdenticalVariants)
-        );
-    }
-
-    #[test]
-    fn different_variant_val_try_sub() {
-        let different_variant_diff_1 = Val::Px(50.).try_sub(Val::Percent(50.));
-        let different_variant_diff_2 = Val::Percent(50.).try_sub(Val::Auto);
-
-        assert_eq!(
-            different_variant_diff_1,
-            Err(ValArithmeticError::NonIdenticalVariants)
-        );
-        assert_eq!(
-            different_variant_diff_2,
-            Err(ValArithmeticError::NonIdenticalVariants)
-        );
-    }
-
-    #[test]
-    fn val_evaluate() {
-        let size = 250.;
-        let result = Val::Percent(80.).evaluate(size).unwrap();
-
-        assert_eq!(result, size * 0.8);
-    }
-
-    #[test]
-    fn val_evaluate_px() {
-        let size = 250.;
-        let result = Val::Px(10.).evaluate(size).unwrap();
-
-        assert_eq!(result, 10.);
-    }
-
-    #[test]
-    fn val_invalid_evaluation() {
-        let size = 250.;
-        let evaluate_auto = Val::Auto.evaluate(size);
-
-        assert_eq!(evaluate_auto, Err(ValArithmeticError::NonEvaluateable));
-    }
-
-    #[test]
-    fn val_try_add_with_size() {
-        let size = 250.;
-
-        let px_sum = Val::Px(21.).try_add_with_size(Val::Px(21.), size).unwrap();
-        let percent_sum = Val::Percent(20.)
-            .try_add_with_size(Val::Percent(30.), size)
-            .unwrap();
-        let mixed_sum = Val::Px(20.)
-            .try_add_with_size(Val::Percent(30.), size)
-            .unwrap();
-
-        assert_eq!(px_sum, 42.);
-        assert_eq!(percent_sum, 0.5 * size);
-        assert_eq!(mixed_sum, 20. + 0.3 * size);
-    }
-
-    #[test]
-    fn val_try_sub_with_size() {
-        let size = 250.;
-
-        let px_sum = Val::Px(60.).try_sub_with_size(Val::Px(18.), size).unwrap();
-        let percent_sum = Val::Percent(80.)
-            .try_sub_with_size(Val::Percent(30.), size)
-            .unwrap();
-        let mixed_sum = Val::Percent(50.)
-            .try_sub_with_size(Val::Px(30.), size)
-            .unwrap();
-
-        assert_eq!(px_sum, 42.);
-        assert_eq!(percent_sum, 0.5 * size);
-        assert_eq!(mixed_sum, 0.5 * size - 30.);
-    }
-
-    #[test]
-    fn val_try_add_non_numeric_with_size() {
-        let size = 250.;
-
-        let percent_sum = Val::Auto.try_add_with_size(Val::Auto, size);
-
-        assert_eq!(percent_sum, Err(ValArithmeticError::NonEvaluateable));
-    }
-
-    #[test]
-    fn val_arithmetic_error_messages() {
-        assert_eq!(
-            format!("{}", ValArithmeticError::NonIdenticalVariants),
-            "the variants of the Vals don't match"
-        );
-        assert_eq!(
-            format!("{}", ValArithmeticError::NonEvaluateable),
-            "the given variant of Val is not evaluateable (non-numeric)"
-        );
-    }
-
-    #[test]
-    fn default_val_equals_const_default_val() {
-        assert_eq!(Val::default(), Val::DEFAULT);
+    fn grid_placement_accessors() {
+        assert_eq!(GridPlacement::start(5).get_start(), Some(5));
+        assert_eq!(GridPlacement::end(-4).get_end(), Some(-4));
+        assert_eq!(GridPlacement::span(2).get_span(), Some(2));
+        assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
+        assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
+        assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
     }
 }

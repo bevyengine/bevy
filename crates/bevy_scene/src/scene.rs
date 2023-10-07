@@ -1,11 +1,11 @@
+use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
+use bevy_asset::Asset;
 use bevy_ecs::{
-    entity::EntityMap,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };
-use bevy_reflect::{TypePath, TypeUuid};
-
-use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
+use bevy_reflect::TypePath;
+use bevy_utils::HashMap;
 
 /// To spawn a scene, you can use either:
 /// * [`SceneSpawner::spawn`](crate::SceneSpawner::spawn)
@@ -13,13 +13,14 @@ use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
 /// * adding the [`Handle<Scene>`](bevy_asset::Handle) to an entity (the scene will only be
 /// visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
-#[derive(Debug, TypeUuid, TypePath)]
-#[uuid = "c156503c-edd9-4ec7-8d33-dab392df03cd"]
+#[derive(Asset, TypePath, Debug)]
 pub struct Scene {
+    /// The world of the scene, containing its entities and resources.
     pub world: World,
 }
 
 impl Scene {
+    /// Creates a new scene with the given world.
     pub fn new(world: World) -> Self {
         Self { world }
     }
@@ -30,7 +31,7 @@ impl Scene {
         type_registry: &AppTypeRegistry,
     ) -> Result<Scene, SceneSpawnError> {
         let mut world = World::new();
-        let mut entity_map = EntityMap::default();
+        let mut entity_map = HashMap::default();
         dynamic_scene.write_to_world_with(&mut world, &mut entity_map, type_registry)?;
 
         Ok(Self { world })
@@ -56,13 +57,17 @@ impl Scene {
         type_registry: &AppTypeRegistry,
     ) -> Result<InstanceInfo, SceneSpawnError> {
         let mut instance_info = InstanceInfo {
-            entity_map: EntityMap::default(),
+            entity_map: HashMap::default(),
         };
 
         let type_registry = type_registry.read();
 
         // Resources archetype
-        for (component_id, _) in self.world.storages().resources.iter() {
+        for (component_id, resource_data) in self.world.storages().resources.iter() {
+            if !resource_data.is_present() {
+                continue;
+            }
+
             let component_info = self
                 .world
                 .components()

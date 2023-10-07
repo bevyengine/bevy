@@ -20,7 +20,6 @@ mod derive_data;
 mod documentation;
 mod enum_utility;
 mod field_attributes;
-mod fq_std;
 mod from_reflect;
 mod impls;
 mod reflect_value;
@@ -31,7 +30,6 @@ mod type_uuid;
 mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
-use crate::type_uuid::gen_impl_type_uuid;
 use container_attributes::ReflectTraits;
 use derive_data::ReflectTypePath;
 use proc_macro::TokenStream;
@@ -40,7 +38,6 @@ use reflect_value::ReflectValueDef;
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput};
 use type_path::NamedTypePathDef;
-use type_uuid::TypeUuidDef;
 use utility::WhereClauseOptions;
 
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
@@ -127,6 +124,13 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// or if a manual implementation is desired.
 ///
 /// Note that in the latter case, `ReflectFromReflect` will no longer be automatically registered.
+///
+/// ## `#[reflect(type_path = false)]`
+///
+/// This attribute will opt-out of the default `TypePath` implementation.
+///
+/// This is useful for when a type can't or shouldn't implement `TypePath`,
+/// or if a manual implementation is desired.
 ///
 /// # Field Attributes
 ///
@@ -221,7 +225,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 ///
 /// By default, this attribute denotes that the field's type implements [`Default`].
 /// However, it can also take in a path string to a user-defined function that will return the default value.
-/// This takes the form: `#[reflect(default = "path::to::my_function)]` where `my_function` is a parameterless
+/// This takes the form: `#[reflect(default = "path::to::my_function")]` where `my_function` is a parameterless
 /// function that must return some default value for the type.
 ///
 /// Specifying a custom default can be used to give different fields their own specialized defaults,
@@ -282,7 +286,10 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
 // From https://github.com/randomPoison/type-uuid
 #[proc_macro_derive(TypeUuid, attributes(uuid))]
 pub fn derive_type_uuid(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
     type_uuid::type_uuid_derive(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
 }
 
 /// A macro that automatically generates type data for traits, which their implementors can then register.
@@ -523,7 +530,7 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
 /// it requires an 'absolute' path definition.
 ///
 /// Specifically, a leading `::` denoting a global path must be specified
-/// or a preceeding `(in my_crate::foo)` to specify the custom path must be used.
+/// or a preceding `(in my_crate::foo)` to specify the custom path must be used.
 ///
 /// # Examples
 ///
@@ -571,7 +578,7 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
                 generics,
             }
         }
-        NamedTypePathDef::Primtive(ref ident) => ReflectTypePath::Primitive(ident),
+        NamedTypePathDef::Primitive(ref ident) => ReflectTypePath::Primitive(ident),
     };
 
     let meta = ReflectMeta::new(type_path, ReflectTraits::default());
@@ -582,6 +589,6 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
 /// Derives `TypeUuid` for the given type. This is used internally to implement `TypeUuid` on foreign types, such as those in the std. This macro should be used in the format of `<[Generic Params]> [Type (Path)], [Uuid (String Literal)]`.
 #[proc_macro]
 pub fn impl_type_uuid(input: TokenStream) -> TokenStream {
-    let def = parse_macro_input!(input as TypeUuidDef);
-    gen_impl_type_uuid(def)
+    let def = parse_macro_input!(input as type_uuid::TypeUuidDef);
+    type_uuid::gen_impl_type_uuid(def).into()
 }

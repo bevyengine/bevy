@@ -14,13 +14,23 @@
 //! # bevy_ecs::system::assert_is_system(system);
 //! ```
 //!
-//! See the documentation on [`Gizmos`](crate::gizmos::Gizmos) for more examples.
+//! See the documentation on [`Gizmos`] for more examples.
 
-use std::hash::{Hash, Hasher};
-use std::mem;
+pub mod gizmos;
 
-use bevy_app::{Last, Plugin, Update};
-use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
+#[cfg(feature = "bevy_sprite")]
+mod pipeline_2d;
+#[cfg(feature = "bevy_pbr")]
+mod pipeline_3d;
+
+/// The `bevy_gizmos` prelude.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{gizmos::Gizmos, AabbGizmo, AabbGizmoConfig, GizmoConfig};
+}
+
+use bevy_app::{Last, Plugin, PostUpdate};
+use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_core::cast_slice;
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -34,7 +44,7 @@ use bevy_ecs::{
         Commands, Query, Res, ResMut, Resource, SystemParamItem,
     },
 };
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath, TypeUuid};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
     color::Color,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -51,26 +61,14 @@ use bevy_render::{
     view::RenderLayers,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::AHasher;
-
-pub mod gizmos;
-
-#[cfg(feature = "bevy_sprite")]
-mod pipeline_2d;
-#[cfg(feature = "bevy_pbr")]
-mod pipeline_3d;
-
+use bevy_transform::{
+    components::{GlobalTransform, Transform},
+    TransformSystem,
+};
 use gizmos::{GizmoStorage, Gizmos};
+use std::mem;
 
-/// The `bevy_gizmos` prelude.
-pub mod prelude {
-    #[doc(hidden)]
-    pub use crate::{gizmos::Gizmos, AabbGizmo, AabbGizmoConfig, GizmoConfig};
-}
-
-const LINE_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7414812689238026784);
+const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 pub struct GizmoPlugin;
@@ -80,25 +78,31 @@ impl Plugin for GizmoPlugin {
         load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
         app.add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
-            .add_asset::<LineGizmo>()
+            .init_asset::<LineGizmo>()
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
             .init_resource::<GizmoConfig>()
             .init_resource::<GizmoStorage>()
             .add_systems(Last, update_gizmo_meshes)
             .add_systems(
-                Update,
+                PostUpdate,
                 (
                     draw_aabbs,
                     draw_all_aabbs.run_if(|config: Res<GizmoConfig>| config.aabb.draw_all),
-                ),
+                )
+                    .after(TransformSystem::TransformPropagate),
             );
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         render_app
             .add_systems(ExtractSchedule, extract_gizmo_data)
-            .add_systems(Render, queue_line_gizmo_bind_group.in_set(RenderSet::Queue));
+            .add_systems(
+                Render,
+                prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
+            );
 
         #[cfg(feature = "bevy_sprite")]
         app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
@@ -107,7 +111,9 @@ impl Plugin for GizmoPlugin {
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
         let render_device = render_app.world.resource::<RenderDevice>();
         let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -143,7 +149,7 @@ pub struct GizmoConfig {
     pub line_width: f32,
     /// Apply perspective to gizmo lines.
     ///
-    /// This setting only affects 3D, non-orhographic cameras.
+    /// This setting only affects 3D, non-orthographic cameras.
     ///
     /// Defaults to `false`.
     pub line_perspective: bool,
@@ -235,12 +241,17 @@ fn draw_all_aabbs(
 }
 
 fn color_from_entity(entity: Entity) -> Color {
-    const U64_TO_DEGREES: f32 = 360.0 / u64::MAX as f32;
+    let index = entity.index();
 
-    let mut hasher = AHasher::default();
-    entity.hash(&mut hasher);
+    // from https://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences/
+    //
+    // See https://en.wikipedia.org/wiki/Low-discrepancy_sequence
+    // Map a sequence of integers (eg: 154, 155, 156, 157, 158) into the [0.0..1.0] range,
+    // so that the closer the numbers are, the larger the difference of their image.
+    const FRAC_U32MAX_GOLDEN_RATIO: u32 = 2654435769; // (u32::MAX / Φ) rounded up
+    const RATIO_360: f32 = 360.0 / u32::MAX as f32;
+    let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
 
-    let hue = hasher.finish() as f32 * U64_TO_DEGREES;
     Color::hsl(hue, 1., 0.5)
 }
 
@@ -337,8 +348,7 @@ struct LineGizmoUniform {
     _padding: bevy_math::Vec2,
 }
 
-#[derive(Debug, Default, Clone, TypeUuid, TypePath)]
-#[uuid = "02b99cbf-bb26-4713-829a-aee8e08dedc0"]
+#[derive(Asset, Debug, Default, Clone, TypePath)]
 struct LineGizmo {
     positions: Vec<[f32; 3]>,
     colors: Vec<[f32; 4]>,
@@ -402,7 +412,7 @@ struct LineGizmoUniformBindgroup {
     bindgroup: BindGroup,
 }
 
-fn queue_line_gizmo_bind_group(
+fn prepare_line_gizmo_bind_group(
     mut commands: Commands,
     line_gizmo_uniform_layout: Res<LineGizmoUniformBindgroupLayout>,
     render_device: Res<RenderDevice>,
@@ -462,6 +472,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
         let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
             return RenderCommandResult::Failure;
         };
+
+        if line_gizmo.vertex_count < 2 {
+            return RenderCommandResult::Success;
+        }
 
         let instances = if line_gizmo.strip {
             let item_size = VertexFormat::Float32x3.size();
