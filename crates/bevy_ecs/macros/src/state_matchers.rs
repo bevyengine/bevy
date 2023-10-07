@@ -8,7 +8,7 @@ use syn::ExprClosure;
 use syn::braced;
 use syn::parse::ParseBuffer;
 use syn::parse_macro_input;
-use syn::{parse::Parse, Expr, ExprPath, Ident, Pat, PatTupleStruct, Path, Token, Visibility};
+use syn::{parse::Parse, Expr, ExprPath, Ident, Pat, PatTupleStruct, Path, Token};
 
 use crate::bevy_ecs_path;
 
@@ -512,12 +512,12 @@ pub fn derive_state_matcher(input: proc_macro::TokenStream) -> proc_macro::Token
                 .into_compile_error()
                 .into();
             };
-            
-            let matcher = match ({
+            let matcher = {
                 let state_type = state_type.clone();
                 matcher.parse_args_with(move |input: &ParseBuffer<'_>| {
                 Matcher::parse_with_state_type(input, Some(state_type))
-            })}) {
+            })};
+            let matcher = match matcher {
                 Ok(matcher) => matcher,
                 Err(e) => {
                 return syn::Error::new(
