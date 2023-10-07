@@ -2,6 +2,7 @@ mod asset;
 mod from_mesh;
 mod gpu_scene;
 mod persistent_buffer;
+mod psb_wrappers;
 
 pub use self::asset::{Meshlet, MeshletBoundingCone, MeshletBoundingSphere, MeshletMesh};
 

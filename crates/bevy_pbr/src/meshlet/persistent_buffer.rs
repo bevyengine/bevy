@@ -6,7 +6,7 @@ use bevy_render::{
 };
 use std::ops::Range;
 
-pub struct PersistentStorageBuffer<T: PersistentStorageBuffererable> {
+pub struct PersistentGpuBuffer<T: PersistentGpuBufferable> {
     label: &'static str,
     buffer: Buffer,
     write_queue: Vec<T>,
@@ -14,7 +14,7 @@ pub struct PersistentStorageBuffer<T: PersistentStorageBuffererable> {
     next_queued_write_address: u64,
 }
 
-impl<T: PersistentStorageBuffererable> PersistentStorageBuffer<T> {
+impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
     pub fn new(label: &'static str, render_device: &RenderDevice) -> Self {
         Self {
             label,
@@ -77,7 +77,7 @@ impl<T: PersistentStorageBuffererable> PersistentStorageBuffer<T> {
 
 /// SAFETY: All data must be a multiple of wgpu::COPY_BUFFER_ALIGNMENT bytes.
 /// The size given by size_in_bytes() must match as_bytes_le().
-pub trait PersistentStorageBuffererable {
+pub trait PersistentGpuBufferable {
     fn size_in_bytes(&self) -> u64;
 
     fn as_bytes_le(&self, start_address: u64) -> &[u8];
