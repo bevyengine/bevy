@@ -535,7 +535,7 @@ impl_debug!(Res<'w, T>, Resource);
 ///
 /// See the [`Resource`] documentation for usage.
 ///
-/// If you need a shared borrow, use [`Res`](crate::system::Res) instead.
+/// If you need a shared borrow, use [`Res`] instead.
 ///
 /// # Panics
 ///

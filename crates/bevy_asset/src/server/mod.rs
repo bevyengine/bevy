@@ -3,7 +3,7 @@ mod info;
 use crate::{
     folder::LoadedFolder,
     io::{AssetReader, AssetReaderError, AssetSourceEvent, AssetWatcher, Reader},
-    loader::{AssetLoader, AssetLoaderError, ErasedAssetLoader, LoadContext, LoadedAsset},
+    loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
     meta::{
         loader_settings_meta_transform, AssetActionMinimal, AssetMetaDyn, AssetMetaMinimal,
         MetaTransform, Settings,
@@ -666,11 +666,9 @@ impl AssetServer {
                     }
                 };
                 let loader = self.get_asset_loader_with_type_name(&loader_name).await?;
-                let meta = loader.deserialize_meta(&meta_bytes).map_err(|e| {
-                    AssetLoadError::AssetLoaderError {
+                let meta = loader.deserialize_meta(&meta_bytes).map_err(|_| {
+                    AssetLoadError::CannotLoadDependency {
                         path: asset_path.clone().into_owned(),
-                        loader: loader.type_name(),
-                        error: AssetLoaderError::DeserializeMeta(e),
                     }
                 })?;
 
@@ -698,13 +696,10 @@ impl AssetServer {
         let asset_path = asset_path.clone().into_owned();
         let load_context =
             LoadContext::new(self, asset_path.clone(), load_dependencies, populate_hashes);
-        loader.load(reader, meta, load_context).await.map_err(|e| {
-            AssetLoadError::AssetLoaderError {
-                loader: loader.type_name(),
-                path: asset_path,
-                error: e,
-            }
-        })
+        loader
+            .load(reader, meta, load_context)
+            .await
+            .map_err(|_| AssetLoadError::CannotLoadDependency { path: asset_path })
     }
 }
 
@@ -861,12 +856,8 @@ pub enum AssetLoadError {
     CannotLoadProcessedAsset { path: AssetPath<'static> },
     #[error("Asset '{path}' is configured to be ignored. It cannot be loaded.")]
     CannotLoadIgnoredAsset { path: AssetPath<'static> },
-    #[error("Asset '{path}' encountered an error in {loader}: {error}")]
-    AssetLoaderError {
-        path: AssetPath<'static>,
-        loader: &'static str,
-        error: AssetLoaderError,
-    },
+    #[error("Asset '{path}' is a dependency. It cannot be loaded directly.")]
+    CannotLoadDependency { path: AssetPath<'static> },
 }
 
 /// An error that occurs when an [`AssetLoader`] is not registered for a given extension.
