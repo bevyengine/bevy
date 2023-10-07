@@ -1808,7 +1808,11 @@ mod runner {
                             tls.lock()
                                 .insert_resource(crate::EventLoopWindowTarget::new(event_loop));
 
-                            f(&mut tls.lock());
+                            {
+                                #[cfg(feature = "trace")]
+                                let _span = bevy_utils::tracing::info_span!("TLS access").entered();
+                                f(&mut tls.lock());
+                            }
 
                             tls.lock()
                                 .remove_resource::<crate::EventLoopWindowTarget<AppEvent>>();

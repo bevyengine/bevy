@@ -99,36 +99,36 @@ impl Plugin for PipelinedRenderingPlugin {
         app.insert_resource(MainToRenderAppSender(app_to_render_sender));
         app.insert_resource(RenderToMainAppReceiver(render_to_app_receiver));
 
-        std::thread::spawn(move || {
-            #[cfg(feature = "trace")]
-            let _span = bevy_utils::tracing::info_span!("render thread").entered();
+        std::thread::Builder::new()
+            .name("render".to_string())
+            .spawn(move || {
+                let compute_task_pool = ComputeTaskPool::get();
+                loop {
+                    // run a scope here to allow main world to use this thread while it's waiting for the render app
+                    let sent_app = compute_task_pool
+                        .scope(|s| {
+                            s.spawn(async { app_to_render_receiver.recv().await });
+                        })
+                        .pop();
+                    let Some(Ok(mut render_app)) = sent_app else {
+                        break;
+                    };
 
-            let compute_task_pool = ComputeTaskPool::get();
-            loop {
-                // run a scope here to allow main world to use this thread while it's waiting for the render app
-                let sent_app = compute_task_pool
-                    .scope(|s| {
-                        s.spawn(async { app_to_render_receiver.recv().await });
-                    })
-                    .pop();
-                let Some(Ok(mut render_app)) = sent_app else {
-                    break;
-                };
+                    {
+                        #[cfg(feature = "trace")]
+                        let _sub_app_span =
+                            bevy_utils::tracing::info_span!("sub app", name = ?RenderApp).entered();
+                        render_app.update();
+                    }
 
-                {
-                    #[cfg(feature = "trace")]
-                    let _sub_app_span =
-                        bevy_utils::tracing::info_span!("sub app", name = ?RenderApp).entered();
-                    render_app.update();
+                    if render_to_app_sender.send_blocking(render_app).is_err() {
+                        break;
+                    }
                 }
 
-                if render_to_app_sender.send_blocking(render_app).is_err() {
-                    break;
-                }
-            }
-
-            bevy_utils::tracing::debug!("exiting pipelined rendering thread");
-        });
+                bevy_utils::tracing::debug!("exiting pipelined rendering thread");
+            })
+            .unwrap();
     }
 }
 

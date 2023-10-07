@@ -234,7 +234,7 @@ impl App {
     /// [`WinitSettings::return_from_run`]: https://docs.rs/bevy/latest/bevy/winit/struct.WinitSettings.html#structfield.return_from_run
     pub fn run(&mut self) {
         #[cfg(feature = "trace")]
-        let _bevy_app_run_span = info_span!("bevy_app").entered();
+        let _bevy_app_run_span = info_span!("App::run").entered();
         if self.is_building_plugins() {
             panic!("App::run() was called while a plugin was building.");
         }
