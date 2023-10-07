@@ -50,7 +50,7 @@ pub struct WinitWindows {
     pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
     /// Two-way mapping between [`Entity`] and [`WindowId`](winit::window::WindowId).
     map: WinitWindowEntityMap,
-    /// Cached copy of the last-known [`Window`](bevy_window::Window) properties.
+    /// Cached copy of the last-known [`Window`] properties.
     ///
     /// This copy is needed because some `winit` events require immediate handling, but the
     /// [`App`](bevy_app::App) lives in a different thread.

@@ -2,8 +2,8 @@
 #![warn(missing_docs)]
 //! `bevy_winit` provides utilities to create and manage windows through [`winit`]
 //!
-//! The [`WinitPlugin`] is one of the [`DefaultPlugins`]. It registers an [`App`](bevy_app::App)
-//! runner that manages the [`App`](bevy_app::App) using an [`EventLoop`](winit::event_loop::EventLoop).
+//! The [`WinitPlugin`] is one of the [`DefaultPlugins`]. It registers an [`App`]
+//! runner that manages the [`App`] using an [`EventLoop`](winit::event_loop::EventLoop).
 //!
 //! [`DefaultPlugins`]: https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html
 

@@ -28,7 +28,7 @@ use bevy_window::{PrimaryWindow, Window, WindowClosed};
 /// Maps each window entity to its `AccessKit` [`Adapter`].
 ///
 /// **Note:** This is a [`ThreadLocalResource`] because the macOS implementation of [`Adapter`]
-/// is not [`Send`](Send).
+/// is not [`Send`].
 #[derive(ThreadLocalResource, Default, Deref, DerefMut)]
 pub struct AccessKitAdapters(pub HashMap<Entity, Adapter>);
 

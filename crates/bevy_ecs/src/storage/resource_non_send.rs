@@ -12,8 +12,8 @@ use crate::storage::{ResourceData, Resources};
 use crate::system::{Resource, SystemParam};
 use crate::world::{unsafe_world_cell::UnsafeWorldCell, World};
 
-/// A type that can be inserted into [`ThreadLocals`]. Unlike [`Resource`](crate::system::Resource),
-/// this does not require [`Send`] or [`Sync`].
+/// A type that can be inserted into [`ThreadLocals`]. Unlike [`Resource`], this does not require
+/// [`Send`] or [`Sync`].
 pub trait ThreadLocalResource: 'static {}
 
 /// Storage for registered [`ThreadLocalResource`] values.
