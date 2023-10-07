@@ -7,12 +7,12 @@ use bevy_render::{
     render_resource::PrimitiveTopology,
 };
 use meshopt::{build_meshlets, compute_meshlet_bounds_decoder, VertexDataAdapter};
-use std::iter;
+use std::{borrow::Cow, iter};
 
 impl MeshletMesh {
     pub fn from_mesh(mesh: &Mesh) -> Result<Self, Error> {
         if mesh.primitive_topology() != PrimitiveTopology::TriangleList {
-            bail!("Mesh primitive_topology was not TriangleList");
+            bail!("Mesh primitive topology was not TriangleList");
         }
         let vertex_buffer_layout = &mesh.get_mesh_vertex_buffer_layout();
         if vertex_buffer_layout.attribute_ids()
@@ -25,10 +25,10 @@ impl MeshletMesh {
         {
             bail!("Mesh attributes were not {{POSITION, NORMAL, UV_0, TANGENT}}");
         }
-        // TODO: Handle u16 indices and non-indexed meshes
         let indices = match mesh.indices() {
-            Some(Indices::U32(indices)) => indices,
-            _ => bail!("Mesh indicies were not Some(Indices::U32)"),
+            Some(Indices::U32(indices)) => Cow::Borrowed(indices.as_slice()),
+            Some(Indices::U16(indices)) => indices.iter().map(|i| *i as u32).collect(),
+            _ => bail!("Mesh had no indices"),
         };
         let vertex_buffer = mesh.get_vertex_buffer_data();
         let vertices = VertexDataAdapter::new(
@@ -37,7 +37,7 @@ impl MeshletMesh {
             0,
         )?;
 
-        let mut meshlets = build_meshlets(indices, &vertices, 126, 64, 0.5);
+        let mut meshlets = build_meshlets(&indices, &vertices, 126, 64, 0.5);
 
         let mut meshlet_bounding_spheres = Vec::with_capacity(meshlets.meshlets.len());
         let mut meshlet_bounding_cones = Vec::with_capacity(meshlets.meshlets.len());
