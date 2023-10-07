@@ -1561,12 +1561,12 @@ impl World {
         let mut value = unsafe { ptr.read::<R>() };
         let value_mut = Mut {
             value: &mut value,
-            ticks: TicksMut {
-                added: &mut ticks.added,
-                changed: &mut ticks.changed,
-                last_run: last_change_tick,
-                this_run: change_tick,
-            },
+            ticks: TicksMut::new(
+                &mut ticks.added,
+                &mut ticks.changed,
+                last_change_tick,
+                change_tick,
+            ),
         };
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>(),

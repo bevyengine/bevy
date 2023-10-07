@@ -928,12 +928,12 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                     fetch.table_data.debug_checked_unwrap();
                 Ref {
                     value: table_components.get(table_row.index()).deref(),
-                    ticks: Ticks {
-                        added: added_ticks.get(table_row.index()).deref(),
-                        changed: changed_ticks.get(table_row.index()).deref(),
-                        this_run: fetch.this_run,
-                        last_run: fetch.last_run,
-                    },
+                    ticks: Ticks::new(
+                        added_ticks.get(table_row.index()).deref(),
+                        changed_ticks.get(table_row.index()).deref(),
+                        fetch.this_run,
+                        fetch.last_run,
+                    ),
                 }
             }
             StorageType::SparseSet => {
@@ -1089,12 +1089,12 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     fetch.table_data.debug_checked_unwrap();
                 Mut {
                     value: table_components.get(table_row.index()).deref_mut(),
-                    ticks: TicksMut {
-                        added: added_ticks.get(table_row.index()).deref_mut(),
-                        changed: changed_ticks.get(table_row.index()).deref_mut(),
-                        this_run: fetch.this_run,
-                        last_run: fetch.last_run,
-                    },
+                    ticks: TicksMut::new(
+                        added_ticks.get(table_row.index()).deref_mut(),
+                        changed_ticks.get(table_row.index()).deref_mut(),
+                        fetch.this_run,
+                        fetch.last_run,
+                    ),
                 }
             }
             StorageType::SparseSet => {

@@ -6,8 +6,10 @@ use crate::{
     system::Resource,
 };
 use bevy_ptr::{Ptr, UnsafeCellDeref};
+use std::marker::PhantomData;
 use std::mem;
 use std::ops::{Deref, DerefMut};
+use std::ptr;
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
 ///
@@ -253,20 +255,20 @@ macro_rules! change_detection_impl {
             #[inline]
             fn is_added(&self) -> bool {
                 self.ticks
-                    .added
-                    .is_newer_than(self.ticks.last_run, self.ticks.this_run)
+                    .added()
+                    .is_newer_than(*self.ticks.last_run(), *self.ticks.this_run())
             }
 
             #[inline]
             fn is_changed(&self) -> bool {
                 self.ticks
-                    .changed
-                    .is_newer_than(self.ticks.last_run, self.ticks.this_run)
+                    .changed()
+                    .is_newer_than(*self.ticks.last_run(), *self.ticks.this_run())
             }
 
             #[inline]
             fn last_changed(&self) -> Tick {
-                *self.ticks.changed
+                *self.ticks.changed()
             }
         }
 
@@ -295,12 +297,12 @@ macro_rules! change_detection_mut_impl {
 
             #[inline]
             fn set_changed(&mut self) {
-                *self.ticks.changed = self.ticks.this_run;
+                *self.ticks.changed_mut() = *self.ticks.this_run();
             }
 
             #[inline]
             fn set_last_changed(&mut self, last_changed: Tick) {
-                *self.ticks.changed = last_changed;
+                *self.ticks.changed_mut() = last_changed;
             }
 
             #[inline]
@@ -345,10 +347,8 @@ macro_rules! impl_methods {
                 Mut {
                     value: self.value,
                     ticks: TicksMut {
-                        added: self.ticks.added,
-                        changed: self.ticks.changed,
-                        last_run: self.ticks.last_run,
-                        this_run: self.ticks.this_run,
+                        inner: self.ticks.inner,
+                        _marker: PhantomData,
                     }
                 }
             }
@@ -411,13 +411,49 @@ macro_rules! impl_debug {
 
 #[derive(Clone)]
 pub(crate) struct Ticks<'a> {
-    pub(crate) added: &'a Tick,
-    pub(crate) changed: &'a Tick,
-    pub(crate) last_run: Tick,
-    pub(crate) this_run: Tick,
+    pub(crate) inner: TicksRaw,
+    pub(crate) _marker: PhantomData<&'a Tick>,
 }
 
 impl<'a> Ticks<'a> {
+    pub(crate) fn new(added: &'a Tick, changed: &'a Tick, last_run: Tick, this_run: Tick) -> Self {
+        Self {
+            inner: TicksRaw {
+                added: ptr::NonNull::from(added),
+                changed: ptr::NonNull::from(changed),
+                last_run,
+                this_run,
+            },
+            _marker: PhantomData,
+        }
+    }
+
+    /// Access the `added` field.
+    #[inline]
+    pub(crate) fn added(&self) -> &Tick {
+        // SAFETY: The `as_ref` call is being projected from `&self.
+        unsafe { self.inner.added.as_ref() }
+    }
+
+    /// Access the `changed` field.
+    #[inline]
+    pub(crate) fn changed(&self) -> &Tick {
+        // SAFETY: The `as_ref` call is being projected from `&self.
+        unsafe { self.inner.changed.as_ref() }
+    }
+
+    /// Access the `this_run` field.
+    #[inline]
+    pub(crate) fn this_run(&self) -> &Tick {
+        &self.inner.this_run
+    }
+
+    /// Access the `last_run` field.
+    #[inline]
+    pub(crate) fn last_run(&self) -> &Tick {
+        &self.inner.last_run
+    }
+
     /// # Safety
     /// This should never alias the underlying ticks with a mutable one such as `TicksMut`.
     #[inline]
@@ -426,23 +462,95 @@ impl<'a> Ticks<'a> {
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
-        Self {
-            added: cells.added.deref(),
-            changed: cells.changed.deref(),
+        Self::new(
+            cells.added.deref(),
+            cells.changed.deref(),
             last_run,
             this_run,
-        }
+        )
     }
 }
 
-pub(crate) struct TicksMut<'a> {
-    pub(crate) added: &'a mut Tick,
-    pub(crate) changed: &'a mut Tick,
+unsafe impl Send for Ticks<'_> {}
+unsafe impl Sync for Ticks<'_> {}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct TicksRaw {
+    pub(crate) added: ptr::NonNull<Tick>,
+    pub(crate) changed: ptr::NonNull<Tick>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
 }
 
+pub(crate) struct TicksMut<'a> {
+    pub(crate) inner: TicksRaw,
+    pub(crate) _marker: PhantomData<&'a mut Tick>,
+}
+
 impl<'a> TicksMut<'a> {
+    pub(crate) fn new(
+        added: &'a mut Tick,
+        changed: &'a mut Tick,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> TicksMut<'a> {
+        Self {
+            inner: TicksRaw {
+                added: ptr::NonNull::from(added),
+                changed: ptr::NonNull::from(changed),
+                last_run,
+                this_run,
+            },
+            _marker: PhantomData,
+        }
+    }
+
+    /// Consume and modify `last_run` and `this_run`.
+    pub(crate) fn with_runs(self, last_run: Tick, this_run: Tick) -> Self {
+        Self {
+            inner: TicksRaw {
+                added: self.inner.added,
+                changed: self.inner.changed,
+                last_run,
+                this_run,
+            },
+            _marker: self._marker,
+        }
+    }
+
+    /// Access the `added` field.
+    #[inline]
+    pub(crate) fn added(&self) -> &Tick {
+        // SAFETY: The `as_ref` call is being projected from `&self.
+        unsafe { self.inner.added.as_ref() }
+    }
+
+    /// Access the `changed` field.
+    #[inline]
+    pub(crate) fn changed(&self) -> &Tick {
+        // SAFETY: The `as_ref` call is being projected from `&self.
+        unsafe { self.inner.changed.as_ref() }
+    }
+
+    /// Access the `changed` field mutably.
+    #[inline]
+    pub(crate) fn changed_mut(&mut self) -> &mut Tick {
+        // SAFETY: The `as_ref` call is being projected from `&self.
+        unsafe { self.inner.changed.as_mut() }
+    }
+
+    /// Access the `this_run` field.
+    #[inline]
+    pub(crate) fn this_run(&self) -> &Tick {
+        &self.inner.this_run
+    }
+
+    /// Access the `last_run` field.
+    #[inline]
+    pub(crate) fn last_run(&self) -> &Tick {
+        &self.inner.last_run
+    }
+
     /// # Safety
     /// This should never alias the underlying ticks. All access must be unique.
     #[inline]
@@ -451,22 +559,23 @@ impl<'a> TicksMut<'a> {
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
-        Self {
-            added: cells.added.deref_mut(),
-            changed: cells.changed.deref_mut(),
+        Self::new(
+            cells.added.deref_mut(),
+            cells.changed.deref_mut(),
             last_run,
             this_run,
-        }
+        )
     }
 }
+
+unsafe impl Send for TicksMut<'_> {}
+unsafe impl Sync for TicksMut<'_> {}
 
 impl<'a> From<TicksMut<'a>> for Ticks<'a> {
     fn from(ticks: TicksMut<'a>) -> Self {
         Ticks {
-            added: ticks.added,
-            changed: ticks.changed,
-            last_run: ticks.last_run,
-            this_run: ticks.this_run,
+            inner: ticks.inner,
+            _marker: PhantomData,
         }
     }
 }
@@ -665,12 +774,7 @@ impl<'a, T: ?Sized> Ref<'a, T> {
     ) -> Ref<'a, T> {
         Ref {
             value,
-            ticks: Ticks {
-                added,
-                changed,
-                last_run,
-                this_run,
-            },
+            ticks: Ticks::new(added, changed, last_run, this_run),
         }
     }
 }
@@ -720,12 +824,7 @@ impl<'a, T: ?Sized> Mut<'a, T> {
     ) -> Self {
         Self {
             value,
-            ticks: TicksMut {
-                added,
-                changed: last_changed,
-                last_run,
-                this_run,
-            },
+            ticks: TicksMut::new(added, last_changed, last_run, this_run),
         }
     }
 }
@@ -769,6 +868,32 @@ change_detection_mut_impl!(Mut<'a, T>, T,);
 impl_methods!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
 
+/// A raw variant of [`MutUntyped`] without a lifetime associated with it.
+///
+/// See [`MutUntyped::into_raw`].
+pub struct MutUntypedRaw {
+    value: ptr::NonNull<u8>,
+    ticks: TicksRaw,
+}
+
+impl MutUntypedRaw {
+    /// Get as a [`MutUntyped`] with an unbounded lifetime.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that this is only called while the data that's
+    /// being referenced is valid.
+    pub unsafe fn as_mut<'a>(&mut self) -> MutUntyped<'a> {
+        MutUntyped {
+            value: PtrMut::new(self.value),
+            ticks: TicksMut {
+                inner: self.ticks,
+                _marker: PhantomData,
+            },
+        }
+    }
+}
+
 /// Unique mutable borrow of resources or an entity's component.
 ///
 /// Similar to [`Mut`], but not generic over the component type, instead
@@ -792,6 +917,15 @@ impl<'a> MutUntyped<'a> {
         self.value
     }
 
+    /// Return the mutable untyped value as raw pointers.
+    #[inline]
+    pub fn into_raw(self) -> MutUntypedRaw {
+        MutUntypedRaw {
+            value: self.value.as_nonnull_ptr(),
+            ticks: self.ticks.inner,
+        }
+    }
+
     /// Returns a [`MutUntyped`] with a smaller lifetime.
     /// This is useful if you have `&mut MutUntyped`, but you need a `MutUntyped`.
     #[inline]
@@ -799,10 +933,8 @@ impl<'a> MutUntyped<'a> {
         MutUntyped {
             value: self.value.reborrow(),
             ticks: TicksMut {
-                added: self.ticks.added,
-                changed: self.ticks.changed,
-                last_run: self.ticks.last_run,
-                this_run: self.ticks.this_run,
+                inner: self.ticks.inner,
+                _marker: PhantomData,
             },
         }
     }
@@ -867,20 +999,20 @@ impl<'a> DetectChanges for MutUntyped<'a> {
     #[inline]
     fn is_added(&self) -> bool {
         self.ticks
-            .added
-            .is_newer_than(self.ticks.last_run, self.ticks.this_run)
+            .added()
+            .is_newer_than(*self.ticks.last_run(), *self.ticks.this_run())
     }
 
     #[inline]
     fn is_changed(&self) -> bool {
         self.ticks
-            .changed
-            .is_newer_than(self.ticks.last_run, self.ticks.this_run)
+            .changed()
+            .is_newer_than(*self.ticks.last_run(), *self.ticks.this_run())
     }
 
     #[inline]
     fn last_changed(&self) -> Tick {
-        *self.ticks.changed
+        *self.ticks.changed()
     }
 }
 
@@ -889,12 +1021,12 @@ impl<'a> DetectChangesMut for MutUntyped<'a> {
 
     #[inline]
     fn set_changed(&mut self) {
-        *self.ticks.changed = self.ticks.this_run;
+        *self.ticks.changed_mut() = *self.ticks.this_run();
     }
 
     #[inline]
     fn set_last_changed(&mut self, last_changed: Tick) {
-        *self.ticks.changed = last_changed;
+        *self.ticks.changed_mut() = last_changed;
     }
 
     #[inline]
@@ -1040,12 +1172,12 @@ mod tests {
             added: Tick::new(1),
             changed: Tick::new(2),
         };
-        let ticks = TicksMut {
-            added: &mut component_ticks.added,
-            changed: &mut component_ticks.changed,
-            last_run: Tick::new(3),
-            this_run: Tick::new(4),
-        };
+        let ticks = TicksMut::new(
+            &mut component_ticks.added,
+            &mut component_ticks.changed,
+            Tick::new(3),
+            Tick::new(4),
+        );
         let mut res = R {};
         let res_mut = ResMut {
             value: &mut res,
@@ -1085,12 +1217,12 @@ mod tests {
             added: Tick::new(1),
             changed: Tick::new(2),
         };
-        let ticks = TicksMut {
-            added: &mut component_ticks.added,
-            changed: &mut component_ticks.changed,
-            last_run: Tick::new(3),
-            this_run: Tick::new(4),
-        };
+        let ticks = TicksMut::new(
+            &mut component_ticks.added,
+            &mut component_ticks.changed,
+            Tick::new(3),
+            Tick::new(4),
+        );
         let mut res = R {};
         let non_send_mut = NonSendMut {
             value: &mut res,
@@ -1115,12 +1247,12 @@ mod tests {
             added: Tick::new(1),
             changed: Tick::new(2),
         };
-        let ticks = TicksMut {
-            added: &mut component_ticks.added,
-            changed: &mut component_ticks.changed,
+        let ticks = TicksMut::new(
+            &mut component_ticks.added,
+            &mut component_ticks.changed,
             last_run,
             this_run,
-        };
+        );
 
         let mut outer = Outer(0);
         let ptr = Mut {
@@ -1200,12 +1332,12 @@ mod tests {
             added: Tick::new(1),
             changed: Tick::new(2),
         };
-        let ticks = TicksMut {
-            added: &mut component_ticks.added,
-            changed: &mut component_ticks.changed,
+        let ticks = TicksMut::new(
+            &mut component_ticks.added,
+            &mut component_ticks.changed,
             last_run,
             this_run,
-        };
+        );
 
         let mut value: i32 = 5;
         let value = MutUntyped {

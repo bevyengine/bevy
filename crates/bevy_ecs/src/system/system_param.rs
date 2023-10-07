@@ -456,12 +456,12 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             });
         Res {
             value: ptr.deref(),
-            ticks: Ticks {
-                added: ticks.added.deref(),
-                changed: ticks.changed.deref(),
-                last_run: system_meta.last_run,
-                this_run: change_tick,
-            },
+            ticks: Ticks::new(
+                ticks.added.deref(),
+                ticks.changed.deref(),
+                system_meta.last_run,
+                change_tick,
+            ),
         }
     }
 }
@@ -489,12 +489,12 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
             .get_resource_with_ticks(component_id)
             .map(|(ptr, ticks)| Res {
                 value: ptr.deref(),
-                ticks: Ticks {
-                    added: ticks.added.deref(),
-                    changed: ticks.changed.deref(),
-                    last_run: system_meta.last_run,
-                    this_run: change_tick,
-                },
+                ticks: Ticks::new(
+                    ticks.added.deref(),
+                    ticks.changed.deref(),
+                    system_meta.last_run,
+                    change_tick,
+                ),
             })
     }
 }
@@ -549,12 +549,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             });
         ResMut {
             value: value.value.deref_mut::<T>(),
-            ticks: TicksMut {
-                added: value.ticks.added,
-                changed: value.ticks.changed,
-                last_run: system_meta.last_run,
-                this_run: change_tick,
-            },
+            ticks: value.ticks.with_runs(system_meta.last_run, change_tick),
         }
     }
 }
@@ -579,12 +574,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
             .get_resource_mut_by_id(component_id)
             .map(|value| ResMut {
                 value: value.value.deref_mut::<T>(),
-                ticks: TicksMut {
-                    added: value.ticks.added,
-                    changed: value.ticks.changed,
-                    last_run: system_meta.last_run,
-                    this_run: change_tick,
-                },
+                ticks: value.ticks.with_runs(system_meta.last_run, change_tick),
             })
     }
 }
@@ -974,11 +964,11 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
         Self {
             value: nsm.value,
             ticks: ComponentTicks {
-                added: nsm.ticks.added.to_owned(),
-                changed: nsm.ticks.changed.to_owned(),
+                added: nsm.ticks.added().to_owned(),
+                changed: nsm.ticks.changed().to_owned(),
             },
-            this_run: nsm.ticks.this_run,
-            last_run: nsm.ticks.last_run,
+            this_run: *nsm.ticks.this_run(),
+            last_run: *nsm.ticks.last_run(),
         }
     }
 }

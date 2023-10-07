@@ -242,6 +242,12 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
         self.0.as_ptr()
     }
 
+    /// Gets the underlying non+null pointer, erasing the associated lifetime.
+    #[doc(hidden)]
+    pub fn as_nonnull_ptr(&self) -> NonNull<u8> {
+        self.0
+    }
+
     /// Gets a [`PtrMut`] from this with a smaller lifetime.
     #[inline]
     pub fn reborrow(&mut self) -> PtrMut<'_, A> {
