@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use std::mem;
 use std::ops::Deref;
 
-use super::{Condition, ConditionalScheduleLabel};
+use super::Condition;
 use crate as bevy_ecs;
 use crate::prelude::Res;
 #[cfg(feature = "bevy_reflect")]
@@ -322,14 +322,8 @@ impl<S: States> OnStateEntry<S> {
     /// from a non-matching `S`
     ///
     /// designed to be used via [`on_enter!`] macro
-    pub fn matching<Marker>(
-        self,
-        matcher: impl StateMatcher<S, Marker>,
-    ) -> impl ConditionalScheduleLabel<Self, ()> {
-        (
-            self,
-            run_condition_on_match::<State<S>, PreviousState<S>, _, _>(matcher),
-        )
+    pub fn matching<Marker>(self, matcher: impl StateMatcher<S, Marker>) -> impl Condition<()> {
+        run_condition_on_match::<State<S>, PreviousState<S>, _, _>(matcher)
     }
 }
 
@@ -338,14 +332,8 @@ impl<S: States> OnStateExit<S> {
     /// to a non-matching `S`
     ///
     /// designed to be used via [`on_exit!`] macro
-    pub fn matching<Marker>(
-        self,
-        matcher: impl StateMatcher<S, Marker>,
-    ) -> impl ConditionalScheduleLabel<Self, ()> {
-        (
-            self,
-            run_condition_on_match::<PreviousState<S>, State<S>, _, _>(matcher),
-        )
+    pub fn matching<Marker>(self, matcher: impl StateMatcher<S, Marker>) -> impl Condition<()> {
+        run_condition_on_match::<PreviousState<S>, State<S>, _, _>(matcher)
     }
 }
 
@@ -356,12 +344,9 @@ impl<S: States> OnStateTransition<S> {
         self,
         from: impl StateMatcher<S, Marker1>,
         to: impl StateMatcher<S, Marker2>,
-    ) -> impl ConditionalScheduleLabel<Self, ()> {
-        (
-            self,
-            run_condition_on_match::<State<S>, PreviousState<S>, _, _>(from).and_then(
-                run_condition_on_match::<PreviousState<S>, State<S>, _, _>(to),
-            ),
+    ) -> impl Condition<()> {
+        run_condition_on_match::<State<S>, PreviousState<S>, _, _>(from).and_then(
+            run_condition_on_match::<PreviousState<S>, State<S>, _, _>(to),
         )
     }
 }

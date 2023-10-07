@@ -181,58 +181,6 @@ where
     }
 }
 
-/// A trait that represents an item that can apply a set of conditions and extract a [`ScheduleLabel`]
-pub trait ConditionalScheduleLabel<S: ScheduleLabel, Marker = ()> {
-    /// Applies the condition to the provided [`IntoSystemConfigs`], and returns the [`ScheduleLabel`] and [`SystemConfigs`]
-    fn apply_condition_to_systems<M>(
-        self,
-        configs: impl IntoSystemConfigs<M>,
-    ) -> (S, SystemConfigs);
-    /// Applies the condition to the provided [`IntoSystemSetConfigs`], and returns the [`ScheduleLabel`] and [`SystemSetConfigs`]
-    fn apply_condition_to_system_sets(
-        self,
-        configs: impl IntoSystemSetConfigs,
-    ) -> (S, SystemSetConfigs);
-}
-
-impl<S: ScheduleLabel> ConditionalScheduleLabel<S> for S {
-    fn apply_condition_to_systems<M>(
-        self,
-        configs: impl IntoSystemConfigs<M>,
-    ) -> (S, SystemConfigs) {
-        (self, configs.into_configs())
-    }
-
-    fn apply_condition_to_system_sets(
-        self,
-        configs: impl IntoSystemSetConfigs,
-    ) -> (S, SystemSetConfigs) {
-        (self, configs.into_configs())
-    }
-}
-
-impl<S: ScheduleLabel, Marker, C: Condition<Marker>> ConditionalScheduleLabel<S, Marker>
-    for (S, C)
-{
-    fn apply_condition_to_systems<M>(
-        self,
-        configs: impl IntoSystemConfigs<M>,
-    ) -> (S, SystemConfigs) {
-        let (label, condition) = self;
-        let configs = configs.run_if(condition);
-        (label, configs)
-    }
-
-    fn apply_condition_to_system_sets(
-        self,
-        configs: impl IntoSystemSetConfigs,
-    ) -> (S, SystemSetConfigs) {
-        let (label, condition) = self;
-        let configs = configs.run_if(condition);
-        (label, configs)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{
