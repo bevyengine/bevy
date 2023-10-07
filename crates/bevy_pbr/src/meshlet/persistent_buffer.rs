@@ -47,7 +47,7 @@ impl<T: PersistentStorageBuffererable> PersistentStorageBuffer<T> {
         // TODO: Maybe create a large storage buffer to use as the staging buffer,
         // instead of many small writes?
         for item in self.write_queue.drain(..) {
-            let bytes = item.as_bytes_le();
+            let bytes = item.as_bytes_le(self.last_write_address);
             render_queue.write_buffer(&self.buffer, self.last_write_address, bytes);
             self.last_write_address += bytes.len() as u64;
         }
@@ -80,5 +80,5 @@ impl<T: PersistentStorageBuffererable> PersistentStorageBuffer<T> {
 pub trait PersistentStorageBuffererable {
     fn size_in_bytes(&self) -> u64;
 
-    fn as_bytes_le(&self) -> &[u8];
+    fn as_bytes_le(&self, start_address: u64) -> &[u8];
 }
