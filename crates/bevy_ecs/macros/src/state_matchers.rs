@@ -2,12 +2,12 @@ use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use quote::{format_ident, quote};
-use syn::DeriveInput;
-use syn::Error;
-use syn::ExprClosure;
 use syn::braced;
 use syn::parse::ParseBuffer;
 use syn::parse_macro_input;
+use syn::DeriveInput;
+use syn::Error;
+use syn::ExprClosure;
 use syn::{parse::Parse, Expr, ExprPath, Ident, Pat, PatTupleStruct, Path, Token};
 
 use crate::bevy_ecs_path;
@@ -34,14 +34,19 @@ enum MatcherType {
 struct TransitionMatcher {
     state_type: Path,
     from_matchers: Vec<(bool, MatcherType)>,
-    to_matchers: Vec<(bool, MatcherType)>
+    to_matchers: Vec<(bool, MatcherType)>,
 }
 
 impl Parse for TransitionMatcher {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {    
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let state_type = match Expr::parse(input)? {
             Expr::Path(p) => p.path.clone(),
-            _ => return Err(Error::new(Span::call_site(), "Couldn't determine state type"))
+            _ => {
+                return Err(Error::new(
+                    Span::call_site(),
+                    "Couldn't determine state type",
+                ))
+            }
         };
 
         input.parse::<Token![,]>()?;
@@ -69,7 +74,6 @@ impl Parse for TransitionMatcher {
     }
 }
 
-
 #[derive(Clone)]
 struct Matcher {
     state_type: Option<Path>,
@@ -82,7 +86,10 @@ impl Parse for Matcher {
     }
 }
 impl Matcher {
-    fn parse_with_state_type(input: syn::parse::ParseStream, state_type: Option<Path>) -> syn::Result<Self> {
+    fn parse_with_state_type(
+        input: syn::parse::ParseStream,
+        state_type: Option<Path>,
+    ) -> syn::Result<Self> {
         let state_type = if let Some(state_type) = state_type {
             state_type
         } else {
@@ -309,23 +316,23 @@ pub enum MatchTypes {
 impl MatchTypes {
     fn from_matcher_type_vec(value: Vec<(bool, MatcherType)>) -> Vec<(bool, Self)> {
         value
-        .iter()
-        .map(|matcher| match matcher {
-            (every, MatcherType::Expression(exp)) => (
-                *every,
-                MatchTypes::Expression(quote!(
-                    #exp
-                )),
-            ),
-            (every, MatcherType::Pattern(MatcherPattern { pattern })) => (
-                *every,
-                MatchTypes::Pattern(quote!(matches!(state, #pattern))),
-            ),
-            (every, MatcherType::Closure(MatcherClosure { closure: pattern })) => {
-                (*every, MatchTypes::Closure(quote!(#pattern)))
-            }
-        })
-        .collect()
+            .iter()
+            .map(|matcher| match matcher {
+                (every, MatcherType::Expression(exp)) => (
+                    *every,
+                    MatchTypes::Expression(quote!(
+                        #exp
+                    )),
+                ),
+                (every, MatcherType::Pattern(MatcherPattern { pattern })) => (
+                    *every,
+                    MatchTypes::Pattern(quote!(matches!(state, #pattern))),
+                ),
+                (every, MatcherType::Closure(MatcherClosure { closure: pattern })) => {
+                    (*every, MatchTypes::Closure(quote!(#pattern)))
+                }
+            })
+            .collect()
     }
 }
 
@@ -352,17 +359,21 @@ pub fn simple_state_transition_macros(
     match_result: MatchMacroResult,
 ) -> proc_macro::TokenStream {
     if match_result.matchers.is_empty() {
-        panic!("No matchers found");        
+        panic!("No matchers found");
     }
 
-    let MatchMacroResult { state_type, matchers} = match_result;
+    let MatchMacroResult {
+        state_type,
+        matchers,
+    } = match_result;
 
     match (state_type, matchers.first(), matchers.len()) {
         (_, Some((_, MatchTypes::Expression(expr))), 1) => {
-
             let mut module_path = bevy_ecs_path();
             module_path.segments.push(format_ident!("schedule").into());
-            module_path.segments.push(format_ident!("common_conditions").into());
+            module_path
+                .segments
+                .push(format_ident!("common_conditions").into());
             module_path.segments.push(
                 Ident::new(
                     match macro_type {
@@ -377,11 +388,14 @@ pub fn simple_state_transition_macros(
             quote!(#module_path(#expr))
         }
         (Some(state_type), _, _) => {
-            let match_function = generate_match_function(format_ident!("matcher"), &state_type, &matchers);
+            let match_function =
+                generate_match_function(format_ident!("matcher"), &state_type, &matchers);
 
             let mut module_path = bevy_ecs_path();
             module_path.segments.push(format_ident!("schedule").into());
-            module_path.segments.push(format_ident!("common_conditions").into());
+            module_path
+                .segments
+                .push(format_ident!("common_conditions").into());
             module_path.segments.push(
                 Ident::new(
                     match macro_type {
@@ -399,30 +413,35 @@ pub fn simple_state_transition_macros(
                 #module_path::<#state_type, _>(matcher)
             })
         }
-        _ => panic!("No State Type")
-    }.into()
+        _ => panic!("No State Type"),
+    }
+    .into()
 }
 
 pub fn state_matches_macro(match_result: MatchMacroResult) -> proc_macro::TokenStream {
-    let MatchMacroResult { state_type, matchers} = match_result;
+    let MatchMacroResult {
+        state_type,
+        matchers,
+    } = match_result;
 
     match (state_type, matchers.first(), matchers.len()) {
         (_, Some((_, MatchTypes::Expression(expr))), 1) => {
-
             let mut module_path = bevy_ecs_path();
             module_path.segments.push(format_ident!("schedule").into());
-            module_path.segments.push(format_ident!("common_conditions").into());
-            module_path.segments.push(
-                format_ident!("state_matches").into()
-            );
+            module_path
+                .segments
+                .push(format_ident!("common_conditions").into());
+            module_path
+                .segments
+                .push(format_ident!("state_matches").into());
 
             quote!(#module_path(#expr))
         }
         (Some(state_type), _, _) => {
-            let match_function = generate_match_function(format_ident!("matcher"), &state_type, &matchers);
+            let match_function =
+                generate_match_function(format_ident!("matcher"), &state_type, &matchers);
 
             let state_type = state_type.clone().into_token_stream();
-
 
             quote!(
             |state: Option<Res<State<#state_type>>>| {
@@ -434,21 +453,30 @@ pub fn state_matches_macro(match_result: MatchMacroResult) -> proc_macro::TokenS
                 matcher.match_state(&state)
             })
         }
-        _ => panic!("No State Type")
-    }.into()
+        _ => panic!("No State Type"),
+    }
+    .into()
 }
 
 pub fn transitioning_macro(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let TransitionMatcher { state_type, from_matchers, to_matchers } = syn::parse(input).expect("Couldn't parse transition matcher");
-    
+    let TransitionMatcher {
+        state_type,
+        from_matchers,
+        to_matchers,
+    } = syn::parse(input).expect("Couldn't parse transition matcher");
+
     let from_matchers = MatchTypes::from_matcher_type_vec(from_matchers);
-    let from_function = generate_match_function(format_ident!("from_matcher"), &state_type, &from_matchers);
+    let from_function =
+        generate_match_function(format_ident!("from_matcher"), &state_type, &from_matchers);
     let to_matchers = MatchTypes::from_matcher_type_vec(to_matchers);
-    let to_function = generate_match_function(format_ident!("to_matcher"), &state_type, &to_matchers);
+    let to_function =
+        generate_match_function(format_ident!("to_matcher"), &state_type, &to_matchers);
 
     let mut module_path = bevy_ecs_path();
     module_path.segments.push(format_ident!("schedule").into());
-    module_path.segments.push(format_ident!("common_conditions").into());
+    module_path
+        .segments
+        .push(format_ident!("common_conditions").into());
     module_path
         .segments
         .push(format_ident!("transitioning").into());
@@ -459,7 +487,8 @@ pub fn transitioning_macro(input: proc_macro::TokenStream) -> proc_macro::TokenS
         #to_function
 
         #module_path::<#state_type, _, _>(from_matcher, to_matcher)
-    }).into()
+    })
+    .into()
 }
 
 pub fn derive_state_matcher(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -468,10 +497,12 @@ pub fn derive_state_matcher(input: proc_macro::TokenStream) -> proc_macro::Token
     let attrs = ast.attrs;
 
     let Some(state_type) = attrs.iter().find(|attr| {
-        attr.path().get_ident().filter(|i| *i == "state_type").is_some()
+        attr.path()
+            .get_ident()
+            .filter(|i| *i == "state_type")
+            .is_some()
     }) else {
-        return 
-        syn::Error::new(
+        return syn::Error::new(
             Span::call_site(),
             "derive(StateMatcher) requires a [state_type=S] attribute",
         )
@@ -480,8 +511,7 @@ pub fn derive_state_matcher(input: proc_macro::TokenStream) -> proc_macro::Token
     };
 
     let Ok(state_type) = state_type.parse_args::<Path>() else {
-        return 
-        syn::Error::new(
+        return syn::Error::new(
             Span::call_site(),
             "S in [state_type = S] attribute must be a valid Path to a States type",
         )
@@ -504,9 +534,12 @@ pub fn derive_state_matcher(input: proc_macro::TokenStream) -> proc_macro::Token
                 return error();
             }
             let Some(matcher) = attrs.iter().find(|attr| {
-                attr.path().get_ident().filter(|i| *i == "matcher").is_some()
+                attr.path()
+                    .get_ident()
+                    .filter(|i| *i == "matcher")
+                    .is_some()
             }) else {
-                return 
+                return
                 syn::Error::new(
                     Span::call_site(),
                     "derive(StateMatcher) on a unit struct requires a [matcher = matcher_pattern] attribute",
@@ -517,12 +550,13 @@ pub fn derive_state_matcher(input: proc_macro::TokenStream) -> proc_macro::Token
             let matcher = {
                 let state_type = state_type.clone();
                 matcher.parse_args_with(move |input: &ParseBuffer<'_>| {
-                Matcher::parse_with_state_type(input, Some(state_type))
-            })};
+                    Matcher::parse_with_state_type(input, Some(state_type))
+                })
+            };
             let matcher = match matcher {
                 Ok(matcher) => matcher,
                 Err(e) => {
-                return syn::Error::new(
+                    return syn::Error::new(
                         Span::call_site(),
                         format!("Couldn't parse matcher pattern - {e:?}"),
                     )
@@ -536,11 +570,11 @@ pub fn derive_state_matcher(input: proc_macro::TokenStream) -> proc_macro::Token
 
             quote!(
                 #matcher
-                
+
 
                 matcher(main, secondary)
             )
-        },
+        }
         syn::Data::Enum(e) => {
             let contents = e.variants.iter().map(|v| {
                 if !v.fields.is_empty() {
@@ -553,7 +587,7 @@ pub fn derive_state_matcher(input: proc_macro::TokenStream) -> proc_macro::Token
                 let Some(matcher) = v.attrs.iter().find(|attr| {
                     attr.path().get_ident().filter(|i| *i == "matcher").is_some()
                 }) else {
-                    return 
+                    return
                     Err(syn::Error::new(
                         Span::call_site(),
                         "derive(StateMatcher) on an enum requires a [matcher = matcher_pattern] attribute on every variant",
@@ -565,7 +599,7 @@ pub fn derive_state_matcher(input: proc_macro::TokenStream) -> proc_macro::Token
                     matcher.parse_args_with(move |input: &ParseBuffer<'_>| {
                     Matcher::parse_with_state_type(input, Some(state_type))
                 })};
-                
+
                 let matcher = match matcher {
                     Ok(matcher) => matcher,
                     Err(e) => {
@@ -575,13 +609,13 @@ pub fn derive_state_matcher(input: proc_macro::TokenStream) -> proc_macro::Token
                         ));
                     }
                 };
-    
+
                 let matcher = MatchTypes::from_matcher_type_vec(matcher.matchers);
 
                 let name = &v.ident;
 
                 let matcher = generate_match_function(format_ident!("matcher"), &state_type, &matcher);
-    
+
                 Ok(quote!(
                     Self::#name => {
                         #matcher
@@ -590,13 +624,13 @@ pub fn derive_state_matcher(input: proc_macro::TokenStream) -> proc_macro::Token
                     }
                 ))
             }).collect::<syn::Result<Vec<_>>>();
-            match contents {                
+            match contents {
                 Ok(contents) => {
-                    let contents=  TokenStream::from_iter(contents);
+                    let contents = TokenStream::from_iter(contents);
                     quote!(
                         match self {
                             #contents
-                        }                        
+                        }
                     )
                 }
 
@@ -609,8 +643,7 @@ pub fn derive_state_matcher(input: proc_macro::TokenStream) -> proc_macro::Token
                     .into();
                 }
             }
-            
-        },
+        }
         _ => {
             return error();
         }
@@ -669,7 +702,6 @@ fn generate_match_function(
                             }
 
                             if matches(main) { return #module_path::MatchesStateTransition::TransitionMatches; }
-                            
                         }
                     )
                 } else {
@@ -680,7 +712,7 @@ fn generate_match_function(
 
                             if matches(main) {  if let Some(secondary) = secondary {
                                 if matches(secondary) {
-                                    return #module_path::MatchesStateTransition::MainMatches; 
+                                    return #module_path::MatchesStateTransition::MainMatches;
                                 } else {
                                     return #module_path::MatchesStateTransition::TransitionMatches;
                                 }
@@ -703,7 +735,7 @@ fn generate_match_function(
                     quote!({
                             let matches = #tokens;
 
-                            
+
                             match matches.match_state_transition(Some(main), secondary) {
                                 #module_path::MatchesStateTransition::TransitionMatches => { return #module_path::MatchesStateTransition::TransitionMatches; },
                                 #module_path::MatchesStateTransition::MainMatches => { return #module_path::MatchesStateTransition::MainMatches; },
