@@ -352,10 +352,10 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                fn new_state(components: &#path::component::Components) -> #state_struct_name #user_ty_generics {
-                    #state_struct_name {
-                        #(#named_field_idents: <#field_types>::new_state(components),)*
-                    }
+                fn new_state(components: &#path::component::Components) -> Option<#state_struct_name #user_ty_generics> {
+                    Some(#state_struct_name {
+                        #(#named_field_idents: <#field_types>::new_state(components)?,)*
+                    })
                 }
 
                 fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {

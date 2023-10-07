@@ -803,23 +803,32 @@ mod tests {
     }
 
     #[test]
-    fn generalize() {
+    fn restrict_fetch() {
+        use bevy_ecs::prelude::*;
+        use bevy_ecs::system::QueryLens;
+        #[derive(Component)]
+        struct A(usize);
+
+        #[derive(Component)]
+        struct B(usize);
+
         let mut world = World::new();
 
         world.spawn((A(10), B(5)));
 
-        fn function_that_takes_a_query(query: &Query<&A>) {
-            assert_eq!(query.single().0, 10);
+        fn function_that_uses_a_query(lens: &QueryLens<&mut A>) {
+            let mut q = lens.query();
+            q.single_mut().0 = 15;
+            assert_eq!(q.single().0, 15);
         }
 
-        fn system_1(query: Query<&A>) {
-            function_that_takes_a_query(&query);
+        fn system_1(mut query: Query<&mut A>) {
+            function_that_uses_a_query(&query.into_query_lens());
         }
 
-        fn system_2(query: Query<(&A, &B)>) {
-            let gen_q = query.generalize::<&A>();
-            let q = gen_q.query();
-            function_that_takes_a_query(&q);
+        fn system_2(mut query: Query<(&mut A, &B)>) {
+            let lens = query.restrict_fetch::<&mut A>();
+            function_that_uses_a_query(&lens);
         }
 
         let mut schedule = Schedule::default();
