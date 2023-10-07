@@ -1,6 +1,6 @@
 use super::ShaderDefVal;
 use crate::define_atomic_id;
-use bevy_asset::{anyhow, io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
+use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
 use bevy_utils::{tracing::error, BoxedFuture};
 use futures_lite::AsyncReadExt;
@@ -34,6 +34,9 @@ pub struct Shader {
     pub additional_imports: Vec<naga_oil::compose::ImportDefinition>,
     // any shader defs that will be included when this module is used
     pub shader_defs: Vec<ShaderDefVal>,
+    // we must store strong handles to our dependencies to stop them
+    // from being immediately dropped if we are the only user.
+    pub file_dependencies: Vec<Handle<Shader>>,
 }
 
 impl Shader {
@@ -75,6 +78,7 @@ impl Shader {
             source: Source::Wgsl(source),
             additional_imports: Default::default(),
             shader_defs: Default::default(),
+            file_dependencies: Default::default(),
         }
     }
 
@@ -104,6 +108,7 @@ impl Shader {
             source: Source::Glsl(source, stage),
             additional_imports: Default::default(),
             shader_defs: Default::default(),
+            file_dependencies: Default::default(),
         }
     }
 
@@ -116,6 +121,7 @@ impl Shader {
             source: Source::SpirV(source.into()),
             additional_imports: Default::default(),
             shader_defs: Default::default(),
+            file_dependencies: Default::default(),
         }
     }
 
@@ -232,21 +238,31 @@ impl From<&Source> for naga_oil::compose::ShaderType {
 #[derive(Default)]
 pub struct ShaderLoader;
 
+#[non_exhaustive]
+#[derive(Debug, Error)]
+pub enum ShaderLoaderError {
+    #[error("Could not load shader: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Could not parse shader: {0}")]
+    Parse(#[from] std::string::FromUtf8Error),
+}
+
 impl AssetLoader for ShaderLoader {
     type Asset = Shader;
     type Settings = ();
+    type Error = ShaderLoaderError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Shader, anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<Shader, Self::Error>> {
         Box::pin(async move {
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            let shader = match ext {
+            let mut shader = match ext {
                 "spv" => Shader::from_spirv(bytes, load_context.path().to_string_lossy()),
                 "wgsl" => Shader::from_wgsl(
                     String::from_utf8(bytes)?,
@@ -270,11 +286,10 @@ impl AssetLoader for ShaderLoader {
                 _ => panic!("unhandled extension: {ext}"),
             };
 
-            // collect file dependencies
+            // collect and store file dependencies
             for import in &shader.imports {
                 if let ShaderImport::AssetPath(asset_path) = import {
-                    // TODO: should we just allow this handle to be dropped?
-                    let _handle: Handle<Shader> = load_context.load(asset_path);
+                    shader.file_dependencies.push(load_context.load(asset_path));
                 }
             }
             Ok(shader)

@@ -27,7 +27,7 @@ use prelude::{GlobalTransform, Transform};
 use systems::{propagate_transforms, sync_simple_transforms};
 
 /// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
-/// [`Component`](bevy_ecs::component::Component)s, which describe the position of an entity.
+/// [`Component`]s, which describe the position of an entity.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
@@ -44,7 +44,7 @@ use systems::{propagate_transforms, sync_simple_transforms};
 /// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
-/// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
+/// This system runs during [`PostUpdate`]. If you
 /// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 #[derive(Bundle, Clone, Copy, Debug, Default)]
@@ -65,7 +65,7 @@ impl TransformBundle {
     /// Creates a new [`TransformBundle`] from a [`Transform`].
     ///
     /// This initializes [`GlobalTransform`] as identity, to be updated later by the
-    /// [`PostUpdate`](bevy_app::PostUpdate) schedule.
+    /// [`PostUpdate`] schedule.
     #[inline]
     pub const fn from_transform(transform: Transform) -> Self {
         TransformBundle {
@@ -84,7 +84,7 @@ impl From<Transform> for TransformBundle {
 /// Set enum for the systems relating to transform propagation
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum TransformSystem {
-    /// Propagates changes in transform to children's [`GlobalTransform`](crate::components::GlobalTransform)
+    /// Propagates changes in transform to children's [`GlobalTransform`]
     TransformPropagate,
 }
 

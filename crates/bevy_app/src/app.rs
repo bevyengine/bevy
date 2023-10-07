@@ -334,7 +334,7 @@ impl App {
     /// initial state.
     ///
     /// If you would like to control how other systems run based on the current state,
-    /// you can emulate this behavior using the [`in_state`] [`Condition`](bevy_ecs::schedule::Condition).
+    /// you can emulate this behavior using the [`in_state`] [`Condition`].
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
@@ -857,6 +857,83 @@ impl App {
         self.world
             .resource_mut::<Schedules>()
             .configure_schedules(schedule_build_settings);
+        self
+    }
+
+    /// When doing [ambiguity checking](bevy_ecs::schedule::ScheduleBuildSettings) this
+    /// ignores systems that are ambiguious on [`Component`] T.
+    ///
+    /// This settings only applies to the main world. To apply this to other worlds call the
+    /// [corresponding method](World::allow_ambiguous_component) on World
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
+    /// # use bevy_utils::default;
+    ///
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// // these systems are ambiguous on A
+    /// fn system_1(_: Query<&mut A>) {}
+    /// fn system_2(_: Query<&A>) {}
+    ///
+    /// let mut app = App::new();
+    /// app.configure_schedules(ScheduleBuildSettings {
+    ///   ambiguity_detection: LogLevel::Error,
+    ///   ..default()
+    /// });
+    ///
+    /// app.add_systems(Update, ( system_1, system_2 ));
+    /// app.allow_ambiguous_component::<A>();
+    ///
+    /// // running the app does not error.
+    /// app.update();
+    /// ```
+    pub fn allow_ambiguous_component<T: Component>(&mut self) -> &mut Self {
+        self.world.allow_ambiguous_component::<T>();
+        self
+    }
+
+    /// When doing [ambiguity checking](bevy_ecs::schedule::ScheduleBuildSettings) this
+    /// ignores systems that are ambiguious on [`Resource`] T.
+    ///
+    /// This settings only applies to the main world. To apply this to other worlds call the
+    /// [corresponding method](World::allow_ambiguous_resource) on World
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
+    /// # use bevy_utils::default;
+    ///
+    /// #[derive(Resource)]
+    /// struct R;
+    ///
+    /// // these systems are ambiguous on R
+    /// fn system_1(_: ResMut<R>) {}
+    /// fn system_2(_: Res<R>) {}
+    ///
+    /// let mut app = App::new();
+    /// app.configure_schedules(ScheduleBuildSettings {
+    ///   ambiguity_detection: LogLevel::Error,
+    ///   ..default()
+    /// });
+    /// app.insert_resource(R);
+    ///
+    /// app.add_systems(Update, ( system_1, system_2 ));
+    /// app.allow_ambiguous_resource::<R>();
+    ///
+    /// // running the app does not error.
+    /// app.update();
+    /// ```
+    pub fn allow_ambiguous_resource<T: Resource>(&mut self) -> &mut Self {
+        self.world.allow_ambiguous_resource::<T>();
         self
     }
 }

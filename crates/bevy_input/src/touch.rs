@@ -53,7 +53,7 @@ pub struct TouchInput {
     pub id: u64,
 }
 
-/// A force description of a [`Touch`](crate::touch::Touch) input.
+/// A force description of a [`Touch`] input.
 #[derive(Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -92,7 +92,7 @@ pub enum ForceTouch {
     Normalized(f64),
 }
 
-/// A phase of a [`TouchInput`](crate::touch::TouchInput).
+/// A phase of a [`TouchInput`].
 ///
 /// ## Usage
 ///
@@ -223,7 +223,7 @@ impl From<&TouchInput> for Touch {
 ///
 /// ## Updating
 ///
-/// The resource is updated inside of the [`touch_screen_input_system`](crate::touch::touch_screen_input_system).
+/// The resource is updated inside of the [`touch_screen_input_system`].
 #[derive(Debug, Clone, Default, Resource)]
 pub struct Touches {
     /// A collection of every [`Touch`] that is currently being pressed.

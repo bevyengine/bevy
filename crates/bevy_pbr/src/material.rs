@@ -1,7 +1,7 @@
 use crate::{
     render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
     PrepassPipelinePlugin, PrepassPlugin, RenderMeshInstances, ScreenSpaceAmbientOcclusionSettings,
-    SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
+    SetMeshBindGroup, SetMeshViewBindGroup, Shadow, ShadowFilteringMethod,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
@@ -419,6 +419,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&Tonemapping>,
         Option<&DebandDither>,
         Option<&EnvironmentMapLight>,
+        Option<&ShadowFilteringMethod>,
         Option<&ScreenSpaceAmbientOcclusionSettings>,
         Option<&NormalPrepass>,
         Option<&TemporalAntiAliasSettings>,
@@ -435,6 +436,7 @@ pub fn queue_material_meshes<M: Material>(
         tonemapping,
         dither,
         environment_map,
+        shadow_filter_method,
         ssao,
         normal_prepass,
         taa_settings,
@@ -461,6 +463,19 @@ pub fn queue_material_meshes<M: Material>(
         if environment_map_loaded {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
         }
+
+        match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
+            ShadowFilteringMethod::Hardware2x2 => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
+            }
+            ShadowFilteringMethod::Castano13 => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13;
+            }
+            ShadowFilteringMethod::Jimenez14 => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14;
+            }
+        }
+
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
