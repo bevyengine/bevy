@@ -95,7 +95,7 @@ pub enum GltfError {
 /// Settings for the GltfLoader.
 #[derive(Default, Serialize, Deserialize)]
 pub struct GltfLoaderSettings {
-    /// If true, textures will be loaded relative to the asset root (rather than the gLTF file itself).
+    /// If true, textures will be loaded relative to the assets root folder (rather than the gLTF file itself).
     pub root_texture_paths: bool,
 }
 
