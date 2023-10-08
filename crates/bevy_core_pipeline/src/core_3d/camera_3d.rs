@@ -40,14 +40,13 @@ pub struct Camera3d {
     /// Setting this to `0` disables the screen-space refraction effect entirely, and falls
     /// back to refracting only the environment map light's texture.
     pub screen_space_transmission_steps: usize,
-    /// Controls the quality of the blur effect applied to the background refracted through
-    /// specular transmissive materials. (The blur effect kicks in when a material's `roughness` > `0.0`
-    /// and `screen_space_transmission_steps` > `0`, producing a "frosted glass" look.)
+    /// The quality of the screen space transmission blur effect, applied to the whatever's “behind” transmissive
+    /// objects when their `roughness` is greater than `0.0`.
     ///
     /// Higher qualities are more GPU-intensive.
     ///
     /// **Note:** You can get better-looking results at any quality level by enabling TAA. See: [`TemporalAntiAliasPlugin`](crate::experimental::taa::TemporalAntiAliasPlugin).
-    pub screen_space_transmission_blur_quality: ScreenSpaceTransmissiveBlurQuality,
+    pub screen_space_transmission_quality: ScreenSpaceTransmissionQuality,
 }
 
 impl Default for Camera3d {
@@ -57,7 +56,7 @@ impl Default for Camera3d {
             depth_load_op: Default::default(),
             depth_texture_usages: TextureUsages::RENDER_ATTACHMENT.into(),
             screen_space_transmission_steps: 1,
-            screen_space_transmission_blur_quality: Default::default(),
+            screen_space_transmission_quality: Default::default(),
         }
     }
 }
@@ -102,7 +101,7 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
     }
 }
 
-/// The quality of the transmissive blur effect, applied to the whatever's “behind” transmissive
+/// The quality of the screen space transmission blur effect, applied to the whatever's “behind” transmissive
 /// objects when their `roughness` is greater than `0.0`.
 ///
 /// Higher qualities are more GPU-intensive.
@@ -110,7 +109,7 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
 /// **Note:** You can get better-looking results at any quality level by enabling TAA. See: [`TemporalAntiAliasPlugin`](crate::experimental::taa::TemporalAntiAliasPlugin).
 #[derive(Resource, Default, Clone, Copy, Reflect, PartialEq, PartialOrd, Debug)]
 #[reflect(Resource)]
-pub enum ScreenSpaceTransmissiveBlurQuality {
+pub enum ScreenSpaceTransmissionQuality {
     /// Best performance at the cost of quality. Suitable for lower end GPUs. (e.g. Mobile)
     ///
     /// `num_taps` = 4
