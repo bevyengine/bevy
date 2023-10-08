@@ -236,9 +236,9 @@ pub fn extract_meshes(
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
-            Option<With<NotShadowReceiver>>,
-            Option<With<NotTransmittedShadowReceiver>>,
-            Option<With<NotShadowCaster>>,
+            Has<NotShadowReceiver>,
+            Has<NotTransmittedShadowReceiver>,
+            Has<NotShadowCaster>,
         )>,
     >,
 ) {
@@ -259,12 +259,12 @@ pub fn extract_meshes(
     {
         let transform = transform.affine();
         let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
-        let mut flags = if not_receiver.is_some() {
+        let mut flags = if not_receiver {
             MeshFlags::empty()
         } else {
             MeshFlags::SHADOW_RECEIVER
         };
-        if not_transmitted_receiver.is_none() {
+        if !not_transmitted_receiver {
             flags |= MeshFlags::TRANSMITTED_SHADOW_RECEIVER;
         }
         if transform.matrix3.determinant().is_sign_positive() {
@@ -275,7 +275,7 @@ pub fn extract_meshes(
             previous_transform: (&previous_transform).into(),
             flags: flags.bits(),
         };
-        if not_caster.is_some() {
+        if not_caster {
             not_caster_commands.push((entity, (handle.clone_weak(), transforms, NotShadowCaster)));
         } else {
             caster_commands.push((entity, (handle.clone_weak(), transforms)));
