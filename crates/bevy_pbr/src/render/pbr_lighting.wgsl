@@ -357,7 +357,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     let blur_intensity = (perceptual_roughness * perceptual_roughness) / view_z;
 
 #ifdef SCREEN_SPACE_SPECULAR_TRANSMISSION_BLUR_TAPS
-    let num_taps = #{SCREEN_SPACE_SPECULAR_TRANSMISSION_BLUR_TAPS}; // Controlled by the `Camera3d::transmissive_quality` property
+    let num_taps = #{SCREEN_SPACE_SPECULAR_TRANSMISSION_BLUR_TAPS}; // Controlled by the `Camera3d::screen_space_specular_transmission_quality` property
 #else
     let num_taps = 8; // Fallback to 8 taps
 #endif
