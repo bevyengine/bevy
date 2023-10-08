@@ -20,7 +20,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{
-        bloom::BloomSettings, core_3d::ScreenSpaceTransmissiveBlurQuality, prepass::DepthPrepass,
+        bloom::BloomSettings, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
         tonemapping::Tonemapping,
     },
     pbr::{NotShadowCaster, NotTransmittedShadowReceiver, PointLightShadowMap},
@@ -528,21 +528,19 @@ fn example_control_system(
     }
 
     if input.just_pressed(KeyCode::J) {
-        camera_3d.screen_space_transmission_blur_quality = ScreenSpaceTransmissiveBlurQuality::Low;
+        camera_3d.screen_space_transmission_quality = ScreenSpaceTransmissionQuality::Low;
     }
 
     if input.just_pressed(KeyCode::K) {
-        camera_3d.screen_space_transmission_blur_quality =
-            ScreenSpaceTransmissiveBlurQuality::Medium;
+        camera_3d.screen_space_transmission_quality = ScreenSpaceTransmissionQuality::Medium;
     }
 
     if input.just_pressed(KeyCode::L) {
-        camera_3d.screen_space_transmission_blur_quality = ScreenSpaceTransmissiveBlurQuality::High;
+        camera_3d.screen_space_transmission_quality = ScreenSpaceTransmissionQuality::High;
     }
 
     if input.just_pressed(KeyCode::Semicolon) {
-        camera_3d.screen_space_transmission_blur_quality =
-            ScreenSpaceTransmissiveBlurQuality::Ultra;
+        camera_3d.screen_space_transmission_quality = ScreenSpaceTransmissionQuality::Ultra;
     }
 
     let rotation = if input.pressed(KeyCode::Right) {

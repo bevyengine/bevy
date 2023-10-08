@@ -987,13 +987,25 @@ impl SpecializedMeshPipeline for MeshPipeline {
             key.intersection(MeshPipelineKey::SCREEN_SPACE_TRANSMISSION_RESERVED_BITS);
 
         if blur_quality == MeshPipelineKey::SCREEN_SPACE_TRANSMISSION_LOW {
-            shader_defs.push(ShaderDefVal::Int("TRANSMISSIVE_TAPS".into(), 4));
+            shader_defs.push(ShaderDefVal::Int(
+                "SCREEN_SPACE_TRANSMISSION_BLUR_TAPS".into(),
+                4,
+            ));
         } else if blur_quality == MeshPipelineKey::SCREEN_SPACE_TRANSMISSION_MEDIUM {
-            shader_defs.push(ShaderDefVal::Int("TRANSMISSIVE_TAPS".into(), 8));
+            shader_defs.push(ShaderDefVal::Int(
+                "SCREEN_SPACE_TRANSMISSION_BLUR_TAPS".into(),
+                8,
+            ));
         } else if blur_quality == MeshPipelineKey::SCREEN_SPACE_TRANSMISSION_HIGH {
-            shader_defs.push(ShaderDefVal::Int("TRANSMISSIVE_TAPS".into(), 16));
+            shader_defs.push(ShaderDefVal::Int(
+                "SCREEN_SPACE_TRANSMISSION_BLUR_TAPS".into(),
+                16,
+            ));
         } else if blur_quality == MeshPipelineKey::SCREEN_SPACE_TRANSMISSION_ULTRA {
-            shader_defs.push(ShaderDefVal::Int("TRANSMISSIVE_TAPS".into(), 32));
+            shader_defs.push(ShaderDefVal::Int(
+                "SCREEN_SPACE_TRANSMISSION_BLUR_TAPS".into(),
+                32,
+            ));
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {
