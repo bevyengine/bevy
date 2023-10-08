@@ -707,7 +707,7 @@ mod tests {
     fn macro_can_generate_multi_pattern_matcher() {
         let mut world = World::new();
 
-        let match_state_value = entering!(TestState, C(_), every _);
+        let match_state_value = entering!(TestState, C(_), every |_: &TestState| true);
 
         let mut system = IntoSystem::into_system(match_state_value);
 
