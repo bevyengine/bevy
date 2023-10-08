@@ -117,8 +117,8 @@ impl Default for Node {
 /// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
 
-#[derive(Component, Clone, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq)]
+#[derive(Component, Clone, PartialEq, Debug, Deserialize, Serialize,Reflect)]
+#[reflect(Component, Default, PartialEq, Deserialize, Serialize)]
 pub struct Style {
     /// Which layout algorithm to use when laying out this node's contents:
     ///   - [`Display::Flex`]: Use the Flexbox layout algorithm
