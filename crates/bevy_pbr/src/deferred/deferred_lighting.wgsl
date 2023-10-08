@@ -23,7 +23,9 @@ struct PbrDeferredLightingDepthId {
     depth_id: u32, // limited to u8
 #ifdef SIXTEEN_BYTE_ALIGNMENT
     // WebGL2 structs must be 16 byte aligned.
-    _webgl2_padding: vec3<f32>
+    _webgl2_padding_0: f32,
+    _webgl2_padding_1: f32,
+    _webgl2_padding_2: f32,
 #endif
 }
 @group(1) @binding(0)

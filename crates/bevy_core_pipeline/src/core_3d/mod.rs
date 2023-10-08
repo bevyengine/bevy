@@ -477,7 +477,7 @@ pub fn prepare_core_3d_depth_textures(
     }
 }
 
-// Disable msaa and warn if using deferred rendering
+// Disable MSAA and warn if using deferred rendering
 pub fn check_msaa(
     mut msaa: ResMut<Msaa>,
     deferred_views: Query<Entity, (With<Camera>, With<DeferredPrepass>)>,

@@ -175,7 +175,7 @@ impl ViewNode for DeferredNode {
                 render_pass.set_camera_viewport(viewport);
             }
 
-            // Always run opaque pass to ensure screen is cleared.
+            // Always run deferred pass to ensure the deferred gbuffer and deferred_lighting_pass_id are cleared.
             {
                 // Run the prepass, sorted front-to-back.
                 #[cfg(feature = "trace")]

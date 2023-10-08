@@ -60,7 +60,7 @@ impl Plugin for CopyDeferredLightingIdPlugin {
 #[derive(Default)]
 pub struct CopyDeferredLightingIdNode;
 impl CopyDeferredLightingIdNode {
-    pub const NAME: &str = "post_process";
+    pub const NAME: &str = "copy_deferred_lighting_id";
 }
 
 impl ViewNode for CopyDeferredLightingIdNode {
@@ -79,11 +79,12 @@ impl ViewNode for CopyDeferredLightingIdNode {
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let post_process_pipeline = world.resource::<CopyDeferredLightingIdPipeline>();
+        let copy_deferred_lighting_id_pipeline = world.resource::<CopyDeferredLightingIdPipeline>();
 
         let pipeline_cache = world.resource::<PipelineCache>();
 
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(post_process_pipeline.pipeline_id)
+        let Some(pipeline) =
+            pipeline_cache.get_render_pipeline(copy_deferred_lighting_id_pipeline.pipeline_id)
         else {
             return Ok(());
         };
@@ -96,8 +97,8 @@ impl ViewNode for CopyDeferredLightingIdNode {
         let bind_group = render_context
             .render_device()
             .create_bind_group(&BindGroupDescriptor {
-                label: Some("post_process_bind_group"),
-                layout: &post_process_pipeline.layout,
+                label: Some("copy_deferred_lighting_id_bind_group"),
+                layout: &copy_deferred_lighting_id_pipeline.layout,
                 entries: &[BindGroupEntry {
                     binding: 0,
                     resource: BindingResource::TextureView(
@@ -107,7 +108,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
             });
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("post_process_pass"),
+            label: Some("copy_deferred_lighting_id_pass"),
             color_attachments: &[],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &deferred_lighting_id_depth_texture.texture.default_view,
@@ -138,7 +139,7 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
         let render_device = world.resource::<RenderDevice>();
 
         let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("post_process_bind_group_layout"),
+            label: Some("copy_deferred_lighting_id_bind_group_layout"),
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::FRAGMENT,
@@ -155,7 +156,7 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
             world
                 .resource_mut::<PipelineCache>()
                 .queue_render_pipeline(RenderPipelineDescriptor {
-                    label: Some("post_process_pipeline".into()),
+                    label: Some("copy_deferred_lighting_id_pipeline".into()),
                     layout: vec![layout.clone()],
                     vertex: fullscreen_shader_vertex_state(),
                     fragment: Some(FragmentState {

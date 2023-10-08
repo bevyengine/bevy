@@ -84,6 +84,7 @@ fn unpack_unorm4x8_(v: u32) -> vec4<f32> {
 }
 
 // 'packUnorm4x8' : no matching overloaded function found
+// https://github.com/gfx-rs/naga/issues/2006
 fn pack_unorm4x8_(v: vec4<f32>) -> u32 {
     let v = vec4<u32>(saturate(v) * 255.0 + 0.5);
     return (v.w << 24u) | (v.z << 16u) | (v.y << 8u) | v.x;

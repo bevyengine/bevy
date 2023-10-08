@@ -49,7 +49,11 @@ pub struct PbrDeferredLightingDepthId {
     depth_id: u32,
 
     #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-    _webgl2_padding: bevy_math::Vec3,
+    _webgl2_padding_0: f32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    _webgl2_padding_1: f32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    _webgl2_padding_2: f32,
 }
 
 impl PbrDeferredLightingDepthId {
@@ -58,7 +62,11 @@ impl PbrDeferredLightingDepthId {
             depth_id: value as u32,
 
             #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-            _webgl2_padding: bevy_math::Vec3::ZERO,
+            _webgl2_padding_0: 0.0,
+            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            _webgl2_padding_1: 0.0,
+            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            _webgl2_padding_2: 0.0,
         }
     }
 
@@ -77,7 +85,11 @@ impl Default for PbrDeferredLightingDepthId {
             depth_id: 1,
 
             #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-            _webgl2_padding: bevy_math::Vec3::ZERO,
+            _webgl2_padding_0: 0.0,
+            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            _webgl2_padding_1: 0.0,
+            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            _webgl2_padding_2: 0.0,
         }
     }
 }
@@ -298,9 +310,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         ));
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
-        {
-            shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
-        }
+        shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
 
         RenderPipelineDescriptor {
             label: Some("deferred_lighting_pipeline".into()),

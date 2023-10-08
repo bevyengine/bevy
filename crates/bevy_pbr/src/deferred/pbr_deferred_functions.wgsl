@@ -57,7 +57,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
         in.material.metallic, // could be fewer bits
         occlusion, // is this worth including?
         0.0)); // spare
-#endif // WEBGL
+#endif // WEBGL2
     let flags = deferred_types::deferred_flags_from_mesh_material_flags(in.flags, in.material.flags);
     let octahedral_normal = deferred_types::octahedral_encode(normalize(in.N));
     var base_color_srgb = vec3(0.0);
@@ -105,7 +105,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
 #else
     let props = deferred_types::unpack_unorm4x8_(gbuffer.b);
     pbr.material.reflectance = props.r;
-#endif // WEBGL
+#endif // WEBGL2
     pbr.material.metallic = props.g;
     pbr.occlusion = vec3(props.b);
     let octahedral_normal = deferred_types::unpack_24bit_normal(gbuffer.a);
