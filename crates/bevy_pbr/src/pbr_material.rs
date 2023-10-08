@@ -160,7 +160,7 @@ pub struct StandardMaterial {
     #[doc(alias = "translucency")]
     pub diffuse_transmission: f32,
 
-    /// A map that modulates diffuse transmission via its **A channel**. Multiplied by [`StandardMaterial::diffuse_transmission`]
+    /// A map that modulates diffuse transmission via its alpha channel. Multiplied by [`StandardMaterial::diffuse_transmission`]
     /// to obtain the final result.
     ///
     /// **Important:** The [`StandardMaterial::diffuse_transmission`] property must be set to a value higher than 0.0,
@@ -192,7 +192,7 @@ pub struct StandardMaterial {
     #[doc(alias = "refraction")]
     pub specular_transmission: f32,
 
-    /// A map that modulates specular transmission via its **R channel**. Multiplied by [`StandardMaterial::specular_transmission`]
+    /// A map that modulates specular transmission via its red channel. Multiplied by [`StandardMaterial::specular_transmission`]
     /// to obtain the final result.
     ///
     /// **Important:** The [`StandardMaterial::specular_transmission`] property must be set to a value higher than 0.0,
@@ -215,7 +215,7 @@ pub struct StandardMaterial {
     #[doc(alias = "thin_walled")]
     pub thickness: f32,
 
-    /// A map that modulates thickness via its G channel. Multiplied by [`StandardMaterial::thickness`]
+    /// A map that modulates thickness via its green channel. Multiplied by [`StandardMaterial::thickness`]
     /// to obtain the final result.
     ///
     /// **Important:** The [`StandardMaterial::thickness`] property must be set to a value higher than 0.0,
