@@ -346,7 +346,7 @@ fn setup(
                 hdr: true,
                 ..default()
             },
-            transform: Transform::from_xyz(0.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
             color_grading: ColorGrading {
                 exposure: -2.0,
                 post_saturation: 1.2,
@@ -541,13 +541,14 @@ fn example_control_system(
         0.0
     };
 
-    let distance_change = if input.pressed(KeyCode::Down) {
-        time.delta_seconds()
-    } else if input.pressed(KeyCode::Up) {
-        -time.delta_seconds()
-    } else {
-        0.0
-    };
+    let distance_change =
+        if input.pressed(KeyCode::Down) && camera_transform.translation.length() < 25.0 {
+            time.delta_seconds()
+        } else if input.pressed(KeyCode::Up) && camera_transform.translation.length() > 2.0 {
+            -time.delta_seconds()
+        } else {
+            0.0
+        };
 
     camera_transform.translation *= distance_change.exp();
 
