@@ -1453,8 +1453,8 @@ pub struct UiTextureAtlasImage {
 }
 
 /// The border color of the UI node.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Copy, Clone, Debug, Deserialize, Serialize, Reflect)]
+#[reflect(Component, Default, Deserialize, Serialize)]
 pub struct BorderColor(pub Color);
 
 impl From<Color> for BorderColor {
