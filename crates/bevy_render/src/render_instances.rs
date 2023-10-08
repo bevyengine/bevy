@@ -51,7 +51,7 @@ where
     marker: PhantomData<fn() -> RI>,
 }
 
-/// Stores all render instances corresponding to the given component in the render world.
+/// Stores all render instances of a type in the render world.
 #[derive(Resource, Deref, DerefMut)]
 pub struct RenderInstances<RI>(EntityHashMap<Entity, RI>)
 where
@@ -70,8 +70,8 @@ impl<RI> RenderInstancePlugin<RI>
 where
     RI: RenderInstance,
 {
-    /// Creates a new [`RenderInstancePlugin`] that unconditionally
-    /// extracts the component to the render world, whether visible or not.
+    /// Creates a new [`RenderInstancePlugin`] that unconditionally extracts to
+    /// the render world, whether the entity is visible or not.
     pub fn new() -> Self {
         Self {
             only_extract_visible: false,
@@ -84,9 +84,8 @@ impl<RI> RenderInstancePlugin<RI>
 where
     RI: RenderInstance,
 {
-    /// Creates a new [`RenderInstancePlugin`] that extracts the
-    /// component to the render world if and only if the entity it's attached to
-    /// is visible.
+    /// Creates a new [`RenderInstancePlugin`] that extracts to the render world
+    /// if and only if the entity it's attached to is visible.
     pub fn extract_visible() -> Self {
         Self {
             only_extract_visible: true,
@@ -125,16 +124,16 @@ fn extract_to_render_instances<RI>(
     }
 }
 
-fn extract_visible_to_render_instances<C>(
-    mut instances: ResMut<RenderInstances<C>>,
-    query: Extract<Query<(Entity, &ViewVisibility, C::Query), C::Filter>>,
+fn extract_visible_to_render_instances<RI>(
+    mut instances: ResMut<RenderInstances<RI>>,
+    query: Extract<Query<(Entity, &ViewVisibility, RI::Query), RI::Filter>>,
 ) where
-    C: RenderInstance,
+    RI: RenderInstance,
 {
     instances.clear();
     for (entity, view_visibility, other) in &query {
         if view_visibility.get() {
-            if let Some(render_instance) = C::extract_to_render_instance(other) {
+            if let Some(render_instance) = RI::extract_to_render_instance(other) {
                 instances.insert(entity, render_instance);
             }
         }
