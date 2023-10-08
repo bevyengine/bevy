@@ -547,7 +547,7 @@ pub fn prepare_core_3d_transmission_textures(
         };
 
         // Don't prepare a transmission texture if the number of steps is set to 0
-        if camera_3d.transmissive_steps == 0 {
+        if camera_3d.screen_space_transmission_steps == 0 {
             continue;
         }
 

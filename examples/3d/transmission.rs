@@ -20,7 +20,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{
-        bloom::BloomSettings, core_3d::TransmissiveQuality, prepass::DepthPrepass,
+        bloom::BloomSettings, core_3d::ScreenSpaceTransmissiveBlurQuality, prepass::DepthPrepass,
         tonemapping::Tonemapping,
     },
     pbr::{NotShadowCaster, NotTransmittedShadowReceiver, PointLightShadowMap},
@@ -519,28 +519,30 @@ fn example_control_system(
         }
     }
 
-    if input.just_pressed(KeyCode::O) && camera_3d.transmissive_steps > 0 {
-        camera_3d.transmissive_steps -= 1;
+    if input.just_pressed(KeyCode::O) && camera_3d.screen_space_transmission_steps > 0 {
+        camera_3d.screen_space_transmission_steps -= 1;
     }
 
-    if input.just_pressed(KeyCode::P) && camera_3d.transmissive_steps < 4 {
-        camera_3d.transmissive_steps += 1;
+    if input.just_pressed(KeyCode::P) && camera_3d.screen_space_transmission_steps < 4 {
+        camera_3d.screen_space_transmission_steps += 1;
     }
 
     if input.just_pressed(KeyCode::J) {
-        camera_3d.transmissive_quality = TransmissiveQuality::Low;
+        camera_3d.screen_space_transmission_blur_quality = ScreenSpaceTransmissiveBlurQuality::Low;
     }
 
     if input.just_pressed(KeyCode::K) {
-        camera_3d.transmissive_quality = TransmissiveQuality::Medium;
+        camera_3d.screen_space_transmission_blur_quality =
+            ScreenSpaceTransmissiveBlurQuality::Medium;
     }
 
     if input.just_pressed(KeyCode::L) {
-        camera_3d.transmissive_quality = TransmissiveQuality::High;
+        camera_3d.screen_space_transmission_blur_quality = ScreenSpaceTransmissiveBlurQuality::High;
     }
 
     if input.just_pressed(KeyCode::Semicolon) {
-        camera_3d.transmissive_quality = TransmissiveQuality::Ultra;
+        camera_3d.screen_space_transmission_blur_quality =
+            ScreenSpaceTransmissiveBlurQuality::Ultra;
     }
 
     let rotation = if input.pressed(KeyCode::Right) {
@@ -580,7 +582,7 @@ fn example_control_system(
         state.thickness,
         state.ior,
         state.perceptual_roughness,
-        camera_3d.transmissive_steps,
+        camera_3d.screen_space_transmission_steps,
     );
 }
 

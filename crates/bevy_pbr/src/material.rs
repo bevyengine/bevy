@@ -7,7 +7,8 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{
     core_3d::{
-        AlphaMask3d, Camera3d, Opaque3d, Transmissive3d, TransmissiveQuality, Transparent3d,
+        AlphaMask3d, Camera3d, Opaque3d, ScreenSpaceTransmissiveBlurQuality, Transmissive3d,
+        Transparent3d,
     },
     prepass::NormalPrepass,
     tonemapping::{DebandDither, Tonemapping},
@@ -426,13 +427,13 @@ const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
 }
 
 const fn transmissive_quality_pipeline_key(
-    transmissive_quality: TransmissiveQuality,
+    transmissive_quality: ScreenSpaceTransmissiveBlurQuality,
 ) -> MeshPipelineKey {
     match transmissive_quality {
-        TransmissiveQuality::Low => MeshPipelineKey::TRANSMISSIVE_QUALITY_LOW,
-        TransmissiveQuality::Medium => MeshPipelineKey::TRANSMISSIVE_QUALITY_MEDIUM,
-        TransmissiveQuality::High => MeshPipelineKey::TRANSMISSIVE_QUALITY_HIGH,
-        TransmissiveQuality::Ultra => MeshPipelineKey::TRANSMISSIVE_QUALITY_ULTRA,
+        ScreenSpaceTransmissiveBlurQuality::Low => MeshPipelineKey::TRANSMISSIVE_QUALITY_LOW,
+        ScreenSpaceTransmissiveBlurQuality::Medium => MeshPipelineKey::TRANSMISSIVE_QUALITY_MEDIUM,
+        ScreenSpaceTransmissiveBlurQuality::High => MeshPipelineKey::TRANSMISSIVE_QUALITY_HIGH,
+        ScreenSpaceTransmissiveBlurQuality::Ultra => MeshPipelineKey::TRANSMISSIVE_QUALITY_ULTRA,
     }
 }
 
@@ -518,7 +519,8 @@ pub fn queue_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
         if let Some(camera_3d) = camera_3d {
-            view_key |= transmissive_quality_pipeline_key(camera_3d.transmissive_quality);
+            view_key |=
+                transmissive_quality_pipeline_key(camera_3d.screen_space_transmission_blur_quality);
         }
         let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
