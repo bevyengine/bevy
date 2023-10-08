@@ -22,7 +22,7 @@ use crate::{prelude::ViewVisibility, Extract, ExtractSchedule, RenderApp};
 /// Describes how a component gets turned into a render instance for rendering.
 ///
 /// Before rendering, a component will be transferred from the main world to the
-/// render world in the [`ExtractSchedule`](crate::ExtractSchedule) step.
+/// render world in the [`ExtractSchedule`] step.
 ///
 /// This is essentially the same as
 /// [`ExtractComponent`](crate::extract_component::ExtractComponent), but
