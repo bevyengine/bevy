@@ -390,7 +390,9 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         switch i & 7 {
             // https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
             // TODO: Figure out a more reasonable way of doing this, as WGSL
-            // seems to only allow constant indexes into constant arrays
+            // seems to only allow constant indexes into constant arrays at the moment.
+            // The downstream shader compiler should be able to optimize this into a single
+            // constant when unrolling the for loop, but it's still not ideal.
             case 0: { spiral_offset = vec2<f32>(-0.7071,  0.7071); }
             case 1: { spiral_offset = vec2<f32>(-0.0000, -0.8750); }
             case 2: { spiral_offset = vec2<f32>( 0.5303,  0.5303); }
