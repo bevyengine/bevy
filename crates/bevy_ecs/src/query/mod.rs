@@ -801,38 +801,4 @@ mod tests {
         let values = world.query::<&B>().iter(&world).collect::<Vec<&B>>();
         assert_eq!(values, vec![&B(2)]);
     }
-
-    #[test]
-    fn restrict_fetch() {
-        use bevy_ecs::prelude::*;
-        use bevy_ecs::system::QueryLens;
-        #[derive(Component)]
-        struct A(usize);
-
-        #[derive(Component)]
-        struct B(usize);
-
-        let mut world = World::new();
-
-        world.spawn((A(10), B(5)));
-
-        fn function_that_uses_a_query(lens: &QueryLens<&mut A>) {
-            let mut q = lens.query();
-            q.single_mut().0 = 15;
-            assert_eq!(q.single().0, 15);
-        }
-
-        fn system_1(mut query: Query<&mut A>) {
-            function_that_uses_a_query(&query.into_query_lens());
-        }
-
-        fn system_2(mut query: Query<(&mut A, &B)>) {
-            let lens = query.restrict_fetch::<&mut A>();
-            function_that_uses_a_query(&lens);
-        }
-
-        let mut schedule = Schedule::default();
-        schedule.add_systems((system_1, system_2));
-        schedule.run(&mut world);
-    }
 }

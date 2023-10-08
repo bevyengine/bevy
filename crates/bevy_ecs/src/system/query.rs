@@ -424,17 +424,17 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// #
     /// # world.spawn((A(10), B(5)));
     ///
-    /// fn function_that_uses_a_query(lens: &QueryLens<&A>) {
+    /// fn function_that_uses_a_query_lens(lens: &mut QueryLens<&A>) {
     ///     assert_eq!(lens.query().single().0, 10);
     /// }
     ///
-    /// fn system_1(query: Query<&A>) {
-    ///     function_that_uses_a_query(&query.into_query_lens());
+    /// fn system_1(mut query: Query<&A>) {
+    ///     function_that_uses_a_query_lens(&mut query.into_query_lens());
     /// }
     ///
-    /// fn system_2(query: Query<(&mut A, &B)>) {
-    ///     let lens = query.restrict_fetch::<&A>();
-    ///     function_that_uses_a_query(&lens);
+    /// fn system_2(mut query: Query<(&mut A, &B)>) {
+    ///     let mut lens = query.restrict_fetch::<&A>();
+    ///     function_that_uses_a_query_lens(&mut lens);
     /// }
     ///
     /// # let mut schedule = Schedule::default();
@@ -1586,8 +1586,8 @@ pub struct QueryLens<'world, NewQ: WorldQuery> {
 }
 
 impl<'world, NewQ: WorldQuery> QueryLens<'world, NewQ> {
-    /// get the query associated with Generalized Query
-    pub fn query(&self) -> Query<'world, '_, NewQ, ()> {
+    /// Get the [`Query`] associated with the [`QueryLens`]
+    pub fn query(&mut self) -> Query<'world, '_, NewQ, ()> {
         Query {
             world: self.world,
             state: &self.state,
