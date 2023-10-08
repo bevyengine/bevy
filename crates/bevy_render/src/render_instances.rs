@@ -10,7 +10,6 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::Component,
     prelude::Entity,
     query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
     system::{lifetimeless::Read, Query, ResMut, Resource},
@@ -19,60 +18,59 @@ use bevy_utils::EntityHashMap;
 
 use crate::{prelude::ViewVisibility, Extract, ExtractSchedule, RenderApp};
 
-/// Describes how a component gets turned into a render instance for rendering.
+/// Describes how to extract data needed for rendering from a component or
+/// components.
 ///
-/// Before rendering, a component will be transferred from the main world to the
-/// render world in the [`ExtractSchedule`] step.
+/// Before rendering, any applicable components will be transferred from the
+/// main world to the render world in the [`ExtractSchedule`] step.
 ///
 /// This is essentially the same as
 /// [`ExtractComponent`](crate::extract_component::ExtractComponent), but
 /// higher-performance because it avoids the ECS overhead.
-pub trait ExtractToRenderInstance: Component {
+pub trait RenderInstance: Send + Sync + Sized + 'static {
     /// ECS [`WorldQuery`] to fetch the components to extract.
     type Query: WorldQuery + ReadOnlyWorldQuery;
     /// Filters the entities with additional constraints.
     type Filter: WorldQuery + ReadOnlyWorldQuery;
 
-    type Instance: Send + Sync;
-
     /// Defines how the component is transferred into the "render world".
-    fn extract_to_render_instance(item: QueryItem<'_, Self::Query>) -> Option<Self::Instance>;
+    fn extract_to_render_instance(item: QueryItem<'_, Self::Query>) -> Option<Self>;
 }
 
-/// This plugin extracts the components into the "render world" as render
-/// instances.
+/// This plugin extracts one or more components into the "render world" as
+/// render instances.
 ///
 /// Therefore it sets up the [`ExtractSchedule`](crate::ExtractSchedule) step
 /// for the specified [`RenderInstances`].
 #[derive(Default)]
-pub struct ExtractToRenderInstancePlugin<C>
+pub struct RenderInstancePlugin<RI>
 where
-    C: ExtractToRenderInstance,
+    RI: RenderInstance,
 {
     only_extract_visible: bool,
-    marker: PhantomData<fn() -> C>,
+    marker: PhantomData<fn() -> RI>,
 }
 
 /// Stores all render instances corresponding to the given component in the render world.
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderInstances<C>(EntityHashMap<Entity, C::Instance>)
+pub struct RenderInstances<RI>(EntityHashMap<Entity, RI>)
 where
-    C: ExtractToRenderInstance;
+    RI: RenderInstance;
 
-impl<C> Default for RenderInstances<C>
+impl<RI> Default for RenderInstances<RI>
 where
-    C: ExtractToRenderInstance,
+    RI: RenderInstance,
 {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<C> ExtractToRenderInstancePlugin<C>
+impl<RI> RenderInstancePlugin<RI>
 where
-    C: ExtractToRenderInstance,
+    RI: RenderInstance,
 {
-    /// Creates a new [`ExtractToRenderInstancePlugin`] that unconditionally
+    /// Creates a new [`RenderInstancePlugin`] that unconditionally
     /// extracts the component to the render world, whether visible or not.
     pub fn new() -> Self {
         Self {
@@ -82,11 +80,11 @@ where
     }
 }
 
-impl<C> ExtractToRenderInstancePlugin<C>
+impl<RI> RenderInstancePlugin<RI>
 where
-    C: ExtractToRenderInstance,
+    RI: RenderInstance,
 {
-    /// Creates a new [`ExtractToRenderInstancePlugin`] that extracts the
+    /// Creates a new [`RenderInstancePlugin`] that extracts the
     /// component to the render world if and only if the entity it's attached to
     /// is visible.
     pub fn extract_visible() -> Self {
@@ -97,31 +95,31 @@ where
     }
 }
 
-impl<C> Plugin for ExtractToRenderInstancePlugin<C>
+impl<RI> Plugin for RenderInstancePlugin<RI>
 where
-    C: ExtractToRenderInstance,
+    RI: RenderInstance,
 {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<RenderInstances<C>>();
+            render_app.init_resource::<RenderInstances<RI>>();
             if self.only_extract_visible {
-                render_app.add_systems(ExtractSchedule, extract_visible_to_render_instances::<C>);
+                render_app.add_systems(ExtractSchedule, extract_visible_to_render_instances::<RI>);
             } else {
-                render_app.add_systems(ExtractSchedule, extract_to_render_instances::<C>);
+                render_app.add_systems(ExtractSchedule, extract_to_render_instances::<RI>);
             }
         }
     }
 }
 
-fn extract_to_render_instances<C>(
-    mut instances: ResMut<RenderInstances<C>>,
-    query: Extract<Query<(Entity, C::Query), C::Filter>>,
+fn extract_to_render_instances<RI>(
+    mut instances: ResMut<RenderInstances<RI>>,
+    query: Extract<Query<(Entity, RI::Query), RI::Filter>>,
 ) where
-    C: ExtractToRenderInstance,
+    RI: RenderInstance,
 {
     instances.clear();
     for (entity, other) in &query {
-        if let Some(render_instance) = C::extract_to_render_instance(other) {
+        if let Some(render_instance) = RI::extract_to_render_instance(other) {
             instances.insert(entity, render_instance);
         }
     }
@@ -131,7 +129,7 @@ fn extract_visible_to_render_instances<C>(
     mut instances: ResMut<RenderInstances<C>>,
     query: Extract<Query<(Entity, &ViewVisibility, C::Query), C::Filter>>,
 ) where
-    C: ExtractToRenderInstance,
+    C: RenderInstance,
 {
     instances.clear();
     for (entity, view_visibility, other) in &query {
@@ -143,15 +141,14 @@ fn extract_visible_to_render_instances<C>(
     }
 }
 
-impl<A> ExtractToRenderInstance for Handle<A>
+impl<A> RenderInstance for AssetId<A>
 where
     A: Asset,
 {
     type Query = Read<Handle<A>>;
     type Filter = ();
-    type Instance = AssetId<A>;
 
-    fn extract_to_render_instance(item: QueryItem<'_, Self::Query>) -> Option<Self::Instance> {
+    fn extract_to_render_instance(item: QueryItem<'_, Self::Query>) -> Option<Self> {
         Some(item.id())
     }
 }
