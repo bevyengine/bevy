@@ -17,7 +17,7 @@ pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(19259
 /// A [`Plugin`] that draws wireframes.
 ///
 /// Wireframes currently do not work when using webgl or webgpu.
-/// Supported platforms:
+/// Supported rendering backends:
 /// - DX12
 /// - Vulkan
 /// - Metal
