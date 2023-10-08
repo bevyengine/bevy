@@ -29,7 +29,7 @@ use bevy::{
     render::view::ColorGrading,
 };
 
-#[cfg(any(not(feature = "webgl2"), not(target_arch = "wasm32")))]
+#[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
 use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin};
 
 use rand::random;
@@ -49,7 +49,7 @@ fn main() {
     // *Note:* TAA is not _required_ for specular transmission, but
     // it _greatly enhances_ the look of the resulting blur effects.
     // Sadly, it's not available under WebGL.
-    #[cfg(any(not(feature = "webgl2"), not(target_arch = "wasm32")))]
+    #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
     app.insert_resource(Msaa::Off)
         .add_plugins(TemporalAntiAliasPlugin);
 
@@ -354,7 +354,7 @@ fn setup(
             tonemapping: Tonemapping::TonyMcMapface,
             ..default()
         },
-        #[cfg(any(not(feature = "webgl2"), not(target_arch = "wasm32")))]
+        #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
         TemporalAntiAliasBundle::default(),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
@@ -506,7 +506,7 @@ fn example_control_system(
         camera.hdr = !camera.hdr;
     }
 
-    #[cfg(any(not(feature = "webgl2"), not(target_arch = "wasm32")))]
+    #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
     if input.just_pressed(KeyCode::D) {
         if depth_prepass.is_none() {
             commands
