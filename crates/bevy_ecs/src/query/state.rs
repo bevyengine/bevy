@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     change_detection::Mut,
-    component::{ComponentId, Tick},
+    component::{ComponentId, Components, Tick},
     entity::Entity,
     prelude::{Component, FromWorld},
     query::{
@@ -138,23 +138,28 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         state
     }
 
-    /// Transform a [`QueryState`] into a more generic [`QueryState`]. If the original query state did
-    /// not have the same access this will panic.
-    /// Probably should not call update archetype generation on this query state as the results will
-    /// be very unpredictable as new archetypes could be added that don't match old query
-    pub fn restrict_fetch<NewQ: WorldQuery>(&self, world: UnsafeWorldCell) -> QueryState<NewQ, ()> {
+    /// This is used to transform a [`Query`] into a more generic [`Query`]. This can be useful for passsing to another function that
+    /// might take the more generalize query. See [`Query::restrict_fetch`] for more details.
+    ///
+    /// You should not call `update_archetypes` on the returned QueryState as the result will be unpredictable.
+    /// You might end up with a mix of archetypes that only matched the original query + archetypes that only match
+    /// the new [`QueryState`]. Most of the safe methods on [`QueryState`] call [`update_archetypes`] internally.
+    pub(crate) fn restrict_fetch<NewQ: WorldQuery>(
+        &self,
+        components: &Components,
+    ) -> QueryState<NewQ, ()> {
         if !Q::IS_ARCHETYPAL || !F::IS_ARCHETYPAL || !NewQ::IS_ARCHETYPAL {
-            panic!("generalizing is not allow with queries that use `Changed` or `Added`");
+            panic!("`restrict_fetch` is not allow with queries that use `Changed` or `Added`");
         }
-        let fetch_state = NewQ::new_state(world.components()).expect(
-            "Could not create fetch_state. Make \
-            sure you initialize the QueryState before calling this method.",
+        let fetch_state = NewQ::new_state(components).expect(
+            "Could not create fetch_state. This should not be reachable as the components should have been \
+            initialized when creating the original QueryState.",
         );
         #[allow(clippy::let_unit_value)]
         // the archetypal filters have already been applied, so we don't need them.
-        let filter_state = <()>::new_state(world.components()).expect(
-            "Could not create filter_state. Make \
-            sure you initialize the QueryState before calling this method.",
+        let filter_state = <()>::new_state(components).expect(
+            "Could not create filter_state. This should not be reachable as the components should have been \
+            initialized when creating the original QueryState.",
         );
 
         let mut component_access = FilteredAccess::default();
@@ -1584,27 +1589,9 @@ mod tests {
         let _panics = query_state.get_many_mut(&mut world_2, []);
     }
 
-    #[test]
-    fn generalize_query_state() {
-        #[derive(Component)]
-        struct A(pub usize);
+    mod restrict_fetch {
+        use super::*;
 
-        #[derive(Component)]
-        struct B;
-
-        let mut world = World::new();
-        world.spawn((A(22), B));
-
-        let query_state = world.query::<(&A, &B)>();
-        let mut new_query_state = query_state.restrict_fetch::<&A>(world.as_unsafe_world_cell());
-        assert_eq!(new_query_state.iter(&world).len(), 1);
-        let a = new_query_state.single(&world);
-
-        assert_eq!(a.0, 22);
-    }
-
-    #[test]
-    fn generalize_query_cannot_get_unmatched_data() {
         #[derive(Component)]
         struct A(pub usize);
 
@@ -1614,52 +1601,63 @@ mod tests {
         #[derive(Component)]
         struct C;
 
-        let mut world = World::new();
-        world.spawn((A(22), B));
-        world.spawn((A(23), B, C));
+        #[test]
+        fn can_restrict() {
+            let mut world = World::new();
+            world.spawn((A(22), B));
 
-        let query_state = world.query_filtered::<(&A, &B), Without<C>>();
-        let mut new_query_state = query_state.restrict_fetch::<&A>(world.as_unsafe_world_cell());
-        // even though we change the query to not have Without<C>, we cannot get the component with C.
-        let a = new_query_state.single(&world);
+            let query_state = world.query::<(&A, &B)>();
+            let mut new_query_state = query_state.restrict_fetch::<&A>(world.components());
+            assert_eq!(new_query_state.iter(&world).len(), 1);
+            let a = new_query_state.single(&world);
 
-        assert_eq!(a.0, 22);
-    }
+            assert_eq!(a.0, 22);
+        }
 
-    #[test]
-    #[should_panic]
-    fn generalize_to_no_included_components_not_allowed() {
-        #[derive(Component)]
-        struct A(pub usize);
+        #[test]
+        fn cannot_get_unmatched_data() {
+            let mut world = World::new();
+            world.spawn((A(22), B));
+            world.spawn((A(23), B, C));
 
-        #[derive(Component)]
-        struct B;
+            let query_state = world.query_filtered::<(&A, &B), Without<C>>();
+            let mut new_query_state = query_state.restrict_fetch::<&A>(world.components());
+            // even though we change the query to not have Without<C>, we do not get the component with C.
+            let a = new_query_state.single(&world);
 
-        let mut world = World::new();
-        world.init_component::<A>();
-        world.init_component::<B>();
-        world.spawn(A(22));
+            assert_eq!(a.0, 22);
+        }
 
-        let query_state = world.query::<&A>();
-        let mut _new_query_state =
-            query_state.restrict_fetch::<(&A, &B)>(world.as_unsafe_world_cell());
-    }
+        #[test]
+        #[should_panic]
+        fn not_included_components_not_allowed() {
+            let mut world = World::new();
+            world.init_component::<A>();
+            world.init_component::<B>();
+            world.spawn(A(22));
 
-    #[test]
-    #[should_panic]
-    fn generalize_non_archtypal_not_allowed() {
-        #[derive(Component)]
-        struct A(pub usize);
+            let query_state = world.query::<&A>();
+            let mut _new_query_state = query_state.restrict_fetch::<(&A, &B)>(world.components());
+        }
 
-        #[derive(Component)]
-        struct B;
+        #[test]
+        #[should_panic]
+        fn non_archtypal_not_allowed() {
+            let mut world = World::new();
+            world.spawn(A(22));
 
-        let mut world = World::new();
-        world.init_component::<A>();
-        world.init_component::<B>();
-        world.spawn(A(22));
+            let query_state = world.query_filtered::<(&A, &B), Added<B>>();
+            let mut _new_query_state = query_state.restrict_fetch::<&A>(world.components());
+        }
 
-        let query_state = world.query_filtered::<(&A, &B), Added<B>>();
-        let mut _new_query_state = query_state.restrict_fetch::<&A>(world.as_unsafe_world_cell());
+        #[test]
+        #[should_panic]
+        fn immut_to_mut_not_allowed() {
+            let mut world = World::new();
+            world.spawn(A(22));
+
+            let query_state = world.query::<&A>();
+            let mut _new_query_state = query_state.restrict_fetch::<&mut A>(world.components());
+        }
     }
 }

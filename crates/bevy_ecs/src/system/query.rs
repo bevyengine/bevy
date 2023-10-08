@@ -442,7 +442,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// # schedule.run(&mut world);
     /// ```
     pub fn restrict_fetch<NewQ: WorldQuery>(&mut self) -> QueryLens<'_, NewQ> {
-        let new_state = self.state.restrict_fetch(self.world);
+        let new_state = self.state.restrict_fetch(self.world.components());
 
         QueryLens {
             state: new_state,
