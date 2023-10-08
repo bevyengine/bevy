@@ -31,8 +31,8 @@ use bevy_render::{
 };
 
 use crate::{
-    EnvironmentMapLight, MeshPipelineKey, ViewFogUniformOffset, ViewLightsUniformOffset,
-    MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    EnvironmentMapLight, MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset,
+    ViewLightsUniformOffset, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 
 pub struct PbrDeferredLightingPlugin;
@@ -299,6 +299,16 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
+        let shadow_filter_method =
+            key.intersection(MeshPipelineKey::SHADOW_FILTER_METHOD_RESERVED_BITS);
+        if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2 {
+            shader_defs.push("SHADOW_FILTER_METHOD_HARDWARE_2X2".into());
+        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13 {
+            shader_defs.push("SHADOW_FILTER_METHOD_CASTANO_13".into());
+        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14 {
+            shader_defs.push("SHADOW_FILTER_METHOD_JIMENEZ_14".into());
+        }
+
         shader_defs.push(ShaderDefVal::UInt(
             "MAX_DIRECTIONAL_LIGHTS".to_string(),
             MAX_DIRECTIONAL_LIGHTS as u32,
@@ -407,13 +417,14 @@ pub fn prepare_deferred_lighting_pipelines(
             Option<&Tonemapping>,
             Option<&DebandDither>,
             Option<&EnvironmentMapLight>,
+            Option<&ShadowFilteringMethod>,
             Option<&ScreenSpaceAmbientOcclusionSettings>,
         ),
         With<DeferredPrepass>,
     >,
     images: Res<RenderAssets<Image>>,
 ) {
-    for (entity, view, tonemapping, dither, environment_map, ssao) in &views {
+    for (entity, view, tonemapping, dither, environment_map, shadow_filter_method, ssao) in &views {
         let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
 
         if !view.hdr {
@@ -449,6 +460,18 @@ pub fn prepare_deferred_lighting_pipelines(
         };
         if environment_map_loaded {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+        }
+
+        match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
+            ShadowFilteringMethod::Hardware2x2 => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
+            }
+            ShadowFilteringMethod::Castano13 => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13;
+            }
+            ShadowFilteringMethod::Jimenez14 => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14;
+            }
         }
 
         let pipeline_id =
