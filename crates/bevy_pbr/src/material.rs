@@ -20,6 +20,7 @@ use bevy_render::{
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
+    render_instances::{RenderInstancePlugin, RenderInstances},
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
@@ -31,10 +32,10 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::FallbackImage,
-    view::{ExtractedView, Msaa, ViewVisibility, VisibleEntities},
+    view::{ExtractedView, Msaa, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{tracing::error, EntityHashMap, HashMap, HashSet};
+use bevy_utils::{tracing::error, HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -176,7 +177,8 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.init_asset::<M>();
+        app.init_asset::<M>()
+            .add_plugins(RenderInstancePlugin::<AssetId<M>>::extract_visible());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -187,12 +189,8 @@ where
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
-                .init_resource::<RenderMaterialInstances<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_systems(
-                    ExtractSchedule,
-                    (extract_materials::<M>, extract_material_meshes::<M>),
-                )
+                .add_systems(ExtractSchedule, extract_materials::<M>)
                 .add_systems(
                     Render,
                     (
@@ -372,26 +370,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
     }
 }
 
-#[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterialInstances<M: Material>(EntityHashMap<Entity, AssetId<M>>);
-
-impl<M: Material> Default for RenderMaterialInstances<M> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-fn extract_material_meshes<M: Material>(
-    mut material_instances: ResMut<RenderMaterialInstances<M>>,
-    query: Extract<Query<(Entity, &ViewVisibility, &Handle<M>)>>,
-) {
-    material_instances.clear();
-    for (entity, view_visibility, handle) in &query {
-        if view_visibility.get() {
-            material_instances.insert(entity, handle.id());
-        }
-    }
-}
+pub type RenderMaterialInstances<M> = RenderInstances<AssetId<M>>;
 
 const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
     match alpha_mode {
