@@ -40,8 +40,8 @@ pub trait RenderInstance: Send + Sync + Sized + 'static {
 /// This plugin extracts one or more components into the "render world" as
 /// render instances.
 ///
-/// Therefore it sets up the [`ExtractSchedule`](crate::ExtractSchedule) step
-/// for the specified [`RenderInstances`].
+/// Therefore it sets up the [`ExtractSchedule`] step for the specified
+/// [`RenderInstances`].
 #[derive(Default)]
 pub struct RenderInstancePlugin<RI>
 where
