@@ -66,12 +66,13 @@ impl ViewNode for MainTransmissivePass3dNode {
         let _main_transmissive_pass_3d_span = info_span!("main_transmissive_pass_3d").entered();
 
         if !transmissive_phase.items.is_empty() {
-            let screen_space_transmission_steps = camera_3d.screen_space_transmission_steps;
-            if screen_space_transmission_steps > 0 {
+            let screen_space_specular_transmission_steps =
+                camera_3d.screen_space_specular_transmission_steps;
+            if screen_space_specular_transmission_steps > 0 {
                 let transmission =
                     transmission.expect("`ViewTransmissionTexture` should exist at this point");
 
-                // `transmissive_phase.items` are depth sorted, so we split them into N = `screen_space_transmission_steps`
+                // `transmissive_phase.items` are depth sorted, so we split them into N = `screen_space_specular_transmission_steps`
                 // ranges, rendering them back-to-front in multiple steps, allowing multiple levels of transparency.
                 //
                 // Note: For the sake of simplicity, we currently split items evenly among steps. In the future, we
@@ -79,7 +80,7 @@ impl ViewNode for MainTransmissivePass3dNode {
                 // falloff so that nearby objects have more levels of transparency available to them)
                 for range in split_range(
                     0..transmissive_phase.items.len(),
-                    screen_space_transmission_steps,
+                    screen_space_specular_transmission_steps,
                 ) {
                     // Copy the main texture to the transmission texture, allowing to use the color output of the
                     // previous step (or of the `Opaque3d` phase, for the first step) as a transmissive color input

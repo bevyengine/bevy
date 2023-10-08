@@ -39,14 +39,14 @@ pub struct Camera3d {
     ///
     /// Setting this to `0` disables the screen-space refraction effect entirely, and falls
     /// back to refracting only the environment map light's texture.
-    pub screen_space_transmission_steps: usize,
+    pub screen_space_specular_transmission_steps: usize,
     /// The quality of the screen space transmission blur effect, applied to the whatever's “behind” transmissive
     /// objects when their `roughness` is greater than `0.0`.
     ///
     /// Higher qualities are more GPU-intensive.
     ///
     /// **Note:** You can get better-looking results at any quality level by enabling TAA. See: [`TemporalAntiAliasPlugin`](crate::experimental::taa::TemporalAntiAliasPlugin).
-    pub screen_space_transmission_quality: ScreenSpaceTransmissionQuality,
+    pub screen_space_specular_transmission_quality: ScreenSpaceTransmissionQuality,
 }
 
 impl Default for Camera3d {
@@ -55,8 +55,8 @@ impl Default for Camera3d {
             clear_color: ClearColorConfig::Default,
             depth_load_op: Default::default(),
             depth_texture_usages: TextureUsages::RENDER_ATTACHMENT.into(),
-            screen_space_transmission_steps: 1,
-            screen_space_transmission_quality: Default::default(),
+            screen_space_specular_transmission_steps: 1,
+            screen_space_specular_transmission_quality: Default::default(),
         }
     }
 }

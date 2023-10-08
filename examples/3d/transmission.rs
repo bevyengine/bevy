@@ -519,28 +519,30 @@ fn example_control_system(
         }
     }
 
-    if input.just_pressed(KeyCode::O) && camera_3d.screen_space_transmission_steps > 0 {
-        camera_3d.screen_space_transmission_steps -= 1;
+    if input.just_pressed(KeyCode::O) && camera_3d.screen_space_specular_transmission_steps > 0 {
+        camera_3d.screen_space_specular_transmission_steps -= 1;
     }
 
-    if input.just_pressed(KeyCode::P) && camera_3d.screen_space_transmission_steps < 4 {
-        camera_3d.screen_space_transmission_steps += 1;
+    if input.just_pressed(KeyCode::P) && camera_3d.screen_space_specular_transmission_steps < 4 {
+        camera_3d.screen_space_specular_transmission_steps += 1;
     }
 
     if input.just_pressed(KeyCode::J) {
-        camera_3d.screen_space_transmission_quality = ScreenSpaceTransmissionQuality::Low;
+        camera_3d.screen_space_specular_transmission_quality = ScreenSpaceTransmissionQuality::Low;
     }
 
     if input.just_pressed(KeyCode::K) {
-        camera_3d.screen_space_transmission_quality = ScreenSpaceTransmissionQuality::Medium;
+        camera_3d.screen_space_specular_transmission_quality =
+            ScreenSpaceTransmissionQuality::Medium;
     }
 
     if input.just_pressed(KeyCode::L) {
-        camera_3d.screen_space_transmission_quality = ScreenSpaceTransmissionQuality::High;
+        camera_3d.screen_space_specular_transmission_quality = ScreenSpaceTransmissionQuality::High;
     }
 
     if input.just_pressed(KeyCode::Semicolon) {
-        camera_3d.screen_space_transmission_quality = ScreenSpaceTransmissionQuality::Ultra;
+        camera_3d.screen_space_specular_transmission_quality =
+            ScreenSpaceTransmissionQuality::Ultra;
     }
 
     let rotation = if input.pressed(KeyCode::Right) {
@@ -580,7 +582,7 @@ fn example_control_system(
         state.thickness,
         state.ior,
         state.perceptual_roughness,
-        camera_3d.screen_space_transmission_steps,
+        camera_3d.screen_space_specular_transmission_steps,
     );
 }
 
