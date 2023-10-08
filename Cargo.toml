@@ -238,7 +238,7 @@ shader_format_glsl = ["bevy_internal/shader_format_glsl"]
 # Enable support for shaders in SPIR-V
 shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 
-# Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit in lower-end GPUs
+# Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
 
 # Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm

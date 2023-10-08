@@ -35,7 +35,7 @@ use bevy_render::{
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 
-mod draw_3d_graph {
+pub mod draw_3d_graph {
     pub mod node {
         /// Label for the TAA render node.
         pub const TAA: &str = "taa";
@@ -71,7 +71,10 @@ impl Plugin for TemporalAntiAliasPlugin {
                     prepare_taa_history_textures.in_set(RenderSet::PrepareResources),
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<TAANode>>(CORE_3D, draw_3d_graph::node::TAA)
+            .add_render_graph_node::<ViewNodeRunner<TemporalAntiAliasNode>>(
+                CORE_3D,
+                draw_3d_graph::node::TAA,
+            )
             .add_render_graph_edges(
                 CORE_3D,
                 &[
@@ -110,14 +113,13 @@ pub struct TemporalAntiAliasBundle {
 /// # Tradeoffs
 ///
 /// Pros:
+/// * Filters more types of aliasing than MSAA, such as textures and singular bright pixels (specular aliasing)
 /// * Cost scales with screen/view resolution, unlike MSAA which scales with number of triangles
-/// * Filters more types of aliasing than MSAA, such as textures and singular bright pixels
-/// * Greatly increases the quality of stochastic rendering techniques such as SSAO, shadow mapping, etc
+/// * Greatly increases the quality of stochastic rendering techniques such as SSAO, certain shadow map sampling methods, etc
 ///
 /// Cons:
 /// * Chance of "ghosting" - ghostly trails left behind moving objects
-/// * Thin geometry, lighting detail, or texture lines may flicker or disappear
-/// * Slightly blurs the image, leading to a softer look (using an additional sharpening pass can reduce this)
+/// * Thin geometry, lighting detail, or texture lines may flicker noisily or disappear
 ///
 /// Because TAA blends past frames with the current frame, when the frames differ too much
 /// (such as with fast moving objects or camera cuts), ghosting artifacts may occur.
@@ -130,7 +132,7 @@ pub struct TemporalAntiAliasBundle {
 /// and add the [`DepthPrepass`], [`MotionVectorPrepass`], and [`TemporalJitter`]
 /// components to your camera.
 ///
-/// Cannot be used with [`bevy_render::camera::OrthographicProjection`].
+/// Currently cannot be used with [`bevy_render::camera::OrthographicProjection`].
 ///
 /// Currently does not support skinned meshes and morph targets.
 /// There will probably be ghosting artifacts if used with them.
@@ -151,7 +153,7 @@ pub struct TemporalAntiAliasSettings {
     /// representative of the current frame, such as in sudden camera cuts.
     ///
     /// After setting this to true, it will automatically be toggled
-    /// back to false after one frame.
+    /// back to false at the end of the frame.
     pub reset: bool,
 }
 
@@ -162,15 +164,15 @@ impl Default for TemporalAntiAliasSettings {
 }
 
 #[derive(Default)]
-struct TAANode;
+pub struct TemporalAntiAliasNode;
 
-impl ViewNode for TAANode {
+impl ViewNode for TemporalAntiAliasNode {
     type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
-        &'static TAAHistoryTextures,
+        &'static TemporalAntiAliasHistoryTextures,
         &'static ViewPrepassTextures,
-        &'static TAAPipelineId,
+        &'static TemporalAntiAliasPipelineId,
     );
 
     fn run(
@@ -467,7 +469,7 @@ fn prepare_taa_jitter_and_mip_bias(
 }
 
 #[derive(Component)]
-struct TAAHistoryTextures {
+pub struct TemporalAntiAliasHistoryTextures {
     write: CachedTexture,
     read: CachedTexture,
 }
@@ -507,12 +509,12 @@ fn prepare_taa_history_textures(
             let history_2_texture = texture_cache.get(&render_device, texture_descriptor);
 
             let textures = if frame_count.0 % 2 == 0 {
-                TAAHistoryTextures {
+                TemporalAntiAliasHistoryTextures {
                     write: history_1_texture,
                     read: history_2_texture,
                 }
             } else {
-                TAAHistoryTextures {
+                TemporalAntiAliasHistoryTextures {
                     write: history_2_texture,
                     read: history_1_texture,
                 }
@@ -524,7 +526,7 @@ fn prepare_taa_history_textures(
 }
 
 #[derive(Component)]
-struct TAAPipelineId(CachedRenderPipelineId);
+pub struct TemporalAntiAliasPipelineId(CachedRenderPipelineId);
 
 fn prepare_taa_pipelines(
     mut commands: Commands,
@@ -546,6 +548,8 @@ fn prepare_taa_pipelines(
             pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key);
         }
 
-        commands.entity(entity).insert(TAAPipelineId(pipeline_id));
+        commands
+            .entity(entity)
+            .insert(TemporalAntiAliasPipelineId(pipeline_id));
     }
 }

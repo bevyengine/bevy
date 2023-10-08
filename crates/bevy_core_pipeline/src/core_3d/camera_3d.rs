@@ -42,7 +42,12 @@ pub struct Camera3d {
     /// back to refracting the environment map light's texture.
     pub transmissive_steps: usize,
 
-    /// The quality of the transmissive blur effect.
+    /// The quality of the transmissive blur effect, applied to the whatever's “behind” transmissive
+    /// objects when their `roughness` is greater than `0.0`.
+    ///
+    /// Higher qualities are more GPU-intensive.
+    ///
+    /// **Note:** You can get better-looking results at any quality level by enabling TAA. See: [`TemporalAntiAliasPlugin`](crate::experimental::taa::TemporalAntiAliasPlugin).
     pub transmissive_quality: TransmissiveQuality,
 }
 
@@ -98,7 +103,10 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
     }
 }
 
-/// The quality of the transmissive blur effect. Higher qualities are more GPU-intensive.
+/// The quality of the transmissive blur effect, applied to the whatever's “behind” transmissive
+/// objects when their `roughness` is greater than `0.0`.
+///
+/// Higher qualities are more GPU-intensive.
 ///
 /// **Note:** You can get better-looking results at any quality level by enabling TAA. See: [`TemporalAntiAliasPlugin`](crate::experimental::taa::TemporalAntiAliasPlugin).
 #[derive(Resource, Default, Clone, Copy, Reflect, PartialEq, PartialOrd, Debug)]
