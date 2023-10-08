@@ -1420,8 +1420,8 @@ pub enum GridPlacementError {
 ///
 /// This serves as the "fill" color.
 /// When combined with [`UiImage`], tints the provided texture.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Copy, Clone, Debug, Deserialize, Serialize, Reflect)]
+#[reflect(Component, Default, Deserialize, Serialize)]
 pub struct BackgroundColor(pub Color);
 
 impl BackgroundColor {
