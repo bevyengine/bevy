@@ -8,6 +8,7 @@ mod graph_utils;
 mod schedule;
 mod set;
 mod state;
+mod state_matching;
 
 pub use self::condition::*;
 pub use self::config::*;
@@ -16,6 +17,7 @@ use self::graph_utils::*;
 pub use self::schedule::*;
 pub use self::set::*;
 pub use self::state::*;
+pub use self::state_matching::*;
 
 pub use self::graph_utils::NodeId;
 
