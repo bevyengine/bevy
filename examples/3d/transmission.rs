@@ -38,6 +38,7 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins)
+        .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(PointLightShadowMap { size: 4096 })
         .insert_resource(AmbientLight {
             brightness: 0.0,
@@ -366,13 +367,25 @@ fn setup(
     // Controls Text
     let text_style = TextStyle {
         font_size: 18.0,
-        color: Color::BLACK,
+        color: Color::WHITE,
         ..Default::default()
     };
 
     commands.spawn(
         TextBundle::from_section(
-            "1 / 2 - Decrease / Increase Diffuse Transmission\nQ / W - Decrease / Increase Transmission\nA / S - Decrease / Increase Thickness\nZ / X - Decrease / Increase IOR\nE / R - Decrease / Increase Perceptual Roughness\nArrow Keys - Control Camera\nO / P - Decrease / Increase Transmission Steps\nJ / K / L / ; - Transmissive Quality\nH - Toggle HDR\nD - Toggle Depth Prepass (Also disables TAA)\nC - Randomize Colors",
+            concat!(
+                "1 / 2 - Decrease / Increase Diffuse Transmission\n",
+                "Q / W - Decrease / Increase Transmission\n",
+                "A / S - Decrease / Increase Thickness\n",
+                "Z / X - Decrease / Increase IOR\n",
+                "E / R - Decrease / Increase Perceptual Roughness\n",
+                "Arrow Keys - Control Camera\n",
+                "O / P - Decrease / Increase Transmission Steps\n",
+                "J / K / L / ; - Transmissive Quality\n",
+                "H - Toggle HDR\n",
+                "D - Toggle Depth Prepass (Also disables TAA)\n",
+                "C - Randomize Colors",
+            ),
             text_style.clone(),
         )
         .with_style(Style {
@@ -570,10 +583,24 @@ fn example_control_system(
 
     let mut display = display.single_mut();
     display.sections[0].value = format!(
-        "HDR: {}\nDepth Prepass+TAA: {}\nDiffuse Transmission: {:.2}\nTransmission: {:.2}\nThickness: {:.2}\nIOR: {:.2}\nPerceptual Roughness: {:.2}\nTransmissive Steps: {}",
+        concat!(
+            "HDR: {}\n",
+            "Depth Prepass+TAA: {}\n",
+            "Diffuse Transmission: {:.2}\n",
+            "Transmission: {:.2}\n",
+            "Thickness: {:.2}\n",
+            "IOR: {:.2}\n",
+            "Perceptual Roughness: {:.2}\n",
+            "Transmissive Steps: {}\n",
+            "Transmissive Quality: {:?}\n",
+        ),
         if camera.hdr { "ON " } else { "OFF" },
         if cfg!(any(not(feature = "webgl2"), not(target_arch = "wasm32"))) {
-            if depth_prepass.is_some() { "ON " } else { "OFF" }
+            if depth_prepass.is_some() {
+                "ON "
+            } else {
+                "OFF"
+            }
         } else {
             "N/A"
         },
@@ -583,6 +610,7 @@ fn example_control_system(
         state.ior,
         state.perceptual_roughness,
         camera_3d.screen_space_specular_transmission_steps,
+        camera_3d.screen_space_specular_transmission_quality,
     );
 }
 
