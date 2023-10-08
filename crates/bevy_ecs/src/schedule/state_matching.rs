@@ -275,8 +275,18 @@ pub(crate) fn run_condition_on_match<
 
 #[cfg(test)]
 mod tests {
+    use bevy_ecs_macros::{entering, state_matches};
+
     use crate as bevy_ecs;
-    use crate::schedule::{MatchesStateTransition, StateMatcher, States};
+    use crate::change_detection::Ticks;
+    use crate::component::Tick;
+    use crate::schedule::PreviousState;
+    use crate::system::{IntoSystem, System};
+    use crate::{
+        change_detection::Res,
+        schedule::{MatchesStateTransition, State, StateMatcher, States},
+        world::World,
+    };
 
     use super::{SingleStateMatcher, TransitionStateMatcher};
 
@@ -514,5 +524,202 @@ mod tests {
             test_func.match_state_transition(None, Some(&TestState::B)),
             MatchesStateTransition::TransitionMatches
         );
+    }
+
+    #[test]
+    fn macro_can_generate_matcher_for_single_expression() {
+        let state_a = State::new(TestState::A);
+        let state_b = State::new(TestState::B);
+        let state_c = State::new(TestState::C(true));
+        let tick = Tick::new(0);
+
+        let mut match_state_value = state_matches!(TestState::A);
+        assert!(match_state_value(Some(Res {
+            value: &state_a,
+            ticks: Ticks {
+                added: &tick,
+                changed: &tick,
+                last_run: tick,
+                this_run: tick,
+            },
+        })));
+        assert!(!match_state_value(Some(Res {
+            value: &state_b,
+            ticks: Ticks {
+                added: &tick,
+                changed: &tick,
+                last_run: tick,
+                this_run: tick,
+            },
+        })));
+        let mut match_state_value = state_matches!(OnlyC);
+        assert!(match_state_value(Some(Res {
+            value: &state_c,
+            ticks: Ticks {
+                added: &tick,
+                changed: &tick,
+                last_run: tick,
+                this_run: tick,
+            },
+        })));
+        assert!(!match_state_value(Some(Res {
+            value: &state_b,
+            ticks: Ticks {
+                added: &tick,
+                changed: &tick,
+                last_run: tick,
+                this_run: tick,
+            },
+        })));
+    }
+
+    #[test]
+    fn macro_can_generate_matcher_for_a_simple_pattern() {
+        let state_a = State::new(TestState::A);
+        let state_b = State::new(TestState::B);
+        let state_c = State::new(TestState::C(true));
+        let state_c2 = State::new(TestState::C(false));
+        let tick = Tick::new(0);
+        let match_state_value = state_matches!(TestState, C(_));
+        assert!(match_state_value(Some(Res {
+            value: &state_c,
+            ticks: Ticks {
+                added: &tick,
+                changed: &tick,
+                last_run: tick,
+                this_run: tick,
+            },
+        })));
+        assert!(match_state_value(Some(Res {
+            value: &state_c2,
+            ticks: Ticks {
+                added: &tick,
+                changed: &tick,
+                last_run: tick,
+                this_run: tick,
+            },
+        })));
+        assert!(!match_state_value(Some(Res {
+            value: &state_a,
+            ticks: Ticks {
+                added: &tick,
+                changed: &tick,
+                last_run: tick,
+                this_run: tick,
+            },
+        })));
+        assert!(!match_state_value(Some(Res {
+            value: &state_b,
+            ticks: Ticks {
+                added: &tick,
+                changed: &tick,
+                last_run: tick,
+                this_run: tick,
+            },
+        })));
+    }
+
+    #[test]
+    fn macro_can_generate_matcher_for_a_closure() {
+        let state_a = State::new(TestState::A);
+        let state_b = State::new(TestState::B);
+        let state_c = State::new(TestState::C(true));
+        let state_c2 = State::new(TestState::C(false));
+        let tick = Tick::new(0);
+        let match_state_value = state_matches!(TestState, |state: &TestState| matches!(
+            state,
+            TestState::C(_)
+        ));
+        assert!(match_state_value(Some(Res {
+            value: &state_c,
+            ticks: Ticks {
+                added: &tick,
+                changed: &tick,
+                last_run: tick,
+                this_run: tick,
+            },
+        })));
+        assert!(match_state_value(Some(Res {
+            value: &state_c2,
+            ticks: Ticks {
+                added: &tick,
+                changed: &tick,
+                last_run: tick,
+                this_run: tick,
+            },
+        })));
+        assert!(!match_state_value(Some(Res {
+            value: &state_a,
+            ticks: Ticks {
+                added: &tick,
+                changed: &tick,
+                last_run: tick,
+                this_run: tick,
+            },
+        })));
+        assert!(!match_state_value(Some(Res {
+            value: &state_b,
+            ticks: Ticks {
+                added: &tick,
+                changed: &tick,
+                last_run: tick,
+                this_run: tick,
+            },
+        })));
+    }
+
+    #[test]
+    fn macro_can_generate_matcher_for_a_simple_transition() {
+        let mut world = World::new();
+
+        let match_state_value = entering!(TestState, C(_));
+
+        let mut system = IntoSystem::into_system(match_state_value);
+
+        system.initialize(&mut world);
+        world.insert_resource(State::new(TestState::C(true)));
+        world.insert_resource(PreviousState::new(TestState::A));
+        assert!(system.run((), &mut world));
+        world.insert_resource(State::new(TestState::C(true)));
+        world.insert_resource(PreviousState::new(TestState::C(false)));
+        assert!(!system.run((), &mut world));
+    }
+    #[test]
+    fn macro_can_generate_matcher_for_every_transition() {
+        let mut world = World::new();
+
+        let match_state_value = entering!(TestState, every C(_));
+
+        let mut system = IntoSystem::into_system(match_state_value);
+
+        system.initialize(&mut world);
+        world.insert_resource(State::new(TestState::C(true)));
+        world.insert_resource(PreviousState::new(TestState::A));
+        assert!(system.run((), &mut world));
+        world.insert_resource(State::new(TestState::C(true)));
+        world.insert_resource(PreviousState::new(TestState::C(false)));
+        assert!(system.run((), &mut world));
+        world.insert_resource(PreviousState::new(TestState::C(true)));
+        world.insert_resource(State::new(TestState::A));
+        assert!(!system.run((), &mut world));
+    }
+    #[test]
+    fn macro_can_generate_multi_pattern_matcher() {
+        let mut world = World::new();
+
+        let match_state_value = entering!(TestState, C(_), every _);
+
+        let mut system = IntoSystem::into_system(match_state_value);
+
+        system.initialize(&mut world);
+        world.insert_resource(State::new(TestState::C(true)));
+        world.insert_resource(PreviousState::new(TestState::A));
+        assert!(system.run((), &mut world));
+        world.insert_resource(State::new(TestState::C(true)));
+        world.insert_resource(PreviousState::new(TestState::C(false)));
+        assert!(!system.run((), &mut world));
+        world.insert_resource(PreviousState::new(TestState::C(true)));
+        world.insert_resource(State::new(TestState::A));
+        assert!(system.run((), &mut world));
     }
 }

@@ -168,6 +168,10 @@ impl<S: States> Deref for State<S> {
 pub(crate) struct PreviousState<S: States>(S);
 
 impl<S: States> PreviousState<S> {
+    pub(crate) fn new(state: S) -> Self {
+        Self(state)
+    }
+
     /// Get the current state.
     pub(crate) fn get(&self) -> &S {
         &self.0
@@ -260,7 +264,7 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
     };
     if let Some(entered) = entered {
         if current_state != entered {
-            world.insert_resource(PreviousState(current_state));
+            world.insert_resource(PreviousState::new(current_state));
             let mut state_resource = world.resource_mut::<State<S>>();
             let exited = mem::replace(&mut state_resource.0, entered.clone());
             // Try to run the schedules if they exist.
