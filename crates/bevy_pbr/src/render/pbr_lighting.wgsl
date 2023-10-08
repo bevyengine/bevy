@@ -359,7 +359,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
 #ifdef SCREEN_SPACE_SPECULAR_TRANSMISSION_BLUR_TAPS
     let num_taps = #{SCREEN_SPACE_SPECULAR_TRANSMISSION_BLUR_TAPS}; // Controlled by the `Camera3d::screen_space_specular_transmission_quality` property
 #else
-    let num_taps = 8; // Fallback to 8 taps
+    let num_taps = 8; // Fallback to 8 taps, if not specified
 #endif
     let num_spirals = i32(ceil(f32(num_taps) / 8.0));
     let random_angle = interleaved_gradient_noise(frag_coord.xy);

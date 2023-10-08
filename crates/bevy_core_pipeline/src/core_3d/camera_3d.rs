@@ -34,13 +34,13 @@ pub struct Camera3d {
     /// How many individual steps should be performed in the [`Transmissive3d`](crate::core_3d::Transmissive3d) pass.
     ///
     /// Roughly corresponds to how many “layers of transparency” are rendered for screen space
-    /// refractions for specular transmissive objects. Each step requires making one additional
+    /// specular transmissive objects. Each step requires making one additional
     /// texture copy, so it's recommended to keep this number to a resonably low value. Defaults to `1`.
     ///
     /// Setting this to `0` disables the screen-space refraction effect entirely, and falls
     /// back to refracting only the environment map light's texture.
     pub screen_space_specular_transmission_steps: usize,
-    /// The quality of the screen space transmission blur effect, applied to the whatever's “behind” transmissive
+    /// The quality of the screen space specular transmission blur effect, applied to the whatever's “behind” transmissive
     /// objects when their `roughness` is greater than `0.0`.
     ///
     /// Higher qualities are more GPU-intensive.
