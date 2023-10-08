@@ -2,19 +2,19 @@
 //!
 //! ## Controls
 //!
-//! | Key Binding        | Action                                    |
-//! |:-------------------|:------------------------------------------|
-//! | `1` / `2`          | Decrease / Increase Diffuse Transmission  |
-//! | `Q` / `W`          | Decrease / Increase Specular Transmission |
-//! | `A` / `S`          | Decrease / Increase Thickness             |
-//! | `Z` / `X`          | Decrease / Increase IOR                   |
-//! | `E` / `R`          | Decrease / Increase Perceptual Roughness  |
-//! | Arrow Keys         | Control Camera                            |
-//! | `O` / `P`          | Decrease / Increase Transmission Steps    |
-//! | `J`/`K`/`L`/`;`    | Transmissive Quality                      |
-//! | `H`                | Toggle HDR                                |
-//! | `D`                | Toggle Depth Prepass (Also disables TAA)  |
-//! | `C`                | Randomize Colors                          |
+//! | Key Binding        | Action                                               |
+//! |:-------------------|:-----------------------------------------------------|
+//! | `J`/`K`/`L`/`;`    | Change Screen Space Transmission Quality             |
+//! | `O` / `P`          | Decrease / Increase Screen Space Transmission Steps  |
+//! | `1` / `2`          | Decrease / Increase Diffuse Transmission             |
+//! | `Q` / `W`          | Decrease / Increase Specular Transmission            |
+//! | `A` / `S`          | Decrease / Increase Thickness                        |
+//! | `Z` / `X`          | Decrease / Increase IOR                              |
+//! | `E` / `R`          | Decrease / Increase Perceptual Roughness             |
+//! | Arrow Keys         | Control Camera                                       |
+//! | `C`                | Randomize Colors                                     |
+//! | `H`                | Toggle HDR                                           |
+//! | `D`                | Toggle Depth Prepass (Also disables TAA)             |
 
 use std::f32::consts::PI;
 
@@ -371,36 +371,11 @@ fn setup(
         ..Default::default()
     };
 
-    commands.spawn(
-        TextBundle::from_section(
-            concat!(
-                "1 / 2 - Decrease / Increase Diffuse Transmission\n",
-                "Q / W - Decrease / Increase Transmission\n",
-                "A / S - Decrease / Increase Thickness\n",
-                "Z / X - Decrease / Increase IOR\n",
-                "E / R - Decrease / Increase Perceptual Roughness\n",
-                "Arrow Keys - Control Camera\n",
-                "O / P - Decrease / Increase Transmission Steps\n",
-                "J / K / L / ; - Transmissive Quality\n",
-                "H - Toggle HDR\n",
-                "D - Toggle Depth Prepass (Also disables TAA)\n",
-                "C - Randomize Colors",
-            ),
-            text_style.clone(),
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
-            ..default()
-        }),
-    );
-
     commands.spawn((
         TextBundle::from_section("", text_style).with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(10.0),
-            right: Val::Px(10.0),
+            left: Val::Px(10.0),
             ..default()
         }),
         ExampleDisplay,
@@ -584,16 +559,25 @@ fn example_control_system(
     let mut display = display.single_mut();
     display.sections[0].value = format!(
         concat!(
-            "HDR: {}\n",
-            "Depth Prepass+TAA: {}\n",
-            "Diffuse Transmission: {:.2}\n",
-            "Transmission: {:.2}\n",
-            "Thickness: {:.2}\n",
-            "IOR: {:.2}\n",
-            "Perceptual Roughness: {:.2}\n",
-            "Transmissive Steps: {}\n",
-            "Transmissive Quality: {:?}\n",
+            " J / K / L / ;  Screen Space Specular Transmissive Quality: {:?}\n",
+            "         O / P  Screen Space Specular Transmissive Steps: {}\n",
+            "         1 / 2  Diffuse Transmission: {:.2}\n",
+            "         Q / W  Specular Transmission: {:.2}\n",
+            "         A / S  Thickness: {:.2}\n",
+            "         Z / X  IOR: {:.2}\n",
+            "         E / R  Perceptual Roughness: {:.2}\n",
+            "    Arrow Keys  Control Camera\n",
+            "             C  Randomize Colors\n",
+            "             H  HDR: {}\n",
+            "             D  Depth Prepass+TAA: {}\n",
         ),
+        camera_3d.screen_space_specular_transmission_quality,
+        camera_3d.screen_space_specular_transmission_steps,
+        state.diffuse_transmission,
+        state.specular_transmission,
+        state.thickness,
+        state.ior,
+        state.perceptual_roughness,
         if camera.hdr { "ON " } else { "OFF" },
         if cfg!(any(not(feature = "webgl2"), not(target_arch = "wasm32"))) {
             if depth_prepass.is_some() {
@@ -604,13 +588,6 @@ fn example_control_system(
         } else {
             "N/A"
         },
-        state.diffuse_transmission,
-        state.specular_transmission,
-        state.thickness,
-        state.ior,
-        state.perceptual_roughness,
-        camera_3d.screen_space_specular_transmission_steps,
-        camera_3d.screen_space_specular_transmission_quality,
     );
 }
 
