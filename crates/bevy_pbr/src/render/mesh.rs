@@ -986,27 +986,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let blur_quality =
             key.intersection(MeshPipelineKey::SCREEN_SPACE_TRANSMISSION_RESERVED_BITS);
 
-        if blur_quality == MeshPipelineKey::SCREEN_SPACE_TRANSMISSION_LOW {
-            shader_defs.push(ShaderDefVal::Int(
-                "SCREEN_SPACE_TRANSMISSION_BLUR_TAPS".into(),
-                4,
-            ));
-        } else if blur_quality == MeshPipelineKey::SCREEN_SPACE_TRANSMISSION_MEDIUM {
-            shader_defs.push(ShaderDefVal::Int(
-                "SCREEN_SPACE_TRANSMISSION_BLUR_TAPS".into(),
-                8,
-            ));
-        } else if blur_quality == MeshPipelineKey::SCREEN_SPACE_TRANSMISSION_HIGH {
-            shader_defs.push(ShaderDefVal::Int(
-                "SCREEN_SPACE_TRANSMISSION_BLUR_TAPS".into(),
-                16,
-            ));
-        } else if blur_quality == MeshPipelineKey::SCREEN_SPACE_TRANSMISSION_ULTRA {
-            shader_defs.push(ShaderDefVal::Int(
-                "SCREEN_SPACE_TRANSMISSION_BLUR_TAPS".into(),
-                32,
-            ));
-        }
+        shader_defs.push(ShaderDefVal::Int(
+            "SCREEN_SPACE_TRANSMISSION_BLUR_TAPS".into(),
+            match blur_quality {
+                MeshPipelineKey::SCREEN_SPACE_TRANSMISSION_LOW => 4,
+                MeshPipelineKey::SCREEN_SPACE_TRANSMISSION_MEDIUM => 8,
+                MeshPipelineKey::SCREEN_SPACE_TRANSMISSION_HIGH => 16,
+                MeshPipelineKey::SCREEN_SPACE_TRANSMISSION_ULTRA => 32,
+                _ => unreachable!(), // Not possible, since the mask is 2 bits, and we've covered all 4 cases
+            },
+        ));
 
         let format = if key.contains(MeshPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR
