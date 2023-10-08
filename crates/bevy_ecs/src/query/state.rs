@@ -138,12 +138,13 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         state
     }
 
-    /// This is used to transform a [`Query`] into a more generic [`Query`]. This can be useful for passsing to another function that
-    /// might take the more generalize query. See [`Query::restrict_fetch`] for more details.
+    /// This is used to transform a [`Query`](crate::system::Query) into a more generic [`Query`](crate::system::Query).
+    /// This can be useful for passsing to another function tha might take the more generalize query.
+    /// See [`Query::restrict_fetch`](crate::system::Query::restrict_fetch) for more details.
     ///
-    /// You should not call `update_archetypes` on the returned QueryState as the result will be unpredictable.
+    /// You should not call `update_archetypes` on the returned [`QueryState`] as the result will be unpredictable.
     /// You might end up with a mix of archetypes that only matched the original query + archetypes that only match
-    /// the new [`QueryState`]. Most of the safe methods on [`QueryState`] call [`update_archetypes`] internally.
+    /// the new [`QueryState`]. Most of the safe methods on [`QueryState`] call [`QueryState::update_archetypes`] internally.
     pub(crate) fn restrict_fetch<NewQ: WorldQuery>(
         &self,
         components: &Components,

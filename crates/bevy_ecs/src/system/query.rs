@@ -452,7 +452,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// helper method to get a QueryLens with the same fetch as the existing query
+    /// helper method to get a [`QueryLens`] with the same fetch as the existing query
     pub fn into_query_lens(&mut self) -> QueryLens<'_, Q> {
         self.restrict_fetch()
     }
