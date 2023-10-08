@@ -352,8 +352,8 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     // the first scenario.
     //
     // Blur intensity is:
-    // - squarely proportional to `perceptual_roughness`
-    // - inversely proportional to view z
+    // - proportional to the square of `perceptual_roughness`
+    // - proportional to the inverse of view z
     let blur_intensity = (perceptual_roughness * perceptual_roughness) / view_z;
 
 #ifdef SCREEN_SPACE_SPECULAR_TRANSMISSION_BLUR_TAPS
