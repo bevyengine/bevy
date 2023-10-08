@@ -508,7 +508,8 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
         return;
     };
     world.try_run_schedule(OnEnter(state)).ok();
-    world.try_run_schedule(Transitioning).ok(); // we are running the transition schedule because you could be transitioning from having no State resource to having one
+    // we are running the transition schedule because you could be transitioning from having no State resource to having one
+    world.try_run_schedule(Transitioning).ok();
     world.try_run_schedule(Entering).ok();
 }
 
