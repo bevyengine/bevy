@@ -259,8 +259,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
 // SAFETY: Only reads World removed component events
 unsafe impl<'a> ReadOnlySystemParam for &'a RemovedComponentEvents {}
 
-// SAFETY: no component value access, removed component events can be read in parallel and are
-// never mutably borrowed during system execution
+// SAFETY: no component value access.
 unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
     type State = ();
     type Item<'w, 's> = &'w RemovedComponentEvents;
@@ -274,6 +273,6 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        world.world_metadata().removed_components()
+        world.removed_components()
     }
 }

@@ -1,7 +1,7 @@
-use crate::fq_std::{FQAny, FQBox, FQClone, FQOption, FQResult};
 use crate::impls::{impl_type_path, impl_typed};
 use crate::utility::{extend_where_clause, WhereClauseOptions};
 use crate::ReflectMeta;
+use bevy_macro_utils::fq_std::{FQAny, FQBox, FQClone, FQOption, FQResult};
 use quote::quote;
 
 /// Implements `GetTypeRegistration` and `Reflect` for the given type data.

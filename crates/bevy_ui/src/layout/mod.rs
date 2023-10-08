@@ -1,9 +1,9 @@
 mod convert;
 pub mod debug;
 
-use crate::{ContentSize, Node, Style, UiScale};
+use crate::{ContentSize, Node, Outline, Style, UiScale};
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
     event::EventReader,
     query::{With, Without},
@@ -342,14 +342,17 @@ pub fn ui_layout_system(
                 inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
 
             absolute_location += layout_location;
+
             let rounded_size = round_layout_coords(absolute_location + layout_size)
                 - round_layout_coords(absolute_location);
+
             let rounded_location =
                 round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
 
             // only trigger change detection when the new values are different
-            if node.calculated_size != rounded_size {
+            if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
                 node.calculated_size = rounded_size;
+                node.unrounded_size = layout_size;
             }
             if transform.translation.truncate() != rounded_location {
                 transform.translation = rounded_location.extend(0.);
@@ -380,6 +383,34 @@ pub fn ui_layout_system(
             Vec2::ZERO,
             Vec2::ZERO,
         );
+    }
+}
+
+/// Resolve and update the widths of Node outlines
+pub fn resolve_outlines_system(
+    primary_window: Query<&Window, With<PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
+    mut outlines_query: Query<(&Outline, &mut Node)>,
+) {
+    let viewport_size = primary_window
+        .get_single()
+        .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
+        .unwrap_or(Vec2::ZERO)
+        / ui_scale.0 as f32;
+
+    for (outline, mut node) in outlines_query.iter_mut() {
+        let node = node.bypass_change_detection();
+        node.outline_width = outline
+            .width
+            .resolve(node.size().x, viewport_size)
+            .unwrap_or(0.)
+            .max(0.);
+
+        node.outline_offset = outline
+            .width
+            .resolve(node.size().x, viewport_size)
+            .unwrap_or(0.)
+            .max(0.);
     }
 }
 

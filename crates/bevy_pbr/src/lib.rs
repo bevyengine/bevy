@@ -56,10 +56,10 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::CameraUpdateSystem, extract_resource::ExtractResourcePlugin, prelude::Color,
-    render_asset::prepare_assets, render_graph::RenderGraph, render_phase::sort_phase_system,
-    render_resource::Shader, texture::Image, view::VisibilitySystems, ExtractSchedule, Render,
-    RenderApp, RenderSet,
+    camera::CameraUpdateSystem, extract_component::ExtractComponentPlugin,
+    extract_resource::ExtractResourcePlugin, prelude::Color, render_asset::prepare_assets,
+    render_graph::RenderGraph, render_phase::sort_phase_system, render_resource::Shader,
+    texture::Image, view::VisibilitySystems, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
 use environment_map::EnvironmentMapPlugin;
@@ -72,6 +72,7 @@ pub const UTILS_HANDLE: Handle<Shader> = Handle::weak_from_u128(1900548483293416
 pub const CLUSTERED_FORWARD_HANDLE: Handle<Shader> = Handle::weak_from_u128(166852093121196815);
 pub const PBR_LIGHTING_HANDLE: Handle<Shader> = Handle::weak_from_u128(14170772752254856967);
 pub const SHADOWS_HANDLE: Handle<Shader> = Handle::weak_from_u128(11350275143789590502);
+pub const SHADOW_SAMPLING_HANDLE: Handle<Shader> = Handle::weak_from_u128(3145627513789590502);
 pub const PBR_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4805239651767701046);
 pub const PBR_PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(9407115064344201137);
 pub const PBR_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16550102964439850292);
@@ -149,6 +150,12 @@ impl Plugin for PbrPlugin {
         );
         load_internal_asset!(
             app,
+            SHADOW_SAMPLING_HANDLE,
+            "render/shadow_sampling.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
             PBR_FUNCTIONS_HANDLE,
             "render/pbr_functions.wgsl",
             Shader::from_wgsl
@@ -203,6 +210,7 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
+            .register_type::<ShadowFilteringMethod>()
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
@@ -220,6 +228,7 @@ impl Plugin for PbrPlugin {
                 ExtractResourcePlugin::<AmbientLight>::default(),
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
+                ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
             ))
             .configure_sets(
                 PostUpdate,

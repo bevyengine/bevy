@@ -17,6 +17,15 @@ pub struct Node {
     /// The size of the node as width and height in logical pixels
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub(crate) calculated_size: Vec2,
+    /// The width of this node's outline
+    /// If this value is `Auto`, negative or `0.` then no outline will be rendered
+    /// automatically calculated by [`super::layout::resolve_outlines_system`]
+    pub(crate) outline_width: f32,
+    // The amount of space between the outline and the edge of the node
+    pub(crate) outline_offset: f32,
+    /// The unrounded size of the node as width and height in logical pixels
+    /// automatically calculated by [`super::layout::ui_layout_system`]
+    pub(crate) unrounded_size: Vec2,
 }
 
 impl Node {
@@ -24,6 +33,12 @@ impl Node {
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub const fn size(&self) -> Vec2 {
         self.calculated_size
+    }
+
+    /// The calculated node size as width and height in logical pixels before rounding
+    /// automatically calculated by [`super::layout::ui_layout_system`]
+    pub const fn unrounded_size(&self) -> Vec2 {
+        self.unrounded_size
     }
 
     /// Returns the size of the node in physical pixels based on the given scale factor and `UiScale`.
@@ -61,11 +76,21 @@ impl Node {
             ),
         }
     }
+
+    #[inline]
+    /// Returns the thickness of the UI node's outline.
+    /// If this value is negative or `0.` then no outline will be rendered.
+    pub fn outline_width(&self) -> f32 {
+        self.outline_width
+    }
 }
 
 impl Node {
     pub const DEFAULT: Self = Self {
         calculated_size: Vec2::ZERO,
+        outline_width: 0.,
+        outline_offset: 0.,
+        unrounded_size: Vec2::ZERO,
     };
 }
 
@@ -1382,7 +1407,7 @@ fn try_into_grid_span(span: u16) -> Result<Option<NonZeroU16>, GridPlacementErro
     ))
 }
 
-/// Errors that occur when setting contraints for a `GridPlacement`
+/// Errors that occur when setting constraints for a `GridPlacement`
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
 pub enum GridPlacementError {
     #[error("Zero is not a valid grid position")]
@@ -1445,6 +1470,85 @@ impl BorderColor {
 impl Default for BorderColor {
     fn default() -> Self {
         Self::DEFAULT
+    }
+}
+
+#[derive(Component, Copy, Clone, Default, Debug, Reflect)]
+#[reflect(Component, Default)]
+/// The [`Outline`] component adds an outline outside the edge of a UI node.
+/// Outlines do not take up space in the layout
+///
+/// To add an [`Outline`] to a ui node you can spawn a `(NodeBundle, Outline)` tuple bundle:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ui::prelude::*;
+/// # use bevy_render::prelude::Color;
+/// fn setup_ui(mut commands: Commands) {
+///     commands.spawn((
+///         NodeBundle {
+///             style: Style {
+///                 width: Val::Px(100.),
+///                 height: Val::Px(100.),
+///                 ..Default::default()
+///             },
+///             background_color: Color::BLUE.into(),
+///             ..Default::default()
+///         },
+///         Outline::new(Val::Px(10.), Val::ZERO, Color::RED)
+///     ));
+/// }
+/// ```
+///
+/// [`Outline`] components can also be added later to existing UI nodes:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ui::prelude::*;
+/// # use bevy_render::prelude::Color;
+/// fn outline_hovered_button_system(
+///     mut commands: Commands,
+///     mut node_query: Query<(Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
+/// ) {
+///     for (entity, interaction, mut maybe_outline) in node_query.iter_mut() {
+///         let outline_color =
+///             if matches!(*interaction, Interaction::Hovered) {
+///                 Color::WHITE    
+///             } else {
+///                 Color::NONE
+///             };
+///         if let Some(mut outline) = maybe_outline {
+///             outline.color = outline_color;
+///         } else {
+///             commands.entity(entity).insert(Outline::new(Val::Px(10.), Val::ZERO, outline_color));
+///         }
+///     }
+/// }
+/// ```
+/// Inserting and removing an [`Outline`] component repeatedly will result in table moves, so it is generally preferable to
+/// set `Outline::color` to `Color::NONE` to hide an outline.
+pub struct Outline {
+    /// The width of the outline.
+    ///
+    /// Percentage `Val` values are resolved based on the width of the outlined [`Node`]
+    pub width: Val,
+    /// The amount of space between a node's outline the edge of the node
+    ///
+    /// Percentage `Val` values are resolved based on the width of the outlined [`Node`]
+    pub offset: Val,
+    /// Color of the outline
+    ///
+    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set `Color::None` to hide the outline.
+    /// This avoids the table moves that would occcur from the repeated insertion and removal of the `Outline` component.
+    pub color: Color,
+}
+
+impl Outline {
+    /// Create a new outline
+    pub const fn new(width: Val, offset: Val, color: Color) -> Self {
+        Self {
+            width,
+            offset,
+            color,
+        }
     }
 }
 
