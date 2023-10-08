@@ -1,10 +1,7 @@
-use std::ops::Deref;
-
-use crate::{change_detection::Res, system::IntoSystem};
-
-pub use bevy_ecs_macros::{entering, exiting, state_matches, transitioning, StateMatcher};
-
 use super::{Condition, States};
+use crate::{change_detection::Res, system::IntoSystem};
+pub use bevy_ecs_macros::{entering, exiting, state_matches, transitioning, StateMatcher};
+use std::ops::Deref;
 
 /// An enum describing the possible result of a state transition match.
 ///
@@ -274,4 +271,248 @@ pub(crate) fn run_condition_on_match<
             result == MatchesStateTransition::TransitionMatches
         },
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use crate as bevy_ecs;
+    use crate::schedule::{MatchesStateTransition, StateMatcher, States};
+
+    use super::{SingleStateMatcher, TransitionStateMatcher};
+
+    #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
+    enum TestState {
+        #[default]
+        A,
+        B,
+        C(bool),
+    }
+
+    #[test]
+    fn a_state_matches_against_itself() {
+        let a = TestState::A;
+        assert!(a.match_state(&a));
+    }
+
+    #[test]
+    fn a_state_matches_doesnt_match_another_variant() {
+        let a = TestState::A;
+        assert!(!a.match_state(&TestState::B));
+    }
+    struct OnlyC;
+
+    impl SingleStateMatcher<TestState> for OnlyC {
+        fn match_single_state(&self, state: &TestState) -> bool {
+            matches!(state, TestState::C(_))
+        }
+    }
+
+    #[test]
+    fn a_single_state_matcher_matches_all_relevant_variants() {
+        assert!(OnlyC.match_state(&TestState::C(true)));
+        assert!(OnlyC.match_state(&TestState::C(false)));
+        assert!(!OnlyC.match_state(&TestState::A));
+        assert!(!OnlyC.match_state(&TestState::B));
+    }
+
+    #[test]
+    fn a_single_state_matcher_matches_transitions_in_and_out_of_a_match_and_not_within_it() {
+        assert_eq!(
+            OnlyC.match_state_transition(Some(&TestState::C(true)), Some(&TestState::A)),
+            MatchesStateTransition::TransitionMatches
+        );
+        assert_eq!(
+            OnlyC.match_state_transition(Some(&TestState::C(false)), Some(&TestState::B)),
+            MatchesStateTransition::TransitionMatches
+        );
+        assert_eq!(
+            OnlyC.match_state_transition(Some(&TestState::C(true)), Some(&TestState::C(false))),
+            MatchesStateTransition::MainMatches
+        );
+        assert_eq!(
+            OnlyC.match_state_transition(Some(&TestState::A), Some(&TestState::C(false))),
+            MatchesStateTransition::NoMatch
+        );
+    }
+
+    struct AtoB;
+
+    impl TransitionStateMatcher<TestState> for AtoB {
+        fn match_transition(
+            &self,
+            main: Option<&TestState>,
+            secondary: Option<&TestState>,
+        ) -> MatchesStateTransition {
+            let Some(main) = main else {
+                return MatchesStateTransition::NoMatch;
+            };
+            if main == &TestState::A {
+                match secondary {
+                    Some(&TestState::B) => MatchesStateTransition::TransitionMatches,
+                    _ => MatchesStateTransition::MainMatches,
+                }
+            } else {
+                MatchesStateTransition::NoMatch
+            }
+        }
+    }
+
+    #[test]
+    fn a_transition_state_matcher_can_match_single_states() {
+        assert!(AtoB.match_state(&TestState::A));
+        assert!(!AtoB.match_state(&TestState::B));
+    }
+
+    #[test]
+    fn a_transition_state_matcher_can_match_state_transitions() {
+        assert_eq!(
+            AtoB.match_state_transition(Some(&TestState::A), Some(&TestState::B)),
+            MatchesStateTransition::TransitionMatches
+        );
+        assert_eq!(
+            AtoB.match_state_transition(Some(&TestState::A), Some(&TestState::C(false))),
+            MatchesStateTransition::MainMatches
+        );
+        assert_eq!(
+            AtoB.match_state_transition(Some(&TestState::A), None),
+            MatchesStateTransition::MainMatches
+        );
+        assert_eq!(
+            AtoB.match_state_transition(Some(&TestState::B), Some(&TestState::A)),
+            MatchesStateTransition::NoMatch
+        );
+        assert_eq!(
+            AtoB.match_state_transition(None, Some(&TestState::B)),
+            MatchesStateTransition::NoMatch
+        );
+    }
+
+    #[test]
+    fn fn_auto_implementations_of_state_matcher_match_appropriately() {
+        let test_func = |state: &TestState| state == &TestState::A;
+        assert!(test_func.match_state(&TestState::A));
+        assert!(!test_func.match_state(&TestState::B));
+        assert_eq!(
+            test_func.match_state_transition(Some(&TestState::A), Some(&TestState::B)),
+            MatchesStateTransition::TransitionMatches
+        );
+        assert_eq!(
+            test_func.match_state_transition(Some(&TestState::A), Some(&TestState::A)),
+            MatchesStateTransition::MainMatches
+        );
+        assert_eq!(
+            test_func.match_state_transition(Some(&TestState::B), Some(&TestState::A)),
+            MatchesStateTransition::NoMatch
+        );
+        assert_eq!(
+            test_func.match_state_transition(None, Some(&TestState::A)),
+            MatchesStateTransition::NoMatch
+        );
+
+        let test_func = |state: Option<&TestState>| match state {
+            Some(state) => state == &TestState::A,
+            None => true,
+        };
+        assert!(test_func.match_state(&TestState::A));
+        assert!(!test_func.match_state(&TestState::B));
+        assert_eq!(
+            test_func.match_state_transition(Some(&TestState::A), Some(&TestState::B)),
+            MatchesStateTransition::TransitionMatches
+        );
+        assert_eq!(
+            test_func.match_state_transition(Some(&TestState::A), Some(&TestState::A)),
+            MatchesStateTransition::MainMatches
+        );
+        assert_eq!(
+            test_func.match_state_transition(Some(&TestState::B), Some(&TestState::A)),
+            MatchesStateTransition::NoMatch
+        );
+        assert_eq!(
+            test_func.match_state_transition(None, Some(&TestState::B)),
+            MatchesStateTransition::TransitionMatches
+        );
+
+        let test_func =
+            |from: &TestState, to: &TestState| from == &TestState::A && to == &TestState::B;
+        assert!(!test_func.match_state(&TestState::A));
+        assert!(!test_func.match_state(&TestState::B));
+        assert_eq!(
+            test_func.match_state_transition(Some(&TestState::A), Some(&TestState::B)),
+            MatchesStateTransition::TransitionMatches
+        );
+        assert_eq!(
+            test_func.match_state_transition(Some(&TestState::A), Some(&TestState::A)),
+            MatchesStateTransition::NoMatch
+        );
+        assert_eq!(
+            test_func.match_state_transition(Some(&TestState::B), Some(&TestState::A)),
+            MatchesStateTransition::NoMatch
+        );
+        assert_eq!(
+            test_func.match_state_transition(None, Some(&TestState::B)),
+            MatchesStateTransition::NoMatch
+        );
+
+        let test_func = |from: &TestState, to: Option<&TestState>| {
+            from == &TestState::A
+                && match to {
+                    Some(to) => to == &TestState::B,
+                    None => true,
+                }
+        };
+        assert!(test_func.match_state(&TestState::A));
+        assert!(!test_func.match_state(&TestState::B));
+        assert_eq!(
+            test_func.match_state_transition(Some(&TestState::A), Some(&TestState::B)),
+            MatchesStateTransition::TransitionMatches
+        );
+        assert_eq!(
+            test_func.match_state_transition(Some(&TestState::A), Some(&TestState::A)),
+            MatchesStateTransition::MainMatches
+        );
+        assert_eq!(
+            test_func.match_state_transition(Some(&TestState::B), Some(&TestState::A)),
+            MatchesStateTransition::NoMatch
+        );
+        assert_eq!(
+            test_func.match_state_transition(Some(&TestState::A), None),
+            MatchesStateTransition::TransitionMatches
+        );
+        assert_eq!(
+            test_func.match_state_transition(None, Some(&TestState::B)),
+            MatchesStateTransition::NoMatch
+        );
+
+        let test_func = |from: Option<&TestState>, to: Option<&TestState>| {
+            (match from {
+                Some(from) => from == &TestState::A,
+                None => true,
+            }) && (match to {
+                Some(to) => to == &TestState::B,
+                None => true,
+            })
+        };
+        assert!(test_func.match_state(&TestState::A));
+        assert!(!test_func.match_state(&TestState::B));
+        assert_eq!(
+            test_func.match_state_transition(Some(&TestState::A), Some(&TestState::B)),
+            MatchesStateTransition::TransitionMatches
+        );
+        assert_eq!(
+            test_func.match_state_transition(Some(&TestState::A), Some(&TestState::A)),
+            MatchesStateTransition::MainMatches
+        );
+        assert_eq!(
+            test_func.match_state_transition(Some(&TestState::B), Some(&TestState::A)),
+            MatchesStateTransition::NoMatch
+        );
+        assert_eq!(
+            test_func.match_state_transition(Some(&TestState::A), None),
+            MatchesStateTransition::TransitionMatches
+        );
+        assert_eq!(
+            test_func.match_state_transition(None, Some(&TestState::B)),
+            MatchesStateTransition::TransitionMatches
+        );
+    }
 }
