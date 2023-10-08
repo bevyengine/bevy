@@ -26,10 +26,10 @@ pub(crate) struct CanvasParentResizeEventChannel {
 }
 
 fn canvas_parent_resize_event_handler(
-    local_thread: ThreadLocal,
     resize_events: Res<CanvasParentResizeEventChannel>,
+    mut main_thread: ThreadLocal,
 ) {
-    local_thread.run(|tls| {
+    main_thread.run(|tls| {
         let winit_windows = tls.resource::<WinitWindows>();
         for event in resize_events.receiver.try_iter() {
             if let Some(window) = winit_windows.get_window(event.window) {

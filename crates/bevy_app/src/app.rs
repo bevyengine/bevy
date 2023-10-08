@@ -180,8 +180,8 @@ impl App {
                 // this loop never exits because multiple copies of sender exist
                 let event = recv.recv().unwrap();
                 match event {
-                    AppEvent::Task(f) => {
-                        f(&mut tls.lock());
+                    AppEvent::Task(task) => {
+                        task();
                     }
                     AppEvent::Exit(x) => {
                         sub_apps = x;
@@ -519,14 +519,14 @@ impl App {
     ///     .insert_non_send_resource(MyCounter { counter: 0 });
     /// ```
     pub fn insert_non_send_resource<R: ThreadLocalResource>(&mut self, resource: R) -> &mut Self {
-        self.tls.lock().insert_resource(resource);
+        self.tls.insert_resource(resource);
         self
     }
 
     /// Inserts the [`!Send`](Send) resource into the app, initialized with its default value,
     /// if there is no existing instance of `R`.
     pub fn init_non_send_resource<R: ThreadLocalResource + Default>(&mut self) -> &mut Self {
-        self.tls.lock().init_resource::<R>();
+        self.tls.init_resource::<R>();
         self
     }
 
@@ -918,7 +918,7 @@ fn run_once(mut app: App) {
     }
 
     // disassemble
-    let (mut sub_apps, tls, _) = app.into_parts();
+    let (mut sub_apps, _, _) = app.into_parts();
 
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -937,8 +937,8 @@ fn run_once(mut app: App) {
         loop {
             let event = recv.recv().unwrap();
             match event {
-                AppEvent::Task(f) => {
-                    f(&mut tls.lock());
+                AppEvent::Task(task) => {
+                    task();
                 }
                 AppEvent::Exit(_) => {
                     thread.join().unwrap();

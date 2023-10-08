@@ -116,7 +116,7 @@ impl Plugin for ScheduleRunnerPlugin {
                     };
 
                     // disassemble
-                    let (mut sub_apps, tls, _) = app.into_parts();
+                    let (mut sub_apps, _, _) = app.into_parts();
 
                     #[cfg(not(target_arch = "wasm32"))]
                     {
@@ -140,8 +140,8 @@ impl Plugin for ScheduleRunnerPlugin {
                         loop {
                             let event = recv.recv().unwrap();
                             match event {
-                                AppEvent::Task(f) => {
-                                    f(&mut tls.lock());
+                                AppEvent::Task(task) => {
+                                    task();
                                 }
                                 AppEvent::Exit(_) => {
                                     thread.join().unwrap();

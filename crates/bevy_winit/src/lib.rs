@@ -32,7 +32,6 @@ use bevy_app::First;
 use bevy_app::{App, AppEvent, Last, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
-use bevy_ecs::storage::{ThreadLocalTask, ThreadLocalTaskSendError, ThreadLocalTaskSender};
 use bevy_ecs::system::SystemParam;
 use bevy_input::{
     keyboard::KeyboardInput,
@@ -40,7 +39,7 @@ use bevy_input::{
     touch::TouchInput,
     touchpad::{TouchpadMagnify, TouchpadRotate},
 };
-use bevy_utils::{synccell::SyncCell, tracing::warn, Instant};
+use bevy_utils::{tracing::warn, Instant};
 use bevy_window::{
     exit_on_all_closed, ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
     FileDragAndDrop, Ime, ReceivedCharacter, WindowBackendScaleFactorChanged, WindowCloseRequested,
@@ -159,13 +158,16 @@ impl Plugin for WinitPlugin {
         #[cfg(not(any(target_os = "android", target_os = "ios", target_os = "macos")))]
         {
             // TODO: rework app setup
+            #[cfg(not(target_arch = "wasm32"))]
             let sender = crate::EventLoopProxy::new(event_loop.create_proxy());
+            #[cfg(target_arch = "wasm32")]
+            let sender = crate::NoopSender;
+
             let world = app.sub_apps.main.world_mut();
 
             app.tls.insert_channel(world, sender);
 
             app.tls
-                .lock()
                 .insert_resource(crate::EventLoopWindowTarget::new(&event_loop));
 
             // Otherwise, create a window before `bevy_render` initializes
@@ -177,7 +179,6 @@ impl Plugin for WinitPlugin {
             create_windows.apply_deferred(world);
 
             app.tls
-                .lock()
                 .remove_resource::<crate::EventLoopWindowTarget<AppEvent>>();
 
             app.tls.remove_channel(world);
@@ -277,6 +278,7 @@ struct WinitAppRunnerState {
     /// Is `true` if a new [`WindowEvent`](winit::event::WindowEvent) has been received since the
     /// last update.
     window_event_received: bool,
+    #[cfg(not(target_arch = "wasm32"))]
     /// Is `true` if a new [`DeviceEvent`](winit::event::DeviceEvent) has been received.
     device_event_received: bool,
     /// Is `true` if the app has requested a redraw.
@@ -313,6 +315,7 @@ impl Default for WinitAppRunnerState {
             active: ActiveState::NotYetStarted,
             just_started: false,
             window_event_received: false,
+            #[cfg(not(target_arch = "wasm32"))]
             device_event_received: false,
             redraw_requested: false,
             wait_elapsed: false,
@@ -367,34 +370,6 @@ impl<T: 'static> EventLoopWindowTarget<T> {
     }
 }
 
-/// [`EventLoopProxy`](winit::event_loop::EventLoopProxy) wrapped in a [`SyncCell`].
-/// Allows systems to wake the [`winit`] event loop from any thread.
-#[derive(Resource, Deref, DerefMut)]
-pub struct EventLoopProxy<T: 'static>(pub SyncCell<winit::event_loop::EventLoopProxy<T>>);
-
-impl<T> EventLoopProxy<T> {
-    pub(crate) fn new(value: winit::event_loop::EventLoopProxy<T>) -> Self {
-        Self(SyncCell::new(value))
-    }
-}
-
-impl ThreadLocalTaskSender for crate::EventLoopProxy<AppEvent> {
-    fn send_task(
-        &mut self,
-        task: ThreadLocalTask,
-    ) -> Result<(), ThreadLocalTaskSendError<ThreadLocalTask>> {
-        self.0
-            .get()
-            .send_event(AppEvent::Task(task))
-            .map_err(|error| {
-                let AppEvent::Task(task) = error.0 else {
-                    unreachable!()
-                };
-                ThreadLocalTaskSendError(task)
-            })
-    }
-}
-
 #[cfg(target_arch = "wasm32")]
 mod runner {
     use crate::{
@@ -407,7 +382,12 @@ mod runner {
 
     use bevy_a11y::AccessibilityRequested;
     use bevy_app::{App, AppEvent, AppExit, PluginsState};
-    use bevy_ecs::{event::ManualEventReader, prelude::*, system::SystemState};
+    use bevy_ecs::{
+        event::ManualEventReader,
+        prelude::*,
+        storage::{ThreadLocalTask, ThreadLocalTaskSendError, ThreadLocalTaskSender},
+        system::SystemState,
+    };
     use bevy_input::{
         mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
         touchpad::{TouchpadMagnify, TouchpadRotate},
@@ -428,16 +408,27 @@ mod runner {
 
     use winit::{event::StartCause, event_loop::ControlFlow};
 
+    pub(crate) struct NoopSender;
+
+    impl ThreadLocalTaskSender for NoopSender {
+        fn send_task(
+            &mut self,
+            _task: ThreadLocalTask,
+        ) -> Result<(), ThreadLocalTaskSendError<ThreadLocalTask>> {
+            {
+                unreachable!("currently, only single-threaded wasm is supported")
+            }
+        }
+    }
+
     /// The default [`App::runner`] for the [`WinitPlugin`](super::WinitPlugin).
     pub(crate) fn winit_runner(mut app: App) {
         let return_from_run = app.world().resource::<WinitSettings>().return_from_run;
         let mut event_loop = app
             .tls
-            .lock()
             .remove_resource::<crate::EventLoop<AppEvent>>()
             .unwrap()
             .into_inner();
-        let event_loop_proxy = event_loop.create_proxy();
 
         // insert app -> winit channel
         //
@@ -445,8 +436,7 @@ mod runner {
         // rendering sub-app before it's moved to another thread.
         // TODO: rework app setup
         app.sub_apps.iter_mut().for_each(|sub_app| {
-            let sender = crate::EventLoopProxy::new(event_loop_proxy.clone());
-            app.tls.insert_channel(sub_app.world_mut(), sender);
+            app.tls.insert_channel(sub_app.world_mut(), NoopSender);
         });
 
         let mut runner_state = WinitAppRunnerState::default();
@@ -496,7 +486,6 @@ mod runner {
             }
 
             app.tls
-                .lock()
                 .insert_resource(crate::EventLoopWindowTarget::new(event_loop));
 
             match event {
@@ -523,12 +512,15 @@ mod runner {
                 winit::event::Event::WindowEvent {
                     window_id, event, ..
                 } => 'window_event: {
-                    let tls_guard = app.tls.lock();
-                    let winit_windows = tls_guard.resource::<WinitWindows>();
                     let (mut event_writers, mut windows) =
                         event_writer_system_state.get_mut(app.sub_apps.main.world_mut());
 
-                    let Some(window_entity) = winit_windows.get_window_entity(window_id) else {
+                    let Some(window_entity) =
+                        app.tls
+                            .resource_scope(|_, winit_windows: Mut<WinitWindows>| {
+                                winit_windows.get_window_entity(window_id)
+                            })
+                    else {
                         warn!(
                             "Skipped event {:?} for unknown winit Window Id {:?}",
                             event, window_id
@@ -823,7 +815,7 @@ mod runner {
                             let (mut handlers, accessibility_requested) =
                                 create_window_system_state.get_mut(app.world_mut());
 
-                            let tls = app.tls.lock();
+                            let tls = &mut app.tls;
 
                             let raw_handle_wrapper =
                                 tls.resource_scope(|tls, mut winit_windows: Mut<WinitWindows>| {
@@ -947,7 +939,6 @@ mod runner {
             }
 
             app.tls
-                .lock()
                 .remove_resource::<crate::EventLoopWindowTarget<AppEvent>>();
         };
 
@@ -971,9 +962,15 @@ mod runner {
 
     use bevy_a11y::AccessibilityRequested;
     use bevy_app::{App, AppEvent, AppExit, PluginsState, SubApps};
+    use bevy_derive::{Deref, DerefMut};
     #[cfg(target_os = "android")]
     use bevy_ecs::system::SystemParam;
-    use bevy_ecs::{event::ManualEventReader, prelude::*, system::SystemState};
+    use bevy_ecs::{
+        event::ManualEventReader,
+        prelude::*,
+        storage::{ThreadLocalTask, ThreadLocalTaskSendError, ThreadLocalTaskSender},
+        system::SystemState,
+    };
     use bevy_input::{
         mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
         touchpad::{TouchpadMagnify, TouchpadRotate},
@@ -1005,6 +1002,34 @@ mod runner {
         ActiveState, UpdateMode, WindowAndInputEventWriters, WinitAppRunnerState, WinitSettings,
         WinitWindowEntityMap, WinitWindows,
     };
+
+    /// [`EventLoopProxy`](winit::event_loop::EventLoopProxy) wrapped in a [`SyncCell`].
+    /// Allows systems to wake the [`winit`] event loop from any thread.
+    #[derive(Resource, Deref, DerefMut)]
+    pub struct EventLoopProxy<T: 'static>(pub SyncCell<winit::event_loop::EventLoopProxy<T>>);
+
+    impl<T> EventLoopProxy<T> {
+        pub(crate) fn new(value: winit::event_loop::EventLoopProxy<T>) -> Self {
+            Self(SyncCell::new(value))
+        }
+    }
+
+    impl ThreadLocalTaskSender for crate::EventLoopProxy<AppEvent> {
+        fn send_task(
+            &mut self,
+            task: ThreadLocalTask,
+        ) -> Result<(), ThreadLocalTaskSendError<ThreadLocalTask>> {
+            self.0
+                .get()
+                .send_event(AppEvent::Task(task))
+                .map_err(|error| {
+                    let AppEvent::Task(task) = error.0 else {
+                        unreachable!()
+                    };
+                    ThreadLocalTaskSendError(task)
+                })
+        }
+    }
 
     /// Sending half of an [`Event`] channel.
     pub struct WinitEventSender<T: Send + 'static> {
@@ -1668,7 +1693,6 @@ mod runner {
         let return_from_run = app.world().resource::<WinitSettings>().return_from_run;
         let mut event_loop = app
             .tls
-            .lock()
             .remove_resource::<crate::EventLoop<AppEvent>>()
             .unwrap()
             .into_inner();
@@ -1757,7 +1781,7 @@ mod runner {
                                     let _ = adapter.on_event(window, &event);
                                 }
                             }
-                        }
+                        };
                     }
 
                     match event {
@@ -1802,20 +1826,18 @@ mod runner {
                 winit::event::Event::UserEvent(event) => {
                     assert!(finished_and_setup_done);
                     match event {
-                        AppEvent::Task(f) => {
+                        AppEvent::Task(task) => {
                             let tls = locals.as_mut().unwrap();
 
-                            tls.lock()
-                                .insert_resource(crate::EventLoopWindowTarget::new(event_loop));
+                            tls.insert_resource(crate::EventLoopWindowTarget::new(event_loop));
 
                             {
                                 #[cfg(feature = "trace")]
                                 let _span = bevy_utils::tracing::info_span!("TLS access").entered();
-                                f(&mut tls.lock());
+                                task();
                             }
 
-                            tls.lock()
-                                .remove_resource::<crate::EventLoopWindowTarget<AppEvent>>();
+                            tls.remove_resource::<crate::EventLoopWindowTarget<AppEvent>>();
                         }
                         AppEvent::Exit(_) => {
                             *control_flow = ControlFlow::Exit;

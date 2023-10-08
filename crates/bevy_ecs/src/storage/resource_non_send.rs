@@ -1,6 +1,6 @@
 use std::any::TypeId;
+use std::cell::RefCell;
 use std::marker::PhantomData;
-use std::sync::{Arc, Mutex, Weak};
 
 use bevy_ptr::{OwningPtr, Ptr};
 
@@ -11,6 +11,10 @@ use crate::component::{ComponentId, Components, Tick, TickCells};
 use crate::storage::{ResourceData, Resources};
 use crate::system::{Resource, SystemParam};
 use crate::world::{unsafe_world_cell::UnsafeWorldCell, World};
+
+thread_local! {
+    static TLS: RefCell<ThreadLocals> = RefCell::new(ThreadLocals::new());
+}
 
 /// A type that can be inserted into [`ThreadLocals`]. Unlike [`Resource`], this does not require
 /// [`Send`] or [`Sync`].
@@ -322,32 +326,8 @@ impl ThreadLocals {
     }
 }
 
-/// A "scoped lock" on [`ThreadLocals`], which is protected by a mutex and can be accessed
-/// through this guard via its [`Deref`] and [`DerefMut`] implementations.
-///
-/// When this guard is dropped, the lock will be unlocked.
-#[doc(hidden)]
-pub struct ThreadLocalsGuard<'a> {
-    guard: std::sync::MutexGuard<'a, ThreadLocals>,
-    // needed to decrement the strong reference count once dropped
-    _arc: Arc<Mutex<ThreadLocals>>,
-}
-
-impl std::ops::Deref for ThreadLocalsGuard<'_> {
-    type Target = ThreadLocals;
-    fn deref(&self) -> &Self::Target {
-        &self.guard
-    }
-}
-
-impl std::ops::DerefMut for ThreadLocalsGuard<'_> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.guard
-    }
-}
-
 /// Type alias for tasks that access thread-local data.
-pub type ThreadLocalTask = Box<dyn FnOnce(&mut ThreadLocals) + Send + 'static>;
+pub type ThreadLocalTask = Box<dyn FnOnce() + Send + 'static>;
 
 /// An error returned from the [`ThreadLocalTaskSender::send_task`] function.
 ///
@@ -369,9 +349,8 @@ pub trait ThreadLocalTaskSender: Send + 'static {
 /// A [`Resource`] that enables the use of the [`ThreadLocal`] system parameter.
 #[derive(Resource)]
 struct ThreadLocalChannel {
-    owning_thread: std::thread::ThreadId,
-    direct: Weak<Mutex<ThreadLocals>>,
-    indirect: Box<dyn ThreadLocalTaskSender>,
+    thread: std::thread::ThreadId,
+    sender: Box<dyn ThreadLocalTaskSender>,
 }
 
 // SAFETY: The pointer to the thread-local storage is only dereferenced in its owning thread.
@@ -381,28 +360,18 @@ unsafe impl Send for ThreadLocalChannel {}
 // Likewise, all operations require an exclusive reference, so there can be no races.
 unsafe impl Sync for ThreadLocalChannel {}
 
-/// A mutex-guarded instance of [`ThreadLocals`].
+/// A guard to access [`ThreadLocals`].
 pub struct ThreadLocalStorage {
     thread: std::thread::ThreadId,
-    locals: Arc<Mutex<ThreadLocals>>,
+    // !Send + !Sync
+    _marker: PhantomData<*const ()>,
 }
 
 impl Default for ThreadLocalStorage {
     fn default() -> Self {
         Self {
             thread: std::thread::current().id(),
-            // Need a reference-counted pointer that can exist on multiple threads. Only the local
-            // thread is able to deference it.
-            #[allow(clippy::arc_with_non_send_sync)]
-            locals: Arc::new(Mutex::new(ThreadLocals::new())),
-        }
-    }
-}
-
-impl Drop for ThreadLocalStorage {
-    fn drop(&mut self) {
-        if Arc::strong_count(&self.locals) > 1 {
-            panic!("`ThreadLocalStorage` was dropped while there was an active borrow of `ThreadLocals`.")
+            _marker: PhantomData,
         }
     }
 }
@@ -413,16 +382,39 @@ impl ThreadLocalStorage {
         Self::default()
     }
 
-    /// Returns an exclusive reference to the underlying [`ThreadLocals`].
+    /// Inserts a new resource with its default value.
     ///
-    /// # Panics
+    /// If the resource already exists, nothing happens.
+    #[inline]
+    pub fn init_resource<R: ThreadLocalResource + Default>(&mut self) {
+        TLS.with_borrow_mut(|tls| {
+            tls.init_resource::<R>();
+        });
+    }
+
+    /// Inserts a new resource with the given `value`.
     ///
-    /// This function will panic if an exclusive reference cannot be acquired.
-    pub fn lock(&self) -> ThreadLocalsGuard<'_> {
-        ThreadLocalsGuard {
-            guard: self.locals.try_lock().unwrap(),
-            _arc: self.locals.clone(),
-        }
+    /// Resources are "unique" data of a given type. If you insert a resource of a type that already
+    /// exists, you will overwrite any existing data.
+    #[inline]
+    pub fn insert_resource<R: ThreadLocalResource>(&mut self, value: R) {
+        TLS.with_borrow_mut(|tls| {
+            tls.insert_resource(value);
+        });
+    }
+
+    /// Removes the resource of a given type and returns it, if it exists.
+    #[inline]
+    pub fn remove_resource<R: ThreadLocalResource>(&mut self) -> Option<R> {
+        TLS.with_borrow_mut(|tls| tls.remove_resource::<R>())
+    }
+
+    /// Temporarily removes `R` from the [`ThreadLocals`], then re-inserts it before returning.
+    pub fn resource_scope<R: ThreadLocalResource, T>(
+        &mut self,
+        f: impl FnOnce(&mut ThreadLocals, Mut<R>) -> T,
+    ) -> T {
+        TLS.with_borrow_mut(|tls| tls.resource_scope(f))
     }
 
     /// Inserts a channel into `world` that systems in `world` (via [`ThreadLocal`]) can use to
@@ -432,9 +424,8 @@ impl ThreadLocalStorage {
         S: ThreadLocalTaskSender,
     {
         let channel = ThreadLocalChannel {
-            owning_thread: self.thread,
-            direct: Arc::downgrade(&self.locals),
-            indirect: Box::new(sender),
+            thread: self.thread,
+            sender: Box::new(sender),
         };
 
         world.insert_resource(channel);
@@ -448,7 +439,7 @@ impl ThreadLocalStorage {
 }
 
 enum ThreadLocalAccess<'a> {
-    Direct(ThreadLocalsGuard<'a>),
+    Direct,
     Indirect(&'a mut dyn ThreadLocalTaskSender),
 }
 
@@ -472,7 +463,7 @@ impl ThreadLocal<'_, '_> {
         T: Send + 'static,
     {
         match self.access {
-            ThreadLocalAccess::Direct(_) => self.run_direct(f),
+            ThreadLocalAccess::Direct => self.run_direct(f),
             ThreadLocalAccess::Indirect(_) => self.run_indirect(f),
         }
     }
@@ -482,18 +473,16 @@ impl ThreadLocal<'_, '_> {
         F: FnOnce(&mut ThreadLocals) -> T + Send,
         T: Send + 'static,
     {
-        let ThreadLocalAccess::Direct(ref mut tls) = self.access else {
-            unreachable!()
-        };
+        debug_assert!(matches!(self.access, ThreadLocalAccess::Direct));
 
-        tls.update_change_tick();
-        let saved = std::mem::replace(&mut tls.last_tick, *self.last_run);
-        let result = f(&mut *tls);
-        tls.last_tick = saved;
-
-        *self.last_run = tls.last_tick;
-
-        result
+        TLS.with_borrow_mut(|tls| {
+            tls.update_change_tick();
+            let saved = std::mem::replace(&mut tls.last_tick, *self.last_run);
+            let result = f(tls);
+            tls.last_tick = saved;
+            *self.last_run = tls.curr_tick;
+            result
+        })
     }
 
     fn run_indirect<F, T>(&mut self, f: F) -> T
@@ -507,22 +496,23 @@ impl ThreadLocal<'_, '_> {
 
         let system_tick = *self.last_run;
         let (result_tx, result_rx) = std::sync::mpsc::sync_channel(1);
-        let task = move |tls: &mut ThreadLocals| {
-            tls.update_change_tick();
-            let saved = std::mem::replace(&mut tls.last_tick, system_tick);
-            // we want to propagate to caller instead of panicking in the main thread
-            let result =
-                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| (f(tls), tls.last_tick)));
-            tls.last_tick = saved;
-
-            result_tx.send(result).unwrap();
+        let task = move || {
+            TLS.with_borrow_mut(|tls| {
+                tls.update_change_tick();
+                let saved = std::mem::replace(&mut tls.last_tick, system_tick);
+                // we want to propagate to caller instead of panicking in the main thread
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    (f(tls), tls.curr_tick)
+                }));
+                tls.last_tick = saved;
+                result_tx.send(result).unwrap();
+            });
         };
 
-        let task: Box<dyn FnOnce(&mut ThreadLocals) + Send> = Box::new(task);
-        let task: Box<dyn FnOnce(&mut ThreadLocals) + Send + 'static> =
-            // SAFETY: This function will block the calling thread until `f` completes,
-            // so any captured references in `f` will remain valid until then.
-            unsafe { std::mem::transmute(task) };
+        let task: Box<dyn FnOnce() + Send> = Box::new(task);
+        // SAFETY: This function will block the calling thread until `f` completes,
+        // so any captured references in `f` will remain valid until then.
+        let task: Box<dyn FnOnce() + Send + 'static> = unsafe { std::mem::transmute(task) };
 
         // Send task to the main thread.
         sender
@@ -531,8 +521,8 @@ impl ThreadLocal<'_, '_> {
 
         // Wait to receive result back from the main thread.
         match result_rx.recv().unwrap() {
-            Ok((result, last_run)) => {
-                *self.last_run = last_run;
+            Ok((result, tls_tick)) => {
+                *self.last_run = tls_tick;
                 result
             }
             Err(payload) => {
@@ -568,33 +558,17 @@ unsafe impl SystemParam for ThreadLocal<'_, '_> {
         world: UnsafeWorldCell<'world>,
         curr_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        let mut accessor = crate::system::ResMut::<ThreadLocalChannel>::get_param(
+        let accessor = crate::system::ResMut::<ThreadLocalChannel>::get_param(
             &mut state.component_id,
             system_meta,
             world,
             curr_tick,
         );
 
-        let access = if std::thread::current().id() == accessor.owning_thread {
-            let arc = accessor
-                .direct
-                .upgrade()
-                .expect("pointer to `ThreadLocals` should be valid");
-
-            // Use a raw pointer so we can hold onto the `Arc` and satisfy the borrow checker.
-            let ptr = Arc::as_ptr(&arc);
-
-            // SAFETY: This pointer is valid since we're still holding the `Arc`.
-            let mutex = unsafe { &*ptr };
-            let guard = mutex
-                .try_lock()
-                .expect("lock on `ThreadLocals` should be available");
-
-            ThreadLocalAccess::Direct(ThreadLocalsGuard { guard, _arc: arc })
+        let access = if std::thread::current().id() == accessor.thread {
+            ThreadLocalAccess::Direct
         } else {
-            let ptr: *mut dyn ThreadLocalTaskSender = &mut *accessor.indirect;
-            // SAFETY: The pointer is valid. We have to do this to satisfy the borrow checker.
-            ThreadLocalAccess::Indirect(unsafe { &mut *ptr })
+            ThreadLocalAccess::Indirect(&mut *accessor.into_inner().sender)
         };
 
         ThreadLocal {

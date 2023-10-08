@@ -308,14 +308,18 @@ pub fn convert_enabled_buttons(enabled_buttons: EnabledButtons) -> winit::window
     window_buttons
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::PathBuf;
+#[cfg(not(target_arch = "wasm32"))]
 use winit::dpi::{PhysicalPosition, PhysicalSize};
+#[cfg(not(target_arch = "wasm32"))]
 use winit::event::{
     AxisId, DeviceEvent, DeviceId, ElementState, Ime, ModifiersState, StartCause, Touch,
 };
+#[cfg(not(target_arch = "wasm32"))]
 use winit::window::{Theme, WindowId};
 
-use std::path::PathBuf;
-
+#[cfg(not(target_arch = "wasm32"))]
 // TODO: can remove all these types when we upgrade to winit 0.29
 #[derive(Debug, PartialEq)]
 #[allow(clippy::enum_variant_names)]
@@ -338,6 +342,7 @@ pub(crate) enum Event<T> {
     LoopDestroyed,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug, PartialEq)]
 pub(crate) enum WindowEvent {
     Resized(PhysicalSize<u32>),
@@ -409,6 +414,7 @@ pub(crate) enum WindowEvent {
     Occluded(bool),
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn convert_event<T>(event: winit::event::Event<'_, T>) -> Event<T> {
     match event {
         winit::event::Event::NewEvents(start_cause) => Event::NewEvents(start_cause),
@@ -429,6 +435,7 @@ pub(crate) fn convert_event<T>(event: winit::event::Event<'_, T>) -> Event<T> {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn convert_window_event(event: winit::event::WindowEvent<'_>) -> WindowEvent {
     match event {
         winit::event::WindowEvent::AxisMotion {

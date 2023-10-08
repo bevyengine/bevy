@@ -157,7 +157,12 @@ pub(crate) fn changed_windows(
     mut main_thread: ThreadLocal,
 ) {
     main_thread.run(|tls| {
+        #[cfg(not(target_arch = "wasm32"))]
         let mut winit_windows = tls.resource_mut::<WinitWindows>();
+
+        #[cfg(target_arch = "wasm32")]
+        let winit_windows = tls.resource::<WinitWindows>();
+
         for (entity, mut window, mut cache) in &mut changed_windows {
             if let Some(winit_window) = winit_windows.get_window(entity) {
                 if window.title != cache.window.title {
