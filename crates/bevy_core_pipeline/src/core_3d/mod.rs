@@ -531,23 +531,33 @@ pub fn prepare_core_3d_transmission_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     views_3d: Query<
-        (Entity, &ExtractedCamera, &Camera3d, &ExtractedView),
+        (
+            Entity,
+            &ExtractedCamera,
+            &Camera3d,
+            &ExtractedView,
+            &RenderPhase<Transmissive3d>,
+        ),
         (
             With<RenderPhase<Opaque3d>>,
             With<RenderPhase<AlphaMask3d>>,
-            With<RenderPhase<Transmissive3d>>,
             With<RenderPhase<Transparent3d>>,
         ),
     >,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera, camera_3d, view) in &views_3d {
+    for (entity, camera, camera_3d, view, transmissive_3d_phase) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
 
         // Don't prepare a transmission texture if the number of steps is set to 0
         if camera_3d.screen_space_specular_transmission_steps == 0 {
+            continue;
+        }
+
+        // Don't prepare a transmission texture if there are no transmissive items to render
+        if transmissive_3d_phase.items.is_empty() {
             continue;
         }
 
