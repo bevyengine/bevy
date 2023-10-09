@@ -233,7 +233,7 @@ impl Mesh {
     /// Consumes the mesh and returns a mesh with data set for a vertex attribute (position, normal etc.).
     /// The name will often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
     ///
-    /// (Alternatively, you can use [`Mesh::set_attribute`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`Mesh::insert_attribute`] to mutate an existing mesh in-place)
     ///
     /// # Panics
     /// Panics when the format of the values does not match the attribute's format.
