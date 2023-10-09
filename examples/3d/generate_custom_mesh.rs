@@ -118,8 +118,8 @@ fn input_handler(
     }
 }
 
+#[rustfmt::skip]
 fn create_cube_mesh() -> Mesh {
-    #[rustfmt::skip]
     Mesh::new(PrimitiveTopology::TriangleList)
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
