@@ -79,15 +79,30 @@ use super::{MatchesStateTransition, StateMatcher};
 ///     MultiPlayer,
 /// }
 /// ```
-///
-///
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {
-    /// Checks if `self` matches the provided state matcher
+    /// Matches the state using one of the following:
+    ///
+    /// - A value of Self, checking for equality
+    /// - A `Fn(&Self) -> bool` or `Fn(Option<&Self>) -> bool`
+    /// - A `Fn(&Self, Option<&Self>) -> bool` setting the second parameter to None
+    /// - A `Fn(Option<&Self>, Option<&Self>) -> bool` setting the second parameter to None
+    /// - A `Fn(&Self, Option<&Self>) -> MatchesStateTransition` setting the second parameter to None, and interpreting `MatchesStateTransition::NoMatch` as false
+    /// - A `Fn(Option<&Self>, Option<&Self>) -> bool` setting the second parameter to None
+    /// - A `Fn(Option<&Self>, Option<&Self>) -> MatchesStateTransition` setting the second parameter to None, and interpreting `MatchesStateTransition::NoMatch` as false
     fn matches<M>(&self, matcher: impl StateMatcher<Self, M>) -> bool {
         matcher.match_state(self)
     }
 
-    /// Checks if the transition between `main` and `secondary` matches the state matcher
+    /// Matches the transition between `main` and `secondary` using one of the following:
+    ///
+    /// - A value of Self, checking for `Equality`. This will return `MatchesStateTransition::TransitionMatches` if `main` is `Some(matcher)`, and `main != secondary`.
+    /// - A `Fn(&Self) -> bool` or `Fn(Option<&Self>) -> bool`. This will return `MatchesStateTransition::TransitionMatches` if `main` matches `matcher`, and `secondary` does not match `matcher`. If `secondary` also matches, it will return `MatchesStateTransition::MainMatches`.
+    /// - A `Fn(&Self, &Self) -> bool`
+    /// - A `Fn(&Self, Option<&Self>) -> bool`
+    /// - A `Fn(Option<&Self>, Option<&Self>) -> bool`
+    /// - A `Fn(&Self, &Self) -> MatchesStateTransition`
+    /// - A `Fn(&Self, Option<&Self>) -> MatchesStateTransition`
+    /// - A `Fn(Option<&Self>, Option<&Self>) -> MatchesStateTransition`
     fn matches_transition<M>(
         matcher: impl StateMatcher<Self, M>,
         main: Option<&Self>,
