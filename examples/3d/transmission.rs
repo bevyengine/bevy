@@ -16,6 +16,10 @@
 //! | `H`                | Toggle HDR                                           |
 //! | `D`                | Toggle Depth Prepass (Also disables TAA)             |
 
+// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
+// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
+#![allow(clippy::type_complexity)]
+
 use std::f32::consts::PI;
 
 use bevy::{
