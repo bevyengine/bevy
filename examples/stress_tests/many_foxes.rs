@@ -205,7 +205,10 @@ fn setup_scene_once_loaded(
 ) {
     if !*done && player.iter().len() == foxes.count {
         for (entity, mut player) in &mut player {
-            player.play(animations.0[0].clone_weak()).repeat().seek_to(entity.index() as f32 / 10.0);
+            player
+                .play(animations.0[0].clone_weak())
+                .repeat()
+                .seek_to(entity.index() as f32 / 10.0);
         }
         *done = true;
     }
