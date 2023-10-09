@@ -592,10 +592,10 @@ mod tests {
 
         world.insert_resource(MyResource { foo: 123 });
 
-        let mut builder = DynamicSceneBuilder::from_world(&world);
-        builder.extract_entities([a, b, c].into_iter());
-        builder.extract_resources();
-        let scene = builder.build();
+        let scene = DynamicSceneBuilder::from_world(&world)
+            .extract_entities([a, b, c].into_iter())
+            .extract_resources()
+            .build();
 
         let expected = r#"(
   resources: {

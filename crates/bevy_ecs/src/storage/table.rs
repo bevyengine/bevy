@@ -526,13 +526,16 @@ impl TableBuilder {
         }
     }
 
-    pub fn add_column(&mut self, component_info: &ComponentInfo) {
+    #[must_use]
+    pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
         self.columns.insert(
             component_info.id(),
             Column::with_capacity(component_info, self.capacity),
         );
+        self
     }
 
+    #[must_use]
     pub fn build(self) -> Table {
         Table {
             columns: self.columns.into_immutable(),
@@ -865,7 +868,7 @@ impl Tables {
             .or_insert_with(|| {
                 let mut table = TableBuilder::with_capacity(0, component_ids.len());
                 for component_id in component_ids {
-                    table.add_column(components.get_info_unchecked(*component_id));
+                    table = table.add_column(components.get_info_unchecked(*component_id));
                 }
                 tables.push(table.build());
                 (component_ids.to_vec(), TableId::new(tables.len() - 1))
@@ -929,9 +932,9 @@ mod tests {
         let mut storages = Storages::default();
         let component_id = components.init_component::<W<TableRow>>(&mut storages);
         let columns = &[component_id];
-        let mut builder = TableBuilder::with_capacity(0, columns.len());
-        builder.add_column(components.get_info(component_id).unwrap());
-        let mut table = builder.build();
+        let mut table = TableBuilder::with_capacity(0, columns.len())
+            .add_column(components.get_info(component_id).unwrap())
+            .build();
         let entities = (0..200).map(Entity::from_raw).collect::<Vec<_>>();
         for entity in &entities {
             // SAFETY: we allocate and immediately set data afterwards

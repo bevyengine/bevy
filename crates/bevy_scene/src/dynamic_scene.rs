@@ -51,12 +51,10 @@ impl DynamicScene {
 
     /// Create a new dynamic scene from a given world.
     pub fn from_world(world: &World) -> Self {
-        let mut builder = DynamicSceneBuilder::from_world(world);
-
-        builder.extract_entities(world.iter_entities().map(|entity| entity.id()));
-        builder.extract_resources();
-
-        builder.build()
+        DynamicSceneBuilder::from_world(world)
+            .extract_entities(world.iter_entities().map(|entity| entity.id()))
+            .extract_resources()
+            .build()
     }
 
     /// Write the resources, the dynamic entities, and their corresponding components to the given world.
@@ -220,10 +218,10 @@ mod tests {
 
         // We then write this relationship to a new scene, and then write that scene back to the
         // world to create another parent and child relationship
-        let mut scene_builder = DynamicSceneBuilder::from_world(&world);
-        scene_builder.extract_entity(original_parent_entity);
-        scene_builder.extract_entity(original_child_entity);
-        let scene = scene_builder.build();
+        let scene = DynamicSceneBuilder::from_world(&world)
+            .extract_entity(original_parent_entity)
+            .extract_entity(original_child_entity)
+            .build();
         let mut entity_map = HashMap::default();
         scene.write_to_world(&mut world, &mut entity_map).unwrap();
 
