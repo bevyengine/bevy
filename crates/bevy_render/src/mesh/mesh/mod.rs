@@ -262,10 +262,7 @@ impl Mesh {
     ///
     /// (Alternatively, you can use [`Mesh::remove_attribute`] to mutate an existing mesh in-place)
     #[must_use]
-    pub fn with_removed_attribute(
-        mut self,
-        attribute: impl Into<MeshVertexAttributeId>,
-    ) -> Option<VertexAttributeValues> {
+    pub fn with_removed_attribute(mut self, attribute: impl Into<MeshVertexAttributeId>) -> Self {
         self.remove_attribute(attribute);
         self
     }
