@@ -1229,7 +1229,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn panic_invalid_format() {
-        Mesh::new(PrimitiveTopology::TriangleList)
+        let _mesh = Mesh::new(PrimitiveTopology::TriangleList)
             .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
     }
 }
