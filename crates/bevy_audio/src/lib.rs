@@ -25,6 +25,7 @@
 #![warn(missing_docs)]
 
 mod audio;
+mod audio_input;
 mod audio_output;
 mod audio_source;
 mod pitch;
@@ -54,6 +55,7 @@ use bevy_asset::{Asset, AssetApp};
 use bevy_ecs::prelude::*;
 
 use audio_output::*;
+use audio_input::*;
 
 /// Set for the audio playback systems, so they can share a run condition
 #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
