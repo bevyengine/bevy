@@ -117,7 +117,7 @@ impl Plugin for PostProcessPlugin {
 #[derive(Default)]
 struct PostProcessNode;
 impl PostProcessNode {
-    pub const NAME: &str = "post_process";
+    pub const NAME: &'static str = "post_process";
 }
 
 // The ViewNode trait is required by the ViewNodeRunner

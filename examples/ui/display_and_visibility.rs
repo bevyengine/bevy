@@ -156,7 +156,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                 builder.spawn(TextBundle {
                     text: Text::from_section(
-                        "Display::None\nVisibility::Hidden\nVisbility::Inherited",
+                        "Display::None\nVisibility::Hidden\nVisibility::Inherited",
                         TextStyle { color: HIDDEN_COLOR, ..text_style.clone() }
                         ).with_alignment(TextAlignment::Center),
                     ..Default::default()

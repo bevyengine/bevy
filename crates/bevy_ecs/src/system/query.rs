@@ -874,14 +874,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         &self,
         entities: [Entity; N],
     ) -> Result<[ROQueryItem<'_, Q>; N], QueryEntityError> {
-        // SAFETY: it is the scheduler's responsibility to ensure that `Query` is never handed out on the wrong `World`.
+        // SAFETY:
+        // - `&self` ensures there is no mutable access to any components accessible to this query.
+        // - `self.world` matches `self.state`.
         unsafe {
-            self.state.get_many_read_only_manual(
-                self.world.unsafe_world(),
-                entities,
-                self.last_run,
-                self.this_run,
-            )
+            self.state
+                .get_many_read_only_manual(self.world, entities, self.last_run, self.this_run)
         }
     }
 
@@ -1107,7 +1105,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns a mutable reference to the component `T` of the given entity.
     ///
-    /// In case of a nonexisting entity, mismatched component or missing write acess, a [`QueryComponentError`] is returned instead.
+    /// In case of a nonexisting entity, mismatched component or missing write access, a [`QueryComponentError`] is returned instead.
     ///
     /// # Example
     ///

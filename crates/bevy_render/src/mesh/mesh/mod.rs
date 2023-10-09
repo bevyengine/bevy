@@ -146,22 +146,30 @@ impl Mesh {
     pub const ATTRIBUTE_UV_0: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Uv", 2, VertexFormat::Float32x2);
 
+    /// Alternate texture coordinates for the vertex. Use in conjunction with
+    /// [`Mesh::insert_attribute`].
+    ///
+    /// Typically, these are used for lightmaps, textures that provide
+    /// precomputed illumination.
+    pub const ATTRIBUTE_UV_1: MeshVertexAttribute =
+        MeshVertexAttribute::new("Vertex_Uv_1", 3, VertexFormat::Float32x2);
+
     /// The direction of the vertex tangent. Used for normal mapping.
     /// Usually generated with [`generate_tangents`](Mesh::generate_tangents).
     pub const ATTRIBUTE_TANGENT: MeshVertexAttribute =
-        MeshVertexAttribute::new("Vertex_Tangent", 3, VertexFormat::Float32x4);
+        MeshVertexAttribute::new("Vertex_Tangent", 4, VertexFormat::Float32x4);
 
     /// Per vertex coloring. Use in conjunction with [`Mesh::insert_attribute`].
     pub const ATTRIBUTE_COLOR: MeshVertexAttribute =
-        MeshVertexAttribute::new("Vertex_Color", 4, VertexFormat::Float32x4);
+        MeshVertexAttribute::new("Vertex_Color", 5, VertexFormat::Float32x4);
 
     /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::insert_attribute`].
     pub const ATTRIBUTE_JOINT_WEIGHT: MeshVertexAttribute =
-        MeshVertexAttribute::new("Vertex_JointWeight", 5, VertexFormat::Float32x4);
+        MeshVertexAttribute::new("Vertex_JointWeight", 6, VertexFormat::Float32x4);
 
     /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::insert_attribute`].
     pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
-        MeshVertexAttribute::new("Vertex_JointIndex", 6, VertexFormat::Uint16x4);
+        MeshVertexAttribute::new("Vertex_JointIndex", 7, VertexFormat::Uint16x4);
 
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be

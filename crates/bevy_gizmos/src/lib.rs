@@ -14,7 +14,7 @@
 //! # bevy_ecs::system::assert_is_system(system);
 //! ```
 //!
-//! See the documentation on [`Gizmos`](crate::gizmos::Gizmos) for more examples.
+//! See the documentation on [`Gizmos`] for more examples.
 
 pub mod gizmos;
 
@@ -149,7 +149,7 @@ pub struct GizmoConfig {
     pub line_width: f32,
     /// Apply perspective to gizmo lines.
     ///
-    /// This setting only affects 3D, non-orhographic cameras.
+    /// This setting only affects 3D, non-orthographic cameras.
     ///
     /// Defaults to `false`.
     pub line_perspective: bool,

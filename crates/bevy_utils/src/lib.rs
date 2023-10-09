@@ -250,6 +250,58 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
     }
 }
 
+/// A [`BuildHasher`] that results in a [`EntityHasher`].
+#[derive(Default)]
+pub struct EntityHash;
+
+impl BuildHasher for EntityHash {
+    type Hasher = EntityHasher;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        EntityHasher::default()
+    }
+}
+
+/// A very fast hash that is only designed to work on generational indices
+/// like `Entity`. It will panic if attempting to hash a type containing
+/// non-u64 fields.
+#[derive(Debug, Default)]
+pub struct EntityHasher {
+    hash: u64,
+}
+
+// This value comes from rustc-hash (also known as FxHasher) which in turn got
+// it from Firefox. It is something like `u64::MAX / N` for an N that gives a
+// value close to π and works well for distributing bits for hashing when using
+// with a wrapping multiplication.
+const FRAC_U64MAX_PI: u64 = 0x517cc1b727220a95;
+
+impl Hasher for EntityHasher {
+    fn write(&mut self, _bytes: &[u8]) {
+        panic!("can only hash u64 using EntityHasher");
+    }
+
+    #[inline]
+    fn write_u64(&mut self, i: u64) {
+        // Apparently hashbrown's hashmap uses the upper 7 bits for some SIMD
+        // optimisation that uses those bits for binning. This hash function
+        // was faster than i | (i << (64 - 7)) in the worst cases, and was
+        // faster than PassHasher for all cases tested.
+        self.hash = i | (i.wrapping_mul(FRAC_U64MAX_PI) << 32);
+    }
+
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.hash
+    }
+}
+
+/// A [`HashMap`] pre-configured to use [`EntityHash`] hashing.
+pub type EntityHashMap<K, V> = hashbrown::HashMap<K, V, EntityHash>;
+
+/// A [`HashSet`] pre-configured to use [`EntityHash`] hashing.
+pub type EntityHashSet<T> = hashbrown::HashSet<T, EntityHash>;
+
 /// A type which calls a function when dropped.
 /// This can be used to ensure that cleanup code is run even in case of a panic.
 ///
