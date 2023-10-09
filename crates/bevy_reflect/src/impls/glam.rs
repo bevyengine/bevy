@@ -330,7 +330,6 @@ impl_reflect_struct!(
     }
 );
 
-
 impl_reflect_value!(::glam::EulerRot(Debug, Default));
 impl_reflect_value!(::glam::BVec3A(Debug, Default));
 impl_reflect_value!(::glam::BVec4A(Debug, Default));
