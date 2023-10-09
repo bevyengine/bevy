@@ -732,7 +732,7 @@ fn load_material(
         });
 
         #[cfg(feature = "pbr_transmission_textures")]
-        let (specular_transmission, transmission_texture) =
+        let (specular_transmission, specular_transmission_texture) =
             material.transmission().map_or((0.0, None), |transmission| {
                 let transmission_texture: Option<Handle<Image>> = transmission
                     .transmission_texture()
@@ -802,7 +802,7 @@ fn load_material(
             emissive_texture,
             specular_transmission,
             #[cfg(feature = "pbr_transmission_textures")]
-            transmission_texture,
+            specular_transmission_texture,
             thickness,
             #[cfg(feature = "pbr_transmission_textures")]
             thickness_texture,

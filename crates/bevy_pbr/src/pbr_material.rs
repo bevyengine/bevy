@@ -200,7 +200,7 @@ pub struct StandardMaterial {
     #[texture(13)]
     #[sampler(14)]
     #[cfg(feature = "pbr_transmission_textures")]
-    pub transmission_texture: Option<Handle<Image>>,
+    pub specular_transmission_texture: Option<Handle<Image>>,
 
     /// Thickness of the volume beneath the material surface.
     ///
@@ -481,7 +481,7 @@ impl Default for StandardMaterial {
             diffuse_transmission_texture: None,
             specular_transmission: 0.0,
             #[cfg(feature = "pbr_transmission_textures")]
-            transmission_texture: None,
+            specular_transmission_texture: None,
             thickness: 0.0,
             #[cfg(feature = "pbr_transmission_textures")]
             thickness_texture: None,
@@ -544,7 +544,7 @@ bitflags::bitflags! {
         const FLIP_NORMAL_MAP_Y          = (1 << 7);
         const FOG_ENABLED                = (1 << 8);
         const DEPTH_MAP                  = (1 << 9); // Used for parallax mapping
-        const TRANSMISSION_TEXTURE       = (1 << 10);
+        const SPECULAR_TRANSMISSION_TEXTURE = (1 << 10);
         const THICKNESS_TEXTURE          = (1 << 11);
         const DIFFUSE_TRANSMISSION_TEXTURE = (1 << 12);
         const ATTENUATION_ENABLED        = (1 << 13);
@@ -640,8 +640,8 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         }
         #[cfg(feature = "pbr_transmission_textures")]
         {
-            if self.transmission_texture.is_some() {
-                flags |= StandardMaterialFlags::TRANSMISSION_TEXTURE;
+            if self.specular_transmission_texture.is_some() {
+                flags |= StandardMaterialFlags::SPECULAR_TRANSMISSION_TEXTURE;
             }
             if self.thickness_texture.is_some() {
                 flags |= StandardMaterialFlags::THICKNESS_TEXTURE;

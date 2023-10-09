@@ -16,8 +16,8 @@
 @group(1) @binding(11) var depth_map_texture: texture_2d<f32>;
 @group(1) @binding(12) var depth_map_sampler: sampler;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
-@group(1) @binding(13) var transmission_texture: texture_2d<f32>;
-@group(1) @binding(14) var transmission_sampler: sampler;
+@group(1) @binding(13) var specular_transmission_texture: texture_2d<f32>;
+@group(1) @binding(14) var specular_transmission_sampler: sampler;
 @group(1) @binding(15) var thickness_texture: texture_2d<f32>;
 @group(1) @binding(16) var thickness_sampler: sampler;
 @group(1) @binding(17) var diffuse_transmission_texture: texture_2d<f32>;
