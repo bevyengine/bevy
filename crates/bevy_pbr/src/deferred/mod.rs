@@ -82,7 +82,7 @@ impl PbrDeferredLightingDepthId {
 impl Default for PbrDeferredLightingDepthId {
     fn default() -> Self {
         PbrDeferredLightingDepthId {
-            depth_id: 1,
+            depth_id: DEFAULT_PBR_DEFERRED_LIGHTING_DEPTH_ID as u32,
 
             #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
             _webgl2_padding_0: 0.0,
