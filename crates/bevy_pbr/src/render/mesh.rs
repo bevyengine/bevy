@@ -1213,24 +1213,31 @@ pub fn prepare_mesh_view_bind_groups(
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, [15, 16]);
             entries.extend_from_slice(&tonemapping_luts);
 
-            let prepass_bindings =
-                prepass::get_bindings(prepass_textures, &mut fallback_images, &msaa);
+            let label = Some("mesh_view_bind_group");
+
             // When using WebGL, we can't have a depth texture with multisampling
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && msaa.samples() == 1)
             {
+                let prepass_bindings =
+                    prepass::get_bindings(prepass_textures, &mut fallback_images, &msaa);
                 entries.extend_from_slice(&prepass_bindings.get_entries([17, 18, 19, 20]));
+                commands.entity(entity).insert(MeshViewBindGroup {
+                    value: render_device.create_bind_group(&BindGroupDescriptor {
+                        entries: &entries,
+                        label,
+                        layout,
+                    }),
+                });
+            } else {
+                commands.entity(entity).insert(MeshViewBindGroup {
+                    value: render_device.create_bind_group(&BindGroupDescriptor {
+                        entries: &entries,
+                        label,
+                        layout,
+                    }),
+                });
             }
-
-            let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &entries,
-                label: Some("mesh_view_bind_group"),
-                layout,
-            });
-
-            commands.entity(entity).insert(MeshViewBindGroup {
-                value: view_bind_group,
-            });
         }
     }
 }
