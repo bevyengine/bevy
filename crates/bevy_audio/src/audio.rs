@@ -1,6 +1,5 @@
-use crate::{AudioSource, Decodable};
+use crate::{AudioSource, Decodable, VolumeLevel};
 use bevy_asset::{Asset, Handle};
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
 use bevy_transform::prelude::Transform;
@@ -22,34 +21,12 @@ impl Default for Volume {
 
 impl Volume {
     /// Create a new volume level relative to the global volume.
-    pub fn new_relative(volume: f32) -> Self {
-        Self::Relative(VolumeLevel::new(volume))
+    pub fn new_relative(amplitude: f32) -> Self {
+        Self::Relative(VolumeLevel::Amplitude(amplitude))
     }
     /// Create a new volume level that ignores the global volume.
-    pub fn new_absolute(volume: f32) -> Self {
-        Self::Absolute(VolumeLevel::new(volume))
-    }
-}
-
-/// A volume level equivalent to a non-negative float.
-#[derive(Clone, Copy, Deref, DerefMut, Debug)]
-pub struct VolumeLevel(pub(crate) f32);
-
-impl Default for VolumeLevel {
-    fn default() -> Self {
-        Self(1.0)
-    }
-}
-
-impl VolumeLevel {
-    /// Create a new volume level.
-    pub fn new(volume: f32) -> Self {
-        debug_assert!(volume >= 0.0);
-        Self(volume)
-    }
-    /// Get the value of the volume level.
-    pub fn get(&self) -> f32 {
-        self.0
+    pub fn new_absolute(amplitude: f32) -> Self {
+        Self::Absolute(VolumeLevel::Amplitude(amplitude))
     }
 }
 
@@ -95,7 +72,7 @@ impl PlaybackSettings {
     /// Will play the associated audio source once.
     pub const ONCE: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Once,
-        volume: Volume::Relative(VolumeLevel(1.0)),
+        volume: Volume::Relative(VolumeLevel::Amplitude(1.)),
         speed: 1.0,
         paused: false,
     };
@@ -103,7 +80,7 @@ impl PlaybackSettings {
     /// Will play the associated audio source in a loop.
     pub const LOOP: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Loop,
-        volume: Volume::Relative(VolumeLevel(1.0)),
+        volume: Volume::Relative(VolumeLevel::Amplitude(1.)),
         speed: 1.0,
         paused: false,
     };
@@ -111,7 +88,7 @@ impl PlaybackSettings {
     /// Will play the associated audio source once and despawn the entity afterwards.
     pub const DESPAWN: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Despawn,
-        volume: Volume::Relative(VolumeLevel(1.0)),
+        volume: Volume::Relative(VolumeLevel::Amplitude(1.)),
         speed: 1.0,
         paused: false,
     };
@@ -119,7 +96,7 @@ impl PlaybackSettings {
     /// Will play the associated audio source once and remove the audio components afterwards.
     pub const REMOVE: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Remove,
-        volume: Volume::Relative(VolumeLevel(1.0)),
+        volume: Volume::Relative(VolumeLevel::Amplitude(1.)),
         speed: 1.0,
         paused: false,
     };
@@ -180,9 +157,9 @@ pub struct GlobalVolume {
 
 impl GlobalVolume {
     /// Create a new [`GlobalVolume`] with the given volume.
-    pub fn new(volume: f32) -> Self {
+    pub fn new(amplitude: f32) -> Self {
         Self {
-            volume: VolumeLevel::new(volume),
+            volume: VolumeLevel::Amplitude(amplitude),
         }
     }
 }
