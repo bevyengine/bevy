@@ -1,5 +1,3 @@
-#![allow(private_bounds)]
-
 use super::{Condition, States};
 use crate::{change_detection::Res, system::IntoSystem};
 pub use bevy_ecs_macros::{entering, exiting, state_matches, transitioning};
