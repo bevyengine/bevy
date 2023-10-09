@@ -54,4 +54,4 @@ fn calculate_motion_vector(world_position: vec4<f32>, previous_world_position: v
     // down where clip space y goes up, so y needs to be flipped.
     return (clip_position - previous_clip_position) * vec2(0.5, -0.5);
 }
-#endif
+#endif // MOTION_VECTOR_PREPASS

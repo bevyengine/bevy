@@ -43,7 +43,8 @@ fn setup(
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
-                //hdr: true,
+                // Deferred both supports both hdr: true and hdr: false
+                hdr: false,
                 ..default()
             },
             transform: Transform::from_xyz(0.7, 0.7, 1.0)

@@ -24,7 +24,7 @@
 #import bevy_pbr::prepass_io as prepass_io
 #else // DEFERRED_PREPASS
 #import bevy_pbr::mesh_vertex_output as mesh_vertex_output
-#endif
+#endif // DEFERRED_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
 @group(0) @binding(2)
@@ -39,14 +39,14 @@ fn fragment(
         @builtin(front_facing) is_front: bool,
     ) -> prepass_io::FragmentOutput {
     var out: prepass_io::FragmentOutput;
-#else
+#else // DEFERRED_PREPASS
 fn fragment(
         in: mesh_vertex_output::MeshVertexOutput,
         @builtin(front_facing) is_front: bool,
     ) -> @location(0) vec4<f32> {
 #endif // DEFERRED_PREPASS
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
-    
+
     let is_orthographic = view.projection[3].w == 1.0;
     let V = pbr_functions::calculate_view(in.world_position, is_orthographic);
 #ifdef VERTEX_UVS
@@ -158,7 +158,7 @@ fn fragment(
             view.mip_bias,
         );
 #endif
-        
+
         pbr_input.V = V;
         pbr_input.occlusion = occlusion;
 
@@ -169,8 +169,8 @@ fn fragment(
         out.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_depth_id;
 #ifdef NORMAL_PREPASS
         out.normal = vec4(pbr_input.N * 0.5 + vec3(0.5), 1.0);
-#endif
-#else
+#endif // NORMAL_PREPASS
+#else // DEFERRED_PREPASS
         output_color = pbr_functions::pbr(pbr_input);
 #endif // DEFERRED_PREPASS
     } else {
@@ -189,7 +189,7 @@ fn fragment(
 
 #ifdef MOTION_VECTOR_PREPASS
     out.motion_vector = pbr_prepass_functions::calculate_motion_vector(in.world_position, in.previous_world_position);
-#endif
+#endif // MOTION_VECTOR_PREPASS
 
 #ifdef DEFERRED_PREPASS
     return out;

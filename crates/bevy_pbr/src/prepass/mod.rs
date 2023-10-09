@@ -490,6 +490,7 @@ where
                 .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
                 .then_some(ColorTargetState {
                     format: MOTION_VECTOR_PREPASS_FORMAT,
+                    // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 }),
@@ -501,6 +502,7 @@ where
                     .contains(MeshPipelineKey::DEFERRED_PREPASS)
                     .then_some(ColorTargetState {
                         format: DEFERRED_PREPASS_FORMAT,
+                        // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
                         blend: None,
                         write_mask: ColorWrites::ALL,
                     }),
@@ -592,7 +594,7 @@ where
                 conservative: false,
             },
             depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
+                format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
@@ -872,8 +874,8 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
 pub fn queue_prepass_material_meshes<M: Material>(
     opaque_draw_functions: Res<DrawFunctions<Opaque3dPrepass>>,
     alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3dPrepass>>,
-    opaque_draw_deferred_functions: Res<DrawFunctions<Opaque3dDeferred>>,
-    alpha_mask_draw_deferred_functions: Res<DrawFunctions<AlphaMask3dDeferred>>,
+    opaque_deferred_draw_functions: Res<DrawFunctions<Opaque3dDeferred>>,
+    alpha_mask_deferred_draw_functions: Res<DrawFunctions<AlphaMask3dDeferred>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
@@ -905,11 +907,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
         .read()
         .get_id::<DrawPrepass<M>>()
         .unwrap();
-    let opaque_draw_deferred = opaque_draw_deferred_functions
+    let opaque_draw_deferred = opaque_deferred_draw_functions
         .read()
         .get_id::<DrawDeferred<M>>()
         .unwrap();
-    let alpha_mask_draw_deferred = alpha_mask_draw_deferred_functions
+    let alpha_mask_draw_deferred = alpha_mask_deferred_draw_functions
         .read()
         .get_id::<DrawDeferred<M>>()
         .unwrap();
@@ -918,8 +920,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
         visible_entities,
         mut opaque_phase,
         mut alpha_mask_phase,
-        mut opaque_phase_deferred,
-        mut alpha_mask_phase_deferred,
+        mut opaque_deferred_phase,
+        mut alpha_mask_deferred_phase,
         depth_prepass,
         normal_prepass,
         motion_vector_prepass,
@@ -937,8 +939,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 
-        let mut opaque_phase_deferred = opaque_phase_deferred.as_mut();
-        let mut alpha_mask_phase_deferred = alpha_mask_phase_deferred.as_mut();
+        let mut opaque_phase_deferred = opaque_deferred_phase.as_mut();
+        let mut alpha_mask_phase_deferred = alpha_mask_deferred_phase.as_mut();
 
         let rangefinder = view.rangefinder3d();
 
