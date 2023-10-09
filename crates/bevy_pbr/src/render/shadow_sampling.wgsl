@@ -6,7 +6,7 @@
 // Do the lookup, using HW 2x2 PCF and comparison
 fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
 #ifdef NO_ARRAY_TEXTURES_SUPPORT
-    return textureSampleCompareLevel(
+    return textureSampleCompare(
         view_bindings::directional_shadow_textures,
         view_bindings::directional_shadow_textures_sampler,
         light_local,
