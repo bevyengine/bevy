@@ -1988,8 +1988,8 @@ bevy_reflect::tests::should_reflect_debug::Test {
 }"#;
 
             let mut registry = TypeRegistry::default();
-            registry.add_registration(Quat::get_type_registration());
-            registry.add_registration(f32::get_type_registration());
+            registry.register::<Quat>();
+            registry.register::<f32>();
 
             let de = UntypedReflectDeserializer::new(&registry);
 
