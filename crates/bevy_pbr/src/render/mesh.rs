@@ -1,8 +1,9 @@
 use crate::{
-    environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
-    GpuPointLights, LightMeta, MaterialBindGroupId, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform, ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers,
-    ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
+    environment_map::{self, RenderEnvironmentMaps},
+    prepass, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta,
+    MaterialBindGroupId, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
+    ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers, ViewClusterBindings,
+    ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::{Plugin, PostUpdate};
@@ -37,7 +38,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, FallbackImageCubemap, FallbackImagesDepth,
+        BevyDefault, DefaultImageSampler, FallbackImage, FallbackImageCubemap, FallbackImagesDepth,
         FallbackImagesMsaa, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility},
@@ -1087,18 +1088,19 @@ pub fn prepare_mesh_view_bind_groups(
         &ViewClusterBindings,
         Option<&ScreenSpaceAmbientOcclusionTextures>,
         Option<&ViewPrepassTextures>,
-        Option<&EnvironmentMapLight>,
         &Tonemapping,
     )>,
-    (images, mut fallback_images, mut fallback_depths, fallback_cubemap): (
+    (images, mut fallback_images, mut fallback_depths, fallback_cubemap, fallback): (
         Res<RenderAssets<Image>>,
         FallbackImagesMsaa,
         FallbackImagesDepth,
         Res<FallbackImageCubemap>,
+        Res<FallbackImage>,
     ),
     msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
     tonemapping_luts: Res<TonemappingLuts>,
+    environment_maps: Res<RenderEnvironmentMaps>,
 ) {
     if let (
         Some(view_binding),
@@ -1119,7 +1121,6 @@ pub fn prepare_mesh_view_bind_groups(
             view_cluster_bindings,
             ssao_textures,
             prepass_textures,
-            environment_map,
             tonemapping,
         ) in &views
         {
@@ -1193,12 +1194,7 @@ pub fn prepare_mesh_view_bind_groups(
                 },
             ];
 
-            let env_map = environment_map::get_bindings(
-                environment_map,
-                &images,
-                &fallback_cubemap,
-                [12, 13, 14],
-            );
+            let env_map = environment_maps.get_bindings(&*fallback, &[12, 13, 14]);
             entries.extend_from_slice(&env_map);
 
             let tonemapping_luts =

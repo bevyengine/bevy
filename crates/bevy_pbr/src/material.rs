@@ -1,7 +1,8 @@
 use crate::{
-    render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline, MeshPipelineKey,
-    PrepassPipelinePlugin, PrepassPlugin, RenderMeshInstances, ScreenSpaceAmbientOcclusionSettings,
-    SetMeshBindGroup, SetMeshViewBindGroup, Shadow, ShadowFilteringMethod,
+    light_probe, render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline,
+    MeshPipelineKey, PrepassPipelinePlugin, PrepassPlugin, RenderMeshInstances,
+    ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
+    ShadowFilteringMethod, environment_map::RenderEnvironmentMaps,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
@@ -411,6 +412,7 @@ pub fn queue_material_meshes<M: Material>(
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    environment_maps: Res<RenderEnvironmentMaps>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     images: Res<RenderAssets<Image>>,
     mut views: Query<(
@@ -418,7 +420,6 @@ pub fn queue_material_meshes<M: Material>(
         &VisibleEntities,
         Option<&Tonemapping>,
         Option<&DebandDither>,
-        Option<&EnvironmentMapLight>,
         Option<&ShadowFilteringMethod>,
         Option<&ScreenSpaceAmbientOcclusionSettings>,
         Option<&NormalPrepass>,
@@ -435,7 +436,6 @@ pub fn queue_material_meshes<M: Material>(
         visible_entities,
         tonemapping,
         dither,
-        environment_map,
         shadow_filter_method,
         ssao,
         normal_prepass,
@@ -458,9 +458,8 @@ pub fn queue_material_meshes<M: Material>(
         if taa_settings.is_some() {
             view_key |= MeshPipelineKey::TAA;
         }
-        let environment_map_loaded = environment_map.is_some_and(|map| map.is_loaded(&images));
 
-        if environment_map_loaded {
+        if !environment_maps.diffuse.is_empty() && !environment_maps.specular.is_empty() {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
         }
 

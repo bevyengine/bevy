@@ -7,6 +7,7 @@ mod bundle;
 mod environment_map;
 mod fog;
 mod light;
+mod light_probe;
 mod material;
 mod parallax;
 mod pbr_material;
@@ -19,6 +20,7 @@ pub use bundle::*;
 pub use environment_map::EnvironmentMapLight;
 pub use fog::*;
 pub use light::*;
+pub use light_probe::*;
 pub use material::*;
 pub use parallax::*;
 pub use pbr_material::*;
@@ -37,6 +39,7 @@ pub mod prelude {
         environment_map::EnvironmentMapLight,
         fog::{FogFalloff, FogSettings},
         light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
+        light_probe::LightProbe,
         material::{Material, MaterialPlugin},
         parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
@@ -191,6 +194,7 @@ impl Plugin for PbrPlugin {
                 ExtractResourcePlugin::<AmbientLight>::default(),
                 FogPlugin,
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
+                LightProbePlugin,
             ))
             .configure_sets(
                 PostUpdate,
