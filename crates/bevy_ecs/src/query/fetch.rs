@@ -620,11 +620,10 @@ unsafe impl WorldQuery for EntityRef<'_> {
     fn optional_access(
         _state: &Self::State,
         access: &mut Access<ComponentId>,
-        parent_is_optional: bool,
+        _parent_is_optional: bool,
     ) {
-        if parent_is_optional {
-            access.read_all()
-        }
+        // it's ambiguous what data an entity ref can get
+        access.read_all()
     }
 
     fn init_state(_world: &mut World) {}
@@ -714,11 +713,11 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     fn optional_access(
         _state: &Self::State,
         access: &mut Access<ComponentId>,
-        parent_is_optional: bool,
+        _parent_is_optional: bool,
     ) {
-        if parent_is_optional {
-            access.write_all();
-        }
+        // Entity Ref may or may not have data for a component T
+        access.write_all();
+        
     }
 
     fn init_state(_world: &mut World) {}

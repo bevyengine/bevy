@@ -153,14 +153,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
             panic!("`restrict_fetch` is not allowed with queries that use `Changed` or `Added`");
         }
         let fetch_state = NewQ::new_state(components).expect(
-            "Could not create fetch_state. This should not be reachable as the components should have been \
-            initialized when creating the original QueryState.",
+            "Could not create fetch_state. Please initialize any components needed before trying to `transmute`",
         );
         #[allow(clippy::let_unit_value)]
         // the archetypal filters have already been applied, so we don't need them.
         let filter_state = <()>::new_state(components).expect(
-            "Could not create filter_state. This should not be reachable as the components should have been \
-            initialized when creating the original QueryState.",
+            "Could not create filter_state. Please initialize any components needed before trying to `transmute`",
         );
 
         let mut component_access = FilteredAccess::default();
@@ -169,23 +167,21 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         let mut filter_component_access = FilteredAccess::default();
         <()>::update_component_access(&filter_state, &mut filter_component_access);
 
-        // if we have optional parameters, make sure we don't go from a broader query to a more narrow one
-        let mut original_optional_access = Access::default();
-        Q::optional_access(&self.fetch_state, &mut original_optional_access, false);
-        if !original_optional_access.takes_no_access() {
-            let mut new_optional_access = Access::default();
-            NewQ::optional_access(&fetch_state, &mut new_optional_access, false);
-            if new_optional_access.difference_is_empty(&original_optional_access) {
-                panic!("`tranmute` does not allow going from a broader query to a more narrow one. i.e. from Option<&T> -> &T");
-            }
-        }
-
-        // Merge the temporary filter access with the main access. This ensures that filter access is
-        // properly considered in a global "cross-query" context (both within systems and across systems).
         component_access.extend(&filter_component_access);
 
         if !component_access.is_subset(&self.component_access) {
             panic!("access is not compatible with new query type");
+        }
+
+        // if we have optional parameters, make sure we don't go from a broader query to a more narrow one
+        let mut original_optional_access = Access::default();
+        Q::optional_access(&self.fetch_state, &mut original_optional_access, false);
+        if original_optional_access.has_access() {
+            let mut new_optional_access = Access::default();
+            NewQ::optional_access(&fetch_state, &mut new_optional_access, false);
+            if !original_optional_access.read_and_writes_difference_is_empty(&new_optional_access) {
+                panic!("`transmute` does not allow going from a broader query to a more narrow one. i.e. from Option<&T> -> &T");
+            }
         }
 
         QueryState {
@@ -1677,9 +1673,19 @@ mod tests {
         #[test]
         fn can_transmute_entity_mut() {
             let mut world = World::new();
+            world.spawn(A(10));
 
             let q = world.query::<EntityMut>();
             let _ = q.restrict_fetch::<EntityRef>(world.components());
+        }
+
+        #[test]
+        fn can_generalize_option() {
+            let mut world = World::new();
+            world.spawn((A(22), B));
+
+            let query_state = world.query::<(Option<&A>, &B)>();
+            let _ = query_state.restrict_fetch::<Option<&A>>(world.components());
         }
 
         #[test]
@@ -1718,7 +1724,7 @@ mod tests {
 
         #[test]
         #[should_panic(
-            expected = "`tranmute` does not allow going from a broader query to a more narrow one."
+            expected = "`transmute` does not allow going from a broader query to a more narrow one."
         )]
         fn cannot_transmute_option_to_immut() {
             let mut world = World::new();
@@ -1731,21 +1737,12 @@ mod tests {
         }
 
         #[test]
-        #[should_panic(expected = "access is not compatible with new query type")]
-        fn cannot_transmute_entity_ref_to_wrong_data() {
+        #[should_panic(expected = "`transmute` does not allow going from a broader query to a more narrow one.")]
+        fn cannot_transmute_entity_ref() {
             let mut world = World::new();
-            world.init_component::<B>();
+            world.init_component::<A>();
 
-            let q = world.query_filtered::<EntityRef, With<A>>();
-            let _ = q.restrict_fetch::<&B>(world.components());
-        }
-
-        #[test]
-        #[should_panic(expected = "access is not compatible with new query type")]
-        fn cannot_transmute_entity_ref_with_or_filter() {
-            let mut world = World::new();
-
-            let q = world.query_filtered::<EntityRef, Or<(With<A>, With<B>)>>();
+            let q = world.query::<EntityRef>();
             let _ = q.restrict_fetch::<&A>(world.components());
         }
     }
