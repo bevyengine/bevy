@@ -65,8 +65,8 @@ fn setup_scene(
         .unwrap(),
     );
 
-    for x in -10..10 {
-        for z in -10..10 {
+    for x in -5..5 {
+        for z in -5..5 {
             let mut hasher = DefaultHasher::new();
             (x, z).hash(&mut hasher);
             let rand = (hasher.finish() - 2) % 6;
@@ -75,7 +75,7 @@ fn setup_scene(
                 0 => material_emissive1.clone(),
                 1 => material_emissive2.clone(),
                 2 => material_emissive3.clone(),
-                3 | 4 | 5 => material_non_emissive.clone(),
+                3..=5 => material_non_emissive.clone(),
                 _ => unreachable!(),
             };
 

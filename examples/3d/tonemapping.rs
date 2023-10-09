@@ -5,7 +5,7 @@ use bevy::{
     math::vec2,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
-    reflect::TypeUuid,
+    reflect::TypePath,
     render::{
         render_resource::{
             AsBindGroup, Extent3d, SamplerDescriptor, ShaderRef, TextureDimension, TextureFormat,
@@ -19,8 +19,10 @@ use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<ColorGradientMaterial>::default())
+        .add_plugins((
+            DefaultPlugins,
+            MaterialPlugin::<ColorGradientMaterial>::default(),
+        ))
         .insert_resource(CameraTransform(
             Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ))
@@ -133,6 +135,10 @@ fn setup_basic_scene(
     }
 
     // spheres
+    let sphere_mesh = meshes.add(Mesh::from(shape::UVSphere {
+        radius: 0.125,
+        ..default()
+    }));
     for i in 0..6 {
         let j = i % 3;
         let s_val = if i < 3 { 0.0 } else { 0.2 };
@@ -160,11 +166,7 @@ fn setup_basic_scene(
         };
         commands.spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::UVSphere {
-                    radius: 0.125,
-                    sectors: 128,
-                    stacks: 128,
-                })),
+                mesh: sphere_mesh.clone(),
                 material,
                 transform: Transform::from_xyz(
                     j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } - 0.4,
@@ -305,10 +307,10 @@ fn update_image_viewer(
 ) {
     let mut new_image: Option<Handle<Image>> = None;
 
-    for event in drop_events.iter() {
+    for event in drop_events.read() {
         match event {
             FileDragAndDrop::DroppedFile { path_buf, .. } => {
-                new_image = Some(asset_server.load(path_buf.to_string_lossy().to_string()));
+                new_image = Some(asset_server.load(&path_buf.to_string_lossy().to_string()));
                 *drop_hovered = false;
             }
             FileDragAndDrop::HoveredFile { .. } => *drop_hovered = true,
@@ -326,18 +328,18 @@ fn update_image_viewer(
                 }
             }
 
-            for event in image_events.iter() {
-                let image_changed_h = match event {
-                    AssetEvent::Created { handle } | AssetEvent::Modified { handle } => handle,
+            for event in image_events.read() {
+                let image_changed_id = *match event {
+                    AssetEvent::Added { id } | AssetEvent::Modified { id } => id,
                     _ => continue,
                 };
                 if let Some(base_color_texture) = mat.base_color_texture.clone() {
-                    if image_changed_h == &base_color_texture {
-                        if let Some(image_changed) = images.get(image_changed_h) {
+                    if image_changed_id == base_color_texture.id() {
+                        if let Some(image_changed) = images.get(image_changed_id) {
                             let size = image_changed.size().normalize_or_zero() * 1.4;
                             // Resize Mesh
                             let quad = Mesh::from(shape::Quad::new(size));
-                            let _ = meshes.set(mesh_h, quad);
+                            meshes.insert(mesh_h, quad);
                         }
                     }
                 }
@@ -689,8 +691,7 @@ impl Material for ColorGradientMaterial {
     }
 }
 
-#[derive(AsBindGroup, Debug, Clone, TypeUuid)]
-#[uuid = "117f64fe-6844-1822-8926-e3ed372291c8"]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct ColorGradientMaterial {}
 
 #[derive(Resource)]

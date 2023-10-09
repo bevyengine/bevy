@@ -7,7 +7,7 @@ use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::default;
 use bevy_utils::syncunsafecell::SyncUnsafeCell;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::{info_span, Instrument};
+use bevy_utils::tracing::{info_span, Instrument, Span};
 use std::panic::AssertUnwindSafe;
 
 use async_channel::{Receiver, Sender};
@@ -17,9 +17,7 @@ use crate::{
     archetype::ArchetypeComponentId,
     prelude::Resource,
     query::Access,
-    schedule::{
-        is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
-    },
+    schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     system::BoxedSystem,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -64,6 +62,9 @@ struct SystemTaskMetadata {
     is_send: bool,
     /// Is `true` if the system is exclusive.
     is_exclusive: bool,
+    /// Cached tracing span for system task
+    #[cfg(feature = "trace")]
+    system_task_span: Span,
 }
 
 /// The result of running a system that is sent across a channel.
@@ -108,8 +109,8 @@ pub struct MultiThreadedExecutor {
     completed_systems: FixedBitSet,
     /// Systems that have run but have not had their buffers applied.
     unapplied_systems: FixedBitSet,
-    /// Setting when true applies system buffers after all systems have run
-    apply_final_buffers: bool,
+    /// Setting when true applies deferred system buffers after all systems have run
+    apply_final_deferred: bool,
     /// When set, tells the executor that a thread has panicked.
     panic_payload: Arc<Mutex<Option<Box<dyn Any + Send>>>>,
     /// When set, stops the executor from running any more systems.
@@ -127,8 +128,8 @@ impl SystemExecutor for MultiThreadedExecutor {
         ExecutorKind::MultiThreaded
     }
 
-    fn set_apply_final_buffers(&mut self, value: bool) {
-        self.apply_final_buffers = value;
+    fn set_apply_final_deferred(&mut self, value: bool) {
+        self.apply_final_deferred = value;
     }
 
     fn init(&mut self, schedule: &SystemSchedule) {
@@ -155,6 +156,11 @@ impl SystemExecutor for MultiThreadedExecutor {
                 dependents: schedule.system_dependents[index].clone(),
                 is_send: schedule.systems[index].is_send(),
                 is_exclusive: schedule.systems[index].is_exclusive(),
+                #[cfg(feature = "trace")]
+                system_task_span: info_span!(
+                    "system_task",
+                    name = &*schedule.systems[index].name()
+                ),
             });
         }
 
@@ -230,10 +236,10 @@ impl SystemExecutor for MultiThreadedExecutor {
             },
         );
 
-        if self.apply_final_buffers {
+        if self.apply_final_deferred {
             // Do one final apply buffers after all systems have completed
             // Commands should be applied while on the scope's thread, not the executor's thread
-            let res = apply_system_buffers(&self.unapplied_systems, systems, world);
+            let res = apply_deferred(&self.unapplied_systems, systems, world);
             if let Err(payload) = res {
                 let mut panic_payload = self.panic_payload.lock().unwrap();
                 *panic_payload = Some(payload);
@@ -258,6 +264,9 @@ impl SystemExecutor for MultiThreadedExecutor {
 }
 
 impl MultiThreadedExecutor {
+    /// Creates a new multi-threaded executor for use with a [`Schedule`].
+    ///
+    /// [`Schedule`]: crate::schedule::Schedule
     pub fn new() -> Self {
         let (sender, receiver) = async_channel::unbounded();
         Self {
@@ -278,7 +287,7 @@ impl MultiThreadedExecutor {
             skipped_systems: FixedBitSet::new(),
             completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
-            apply_final_buffers: true,
+            apply_final_deferred: true,
             panic_payload: Arc::new(Mutex::new(None)),
             stop_spawning: false,
         }
@@ -475,7 +484,7 @@ impl MultiThreadedExecutor {
     /// - `world` must have permission to access the world data
     ///   used by the specified system.
     /// - `update_archetype_component_access` must have been called with `world`
-    ///   on the system assocaited with `system_index`.
+    ///   on the system associated with `system_index`.
     unsafe fn spawn_system_task<'scope>(
         &mut self,
         scope: &Scope<'_, 'scope, ()>,
@@ -485,17 +494,9 @@ impl MultiThreadedExecutor {
     ) {
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *systems[system_index].get() };
-
-        #[cfg(feature = "trace")]
-        let task_span = info_span!("system_task", name = &*system.name());
-        #[cfg(feature = "trace")]
-        let system_span = info_span!("system", name = &*system.name());
-
         let sender = self.sender.clone();
         let panic_payload = self.panic_payload.clone();
         let task = async move {
-            #[cfg(feature = "trace")]
-            let system_guard = system_span.enter();
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                 // SAFETY:
                 // - The caller ensures that we have permission to
@@ -503,8 +504,6 @@ impl MultiThreadedExecutor {
                 // - `update_archetype_component_access` has been called.
                 unsafe { system.run_unsafe((), world) };
             }));
-            #[cfg(feature = "trace")]
-            drop(system_guard);
             // tell the executor that the system finished
             sender
                 .try_send(SystemResult {
@@ -523,7 +522,11 @@ impl MultiThreadedExecutor {
         };
 
         #[cfg(feature = "trace")]
-        let task = task.instrument(task_span);
+        let task = task.instrument(
+            self.system_task_metadata[system_index]
+                .system_task_span
+                .clone(),
+        );
 
         let system_meta = &self.system_task_metadata[system_index];
         self.active_access
@@ -549,23 +552,14 @@ impl MultiThreadedExecutor {
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *systems[system_index].get() };
 
-        #[cfg(feature = "trace")]
-        let task_span = info_span!("system_task", name = &*system.name());
-        #[cfg(feature = "trace")]
-        let system_span = info_span!("system", name = &*system.name());
-
         let sender = self.sender.clone();
         let panic_payload = self.panic_payload.clone();
-        if is_apply_system_buffers(system) {
+        if is_apply_deferred(system) {
             // TODO: avoid allocation
             let unapplied_systems = self.unapplied_systems.clone();
             self.unapplied_systems.clear();
             let task = async move {
-                #[cfg(feature = "trace")]
-                let system_guard = system_span.enter();
-                let res = apply_system_buffers(&unapplied_systems, systems, world);
-                #[cfg(feature = "trace")]
-                drop(system_guard);
+                let res = apply_deferred(&unapplied_systems, systems, world);
                 // tell the executor that the system finished
                 sender
                     .try_send(SystemResult {
@@ -581,17 +575,17 @@ impl MultiThreadedExecutor {
             };
 
             #[cfg(feature = "trace")]
-            let task = task.instrument(task_span);
+            let task = task.instrument(
+                self.system_task_metadata[system_index]
+                    .system_task_span
+                    .clone(),
+            );
             scope.spawn_on_scope(task);
         } else {
             let task = async move {
-                #[cfg(feature = "trace")]
-                let system_guard = system_span.enter();
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                     system.run((), world);
                 }));
-                #[cfg(feature = "trace")]
-                drop(system_guard);
                 // tell the executor that the system finished
                 sender
                     .try_send(SystemResult {
@@ -611,7 +605,11 @@ impl MultiThreadedExecutor {
             };
 
             #[cfg(feature = "trace")]
-            let task = task.instrument(task_span);
+            let task = task.instrument(
+                self.system_task_metadata[system_index]
+                    .system_task_span
+                    .clone(),
+            );
             scope.spawn_on_scope(task);
         }
 
@@ -681,7 +679,7 @@ impl MultiThreadedExecutor {
     }
 }
 
-fn apply_system_buffers(
+fn apply_deferred(
     unapplied_systems: &FixedBitSet,
     systems: &[SyncUnsafeCell<BoxedSystem>],
     world: &mut World,
@@ -690,7 +688,7 @@ fn apply_system_buffers(
         // SAFETY: none of these systems are running, no other references exist
         let system = unsafe { &mut *systems[system_index].get() };
         let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-            system.apply_buffers(world);
+            system.apply_deferred(world);
         }));
         if let Err(payload) = res {
             eprintln!(
@@ -717,8 +715,6 @@ unsafe fn evaluate_and_fold_conditions(
     conditions
         .iter_mut()
         .map(|condition| {
-            #[cfg(feature = "trace")]
-            let _condition_span = info_span!("condition", name = &*condition.name()).entered();
             // SAFETY: The caller ensures that `world` has permission to
             // access any data required by the condition.
             unsafe { condition.run_unsafe((), world) }
@@ -737,6 +733,7 @@ impl Default for MainThreadExecutor {
 }
 
 impl MainThreadExecutor {
+    /// Creates a new executor that can be used to run systems on the main thread.
     pub fn new() -> Self {
         MainThreadExecutor(TaskPool::get_thread_executor())
     }

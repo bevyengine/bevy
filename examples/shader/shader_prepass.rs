@@ -6,26 +6,28 @@ use bevy::{
     core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
     pbr::{NotShadowCaster, PbrPlugin},
     prelude::*,
-    reflect::TypeUuid,
+    reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(PbrPlugin {
-            // The prepass is enabled by default on the StandardMaterial,
-            // but you can disable it if you need to.
-            //
-            // prepass_enabled: false,
-            ..default()
-        }))
-        .add_plugin(MaterialPlugin::<CustomMaterial>::default())
-        .add_plugin(MaterialPlugin::<PrepassOutputMaterial> {
-            // This material only needs to read the prepass textures,
-            // but the meshes using it should not contribute to the prepass render, so we can disable it.
-            prepass_enabled: false,
-            ..default()
-        })
+        .add_plugins((
+            DefaultPlugins.set(PbrPlugin {
+                // The prepass is enabled by default on the StandardMaterial,
+                // but you can disable it if you need to.
+                //
+                // prepass_enabled: false,
+                ..default()
+            }),
+            MaterialPlugin::<CustomMaterial>::default(),
+            MaterialPlugin::<PrepassOutputMaterial> {
+                // This material only needs to read the prepass textures,
+                // but the meshes using it should not contribute to the prepass render, so we can disable it.
+                prepass_enabled: false,
+                ..default()
+            },
+        ))
         .add_systems(Startup, setup)
         .add_systems(Update, (rotate, toggle_prepass_view))
         // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
@@ -155,8 +157,7 @@ fn setup(
 }
 
 // This is the struct that will be passed to your shader
-#[derive(AsBindGroup, TypeUuid, Debug, Clone)]
-#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct CustomMaterial {
     #[uniform(0)]
     color: Color,
@@ -204,8 +205,7 @@ struct ShowPrepassSettings {
 }
 
 // This shader simply loads the prepass texture and outputs it directly
-#[derive(AsBindGroup, TypeUuid, Debug, Clone)]
-#[uuid = "0af99895-b96e-4451-bc12-c6b1c1c52750"]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct PrepassOutputMaterial {
     #[uniform(0)]
     settings: ShowPrepassSettings,
@@ -240,16 +240,10 @@ fn toggle_prepass_view(
             3 => "motion vectors",
             _ => unreachable!(),
         };
-        let text_color = if *prepass_view == 3 {
-            Color::BLACK
-        } else {
-            Color::WHITE
-        };
-
         let mut text = text.single_mut();
         text.sections[0].value = format!("Prepass Output: {label}\n");
         for section in &mut text.sections {
-            section.style.color = text_color;
+            section.style.color = Color::WHITE;
         }
 
         let handle = material_handle.single();

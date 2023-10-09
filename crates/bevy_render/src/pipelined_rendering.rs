@@ -103,21 +103,31 @@ impl Plugin for PipelinedRenderingPlugin {
             #[cfg(feature = "trace")]
             let _span = bevy_utils::tracing::info_span!("render thread").entered();
 
+            let compute_task_pool = ComputeTaskPool::get();
             loop {
                 // run a scope here to allow main world to use this thread while it's waiting for the render app
-                let mut render_app = ComputeTaskPool::get()
+                let sent_app = compute_task_pool
                     .scope(|s| {
-                        s.spawn(async { app_to_render_receiver.recv().await.unwrap() });
+                        s.spawn(async { app_to_render_receiver.recv().await });
                     })
-                    .pop()
-                    .unwrap();
+                    .pop();
+                let Some(Ok(mut render_app)) = sent_app else {
+                    break;
+                };
 
-                #[cfg(feature = "trace")]
-                let _sub_app_span =
-                    bevy_utils::tracing::info_span!("sub app", name = ?RenderApp).entered();
-                render_app.run();
-                render_to_app_sender.send_blocking(render_app).unwrap();
+                {
+                    #[cfg(feature = "trace")]
+                    let _sub_app_span =
+                        bevy_utils::tracing::info_span!("sub app", name = ?RenderApp).entered();
+                    render_app.run();
+                }
+
+                if render_to_app_sender.send_blocking(render_app).is_err() {
+                    break;
+                }
             }
+
+            bevy_utils::tracing::debug!("exiting pipelined rendering thread");
         });
     }
 }

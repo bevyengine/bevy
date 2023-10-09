@@ -71,6 +71,13 @@ impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut App) {
         let run_mode = self.run_mode;
         app.set_runner(move |mut app: App| {
+            while !app.ready() {
+                #[cfg(not(target_arch = "wasm32"))]
+                bevy_tasks::tick_global_task_pools_on_main_thread();
+            }
+            app.finish();
+            app.cleanup();
+
             let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
             match run_mode {
                 RunMode::Once => {
@@ -82,21 +89,12 @@ impl Plugin for ScheduleRunnerPlugin {
                           -> Result<Option<Duration>, AppExit> {
                         let start_time = Instant::now();
 
-                        if let Some(app_exit_events) =
-                            app.world.get_resource_mut::<Events<AppExit>>()
-                        {
-                            if let Some(exit) = app_exit_event_reader.iter(&app_exit_events).last()
-                            {
-                                return Err(exit.clone());
-                            }
-                        }
-
                         app.update();
 
                         if let Some(app_exit_events) =
                             app.world.get_resource_mut::<Events<AppExit>>()
                         {
-                            if let Some(exit) = app_exit_event_reader.iter(&app_exit_events).last()
+                            if let Some(exit) = app_exit_event_reader.read(&app_exit_events).last()
                             {
                                 return Err(exit.clone());
                             }

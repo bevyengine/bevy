@@ -2,9 +2,10 @@ use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 
+use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
-use crate::{Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo};
+use crate::{self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo};
 
 /// A trait used to power [map-like] operations via [reflection].
 ///
@@ -51,6 +52,9 @@ pub trait Map: Reflect {
 
     /// Returns the key-value pair at `index` by reference, or `None` if out of bounds.
     fn get_at(&self, index: usize) -> Option<(&dyn Reflect, &dyn Reflect)>;
+
+    /// Returns the key-value pair at `index` by reference where the value is a mutable reference, or `None` if out of bounds.
+    fn get_at_mut(&mut self, index: usize) -> Option<(&dyn Reflect, &mut dyn Reflect)>;
 
     /// Returns the number of elements in the map.
     fn len(&self) -> usize;
@@ -254,6 +258,12 @@ impl Map for DynamicMap {
             .map(|(key, value)| (&**key, &**value))
     }
 
+    fn get_at_mut(&mut self, index: usize) -> Option<(&dyn Reflect, &mut dyn Reflect)> {
+        self.values
+            .get_mut(index)
+            .map(|(key, value)| (&**key, &mut **value))
+    }
+
     fn insert_boxed(
         &mut self,
         key: Box<dyn Reflect>,
@@ -365,6 +375,8 @@ impl Reflect for DynamicMap {
         true
     }
 }
+
+impl_type_path!((in bevy_reflect) DynamicMap);
 
 impl Debug for DynamicMap {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -496,10 +508,12 @@ pub fn map_apply<M: Map>(a: &mut M, b: &dyn Reflect) {
 #[cfg(test)]
 mod tests {
     use super::DynamicMap;
+    use super::Map;
+    use crate::reflect::Reflect;
 
     #[test]
     fn test_into_iter() {
-        let expected = vec!["foo", "bar", "baz"];
+        let expected = ["foo", "bar", "baz"];
 
         let mut map = DynamicMap::default();
         map.insert(0usize, expected[0].to_string());
@@ -515,5 +529,59 @@ mod tests {
             assert_eq!(index, key);
             assert_eq!(expected[index], value);
         }
+    }
+
+    #[test]
+    fn test_map_get_at() {
+        let values = ["first", "second", "third"];
+        let mut map = DynamicMap::default();
+        map.insert(0usize, values[0].to_string());
+        map.insert(1usize, values[1].to_string());
+        map.insert(1usize, values[2].to_string());
+
+        let (key_r, value_r) = map.get_at(1).expect("Item wasn't found");
+        let value = value_r
+            .downcast_ref::<String>()
+            .expect("Couldn't downcast to String");
+        let key = key_r
+            .downcast_ref::<usize>()
+            .expect("Couldn't downcast to usize");
+        assert_eq!(key, &1usize);
+        assert_eq!(value, &values[2].to_owned());
+
+        assert!(map.get_at(2).is_none());
+        map.remove(&1usize as &dyn Reflect);
+        assert!(map.get_at(1).is_none());
+    }
+
+    #[test]
+    fn test_map_get_at_mut() {
+        let values = ["first", "second", "third"];
+        let mut map = DynamicMap::default();
+        map.insert(0usize, values[0].to_string());
+        map.insert(1usize, values[1].to_string());
+        map.insert(1usize, values[2].to_string());
+
+        let (key_r, value_r) = map.get_at_mut(1).expect("Item wasn't found");
+        let value = value_r
+            .downcast_mut::<String>()
+            .expect("Couldn't downcast to String");
+        let key = key_r
+            .downcast_ref::<usize>()
+            .expect("Couldn't downcast to usize");
+        assert_eq!(key, &1usize);
+        assert_eq!(value, &mut values[2].to_owned());
+
+        *value = values[0].to_owned();
+
+        assert_eq!(
+            map.get(&1usize as &dyn Reflect)
+                .expect("Item wasn't found")
+                .downcast_ref::<String>()
+                .expect("Couldn't downcast to String"),
+            &values[0].to_owned()
+        );
+
+        assert!(map.get_at(2).is_none());
     }
 }

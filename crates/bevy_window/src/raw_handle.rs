@@ -10,7 +10,9 @@ use raw_window_handle::{
 /// thread-safe.
 #[derive(Debug, Clone, Component)]
 pub struct RawHandleWrapper {
+    /// Raw handle to a window.
     pub window_handle: RawWindowHandle,
+    /// Raw handle to the display server.
     pub display_handle: RawDisplayHandle,
 }
 
@@ -23,14 +25,6 @@ impl RawHandleWrapper {
     /// operations off of the main thread. The caller must ensure the [`RawHandleWrapper`] is only used in valid contexts.
     pub unsafe fn get_handle(&self) -> ThreadLockedRawWindowHandleWrapper {
         ThreadLockedRawWindowHandleWrapper(self.clone())
-    }
-
-    pub fn get_display_handle(&self) -> RawDisplayHandle {
-        self.display_handle
-    }
-
-    pub fn get_window_handle(&self) -> RawWindowHandle {
-        self.window_handle
     }
 }
 
@@ -59,7 +53,7 @@ pub struct ThreadLockedRawWindowHandleWrapper(RawHandleWrapper);
 // and so exposing a safe method to get a [`RawWindowHandle`] directly would be UB.
 unsafe impl HasRawWindowHandle for ThreadLockedRawWindowHandleWrapper {
     fn raw_window_handle(&self) -> RawWindowHandle {
-        self.0.get_window_handle()
+        self.0.window_handle
     }
 }
 
@@ -71,6 +65,6 @@ unsafe impl HasRawWindowHandle for ThreadLockedRawWindowHandleWrapper {
 // and so exposing a safe method to get a [`RawDisplayHandle`] directly would be UB.
 unsafe impl HasRawDisplayHandle for ThreadLockedRawWindowHandleWrapper {
     fn raw_display_handle(&self) -> RawDisplayHandle {
-        self.0.get_display_handle()
+        self.0.display_handle
     }
 }
