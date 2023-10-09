@@ -5,7 +5,7 @@ use bevy_math::Mat4;
 use bevy_render::{
     batching::NoAutomaticBatching,
     mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    render_resource::{BufferUsages, BufferVec},
+    render_resource::{BufferUsages, BufferVec, StorageBuffer},
     renderer::{RenderDevice, RenderQueue},
     view::ViewVisibility,
     Extract,
@@ -25,7 +25,7 @@ impl SkinIndex {
     /// Index to be in address space based on [`SkinUniform`] size.
     const fn new(start: usize) -> Self {
         SkinIndex {
-            index: (start * std::mem::size_of::<Mat4>()) as u32,
+            index: start as u32, /* (start * std::mem::size_of::<Mat4>()) as u32, */
         }
     }
 }
@@ -36,13 +36,13 @@ pub struct SkinIndices(EntityHashMap<Entity, SkinIndex>);
 // Notes on implementation: see comment on top of the `extract_skins` system.
 #[derive(Resource)]
 pub struct SkinUniform {
-    pub buffer: BufferVec<Mat4>,
+    pub buffer: StorageBuffer<Vec<Mat4>>,
 }
 
 impl Default for SkinUniform {
     fn default() -> Self {
         Self {
-            buffer: BufferVec::new(BufferUsages::UNIFORM),
+            buffer: StorageBuffer::<Vec<Mat4>>::default(),
         }
     }
 }
@@ -52,12 +52,10 @@ pub fn prepare_skins(
     render_queue: Res<RenderQueue>,
     mut uniform: ResMut<SkinUniform>,
 ) {
-    if uniform.buffer.is_empty() {
+    if uniform.buffer.get().is_empty() {
         return;
     }
 
-    let len = uniform.buffer.len();
-    uniform.buffer.reserve(len, &render_device);
     uniform.buffer.write_buffer(&render_device, &render_queue);
 }
 
@@ -94,7 +92,7 @@ pub fn extract_skins(
     inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
     joints: Extract<Query<&GlobalTransform>>,
 ) {
-    uniform.buffer.clear();
+    uniform.buffer.get_mut().clear();
     skin_indices.clear();
     let mut last_start = 0;
 
@@ -103,10 +101,10 @@ pub fn extract_skins(
         if !view_visibility.get() {
             continue;
         }
-        let buffer = &mut uniform.buffer;
         let Some(inverse_bindposes) = inverse_bindposes.get(&skin.inverse_bindposes) else {
             continue;
         };
+        let buffer = uniform.buffer.get_mut();
         let start = buffer.len();
 
         let target = start + skin.joints.len().min(MAX_JOINTS);
@@ -125,27 +123,27 @@ pub fn extract_skins(
         }
         last_start = last_start.max(start);
 
-        // Pad to 256 byte alignment
-        while buffer.len() % 4 != 0 {
-            buffer.push(Mat4::ZERO);
-        }
+        // // Pad to 256 byte alignment
+        // while buffer.len() % 4 != 0 {
+        //     buffer.push(Mat4::ZERO);
+        // }
 
         skin_indices.insert(entity, SkinIndex::new(start));
     }
 
-    // Pad out the buffer to ensure that there's enough space for bindings
-    while uniform.buffer.len() - last_start < MAX_JOINTS {
-        uniform.buffer.push(Mat4::ZERO);
-    }
+    // // Pad out the buffer to ensure that there's enough space for bindings
+    // while uniform.buffer.len() - last_start < MAX_JOINTS {
+    //     uniform.buffer.push(Mat4::ZERO);
+    // }
 }
 
-// NOTE: The skinned joints uniform buffer has to be bound at a dynamic offset per
-// entity and so cannot currently be batched.
-pub fn no_automatic_skin_batching(
-    mut commands: Commands,
-    query: Query<Entity, (With<SkinnedMesh>, Without<NoAutomaticBatching>)>,
-) {
-    for entity in &query {
-        commands.entity(entity).insert(NoAutomaticBatching);
-    }
-}
+// // NOTE: The skinned joints uniform buffer has to be bound at a dynamic offset per
+// // entity and so cannot currently be batched.
+// pub fn no_automatic_skin_batching(
+//     mut commands: Commands,
+//     query: Query<Entity, (With<SkinnedMesh>, Without<NoAutomaticBatching>)>,
+// ) {
+//     for entity in &query {
+//         commands.entity(entity).insert(NoAutomaticBatching);
+//     }
+// }

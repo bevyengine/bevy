@@ -2,8 +2,9 @@ use crate::{
     environment_map, prepass, EnvironmentMapLight, FogMeta, GlobalLightMeta, GpuFog, GpuLights,
     GpuPointLights, LightMeta, MaterialBindGroupId, NotShadowCaster, NotShadowReceiver,
     PreviousGlobalTransform, ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers,
-    ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    SkinIndex, ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset,
+    ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT,
+    MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
@@ -52,7 +53,7 @@ use crate::render::{
     morph::{
         extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices, MorphUniform,
     },
-    skin::{extract_skins, no_automatic_skin_batching, prepare_skins, SkinUniform},
+    skin::{extract_skins, /* no_automatic_skin_batching, */ prepare_skins, SkinUniform},
     MeshLayouts,
 };
 
@@ -114,7 +115,7 @@ impl Plugin for MeshRenderPlugin {
 
         app.add_systems(
             PostUpdate,
-            (no_automatic_skin_batching, no_automatic_morph_batching),
+            (/* no_automatic_skin_batching, */no_automatic_morph_batching),
         );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -201,10 +202,11 @@ pub struct MeshUniform {
     pub inverse_transpose_model_a: [Vec4; 2],
     pub inverse_transpose_model_b: f32,
     pub flags: u32,
+    pub skin_index: u32,
 }
 
-impl From<&MeshTransforms> for MeshUniform {
-    fn from(mesh_transforms: &MeshTransforms) -> Self {
+impl MeshUniform {
+    pub fn from(mesh_transforms: &MeshTransforms, skin_index: u32) -> Self {
         let (inverse_transpose_model_a, inverse_transpose_model_b) =
             mesh_transforms.transform.inverse_transpose_3x3();
         Self {
@@ -213,6 +215,7 @@ impl From<&MeshTransforms> for MeshUniform {
             inverse_transpose_model_a,
             inverse_transpose_model_b,
             flags: mesh_transforms.flags,
+            skin_index,
         }
     }
 }
@@ -602,21 +605,26 @@ impl MeshPipeline {
 }
 
 impl GetBatchData for MeshPipeline {
-    type Param = SRes<RenderMeshInstances>;
+    type Param = (SRes<RenderMeshInstances>, SRes<SkinIndices>);
     type Query = Entity;
     type QueryFilter = With<Mesh3d>;
     type CompareData = (MaterialBindGroupId, AssetId<Mesh>);
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        mesh_instances: &SystemParamItem<Self::Param>,
+        (mesh_instances, skin_indices): &SystemParamItem<Self::Param>,
         entity: &QueryItem<Self::Query>,
     ) -> (Self::BufferData, Option<Self::CompareData>) {
         let mesh_instance = mesh_instances
             .get(entity)
             .expect("Failed to find render mesh instance");
         (
-            (&mesh_instance.transforms).into(),
+            MeshUniform::from(
+                &mesh_instance.transforms,
+                skin_indices
+                    .get(entity)
+                    .map_or(u32::MAX, |skin_index| skin_index.index),
+            ),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
@@ -1317,10 +1325,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             dynamic_offsets[offset_count] = dynamic_offset.get();
             offset_count += 1;
         }
-        if let Some(skin_index) = skin_index {
-            dynamic_offsets[offset_count] = skin_index.index;
-            offset_count += 1;
-        }
+        // if let Some(skin_index) = skin_index {
+        //     dynamic_offsets[offset_count] = skin_index.index;
+        //     offset_count += 1;
+        // }
         if let Some(morph_index) = morph_index {
             dynamic_offsets[offset_count] = morph_index.index;
             offset_count += 1;
