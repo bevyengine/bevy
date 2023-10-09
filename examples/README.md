@@ -214,9 +214,9 @@ Example | Description
 Example | Description
 --- | ---
 [Apply System Buffers](../examples/ecs/apply_deferred.rs) | Show how to use `apply_deferred` system
+[Black Box State](../examples/ecs/black_box_state.rs) | Building on top of the Struct State example to illustrate the creation of fully encapsulated states
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
-[Custom State Matchers](../examples/ecs/custom_state_matchers.rs) | Building on top of the Struct State example to illustrate the use of custom `StateMatcher`s
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 [Event](../examples/ecs/event.rs) | Illustrates event creation, activation, and reception
 [Fixed Timestep](../examples/ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick

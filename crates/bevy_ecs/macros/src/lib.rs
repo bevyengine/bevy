@@ -483,49 +483,6 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
     states::derive_states(input)
 }
 
-/// Derive macro generating an impl of the trait `StateMatcher<S>`
-///
-/// Only supports unit structs and field-less enums.
-///
-/// For both, it requires a `state_type` helper attribute providing the type `S`:
-/// `#[state_type(S)]`
-///
-/// For unit structs, it also requires a `matcher` helper attribute, using the same matching syntax as `entering!`, `exiting!`, `state_maches!` and `transitioning!` (see below)
-///
-/// ```ignore
-/// #[derive(StateMatcher)]
-/// #[state_type(AppState)]
-/// #[matcher(InGame(_))]
-/// struct InGame;
-/// ```
-///
-/// For enums, it requires a `matcher` helper attribute *on every variant*, again using the same syntax.
-///
-/// ```ignore
-/// #[derive(StateMatcher)]
-/// #[state_type(AppState)]
-/// enum InGame {
-///     #[matcher(InGame(_))]
-///     Any,
-///     #[matcher(InGame(GameState::Running))]
-///     Running
-/// }
-/// ```
-///
-/// The matcher syntax can contain:
-/// - a matching pattern, like so `entering!(AppState, InGame { .. })`. Note that when matching
-/// enums, you do  not need to repeat the type within the pattern.
-/// - a closure with a type that automatically implements `StateMatcher<S>`, like so `entering!(AppState, |state| { /// some logic here - return a bool})`
-///
-/// Using the `every` keyword before a pattern or closure has no effect when it's used for simple state matching, but when matching a transition it will run the transition systems whenever the "main state" (previous or next state, depending on if we're looking at the exit or entrance) matches regardless of the "secondary state".
-/// Otherwise, it will only execute if the "main state" matches while the "secondary state" does not.
-///
-/// Lastly, you can also add additional comma-separated patterns or closures - which will be evaluated in order.
-#[proc_macro_derive(StateMatcher, attributes(matcher, state_type))]
-pub fn derive_state_matcher(input: TokenStream) -> TokenStream {
-    state_matchers::derive_state_matcher(input)
-}
-
 /// Schedule your systems to run when entering a matching state.
 ///
 /// This can be done by:

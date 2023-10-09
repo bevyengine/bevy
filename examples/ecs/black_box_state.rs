@@ -1,5 +1,5 @@
 //! This example builds on the other State related examples, and in particular the Struct State example,
-//! to show how you can use custom state matchers to create re-usable matching sections and
+//! to show how you can create re-usable matching sections and
 //! fully enclosed modules for controlling the state itself in a type safe way.
 //!
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state, which can be
@@ -17,40 +17,39 @@ fn main() {
         .add_systems(Update, toggle_pause)
         .add_systems(Startup, setup)
         .add_state::<AppState>()
-        // Because we can't really see the internals of `AppState`, we need to rely on matchers exported from
-        // the `state` module. Fortunately, we can use matchers with the `entering`/`exiting`/`transitioning` functions!
-        // Here we are using the `Menu` unit struct, which uses a derive to match any state with `in_menu: true`
-        .add_systems(Entering, setup_menu.run_if(entering(Menu)))
-        // But derived matchers aren't limited to Unit structs - they can also be fieldless enums!
-        // Here we are checking if we are paused
-        .add_systems(Entering, setup_paused.run_if(entering(GameState::Paused)))
-        // And here we are using a different variant to see if we are in any game state
-        .add_systems(Entering, setup_game.run_if(entering(GameState::Any)))
+        // Because we can't really see the internals of `AppState`, we need to rely on matching functions exported from
+        // the `state` module. Fortunately, we can use these with the `entering`/`exiting`/`transitioning` functions!
+        // Here we are using the `in_menu` function, which uses a derive to match any state with `in_menu: true`
+        .add_systems(Entering, setup_menu.run_if(entering(in_menu)))
+        // You can also use impl's to mimic enums, such as here to see if we're paused
+        .add_systems(Entering, setup_paused.run_if(entering(GameState::paused)))
+        // And here to see if we are in any game state
+        .add_systems(Entering, setup_game.run_if(entering(GameState::any)))
         // or that we are specifically not paused
         .add_systems(
             Entering,
-            setup_in_game_ui.run_if(entering(GameState::Running)),
+            setup_in_game_ui.run_if(entering(GameState::running)),
         )
-        // Matchers are also automatically derived from certain functions
-        .add_systems(Update, change_color.run_if(state_matches(in_game)))
-        .add_systems(Exiting, cleanup_ui.run_if(exiting(UI)))
-        .add_systems(Update, menu.run_if(state_matches(Menu)))
-        .add_systems(Update, invert_movement.run_if(entering(GameState::Running)))
-        // You can also implement your own fully custom state matchers with the help of a few traits
+        // you can also use `Fn` values rather than points, like we do here
+        .add_systems(Update, change_color.run_if(state_matches(in_game())))
+        // Or pass in functions that test the full transition rather than just a single state
+        .add_systems(Exiting, cleanup_ui.run_if(exiting(ui)))
+        .add_systems(Update, menu.run_if(state_matches(in_menu)))
+        .add_systems(Update, invert_movement.run_if(entering(GameState::running)))
+        // You can also use generics to specialize things
         .add_systems(
             Update,
-            movement.run_if(state_matches(Movement::<Standard>::default())),
+            movement.run_if(state_matches(in_movement::<Standard>)),
         )
         .add_systems(
             Update,
-            inverted_movement.run_if(state_matches(Movement::<Inverted>::default())),
+            inverted_movement.run_if(state_matches(in_movement::<Inverted>)),
         )
         .run();
 }
-use self::state::*;
+use state::*;
 mod state {
-    use bevy::ecs::schedule::SingleStateMatcher;
-    use bevy::prelude::{StateMatcher, States};
+    use bevy::prelude::States;
 
     // The first portion is identical to the setup in the Struct State example
     // We define the state
@@ -122,49 +121,68 @@ mod state {
         }
     }
 
-    // Then, we can start implementing our matchers
-    // The first matcher is a simple unit struct, built using a derive
-    #[derive(StateMatcher)]
-    // We need to tell it what type the state is
-    #[state_type(AppState)]
-    // And then we pass in the same matching syntax used in the macros
-    #[matcher(AppState { in_menu: true, ..})]
-    pub struct Menu;
-
-    // For our second matcher, we have a fieldless enum
-    // This can also be automatically derived
-    #[derive(StateMatcher)]
-    // We still need to tell it what type the state is
-    #[state_type(AppState)]
-    pub enum GameState {
-        // But now we need to provide the matching syntax for every variant
-        #[matcher(AppState { in_game: Some(_), ..})]
-        Any,
-        #[matcher(AppState { in_game:  Some(_), is_paused: false,..})]
-        Running,
-        #[matcher(AppState { in_game:  Some(_), is_paused: true,..})]
-        Paused,
+    // Then, we can start implementing our matching functions
+    // The simplest ones return a bool from a single state reference
+    pub fn in_menu(state: &AppState) -> bool {
+        matches!(state, AppState { in_menu: true, .. })
     }
 
-    #[derive(StateMatcher)]
-    #[state_type(AppState)]
-    // As noted before, we can use the same syntax used in other macros, including multiple matching segments
-    // and the every keyword
-    #[matcher(|state: &AppState| state.in_game.is_some() && !state.is_paused, every _)]
-    pub struct UI;
+    pub struct GameState;
 
-    // We can also rely on some of the automatic implementations
-    // These include the actual `States` types, as well as a few different `Fn` variants
-    // Which can be pre-defined functions or closures.
-    //
-    // The simples variant is `Fn(&S) -> bool`, but we also support:
-    // `Fn(Option<&S>) -> bool`, `Fn(&S, &S) -> bool`, `Fn(&S, Option<&S>) -> bool`, ` Fn(Option<&S>, Option<&S>) -> bool
-    // `Fn(&S, &S) -> MatchesStateTransition`, `Fn(&S, Option<&S>) -> MatchesStateTransition` and `Fn(Option<&S>, Option<&S>) -> MatchesStateTransition`
-    pub fn in_game(s: &AppState) -> bool {
-        s.in_game.is_some()
+    impl GameState {
+        // We can also use static functions from an `impl` block, like here
+        pub fn any(state: &AppState) -> bool {
+            matches!(
+                state,
+                AppState {
+                    in_game: Some(_),
+                    ..
+                }
+            )
+        }
+
+        // And use functions that take in an optional state reference
+        pub fn running(state: Option<&AppState>) -> bool {
+            matches!(
+                state,
+                Some(AppState {
+                    in_game: Some(_),
+                    is_paused: false,
+                    ..
+                })
+            )
+        }
+
+        pub fn paused(state: &AppState) -> bool {
+            matches!(
+                state,
+                AppState {
+                    in_game: Some(_),
+                    is_paused: true,
+                    ..
+                }
+            )
+        }
     }
 
-    // Lastly, you can always implement your own State Matcher
+    // Or we can test a transition directly - taking in either state references or optional state references.
+    // The `main_state` is the primary one we care about - if used in the `entering` run condition or in the `to` portion of a transition
+    // run-condition, this will be the current state, while `secondary_state` will be the previous state.
+    // If we are using the `exiting` run condition or the `from` portion of a transition, `main_state` will be the `previous_state`
+    // while `secondary_state` will be the current one.
+    pub fn ui(main_state: &AppState, secondary_state: &AppState) -> bool {
+        if main_state.in_game.is_some() && !main_state.is_paused {
+            return secondary_state.in_game.is_none() || main_state.is_paused;
+        }
+        true
+    }
+
+    // You can also use closures, which means you can pass in stateful objects if needed!
+    pub fn in_game() -> impl Fn(&AppState) -> bool {
+        |s: &AppState| s.in_game.is_some()
+    }
+
+    // Lastly, here we're using generics to impact the function of our run condition.
     #[derive(Default)]
     pub struct Inverted;
     #[derive(Default)]
@@ -186,28 +204,16 @@ mod state {
         }
     }
 
-    // All state matchers have to be `Send + Sync + Sized + 'static`, so we need to ensure that on the type here
-    #[derive(Default)]
-    pub struct Movement<T: MovementType + Default + Send + Sync + 'static>(T);
-
-    // There are then 3 options for implementing the state matcher:
-    // - Implementing `SingleStateMatcher<S>` - which requires a function taking in a single state and returning a boolean. This will provide a default `match_state_transition` implementation.
-    // - Implementing `TransitionStateMatcher<S>` - which requires a function taking in two optional states (a main and a secondary), and
-    //   returning a `MatchesStateTransition` enum. This will provide a default `match_state` implementation.
-    // - Implementing `StateMatcher<S>` - this requires manual implementation of both `match_state` and `match_state_transition`.
-    // Here, we are using `SingleStateMatcher<S>`, since we don't need any specific, custom logic for `match_state_transition`.
-    impl<T: MovementType + Default + Send + Sync + 'static> SingleStateMatcher<AppState>
-        for Movement<T>
-    {
-        fn match_single_state(&self, state: &AppState) -> bool {
-            if state.is_paused {
-                return false;
-            }
-            let Some(movement) = &state.in_game else {
-                return false;
-            };
-            T::detect(*movement)
+    pub fn in_movement<T: MovementType + Default + Send + Sync + 'static>(
+        state: &AppState,
+    ) -> bool {
+        if state.is_paused {
+            return false;
         }
+        let Some(movement) = &state.in_game else {
+            return false;
+        };
+        T::detect(*movement)
     }
 }
 

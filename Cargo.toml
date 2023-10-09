@@ -1385,13 +1385,13 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "custom_state_matchers"
-path = "examples/ecs/custom_state_matchers.rs"
+name = "black_box_state"
+path = "examples/ecs/black_box_state.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.custom_state_matchers]
-name = "Custom State Matchers"
-description = "Building on top of the Struct State example to illustrate the use of custom `StateMatcher`s"
+[package.metadata.example.black_box_state]
+name = "Black Box State"
+description = "Building on top of the Struct State example to illustrate the creation of fully encapsulated states"
 category = "ECS (Entity Component System)"
 wasm = false
 
