@@ -1,3 +1,5 @@
+#![allow(private_bounds)]
+
 use super::{Condition, States};
 use crate::{change_detection::Res, system::IntoSystem};
 pub use bevy_ecs_macros::{entering, exiting, state_matches, transitioning};
@@ -56,13 +58,9 @@ mod sealed {
 
     pub struct IsFn<In: Marker, Out: Marker>(PhantomData<(In, Out)>);
     impl<In: Marker, Out: Marker> Marker for IsFn<In, Out> {}
-
-    pub trait StateMatcher<S: super::States, Marker> {}
 }
 /// Types that can match world-wide states.
-pub trait StateMatcher<S: States, Marker>:
-    Send + Sync + Sized + 'static + sealed::StateMatcher<S, Marker>
-{
+pub(crate) trait StateMatcher<S: States, Marker>: Send + Sync + Sized + 'static {
     /// Check whether to match with the current state
     fn match_state(&self, state: &S) -> bool;
 
@@ -75,7 +73,7 @@ pub trait StateMatcher<S: States, Marker>:
 }
 
 /// Define a state matcher using a single state conditional
-pub trait SingleStateMatcher<S: States, Marker: sealed::Marker>:
+pub(crate) trait SingleStateMatcher<S: States, Marker: sealed::Marker>:
     Send + Sync + Sized + 'static
 {
     /// Check whether to match with the current state
@@ -83,16 +81,11 @@ pub trait SingleStateMatcher<S: States, Marker: sealed::Marker>:
 }
 
 /// Define a state matcher with custom transition logic
-pub trait TransitionStateMatcher<S: States, Marker: sealed::Marker>:
+pub(crate) trait TransitionStateMatcher<S: States, Marker: sealed::Marker>:
     Send + Sync + Sized + 'static
 {
     /// Check whether to match a state transition
     fn match_transition(&self, main: Option<&S>, secondary: Option<&S>) -> MatchesStateTransition;
-}
-
-impl<S: States, M: sealed::Marker, Matcher: SingleStateMatcher<S, M>>
-    sealed::StateMatcher<S, sealed::IsSingleStateMatcher<M>> for Matcher
-{
 }
 
 impl<S: States, M: sealed::Marker, Matcher: SingleStateMatcher<S, M>>
@@ -118,11 +111,6 @@ impl<S: States, M: sealed::Marker, Matcher: SingleStateMatcher<S, M>>
             _ => MatchesStateTransition::NoMatch,
         }
     }
-}
-
-impl<S: States, M: sealed::Marker, Matcher: TransitionStateMatcher<S, M>>
-    sealed::StateMatcher<S, sealed::IsTransitionMatcher<M>> for Matcher
-{
 }
 
 impl<S: States, M: sealed::Marker, Matcher: TransitionStateMatcher<S, M>>
@@ -156,10 +144,6 @@ impl<S: States, F: 'static + Send + Sync + Fn(&S) -> bool>
 }
 
 impl<S: States, F: 'static + Send + Sync + Fn(Option<&S>) -> bool>
-    sealed::StateMatcher<S, sealed::IsFn<sealed::OptStateRef, sealed::BoolReturn>> for F
-{
-}
-impl<S: States, F: 'static + Send + Sync + Fn(Option<&S>) -> bool>
     StateMatcher<S, sealed::IsFn<sealed::OptStateRef, sealed::BoolReturn>> for F
 {
     fn match_state(&self, state: &S) -> bool {
@@ -183,13 +167,6 @@ impl<S: States, F: 'static + Send + Sync + Fn(Option<&S>) -> bool>
 }
 
 impl<S: States, F: 'static + Send + Sync + Fn(&S, &S) -> MatchesStateTransition>
-    sealed::StateMatcher<
-        S,
-        sealed::IsFn<(sealed::StateRef, sealed::StateRef), sealed::TransitionReturn>,
-    > for F
-{
-}
-impl<S: States, F: 'static + Send + Sync + Fn(&S, &S) -> MatchesStateTransition>
     StateMatcher<S, sealed::IsFn<(sealed::StateRef, sealed::StateRef), sealed::TransitionReturn>>
     for F
 {
@@ -212,13 +189,6 @@ impl<S: States, F: 'static + Send + Sync + Fn(&S, &S) -> MatchesStateTransition>
     }
 }
 
-impl<S: States, F: 'static + Send + Sync + Fn(&S, Option<&S>) -> MatchesStateTransition>
-    sealed::StateMatcher<
-        S,
-        sealed::IsFn<(sealed::StateRef, sealed::OptStateRef), sealed::TransitionReturn>,
-    > for F
-{
-}
 impl<S: States, F: 'static + Send + Sync + Fn(&S, Option<&S>) -> MatchesStateTransition>
     StateMatcher<S, sealed::IsFn<(sealed::StateRef, sealed::OptStateRef), sealed::TransitionReturn>>
     for F
@@ -252,11 +222,7 @@ impl<
         self(main, secondary)
     }
 }
-impl<S: States, F: 'static + Send + Sync + Fn(&S, &S) -> bool>
-    sealed::StateMatcher<S, sealed::IsFn<(sealed::StateRef, sealed::StateRef), sealed::BoolReturn>>
-    for F
-{
-}
+
 impl<S: States, F: 'static + Send + Sync + Fn(&S, &S) -> bool>
     StateMatcher<S, sealed::IsFn<(sealed::StateRef, sealed::StateRef), sealed::BoolReturn>> for F
 {
@@ -279,13 +245,6 @@ impl<S: States, F: 'static + Send + Sync + Fn(&S, &S) -> bool>
     }
 }
 
-impl<S: States, F: 'static + Send + Sync + Fn(&S, Option<&S>) -> bool>
-    sealed::StateMatcher<
-        S,
-        sealed::IsFn<(sealed::StateRef, sealed::OptStateRef), sealed::BoolReturn>,
-    > for F
-{
-}
 impl<S: States, F: 'static + Send + Sync + Fn(&S, Option<&S>) -> bool>
     StateMatcher<S, sealed::IsFn<(sealed::StateRef, sealed::OptStateRef), sealed::BoolReturn>>
     for F
@@ -312,13 +271,6 @@ impl<S: States, F: 'static + Send + Sync + Fn(&S, Option<&S>) -> bool>
     }
 }
 
-impl<S: States, F: 'static + Send + Sync + Fn(Option<&S>, Option<&S>) -> bool>
-    sealed::StateMatcher<
-        S,
-        sealed::IsFn<(sealed::OptStateRef, sealed::OptStateRef), sealed::BoolReturn>,
-    > for F
-{
-}
 impl<S: States, F: 'static + Send + Sync + Fn(Option<&S>, Option<&S>) -> bool>
     StateMatcher<S, sealed::IsFn<(sealed::OptStateRef, sealed::OptStateRef), sealed::BoolReturn>>
     for F
@@ -383,8 +335,6 @@ mod tests {
         world::World,
     };
 
-    use super::{sealed, SingleStateMatcher, TransitionStateMatcher};
-
     #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
     enum TestState {
         #[default]
@@ -404,90 +354,79 @@ mod tests {
         let a = TestState::A;
         assert!(!a.match_state(&TestState::B));
     }
-    struct OnlyC;
 
-    impl SingleStateMatcher<TestState, sealed::IsState> for OnlyC {
-        fn match_single_state(&self, state: &TestState) -> bool {
-            matches!(state, TestState::C(_))
-        }
+    fn only_c(state: &TestState) -> bool {
+        matches!(state, TestState::C(_))
     }
 
     #[test]
     fn a_single_state_matcher_matches_all_relevant_variants() {
-        assert!(OnlyC.match_state(&TestState::C(true)));
-        assert!(OnlyC.match_state(&TestState::C(false)));
-        assert!(!OnlyC.match_state(&TestState::A));
-        assert!(!OnlyC.match_state(&TestState::B));
+        assert!(only_c.match_state(&TestState::C(true)));
+        assert!(only_c.match_state(&TestState::C(false)));
+        assert!(!only_c.match_state(&TestState::A));
+        assert!(!only_c.match_state(&TestState::B));
     }
 
     #[test]
     fn a_single_state_matcher_matches_transitions_in_and_out_of_a_match_and_not_within_it() {
         assert_eq!(
-            OnlyC.match_state_transition(Some(&TestState::C(true)), Some(&TestState::A)),
+            only_c.match_state_transition(Some(&TestState::C(true)), Some(&TestState::A)),
             MatchesStateTransition::TransitionMatches
         );
         assert_eq!(
-            OnlyC.match_state_transition(Some(&TestState::C(false)), Some(&TestState::B)),
+            only_c.match_state_transition(Some(&TestState::C(false)), Some(&TestState::B)),
             MatchesStateTransition::TransitionMatches
         );
         assert_eq!(
-            OnlyC.match_state_transition(Some(&TestState::C(true)), Some(&TestState::C(false))),
+            only_c.match_state_transition(Some(&TestState::C(true)), Some(&TestState::C(false))),
             MatchesStateTransition::MainMatches
         );
         assert_eq!(
-            OnlyC.match_state_transition(Some(&TestState::A), Some(&TestState::C(false))),
+            only_c.match_state_transition(Some(&TestState::A), Some(&TestState::C(false))),
             MatchesStateTransition::NoMatch
         );
     }
 
-    struct AtoB;
-
-    impl TransitionStateMatcher<TestState, sealed::IsState> for AtoB {
-        fn match_transition(
-            &self,
-            main: Option<&TestState>,
-            secondary: Option<&TestState>,
-        ) -> MatchesStateTransition {
-            let Some(main) = main else {
-                return MatchesStateTransition::NoMatch;
-            };
-            if main == &TestState::A {
-                match secondary {
-                    Some(&TestState::B) => MatchesStateTransition::TransitionMatches,
-                    _ => MatchesStateTransition::MainMatches,
-                }
-            } else {
-                MatchesStateTransition::NoMatch
+    fn a_to_b(main: Option<&TestState>, secondary: Option<&TestState>) -> MatchesStateTransition {
+        let Some(main) = main else {
+            return MatchesStateTransition::NoMatch;
+        };
+        if main == &TestState::A {
+            match secondary {
+                Some(&TestState::B) => MatchesStateTransition::TransitionMatches,
+                _ => MatchesStateTransition::MainMatches,
             }
+        } else {
+            MatchesStateTransition::NoMatch
         }
     }
 
     #[test]
     fn a_transition_state_matcher_can_match_single_states() {
-        assert!(AtoB.match_state(&TestState::A));
-        assert!(!AtoB.match_state(&TestState::B));
+        assert!(a_to_b.match_state(&TestState::A));
+        assert!(!a_to_b.match_state(&TestState::B));
     }
 
     #[test]
     fn a_transition_state_matcher_can_match_state_transitions() {
         assert_eq!(
-            AtoB.match_state_transition(Some(&TestState::A), Some(&TestState::B)),
+            a_to_b.match_state_transition(Some(&TestState::A), Some(&TestState::B)),
             MatchesStateTransition::TransitionMatches
         );
         assert_eq!(
-            AtoB.match_state_transition(Some(&TestState::A), Some(&TestState::C(false))),
+            a_to_b.match_state_transition(Some(&TestState::A), Some(&TestState::C(false))),
             MatchesStateTransition::MainMatches
         );
         assert_eq!(
-            AtoB.match_state_transition(Some(&TestState::A), None),
+            a_to_b.match_state_transition(Some(&TestState::A), None),
             MatchesStateTransition::MainMatches
         );
         assert_eq!(
-            AtoB.match_state_transition(Some(&TestState::B), Some(&TestState::A)),
+            a_to_b.match_state_transition(Some(&TestState::B), Some(&TestState::A)),
             MatchesStateTransition::NoMatch
         );
         assert_eq!(
-            AtoB.match_state_transition(None, Some(&TestState::B)),
+            a_to_b.match_state_transition(None, Some(&TestState::B)),
             MatchesStateTransition::NoMatch
         );
     }
@@ -647,7 +586,7 @@ mod tests {
                 this_run: tick,
             },
         })));
-        let mut match_state_value = state_matches!(OnlyC);
+        let mut match_state_value = state_matches!(only_c);
         assert!(match_state_value(Some(Res {
             value: &state_c,
             ticks: Ticks {

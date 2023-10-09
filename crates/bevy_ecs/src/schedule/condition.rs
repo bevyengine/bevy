@@ -756,13 +756,8 @@ pub mod common_conditions {
     ///     Paused,
     /// }
     ///
-    /// #[derive(Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
-    /// struct Playing;
-    ///
-    /// impl SingleStateMatcher<GameState> for Playing {
-    ///     fn match_single_state(&self, state: &GameState) -> bool {
-    ///         *state == GameState::Playing
-    ///     }
+    /// fn playing(state: &GameState) -> bool {
+    ///     *state == GameState::Playing
     /// }
     ///
     /// world.init_resource::<State<GameState>>();
@@ -770,7 +765,7 @@ pub mod common_conditions {
     /// app.add_systems(
     ///     // `state_matches` will only return true if the
     ///     // given state matches the matcher
-    ///     play_system.run_if(state_matches(Playing)),
+    ///     play_system.run_if(state_matches(playing)),
     /// );
     ///
     /// fn play_system(mut counter: ResMut<Counter>) {
@@ -813,13 +808,8 @@ pub mod common_conditions {
     ///     Paused,
     /// }
     ///
-    /// #[derive(Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
-    /// struct Pause;
-    ///
-    /// impl SingleStateMatcher<GameState> for Pause {
-    ///     fn match_single_state(&self, state: &GameState) -> bool {
-    ///         *state == GameState::Paused
-    ///     }
+    /// fn paused(state: &GameState) -> bool {
+    ///     *state == GameState::Paused
     /// }
     ///
     /// world.init_resource::<State<GameState>>();
@@ -828,7 +818,7 @@ pub mod common_conditions {
     /// transition_schedule.add_systems(
     ///     // `state_matches` will only return true if the
     ///     // given state matches the matcher
-    ///     pause_system.run_if(entering(Pause)),
+    ///     pause_system.run_if(entering(paused)),
     /// );
     ///
     ///
@@ -875,13 +865,8 @@ pub mod common_conditions {
     ///     Paused,
     /// }
     ///
-    /// #[derive(Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
-    /// struct Pause;
-    ///
-    /// impl SingleStateMatcher<GameState> for Pause {
-    ///     fn match_single_state(&self, state: &GameState) -> bool {
-    ///         *state == GameState::Paused
-    ///     }
+    /// fn paused(state: &GameState) -> bool {
+    ///     *state == GameState::Paused
     /// }
     ///
     /// world.init_resource::<State<GameState>>();
@@ -890,7 +875,7 @@ pub mod common_conditions {
     /// transition_schedule.add_systems(
     ///     // `state_matches` will only return true if the
     ///     // given state matches the matcher
-    ///     pause_system.run_if(exiting(Pause)),
+    ///     pause_system.run_if(exiting(paused)),
     /// );
     ///
     ///

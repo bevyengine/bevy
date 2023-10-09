@@ -13,6 +13,8 @@ pub use bevy_ecs_macros::States;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
 
+use super::{MatchesStateTransition, StateMatcher};
+
 /// Types that can define world-wide states in a finite-state machine.
 ///
 /// The [`Default`] trait defines the starting state.
@@ -79,8 +81,21 @@ use bevy_reflect::std_traits::ReflectDefault;
 /// ```
 ///
 ///
+pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {
+    /// Checks if `self` matches the provided state matcher
+    fn matches<M>(&self, matcher: impl StateMatcher<Self, M>) -> bool {
+        matcher.match_state(self)
+    }
 
-pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {}
+    /// Checks if the transition between `main` and `secondary` matches the state matcher
+    fn matches_transition<M>(
+        matcher: impl StateMatcher<Self, M>,
+        main: Option<&Self>,
+        secondary: Option<&Self>,
+    ) -> MatchesStateTransition {
+        matcher.match_state_transition(main, secondary)
+    }
+}
 
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// enters this state.

@@ -447,7 +447,7 @@ pub fn state_matches_macro(match_result: MatchMacroResult) -> proc_macro::TokenS
                 };
                 #match_function
 
-                matcher.match_state(&state)
+                state.matches(matcher)
             })
         }
         _ => panic!("No State Type"),
@@ -501,10 +501,10 @@ fn generate_match_function(
         .map(|(every, matcher)| match matcher {
             MatchTypes::Expression(e) => {
                 if *every {
-                    quote!(if #e.match_state(main) { return #module_path::MatchesStateTransition::TransitionMatches; }
+                    quote!(if main.matches(#e) { return #module_path::MatchesStateTransition::TransitionMatches; }
                     )
                 } else {
-                    quote!(match #e.match_state_transition(Some(main), secondary) {
+                    quote!(match #state_type::matches_transition(#e,Some(main), secondary) {
                             #module_path::MatchesStateTransition::TransitionMatches => { return #module_path::MatchesStateTransition::TransitionMatches; },
                             #module_path::MatchesStateTransition::MainMatches => { return #module_path::MatchesStateTransition::MainMatches; },
                             _ => {}
@@ -546,7 +546,7 @@ fn generate_match_function(
                     quote!({
                             let matches = #tokens;
 
-                            if matches.match_state(main) { return #module_path::MatchesStateTransition::TransitionMatches; }
+                            if main.matches(matches) { return #module_path::MatchesStateTransition::TransitionMatches; }
                         }
                     )
                 } else {
@@ -554,7 +554,7 @@ fn generate_match_function(
                             let matches = #tokens;
 
 
-                            match matches.match_state_transition(Some(main), secondary) {
+                            match #state_type::matches_transition(matches, Some(main), secondary) {
                                 #module_path::MatchesStateTransition::TransitionMatches => { return #module_path::MatchesStateTransition::TransitionMatches; },
                                 #module_path::MatchesStateTransition::MainMatches => { return #module_path::MatchesStateTransition::MainMatches; },
                                 _ => {}

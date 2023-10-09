@@ -47,8 +47,7 @@ pub mod prelude {
             apply_deferred, apply_state_transition, common_conditions::*, entering, exiting,
             state_matches, transitioning, Condition, Entering, Exiting, IntoSystemConfigs,
             IntoSystemSet, IntoSystemSetConfigs, NextState, OnEnter, OnExit, OnTransition,
-            Schedule, Schedules, SingleStateMatcher, State, StateMatcher, States, SystemSet,
-            TransitionStateMatcher, Transitioning,
+            Schedule, Schedules, State, States, SystemSet, Transitioning,
         },
         system::{
             Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
