@@ -200,12 +200,12 @@ fn setup(
 fn setup_scene_once_loaded(
     animations: Res<Animations>,
     foxes: Res<Foxes>,
-    mut player: Query<&mut AnimationPlayer>,
+    mut player: Query<(Entity, &mut AnimationPlayer)>,
     mut done: Local<bool>,
 ) {
     if !*done && player.iter().len() == foxes.count {
-        for mut player in &mut player {
-            player.play(animations.0[0].clone_weak()).repeat();
+        for (entity, mut player) in &mut player {
+            player.play(animations.0[0].clone_weak()).repeat().seek_to(entity.index() as f32 / 10.0);
         }
         *done = true;
     }
