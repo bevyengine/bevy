@@ -441,6 +441,15 @@ pub unsafe trait WorldQuery {
         access: &mut Access<ArchetypeComponentId>,
     );
 
+    /// Adds component access for when [`WorldQuery`] is not an exact match.
+    /// i.e. Option<&T> where the matched archetypes don't necessarily contain
+    /// the data the WorldQuery takes access to in [`update_component_access`]
+    fn optional_access(
+        state: &Self::State,
+        access: &mut Access<ComponentId>,
+        parent_is_optional: bool,
+    );
+
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
     fn init_state(world: &mut World) -> Self::State;
 
@@ -520,6 +529,13 @@ unsafe impl WorldQuery for Entity {
         _state: &Self::State,
         _archetype: &Archetype,
         _access: &mut Access<ArchetypeComponentId>,
+    ) {
+    }
+
+    fn optional_access(
+        _state: &Self::State,
+        _access: &mut Access<ComponentId>,
+        _parent_is_optional: bool,
     ) {
     }
 
@@ -609,6 +625,16 @@ unsafe impl WorldQuery for EntityRef<'_> {
         }
     }
 
+    fn optional_access(
+        _state: &Self::State,
+        access: &mut Access<ComponentId>,
+        parent_is_optional: bool,
+    ) {
+        if parent_is_optional {
+            access.read_all()
+        }
+    }
+
     fn init_state(_world: &mut World) {}
 
     fn new_state(_components: &Components) -> Option<()> {
@@ -692,6 +718,16 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     ) {
         for component_id in archetype.components() {
             access.add_write(archetype.get_archetype_component_id(component_id).unwrap());
+        }
+    }
+
+    fn optional_access(
+        _state: &Self::State,
+        access: &mut Access<ComponentId>,
+        parent_is_optional: bool,
+    ) {
+        if parent_is_optional {
+            access.write_all();
         }
     }
 
@@ -836,6 +872,16 @@ unsafe impl<T: Component> WorldQuery for &T {
     ) {
         if let Some(archetype_component_id) = archetype.get_archetype_component_id(component_id) {
             access.add_read(archetype_component_id);
+        }
+    }
+
+    fn optional_access(
+        &component_id: &ComponentId,
+        access: &mut Access<ComponentId>,
+        parent_is_optional: bool,
+    ) {
+        if parent_is_optional {
+            access.add_read(component_id);
         }
     }
 
@@ -1006,6 +1052,16 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         }
     }
 
+    fn optional_access(
+        &component_id: &ComponentId,
+        access: &mut Access<ComponentId>,
+        parent_is_optional: bool,
+    ) {
+        if parent_is_optional {
+            access.add_read(component_id);
+        }
+    }
+
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
     }
@@ -1173,6 +1229,16 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         }
     }
 
+    fn optional_access(
+        &component_id: &ComponentId,
+        access: &mut Access<ComponentId>,
+        parent_is_optional: bool,
+    ) {
+        if parent_is_optional {
+            access.add_write(component_id);
+        }
+    }
+
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
     }
@@ -1289,6 +1355,14 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         if T::matches_component_set(state, &|id| archetype.contains(id)) {
             T::update_archetype_component_access(state, archetype, access);
         }
+    }
+
+    fn optional_access(
+        state: &T::State,
+        access: &mut Access<ComponentId>,
+        _parent_is_optional: bool,
+    ) {
+        T::optional_access(state, access, true);
     }
 
     fn init_state(world: &mut World) -> T::State {
@@ -1432,6 +1506,13 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     ) {
     }
 
+    fn optional_access(
+        _state: &Self::State,
+        _access: &mut Access<ComponentId>,
+        _parent_is_optional: bool,
+    ) {
+    }
+
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
     }
@@ -1531,6 +1612,11 @@ macro_rules! impl_tuple_fetch {
             fn update_archetype_component_access(state: &Self::State, _archetype: &Archetype, _access: &mut Access<ArchetypeComponentId>) {
                 let ($($name,)*) = state;
                 $($name::update_archetype_component_access($name, _archetype, _access);)*
+            }
+
+            fn optional_access(state: &Self::State, _access: &mut Access<ComponentId>, _parent_is_optional: bool) {
+                let ($($name,)*) = state;
+                $($name::optional_access($name, _access, _parent_is_optional);)*
             }
 
 
@@ -1663,6 +1749,11 @@ macro_rules! impl_anytuple_fetch {
                 )*
             }
 
+            fn optional_access(state: &Self::State, _access: &mut Access<ComponentId>, _parent_is_optional: bool) {
+                let ($($name,)*) = state;
+                $($name::optional_access($name, _access, true);)*
+            }
+
             fn init_state(_world: &mut World) -> Self::State {
                 ($($name::init_state(_world),)*)
             }
@@ -1743,6 +1834,13 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
     ) {
     }
 
+    fn optional_access(
+        _state: &Self::State,
+        _access: &mut Access<ComponentId>,
+        _parent_is_optional: bool,
+    ) {
+    }
+
     fn init_state(world: &mut World) -> Self::State {
         Q::init_state(world)
     }
@@ -1811,6 +1909,13 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
         _state: &Self::State,
         _archetype: &Archetype,
         _access: &mut Access<ArchetypeComponentId>,
+    ) {
+    }
+
+    fn optional_access(
+        _state: &Self::State,
+        _access: &mut Access<ComponentId>,
+        _parent_is_optional: bool,
     ) {
     }
 

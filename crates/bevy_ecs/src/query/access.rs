@@ -269,6 +269,11 @@ impl<T: SparseSetIndex> Access<T> {
     pub fn writes(&self) -> impl Iterator<Item = T> + '_ {
         self.writes.ones().map(T::get_sparse_set_index)
     }
+
+    /// 
+    pub fn difference_is_empty(&self, other: &Access<T>) -> bool {
+        self.reads_and_writes.difference(&other.reads_and_writes).count() == 0
+    }
 }
 
 /// An [`Access`] that has been filtered to include and exclude certain combinations of elements.
@@ -400,7 +405,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         })
     }
 
-    ///  access is compatible with other access. This does not take into account the filtered access.
+    /// `other` contains all the same access as `self`.  This does not take into account the filtered access.
     pub fn is_subset(&self, other: &FilteredAccess<T>) -> bool {
         self.access.is_subset(&other.access)
     }

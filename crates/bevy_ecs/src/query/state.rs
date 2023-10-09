@@ -152,13 +152,6 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         if !Q::IS_ARCHETYPAL || !F::IS_ARCHETYPAL || !NewQ::IS_ARCHETYPAL {
             panic!("`restrict_fetch` is not allowed with queries that use `Changed` or `Added`");
         }
-        // TODO: Figure out how to relax this restriction. This is overly restrictive as Option<&T> -> Option<&T> should be allowed. 
-        // However the information needed to understand that is not available in this step. i.e. We try to fetch data that an archetype doesn't have.
-        // It is available during fetch, but that would introduce branching in release builds. 
-        // This is undesirable as fetching is in the hot path for query iteration.
-        if !Q::IS_EXACT {
-            panic!("`restrict_fetch` from types that return archetypes that do not include the underlying data type like `Option<&T>` are not allowed.")
-        }
         let fetch_state = NewQ::new_state(components).expect(
             "Could not create fetch_state. This should not be reachable as the components should have been \
             initialized when creating the original QueryState.",
@@ -175,6 +168,15 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
 
         let mut filter_component_access = FilteredAccess::default();
         <()>::update_component_access(&filter_state, &mut filter_component_access);
+
+        // check that the transmute doesn't go from a 
+        let mut original_optional_access = Access::default();
+        Q::optional_access(&self.fetch_state, &mut original_optional_access, false);
+        let mut new_optional_access = Access::default();
+        NewQ::optional_access(&fetch_state, &mut new_optional_access, false);
+        if new_optional_access.difference_is_empty(&original_optional_access) {
+            panic!("`tranmute` does not allow going from a broader query to a more narrow one. i.e. from Option<&T> -> &T");
+        }
 
         // Merge the temporary filter access with the main access. This ensures that filter access is
         // properly considered in a global "cross-query" context (both within systems and across systems).

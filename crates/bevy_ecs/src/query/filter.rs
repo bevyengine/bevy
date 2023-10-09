@@ -103,6 +103,13 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     ) {
     }
 
+    fn optional_access(
+        _state: &Self::State,
+        _access: &mut Access<ComponentId>,
+        _parent_is_optional: bool,
+    ) {
+    }
+
     fn init_state(world: &mut World) -> ComponentId {
         world.init_component::<T>()
     }
@@ -207,6 +214,14 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
         _state: &ComponentId,
         _archetype: &Archetype,
         _access: &mut Access<ArchetypeComponentId>,
+    ) {
+    }
+
+    #[inline]
+    fn optional_access(
+        _state: &Self::State,
+        _access: &mut Access<ComponentId>,
+        _parent_is_optional: bool,
     ) {
     }
 
@@ -380,6 +395,11 @@ macro_rules! impl_query_filter_tuple {
                 $($filter::update_archetype_component_access($filter, archetype, access);)*
             }
 
+            fn optional_access(state: &Self::State, access: &mut Access<ComponentId>, parent_is_optional: bool) {
+                let ($($filter,)*) = state;
+                $($filter::optional_access($filter, access, true);)*
+            }
+
             fn init_state(world: &mut World) -> Self::State {
                 ($($filter::init_state(world),)*)
             }
@@ -546,6 +566,16 @@ macro_rules! impl_tick_filter {
             ) {
                 if let Some(archetype_component_id) = archetype.get_archetype_component_id(id) {
                     access.add_read(archetype_component_id);
+                }
+            }
+
+            fn optional_access(
+                &id: &ComponentId,
+                access: &mut Access<ComponentId>,
+                parent_is_optional: bool,
+            ) {
+                if parent_is_optional {
+                    access.add_read(id);
                 }
             }
 
