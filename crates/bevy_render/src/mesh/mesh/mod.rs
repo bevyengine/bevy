@@ -553,7 +553,6 @@ impl Mesh {
     /// (Alternatively, you can use [`Mesh::generate_tangents`] to mutate an existing mesh in-place)
     ///
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
-    #[must_use]
     pub fn with_generated_tangents(mut self) -> Result<Mesh, GenerateTangentsError> {
         self.generate_tangents()?;
         Ok(self)
