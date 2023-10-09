@@ -360,6 +360,10 @@ pub unsafe trait WorldQuery {
     /// many elements are being iterated (such as `Iterator::collect()`).
     const IS_ARCHETYPAL: bool;
 
+    /// Returns true if (and only if) every archetype returned has data for the underlying types.
+    /// i.e. [`Self::State`] = Option<&T> would return false, but &T would return true.
+    const IS_EXACT: bool;
+
     /// Adjusts internal state to account for the next [`Archetype`]. This will always be called on
     /// archetypes that match this [`WorldQuery`].
     ///
@@ -478,6 +482,8 @@ unsafe impl WorldQuery for Entity {
 
     const IS_ARCHETYPAL: bool = true;
 
+    const IS_EXACT: bool = true;
+
     unsafe fn init_fetch<'w>(
         _world: UnsafeWorldCell<'w>,
         _state: &Self::State,
@@ -548,6 +554,8 @@ unsafe impl WorldQuery for EntityRef<'_> {
     const IS_DENSE: bool = true;
 
     const IS_ARCHETYPAL: bool = true;
+
+    const IS_EXACT: bool = true;
 
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
@@ -632,6 +640,8 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     const IS_DENSE: bool = true;
 
     const IS_ARCHETYPAL: bool = true;
+
+    const IS_EXACT: bool = true;
 
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
@@ -733,6 +743,8 @@ unsafe impl<T: Component> WorldQuery for &T {
     };
 
     const IS_ARCHETYPAL: bool = true;
+
+    const IS_EXACT: bool = true;
 
     #[inline]
     unsafe fn init_fetch<'w>(
@@ -887,6 +899,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     };
 
     const IS_ARCHETYPAL: bool = true;
+
+    const IS_EXACT: bool = true;
 
     #[inline]
     unsafe fn init_fetch<'w>(
@@ -1053,6 +1067,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 
     const IS_ARCHETYPAL: bool = true;
 
+    const IS_EXACT: bool = true;
+
     #[inline]
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
@@ -1202,6 +1218,8 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     const IS_DENSE: bool = T::IS_DENSE;
 
     const IS_ARCHETYPAL: bool = T::IS_ARCHETYPAL;
+
+    const IS_EXACT: bool = false;
 
     #[inline]
     unsafe fn init_fetch<'w>(
@@ -1367,6 +1385,8 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
 
     const IS_ARCHETYPAL: bool = true;
 
+    const IS_EXACT: bool = false;
+
     #[inline]
     unsafe fn init_fetch<'w>(
         _world: UnsafeWorldCell<'w>,
@@ -1460,6 +1480,8 @@ macro_rules! impl_tuple_fetch {
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
+
+            const IS_EXACT: bool = true $(&& $name::IS_EXACT)*;
 
             #[inline]
             unsafe fn set_archetype<'w>(
@@ -1567,6 +1589,8 @@ macro_rules! impl_anytuple_fetch {
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
+
+            const IS_EXACT: bool = false;
 
             #[inline]
             unsafe fn set_archetype<'w>(
@@ -1679,6 +1703,8 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
 
     const IS_ARCHETYPAL: bool = true;
 
+    const IS_EXACT: bool = Q::IS_EXACT;
+
     #[inline(always)]
     unsafe fn init_fetch(
         _world: UnsafeWorldCell,
@@ -1758,6 +1784,8 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     const IS_DENSE: bool = true;
     // `PhantomData` matches every entity in each archetype.
     const IS_ARCHETYPAL: bool = true;
+    // `PhantomData` does not access any data, so it is exact.
+    const IS_EXACT: bool = true;
 
     unsafe fn set_archetype<'w>(
         _fetch: &mut Self::Fetch<'w>,

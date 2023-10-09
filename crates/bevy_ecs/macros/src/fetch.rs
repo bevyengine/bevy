@@ -288,6 +288,8 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                 const IS_DENSE: bool = true #(&& <#field_types>::IS_DENSE)*;
 
                 const IS_ARCHETYPAL: bool = true #(&& <#field_types>::IS_ARCHETYPAL)*;
+                
+                const IS_EXACT: bool = true #(&& <#field_types>::IS_EXACT)*;
 
                 /// SAFETY: we call `set_archetype` for each member that implements `Fetch`
                 #[inline]

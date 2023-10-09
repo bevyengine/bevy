@@ -68,6 +68,8 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 
     const IS_ARCHETYPAL: bool = true;
 
+    const IS_EXACT: bool = false;
+
     #[inline]
     unsafe fn set_table(_fetch: &mut (), _state: &ComponentId, _table: &Table) {}
 
@@ -172,6 +174,8 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     };
 
     const IS_ARCHETYPAL: bool = true;
+
+    const IS_EXACT: bool = false;
 
     #[inline]
     unsafe fn set_table(_fetch: &mut (), _state: &Self::State, _table: &Table) {}
@@ -291,6 +295,8 @@ macro_rules! impl_query_filter_tuple {
             const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
 
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
+
+            const IS_EXACT: bool = false;
 
             #[inline]
             unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
@@ -457,6 +463,8 @@ macro_rules! impl_tick_filter {
             };
 
             const IS_ARCHETYPAL:  bool = false;
+
+            const IS_EXACT: bool = true;
 
             #[inline]
             unsafe fn set_table<'w>(

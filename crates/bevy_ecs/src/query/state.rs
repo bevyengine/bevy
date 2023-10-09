@@ -150,7 +150,14 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         components: &Components,
     ) -> QueryState<NewQ, ()> {
         if !Q::IS_ARCHETYPAL || !F::IS_ARCHETYPAL || !NewQ::IS_ARCHETYPAL {
-            panic!("`restrict_fetch` is not allow with queries that use `Changed` or `Added`");
+            panic!("`restrict_fetch` is not allowed with queries that use `Changed` or `Added`");
+        }
+        // TODO: Figure out how to relax this restriction. This is overly restrictive as Option<&T> -> Option<&T> should be allowed. 
+        // However the information needed to understand that is not available in this step. i.e. We try to fetch data that an archetype doesn't have.
+        // It is available during fetch, but that would introduce branching in release builds. 
+        // This is undesirable as fetching is in the hot path for query iteration.
+        if !Q::IS_EXACT {
+            panic!("`restrict_fetch` from types that return archetypes that do not include the underlying data type like `Option<&T>` are not allowed.")
         }
         let fetch_state = NewQ::new_state(components).expect(
             "Could not create fetch_state. This should not be reachable as the components should have been \
@@ -1600,7 +1607,7 @@ mod tests {
         struct B;
 
         #[derive(Component)]
-        struct C;
+        struct C(pub usize);
 
         #[test]
         fn can_restrict() {
@@ -1619,7 +1626,7 @@ mod tests {
         fn cannot_get_unmatched_data() {
             let mut world = World::new();
             world.spawn((A(22), B));
-            world.spawn((A(23), B, C));
+            world.spawn((A(23), B, C(5)));
 
             let query_state = world.query_filtered::<(&A, &B), Without<C>>();
             let mut new_query_state = query_state.restrict_fetch::<&A>(world.components());
@@ -1630,7 +1637,7 @@ mod tests {
         }
 
         #[test]
-        #[should_panic]
+        #[should_panic(expected = "access is not compatible with new query type")]
         fn not_included_components_not_allowed() {
             let mut world = World::new();
             world.init_component::<A>();
@@ -1642,7 +1649,7 @@ mod tests {
         }
 
         #[test]
-        #[should_panic]
+        #[should_panic(expected = "`restrict_fetch` is not allowed with queries that use `Changed` or `Added`")]
         fn non_archtypal_not_allowed() {
             let mut world = World::new();
             world.spawn(A(22));
@@ -1652,13 +1659,25 @@ mod tests {
         }
 
         #[test]
-        #[should_panic]
+        #[should_panic(expected = "access is not compatible with new query type")]
         fn immut_to_mut_not_allowed() {
             let mut world = World::new();
             world.spawn(A(22));
 
             let query_state = world.query::<&A>();
             let mut _new_query_state = query_state.restrict_fetch::<&mut A>(world.components());
+        }
+
+        #[test]
+        #[should_panic(expected = "`restrict_fetch` from types that return archetypes")]
+        fn option_to_immut_not_allowed() {
+            let mut world = World::new();
+            world.spawn(C(22));
+
+            let query_state = world.query::<Option<&A>>();
+            let mut new_query_state = query_state.restrict_fetch::<&A>(world.components());
+            let x = new_query_state.single(&world);
+            assert_eq!(x.0, 1234);
         }
     }
 }
