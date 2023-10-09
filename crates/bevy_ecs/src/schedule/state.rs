@@ -210,7 +210,14 @@ pub enum NextState<S: States> {
     /// Change the state to a specific, pre-determined value
     Value(S),
     /// Change the state to a value determined by the given closure
-    Setter(Box<dyn Fn(S) -> S + Sync + Send>),
+    Setter(
+        #[cfg_attr(feature = "bevy_reflect", reflect(ignore, default = "default_setter"))]
+        Box<dyn Fn(S) -> S + Sync + Send>,
+    ),
+}
+
+fn default_setter<S: States>() -> Box<dyn Fn(S) -> S + Sync + Send> {
+    Box::new(|state: S| state)
 }
 
 impl<S: States> Debug for NextState<S> {
