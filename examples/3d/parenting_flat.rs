@@ -35,7 +35,7 @@ fn setup(
     });
 
     // parent cube
-    commands
+    let parent = commands
         .spawn((
             PbrBundle {
                 mesh: cube_handle.clone(),
@@ -45,14 +45,17 @@ fn setup(
             },
             Rotator,
         ))
-        .with_children(|parent| {
-            parent.spawn(PbrBundle {
-                mesh: cube_handle,
-                material: cube_material_handle,
-                transform: Transform::from_xyz(0.0, 0.0, 3.0),
-                ..default()
-            });
-        });
+        .id();
+
+    // child cube
+    let child = commands
+        .spawn(PbrBundle {
+            mesh: cube_handle,
+            material: cube_material_handle,
+            transform: Transform::from_xyz(0.0, 0.0, 3.0),
+            ..default()
+        })
+        .id();
 
     // light
     commands.spawn(PointLightBundle {
@@ -65,4 +68,7 @@ fn setup(
         transform: Transform::from_xyz(5.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
+
+    // setup parent-child relationship
+    commands.entity(parent).add_child(child);
 }
