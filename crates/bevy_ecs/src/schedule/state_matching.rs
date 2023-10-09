@@ -30,6 +30,10 @@ impl From<bool> for MatchesStateTransition {
 pub(crate) mod sealed {
     use std::marker::PhantomData;
 
+    use crate::schedule::States;
+
+    use super::MatchesStateTransition;
+
     pub trait Marker {}
 
     pub struct IsSingleStateMatcher<M>(PhantomData<M>);
@@ -58,21 +62,21 @@ pub(crate) mod sealed {
 
     pub struct IsFn<In: Marker, Out: Marker>(PhantomData<(In, Out)>);
     impl<In: Marker, Out: Marker> Marker for IsFn<In, Out> {}
-}
-/// Types that can match world-wide states.
-pub(crate) trait InternalStateMatcher<S: States, Marker>:
-    Send + Sync + Sized + 'static
-{
-    /// Check whether to match with the current state
-    fn match_state(&self, state: &S) -> bool;
 
-    /// Check whether to match a state transition
-    fn match_state_transition(
-        &self,
-        main: Option<&S>,
-        secondary: Option<&S>,
-    ) -> MatchesStateTransition;
+    pub trait InternalStateMatcher<S: States, Marker>: Send + Sync + Sized + 'static {
+        /// Check whether to match with the current state
+        fn match_state(&self, state: &S) -> bool;
+
+        /// Check whether to match a state transition
+        fn match_state_transition(
+            &self,
+            main: Option<&S>,
+            secondary: Option<&S>,
+        ) -> MatchesStateTransition;
+    }
 }
+
+use sealed::InternalStateMatcher;
 
 /// A trait for matching `S: States` or transitions between two `S: States`.
 ///
@@ -359,9 +363,11 @@ mod tests {
     use crate::system::{IntoSystem, System};
     use crate::{
         change_detection::Res,
-        schedule::{InternalStateMatcher, MatchesStateTransition, State, States},
+        schedule::{MatchesStateTransition, State, States},
         world::World,
     };
+
+    use super::sealed::InternalStateMatcher;
 
     #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
     enum TestState {
