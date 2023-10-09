@@ -4,16 +4,29 @@
 
 #ifdef SKINNED
 
-@group(1) @binding(1) var<uniform> joint_matrices: SkinnedMesh;
+#ifdef MESH_BINDGROUP_1
+    @group(1) @binding(1) var<storage> joint_matrices: SkinnedMesh;
+#else
+    @group(2) @binding(1) var<storage> joint_matrices: SkinnedMesh;
+#endif
+
 
 fn skin_model(
+    skin_index: u32,
     indexes: vec4<u32>,
     weights: vec4<f32>,
 ) -> mat4x4<f32> {
+#ifdef SKINNED_MESH_STORAGE_BUFFER
+    return weights.x * joint_matrices.data[skin_index + indexes.x]
+        + weights.y * joint_matrices.data[skin_index + indexes.y]
+        + weights.z * joint_matrices.data[skin_index + indexes.z]
+        + weights.w * joint_matrices.data[skin_index + indexes.w];
+#else
     return weights.x * joint_matrices.data[indexes.x]
         + weights.y * joint_matrices.data[indexes.y]
         + weights.z * joint_matrices.data[indexes.z]
         + weights.w * joint_matrices.data[indexes.w];
+#endif
 }
 
 fn inverse_transpose_3x3m(in: mat3x3<f32>) -> mat3x3<f32> {

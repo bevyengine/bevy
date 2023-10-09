@@ -15,7 +15,7 @@ pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
 /// Individual layout entries.
 mod layout_entry {
-    use super::{JOINT_BUFFER_SIZE, MORPH_BUFFER_SIZE};
+    use super::{JOINT_BUFFER_SIZE, JOINT_SIZE, MORPH_BUFFER_SIZE};
     use crate::MeshUniform;
     use bevy_render::{
         render_resource::{
@@ -30,8 +30,14 @@ mod layout_entry {
         GpuArrayBuffer::<MeshUniform>::binding_layout(render_device)
             .visibility(ShaderStages::VERTEX_FRAGMENT)
     }
-    pub(super) fn skinning() -> BindGroupLayoutEntryBuilder {
-        uniform_buffer_sized(true, BufferSize::new(JOINT_BUFFER_SIZE as u64))
+    pub(super) fn skinning(render_device: &RenderDevice) -> BindGroupLayoutEntryBuilder {
+        let is_storage = render_device.limits().max_storage_buffers_per_shader_stage > 0;
+        let min_binding_size = if is_storage {
+            JOINT_SIZE
+        } else {
+            JOINT_BUFFER_SIZE
+        };
+        uniform_buffer_sized(!is_storage, BufferSize::new(min_binding_size as u64))
     }
     pub(super) fn weights() -> BindGroupLayoutEntryBuilder {
         uniform_buffer_sized(true, BufferSize::new(MORPH_BUFFER_SIZE as u64))
@@ -51,8 +57,12 @@ mod layout_entry {
 /// for bind groups.
 mod entry {
     use super::{JOINT_BUFFER_SIZE, MORPH_BUFFER_SIZE};
-    use bevy_render::render_resource::{
-        BindGroupEntry, BindingResource, Buffer, BufferBinding, BufferSize, Sampler, TextureView,
+    use bevy_render::{
+        render_resource::{
+            BindGroupEntry, BindingResource, Buffer, BufferBinding, BufferSize, Sampler,
+            TextureView,
+        },
+        renderer::RenderDevice,
     };
 
     fn entry(binding: u32, size: u64, buffer: &Buffer) -> BindGroupEntry {
@@ -68,8 +78,19 @@ mod entry {
     pub(super) fn model(binding: u32, resource: BindingResource) -> BindGroupEntry {
         BindGroupEntry { binding, resource }
     }
-    pub(super) fn skinning(binding: u32, buffer: &Buffer) -> BindGroupEntry {
-        entry(binding, JOINT_BUFFER_SIZE as u64, buffer)
+    pub(super) fn skinning<'b>(
+        render_device: &RenderDevice,
+        binding: u32,
+        buffer: &'b Buffer,
+    ) -> BindGroupEntry<'b> {
+        if render_device.limits().max_storage_buffers_per_shader_stage > 0 {
+            BindGroupEntry {
+                binding,
+                resource: buffer.as_entire_binding(),
+            }
+        } else {
+            entry(binding, JOINT_BUFFER_SIZE as u64, buffer)
+        }
     }
     pub(super) fn weights(binding: u32, buffer: &Buffer) -> BindGroupEntry {
         entry(binding, MORPH_BUFFER_SIZE as u64, buffer)
@@ -150,7 +171,7 @@ impl MeshLayouts {
                 ShaderStages::VERTEX,
                 (
                     (0, layout_entry::model(render_device)),
-                    (1, layout_entry::skinning()),
+                    (1, layout_entry::skinning(render_device)),
                 ),
             ),
         )
@@ -175,7 +196,7 @@ impl MeshLayouts {
                 ShaderStages::VERTEX,
                 (
                     (0, layout_entry::model(render_device)),
-                    (1, layout_entry::skinning()),
+                    (1, layout_entry::skinning(render_device)),
                     (2, layout_entry::weights()),
                     (3, layout_entry::targets()),
                 ),
@@ -230,7 +251,10 @@ impl MeshLayouts {
         render_device.create_bind_group(
             "skinned_mesh_bind_group",
             &self.skinned,
-            &[entry::model(0, model.clone()), entry::skinning(1, skin)],
+            &[
+                entry::model(0, model.clone()),
+                entry::skinning(render_device, 1, skin),
+            ],
         )
     }
     pub fn morphed(
@@ -263,7 +287,7 @@ impl MeshLayouts {
             &self.morphed_skinned,
             &[
                 entry::model(0, model.clone()),
-                entry::skinning(1, skin),
+                entry::skinning(render_device, 1, skin),
                 entry::weights(2, weights),
                 entry::targets(3, targets),
             ],

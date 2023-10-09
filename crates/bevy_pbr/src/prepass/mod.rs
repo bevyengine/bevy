@@ -224,6 +224,7 @@ pub struct PrepassPipeline<M: Material> {
     pub deferred_material_vertex_shader: Option<Handle<Shader>>,
     pub deferred_material_fragment_shader: Option<Handle<Shader>>,
     pub material_pipeline: MaterialPipeline<M>,
+    pub skinned_mesh_storage_buffer: bool,
     _marker: PhantomData<M>,
 }
 
@@ -288,6 +289,10 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
             },
             material_layout: M::bind_group_layout(render_device),
             material_pipeline: world.resource::<MaterialPipeline<M>>().clone(),
+            skinned_mesh_storage_buffer: render_device
+                .limits()
+                .max_storage_buffers_per_shader_stage
+                > 0,
             _marker: PhantomData,
         }
     }
@@ -427,6 +432,7 @@ where
             &key.mesh_key,
             &mut shader_defs,
             &mut vertex_attributes,
+            self.skinned_mesh_storage_buffer,
         );
         bind_group_layouts.insert(1, bind_group);
 

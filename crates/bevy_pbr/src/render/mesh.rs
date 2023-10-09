@@ -112,7 +112,6 @@ impl Plugin for MeshRenderPlugin {
             render_app
                 .init_resource::<RenderMeshInstances>()
                 .init_resource::<MeshBindGroups>()
-                .init_resource::<SkinUniform>()
                 .init_resource::<SkinIndices>()
                 .init_resource::<MorphUniform>()
                 .init_resource::<MorphIndices>()
@@ -149,19 +148,21 @@ impl Plugin for MeshRenderPlugin {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            if let Some(per_object_buffer_batch_size) = GpuArrayBuffer::<MeshUniform>::batch_size(
-                render_app.world.resource::<RenderDevice>(),
-            ) {
+            let render_device = render_app.world.resource::<RenderDevice>();
+            if let Some(per_object_buffer_batch_size) =
+                GpuArrayBuffer::<MeshUniform>::batch_size(render_device)
+            {
                 mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
                     "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
                     per_object_buffer_batch_size,
                 ));
             }
 
+            let mesh_uniform_buffer = GpuArrayBuffer::<MeshUniform>::new(render_device);
+            let skin_uniform_buffer = SkinUniform::new(render_device);
             render_app
-                .insert_resource(GpuArrayBuffer::<MeshUniform>::new(
-                    render_app.world.resource::<RenderDevice>(),
-                ))
+                .insert_resource(mesh_uniform_buffer)
+                .insert_resource(skin_uniform_buffer)
                 .init_resource::<MeshPipeline>();
         }
 
@@ -206,10 +207,15 @@ pub struct MeshUniform {
     //
     // (MSB: most significant bit; LSB: least significant bit.)
     pub lightmap_uv_rect: UVec2,
+    pub skin_index: u32,
 }
 
 impl MeshUniform {
-    pub fn new(mesh_transforms: &MeshTransforms, maybe_lightmap_uv_rect: Option<Rect>) -> Self {
+    pub fn new(
+        mesh_transforms: &MeshTransforms,
+        maybe_lightmap_uv_rect: Option<Rect>,
+        skin_index: u32,
+    ) -> Self {
         let (inverse_transpose_model_a, inverse_transpose_model_b) =
             mesh_transforms.transform.inverse_transpose_3x3();
         Self {
@@ -219,6 +225,7 @@ impl MeshUniform {
             inverse_transpose_model_a,
             inverse_transpose_model_b,
             flags: mesh_transforms.flags,
+            skin_index,
         }
     }
 }
@@ -344,6 +351,7 @@ pub struct MeshPipeline {
     /// ##endif // PER_OBJECT_BUFFER_BATCH_SIZE
     /// ```
     pub per_object_buffer_batch_size: Option<u32>,
+    pub skinned_mesh_storage_buffer: bool,
 
     /// Whether binding arrays (a.k.a. bindless textures) are usable on the
     /// current render device.
@@ -406,6 +414,10 @@ impl FromWorld for MeshPipeline {
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
+            skinned_mesh_storage_buffer: render_device
+                .limits()
+                .max_storage_buffers_per_shader_stage
+                > 0,
             binding_arrays_are_usable: binding_arrays_are_usable(&render_device),
         }
     }
@@ -443,7 +455,12 @@ impl MeshPipeline {
 }
 
 impl GetBatchData for MeshPipeline {
-    type Param = (SRes<RenderMeshInstances>, SRes<RenderLightmaps>);
+    type Param = (
+        SRes<RenderMeshInstances>,
+        SRes<RenderLightmaps>,
+        SRes<SkinIndices>,
+    );
+
     // The material bind group ID, the mesh ID, and the lightmap ID,
     // respectively.
     type CompareData = (MaterialBindGroupId, AssetId<Mesh>, Option<AssetId<Image>>);
@@ -451,7 +468,7 @@ impl GetBatchData for MeshPipeline {
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        (mesh_instances, lightmaps): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, skin_indices): &SystemParamItem<Self::Param>,
         entity: Entity,
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let mesh_instance = mesh_instances.get(&entity)?;
@@ -461,6 +478,12 @@ impl GetBatchData for MeshPipeline {
             MeshUniform::new(
                 &mesh_instance.transforms,
                 maybe_lightmap.map(|lightmap| lightmap.uv_rect),
+                skin_indices
+                    .get(&entity)
+                    .map_or(u32::MAX, |skin_index| match skin_index {
+                        SkinIndex::Index(index) => *index,
+                        SkinIndex::DynamicOffset(_) => u32::MAX,
+                    }),
             ),
             mesh_instance.should_batch().then_some((
                 mesh_instance.material_bind_group_id.get(),
@@ -606,9 +629,13 @@ pub fn setup_morph_and_skinning_defs(
     key: &MeshPipelineKey,
     shader_defs: &mut Vec<ShaderDefVal>,
     vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
+    skinned_mesh_storage_buffer: bool,
 ) -> BindGroupLayout {
     let mut add_skin_data = || {
         shader_defs.push("SKINNED".into());
+        if skinned_mesh_storage_buffer {
+            shader_defs.push("SKINNED_MESH_STORAGE_BUFFER".into());
+        }
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
     };
@@ -696,6 +723,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             &key,
             &mut shader_defs,
             &mut vertex_attributes,
+            self.skinned_mesh_storage_buffer,
         ));
 
         if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
@@ -994,7 +1022,7 @@ pub fn prepare_mesh_bind_group(
     };
     groups.model_only = Some(layouts.model_only(&render_device, &model));
 
-    let skin = skins_uniform.buffer.buffer();
+    let skin = skins_uniform.buffer();
     if let Some(skin) = skin {
         groups.skinned = Some(layouts.skinned(&render_device, &model, skin));
     }
@@ -1122,8 +1150,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             dynamic_offsets[offset_count] = dynamic_offset.get();
             offset_count += 1;
         }
-        if let Some(skin_index) = skin_index {
-            dynamic_offsets[offset_count] = skin_index.index;
+        if let Some(SkinIndex::DynamicOffset(dynamic_offset)) = skin_index {
+            dynamic_offsets[offset_count] = *dynamic_offset;
             offset_count += 1;
         }
         if let Some(morph_index) = morph_index {

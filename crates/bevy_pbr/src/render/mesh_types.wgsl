@@ -15,11 +15,16 @@ struct Mesh {
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     lightmap_uv_rect: vec2<u32>,
+    skin_index: u32,
 };
 
 #ifdef SKINNED
 struct SkinnedMesh {
-    data: array<mat4x4<f32>, 256u>,
+    #ifdef SKINNED_MESH_STORAGE_BUFFER
+        data: array<mat4x4<f32>>,
+    #else
+        data: array<mat4x4<f32>, 256u>,
+    #endif
 };
 #endif
 
