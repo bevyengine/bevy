@@ -169,13 +169,15 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         let mut filter_component_access = FilteredAccess::default();
         <()>::update_component_access(&filter_state, &mut filter_component_access);
 
-        // check that the transmute doesn't go from a 
+        // if we have optional parameters, make sure we don't go from a broader query to a more narrow one
         let mut original_optional_access = Access::default();
         Q::optional_access(&self.fetch_state, &mut original_optional_access, false);
-        let mut new_optional_access = Access::default();
-        NewQ::optional_access(&fetch_state, &mut new_optional_access, false);
-        if new_optional_access.difference_is_empty(&original_optional_access) {
-            panic!("`tranmute` does not allow going from a broader query to a more narrow one. i.e. from Option<&T> -> &T");
+        if !original_optional_access.takes_no_access() {
+            let mut new_optional_access = Access::default();
+            NewQ::optional_access(&fetch_state, &mut new_optional_access, false);
+            if new_optional_access.difference_is_empty(&original_optional_access) {
+                panic!("`tranmute` does not allow going from a broader query to a more narrow one. i.e. from Option<&T> -> &T");
+            }
         }
 
         // Merge the temporary filter access with the main access. This ensures that filter access is
@@ -1599,7 +1601,7 @@ mod tests {
         let _panics = query_state.get_many_mut(&mut world_2, []);
     }
 
-    mod restrict_fetch {
+    mod transmute_fetch {
         use super::*;
 
         #[derive(Component)]
@@ -1612,7 +1614,7 @@ mod tests {
         struct C(pub usize);
 
         #[test]
-        fn can_restrict() {
+        fn can_transmute_to_more_general() {
             let mut world = World::new();
             world.spawn((A(22), B));
 
@@ -1625,7 +1627,7 @@ mod tests {
         }
 
         #[test]
-        fn cannot_get_unmatched_data() {
+        fn cannot_get_data_not_in_original_query() {
             let mut world = World::new();
             world.spawn((A(22), B));
             world.spawn((A(23), B, C(5)));
@@ -1638,9 +1640,53 @@ mod tests {
             assert_eq!(a.0, 22);
         }
 
+
+        #[test]
+        fn can_transmute_empty_tuple() {
+            let mut world = World::new();
+            world.init_component::<A>();
+            let entity = world.spawn(A(10)).id();
+
+            let q = world.query::<()>();
+            let mut q = q.restrict_fetch::<Entity>(world.components());
+            assert_eq!(q.single(&world), entity);
+        }
+
+        #[test]
+        fn can_transmute_immut_fetch() {
+            let mut world = World::new();
+            world.spawn(A(10));
+
+            let q = world.query::<&A>();
+            let mut new_q = q.restrict_fetch::<Ref<A>>(world.components());
+            assert!(new_q.single(&world).is_added());
+
+            let q = world.query::<Ref<A>>();
+            let _ = q.restrict_fetch::<&A>(world.components());
+        }
+
+        #[test]
+        fn can_transmute_mut_fetch() {
+            let mut world = World::new();
+            world.spawn(A(10));
+
+            let q = world.query::<&mut A>();
+            let _ = q.restrict_fetch::<Ref<A>>(world.components());
+            let _ = q.restrict_fetch::<&A>(world.components());
+        }
+
+        #[test]
+        fn can_transmute_entity_mut() {
+            let mut world = World::new();
+
+            let q = world.query::<EntityMut>();
+            let _ = q.restrict_fetch::<EntityRef>(world.components());
+        }
+
+        
         #[test]
         #[should_panic(expected = "access is not compatible with new query type")]
-        fn not_included_components_not_allowed() {
+        fn cannot_transmute_to_include_data_not_in_original_query() {
             let mut world = World::new();
             world.init_component::<A>();
             world.init_component::<B>();
@@ -1652,7 +1698,7 @@ mod tests {
 
         #[test]
         #[should_panic(expected = "`restrict_fetch` is not allowed with queries that use `Changed` or `Added`")]
-        fn non_archtypal_not_allowed() {
+        fn cannot_transmute_non_archtypal_queries() {
             let mut world = World::new();
             world.spawn(A(22));
 
@@ -1662,7 +1708,7 @@ mod tests {
 
         #[test]
         #[should_panic(expected = "access is not compatible with new query type")]
-        fn immut_to_mut_not_allowed() {
+        fn cannot_transmute_immut_to_mut() {
             let mut world = World::new();
             world.spawn(A(22));
 
@@ -1671,8 +1717,8 @@ mod tests {
         }
 
         #[test]
-        #[should_panic(expected = "`restrict_fetch` from types that return archetypes")]
-        fn option_to_immut_not_allowed() {
+        #[should_panic(expected = "`tranmute` does not allow going from a broader query to a more narrow one.")]
+        fn cannot_transmute_option_to_immut() {
             let mut world = World::new();
             world.spawn(C(22));
 
@@ -1680,6 +1726,25 @@ mod tests {
             let mut new_query_state = query_state.restrict_fetch::<&A>(world.components());
             let x = new_query_state.single(&world);
             assert_eq!(x.0, 1234);
+        }
+
+        #[test]
+        #[should_panic(expected = "access is not compatible with new query type")]
+        fn cannot_transmute_entity_ref_to_wrong_data() {
+            let mut world = World::new();
+            world.init_component::<B>();
+
+            let q = world.query_filtered::<EntityRef, With<A>>();
+            let _ = q.restrict_fetch::<&B>(world.components());
+        }
+
+        #[test]
+        #[should_panic(expected = "access is not compatible with new query type")]
+        fn cannot_transmute_entity_ref_with_or_filter() {
+            let mut world = World::new();
+            
+            let q = world.query_filtered::<EntityRef, Or<(With<A>, With<B>)>>();
+            let _ = q.restrict_fetch::<&A>(world.components());
         }
     }
 }
