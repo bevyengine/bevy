@@ -1640,7 +1640,6 @@ mod tests {
             assert_eq!(a.0, 22);
         }
 
-
         #[test]
         fn can_transmute_empty_tuple() {
             let mut world = World::new();
@@ -1683,7 +1682,6 @@ mod tests {
             let _ = q.restrict_fetch::<EntityRef>(world.components());
         }
 
-        
         #[test]
         #[should_panic(expected = "access is not compatible with new query type")]
         fn cannot_transmute_to_include_data_not_in_original_query() {
@@ -1697,7 +1695,9 @@ mod tests {
         }
 
         #[test]
-        #[should_panic(expected = "`restrict_fetch` is not allowed with queries that use `Changed` or `Added`")]
+        #[should_panic(
+            expected = "`restrict_fetch` is not allowed with queries that use `Changed` or `Added`"
+        )]
         fn cannot_transmute_non_archtypal_queries() {
             let mut world = World::new();
             world.spawn(A(22));
@@ -1717,7 +1717,9 @@ mod tests {
         }
 
         #[test]
-        #[should_panic(expected = "`tranmute` does not allow going from a broader query to a more narrow one.")]
+        #[should_panic(
+            expected = "`tranmute` does not allow going from a broader query to a more narrow one."
+        )]
         fn cannot_transmute_option_to_immut() {
             let mut world = World::new();
             world.spawn(C(22));
@@ -1742,7 +1744,7 @@ mod tests {
         #[should_panic(expected = "access is not compatible with new query type")]
         fn cannot_transmute_entity_ref_with_or_filter() {
             let mut world = World::new();
-            
+
             let q = world.query_filtered::<EntityRef, Or<(With<A>, With<B>)>>();
             let _ = q.restrict_fetch::<&A>(world.components());
         }

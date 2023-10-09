@@ -289,8 +289,6 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
 
                 const IS_ARCHETYPAL: bool = true #(&& <#field_types>::IS_ARCHETYPAL)*;
 
-                const IS_EXACT: bool = true #(&& <#field_types>::IS_EXACT)*;
-
                 /// SAFETY: we call `set_archetype` for each member that implements `Fetch`
                 #[inline]
                 unsafe fn set_archetype<'__w>(
@@ -349,7 +347,7 @@ pub fn derive_world_query_impl(input: TokenStream) -> TokenStream {
                 }
 
                 fn optional_access(
-                    state: &Self::State, 
+                    state: &Self::State,
                     _access: &mut #path::query::Access<#path::component::ComponentId>,
                     parent_is_optional: bool,
                 ) {
