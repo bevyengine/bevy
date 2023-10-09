@@ -2,7 +2,7 @@ use crate::prelude::Mut;
 use crate::reflect::AppTypeRegistry;
 use crate::system::{Command, EntityCommands, Resource};
 use crate::{entity::Entity, reflect::ReflectComponent, world::World};
-use bevy_reflect::{Reflect, TypeRegistry};
+use bevy_reflect::{PartialReflect, TypeRegistry};
 use std::borrow::Cow;
 use std::marker::PhantomData;
 
@@ -17,7 +17,7 @@ pub trait ReflectCommandExt {
     ///
     /// - If the entity doesn't exist.
     /// - If [`AppTypeRegistry`] does not have the reflection data for the given [`Component`](crate::component::Component).
-    /// - If the component data is invalid. See [`Reflect::apply`] for further details.
+    /// - If the component data is invalid. See [`PartialReflect::apply`] for further details.
     /// - If [`AppTypeRegistry`] is not present in the [`World`].
     ///
     /// # Note
@@ -68,7 +68,7 @@ pub trait ReflectCommandExt {
     /// }
     ///
     /// ```
-    fn insert_reflect(&mut self, component: Box<dyn Reflect>) -> &mut Self;
+    fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self;
 
     /// Same as [`insert_reflect`](ReflectCommandExt::insert_reflect), but using the `T` resource as type registry instead of
     /// `AppTypeRegistry`.
@@ -82,7 +82,7 @@ pub trait ReflectCommandExt {
     /// - The given [`Resource`] is removed from the [`World`] before the command is applied.
     fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
-        component: Box<dyn Reflect>,
+        component: Box<dyn PartialReflect>,
     ) -> &mut Self;
 
     /// Removes from the entity the component with the given type name registered in [`AppTypeRegistry`].
@@ -141,7 +141,7 @@ pub trait ReflectCommandExt {
 }
 
 impl<'w, 's, 'a> ReflectCommandExt for EntityCommands<'w, 's, 'a> {
-    fn insert_reflect(&mut self, component: Box<dyn Reflect>) -> &mut Self {
+    fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self {
         self.commands.add(InsertReflect {
             entity: self.entity,
             component,
@@ -151,7 +151,7 @@ impl<'w, 's, 'a> ReflectCommandExt for EntityCommands<'w, 's, 'a> {
 
     fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
-        component: Box<dyn Reflect>,
+        component: Box<dyn PartialReflect>,
     ) -> &mut Self {
         self.commands.add(InsertReflectWithRegistry::<T> {
             entity: self.entity,
@@ -187,7 +187,7 @@ fn insert_reflect(
     world: &mut World,
     entity: Entity,
     type_registry: &TypeRegistry,
-    component: Box<dyn Reflect>,
+    component: Box<dyn PartialReflect>,
 ) {
     let type_info = component.type_name();
     let Some(mut entity) = world.get_entity_mut(entity) else {
@@ -210,7 +210,7 @@ pub struct InsertReflect {
     /// The entity on which the component will be inserted.
     pub entity: Entity,
     /// The reflect [`Component`](crate::component::Component) that will be added to the entity.
-    pub component: Box<dyn Reflect>,
+    pub component: Box<dyn PartialReflect>,
 }
 
 impl Command for InsertReflect {
@@ -229,7 +229,7 @@ pub struct InsertReflectWithRegistry<T: Resource + AsRef<TypeRegistry>> {
     pub entity: Entity,
     pub _t: PhantomData<T>,
     /// The reflect [`Component`](crate::component::Component) that will be added to the entity.
-    pub component: Box<dyn Reflect>,
+    pub component: Box<dyn PartialReflect>,
 }
 
 impl<T: Resource + AsRef<TypeRegistry>> Command for InsertReflectWithRegistry<T> {
@@ -313,7 +313,7 @@ mod tests {
     use crate::system::{Commands, SystemState};
     use crate::{self as bevy_ecs, component::Component, world::World};
     use bevy_ecs_macros::Resource;
-    use bevy_reflect::{Reflect, TypeRegistry};
+    use bevy_reflect::{PartialReflect, Reflect, TypeRegistry};
 
     #[derive(Resource)]
     struct TypeRegistryResource {
@@ -347,7 +347,7 @@ mod tests {
 
         let entity = commands.spawn_empty().id();
 
-        let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn Reflect>;
+        let boxed_reflect_component_a: Box<dyn PartialReflect> = Box::new(ComponentA(916));
 
         commands
             .entity(entity)
@@ -379,7 +379,7 @@ mod tests {
 
         let entity = commands.spawn_empty().id();
 
-        let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn Reflect>;
+        let boxed_reflect_component_a: Box<dyn PartialReflect> = Box::new(ComponentA(916));
 
         commands
             .entity(entity)

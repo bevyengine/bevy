@@ -1,6 +1,6 @@
 use crate::{
-    Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple, TupleStruct,
-    TypeInfo, TypeRegistry, VariantInfo, VariantType,
+    Array, Enum, List, Map, PartialReflect, ReflectRef, ReflectSerialize, Struct, Tuple,
+    TupleStruct, TypeInfo, TypeRegistry, VariantInfo, VariantType,
 };
 use serde::ser::{
     Error, SerializeStruct, SerializeStructVariant, SerializeTuple, SerializeTupleStruct,
@@ -29,18 +29,24 @@ impl<'a> Serializable<'a> {
 }
 
 fn get_serializable<'a, E: serde::ser::Error>(
-    reflect_value: &'a dyn Reflect,
+    reflect_value: &'a dyn PartialReflect,
     type_registry: &TypeRegistry,
 ) -> Result<Serializable<'a>, E> {
+    let full_reflect = reflect_value.try_as_reflect().ok_or_else(|| {
+        serde::ser::Error::custom(format_args!(
+            "Type '{}' does not implement Reflect",
+            reflect_value.type_name(),
+        ))
+    })?;
     let reflect_serialize = type_registry
-        .get_type_data::<ReflectSerialize>(reflect_value.type_id())
+        .get_type_data::<ReflectSerialize>(full_reflect.type_id())
         .ok_or_else(|| {
             serde::ser::Error::custom(format_args!(
                 "Type '{}' did not register ReflectSerialize",
                 reflect_value.type_name()
             ))
         })?;
-    Ok(reflect_serialize.get_serializable(reflect_value))
+    Ok(reflect_serialize.get_serializable(full_reflect))
 }
 
 /// A general purpose serializer for reflected types.
@@ -51,12 +57,12 @@ fn get_serializable<'a, E: serde::ser::Error>(
 ///
 /// [type name]: std::any::type_name
 pub struct ReflectSerializer<'a> {
-    pub value: &'a dyn Reflect,
+    pub value: &'a dyn PartialReflect,
     pub registry: &'a TypeRegistry,
 }
 
 impl<'a> ReflectSerializer<'a> {
-    pub fn new(value: &'a dyn Reflect, registry: &'a TypeRegistry) -> Self {
+    pub fn new(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
         ReflectSerializer { value, registry }
     }
 }
@@ -78,12 +84,12 @@ impl<'a> Serialize for ReflectSerializer<'a> {
 /// A serializer for reflected types whose type is known and does not require
 /// serialization to include other metadata about it.
 pub struct TypedReflectSerializer<'a> {
-    pub value: &'a dyn Reflect,
+    pub value: &'a dyn PartialReflect,
     pub registry: &'a TypeRegistry,
 }
 
 impl<'a> TypedReflectSerializer<'a> {
-    pub fn new(value: &'a dyn Reflect, registry: &'a TypeRegistry) -> Self {
+    pub fn new(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
         TypedReflectSerializer { value, registry }
     }
 }
@@ -142,7 +148,7 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
 
 pub struct ReflectValueSerializer<'a> {
     pub registry: &'a TypeRegistry,
-    pub value: &'a dyn Reflect,
+    pub value: &'a dyn PartialReflect,
 }
 
 impl<'a> Serialize for ReflectValueSerializer<'a> {

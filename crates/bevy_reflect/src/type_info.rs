@@ -1,5 +1,6 @@
 use crate::{
-    ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
+    ArrayInfo, EnumInfo, ListInfo, MapInfo, PartialReflect, Reflect, StructInfo, TupleInfo,
+    TupleStructInfo,
 };
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
@@ -24,45 +25,53 @@ use std::fmt::Debug;
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, ValueInfo};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypePath, TypeInfo, ValueInfo};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
 /// struct MyStruct {
-///   foo: usize,
-///   bar: (f32, f32)
+///     foo: usize,
+///     bar: (f32, f32)
 /// }
 ///
 /// impl Typed for MyStruct {
-///   fn type_info() -> &'static TypeInfo {
-///     static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-///     CELL.get_or_set(|| {
-///       let fields = [
-///         NamedField::new::<usize >("foo"),
-///         NamedField::new::<(f32, f32) >("bar"),
-///       ];
-///       let info = StructInfo::new::<Self>("MyStruct", &fields);
-///       TypeInfo::Struct(info)
-///     })
-///   }
+///     fn type_info() -> &'static TypeInfo {
+///         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+///         CELL.get_or_set(|| {
+///             let fields = [
+///                 NamedField::new::<usize >("foo"),
+///                 NamedField::new::<(f32, f32) >("bar"),
+///             ];
+///             let info = StructInfo::new::<Self>("MyStruct", &fields);
+///             TypeInfo::Struct(info)
+///         })
+///     }
 /// }
 ///
+/// # impl PartialReflect for MyStruct {
+/// #     fn type_name(&self) -> &str { todo!() }
+/// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
+/// #     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> { todo!() }
+/// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
+/// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
+/// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
+/// #     fn as_partial_reflect(&self) -> &dyn PartialReflect { todo!() }
+/// #     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect { todo!() }
+/// #     fn apply(&mut self, value: &dyn PartialReflect) { todo!() }
+/// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
+/// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
+/// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
+/// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
+/// # }
 /// #
 /// # impl Reflect for MyStruct {
-/// #   fn type_name(&self) -> &str { todo!() }
-/// #   fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
-/// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
-/// #   fn as_any(&self) -> &dyn Any { todo!() }
-/// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
-/// #   fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
-/// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
-/// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #   fn apply(&mut self, value: &dyn Reflect) { todo!() }
-/// #   fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
-/// #   fn reflect_ref(&self) -> ReflectRef { todo!() }
-/// #   fn reflect_mut(&mut self) -> ReflectMut { todo!() }
-/// #   fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #   fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
+/// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
+/// #     fn as_any(&self) -> &dyn Any { todo!() }
+/// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
+/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
+/// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
+/// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
+/// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
 /// # }
 /// #
 /// # impl TypePath for MyStruct {
@@ -84,12 +93,13 @@ pub trait Typed: Reflect {
 /// Generally, for any given type, this value can be retrieved one of three ways:
 ///
 /// 1. [`Typed::type_info`]
-/// 2. [`Reflect::get_represented_type_info`]
+/// 2. [`PartialReflect::get_represented_type_info`]
 /// 3. [`TypeRegistry::get_type_info`]
 ///
 /// Each return a static reference to [`TypeInfo`], but they all have their own use cases.
 /// For example, if you know the type at compile time, [`Typed::type_info`] is probably
-/// the simplest. If all you have is a `dyn Reflect`, you'll probably want [`Reflect::get_represented_type_info`].
+/// the simplest. If all you have is a `dyn PartialReflect`,
+/// you'll probably want [`PartialReflect::get_represented_type_info`].
 /// Lastly, if all you have is a [`TypeId`] or [type name], you will need to go through
 /// [`TypeRegistry::get_type_info`].
 ///
@@ -97,7 +107,7 @@ pub trait Typed: Reflect {
 /// it can be more performant. This is because those other methods may require attaining a lock on
 /// the static [`TypeInfo`], while the registry simply checks a map.
 ///
-/// [`Reflect::get_represented_type_info`]: crate::Reflect::get_represented_type_info
+/// [`PartialReflect::get_represented_type_info`]: crate::PartialReflect::get_represented_type_info
 /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
 /// [`TypeId`]: std::any::TypeId
 /// [type name]: std::any::type_name
@@ -182,7 +192,7 @@ pub struct ValueInfo {
 }
 
 impl ValueInfo {
-    pub fn new<T: Reflect + ?Sized>() -> Self {
+    pub fn new<T: PartialReflect + ?Sized>() -> Self {
         Self {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),

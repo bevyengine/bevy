@@ -65,7 +65,7 @@ pub enum F {
 fn setup() {
     let mut z = HashMap::default();
     z.insert("Hello".to_string(), 1.0);
-    let value: Box<dyn Reflect> = Box::new(A {
+    let value: Box<dyn PartialReflect> = Box::new(A {
         x: 1,
         y: vec![1, 2],
         z,
@@ -116,7 +116,7 @@ fn setup() {
     dynamic_list.push(4u32);
     dynamic_list.push(5u32);
 
-    let mut value: A = value.take::<A>().unwrap();
+    let mut value: A = value.try_take::<A>().unwrap();
     value.y.apply(&dynamic_list);
     assert_eq!(value.y, vec![3u32, 4u32, 5u32]);
 }

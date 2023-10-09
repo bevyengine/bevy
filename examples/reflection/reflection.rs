@@ -65,13 +65,21 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     assert_eq!(value.a, 2);
     assert_eq!(*value.get_field::<usize>("a").unwrap(), 2);
 
-    // You can also get the &dyn Reflect value of a field like this
+    // You can also get the &dyn PartialReflect value of a field like this
     let field = value.field("a").unwrap();
 
-    // you can downcast Reflect values like this:
-    assert_eq!(*field.downcast_ref::<usize>().unwrap(), 2);
+    // For concrete-type based operations like downcasting, we need a `&dyn Reflect`,
+    // which can be retrieved from a `&dyn PartialReflect` using `try_as_reflect`.
+    // `try_as_reflect` returns an `Option<&dyn Reflect>` since some types like `DynamicStruct`
+    // implement `PartialReflect` but not `Reflect`.
+    // There are also `try_as_reflect_mut` and `try_into_reflect` methods for conversion
+    // into `&mut dyn Reflect` and `Box<dyn Reflect>` respectively.
+    let full_reflect: &dyn Reflect = field.try_as_reflect().unwrap();
 
-    // DynamicStruct also implements the `Struct` and `Reflect` traits.
+    // You can downcast Reflect values like this:
+    assert_eq!(*full_reflect.downcast_ref::<usize>().unwrap(), 2);
+
+    // DynamicStruct also implements the `Struct` and `PartialReflect` traits.
     let mut patch = DynamicStruct::default();
     patch.insert("a", 4usize);
 
@@ -93,11 +101,6 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     let reflect_deserializer = UntypedReflectDeserializer::new(&type_registry);
     let mut deserializer = ron::de::Deserializer::from_str(&ron_string).unwrap();
     let reflect_value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-
-    // Deserializing returns a Box<dyn Reflect> value. Generally, deserializing a value will return
-    // the "dynamic" variant of a type. For example, deserializing a struct will return the
-    // DynamicStruct type. "Value types" will be deserialized as themselves.
-    let _deserialized_struct = reflect_value.downcast_ref::<DynamicStruct>();
 
     // Reflect has its own `partial_eq` implementation, named `reflect_partial_eq`. This behaves
     // like normal `partial_eq`, but it treats "dynamic" and "non-dynamic" types the same. The

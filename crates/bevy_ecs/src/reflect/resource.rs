@@ -9,7 +9,7 @@ use crate::{
     system::Resource,
     world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
 };
-use bevy_reflect::{FromType, Reflect};
+use bevy_reflect::{FromType, PartialReflect, Reflect};
 
 /// A struct used to operate on reflected [`Resource`] of a type.
 ///
@@ -41,20 +41,21 @@ pub struct ReflectResource(ReflectResourceFns);
 #[derive(Clone)]
 pub struct ReflectResourceFns {
     /// Function pointer implementing [`ReflectResource::insert()`].
-    pub insert: fn(&mut World, &dyn Reflect),
+    pub insert: fn(&mut World, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectResource::apply()`].
-    pub apply: fn(&mut World, &dyn Reflect),
+    pub apply: fn(&mut World, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectResource::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut World, &dyn Reflect),
+    pub apply_or_insert: fn(&mut World, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectResource::remove()`].
     pub remove: fn(&mut World),
     /// Function pointer implementing [`ReflectResource::reflect()`].
-    pub reflect: fn(&World) -> Option<&dyn Reflect>,
+    pub reflect: fn(&World) -> Option<&dyn PartialReflect>,
     /// Function pointer implementing [`ReflectResource::reflect_unchecked_mut()`].
     ///
     /// # Safety
     /// The function may only be called with an [`UnsafeWorldCell`] that can be used to mutably access the relevant resource.
-    pub reflect_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>) -> Option<Mut<'_, dyn Reflect>>,
+    pub reflect_unchecked_mut:
+        unsafe fn(UnsafeWorldCell<'_>) -> Option<Mut<'_, dyn PartialReflect>>,
     /// Function pointer implementing [`ReflectResource::copy()`].
     pub copy: fn(&World, &mut World),
 }
@@ -72,7 +73,7 @@ impl ReflectResourceFns {
 
 impl ReflectResource {
     /// Insert a reflected [`Resource`] into the world like [`insert()`](World::insert_resource).
-    pub fn insert(&self, world: &mut World, resource: &dyn Reflect) {
+    pub fn insert(&self, world: &mut World, resource: &dyn PartialReflect) {
         (self.0.insert)(world, resource);
     }
 
@@ -81,12 +82,12 @@ impl ReflectResource {
     /// # Panics
     ///
     /// Panics if there is no [`Resource`] of the given type.
-    pub fn apply(&self, world: &mut World, resource: &dyn Reflect) {
+    pub fn apply(&self, world: &mut World, resource: &dyn PartialReflect) {
         (self.0.apply)(world, resource);
     }
 
     /// Uses reflection to set the value of this [`Resource`] type in the world to the given value or insert a new one if it does not exist.
-    pub fn apply_or_insert(&self, world: &mut World, resource: &dyn Reflect) {
+    pub fn apply_or_insert(&self, world: &mut World, resource: &dyn PartialReflect) {
         (self.0.apply_or_insert)(world, resource);
     }
 
@@ -96,12 +97,12 @@ impl ReflectResource {
     }
 
     /// Gets the value of this [`Resource`] type from the world as a reflected reference.
-    pub fn reflect<'a>(&self, world: &'a World) -> Option<&'a dyn Reflect> {
+    pub fn reflect<'a>(&self, world: &'a World) -> Option<&'a dyn PartialReflect> {
         (self.0.reflect)(world)
     }
 
     /// Gets the value of this [`Resource`] type from the world as a mutable reflected reference.
-    pub fn reflect_mut<'a>(&self, world: &'a mut World) -> Option<Mut<'a, dyn Reflect>> {
+    pub fn reflect_mut<'a>(&self, world: &'a mut World) -> Option<Mut<'a, dyn PartialReflect>> {
         // SAFETY: unique world access
         unsafe { (self.0.reflect_unchecked_mut)(world.as_unsafe_world_cell()) }
     }
@@ -114,7 +115,7 @@ impl ReflectResource {
     pub unsafe fn reflect_unchecked_mut<'w>(
         &self,
         world: UnsafeWorldCell<'w>,
-    ) -> Option<Mut<'w, dyn Reflect>> {
+    ) -> Option<Mut<'w, dyn PartialReflect>> {
         // SAFETY: caller promises to uphold uniqueness guarantees
         (self.0.reflect_unchecked_mut)(world)
     }
@@ -188,13 +189,17 @@ impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
             remove: |world| {
                 world.remove_resource::<C>();
             },
-            reflect: |world| world.get_resource::<C>().map(|res| res as &dyn Reflect),
+            reflect: |world| {
+                world
+                    .get_resource::<C>()
+                    .map(|res| res as &dyn PartialReflect)
+            },
             reflect_unchecked_mut: |world| {
                 // SAFETY: all usages of `reflect_unchecked_mut` guarantee that there is either a single mutable
                 // reference or multiple immutable ones alive at any given point
                 unsafe {
                     world.get_resource_mut::<C>().map(|res| Mut {
-                        value: res.value as &mut dyn Reflect,
+                        value: res.value as &mut dyn PartialReflect,
                         ticks: res.ticks,
                     })
                 }

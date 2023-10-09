@@ -1,8 +1,8 @@
 use bevy_reflect::{
     std_traits::ReflectDefault, utility::NonGenericTypeInfoCell, FromReflect, FromType,
-    GetTypeRegistration, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect,
-    ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, TypeInfo, TypePath, TypeRegistration,
-    Typed, ValueInfo,
+    GetTypeRegistration, PartialReflect, Reflect, ReflectDeserialize, ReflectFromPtr,
+    ReflectFromReflect, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, TypeInfo, TypePath,
+    TypeRegistration, Typed, ValueInfo,
 };
 use bevy_utils::CowArc;
 use serde::{de::Visitor, Deserialize, Serialize};
@@ -305,6 +305,7 @@ impl TypePath for AssetPath<'static> {
         Option::None
     }
 }
+
 impl Typed for AssetPath<'static> {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
@@ -314,7 +315,8 @@ impl Typed for AssetPath<'static> {
         })
     }
 }
-impl Reflect for AssetPath<'static> {
+
+impl PartialReflect for AssetPath<'static> {
     #[inline]
     fn type_name(&self) -> &str {
         ::core::any::type_name::<Self>()
@@ -323,6 +325,70 @@ impl Reflect for AssetPath<'static> {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
     }
+    #[inline]
+    fn clone_value(&self) -> Box<dyn PartialReflect> {
+        Box::new(self.clone())
+    }
+    #[inline]
+    fn apply(&mut self, value: &dyn PartialReflect) {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            *self = value.clone();
+        } else {
+            panic!("Value is not {}.", std::any::type_name::<Self>());
+        }
+    }
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::Value(self)
+    }
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::Value(self)
+    }
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Value(self)
+    }
+    fn reflect_hash(&self) -> Option<u64> {
+        let mut hasher = bevy_reflect::utility::reflect_hasher();
+        Hash::hash(&::core::any::Any::type_id(self), &mut hasher);
+        Hash::hash(self, &mut hasher);
+        Some(Hasher::finish(&hasher))
+    }
+    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
+        if let Some(value) = value.try_downcast_ref() {
+            Some(::core::cmp::PartialEq::eq(self, value))
+        } else {
+            Some(false)
+        }
+    }
+    fn debug(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        ::core::fmt::Debug::fmt(self, f)
+    }
+    #[inline]
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
+        self
+    }
+    #[inline]
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
+        self
+    }
+    #[inline]
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
+        self
+    }
+    #[inline]
+    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+        Ok(self)
+    }
+    #[inline]
+    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
+        Some(self)
+    }
+    #[inline]
+    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
+        Some(self)
+    }
+}
+
+impl Reflect for AssetPath<'static> {
     #[inline]
     fn into_any(self: Box<Self>) -> Box<dyn ::core::any::Any> {
         self
@@ -348,19 +414,6 @@ impl Reflect for AssetPath<'static> {
         self
     }
     #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone())
-    }
-    #[inline]
-    fn apply(&mut self, value: &dyn Reflect) {
-        let value = Reflect::as_any(value);
-        if let Some(value) = value.downcast_ref::<Self>() {
-            *self = value.clone();
-        } else {
-            panic!("Value is not {}.", std::any::type_name::<Self>());
-        }
-    }
-    #[inline]
     fn set(
         &mut self,
         value: Box<dyn bevy_reflect::Reflect>,
@@ -368,37 +421,10 @@ impl Reflect for AssetPath<'static> {
         *self = <dyn bevy_reflect::Reflect>::take(value)?;
         Ok(())
     }
-    fn reflect_ref(&self) -> ReflectRef {
-        ReflectRef::Value(self)
-    }
-    fn reflect_mut(&mut self) -> ReflectMut {
-        ReflectMut::Value(self)
-    }
-    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::Value(self)
-    }
-    fn reflect_hash(&self) -> Option<u64> {
-        let mut hasher = bevy_reflect::utility::reflect_hasher();
-        Hash::hash(&::core::any::Any::type_id(self), &mut hasher);
-        Hash::hash(self, &mut hasher);
-        Some(Hasher::finish(&hasher))
-    }
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-        let value = <dyn Reflect>::as_any(value);
-        if let Some(value) = <dyn ::core::any::Any>::downcast_ref::<Self>(value) {
-            Some(::core::cmp::PartialEq::eq(self, value))
-        } else {
-            Some(false)
-        }
-    }
-    fn debug(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-        ::core::fmt::Debug::fmt(self, f)
-    }
 }
+
 impl FromReflect for AssetPath<'static> {
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-        Some(Clone::clone(<dyn ::core::any::Any>::downcast_ref::<
-            AssetPath<'static>,
-        >(<dyn Reflect>::as_any(reflect))?))
+    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
+        reflect.try_downcast_ref::<Self>().cloned()
     }
 }

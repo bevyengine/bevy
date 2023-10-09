@@ -52,7 +52,7 @@ use crate::{
     entity::Entity,
     world::{unsafe_world_cell::UnsafeEntityCell, EntityRef, EntityWorldMut, FromWorld, World},
 };
-use bevy_reflect::{FromType, Reflect};
+use bevy_reflect::{FromType, PartialReflect, Reflect};
 
 /// A struct used to operate on reflected [`Component`] of a type.
 ///
@@ -86,11 +86,11 @@ pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::from_world()`].
     pub from_world: fn(&mut World) -> Box<dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::insert()`].
-    pub insert: fn(&mut EntityWorldMut, &dyn Reflect),
+    pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectComponent::apply()`].
-    pub apply: fn(&mut EntityWorldMut, &dyn Reflect),
+    pub apply: fn(&mut EntityWorldMut, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectComponent::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn Reflect),
+    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectComponent::remove()`].
     pub remove: fn(&mut EntityWorldMut),
     /// Function pointer implementing [`ReflectComponent::contains()`].
@@ -126,7 +126,7 @@ impl ReflectComponent {
     }
 
     /// Insert a reflected [`Component`] into the entity like [`insert()`](crate::world::EntityWorldMut::insert).
-    pub fn insert(&self, entity: &mut EntityWorldMut, component: &dyn Reflect) {
+    pub fn insert(&self, entity: &mut EntityWorldMut, component: &dyn PartialReflect) {
         (self.0.insert)(entity, component);
     }
 
@@ -135,12 +135,12 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if there is no [`Component`] of the given type.
-    pub fn apply(&self, entity: &mut EntityWorldMut, component: &dyn Reflect) {
+    pub fn apply(&self, entity: &mut EntityWorldMut, component: &dyn PartialReflect) {
         (self.0.apply)(entity, component);
     }
 
     /// Uses reflection to set the value of this [`Component`] type in the entity to the given value or insert a new one if it does not exist.
-    pub fn apply_or_insert(&self, entity: &mut EntityWorldMut, component: &dyn Reflect) {
+    pub fn apply_or_insert(&self, entity: &mut EntityWorldMut, component: &dyn PartialReflect) {
         (self.0.apply_or_insert)(entity, component);
     }
 

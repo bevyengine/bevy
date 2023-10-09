@@ -5,7 +5,7 @@ use bevy_ecs::entity::Entity;
 use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
 use bevy_reflect::{
     serde::{TypeRegistrationDeserializer, UntypedReflectDeserializer},
-    Reflect, TypeRegistry, TypeRegistryArc,
+    PartialReflect, TypeRegistry, TypeRegistryArc,
 };
 use bevy_utils::HashSet;
 use serde::ser::SerializeMap;
@@ -168,7 +168,7 @@ impl<'a> Serialize for EntitySerializer<'a> {
 /// deserializing through [`SceneMapDeserializer`].
 pub struct SceneMapSerializer<'a> {
     /// List of boxed values of unique type to serialize.
-    pub entries: &'a [Box<dyn Reflect>],
+    pub entries: &'a [Box<dyn PartialReflect>],
     /// Type registry in which the types used in `entries` are registered.
     pub registry: &'a TypeRegistryArc,
 }
@@ -432,7 +432,7 @@ pub struct SceneMapDeserializer<'a> {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneMapDeserializer<'a> {
-    type Value = Vec<Box<dyn Reflect>>;
+    type Value = Vec<Box<dyn PartialReflect>>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -449,7 +449,7 @@ struct SceneMapVisitor<'a> {
 }
 
 impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
-    type Value = Vec<Box<dyn Reflect>>;
+    type Value = Vec<Box<dyn PartialReflect>>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("map of reflect types")

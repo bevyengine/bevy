@@ -1,4 +1,4 @@
-use crate::{utility::reflect_hasher, Enum, Reflect, ReflectRef, VariantType};
+use crate::{utility::reflect_hasher, Enum, PartialReflect, ReflectRef, VariantType};
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 
@@ -15,16 +15,16 @@ pub fn enum_hash<TEnum: Enum>(value: &TEnum) -> Option<u64> {
     Some(hasher.finish())
 }
 
-/// Compares an [`Enum`] with a [`Reflect`] value.
+/// Compares an [`Enum`] with a [`PartialReflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
 /// - `b` is an enum;
 /// - `b` is the same variant as `a`;
 /// - For each field in `a`, `b` contains a field with the same name and
-///   [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two field
+///   [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two field
 ///   values.
 #[inline]
-pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn Reflect) -> Option<bool> {
+pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn PartialReflect) -> Option<bool> {
     // Both enums?
     let ReflectRef::Enum(b) = b.reflect_ref() else {
         return Some(false);
@@ -80,7 +80,7 @@ pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn Reflect) -> Option<bool> 
 ///
 /// # Example
 /// ```
-/// use bevy_reflect::Reflect;
+/// use bevy_reflect::{PartialReflect, Reflect};
 /// #[derive(Reflect)]
 /// enum MyEnum {
 ///   A,
@@ -88,7 +88,7 @@ pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn Reflect) -> Option<bool> 
 ///   C {value: i32}
 /// }
 ///
-/// let my_enum: &dyn Reflect = &MyEnum::B(123);
+/// let my_enum: &dyn PartialReflect = &MyEnum::B(123);
 /// println!("{:#?}", my_enum);
 ///
 /// // Output:

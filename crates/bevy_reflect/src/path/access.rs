@@ -1,7 +1,7 @@
 use std::{borrow::Cow, fmt};
 
 use super::{AccessError, ReflectPathError};
-use crate::{Reflect, ReflectMut, ReflectRef, VariantType};
+use crate::{PartialReflect, ReflectMut, ReflectRef, VariantType};
 use thiserror::Error;
 
 type InnerResult<T> = Result<Option<T>, Error<'static>>;
@@ -104,7 +104,7 @@ impl From<VariantType> for TypeShape {
 
 /// A singular element access within a path.
 ///
-/// Can be applied to a `dyn Reflect` to get a reference to the targeted element.
+/// Can be applied to a `dyn PartialReflect` to get a reference to the targeted element.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(super) enum Access<'a> {
     Field(Cow<'a, str>),
@@ -150,16 +150,19 @@ impl<'a> Access<'a> {
 
     pub(super) fn element<'r>(
         &self,
-        base: &'r dyn Reflect,
+        base: &'r dyn PartialReflect,
         offset: usize,
-    ) -> Result<&'r dyn Reflect, ReflectPathError<'a>> {
+    ) -> Result<&'r dyn PartialReflect, ReflectPathError<'a>> {
         let ty = base.reflect_ref().into();
         self.element_inner(base)
             .and_then(|maybe| maybe.ok_or(Error::access(ty, self.clone())))
             .map_err(|err| err.with_offset(offset))
     }
 
-    fn element_inner<'r>(&self, base: &'r dyn Reflect) -> InnerResult<&'r dyn Reflect> {
+    fn element_inner<'r>(
+        &self,
+        base: &'r dyn PartialReflect,
+    ) -> InnerResult<&'r dyn PartialReflect> {
         use ReflectRef::*;
         match (self, base.reflect_ref()) {
             (Self::Field(field), Struct(struct_ref)) => Ok(struct_ref.field(field.as_ref())),
@@ -187,16 +190,19 @@ impl<'a> Access<'a> {
 
     pub(super) fn element_mut<'r>(
         &self,
-        base: &'r mut dyn Reflect,
+        base: &'r mut dyn PartialReflect,
         offset: usize,
-    ) -> Result<&'r mut dyn Reflect, ReflectPathError<'a>> {
+    ) -> Result<&'r mut dyn PartialReflect, ReflectPathError<'a>> {
         let ty = base.reflect_ref().into();
         self.element_inner_mut(base)
             .and_then(|maybe| maybe.ok_or(Error::access(ty, self.clone())))
             .map_err(|err| err.with_offset(offset))
     }
 
-    fn element_inner_mut<'r>(&self, base: &'r mut dyn Reflect) -> InnerResult<&'r mut dyn Reflect> {
+    fn element_inner_mut<'r>(
+        &self,
+        base: &'r mut dyn PartialReflect,
+    ) -> InnerResult<&'r mut dyn PartialReflect> {
         use ReflectMut::*;
         let base_shape: TypeShape = base.reflect_ref().into();
         match (self, base.reflect_mut()) {

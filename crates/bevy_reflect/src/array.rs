@@ -1,6 +1,6 @@
 use crate::{
-    self as bevy_reflect, utility::reflect_hasher, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo,
+    self as bevy_reflect, utility::reflect_hasher, PartialReflect, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo,
 };
 use bevy_reflect_derive::impl_type_path;
 use std::{
@@ -28,13 +28,13 @@ use std::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, Array};
+/// use bevy_reflect::{PartialReflect, Array};
 ///
 /// let foo: &dyn Array = &[123_u32, 456_u32, 789_u32];
 /// assert_eq!(foo.len(), 3);
 ///
-/// let field: &dyn Reflect = foo.get(0).unwrap();
-/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
+/// let field: &dyn PartialReflect = foo.get(0).unwrap();
+/// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123));
 /// ```
 ///
 /// [array-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-array-type
@@ -44,12 +44,12 @@ use std::{
 /// [`GetTypeRegistration`]: crate::GetTypeRegistration
 /// [limitation]: https://github.com/serde-rs/serde/issues/1937
 /// [`Deserialize`]: ::serde::Deserialize
-pub trait Array: Reflect {
+pub trait Array: PartialReflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
-    fn get(&self, index: usize) -> Option<&dyn Reflect>;
+    fn get(&self, index: usize) -> Option<&dyn PartialReflect>;
 
     /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
-    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
 
     /// Returns the number of elements in the array.
     fn len(&self) -> usize;
@@ -63,7 +63,7 @@ pub trait Array: Reflect {
     fn iter(&self) -> ArrayIter;
 
     /// Drain the elements of this array to get a vector of owned values.
-    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
+    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
 
     /// Clones the list, producing a [`DynamicArray`].
     fn clone_dynamic(&self) -> DynamicArray {
@@ -93,7 +93,7 @@ impl ArrayInfo {
     ///
     /// * `capacity`: The maximum capacity of the underlying array.
     ///
-    pub fn new<TArray: Array, TItem: Reflect>(capacity: usize) -> Self {
+    pub fn new<TArray: Array, TItem: PartialReflect>(capacity: usize) -> Self {
         Self {
             type_name: std::any::type_name::<TArray>(),
             type_id: TypeId::of::<TArray>(),
@@ -169,24 +169,24 @@ impl ArrayInfo {
 #[derive(Debug)]
 pub struct DynamicArray {
     pub(crate) represented_type: Option<&'static TypeInfo>,
-    pub(crate) values: Box<[Box<dyn Reflect>]>,
+    pub(crate) values: Box<[Box<dyn PartialReflect>]>,
 }
 
 impl DynamicArray {
     #[inline]
-    pub fn new(values: Box<[Box<dyn Reflect>]>) -> Self {
+    pub fn new(values: Box<[Box<dyn PartialReflect>]>) -> Self {
         Self {
             represented_type: None,
             values,
         }
     }
 
-    pub fn from_vec<T: Reflect>(values: Vec<T>) -> Self {
+    pub fn from_vec<T: PartialReflect>(values: Vec<T>) -> Self {
         Self {
             represented_type: None,
             values: values
                 .into_iter()
-                .map(|field| Box::new(field) as Box<dyn Reflect>)
+                .map(|field| Box::new(field) as Box<dyn PartialReflect>)
                 .collect::<Vec<_>>()
                 .into_boxed_slice(),
         }
@@ -212,7 +212,7 @@ impl DynamicArray {
     }
 }
 
-impl Reflect for DynamicArray {
+impl PartialReflect for DynamicArray {
     #[inline]
     fn type_name(&self) -> &str {
         self.represented_type
@@ -225,44 +225,34 @@ impl Reflect for DynamicArray {
         self.represented_type
     }
 
-    #[inline]
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+    fn try_as_reflect(&self) -> Option<&dyn crate::Reflect> {
+        None
+    }
+
+    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn crate::Reflect> {
+        None
+    }
+
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn crate::Reflect>, Box<dyn PartialReflect>> {
+        Err(self)
+    }
+
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
         self
     }
 
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
 
-    #[inline]
-    fn as_any_mut(&mut self) -> &mut dyn Any {
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
-    #[inline]
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    #[inline]
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    #[inline]
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn apply(&mut self, value: &dyn Reflect) {
+    fn apply(&mut self, value: &dyn PartialReflect) {
         array_apply(self, value);
-    }
-
-    #[inline]
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
     }
 
     #[inline]
@@ -281,7 +271,7 @@ impl Reflect for DynamicArray {
     }
 
     #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
+    fn clone_value(&self) -> Box<dyn PartialReflect> {
         Box::new(self.clone_dynamic())
     }
 
@@ -290,7 +280,7 @@ impl Reflect for DynamicArray {
         array_hash(self)
     }
 
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         array_partial_eq(self, value)
     }
 
@@ -302,12 +292,12 @@ impl Reflect for DynamicArray {
 
 impl Array for DynamicArray {
     #[inline]
-    fn get(&self, index: usize) -> Option<&dyn Reflect> {
+    fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
         self.values.get(index).map(|value| &**value)
     }
 
     #[inline]
-    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
         self.values.get_mut(index).map(|value| &mut **value)
     }
 
@@ -322,7 +312,7 @@ impl Array for DynamicArray {
     }
 
     #[inline]
-    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
         self.values.into_vec()
     }
 
@@ -355,7 +345,7 @@ impl<'a> ArrayIter<'a> {
 }
 
 impl<'a> Iterator for ArrayIter<'a> {
-    type Item = &'a dyn Reflect;
+    type Item = &'a dyn PartialReflect;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -393,7 +383,7 @@ pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
 /// * Panics if the reflected value is not a [valid array](ReflectRef::Array).
 ///
 #[inline]
-pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
+pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn PartialReflect) {
     if let ReflectRef::Array(reflect_array) = reflect.reflect_ref() {
         if array.len() != reflect_array.len() {
             panic!("Attempted to apply different sized `Array` types.");
@@ -412,7 +402,7 @@ pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
-pub fn array_partial_eq<A: Array>(array: &A, reflect: &dyn Reflect) -> Option<bool> {
+pub fn array_partial_eq<A: Array>(array: &A, reflect: &dyn PartialReflect) -> Option<bool> {
     match reflect.reflect_ref() {
         ReflectRef::Array(reflect_array) if reflect_array.len() == array.len() => {
             for (a, b) in array.iter().zip(reflect_array.iter()) {
@@ -432,9 +422,9 @@ pub fn array_partial_eq<A: Array>(array: &A, reflect: &dyn Reflect) -> Option<bo
 ///
 /// # Example
 /// ```
-/// use bevy_reflect::Reflect;
+/// use bevy_reflect::PartialReflect;
 ///
-/// let my_array: &dyn Reflect = &[1, 2, 3];
+/// let my_array: &dyn PartialReflect = &[1, 2, 3];
 /// println!("{:#?}", my_array);
 ///
 /// // Output:

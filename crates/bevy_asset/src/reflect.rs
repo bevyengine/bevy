@@ -1,7 +1,7 @@
 use std::any::{Any, TypeId};
 
 use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
-use bevy_reflect::{FromReflect, FromType, Reflect};
+use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect};
 
 use crate::{Asset, Assets, Handle, UntypedAssetId, UntypedHandle};
 
@@ -22,8 +22,8 @@ pub struct ReflectAsset {
     // - may only be called with an [`UnsafeWorldCell`] which can be used to access the corresponding `Assets<T>` resource mutably
     // - may only be used to access **at most one** access at once
     get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, UntypedHandle) -> Option<&mut dyn Reflect>,
-    add: fn(&mut World, &dyn Reflect) -> UntypedHandle,
-    insert: fn(&mut World, UntypedHandle, &dyn Reflect),
+    add: fn(&mut World, &dyn PartialReflect) -> UntypedHandle,
+    insert: fn(&mut World, UntypedHandle, &dyn PartialReflect),
     len: fn(&World) -> usize,
     ids: for<'w> fn(&'w World) -> Box<dyn Iterator<Item = UntypedAssetId> + 'w>,
     remove: fn(&mut World, UntypedHandle) -> Option<Box<dyn Reflect>>,
@@ -92,11 +92,11 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::add`]
-    pub fn add(&self, world: &mut World, value: &dyn Reflect) -> UntypedHandle {
+    pub fn add(&self, world: &mut World, value: &dyn PartialReflect) -> UntypedHandle {
         (self.add)(world, value)
     }
     /// Equivalent of [`Assets::insert`]
-    pub fn insert(&self, world: &mut World, handle: UntypedHandle, value: &dyn Reflect) {
+    pub fn insert(&self, world: &mut World, handle: UntypedHandle, value: &dyn PartialReflect) {
         (self.insert)(world, handle, value);
     }
 
@@ -188,7 +188,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
 ///     let reflect_handle = type_registry.get_type_data::<ReflectHandle>(handle.type_id()).unwrap();
 ///     let reflect_asset = type_registry.get_type_data::<ReflectAsset>(reflect_handle.asset_type_id()).unwrap();
 ///
-///     let handle = reflect_handle.downcast_handle_untyped(handle.as_any()).unwrap();
+///     let handle = reflect_handle.downcast_handle_untyped(handle.try_as_reflect().unwrap().as_any()).unwrap();
 ///     let value = reflect_asset.get(world, handle).unwrap();
 ///     println!("{value:?}");
 /// }
