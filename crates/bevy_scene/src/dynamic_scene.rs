@@ -73,14 +73,19 @@ impl DynamicScene {
         let type_registry = type_registry.read();
 
         for resource in &self.resources {
-            let registration = type_registry
-                .get_with_name(resource.type_name())
-                .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                    type_name: resource.type_name().to_string(),
-                })?;
+            let type_info = resource.get_represented_type_info().ok_or_else(|| {
+                SceneSpawnError::NoRepresentedType {
+                    type_path: resource.reflect_type_path().to_string(),
+                }
+            })?;
+            let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
+                SceneSpawnError::UnregisteredButReflectedType {
+                    type_path: type_info.type_path().to_string(),
+                }
+            })?;
             let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
                 SceneSpawnError::UnregisteredResource {
-                    type_name: resource.type_name().to_string(),
+                    type_path: type_info.type_path().to_string(),
                 }
             })?;
 
@@ -106,15 +111,20 @@ impl DynamicScene {
 
             // Apply/ add each component to the given entity.
             for component in &scene_entity.components {
-                let registration = type_registry
-                    .get_with_name(component.type_name())
-                    .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                        type_name: component.type_name().to_string(),
-                    })?;
+                let type_info = component.get_represented_type_info().ok_or_else(|| {
+                    SceneSpawnError::NoRepresentedType {
+                        type_path: component.reflect_type_path().to_string(),
+                    }
+                })?;
+                let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
+                    SceneSpawnError::UnregisteredButReflectedType {
+                        type_path: type_info.type_path().to_string(),
+                    }
+                })?;
                 let reflect_component =
                     registration.data::<ReflectComponent>().ok_or_else(|| {
                         SceneSpawnError::UnregisteredComponent {
-                            type_name: component.type_name().to_string(),
+                            type_path: type_info.type_path().to_string(),
                         }
                     })?;
 
