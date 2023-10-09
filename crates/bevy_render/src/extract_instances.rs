@@ -1,4 +1,4 @@
-//! Convenience logic for turning components from the main world into render
+//! Convenience logic for turning components from the main world into extracted
 //! instances in the render world.
 //!
 //! This is essentially the same as the `extract_component` module, but
@@ -27,50 +27,50 @@ use crate::{prelude::ViewVisibility, Extract, ExtractSchedule, RenderApp};
 /// This is essentially the same as
 /// [`ExtractComponent`](crate::extract_component::ExtractComponent), but
 /// higher-performance because it avoids the ECS overhead.
-pub trait RenderInstance: Send + Sync + Sized + 'static {
+pub trait ExtractInstance: Send + Sync + Sized + 'static {
     /// ECS [`WorldQuery`] to fetch the components to extract.
     type Query: WorldQuery + ReadOnlyWorldQuery;
     /// Filters the entities with additional constraints.
     type Filter: WorldQuery + ReadOnlyWorldQuery;
 
     /// Defines how the component is transferred into the "render world".
-    fn extract_to_render_instance(item: QueryItem<'_, Self::Query>) -> Option<Self>;
+    fn extract(item: QueryItem<'_, Self::Query>) -> Option<Self>;
 }
 
 /// This plugin extracts one or more components into the "render world" as
-/// render instances.
+/// extracted instances.
 ///
 /// Therefore it sets up the [`ExtractSchedule`] step for the specified
-/// [`RenderInstances`].
+/// [`ExtractedInstances`].
 #[derive(Default)]
-pub struct RenderInstancePlugin<RI>
+pub struct ExtractInstancesPlugin<EI>
 where
-    RI: RenderInstance,
+    EI: ExtractInstance,
 {
     only_extract_visible: bool,
-    marker: PhantomData<fn() -> RI>,
+    marker: PhantomData<fn() -> EI>,
 }
 
-/// Stores all render instances of a type in the render world.
+/// Stores all extract instances of a type in the render world.
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderInstances<RI>(EntityHashMap<Entity, RI>)
+pub struct ExtractedInstances<EI>(EntityHashMap<Entity, EI>)
 where
-    RI: RenderInstance;
+    EI: ExtractInstance;
 
-impl<RI> Default for RenderInstances<RI>
+impl<EI> Default for ExtractedInstances<EI>
 where
-    RI: RenderInstance,
+    EI: ExtractInstance,
 {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<RI> RenderInstancePlugin<RI>
+impl<EI> ExtractInstancesPlugin<EI>
 where
-    RI: RenderInstance,
+    EI: ExtractInstance,
 {
-    /// Creates a new [`RenderInstancePlugin`] that unconditionally extracts to
+    /// Creates a new [`ExtractInstancesPlugin`] that unconditionally extracts to
     /// the render world, whether the entity is visible or not.
     pub fn new() -> Self {
         Self {
@@ -80,11 +80,11 @@ where
     }
 }
 
-impl<RI> RenderInstancePlugin<RI>
+impl<EI> ExtractInstancesPlugin<EI>
 where
-    RI: RenderInstance,
+    EI: ExtractInstance,
 {
-    /// Creates a new [`RenderInstancePlugin`] that extracts to the render world
+    /// Creates a new [`ExtractInstancesPlugin`] that extracts to the render world
     /// if and only if the entity it's attached to is visible.
     pub fn extract_visible() -> Self {
         Self {
@@ -94,60 +94,60 @@ where
     }
 }
 
-impl<RI> Plugin for RenderInstancePlugin<RI>
+impl<EI> Plugin for ExtractInstancesPlugin<EI>
 where
-    RI: RenderInstance,
+    EI: ExtractInstance,
 {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<RenderInstances<RI>>();
+            render_app.init_resource::<ExtractedInstances<EI>>();
             if self.only_extract_visible {
-                render_app.add_systems(ExtractSchedule, extract_visible_to_render_instances::<RI>);
+                render_app.add_systems(ExtractSchedule, extract_visible::<EI>);
             } else {
-                render_app.add_systems(ExtractSchedule, extract_to_render_instances::<RI>);
+                render_app.add_systems(ExtractSchedule, extract_all::<EI>);
             }
         }
     }
 }
 
-fn extract_to_render_instances<RI>(
-    mut instances: ResMut<RenderInstances<RI>>,
-    query: Extract<Query<(Entity, RI::Query), RI::Filter>>,
+fn extract_all<EI>(
+    mut extracted_instances: ResMut<ExtractedInstances<EI>>,
+    query: Extract<Query<(Entity, EI::Query), EI::Filter>>,
 ) where
-    RI: RenderInstance,
+    EI: ExtractInstance,
 {
-    instances.clear();
+    extracted_instances.clear();
     for (entity, other) in &query {
-        if let Some(render_instance) = RI::extract_to_render_instance(other) {
-            instances.insert(entity, render_instance);
+        if let Some(extract_instance) = EI::extract(other) {
+            extracted_instances.insert(entity, extract_instance);
         }
     }
 }
 
-fn extract_visible_to_render_instances<RI>(
-    mut instances: ResMut<RenderInstances<RI>>,
-    query: Extract<Query<(Entity, &ViewVisibility, RI::Query), RI::Filter>>,
+fn extract_visible<EI>(
+    mut extracted_instances: ResMut<ExtractedInstances<EI>>,
+    query: Extract<Query<(Entity, &ViewVisibility, EI::Query), EI::Filter>>,
 ) where
-    RI: RenderInstance,
+    EI: ExtractInstance,
 {
-    instances.clear();
+    extracted_instances.clear();
     for (entity, view_visibility, other) in &query {
         if view_visibility.get() {
-            if let Some(render_instance) = RI::extract_to_render_instance(other) {
-                instances.insert(entity, render_instance);
+            if let Some(extract_instance) = EI::extract(other) {
+                extracted_instances.insert(entity, extract_instance);
             }
         }
     }
 }
 
-impl<A> RenderInstance for AssetId<A>
+impl<A> ExtractInstance for AssetId<A>
 where
     A: Asset,
 {
     type Query = Read<Handle<A>>;
     type Filter = ();
 
-    fn extract_to_render_instance(item: QueryItem<'_, Self::Query>) -> Option<Self> {
+    fn extract(item: QueryItem<'_, Self::Query>) -> Option<Self> {
         Some(item.id())
     }
 }

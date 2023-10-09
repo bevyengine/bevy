@@ -18,11 +18,11 @@ use bevy_ecs::{
 };
 use bevy_reflect::Reflect;
 use bevy_render::{
+    extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
     render_asset::{prepare_assets, RenderAssets},
-    render_instances::{RenderInstancePlugin, RenderInstances},
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
@@ -201,7 +201,7 @@ where
 {
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
-            .add_plugins(RenderInstancePlugin::<AssetId<M>>::extract_visible());
+            .add_plugins(ExtractInstancesPlugin::<AssetId<M>>::extract_visible());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -393,7 +393,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
     }
 }
 
-pub type RenderMaterialInstances<M> = RenderInstances<AssetId<M>>;
+pub type RenderMaterialInstances<M> = ExtractedInstances<AssetId<M>>;
 
 const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
     match alpha_mode {
