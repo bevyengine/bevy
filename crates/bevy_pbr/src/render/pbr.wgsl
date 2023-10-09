@@ -97,7 +97,7 @@ fn fragment(
 
         var specular_transmission: f32 = pbr_bindings::material.specular_transmission;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
-        if ((pbr_bindings::material.flags & STANDARD_MATERIAL_FLAGS_SPECULAR_TRANSMISSION_TEXTURE_BIT) != 0u) {
+        if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_SPECULAR_TRANSMISSION_TEXTURE_BIT) != 0u) {
             specular_transmission *= textureSample(pbr_bindings::specular_transmission_texture, pbr_bindings::specular_transmission_sampler, uv).r;
         }
 #endif
@@ -105,7 +105,7 @@ fn fragment(
 
         var thickness: f32 = pbr_bindings::material.thickness;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
-        if ((pbr_bindings::material.flags & STANDARD_MATERIAL_FLAGS_THICKNESS_TEXTURE_BIT) != 0u) {
+        if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_THICKNESS_TEXTURE_BIT) != 0u) {
             thickness *= textureSample(pbr_bindings::thickness_texture, pbr_bindings::thickness_sampler, uv).g;
         }
 #endif
@@ -116,7 +116,7 @@ fn fragment(
 
         var diffuse_transmission = pbr_bindings::material.diffuse_transmission;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
-        if ((pbr_bindings::material.flags & STANDARD_MATERIAL_FLAGS_DIFFUSE_TRANSMISSION_TEXTURE_BIT) != 0u) {
+        if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DIFFUSE_TRANSMISSION_TEXTURE_BIT) != 0u) {
             diffuse_transmission *= textureSample(pbr_bindings::diffuse_transmission_texture, pbr_bindings::diffuse_transmission_sampler, uv).a;
         }
 #endif
