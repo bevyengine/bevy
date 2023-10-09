@@ -157,7 +157,7 @@ pub struct StandardMaterial {
     /// If your material has a normal map, but still renders as a flat surface,
     /// make sure your meshes have their tangents set.
     ///
-    /// [`Mesh::generate_tangents`]: bevy_render::mesh::Mesh:
+    /// [`Mesh::generate_tangents`]: bevy_render::mesh::Mesh::generate_tangents
     /// [`Mesh::with_generated_tangents`]: bevy_render::mesh::Mesh::with_generated_tangents
     #[texture(9)]
     #[sampler(10)]
