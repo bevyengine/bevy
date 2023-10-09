@@ -114,6 +114,6 @@ impl From<LineStrip> for Mesh {
         // where a line will be drawn between each consecutive point
         Mesh::new(PrimitiveTopology::LineStrip)
             // Add the point positions as an attribute
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, line.points);
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, line.points)
     }
 }
