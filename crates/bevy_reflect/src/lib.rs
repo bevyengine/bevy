@@ -1964,7 +1964,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
             let output = to_string_pretty(&ser, config).unwrap();
             let expected = r#"
 {
-    "glam::f32::scalar::quat::Quat": (
+    "glam::f32::sse2::quat::Quat": (
         x: 1.0,
         y: 2.0,
         z: 3.0,
@@ -1979,7 +1979,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
         fn quat_deserialization() {
             let data = r#"
 {
-    "glam::f32::scalar::quat::Quat": (
+    "glam::f32::sse2::quat::Quat": (
         x: 1.0,
         y: 2.0,
         z: 3.0,
