@@ -530,3 +530,39 @@ pub struct InvalidGenerationError {
     index: AssetIndex,
     current_generation: u32,
 }
+
+#[cfg(test)]
+mod test {
+    use crate::VisitAssetDependencies;
+
+    use super::*;
+    use bevy_reflect::TypePath;
+
+    struct SampleAsset;
+    impl Asset for SampleAsset {}
+    impl TypePath for SampleAsset {
+        fn type_path() -> &'static str {
+            "SampleAsset"
+        }
+
+        fn short_type_path() -> &'static str {
+            "SampleAsset"
+        }
+    }
+    impl VisitAssetDependencies for SampleAsset {
+        fn visit_dependencies(&self, _: &mut impl FnMut(crate::UntypedAssetId)) {}
+    }
+
+    #[test]
+    fn test_asset_insert_when_empty() {
+        let mut assets = Assets::<SampleAsset>::default();
+        let id = AssetId::Index {
+            index: AssetIndex {
+                generation: 0,
+                index: 0,
+            },
+            marker: PhantomData {},
+        };
+        assets.insert(id, SampleAsset {});
+    }
+}
