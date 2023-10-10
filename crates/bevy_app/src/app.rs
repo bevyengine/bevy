@@ -1,4 +1,4 @@
-use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
+use crate::{FixedUpdate, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     prelude::*,
@@ -467,7 +467,7 @@ impl App {
     {
         if !self.world.contains_resource::<Events<T>>() {
             self.init_resource::<Events<T>>().add_systems(
-                First,
+                FixedUpdate,
                 bevy_ecs::event::event_update_system::<T>
                     .run_if(bevy_ecs::event::event_update_condition::<T>),
             );

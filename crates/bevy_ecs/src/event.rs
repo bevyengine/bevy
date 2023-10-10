@@ -733,7 +733,7 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
     }
 }
 
-/// A system that calls [`Events::update`] once per frame.
+/// A system that calls [`Events::update`].
 pub fn event_update_system<T: Event>(mut events: ResMut<Events<T>>) {
     events.update();
 }
