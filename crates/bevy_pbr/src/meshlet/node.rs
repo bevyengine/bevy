@@ -1,4 +1,4 @@
-use super::{gpu_scene::MeshletGpuScene, per_frame_resources::MeshletPerFrameResources};
+use super::gpu_scene::MeshletGpuScene;
 use crate::{MeshViewBindGroup, ViewFogUniformOffset, ViewLightsUniformOffset};
 use bevy_core_pipeline::{
     clear_color::{ClearColor, ClearColorConfig},
@@ -16,7 +16,7 @@ use bevy_render::{
         ComputePassDescriptor, IndexFormat, LoadOp, Operations, RenderPassDepthStencilAttachment,
         RenderPassDescriptor,
     },
-    renderer::{RenderContext, RenderQueue},
+    renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 
@@ -63,24 +63,22 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let gpu_scene = world.resource::<MeshletGpuScene>();
-        if gpu_scene.total_instanced_meshlet_count() == 0 {
+        let (
+            total_instanced_meshlet_count,
+            Some(culling_bind_group),
+            Some(draw_bind_group),
+            Some(draw_index_buffer),
+            Some(draw_command_buffer),
+        ) = gpu_scene.resources()
+        else {
             return Ok(());
-        }
-        let gpu_scene_bind_group = gpu_scene.create_bind_group(render_context.render_device());
-        let (culling_bind_group, draw_bind_group, draw_command_buffer, draw_index_buffer) =
-            world.resource::<MeshletPerFrameResources>().create(
-                todo!(),
-                gpu_scene,
-                world.resource::<RenderQueue>(),
-                render_context.render_device(),
-            );
+        };
 
         {
             let command_encoder = render_context.command_encoder();
             let mut culling_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
                 label: Some("meshlet_culling_pass"),
             });
-
             culling_pass.set_bind_group(
                 0,
                 &mesh_view_bind_group.value,
@@ -90,15 +88,9 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
                     view_fog_offset.offset,
                 ],
             );
-            culling_pass.set_bind_group(1, &gpu_scene_bind_group, &[]);
-            culling_pass.set_bind_group(2, &culling_bind_group, &[]);
-
+            culling_pass.set_bind_group(1, culling_bind_group, &[]);
             culling_pass.set_pipeline(todo!("Culling pipeline"));
-            culling_pass.dispatch_workgroups(
-                div_ceil(gpu_scene.total_instanced_meshlet_count(), 128),
-                1,
-                1,
-            );
+            culling_pass.dispatch_workgroups(div_ceil(total_instanced_meshlet_count, 128), 1, 1);
         }
 
         {
@@ -142,13 +134,12 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
                     view_fog_offset.offset,
                 ],
             );
-            draw_pass.set_bind_group(1, &gpu_scene_bind_group, &[]);
-            draw_pass.set_bind_group(2, &draw_bind_group, &[]);
+            draw_pass.set_bind_group(1, draw_bind_group, &[]);
 
             for (i, material) in [todo!()].iter().enumerate() {
-                draw_pass.set_bind_group(3, todo!("Material bind group"), &[]);
+                draw_pass.set_bind_group(2, todo!("Material bind group"), &[]);
                 draw_pass.set_render_pipeline(todo!("Material pipeline"));
-                draw_pass.draw_indexed_indirect(&draw_command_buffer, i as u64);
+                draw_pass.draw_indexed_indirect(draw_command_buffer, i as u64);
             }
         }
 

@@ -2,7 +2,6 @@ mod asset;
 mod from_mesh;
 mod gpu_scene;
 mod node;
-mod per_frame_resources;
 mod persistent_buffer;
 mod psb_impls;
 
@@ -11,9 +10,9 @@ pub use self::{
     node::{draw_3d_graph::node::MAIN_MESHLET_OPAQUE_PASS_3D, MainMeshletOpaquePass3dNode},
 };
 
-use self::{
-    gpu_scene::{extract_meshlet_meshes, perform_pending_meshlet_mesh_writes, MeshletGpuScene},
-    per_frame_resources::MeshletPerFrameResources,
+use self::gpu_scene::{
+    extract_meshlet_meshes, perform_pending_meshlet_mesh_writes,
+    prepare_meshlet_per_frame_bind_groups, prepare_meshlet_per_frame_resources, MeshletGpuScene,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetApp;
@@ -53,11 +52,14 @@ impl Plugin for MeshletPlugin {
             ],
         )
         .init_resource::<MeshletGpuScene>()
-        .init_resource::<MeshletPerFrameResources>()
         .add_systems(ExtractSchedule, extract_meshlet_meshes)
         .add_systems(
             Render,
-            perform_pending_meshlet_mesh_writes.in_set(RenderSet::PrepareAssets),
+            (
+                perform_pending_meshlet_mesh_writes.in_set(RenderSet::PrepareAssets),
+                prepare_meshlet_per_frame_resources.in_set(RenderSet::PrepareResources),
+                prepare_meshlet_per_frame_bind_groups.in_set(RenderSet::PrepareBindGroups),
+            ),
         );
     }
 }
