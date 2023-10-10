@@ -1,8 +1,5 @@
-use super::{
-    gpu_scene::{MeshletGpuScene, MeshletMeshGpuSceneSlice},
-    per_frame_resources::MeshletPerFrameResources,
-};
-use crate::{MeshTransforms, MeshViewBindGroup, ViewFogUniformOffset, ViewLightsUniformOffset};
+use super::{gpu_scene::MeshletGpuScene, per_frame_resources::MeshletPerFrameResources};
+use crate::{MeshViewBindGroup, ViewFogUniformOffset, ViewLightsUniformOffset};
 use bevy_core_pipeline::{
     clear_color::{ClearColor, ClearColorConfig},
     core_3d::{Camera3d, Camera3dDepthLoadOp},
