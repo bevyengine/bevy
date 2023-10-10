@@ -5,13 +5,12 @@
 #import bevy_pbr::pbr_types as pbr_types
 
 #import bevy_pbr::mesh_bindings            mesh
-#import bevy_pbr::mesh_view_bindings       fog, screen_space_ambient_occlusion_texture
+#import bevy_pbr::mesh_view_bindings       view, fog, screen_space_ambient_occlusion_texture
 #import bevy_pbr::mesh_view_types          FOG_MODE_OFF
 #import bevy_core_pipeline::tonemapping    screen_space_dither, powsafe, tone_mapping
 #import bevy_pbr::parallax_mapping         parallaxed_uv
-#import bevy_pbr::prepass_utils as prepass_utils
-#import bevy_pbr::mesh_view_bindings view
 
+#import bevy_pbr::prepass_utils
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
 #import bevy_pbr::gtao_utils gtao_multibounce
@@ -142,7 +141,7 @@ fn fragment(
         pbr_input.is_orthographic = is_orthographic;
 
 #ifdef LOAD_PREPASS_NORMALS
-        pbr_input.N = prepass_utils::prepass_normal(in.position, 0u);
+        pbr_input.N = bevy_pbr::prepass_utils::prepass_normal(in.position, 0u);
 #else
         pbr_input.N = pbr_functions::apply_normal_mapping(
             pbr_bindings::material.flags,
