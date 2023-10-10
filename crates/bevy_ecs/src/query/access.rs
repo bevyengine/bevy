@@ -270,7 +270,7 @@ impl<T: SparseSetIndex> Access<T> {
         self.writes.ones().map(T::get_sparse_set_index)
     }
 
-    /// checks if the difference of `self` with `other` is empty
+    /// Returns true if the difference of `self` with `other` is empty
     pub fn read_and_writes_difference_is_empty(&self, other: &Access<T>) -> bool {
         if self.reads_all || self.writes_all {
             return other.reads_all || other.writes_all;
@@ -279,11 +279,6 @@ impl<T: SparseSetIndex> Access<T> {
             .difference(&other.reads_and_writes)
             .count()
             == 0
-    }
-
-    /// checks if there is any access set
-    pub fn has_access(&self) -> bool {
-        self.writes_all || self.reads_all || !self.reads_and_writes.is_clear()
     }
 }
 
