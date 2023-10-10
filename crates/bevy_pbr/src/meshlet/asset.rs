@@ -12,7 +12,6 @@ pub struct MeshletMesh {
     pub meshlet_indices: Arc<[u8]>,
     pub meshlets: Arc<[Meshlet]>,
     pub meshlet_bounding_spheres: Arc<[MeshletBoundingSphere]>,
-    pub meshlet_bounding_cones: Arc<[MeshletBoundingCone]>,
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
@@ -29,10 +28,4 @@ pub struct Meshlet {
 pub struct MeshletBoundingSphere {
     pub center: Vec3,
     pub radius: f32,
-}
-
-#[derive(Serialize, Deserialize, Copy, Clone)]
-pub struct MeshletBoundingCone {
-    pub apex: Vec3,
-    pub axis: Vec3,
 }

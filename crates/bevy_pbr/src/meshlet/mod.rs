@@ -6,7 +6,7 @@ mod persistent_buffer;
 mod psb_impls;
 
 pub use self::{
-    asset::{Meshlet, MeshletBoundingCone, MeshletBoundingSphere, MeshletMesh},
+    asset::{Meshlet, MeshletBoundingSphere, MeshletMesh},
     node::{draw_3d_graph::node::MAIN_MESHLET_OPAQUE_PASS_3D, MainMeshletOpaquePass3dNode},
 };
 
@@ -22,8 +22,6 @@ use bevy_core_pipeline::core_3d::{
 use bevy_ecs::schedule::IntoSystemConfigs;
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    renderer::RenderDevice,
-    settings::WgpuFeatures,
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -36,38 +34,27 @@ impl Plugin for MeshletPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        match app.world.get_resource::<RenderDevice>() {
-            Some(render_device) if Self::supported(render_device) => {}
-            Some(_) => panic!("MeshletPlugin added, but it is not supported on this system.\n Check for support with MeshletPlugin::supported()."),
-            None => return,
-        }
+        let Ok(app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
-        app.sub_app_mut(RenderApp)
-            .add_render_graph_node::<ViewNodeRunner<MainMeshletOpaquePass3dNode>>(
-                CORE_3D,
+        app.add_render_graph_node::<ViewNodeRunner<MainMeshletOpaquePass3dNode>>(
+            CORE_3D,
+            MAIN_MESHLET_OPAQUE_PASS_3D,
+        )
+        .add_render_graph_edges(
+            CORE_3D,
+            &[
+                START_MAIN_PASS,
                 MAIN_MESHLET_OPAQUE_PASS_3D,
-            )
-            .add_render_graph_edges(
-                CORE_3D,
-                &[
-                    START_MAIN_PASS,
-                    MAIN_MESHLET_OPAQUE_PASS_3D,
-                    MAIN_OPAQUE_PASS,
-                ],
-            )
-            .init_resource::<MeshletGpuScene>()
-            .add_systems(ExtractSchedule, extract_meshlet_meshes)
-            .add_systems(
-                Render,
-                perform_pending_meshlet_mesh_writes.in_set(RenderSet::PrepareAssets),
-            );
-    }
-}
-
-impl MeshletPlugin {
-    pub fn supported(render_device: &RenderDevice) -> bool {
-        render_device
-            .features()
-            .contains(WgpuFeatures::MULTI_DRAW_INDIRECT)
+                MAIN_OPAQUE_PASS,
+            ],
+        )
+        .init_resource::<MeshletGpuScene>()
+        .add_systems(ExtractSchedule, extract_meshlet_meshes)
+        .add_systems(
+            Render,
+            perform_pending_meshlet_mesh_writes.in_set(RenderSet::PrepareAssets),
+        );
     }
 }

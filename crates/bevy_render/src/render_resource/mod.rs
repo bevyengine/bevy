@@ -28,11 +28,12 @@ pub use uniform_buffer::*;
 
 // TODO: decide where re-exports should go
 pub use wgpu::{
-    util::BufferInitDescriptor, AdapterInfo as WgpuAdapterInfo, AddressMode, BindGroupDescriptor,
-    BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
-    BlendComponent, BlendFactor, BlendOperation, BlendState, BufferAddress, BufferBinding,
-    BufferBindingType, BufferDescriptor, BufferSize, BufferUsages, ColorTargetState, ColorWrites,
-    CommandEncoder, CommandEncoderDescriptor, CompareFunction, ComputePass, ComputePassDescriptor,
+    util::{BufferInitDescriptor, DrawIndexedIndirect, DrawIndirect},
+    AdapterInfo as WgpuAdapterInfo, AddressMode, BindGroupDescriptor, BindGroupEntry,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent,
+    BlendFactor, BlendOperation, BlendState, BufferAddress, BufferBinding, BufferBindingType,
+    BufferDescriptor, BufferSize, BufferUsages, ColorTargetState, ColorWrites, CommandEncoder,
+    CommandEncoderDescriptor, CompareFunction, ComputePass, ComputePassDescriptor,
     ComputePipelineDescriptor as RawComputePipelineDescriptor, DepthBiasState, DepthStencilState,
     Extent3d, Face, Features as WgpuFeatures, FilterMode, FragmentState as RawFragmentState,
     FrontFace, ImageCopyBuffer, ImageCopyBufferBase, ImageCopyTexture, ImageCopyTextureBase,

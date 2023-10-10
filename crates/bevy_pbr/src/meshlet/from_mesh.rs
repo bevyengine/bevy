@@ -1,6 +1,4 @@
-use super::{
-    asset::Meshlet, asset::MeshletBoundingCone, asset::MeshletBoundingSphere, asset::MeshletMesh,
-};
+use super::{asset::Meshlet, asset::MeshletBoundingSphere, asset::MeshletMesh};
 use bevy_asset::anyhow::{bail, Error};
 use bevy_render::{
     mesh::{Indices, Mesh},
@@ -39,25 +37,22 @@ impl MeshletMesh {
 
         let mut meshlets = build_meshlets(&indices, &vertices, 126, 64, 0.5);
 
-        let mut meshlet_bounding_spheres = Vec::with_capacity(meshlets.meshlets.len());
-        let mut meshlet_bounding_cones = Vec::with_capacity(meshlets.meshlets.len());
-        for meshlet in meshlets.iter() {
-            let bounds = compute_meshlet_bounds_decoder(
-                meshlet,
-                mesh.attribute(Mesh::ATTRIBUTE_POSITION)
-                    .unwrap()
-                    .as_float3()
-                    .unwrap(),
-            );
-            meshlet_bounding_spheres.push(MeshletBoundingSphere {
-                center: bounds.center.into(),
-                radius: bounds.radius,
-            });
-            meshlet_bounding_cones.push(MeshletBoundingCone {
-                apex: bounds.cone_apex.into(),
-                axis: bounds.cone_axis.into(),
-            });
-        }
+        let meshlet_bounding_spheres = meshlets
+            .iter()
+            .map(|meshlet| {
+                let bounds = compute_meshlet_bounds_decoder(
+                    meshlet,
+                    mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+                        .unwrap()
+                        .as_float3()
+                        .unwrap(),
+                );
+                MeshletBoundingSphere {
+                    center: bounds.center.into(),
+                    radius: bounds.radius,
+                }
+            })
+            .collect();
 
         // Buffer copies need to be in multiples of 4 bytes
         let padding = ((meshlets.triangles.len() + 3) & !0x3) - meshlets.triangles.len();
@@ -77,8 +72,7 @@ impl MeshletMesh {
                     meshlet_triangle_count: m.triangle_count,
                 })
                 .collect(),
-            meshlet_bounding_spheres: meshlet_bounding_spheres.into(),
-            meshlet_bounding_cones: meshlet_bounding_cones.into(),
+            meshlet_bounding_spheres,
         })
     }
 }

@@ -1,7 +1,4 @@
-use super::{
-    persistent_buffer::PersistentGpuBuffer, Meshlet, MeshletBoundingCone, MeshletBoundingSphere,
-    MeshletMesh,
-};
+use super::{persistent_buffer::PersistentGpuBuffer, Meshlet, MeshletBoundingSphere, MeshletMesh};
 use crate::{
     MeshFlags, MeshTransforms, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
 };
@@ -66,7 +63,9 @@ pub fn extract_meshlet_meshes(
             flags: flags.bits(),
         };
 
-        commands.entity(entity).insert((scene_slice, transforms));
+        commands
+            .get_or_spawn(entity)
+            .insert((scene_slice, transforms));
     }
 }
 
@@ -90,9 +89,6 @@ pub fn perform_pending_meshlet_mesh_writes(
     gpu_scene
         .meshlet_bounding_spheres
         .perform_writes(&render_queue, &render_device);
-    gpu_scene
-        .meshlet_bounding_cones
-        .perform_writes(&render_queue, &render_device);
 }
 
 #[derive(Resource)]
@@ -102,10 +98,9 @@ pub struct MeshletGpuScene {
     meshlet_indices: PersistentGpuBuffer<Arc<[u8]>>,
     meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
     meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSphere]>>,
-    meshlet_bounding_cones: PersistentGpuBuffer<Arc<[MeshletBoundingCone]>>,
 
     meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, MeshletMeshGpuSceneSlice>,
-    total_instanced_meshlet_count: u64, // TODO: Will need to be a hashmap per-material
+    total_instanced_meshlet_count: u32,
 
     bind_group_layout: BindGroupLayout,
 }
@@ -127,10 +122,6 @@ impl FromWorld for MeshletGpuScene {
             meshlets: PersistentGpuBuffer::new("meshlet_gpu_scene_meshlets", render_device),
             meshlet_bounding_spheres: PersistentGpuBuffer::new(
                 "meshlet_gpu_scene_meshlet_bounding_spheres",
-                render_device,
-            ),
-            meshlet_bounding_cones: PersistentGpuBuffer::new(
-                "meshlet_gpu_scene_meshlet_bounding_cones",
                 render_device,
             ),
 
@@ -196,17 +187,6 @@ impl FromWorld for MeshletGpuScene {
                         },
                         count: None,
                     },
-                    // Meshlet bounding cones
-                    BindGroupLayoutEntry {
-                        binding: 5,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Storage { read_only: true },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    },
                 ],
             }),
         }
@@ -238,10 +218,10 @@ impl MeshletGpuScene {
             );
             self.meshlet_bounding_spheres
                 .queue_write(Arc::clone(&meshlet_mesh.meshlet_bounding_spheres), ());
-            self.meshlet_bounding_cones
-                .queue_write(Arc::clone(&meshlet_mesh.meshlet_bounding_cones), ());
 
-            MeshletMeshGpuSceneSlice((meshlet_slice.start / 16)..(meshlet_slice.end / 16))
+            MeshletMeshGpuSceneSlice(
+                (meshlet_slice.start as u32 / 16)..(meshlet_slice.end as u32 / 16),
+            )
         };
 
         let scene_slice = self
@@ -284,14 +264,14 @@ impl MeshletGpuScene {
                     binding: 4,
                     resource: self.meshlet_bounding_spheres.binding(),
                 },
-                BindGroupEntry {
-                    binding: 5,
-                    resource: self.meshlet_bounding_cones.binding(),
-                },
             ],
         })
+    }
+
+    pub fn total_instanced_meshlet_count(&self) -> u32 {
+        self.total_instanced_meshlet_count
     }
 }
 
 #[derive(Component, Clone)]
-pub struct MeshletMeshGpuSceneSlice(Range<u64>);
+pub struct MeshletMeshGpuSceneSlice(pub Range<u32>);

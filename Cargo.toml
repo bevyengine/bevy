@@ -811,6 +811,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "meshlet"
+path = "examples/3d/meshlet.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.meshlet]
+name = "Meshlet"
+description = "GPU-driven meshlet-based rendering"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "no_prepass"
 path = "tests/3d/no_prepass.rs"
 doc-scrape-examples = true

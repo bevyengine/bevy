@@ -11,7 +11,10 @@ use bevy_ecs::{
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
+    render_resource::{
+        ComputePassDescriptor, LoadOp, Operations, RenderPassDepthStencilAttachment,
+        RenderPassDescriptor,
+    },
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
@@ -58,52 +61,79 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some(draw_3d_graph::node::MAIN_MESHLET_OPAQUE_PASS_3D),
-            color_attachments: &[Some(target.get_color_attachment(Operations {
-                load: match camera_3d.clear_color {
-                    ClearColorConfig::Default => {
-                        LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                    }
-                    ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                    ClearColorConfig::None => LoadOp::Load,
-                },
-                store: true,
-            }))],
-            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: &depth.view,
-                depth_ops: Some(Operations {
-                    load: if depth_prepass || normal_prepass || motion_vector_prepass {
-                        Camera3dDepthLoadOp::Load
-                    } else {
-                        camera_3d.depth_load_op.clone()
-                    }
-                    .into(),
-                    store: true,
-                }),
-                stencil_ops: None,
-            }),
-        });
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
+        {
+            let command_encoder = render_context.command_encoder();
+            let mut culling_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+                label: Some("meshlet_culling_pass"),
+            });
+
+            culling_pass.set_bind_group(
+                0,
+                &mesh_view_bind_group.value,
+                &[
+                    view_offset.offset,
+                    view_lights_offset.offset,
+                    view_fog_offset.offset,
+                ],
+            );
+            culling_pass.set_bind_group(1, todo!("Meshlet scene"), &[]);
+            culling_pass.set_bind_group(2, todo!("Meshlet per frame resources for culling"), &[]);
+
+            culling_pass.set_pipeline(todo!());
+            culling_pass.dispatch_workgroups(todo!(), 1, 1);
         }
 
-        render_pass.set_bind_group(
-            0,
-            &mesh_view_bind_group.value,
-            &[
-                view_offset.offset,
-                view_lights_offset.offset,
-                view_fog_offset.offset,
-            ],
-        );
+        {
+            let mut draw_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                label: Some(draw_3d_graph::node::MAIN_MESHLET_OPAQUE_PASS_3D),
+                color_attachments: &[Some(target.get_color_attachment(Operations {
+                    load: match camera_3d.clear_color {
+                        ClearColorConfig::Default => {
+                            LoadOp::Clear(world.resource::<ClearColor>().0.into())
+                        }
+                        ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
+                        ClearColorConfig::None => LoadOp::Load,
+                    },
+                    store: true,
+                }))],
+                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                    view: &depth.view,
+                    depth_ops: Some(Operations {
+                        load: if depth_prepass || normal_prepass || motion_vector_prepass {
+                            Camera3dDepthLoadOp::Load
+                        } else {
+                            camera_3d.depth_load_op.clone()
+                        }
+                        .into(),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
+            });
+            if let Some(viewport) = camera.viewport.as_ref() {
+                draw_pass.set_camera_viewport(viewport);
+            }
 
-        let material = todo!();
-        render_pass.set_render_pipeline(todo!());
-        // TODO: Set material bind group
+            draw_pass.set_bind_group(
+                0,
+                &mesh_view_bind_group.value,
+                &[
+                    view_offset.offset,
+                    view_lights_offset.offset,
+                    view_fog_offset.offset,
+                ],
+            );
+            draw_pass.set_bind_group(1, todo!("Meshlet scene"), &[]);
+            draw_pass.set_bind_group(2, todo!("Meshlet per frame resources for drawing"), &[]);
 
-        // TODO: Setup meshlet per-material bind groups
+            for material in &[todo!()] {
+                draw_pass.set_bind_group(3, todo!("Material bind group"), &[]);
+                draw_pass.set_render_pipeline(todo!());
+                draw_pass
+                    .draw_indexed_indirect(todo!("Draw buffer"), todo!("Material draw offset"));
+            }
+        }
 
-        // TODO: Dispatch/draws
+        Ok(())
     }
 }

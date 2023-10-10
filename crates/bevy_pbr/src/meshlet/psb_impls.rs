@@ -1,8 +1,4 @@
-use super::{
-    persistent_buffer::PersistentGpuBufferable, Meshlet, MeshletBoundingCone, MeshletBoundingSphere,
-};
-use bevy_math::Vec4;
-use bytemuck::{Pod, Zeroable};
+use super::{persistent_buffer::PersistentGpuBufferable, Meshlet, MeshletBoundingSphere};
 use std::{borrow::Cow, sync::Arc};
 
 impl PersistentGpuBufferable for Arc<[u8]> {
@@ -66,30 +62,4 @@ impl PersistentGpuBufferable for Arc<[MeshletBoundingSphere]> {
     fn as_bytes_le<'a>(&'a self, _: Self::ExtraData) -> Cow<'a, [u8]> {
         Cow::Borrowed(bytemuck::cast_slice(self))
     }
-}
-
-impl PersistentGpuBufferable for Arc<[MeshletBoundingCone]> {
-    type ExtraData = ();
-
-    fn size_in_bytes(&self) -> u64 {
-        self.len() as u64 * 32
-    }
-
-    fn as_bytes_le<'a>(&'a self, _: Self::ExtraData) -> Cow<'a, [u8]> {
-        self.iter()
-            .flat_map(|cone| {
-                bytemuck::cast::<_, [u8; 32]>(ConePsb {
-                    apex: (cone.apex, 0.0).into(),
-                    axis: (cone.axis, 0.0).into(),
-                })
-            })
-            .collect()
-    }
-}
-
-#[derive(Pod, Zeroable, Clone, Copy)]
-#[repr(C)]
-struct ConePsb {
-    apex: Vec4,
-    axis: Vec4,
 }
