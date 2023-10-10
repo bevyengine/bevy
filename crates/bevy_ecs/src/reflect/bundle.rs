@@ -146,7 +146,8 @@ impl<B: Bundle + Reflect + FromWorld> FromType<B> for ReflectBundle {
                         .for_each(|field| insert_field::<B>(entity, field, registry)),
                     _ => panic!(
                         "expected bundle `{}` to be named struct or tuple",
-                        std::any::type_name::<B>()
+                        // FIXME: once we have unique reflect, use `TypePath`.
+                        std::any::type_name::<B>(),
                     ),
                 }
             },
@@ -163,7 +164,8 @@ impl<B: Bundle + Reflect + FromWorld> FromType<B> for ReflectBundle {
                         .for_each(|field| apply_or_insert_field::<B>(entity, field, registry)),
                     _ => panic!(
                         "expected bundle `{}` to be named struct or tuple",
-                        std::any::type_name::<B>()
+                        // FIXME: once we have unique reflect, use `TypePath`.
+                        std::any::type_name::<B>(),
                     ),
                 }
             },
@@ -188,14 +190,14 @@ fn insert_field<B: 'static>(
             if world.components().get_id(TypeId::of::<B>()).is_some() {
                 panic!(
                     "no `ReflectComponent` registration found for `{}`",
-                    field.type_name()
+                    field.reflect_type_path(),
                 );
             };
         });
 
         panic!(
             "no `ReflectBundle` registration found for `{}`",
-            field.type_name()
+            field.reflect_type_path(),
         )
     }
 }
@@ -214,14 +216,14 @@ fn apply_or_insert_field<B: 'static>(
             if world.components().get_id(TypeId::of::<B>()).is_some() {
                 panic!(
                     "no `ReflectComponent` registration found for `{}`",
-                    field.type_name()
+                    field.reflect_type_path(),
                 );
             };
         });
 
         panic!(
             "no `ReflectBundle` registration found for `{}`",
-            field.type_name()
+            field.reflect_type_path(),
         )
     }
 }

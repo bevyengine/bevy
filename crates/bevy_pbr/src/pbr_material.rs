@@ -152,11 +152,13 @@ pub struct StandardMaterial {
     /// - Vertex normals
     ///
     /// Tangents do not have to be stored in your model,
-    /// they can be generated using the [`Mesh::generate_tangents`] method.
+    /// they can be generated using the [`Mesh::generate_tangents`] or
+    /// [`Mesh::with_generated_tangents`] methods.
     /// If your material has a normal map, but still renders as a flat surface,
     /// make sure your meshes have their tangents set.
     ///
     /// [`Mesh::generate_tangents`]: bevy_render::mesh::Mesh::generate_tangents
+    /// [`Mesh::with_generated_tangents`]: bevy_render::mesh::Mesh::with_generated_tangents
     #[texture(9)]
     #[sampler(10)]
     #[dependency]
@@ -254,7 +256,7 @@ pub struct StandardMaterial {
     /// - It will look weird on bent/non-planar surfaces.
     /// - The depth of the pixel does not reflect its visual position, resulting
     ///   in artifacts for depth-dependent features such as fog or SSAO.
-    /// - For the same reason, the the geometry silhouette will always be
+    /// - For the same reason, the geometry silhouette will always be
     ///   the one of the actual geometry, not the parallaxed version, resulting
     ///   in awkward looks on intersecting parallaxed surfaces.
     ///

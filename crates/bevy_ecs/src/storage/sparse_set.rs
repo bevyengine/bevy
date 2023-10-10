@@ -111,7 +111,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     }
 }
 
-/// A sparse data structure of [Components](crate::component::Component)
+/// A sparse data structure of [`Component`](crate::component::Component)s.
 ///
 /// Designed for relatively fast insertions and deletions.
 #[derive(Debug)]

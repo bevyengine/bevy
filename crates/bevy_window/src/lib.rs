@@ -1,6 +1,14 @@
 #![allow(clippy::type_complexity)]
+#![warn(missing_docs)]
+//! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
+//!
+//! This crate contains types for window management and events,
+//! used by windowing implementors such as `bevy_winit`.
+//! The [`WindowPlugin`] sets up some global window-related parameters and
+//! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
 
-#[warn(missing_docs)]
+use bevy_a11y::Focus;
+
 mod cursor;
 mod event;
 mod raw_handle;
@@ -14,6 +22,7 @@ pub use event::*;
 pub use system::*;
 pub use window::*;
 
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -92,9 +101,14 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowThemeChanged>();
 
         if let Some(primary_window) = &self.primary_window {
-            app.world
+            let initial_focus = app
+                .world
                 .spawn(primary_window.clone())
-                .insert(PrimaryWindow);
+                .insert(PrimaryWindow)
+                .id();
+            if let Some(mut focus) = app.world.get_resource_mut::<Focus>() {
+                **focus = Some(initial_focus);
+            }
         }
 
         match self.exit_condition {

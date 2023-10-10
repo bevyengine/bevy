@@ -1,7 +1,6 @@
 use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
 use bevy_asset::{
-    anyhow, io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext,
-    ReadAssetBytesError,
+    io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext, ReadAssetBytesError,
 };
 use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3dBundle;
@@ -49,51 +48,76 @@ use thiserror::Error;
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
 pub enum GltfError {
+    /// Unsupported primitive mode.
     #[error("unsupported primitive mode")]
-    UnsupportedPrimitive { mode: Mode },
+    UnsupportedPrimitive {
+        /// The primitive mode.
+        mode: Mode,
+    },
+    /// Invalid glTF file.
     #[error("invalid glTF file: {0}")]
     Gltf(#[from] gltf::Error),
+    /// Binary blob is missing.
     #[error("binary blob is missing")]
     MissingBlob,
+    /// Decoding the base64 mesh data failed.
     #[error("failed to decode base64 mesh data")]
     Base64Decode(#[from] base64::DecodeError),
+    /// Unsupported buffer format.
     #[error("unsupported buffer format")]
     BufferFormatUnsupported,
+    /// Invalid image mime type.
     #[error("invalid image mime type: {0}")]
     InvalidImageMimeType(String),
+    /// Error when loading a texture. Might be due to a disabled image file format feature.
     #[error("You may need to add the feature for the file format: {0}")]
     ImageError(#[from] TextureError),
+    /// Failed to read bytes from an asset path.
     #[error("failed to read bytes from an asset path: {0}")]
     ReadAssetBytesError(#[from] ReadAssetBytesError),
+    /// Failed to load asset from an asset path.
     #[error("failed to load asset from an asset path: {0}")]
     AssetLoadError(#[from] AssetLoadError),
+    /// Missing sampler for an animation.
     #[error("Missing sampler for animation {0}")]
     MissingAnimationSampler(usize),
+    /// Failed to generate tangents.
     #[error("failed to generate tangents: {0}")]
     GenerateTangentsError(#[from] bevy_render::mesh::GenerateTangentsError),
+    /// Failed to generate morph targets.
     #[error("failed to generate morph targets: {0}")]
     MorphTarget(#[from] bevy_render::mesh::morph::MorphBuildError),
+    /// Failed to load a file.
+    #[error("failed to load file: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
 pub struct GltfLoader {
+    /// List of compressed image formats handled by the loader.
     pub supported_compressed_formats: CompressedImageFormats,
+    /// Custom vertex attributes that will be recognized when loading a glTF file.
+    ///
+    /// Keys must be the attribute names as found in the glTF data, which must start with an underscore.
+    /// See [this section of the glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
+    /// for additional details on custom attributes.
     pub custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
 }
 
 impl AssetLoader for GltfLoader {
     type Asset = Gltf;
     type Settings = ();
+    type Error = GltfError;
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
         _settings: &'a (),
         load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Gltf, anyhow::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Gltf, Self::Error>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            Ok(load_gltf(self, &bytes, load_context).await?)
+            load_gltf(self, &bytes, load_context).await
         })
     }
 
@@ -296,7 +320,7 @@ async fn load_gltf<'a, 'b, 'c>(
     let mut named_materials = HashMap::default();
     // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
     for material in gltf.materials() {
-        let handle = load_material(&material, load_context);
+        let handle = load_material(&material, load_context, false);
         if let Some(name) = material.name() {
             named_materials.insert(name.to_string(), handle.clone());
         }
@@ -504,6 +528,7 @@ async fn load_gltf<'a, 'b, 'c>(
                         &mut node_index_to_entity_map,
                         &mut entity_to_skin_index_map,
                         &mut active_camera_found,
+                        &Transform::default(),
                     );
                     if result.is_err() {
                         err = Some(result);
@@ -665,8 +690,12 @@ async fn load_image<'a, 'b>(
 }
 
 /// Loads a glTF material as a bevy [`StandardMaterial`] and returns it.
-fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<StandardMaterial> {
-    let material_label = material_label(material);
+fn load_material(
+    material: &Material,
+    load_context: &mut LoadContext,
+    is_scale_inverted: bool,
+) -> Handle<StandardMaterial> {
+    let material_label = material_label(material, is_scale_inverted);
     load_context.labeled_asset_scope(material_label, |load_context| {
         let pbr = material.pbr_metallic_roughness();
 
@@ -712,6 +741,8 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
             double_sided: material.double_sided(),
             cull_mode: if material.double_sided() {
                 None
+            } else if is_scale_inverted {
+                Some(Face::Front)
             } else {
                 Some(Face::Back)
             },
@@ -734,10 +765,19 @@ fn load_node(
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
     entity_to_skin_index_map: &mut HashMap<Entity, usize>,
     active_camera_found: &mut bool,
+    parent_transform: &Transform,
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
     let transform = Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix()));
+    let world_transform = *parent_transform * transform;
+    // according to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation,
+    // if the determinant of the transform is negative we must invert the winding order of
+    // triangles in meshes on the node.
+    // instead we equivalently test if the global scale is inverted by checking if the number
+    // of negative scale factors is odd. if so we will assign a copy of the material with face
+    // culling inverted, rather than modifying the mesh data directly.
+    let is_scale_inverted = world_transform.scale.is_negative_bitmask().count_ones() & 1 == 1;
     let mut node = world_builder.spawn(SpatialBundle::from(transform));
 
     node.insert(node_name(gltf_node));
@@ -794,31 +834,21 @@ fn load_node(
     // Map node index to entity
     node_index_to_entity_map.insert(gltf_node.index(), node.id());
 
-    if let Some(mesh) = gltf_node.mesh() {
-        if let Some(weights) = mesh.weights() {
-            let first_mesh = if let Some(primitive) = mesh.primitives().next() {
-                let primitive_label = primitive_label(&mesh, &primitive);
-                let handle: Handle<Mesh> = load_context.get_label_handle(&primitive_label);
-                Some(handle)
-            } else {
-                None
-            };
-            node.insert(MorphWeights::new(weights.to_vec(), first_mesh)?);
-        }
-    };
+    let mut morph_weights = None;
 
     node.with_children(|parent| {
         if let Some(mesh) = gltf_node.mesh() {
             // append primitives
             for primitive in mesh.primitives() {
                 let material = primitive.material();
-                let material_label = material_label(&material);
+                let material_label = material_label(&material, is_scale_inverted);
 
                 // This will make sure we load the default material now since it would not have been
                 // added when iterating over all the gltf materials (since the default material is
                 // not explicitly listed in the gltf).
+                // It also ensures an inverted scale copy is instantiated if required.
                 if !load_context.has_labeled_asset(&material_label) {
-                    load_material(&material, load_context);
+                    load_material(&material, load_context, is_scale_inverted);
                 }
 
                 let primitive_label = primitive_label(&mesh, &primitive);
@@ -836,6 +866,11 @@ fn load_node(
                         Some(weights) => weights.to_vec(),
                         None => vec![0.0; target_count],
                     };
+
+                    if morph_weights.is_none() {
+                        morph_weights = Some(weights.clone());
+                    }
+
                     // unwrap: the parent's call to `MeshMorphWeights::new`
                     // means this code doesn't run if it returns an `Err`.
                     // According to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#morph-targets
@@ -948,12 +983,20 @@ fn load_node(
                 node_index_to_entity_map,
                 entity_to_skin_index_map,
                 active_camera_found,
+                &world_transform,
             ) {
                 gltf_error = Some(err);
                 return;
             }
         }
     });
+
+    if let (Some(mesh), Some(weights)) = (gltf_node.mesh(), morph_weights) {
+        let primitive_label = mesh.primitives().next().map(|p| primitive_label(&mesh, &p));
+        let first_mesh = primitive_label.map(|label| load_context.get_label_handle(label));
+        node.insert(MorphWeights::new(weights, first_mesh)?);
+    }
+
     if let Some(err) = gltf_error {
         Err(err)
     } else {
@@ -990,9 +1033,12 @@ fn morph_targets_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
 }
 
 /// Returns the label for the `material`.
-fn material_label(material: &gltf::Material) -> String {
+fn material_label(material: &gltf::Material, is_scale_inverted: bool) -> String {
     if let Some(index) = material.index() {
-        format!("Material{index}")
+        format!(
+            "Material{index}{}",
+            if is_scale_inverted { " (inverted)" } else { "" }
+        )
     } else {
         "MaterialDefault".to_string()
     }

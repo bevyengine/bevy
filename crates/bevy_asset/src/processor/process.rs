@@ -91,7 +91,7 @@ pub enum ProcessError {
     #[error("The wrong meta type was passed into a processor. This is probably an internal implementation error.")]
     WrongMetaType,
     #[error("Encountered an error while saving the asset: {0}")]
-    AssetSaveError(anyhow::Error),
+    AssetSaveError(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
     #[error("Assets without extensions are not supported.")]
     ExtensionRequired,
 }
@@ -122,7 +122,7 @@ impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
                 .saver
                 .save(writer, saved_asset, &settings.saver_settings)
                 .await
-                .map_err(ProcessError::AssetSaveError)?;
+                .map_err(|error| ProcessError::AssetSaveError(Box::new(error)))?;
             Ok(output_settings)
         })
     }
@@ -241,7 +241,7 @@ impl<'a> ProcessContext<'a> {
                 true,
             )
             .await?;
-        for (path, full_hash) in loaded_asset.loader_dependencies.iter() {
+        for (path, full_hash) in &loaded_asset.loader_dependencies {
             self.new_processed_info
                 .process_dependencies
                 .push(ProcessDependencyInfo {

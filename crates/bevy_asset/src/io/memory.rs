@@ -1,5 +1,4 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
-use anyhow::Result;
 use bevy_utils::{BoxedFuture, HashMap};
 use futures_io::AsyncRead;
 use futures_lite::{ready, Stream};
