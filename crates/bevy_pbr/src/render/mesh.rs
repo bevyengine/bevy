@@ -53,7 +53,7 @@ use crate::render::{
     morph::{
         extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices, MorphUniform,
     },
-    skin::{extract_skins, /* no_automatic_skin_batching, */ prepare_skins, SkinUniform},
+    skin::{extract_skins, no_automatic_skin_batching, prepare_skins, SkinUniform},
     MeshLayouts,
 };
 
@@ -115,14 +115,13 @@ impl Plugin for MeshRenderPlugin {
 
         app.add_systems(
             PostUpdate,
-            (/* no_automatic_skin_batching, */no_automatic_morph_batching),
+            (no_automatic_skin_batching, no_automatic_morph_batching),
         );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<RenderMeshInstances>()
                 .init_resource::<MeshBindGroups>()
-                .init_resource::<SkinUniform>()
                 .init_resource::<SkinIndices>()
                 .init_resource::<MorphUniform>()
                 .init_resource::<MorphIndices>()
@@ -155,19 +154,21 @@ impl Plugin for MeshRenderPlugin {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            if let Some(per_object_buffer_batch_size) = GpuArrayBuffer::<MeshUniform>::batch_size(
-                render_app.world.resource::<RenderDevice>(),
-            ) {
+            let render_device = render_app.world.resource::<RenderDevice>();
+            if let Some(per_object_buffer_batch_size) =
+                GpuArrayBuffer::<MeshUniform>::batch_size(render_device)
+            {
                 mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
                     "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
                     per_object_buffer_batch_size,
                 ));
             }
 
+            let mesh_uniform_buffer = GpuArrayBuffer::<MeshUniform>::new(render_device);
+            let skin_uniform_buffer = SkinUniform::new(render_device);
             render_app
-                .insert_resource(GpuArrayBuffer::<MeshUniform>::new(
-                    render_app.world.resource::<RenderDevice>(),
-                ))
+                .insert_resource(mesh_uniform_buffer)
+                .insert_resource(skin_uniform_buffer)
                 .init_resource::<MeshPipeline>();
         }
 
@@ -342,6 +343,7 @@ pub struct MeshPipeline {
     /// ##endif // PER_OBJECT_BUFFER_BATCH_SIZE
     /// ```
     pub per_object_buffer_batch_size: Option<u32>,
+    pub skinned_mesh_storage_buffer: bool,
 }
 
 impl FromWorld for MeshPipeline {
@@ -582,6 +584,10 @@ impl FromWorld for MeshPipeline {
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
+            skinned_mesh_storage_buffer: render_device
+                .limits()
+                .max_storage_buffers_per_shader_stage
+                > 0,
         }
     }
 }
@@ -623,7 +629,10 @@ impl GetBatchData for MeshPipeline {
                 &mesh_instance.transforms,
                 skin_indices
                     .get(entity)
-                    .map_or(u32::MAX, |skin_index| skin_index.index),
+                    .map_or(u32::MAX, |skin_index| match skin_index {
+                        SkinIndex::Index(index) => *index,
+                        SkinIndex::DynamicOffset(_) => u32::MAX,
+                    }),
             ),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
@@ -745,9 +754,13 @@ pub fn setup_morph_and_skinning_defs(
     key: &MeshPipelineKey,
     shader_defs: &mut Vec<ShaderDefVal>,
     vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
+    skinned_mesh_storage_buffer: bool,
 ) -> BindGroupLayout {
     let mut add_skin_data = || {
         shader_defs.push("SKINNED".into());
+        if skinned_mesh_storage_buffer {
+            shader_defs.push("SKINNED_MESH_STORAGE_BUFFER".into());
+        }
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
     };
@@ -828,6 +841,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             &key,
             &mut shader_defs,
             &mut vertex_attributes,
+            self.skinned_mesh_storage_buffer,
         ));
 
         if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
@@ -1055,7 +1069,7 @@ pub fn prepare_mesh_bind_group(
     };
     groups.model_only = Some(layouts.model_only(&render_device, &model));
 
-    let skin = skins_uniform.buffer.buffer();
+    let skin = skins_uniform.buffer();
     if let Some(skin) = skin {
         groups.skinned = Some(layouts.skinned(&render_device, &model, skin));
     }
@@ -1325,10 +1339,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             dynamic_offsets[offset_count] = dynamic_offset.get();
             offset_count += 1;
         }
-        // if let Some(skin_index) = skin_index {
-        //     dynamic_offsets[offset_count] = skin_index.index;
-        //     offset_count += 1;
-        // }
+        if let Some(SkinIndex::DynamicOffset(dynamic_offset)) = skin_index {
+            dynamic_offsets[offset_count] = *dynamic_offset;
+            offset_count += 1;
+        }
         if let Some(morph_index) = morph_index {
             dynamic_offsets[offset_count] = morph_index.index;
             offset_count += 1;

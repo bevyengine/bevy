@@ -19,7 +19,11 @@ struct Mesh {
 
 #ifdef SKINNED
 struct SkinnedMesh {
+#ifdef SKINNED_MESH_STORAGE_BUFFER
     data: array<mat4x4<f32>>,
+#else
+    data: array<mat4x4<f32>, 256u>,
+#endif
 };
 #endif
 
