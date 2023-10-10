@@ -750,6 +750,8 @@ pub fn event_update_system<T: Event>(
     mut events: ResMut<Events<T>>,
 ) {
     if let Some(mut s) = signal {
+        // If we haven't got a signal to update the events, but we *could* get such a signal
+        // return early and update the events later.
         if !std::mem::replace(&mut s.0, false) {
             return;
         }
