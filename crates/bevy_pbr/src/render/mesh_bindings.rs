@@ -90,7 +90,10 @@ mod entry {
         BindGroupEntry { binding, resource }
     }
     pub(super) fn skinning(binding: u32, buffer: &Buffer) -> BindGroupEntry {
-        entry(binding, JOINT_BUFFER_SIZE as u64, buffer)
+        BindGroupEntry {
+            binding,
+            resource: buffer.as_entire_binding(),
+        }
     }
     pub(super) fn weights(binding: u32, buffer: &Buffer) -> BindGroupEntry {
         entry(binding, MORPH_BUFFER_SIZE as u64, buffer)
