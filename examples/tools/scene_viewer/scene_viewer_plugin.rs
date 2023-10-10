@@ -41,7 +41,7 @@ Scene Controls:
     L           - animate light direction
     U           - toggle shadows
     B           - toggle bounding boxes
-    F           - toggle camera frustums
+    F           - toggle camera frusta
     C           - cycle through the camera controller and any cameras loaded from the scene
 
     compile with "--features animation" for animation controls.
@@ -53,7 +53,7 @@ Scene Controls:
     L           - animate light direction
     U           - toggle shadows
     B           - toggle bounding boxes
-    F           - toggle camera frustums
+    F           - toggle camera frusta
     C           - cycle through the camera controller and any cameras loaded from the scene
 
     Space       - Play/Pause animation

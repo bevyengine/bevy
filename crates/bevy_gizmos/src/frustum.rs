@@ -43,7 +43,7 @@ impl Plugin for FrustumGizmoPlugin {
 /// Configuration for drawing the [`Frustum`] component on entities.
 #[derive(Clone, Default)]
 pub struct FrustumGizmoConfig {
-    /// Draws all frustums in the scene when set to `true`.
+    /// Draws all frusta in the scene when set to `true`.
     ///
     /// To draw a specific entity's frustum, you can add the [`FrustumGizmo`] component.
     ///
