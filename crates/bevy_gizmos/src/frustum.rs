@@ -13,11 +13,7 @@ use bevy_ecs::{
 };
 use bevy_math::Vec3;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectFromReflect};
-use bevy_render::{
-    color::Color,
-    primitives::{Frustum, HalfSpace},
-    view::VisibilitySystems,
-};
+use bevy_render::{color::Color, primitives::Frustum, view::VisibilitySystems};
 
 use crate::{color_from_entity, GizmoConfig, LineGizmo};
 
@@ -134,9 +130,18 @@ fn frustum_inner(
     line_handle: Option<&Handle<LineGizmo>>,
     color: Color,
 ) {
-    let Some(positions) = calculate_frustum_positions(frustum) else {
+    let Some([tln, trn, brn, bln, tlf, trf, brf, blf]) = frustum.corners() else {
         return;
     };
+
+    #[rustfmt::skip]
+    let positions: Vec<_> = [
+        tln, trn, brn, bln, tln, // Near
+        tlf, trf, brf, blf, tlf, // Far
+        Vec3::NAN, trn, trf, // Near to far
+        Vec3::NAN, brn, brf,
+        Vec3::NAN, bln, blf,
+    ].into_iter().map(|v| v.to_array()).collect();
 
     let line = LineGizmo {
         colors: std::iter::repeat(color.as_linear_rgba_f32())
@@ -160,54 +165,4 @@ fn remove_frustum_gizmos(
     for entity in &query {
         commands.entity(entity).remove::<Handle<LineGizmo>>();
     }
-}
-
-fn calculate_frustum_positions(frustum: &Frustum) -> Option<Vec<[f32; 3]>> {
-    let [left, right, top, bottom, near, far] = frustum.half_spaces;
-
-    // Near
-    let tln = intersect_halfspaces(top, left, near)?;
-    let trn = intersect_halfspaces(top, right, near)?;
-    let brn = intersect_halfspaces(bottom, right, near)?;
-    let bln = intersect_halfspaces(bottom, left, near)?;
-    // Far
-    let tlf = intersect_halfspaces(top, left, far)?;
-    let trf = intersect_halfspaces(top, right, far)?;
-    let brf = intersect_halfspaces(bottom, right, far)?;
-    let blf = intersect_halfspaces(bottom, left, far)?;
-
-    #[rustfmt::skip]
-    let positions = [
-        tln, trn, brn, bln, tln, // Near
-        tlf, trf, brf, blf, tlf, // Far
-        Vec3::NAN, trn, trf, // Near to far
-        Vec3::NAN, brn, brf,
-        Vec3::NAN, bln, blf,
-    ];
-
-    Some(positions.into_iter().map(|v| v.to_array()).collect())
-}
-
-/// Returns the intersection position if the three halfspaces all intersect at a single point.
-fn intersect_halfspaces(a: HalfSpace, b: HalfSpace, c: HalfSpace) -> Option<Vec3> {
-    let an = a.normal();
-    let bn = b.normal();
-    let cn = c.normal();
-
-    let x = Vec3::new(an.x, bn.x, cn.x);
-    let y = Vec3::new(an.y, bn.y, cn.y);
-    let z = Vec3::new(an.z, bn.z, cn.z);
-
-    let d = -Vec3::new(a.d(), b.d(), c.d());
-
-    let u = y.cross(z);
-    let v = x.cross(d);
-
-    let denom = x.dot(u);
-
-    if denom.abs() < f32::EPSILON {
-        return None;
-    }
-
-    Some(Vec3::new(d.dot(u), z.dot(v), -y.dot(v)) / denom)
 }
