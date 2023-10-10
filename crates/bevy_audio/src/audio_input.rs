@@ -51,13 +51,13 @@ impl AudioInputStream {
                 &config,
                 move |data: &[f32], info: &InputCallbackInfo| {
                     let event = AudioInputEvent {
-                        samples: data.into_iter().cloned().collect(),
+                        samples: data.to_vec(),
                         info: info.clone(),
                         config: config_clone.clone(),
                     };
 
                     if let Err(error) = tx.send(event) {
-                        warn!("Audio Input Error: {}", error)
+                        warn!("Audio Input Error: {}", error);
                     };
                 },
                 move |error| {
@@ -110,6 +110,11 @@ impl AudioInputEvent {
     /// Gets the number of samples collected during this input frame.
     pub fn len(&self) -> usize {
         self.samples.len() / self.config.channels as usize
+    }
+
+    /// Returns `true` if this input frame recorded no samples.
+    pub fn is_empty(&self) -> bool {
+        self.samples.is_empty()
     }
 
     /// Gets the amount of time this input frame represents.
