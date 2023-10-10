@@ -7,12 +7,17 @@ mod psb_impls;
 
 pub use self::{
     asset::{Meshlet, MeshletBoundingSphere, MeshletMesh},
-    node::{draw_3d_graph::node::MAIN_MESHLET_OPAQUE_PASS_3D, MainMeshletOpaquePass3dNode},
+    from_mesh::MeshToMeshletMeshConversionError,
+    node::{draw_3d_graph, MainMeshletOpaquePass3dNode},
 };
 
-use self::gpu_scene::{
-    extract_meshlet_meshes, perform_pending_meshlet_mesh_writes,
-    prepare_meshlet_per_frame_bind_groups, prepare_meshlet_per_frame_resources, MeshletGpuScene,
+use self::{
+    draw_3d_graph::node::MAIN_MESHLET_OPAQUE_PASS_3D,
+    gpu_scene::{
+        extract_meshlet_meshes, perform_pending_meshlet_mesh_writes,
+        prepare_meshlet_per_frame_bind_groups, prepare_meshlet_per_frame_resources,
+        MeshletGpuScene,
+    },
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetApp;
