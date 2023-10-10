@@ -57,6 +57,9 @@ symphonia-isomp4 = ["bevy_audio/symphonia-isomp4"]
 symphonia-vorbis = ["bevy_audio/symphonia-vorbis"]
 symphonia-wav = ["bevy_audio/symphonia-wav"]
 
+# Audio input support
+audio-input = ["bevy_audio/input"]
+
 # Shader formats
 shader_format_glsl = ["bevy_render/shader_format_glsl"]
 shader_format_spirv = ["bevy_render/shader_format_spirv"]

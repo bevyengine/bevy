@@ -30,6 +30,7 @@ rodio = { version = "0.17", default-features = false, features = ["wasm-bindgen"
 
 
 [features]
+input = []
 mp3 = ["rodio/mp3"]
 flac = ["rodio/flac"]
 wav = ["rodio/wav"]

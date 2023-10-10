@@ -193,6 +193,9 @@ symphonia-vorbis = ["bevy_internal/symphonia-vorbis"]
 # WAV audio format support (through symphonia)
 symphonia-wav = ["bevy_internal/symphonia-wav"]
 
+# Audio input support (through rodio)
+audio-input = ["bevy_internal/audio-input"]
+
 # Enable serialization support through serde
 serialize = ["bevy_internal/serialize"]
 
@@ -1117,6 +1120,18 @@ doc-scrape-examples = true
 [package.metadata.example.audio_control]
 name = "Audio Control"
 description = "Shows how to load and play an audio file, and control how it's played"
+category = "Audio"
+wasm = true
+
+[[example]]
+name = "audio_input"
+path = "examples/audio/audio_input.rs"
+doc-scrape-examples = true
+required-features = ["audio-input"]
+
+[package.metadata.example.audio_input]
+name = "Audio Input"
+description = "Shows how to access audio input."
 category = "Audio"
 wasm = true
 
