@@ -1680,12 +1680,13 @@ mod tests {
         }
 
         #[test]
-        fn can_generalize_option() {
+        fn can_generalize_with_option() {
             let mut world = World::new();
             world.spawn((A(22), B));
 
             let query_state = world.query::<(Option<&A>, &B)>();
             let _ = query_state.transmute_fetch::<Option<&A>>(world.components());
+            let _ = query_state.transmute_fetch::<&B>(world.components());
         }
 
         #[test]
