@@ -5,6 +5,7 @@
 #import bevy_pbr::rgb9e5 as rgb9e5
 #import bevy_pbr::mesh_view_bindings as view_bindings
 #import bevy_pbr::mesh_view_bindings view
+#import bevy_pbr::utils octahedral_encode, octahedral_decode
 
 // ---------------------------
 // from https://github.com/DGriffin91/bevy_coordinate_systems/blob/main/src/transformations.wgsl
