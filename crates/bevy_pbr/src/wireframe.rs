@@ -219,7 +219,7 @@ fn apply_global_wireframe_material(
 
 #[derive(Default, AsBindGroup, TypeUuid, TypePath, Debug, Clone, Asset)]
 #[uuid = "9e694f70-9963-4418-8bc1-3474c66b13b8"]
-struct WireframeMaterial {
+pub struct WireframeMaterial {
     #[uniform(0)]
     pub color: Color,
 }
