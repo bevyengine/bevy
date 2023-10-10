@@ -433,7 +433,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// }
     ///
     /// fn system_2(mut query: Query<(&mut A, &B)>) {
-    ///     let mut lens = query.restrict_fetch::<&A>();
+    ///     let mut lens = query.transmute_fetch::<&A>();
     ///     function_that_uses_a_query_lens(&mut lens);
     /// }
     ///
@@ -441,8 +441,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// # schedule.add_systems((system_1, system_2));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn restrict_fetch<NewQ: WorldQuery>(&mut self) -> QueryLens<'_, NewQ> {
-        let new_state = self.state.restrict_fetch(self.world.components());
+    pub fn transmute_fetch<NewQ: WorldQuery>(&mut self) -> QueryLens<'_, NewQ> {
+        let new_state = self.state.transmute_fetch(self.world.components());
 
         QueryLens {
             state: new_state,
@@ -454,7 +454,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// helper method to get a [`QueryLens`] with the same fetch as the existing query
     pub fn into_query_lens(&mut self) -> QueryLens<'_, Q> {
-        self.restrict_fetch()
+        self.transmute_fetch()
     }
 
     /// Returns an [`Iterator`] over the read-only query items.

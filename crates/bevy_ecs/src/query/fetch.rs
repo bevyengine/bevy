@@ -439,7 +439,7 @@ pub unsafe trait WorldQuery {
 
     /// Adds component access for when [`WorldQuery`] is not an exact match.
     /// i.e. Option<&T> where the matched archetypes don't necessarily contain
-    /// the data the WorldQuery takes access to in [`update_component_access`]
+    /// the data the WorldQuery takes access to in [`Self::update_component_access`]
     fn optional_access(
         state: &Self::State,
         access: &mut Access<ComponentId>,
@@ -717,7 +717,6 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     ) {
         // Entity Ref may or may not have data for a component T
         access.write_all();
-        
     }
 
     fn init_state(_world: &mut World) {}

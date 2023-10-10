@@ -140,12 +140,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
 
     /// This is used to transform a [`Query`](crate::system::Query) into a more generic [`Query`](crate::system::Query).
     /// This can be useful for passsing to another function tha might take the more generalize query.
-    /// See [`Query::restrict_fetch`](crate::system::Query::restrict_fetch) for more details.
+    /// See [`Query::transmute_fetch`](crate::system::Query::transmute_fetch) for more details.
     ///
-    /// You should not call `update_archetypes` on the returned [`QueryState`] as the result will be unpredictable.
+    /// You should not call [`update_archetypes`](Self::update_archetypes) on the returned [`QueryState`] as the result will be unpredictable.
     /// You might end up with a mix of archetypes that only matched the original query + archetypes that only match
     /// the new [`QueryState`]. Most of the safe methods on [`QueryState`] call [`QueryState::update_archetypes`] internally.
-    pub(crate) fn restrict_fetch<NewQ: WorldQuery>(
+    pub(crate) fn transmute_fetch<NewQ: WorldQuery>(
         &self,
         components: &Components,
     ) -> QueryState<NewQ, ()> {
@@ -1615,7 +1615,7 @@ mod tests {
             world.spawn((A(22), B));
 
             let query_state = world.query::<(&A, &B)>();
-            let mut new_query_state = query_state.restrict_fetch::<&A>(world.components());
+            let mut new_query_state = query_state.transmute_fetch::<&A>(world.components());
             assert_eq!(new_query_state.iter(&world).len(), 1);
             let a = new_query_state.single(&world);
 
@@ -1629,7 +1629,7 @@ mod tests {
             world.spawn((A(23), B, C(5)));
 
             let query_state = world.query_filtered::<(&A, &B), Without<C>>();
-            let mut new_query_state = query_state.restrict_fetch::<&A>(world.components());
+            let mut new_query_state = query_state.transmute_fetch::<&A>(world.components());
             // even though we change the query to not have Without<C>, we do not get the component with C.
             let a = new_query_state.single(&world);
 
@@ -1643,7 +1643,7 @@ mod tests {
             let entity = world.spawn(A(10)).id();
 
             let q = world.query::<()>();
-            let mut q = q.restrict_fetch::<Entity>(world.components());
+            let mut q = q.transmute_fetch::<Entity>(world.components());
             assert_eq!(q.single(&world), entity);
         }
 
@@ -1653,11 +1653,11 @@ mod tests {
             world.spawn(A(10));
 
             let q = world.query::<&A>();
-            let mut new_q = q.restrict_fetch::<Ref<A>>(world.components());
+            let mut new_q = q.transmute_fetch::<Ref<A>>(world.components());
             assert!(new_q.single(&world).is_added());
 
             let q = world.query::<Ref<A>>();
-            let _ = q.restrict_fetch::<&A>(world.components());
+            let _ = q.transmute_fetch::<&A>(world.components());
         }
 
         #[test]
@@ -1666,8 +1666,8 @@ mod tests {
             world.spawn(A(10));
 
             let q = world.query::<&mut A>();
-            let _ = q.restrict_fetch::<Ref<A>>(world.components());
-            let _ = q.restrict_fetch::<&A>(world.components());
+            let _ = q.transmute_fetch::<Ref<A>>(world.components());
+            let _ = q.transmute_fetch::<&A>(world.components());
         }
 
         #[test]
@@ -1676,7 +1676,7 @@ mod tests {
             world.spawn(A(10));
 
             let q = world.query::<EntityMut>();
-            let _ = q.restrict_fetch::<EntityRef>(world.components());
+            let _ = q.transmute_fetch::<EntityRef>(world.components());
         }
 
         #[test]
@@ -1685,7 +1685,7 @@ mod tests {
             world.spawn((A(22), B));
 
             let query_state = world.query::<(Option<&A>, &B)>();
-            let _ = query_state.restrict_fetch::<Option<&A>>(world.components());
+            let _ = query_state.transmute_fetch::<Option<&A>>(world.components());
         }
 
         #[test]
@@ -1697,7 +1697,7 @@ mod tests {
             world.spawn(A(22));
 
             let query_state = world.query::<&A>();
-            let mut _new_query_state = query_state.restrict_fetch::<(&A, &B)>(world.components());
+            let mut _new_query_state = query_state.transmute_fetch::<(&A, &B)>(world.components());
         }
 
         #[test]
@@ -1709,7 +1709,7 @@ mod tests {
             world.spawn(A(22));
 
             let query_state = world.query_filtered::<(&A, &B), Added<B>>();
-            let mut _new_query_state = query_state.restrict_fetch::<&A>(world.components());
+            let mut _new_query_state = query_state.transmute_fetch::<&A>(world.components());
         }
 
         #[test]
@@ -1719,7 +1719,7 @@ mod tests {
             world.spawn(A(22));
 
             let query_state = world.query::<&A>();
-            let mut _new_query_state = query_state.restrict_fetch::<&mut A>(world.components());
+            let mut _new_query_state = query_state.transmute_fetch::<&mut A>(world.components());
         }
 
         #[test]
@@ -1731,19 +1731,21 @@ mod tests {
             world.spawn(C(22));
 
             let query_state = world.query::<Option<&A>>();
-            let mut new_query_state = query_state.restrict_fetch::<&A>(world.components());
+            let mut new_query_state = query_state.transmute_fetch::<&A>(world.components());
             let x = new_query_state.single(&world);
             assert_eq!(x.0, 1234);
         }
 
         #[test]
-        #[should_panic(expected = "`transmute` does not allow going from a broader query to a more narrow one.")]
+        #[should_panic(
+            expected = "`transmute` does not allow going from a broader query to a more narrow one."
+        )]
         fn cannot_transmute_entity_ref() {
             let mut world = World::new();
             world.init_component::<A>();
 
             let q = world.query::<EntityRef>();
-            let _ = q.restrict_fetch::<&A>(world.components());
+            let _ = q.transmute_fetch::<&A>(world.components());
         }
     }
 }
