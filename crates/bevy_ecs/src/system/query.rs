@@ -441,6 +441,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// # schedule.add_systems((system_1, system_2));
     /// # schedule.run(&mut world);
     /// ```
+    #[track_caller]
     pub fn transmute_fetch<NewQ: WorldQuery>(&mut self) -> QueryLens<'_, NewQ> {
         let new_state = self.state.transmute_fetch(self.world.components());
 
