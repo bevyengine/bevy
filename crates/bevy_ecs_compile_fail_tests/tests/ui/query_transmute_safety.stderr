@@ -1,0 +1,21 @@
+error[E0499]: cannot borrow `query` as mutable more than once at a time
+  --> tests/ui/query_transmute_safety.rs:19:25
+   |
+18 |         let mut lens1 = query.transmute_fetch::<&mut Foo>();
+   |                         ----- first mutable borrow occurs here
+19 |         let mut lens2 = query.transmute_fetch::<&mut Foo>();
+   |                         ^^^^^ second mutable borrow occurs here
+20 |
+21 |         let mut query1 = lens1.query();
+   |                          ----- first borrow later used here
+
+error[E0499]: cannot borrow `lens` as mutable more than once at a time
+  --> tests/ui/query_transmute_safety.rs:33:26
+   |
+32 |         let mut query1 = lens.query();
+   |                          ---- first mutable borrow occurs here
+33 |         let mut query2 = lens.query();
+   |                          ^^^^ second mutable borrow occurs here
+34 |
+35 |         let f1 = query1.single_mut();
+   |                  ------ first borrow later used here
