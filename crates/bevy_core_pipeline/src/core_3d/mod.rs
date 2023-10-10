@@ -10,7 +10,7 @@ pub mod graph {
     pub mod node {
         pub const MSAA_WRITEBACK: &str = "msaa_writeback";
         pub const PREPASS: &str = "prepass";
-        pub const DEFERRED: &str = "deferred";
+        pub const DEFERRED_PREPASS: &str = "deferred_prepass";
         pub const COPY_DEFERRED_LIGHTING_ID: &str = "copy_deferred_lighting_id";
         pub const START_MAIN_PASS: &str = "start_main_pass";
         pub const MAIN_OPAQUE_PASS: &str = "main_opaque_pass";
@@ -59,8 +59,9 @@ use bevy_utils::{nonmax::NonMaxU32, tracing::warn, FloatOrd, HashMap};
 
 use crate::{
     deferred::{
-        copy_lighting_id::CopyDeferredLightingIdNode, node::DeferredNode, AlphaMask3dDeferred,
-        Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT, DEFERRED_PREPASS_FORMAT,
+        copy_lighting_id::CopyDeferredLightingIdNode, node::DeferredGBufferPrepassNode,
+        AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
+        DEFERRED_PREPASS_FORMAT,
     },
     prepass::{
         node::PrepassNode, AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass,
@@ -115,7 +116,10 @@ impl Plugin for Core3dPlugin {
         render_app
             .add_render_sub_graph(CORE_3D)
             .add_render_graph_node::<ViewNodeRunner<PrepassNode>>(CORE_3D, PREPASS)
-            .add_render_graph_node::<ViewNodeRunner<DeferredNode>>(CORE_3D, DEFERRED)
+            .add_render_graph_node::<ViewNodeRunner<DeferredGBufferPrepassNode>>(
+                CORE_3D,
+                DEFERRED_PREPASS,
+            )
             .add_render_graph_node::<ViewNodeRunner<CopyDeferredLightingIdNode>>(
                 CORE_3D,
                 COPY_DEFERRED_LIGHTING_ID,
@@ -137,7 +141,7 @@ impl Plugin for Core3dPlugin {
                 CORE_3D,
                 &[
                     PREPASS,
-                    DEFERRED,
+                    DEFERRED_PREPASS,
                     COPY_DEFERRED_LIGHTING_ID,
                     START_MAIN_PASS,
                     MAIN_OPAQUE_PASS,

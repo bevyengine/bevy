@@ -35,7 +35,7 @@ use crate::{
     ViewLightsUniformOffset, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 
-pub struct PbrDeferredLightingPlugin;
+pub struct DeferredPbrLightingPlugin;
 
 pub const DEFERRED_LIGHTING_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(2708011359337029741);
@@ -94,7 +94,7 @@ impl Default for PbrDeferredLightingDepthId {
     }
 }
 
-impl Plugin for PbrDeferredLightingPlugin {
+impl Plugin for DeferredPbrLightingPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             ExtractComponentPlugin::<PbrDeferredLightingDepthId>::default(),
@@ -119,7 +119,7 @@ impl Plugin for PbrDeferredLightingPlugin {
                 Render,
                 (prepare_deferred_lighting_pipelines.in_set(RenderSet::Prepare),),
             )
-            .add_render_graph_node::<ViewNodeRunner<DeferredLightingNode>>(
+            .add_render_graph_node::<ViewNodeRunner<DeferredOpaquePass3dPbrLightingNode>>(
                 core_3d::graph::NAME,
                 DEFERRED_LIGHTING_PASS,
             )
@@ -142,12 +142,11 @@ impl Plugin for PbrDeferredLightingPlugin {
     }
 }
 
-pub const DEFERRED_LIGHTING_PASS: &str = "deferred_lighting";
-
+pub const DEFERRED_LIGHTING_PASS: &str = "deferred_opaque_pbr_lighting_pass_3d";
 #[derive(Default)]
-pub struct DeferredLightingNode;
+pub struct DeferredOpaquePass3dPbrLightingNode;
 
-impl ViewNode for DeferredLightingNode {
+impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
     type ViewQuery = (
         &'static ViewUniformOffset,
         &'static ViewLightsUniformOffset,

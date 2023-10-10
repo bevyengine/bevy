@@ -26,9 +26,9 @@ use super::{AlphaMask3dDeferred, Opaque3dDeferred};
 ///
 /// By default, inserted before the main pass in the render graph.
 #[derive(Default)]
-pub struct DeferredNode;
+pub struct DeferredGBufferPrepassNode;
 
-impl ViewNode for DeferredNode {
+impl ViewNode for DeferredGBufferPrepassNode {
     type ViewQuery = (
         &'static ExtractedCamera,
         &'static RenderPhase<Opaque3dDeferred>,

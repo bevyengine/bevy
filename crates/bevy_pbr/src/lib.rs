@@ -64,7 +64,7 @@ use bevy_render::{
 use bevy_transform::TransformSystem;
 use environment_map::EnvironmentMapPlugin;
 
-use crate::deferred::PbrDeferredLightingPlugin;
+use crate::deferred::DeferredPbrLightingPlugin;
 
 pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1708015359337029744);
 pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5635987986427308186);
@@ -284,7 +284,7 @@ impl Plugin for PbrPlugin {
             );
 
         if self.add_default_deferred_lighting_plugin {
-            app.add_plugins(PbrDeferredLightingPlugin);
+            app.add_plugins(DeferredPbrLightingPlugin);
         }
 
         app.world.resource_mut::<Assets<StandardMaterial>>().insert(
