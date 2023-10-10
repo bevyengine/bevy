@@ -18,6 +18,7 @@ pub mod pipelined_rendering;
 pub mod primitives;
 pub mod render_asset;
 pub mod render_graph;
+pub mod render_instances;
 pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
@@ -235,7 +236,7 @@ pub const INSTANCE_INDEX_SHADER_HANDLE: Handle<Shader> =
 pub const MATHS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10665356303104593376);
 
 impl Plugin for RenderPlugin {
-    /// Initializes the renderer, sets up the [`RenderSet`](RenderSet) and creates the rendering sub-app.
+    /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();

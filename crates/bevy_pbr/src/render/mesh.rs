@@ -45,6 +45,8 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, EntityHashMap, HashMap, Hashed};
+use std::cell::Cell;
+use thread_local::ThreadLocal;
 
 use crate::render::{
     morph::{
@@ -246,6 +248,7 @@ pub fn extract_meshes(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    mut thread_local_queues: Local<ThreadLocal<Cell<Vec<(Entity, RenderMeshInstance)>>>>,
     meshes_query: Extract<
         Query<(
             Entity,
@@ -259,50 +262,58 @@ pub fn extract_meshes(
         )>,
     >,
 ) {
+    meshes_query.par_iter().for_each(
+        |(
+            entity,
+            view_visibility,
+            transform,
+            previous_transform,
+            handle,
+            not_shadow_receiver,
+            not_shadow_caster,
+            no_automatic_batching,
+        )| {
+            if !view_visibility.get() {
+                return;
+            }
+            let transform = transform.affine();
+            let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
+            let mut flags = if not_shadow_receiver {
+                MeshFlags::empty()
+            } else {
+                MeshFlags::SHADOW_RECEIVER
+            };
+            if transform.matrix3.determinant().is_sign_positive() {
+                flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
+            }
+            let transforms = MeshTransforms {
+                transform: (&transform).into(),
+                previous_transform: (&previous_transform).into(),
+                flags: flags.bits(),
+            };
+            let tls = thread_local_queues.get_or_default();
+            let mut queue = tls.take();
+            queue.push((
+                entity,
+                RenderMeshInstance {
+                    mesh_asset_id: handle.id(),
+                    transforms,
+                    shadow_caster: !not_shadow_caster,
+                    material_bind_group_id: MaterialBindGroupId::default(),
+                    automatic_batching: !no_automatic_batching,
+                },
+            ));
+            tls.set(queue);
+        },
+    );
+
     render_mesh_instances.clear();
     let mut entities = Vec::with_capacity(*previous_len);
-
-    let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.get());
-
-    for (
-        entity,
-        _,
-        transform,
-        previous_transform,
-        handle,
-        not_shadow_receiver,
-        not_shadow_caster,
-        no_automatic_batching,
-    ) in visible_meshes
-    {
-        let transform = transform.affine();
-        let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
-        let mut flags = if not_shadow_receiver {
-            MeshFlags::empty()
-        } else {
-            MeshFlags::SHADOW_RECEIVER
-        };
-        if transform.matrix3.determinant().is_sign_positive() {
-            flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
-        }
-        let transforms = MeshTransforms {
-            transform: (&transform).into(),
-            previous_transform: (&previous_transform).into(),
-            flags: flags.bits(),
-        };
+    for queue in thread_local_queues.iter_mut() {
         // FIXME: Remove this - it is just a workaround to enable rendering to work as
         // render commands require an entity to exist at the moment.
-        entities.push((entity, Mesh3d));
-        render_mesh_instances.insert(
-            entity,
-            RenderMeshInstance {
-                mesh_asset_id: handle.id(),
-                transforms,
-                shadow_caster: !not_shadow_caster,
-                material_bind_group_id: MaterialBindGroupId::default(),
-                automatic_batching: !no_automatic_batching,
-            },
-        );
+        entities.extend(queue.get_mut().iter().map(|(e, _)| (*e, Mesh3d)));
+        render_mesh_instances.extend(queue.get_mut().drain(..));
     }
     *previous_len = entities.len();
     commands.insert_or_spawn_batch(entities);
@@ -648,23 +659,34 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_AGX                = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_TONY_MC_MAPFACE     = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_BLENDER_FILMIC      = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_RESERVED_BITS = Self::SHADOW_FILTER_METHOD_MASK_BITS << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_HARDWARE_2X2  = 0 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_CASTANO_13    = 1 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
+        const SHADOW_FILTER_METHOD_JIMENEZ_14    = 2 << Self::SHADOW_FILTER_METHOD_SHIFT_BITS;
     }
 }
 
 impl MeshPipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
+
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
     const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 =
         Self::MSAA_SHIFT_BITS - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones();
+
     const BLEND_MASK_BITS: u32 = 0b11;
     const BLEND_SHIFT_BITS: u32 =
         Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::BLEND_MASK_BITS.count_ones();
+
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
         Self::BLEND_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
+
+    const SHADOW_FILTER_METHOD_MASK_BITS: u32 = 0b11;
+    const SHADOW_FILTER_METHOD_SHIFT_BITS: u32 =
+        Self::TONEMAP_METHOD_SHIFT_BITS - Self::SHADOW_FILTER_METHOD_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -768,14 +790,19 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 
+        if layout.contains(Mesh::ATTRIBUTE_UV_1) {
+            shader_defs.push("VERTEX_UVS_1".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(3));
+        }
+
         if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push("VERTEX_TANGENTS".into());
-            vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
+            vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(4));
         }
 
         if layout.contains(Mesh::ATTRIBUTE_COLOR) {
             shader_defs.push("VERTEX_COLORS".into());
-            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
+            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(5));
         }
 
         let mut bind_group_layout = match key.msaa_samples() {
@@ -789,7 +816,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         bind_group_layout.push(setup_morph_and_skinning_defs(
             &self.mesh_layouts,
             layout,
-            5,
+            6,
             &key,
             &mut shader_defs,
             &mut vertex_attributes,
@@ -886,6 +913,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::TAA) {
             shader_defs.push("TAA".into());
+        }
+
+        let shadow_filter_method =
+            key.intersection(MeshPipelineKey::SHADOW_FILTER_METHOD_RESERVED_BITS);
+        if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2 {
+            shader_defs.push("SHADOW_FILTER_METHOD_HARDWARE_2X2".into());
+        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13 {
+            shader_defs.push("SHADOW_FILTER_METHOD_CASTANO_13".into());
+        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14 {
+            shader_defs.push("SHADOW_FILTER_METHOD_JIMENEZ_14".into());
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {
@@ -1053,10 +1090,12 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&EnvironmentMapLight>,
         &Tonemapping,
     )>,
-    images: Res<RenderAssets<Image>>,
-    mut fallback_images: FallbackImagesMsaa,
-    mut fallback_depths: FallbackImagesDepth,
-    fallback_cubemap: Res<FallbackImageCubemap>,
+    (images, mut fallback_images, mut fallback_depths, fallback_cubemap): (
+        Res<RenderAssets<Image>>,
+        FallbackImagesMsaa,
+        FallbackImagesDepth,
+        Res<FallbackImageCubemap>,
+    ),
     msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
     tonemapping_luts: Res<TonemappingLuts>,

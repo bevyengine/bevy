@@ -50,7 +50,9 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #ifdef SKINNED
     let model = bevy_pbr::skinning::skin_model(vertex.joint_indexes, vertex.joint_weights);
 #else
-    let model = get_model_matrix(vertex.instance_index);
+    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+    // See https://github.com/gfx-rs/naga/issues/2416 .
+    let model = get_model_matrix(vertex_no_morph.instance_index);
 #endif
 
     var out: VertexOutput;

@@ -1,4 +1,4 @@
-use crate::{AudioSourceBundle, Decodable, SpatialAudioSourceBundle};
+use crate::{AudioSourceBundle, Decodable};
 use bevy_asset::Asset;
 use bevy_reflect::TypePath;
 use rodio::{source::SineWave, source::TakeDuration, Source};
@@ -33,6 +33,3 @@ impl Decodable for Pitch {
 
 /// Bundle for playing a bevy note sound
 pub type PitchBundle = AudioSourceBundle<Pitch>;
-
-/// Bundle for playing a bevy note sound with a 3D position
-pub type SpatialPitchBundle = SpatialAudioSourceBundle<Pitch>;

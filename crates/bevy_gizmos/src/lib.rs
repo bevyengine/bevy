@@ -14,7 +14,7 @@
 //! # bevy_ecs::system::assert_is_system(system);
 //! ```
 //!
-//! See the documentation on [`Gizmos`](crate::gizmos::Gizmos) for more examples.
+//! See the documentation on [`Gizmos`] for more examples.
 
 pub mod gizmos;
 
