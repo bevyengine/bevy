@@ -733,8 +733,34 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
     }
 }
 
+#[doc(hidden)]
+#[derive(Resource)]
+pub struct EventUpdateSignal<T>(bool, PhantomData<T>);
+
+impl<T> Default for EventUpdateSignal<T> {
+    fn default() -> Self {
+        Self(false, PhantomData)
+    }
+}
+
+/// A system that queues a call to [`Events::update`].
+pub fn event_queue_update_system<T: Event>(signal: Option<ResMut<EventUpdateSignal<T>>>) {
+    if let Some(mut s) = signal {
+        s.0 = true;
+    }
+}
+
 /// A system that calls [`Events::update`].
-pub fn event_update_system<T: Event>(mut events: ResMut<Events<T>>) {
+pub fn event_update_system<T: Event>(
+    signal: Option<ResMut<EventUpdateSignal<T>>>,
+    mut events: ResMut<Events<T>>,
+) {
+    if let Some(mut s) = signal {
+        if !std::mem::replace(&mut s.0, false) {
+            return;
+        }
+    }
+
     events.update();
 }
 
