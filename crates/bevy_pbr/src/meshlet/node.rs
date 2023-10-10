@@ -1,4 +1,8 @@
-use crate::{MeshViewBindGroup, ViewFogUniformOffset, ViewLightsUniformOffset};
+use super::{
+    gpu_scene::{MeshletGpuScene, MeshletMeshGpuSceneSlice},
+    per_frame_resources::MeshletPerFrameResources,
+};
+use crate::{MeshTransforms, MeshViewBindGroup, ViewFogUniformOffset, ViewLightsUniformOffset};
 use bevy_core_pipeline::{
     clear_color::{ClearColor, ClearColorConfig},
     core_3d::{Camera3d, Camera3dDepthLoadOp},
@@ -12,10 +16,10 @@ use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
-        ComputePassDescriptor, LoadOp, Operations, RenderPassDepthStencilAttachment,
+        ComputePassDescriptor, IndexFormat, LoadOp, Operations, RenderPassDepthStencilAttachment,
         RenderPassDescriptor,
     },
-    renderer::RenderContext,
+    renderer::{RenderContext, RenderQueue},
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 
@@ -61,6 +65,19 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        let gpu_scene = world.resource::<MeshletGpuScene>();
+        if gpu_scene.total_instanced_meshlet_count() == 0 {
+            return Ok(());
+        }
+        let gpu_scene_bind_group = gpu_scene.create_bind_group(render_context.render_device());
+        let (culling_bind_group, draw_bind_group, draw_command_buffer, draw_index_buffer) =
+            world.resource::<MeshletPerFrameResources>().create(
+                todo!(),
+                gpu_scene,
+                world.resource::<RenderQueue>(),
+                render_context.render_device(),
+            );
+
         {
             let command_encoder = render_context.command_encoder();
             let mut culling_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
@@ -76,11 +93,15 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
                     view_fog_offset.offset,
                 ],
             );
-            culling_pass.set_bind_group(1, todo!("Meshlet scene"), &[]);
-            culling_pass.set_bind_group(2, todo!("Meshlet per frame resources for culling"), &[]);
+            culling_pass.set_bind_group(1, &gpu_scene_bind_group, &[]);
+            culling_pass.set_bind_group(2, &culling_bind_group, &[]);
 
-            culling_pass.set_pipeline(todo!());
-            culling_pass.dispatch_workgroups(todo!(), 1, 1);
+            culling_pass.set_pipeline("Culling pipeline");
+            culling_pass.dispatch_workgroups(
+                div_ceil(gpu_scene.total_instanced_meshlet_count(), 128),
+                1,
+                1,
+            );
         }
 
         {
@@ -114,6 +135,7 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
                 draw_pass.set_camera_viewport(viewport);
             }
 
+            draw_pass.set_index_buffer(draw_index_buffer.slice(..), 0, IndexFormat::Uint32);
             draw_pass.set_bind_group(
                 0,
                 &mesh_view_bind_group.value,
@@ -123,17 +145,21 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
                     view_fog_offset.offset,
                 ],
             );
-            draw_pass.set_bind_group(1, todo!("Meshlet scene"), &[]);
-            draw_pass.set_bind_group(2, todo!("Meshlet per frame resources for drawing"), &[]);
+            draw_pass.set_bind_group(1, &gpu_scene_bind_group, &[]);
+            draw_pass.set_bind_group(2, &draw_bind_group, &[]);
 
-            for material in &[todo!()] {
+            for (i, material) in [todo!()].iter().enumerate() {
                 draw_pass.set_bind_group(3, todo!("Material bind group"), &[]);
-                draw_pass.set_render_pipeline(todo!());
-                draw_pass
-                    .draw_indexed_indirect(todo!("Draw buffer"), todo!("Material draw offset"));
+                draw_pass.set_render_pipeline(todo!("Material pipeline"));
+                draw_pass.draw_indexed_indirect(&draw_command_buffer, i as u64);
             }
         }
 
         Ok(())
     }
+}
+
+/// Divide `numerator` by `denominator`, rounded up to the nearest multiple of `denominator`.
+fn div_ceil(numerator: u32, denominator: u32) -> u32 {
+    (numerator + denominator - 1) / denominator
 }

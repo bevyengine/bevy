@@ -40,6 +40,7 @@ pub fn extract_meshlet_meshes(
     mut gpu_scene: ResMut<MeshletGpuScene>,
 ) {
     gpu_scene.total_instanced_meshlet_count = 0;
+    gpu_scene.total_instanced_triangle_count = 0;
 
     for (entity, handle, transform, previous_transform, not_shadow_receiver, not_shadow_caster) in
         &query
@@ -99,8 +100,9 @@ pub struct MeshletGpuScene {
     meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
     meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSphere]>>,
 
-    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, MeshletMeshGpuSceneSlice>,
+    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, (MeshletMeshGpuSceneSlice, u32)>,
     total_instanced_meshlet_count: u32,
+    total_instanced_triangle_count: u32,
 
     bind_group_layout: BindGroupLayout,
 }
@@ -127,6 +129,7 @@ impl FromWorld for MeshletGpuScene {
 
             meshlet_mesh_slices: HashMap::new(),
             total_instanced_meshlet_count: 0,
+            total_instanced_triangle_count: 0,
 
             bind_group_layout: render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("meshlet_gpu_scene_bind_group_layout"),
@@ -219,18 +222,26 @@ impl MeshletGpuScene {
             self.meshlet_bounding_spheres
                 .queue_write(Arc::clone(&meshlet_mesh.meshlet_bounding_spheres), ());
 
-            MeshletMeshGpuSceneSlice(
-                (meshlet_slice.start as u32 / 16)..(meshlet_slice.end as u32 / 16),
+            (
+                MeshletMeshGpuSceneSlice(
+                    (meshlet_slice.start as u32 / 16)..(meshlet_slice.end as u32 / 16),
+                ),
+                meshlet_mesh
+                    .meshlets
+                    .iter()
+                    .map(|meshlet| meshlet.meshlet_triangle_count)
+                    .sum(),
             )
         };
 
-        let scene_slice = self
+        let (scene_slice, triangle_count) = self
             .meshlet_mesh_slices
             .entry(handle.id())
             .or_insert_with_key(queue_meshlet_mesh)
             .clone();
 
         self.total_instanced_meshlet_count += scene_slice.0.end - scene_slice.0.start;
+        self.total_instanced_triangle_count += triangle_count;
 
         scene_slice
     }
@@ -270,6 +281,10 @@ impl MeshletGpuScene {
 
     pub fn total_instanced_meshlet_count(&self) -> u32 {
         self.total_instanced_meshlet_count
+    }
+
+    pub fn total_instanced_triangle_count(&self) -> u32 {
+        self.total_instanced_triangle_count
     }
 }
 
