@@ -35,7 +35,7 @@ impl MeshletMesh {
             0,
         )?;
 
-        let mut meshlets = build_meshlets(&indices, &vertices, 126, 64, 0.5);
+        let mut meshlets = build_meshlets(&indices, &vertices, 126, 64, 0.0);
 
         let meshlet_bounding_spheres = meshlets
             .iter()
