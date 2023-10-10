@@ -1840,6 +1840,9 @@ mod runner {
                             tls.remove_resource::<crate::EventLoopWindowTarget<AppEvent>>();
                         }
                         AppEvent::Exit(_) => {
+                            let tls = locals.as_mut().unwrap();
+                            tls.clear();
+
                             *control_flow = ControlFlow::Exit;
                         }
                         AppEvent::Error(payload) => {

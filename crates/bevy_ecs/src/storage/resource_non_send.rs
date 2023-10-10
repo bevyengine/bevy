@@ -382,6 +382,13 @@ impl ThreadLocalStorage {
         Self::default()
     }
 
+    /// Removes all resources.
+    pub fn clear(&mut self) {
+        // Drop resources normally to avoid the caveats described in
+        // https://doc.rust-lang.org/std/thread/struct.LocalKey.html
+        TLS.replace(ThreadLocals::new());
+    }
+
     /// Inserts a new resource with its default value.
     ///
     /// If the resource already exists, nothing happens.
