@@ -96,7 +96,7 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
             culling_pass.set_bind_group(1, &gpu_scene_bind_group, &[]);
             culling_pass.set_bind_group(2, &culling_bind_group, &[]);
 
-            culling_pass.set_pipeline("Culling pipeline");
+            culling_pass.set_pipeline(todo!("Culling pipeline"));
             culling_pass.dispatch_workgroups(
                 div_ceil(gpu_scene.total_instanced_meshlet_count(), 128),
                 1,
