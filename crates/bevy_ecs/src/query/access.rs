@@ -224,6 +224,53 @@ impl<T: SparseSetIndex> Access<T> {
         reads.is_subset(&other.reads_and_writes) && self.writes.is_subset(&other.writes)
     }
 
+    /// modifies self with the intersection with `other`
+    pub fn intersect(&mut self, other: &Access<T>) {
+        if self.writes_all {
+            if other.writes_all {
+                // we intersect everything so we're done.
+                return;
+            }
+
+            self.writes_all = false;
+
+            if other.reads_all {
+                self.reads_all = true;
+                return;
+            }
+
+            self.reads_all = false;
+
+            self.reads_and_writes = other.reads_and_writes.clone();
+            self.writes = other.writes.clone();
+            return;
+        }
+
+        if self.reads_all {
+            if other.writes_all || other.reads_all {
+                return;
+            }
+
+            self.reads_and_writes = other.reads_and_writes.clone();
+            self.writes.clear();
+            return;
+        }
+
+        if other.writes_all {
+            // reads_and_writes and writes are already correct
+            return;
+        }
+
+        if other.reads_all {
+            self.writes.clear();
+            return;
+        }
+
+        self.reads_and_writes
+            .intersect_with(&other.reads_and_writes);
+        self.writes.intersect_with(&other.writes);
+    }
+
     /// Returns a vector of elements that the access and `other` cannot access at the same time.
     pub fn get_conflicts(&self, other: &Access<T>) -> Vec<T> {
         let mut conflicts = FixedBitSet::default();
@@ -414,6 +461,22 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// `other` contains all the same access as `self`.  This does not take into account the filtered access.
     pub fn is_subset(&self, other: &FilteredAccess<T>) -> bool {
         self.access.is_subset(&other.access)
+    }
+
+    /// returns true if optional access has not changed
+    pub fn is_optional_compatible(
+        &self,
+        mut original_optional: Access<T>,
+        new_optional: &Access<T>,
+    ) -> bool {
+        if original_optional.has_any_read() {
+            original_optional.intersect(&self.access);
+            if !original_optional.read_and_writes_difference_is_empty(new_optional) {
+                return false;
+            }
+        }
+
+        true
     }
 
     /// Returns a vector of elements that this and `other` cannot access at the same time.

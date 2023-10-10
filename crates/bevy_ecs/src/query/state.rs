@@ -174,14 +174,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
 
         // if we have optional parameters, make sure we don't go from a broader query to a more narrow one
-        let mut original_optional_access = Access::default();
-        Q::optional_access(&self.fetch_state, &mut original_optional_access, false);
-        if original_optional_access.has_any_read() {
-            let mut new_optional_access = Access::default();
-            NewQ::optional_access(&fetch_state, &mut new_optional_access, false);
-            if !original_optional_access.read_and_writes_difference_is_empty(&new_optional_access) {
-                panic!("`transmute` does not allow going from a broader query to a more narrow one. i.e. from Option<&T> -> &T");
-            }
+        let mut original_optional = Access::default();
+        Q::optional_access(&self.fetch_state, &mut original_optional, false);
+        let mut new_optional = Access::default();
+        NewQ::optional_access(&fetch_state, &mut new_optional, false);
+        if !component_access.is_optional_compatible(original_optional, &new_optional) {
+            panic!("`transmute` does not allow going from a broader query to a more narrow one. i.e. from Option<&T> -> &T");
         }
 
         QueryState {
