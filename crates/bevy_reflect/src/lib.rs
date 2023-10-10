@@ -575,7 +575,7 @@ pub mod __macro_exports {
 #[allow(clippy::disallowed_types, clippy::approx_constant)]
 mod tests {
     #[cfg(feature = "glam")]
-    use ::glam::{vec3, Vec3};
+    use ::glam::{quat, vec3, Quat, Vec3};
     use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use bevy_utils::HashMap;
     use ron::{
@@ -1936,6 +1936,65 @@ bevy_reflect::tests::Test {
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
+
+        #[test]
+        fn quat_serialization() {
+            let q = quat(1.0, 2.0, 3.0, 4.0);
+
+            let mut registry = TypeRegistry::default();
+            registry.register::<f32>();
+            registry.register::<Quat>();
+
+            let ser = ReflectSerializer::new(&q, &registry);
+
+            let config = PrettyConfig::default()
+                .new_line(String::from("\n"))
+                .indentor(String::from("    "));
+            let output = to_string_pretty(&ser, config).unwrap();
+            let expected = r#"
+{
+    "glam::Quat": (
+        x: 1.0,
+        y: 2.0,
+        z: 3.0,
+        w: 4.0,
+    ),
+}"#;
+
+            assert_eq!(expected, format!("\n{output}"));
+        }
+
+        #[test]
+        fn quat_deserialization() {
+            let data = r#"
+{
+    "glam::Quat": (
+        x: 1.0,
+        y: 2.0,
+        z: 3.0,
+        w: 4.0,
+    ),
+}"#;
+
+            let mut registry = TypeRegistry::default();
+            registry.register::<Quat>();
+            registry.register::<f32>();
+
+            let de = UntypedReflectDeserializer::new(&registry);
+
+            let mut deserializer =
+                ron::de::Deserializer::from_str(data).expect("Failed to acquire deserializer");
+
+            let dynamic_struct = de
+                .deserialize(&mut deserializer)
+                .expect("Failed to deserialize");
+
+            let mut result = Quat::default();
+
+            result.apply(&*dynamic_struct);
+
+            assert_eq!(result, quat(1.0, 2.0, 3.0, 4.0));
+        }
 
         #[test]
         fn vec3_serialization() {
