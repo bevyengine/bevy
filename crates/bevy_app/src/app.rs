@@ -1,7 +1,6 @@
 use crate::{First, FixedUpdate, Main, MainSchedulePlugin, Plugin, Plugins, StateTransition};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
-    event::EventUpdateSignal,
     prelude::*,
     schedule::{
         apply_state_transition, common_conditions::run_once as run_once_condition,
@@ -191,6 +190,8 @@ impl Default for App {
         app.init_resource::<AppTypeRegistry>();
 
         app.add_plugins(MainSchedulePlugin);
+        app.add_systems(FixedUpdate, bevy_ecs::event::event_queue_update_system);
+
         app.add_event::<AppExit>();
 
         #[cfg(feature = "bevy_ci_testing")]
@@ -467,18 +468,11 @@ impl App {
         T: Event,
     {
         if !self.world.contains_resource::<Events<T>>() {
-            self.init_resource::<Events<T>>()
-                .init_resource::<EventUpdateSignal<T>>()
-                .add_systems(
-                    First,
-                    bevy_ecs::event::event_update_system::<T>
-                        .run_if(bevy_ecs::event::event_update_condition::<T>),
-                )
-                .add_systems(
-                    FixedUpdate,
-                    bevy_ecs::event::event_queue_update_system::<T>
-                        .run_if(bevy_ecs::event::event_update_condition::<T>),
-                );
+            self.init_resource::<Events<T>>().add_systems(
+                First,
+                bevy_ecs::event::event_update_system::<T>
+                    .run_if(bevy_ecs::event::event_update_condition::<T>),
+            );
         }
         self
     }

@@ -18,7 +18,10 @@ pub use time::*;
 pub use timer::*;
 pub use virt::*;
 
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::{
+    event::EventUpdateSignal,
+    system::{Res, ResMut},
+};
 use bevy_utils::{tracing::warn, Duration, Instant};
 pub use crossbeam_channel::TrySendError;
 use crossbeam_channel::{Receiver, Sender};
@@ -48,6 +51,7 @@ impl Plugin for TimePlugin {
             .init_resource::<Time<Virtual>>()
             .init_resource::<Time<Fixed>>()
             .init_resource::<TimeUpdateStrategy>()
+            .init_resource::<EventUpdateSignal>()
             .register_type::<Time>()
             .register_type::<Time<Real>>()
             .register_type::<Time<Virtual>>()
