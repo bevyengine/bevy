@@ -178,13 +178,13 @@ mod sealed {
 
 /// A collection of [run conditions](Condition) that may be useful in any bevy app.
 pub mod common_conditions {
-    use super::{Condition, NotSystem};
+    use super::NotSystem;
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
         prelude::{Component, Query, With},
         removal_detection::RemovedComponents,
-        schedule::{State, StateMatcher, States},
+        schedule::{State, States},
         system::{IntoSystem, Res, Resource, System},
     };
 

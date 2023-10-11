@@ -76,15 +76,15 @@ fn main() {
         // And of course, you can still use the normal `in_state` value-based option if it works for your needs
         .add_systems(
             Update,
-            movement.run_if(in_state(AppState::InGame(GameState::Running {
+            movement.run_if(AppState::InGame(GameState::Running {
                 inverted: false,
-            }))),
+            })),
         )
         .add_systems(
             Update,
-            inverted_movement.run_if(in_state(AppState::InGame(GameState::Running {
+            inverted_movement.run_if(AppState::InGame(GameState::Running {
                 inverted: true,
-            }))),
+            })),
         )
         .run();
 }

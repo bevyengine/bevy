@@ -31,7 +31,7 @@ fn main() {
         .add_systems(Update, change_color.run_if(in_game()))
         // Or pass in functions that test the full transition rather than just a single state
         .add_systems(Exiting, cleanup_ui.run_if(ui))
-        .add_systems(Update, menu.run_if(state_matches(in_menu)))
+        .add_systems(Update, menu.run_if(in_menu))
         .add_systems(Update, invert_movement.run_if(GameState::running))
         // You can also use generics to specialize things
         .add_systems(Update, movement.run_if(in_movement::<Standard>))

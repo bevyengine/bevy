@@ -51,7 +51,7 @@ fn main() {
         // And we can even pass some closures directly into the `entering()` function, rather than the macro
         .add_systems(
             Entering,
-            setup_in_game_ui.run_if(state_matches(|state: &AppState| state.in_game.is_some() && !state.is_paused)),
+            setup_in_game_ui.run_if(|state: &AppState| state.in_game.is_some() && !state.is_paused),
         )
         // We can also use `Exiting` to run the system whenever we leave a state with the help of pattern matching
         //
@@ -97,19 +97,19 @@ fn main() {
         // And of course, you can still use the normal `in_state` value-based option if it works for your needs
         .add_systems(
             Update,
-            movement.run_if(in_state(AppState {
+            movement.run_if(AppState {
                 in_game: Some(false),
                 is_paused: false,
                 in_menu: false,
-            })),
+            }),
         )
         .add_systems(
             Update,
-            inverted_movement.run_if(in_state(AppState {
+            inverted_movement.run_if(AppState {
                 in_game: Some(true),
                 is_paused: false,
                 in_menu: false,
-            })),
+            }),
         )
         .run();
 }
