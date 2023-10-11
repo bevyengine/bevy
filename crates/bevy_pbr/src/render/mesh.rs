@@ -1131,7 +1131,7 @@ pub fn prepare_mesh_view_bind_groups(
         ) in &views
         {
             let fallback_ssao = fallback_images
-                .image_for_samplecount(1, TextureFormat::Rgba8Unorm)
+                .image_for_samplecount(1, TextureFormat::bevy_default())
                 .texture_view
                 .clone();
 
