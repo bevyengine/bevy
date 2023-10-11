@@ -3,10 +3,22 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
+use bevy_internal::render::{
+    settings::{Backends, WgpuSettings},
+    RenderPlugin,
+};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(
+            DefaultPlugins.set(RenderPlugin {
+                render_creation: WgpuSettings {
+                    backends: Some(Backends::VULKAN),
+                    ..Default::default()
+                }
+                .into(),
+            }),
+        )
         .add_systems(Startup, setup)
         .add_systems(Update, (system, rotate_camera, update_config))
         .run();

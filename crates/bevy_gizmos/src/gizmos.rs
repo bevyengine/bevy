@@ -1,14 +1,16 @@
 //! A module for the [`Gizmos`] [`SystemParam`].
 
-use std::{f32::consts::TAU, iter};
+use std::{f32::consts::TAU, iter, marker::PhantomData};
 
 use bevy_ecs::{
-    system::{Deferred, Resource, SystemBuffer, SystemMeta, SystemParam},
+    system::{Deferred, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::World,
 };
 use bevy_math::{Mat2, Quat, Vec2, Vec3};
 use bevy_render::color::Color;
 use bevy_transform::TransformPoint;
+
+use crate::{config::GizmoConfigExtension, config::Global, prelude::GizmoConfig};
 
 type PositionItem = [f32; 3];
 type ColorItem = [f32; 4];
@@ -16,11 +18,12 @@ type ColorItem = [f32; 4];
 const DEFAULT_CIRCLE_SEGMENTS: usize = 32;
 
 #[derive(Resource, Default)]
-pub(crate) struct GizmoStorage {
+pub(crate) struct GizmoStorage<T: GizmoConfigExtension> {
     pub list_positions: Vec<PositionItem>,
     pub list_colors: Vec<ColorItem>,
     pub strip_positions: Vec<PositionItem>,
     pub strip_colors: Vec<ColorItem>,
+    marker: PhantomData<T>,
 }
 
 /// A [`SystemParam`] for drawing gizmos.
@@ -29,21 +32,24 @@ pub(crate) struct GizmoStorage {
 /// the frames in which they are spawned.
 /// Gizmos should be spawned before the [`Last`](bevy_app::Last) schedule to ensure they are drawn.
 #[derive(SystemParam)]
-pub struct Gizmos<'s> {
-    buffer: Deferred<'s, GizmoBuffer>,
+pub struct Gizmos<'w, 's, T: GizmoConfigExtension = Global> {
+    buffer: Deferred<'s, GizmoBuffer<T>>,
+    config: Res<'w, GizmoConfig<T>>,
+    marker: PhantomData<T>,
 }
 
 #[derive(Default)]
-struct GizmoBuffer {
+struct GizmoBuffer<T: GizmoConfigExtension> {
     list_positions: Vec<PositionItem>,
     list_colors: Vec<ColorItem>,
     strip_positions: Vec<PositionItem>,
     strip_colors: Vec<ColorItem>,
+    marker: PhantomData<T>,
 }
 
-impl SystemBuffer for GizmoBuffer {
+impl<T: GizmoConfigExtension> SystemBuffer for GizmoBuffer<T> {
     fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
-        let mut storage = world.resource_mut::<GizmoStorage>();
+        let mut storage = world.resource_mut::<GizmoStorage<T>>();
         storage.list_positions.append(&mut self.list_positions);
         storage.list_colors.append(&mut self.list_colors);
         storage.strip_positions.append(&mut self.strip_positions);
@@ -51,7 +57,7 @@ impl SystemBuffer for GizmoBuffer {
     }
 }
 
-impl<'s> Gizmos<'s> {
+impl<'w, 's, T: GizmoConfigExtension> Gizmos<'w, 's, T> {
     /// Draw a line in 3D from `start` to `end`.
     ///
     /// This should be called for each frame the line needs to be rendered.
@@ -228,7 +234,7 @@ impl<'s> Gizmos<'s> {
         normal: Vec3,
         radius: f32,
         color: Color,
-    ) -> CircleBuilder<'_, 's> {
+    ) -> CircleBuilder<'_, 'w, 's, T> {
         CircleBuilder {
             gizmos: self,
             position,
@@ -266,7 +272,7 @@ impl<'s> Gizmos<'s> {
         rotation: Quat,
         radius: f32,
         color: Color,
-    ) -> SphereBuilder<'_, 's> {
+    ) -> SphereBuilder<'_, 'w, 's, T> {
         SphereBuilder {
             gizmos: self,
             position,
@@ -492,7 +498,7 @@ impl<'s> Gizmos<'s> {
         position: Vec2,
         radius: f32,
         color: Color,
-    ) -> Circle2dBuilder<'_, 's> {
+    ) -> Circle2dBuilder<'_, 'w, 's, T> {
         Circle2dBuilder {
             gizmos: self,
             position,
@@ -538,7 +544,7 @@ impl<'s> Gizmos<'s> {
         arc_angle: f32,
         radius: f32,
         color: Color,
-    ) -> Arc2dBuilder<'_, 's> {
+    ) -> Arc2dBuilder<'_, 'w, 's, T> {
         Arc2dBuilder {
             gizmos: self,
             position,
@@ -604,8 +610,8 @@ impl<'s> Gizmos<'s> {
 }
 
 /// A builder returned by [`Gizmos::circle`].
-pub struct CircleBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct CircleBuilder<'a, 'w, 's, T: GizmoConfigExtension> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
     position: Vec3,
     normal: Vec3,
     radius: f32,
@@ -613,7 +619,7 @@ pub struct CircleBuilder<'a, 's> {
     segments: usize,
 }
 
-impl CircleBuilder<'_, '_> {
+impl<T: GizmoConfigExtension> CircleBuilder<'_, '_, '_, T> {
     /// Set the number of line-segments for this circle.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
@@ -621,7 +627,7 @@ impl CircleBuilder<'_, '_> {
     }
 }
 
-impl Drop for CircleBuilder<'_, '_> {
+impl<T: GizmoConfigExtension> Drop for CircleBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let rotation = Quat::from_rotation_arc(Vec3::Z, self.normal);
         let positions = circle_inner(self.radius, self.segments)
@@ -631,8 +637,8 @@ impl Drop for CircleBuilder<'_, '_> {
 }
 
 /// A builder returned by [`Gizmos::sphere`].
-pub struct SphereBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct SphereBuilder<'a, 'w, 's, T: GizmoConfigExtension> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
     position: Vec3,
     rotation: Quat,
     radius: f32,
@@ -640,7 +646,7 @@ pub struct SphereBuilder<'a, 's> {
     circle_segments: usize,
 }
 
-impl SphereBuilder<'_, '_> {
+impl<T: GizmoConfigExtension> SphereBuilder<'_, '_, '_, T> {
     /// Set the number of line-segments per circle for this sphere.
     pub fn circle_segments(mut self, segments: usize) -> Self {
         self.circle_segments = segments;
@@ -648,7 +654,7 @@ impl SphereBuilder<'_, '_> {
     }
 }
 
-impl Drop for SphereBuilder<'_, '_> {
+impl<T: GizmoConfigExtension> Drop for SphereBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         for axis in Vec3::AXES {
             self.gizmos
@@ -659,15 +665,15 @@ impl Drop for SphereBuilder<'_, '_> {
 }
 
 /// A builder returned by [`Gizmos::circle_2d`].
-pub struct Circle2dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Circle2dBuilder<'a, 'w, 's, T: GizmoConfigExtension> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
     position: Vec2,
     radius: f32,
     color: Color,
     segments: usize,
 }
 
-impl Circle2dBuilder<'_, '_> {
+impl<T: GizmoConfigExtension> Circle2dBuilder<'_, '_, '_, T> {
     /// Set the number of line-segments for this circle.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = segments;
@@ -675,7 +681,7 @@ impl Circle2dBuilder<'_, '_> {
     }
 }
 
-impl Drop for Circle2dBuilder<'_, '_> {
+impl<T: GizmoConfigExtension> Drop for Circle2dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let positions = circle_inner(self.radius, self.segments).map(|vec2| (vec2 + self.position));
         self.gizmos.linestrip_2d(positions, self.color);
@@ -683,8 +689,8 @@ impl Drop for Circle2dBuilder<'_, '_> {
 }
 
 /// A builder returned by [`Gizmos::arc_2d`].
-pub struct Arc2dBuilder<'a, 's> {
-    gizmos: &'a mut Gizmos<'s>,
+pub struct Arc2dBuilder<'a, 'w, 's, T: GizmoConfigExtension> {
+    gizmos: &'a mut Gizmos<'w, 's, T>,
     position: Vec2,
     direction_angle: f32,
     arc_angle: f32,
@@ -693,7 +699,7 @@ pub struct Arc2dBuilder<'a, 's> {
     segments: Option<usize>,
 }
 
-impl Arc2dBuilder<'_, '_> {
+impl<T: GizmoConfigExtension> Arc2dBuilder<'_, '_, '_, T> {
     /// Set the number of line-segments for this arc.
     pub fn segments(mut self, segments: usize) -> Self {
         self.segments = Some(segments);
@@ -701,7 +707,7 @@ impl Arc2dBuilder<'_, '_> {
     }
 }
 
-impl Drop for Arc2dBuilder<'_, '_> {
+impl<T: GizmoConfigExtension> Drop for Arc2dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
         let segments = match self.segments {
             Some(segments) => segments,

@@ -18,6 +18,8 @@
 
 pub mod gizmos;
 
+pub mod config;
+
 #[cfg(feature = "bevy_sprite")]
 mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
@@ -26,10 +28,14 @@ mod pipeline_3d;
 /// The `bevy_gizmos` prelude.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{gizmos::Gizmos, AabbGizmo, AabbGizmoConfig, GizmoConfig};
+    pub use crate::{
+        config::{AabbGizmos, GizmoConfig, GizmoConfigExtension, Global},
+        gizmos::Gizmos,
+        ShowAabbGizmo,
+    };
 }
 
-use bevy_app::{Last, Plugin, PostUpdate};
+use bevy_app::{App, Last, Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_core::cast_slice;
 use bevy_ecs::{
@@ -58,13 +64,14 @@ use bevy_render::{
         VertexFormat, VertexStepMode,
     },
     renderer::RenderDevice,
-    view::RenderLayers,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{
     components::{GlobalTransform, Transform},
     TransformSystem,
 };
+use bevy_utils::HashMap;
+use config::{AabbGizmos, ExtractedGizmoConfig, GizmoConfig, GizmoConfigExtension, Global};
 use gizmos::{GizmoStorage, Gizmos};
 use std::mem;
 
@@ -81,14 +88,14 @@ impl Plugin for GizmoPlugin {
             .init_asset::<LineGizmo>()
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
-            .init_resource::<GizmoConfig>()
-            .init_resource::<GizmoStorage>()
-            .add_systems(Last, update_gizmo_meshes)
+            .add_gizmos::<Global>()
+            .add_gizmos::<AabbGizmos>()
             .add_systems(
                 PostUpdate,
                 (
                     draw_aabbs,
-                    draw_all_aabbs.run_if(|config: Res<GizmoConfig>| config.aabb.draw_all),
+                    draw_all_aabbs
+                        .run_if(|config: Res<GizmoConfig<AabbGizmos>>| config.extended.draw_all),
                 )
                     .after(TransformSystem::TransformPropagate),
             );
@@ -97,12 +104,10 @@ impl Plugin for GizmoPlugin {
             return;
         };
 
-        render_app
-            .add_systems(ExtractSchedule, extract_gizmo_data)
-            .add_systems(
-                Render,
-                prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
-            );
+        render_app.add_systems(
+            Render,
+            prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
+        );
 
         #[cfg(feature = "bevy_sprite")]
         app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
@@ -134,80 +139,30 @@ impl Plugin for GizmoPlugin {
     }
 }
 
-/// A [`Resource`] that stores configuration for gizmos.
-#[derive(Resource, Clone)]
-pub struct GizmoConfig {
-    /// Set to `false` to stop drawing gizmos.
-    ///
-    /// Defaults to `true`.
-    pub enabled: bool,
-    /// Line width specified in pixels.
-    ///
-    /// If `line_perspective` is `true` then this is the size in pixels at the camera's near plane.
-    ///
-    /// Defaults to `2.0`.
-    pub line_width: f32,
-    /// Apply perspective to gizmo lines.
-    ///
-    /// This setting only affects 3D, non-orthographic cameras.
-    ///
-    /// Defaults to `false`.
-    pub line_perspective: bool,
-    /// How closer to the camera than real geometry the line should be.
-    ///
-    /// In 2D this setting has no effect and is effectively always -1.
-    ///
-    /// Value between -1 and 1 (inclusive).
-    /// * 0 means that there is no change to the line position when rendering
-    /// * 1 means it is furthest away from camera as possible
-    /// * -1 means that it will always render in front of other things.
-    ///
-    /// This is typically useful if you are drawing wireframes on top of polygons
-    /// and your wireframe is z-fighting (flickering on/off) with your main model.
-    /// You would set this value to a negative number close to 0.
-    pub depth_bias: f32,
-    /// Configuration for the [`AabbGizmo`].
-    pub aabb: AabbGizmoConfig,
-    /// Describes which rendering layers gizmos will be rendered to.
-    ///
-    /// Gizmos will only be rendered to cameras with intersecting layers.
-    pub render_layers: RenderLayers,
+trait AppGizmoBuilder {
+    fn add_gizmos<T: GizmoConfigExtension>(&mut self) -> &mut Self;
 }
 
-impl Default for GizmoConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            line_width: 2.,
-            line_perspective: false,
-            depth_bias: 0.,
-            aabb: Default::default(),
-            render_layers: Default::default(),
-        }
+impl AppGizmoBuilder for App {
+    fn add_gizmos<T: GizmoConfigExtension>(&mut self) -> &mut Self {
+        self.init_resource::<GizmoConfig<T>>()
+            .init_resource::<GizmoStorage<T>>()
+            .add_systems(Last, update_gizmo_meshes::<T>);
+
+        let Ok(render_app) = self.get_sub_app_mut(RenderApp) else {
+            return self;
+        };
+
+        render_app.add_systems(ExtractSchedule, extract_gizmo_data::<T>);
+
+        self
     }
-}
-
-/// Configuration for drawing the [`Aabb`] component on entities.
-#[derive(Clone, Default)]
-pub struct AabbGizmoConfig {
-    /// Draws all bounding boxes in the scene when set to `true`.
-    ///
-    /// To draw a specific entity's bounding box, you can add the [`AabbGizmo`] component.
-    ///
-    /// Defaults to `false`.
-    pub draw_all: bool,
-    /// The default color for bounding box gizmos.
-    ///
-    /// A random color is chosen per box if `None`.
-    ///
-    /// Defaults to `None`.
-    pub default_color: Option<Color>,
 }
 
 /// Add this [`Component`] to an entity to draw its [`Aabb`] component.
 #[derive(Component, Reflect, Default, Debug)]
 #[reflect(Component, Default)]
-pub struct AabbGizmo {
+pub struct ShowAabbGizmo {
     /// The color of the box.
     ///
     /// The default color from the [`GizmoConfig`] resource is used if `None`,
@@ -215,27 +170,27 @@ pub struct AabbGizmo {
 }
 
 fn draw_aabbs(
-    query: Query<(Entity, &Aabb, &GlobalTransform, &AabbGizmo)>,
-    config: Res<GizmoConfig>,
-    mut gizmos: Gizmos,
+    query: Query<(Entity, &Aabb, &GlobalTransform, &ShowAabbGizmo)>,
+    config: Res<GizmoConfig<AabbGizmos>>,
+    mut gizmos: Gizmos<Global>,
 ) {
     for (entity, &aabb, &transform, gizmo) in &query {
         let color = gizmo
             .color
-            .or(config.aabb.default_color)
+            .or(config.extended.default_color)
             .unwrap_or_else(|| color_from_entity(entity));
         gizmos.cuboid(aabb_transform(aabb, transform), color);
     }
 }
 
 fn draw_all_aabbs(
-    query: Query<(Entity, &Aabb, &GlobalTransform), Without<AabbGizmo>>,
-    config: Res<GizmoConfig>,
-    mut gizmos: Gizmos,
+    query: Query<(Entity, &Aabb, &GlobalTransform), Without<ShowAabbGizmo>>,
+    config: Res<GizmoConfig<AabbGizmos>>,
+    mut gizmos: Gizmos<Global>,
 ) {
     for (entity, &aabb, &transform) in &query {
         let color = config
-            .aabb
+            .extended
             .default_color
             .unwrap_or_else(|| color_from_entity(entity));
         gizmos.cuboid(aabb_transform(aabb, transform), color);
@@ -267,18 +222,18 @@ fn aabb_transform(aabb: Aabb, transform: GlobalTransform) -> GlobalTransform {
 
 #[derive(Resource, Default)]
 struct LineGizmoHandles {
-    list: Option<Handle<LineGizmo>>,
-    strip: Option<Handle<LineGizmo>>,
+    list: HashMap<&'static str, Handle<LineGizmo>>,
+    strip: HashMap<&'static str, Handle<LineGizmo>>,
 }
 
-fn update_gizmo_meshes(
+fn update_gizmo_meshes<T: GizmoConfigExtension>(
     mut line_gizmos: ResMut<Assets<LineGizmo>>,
     mut handles: ResMut<LineGizmoHandles>,
-    mut storage: ResMut<GizmoStorage>,
+    mut storage: ResMut<GizmoStorage<T>>,
 ) {
     if storage.list_positions.is_empty() {
-        handles.list = None;
-    } else if let Some(handle) = handles.list.as_ref() {
+        handles.list.remove(T::type_path());
+    } else if let Some(handle) = handles.list.get(T::type_path()) {
         let list = line_gizmos.get_mut(handle).unwrap();
 
         list.positions = mem::take(&mut storage.list_positions);
@@ -292,12 +247,12 @@ fn update_gizmo_meshes(
         list.positions = mem::take(&mut storage.list_positions);
         list.colors = mem::take(&mut storage.list_colors);
 
-        handles.list = Some(line_gizmos.add(list));
+        handles.list.insert(T::type_path(), line_gizmos.add(list));
     }
 
     if storage.strip_positions.is_empty() {
-        handles.strip = None;
-    } else if let Some(handle) = handles.strip.as_ref() {
+        handles.strip.remove(T::type_path());
+    } else if let Some(handle) = handles.strip.get(T::type_path()) {
         let strip = line_gizmos.get_mut(handle).unwrap();
 
         strip.positions = mem::take(&mut storage.strip_positions);
@@ -311,15 +266,17 @@ fn update_gizmo_meshes(
         strip.positions = mem::take(&mut storage.strip_positions);
         strip.colors = mem::take(&mut storage.strip_colors);
 
-        handles.strip = Some(line_gizmos.add(strip));
+        handles.strip.insert(T::type_path(), line_gizmos.add(strip));
     }
 }
 
-fn extract_gizmo_data(
+fn extract_gizmo_data<T: GizmoConfigExtension>(
     mut commands: Commands,
     handles: Extract<Res<LineGizmoHandles>>,
-    config: Extract<Res<GizmoConfig>>,
+    config: Extract<Res<GizmoConfig<T>>>,
 ) {
+    // todo per config togle
+
     if config.is_changed() {
         commands.insert_resource(config.clone());
     }
@@ -328,7 +285,10 @@ fn extract_gizmo_data(
         return;
     }
 
-    for handle in [&handles.list, &handles.strip].into_iter().flatten() {
+    for map in [&handles.list, &handles.strip].into_iter() {
+        let Some(handle) = map.get(T::type_path()) else {
+            continue;
+        };
         commands.spawn((
             LineGizmoUniform {
                 line_width: config.line_width,
@@ -336,7 +296,8 @@ fn extract_gizmo_data(
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },
-            handle.clone_weak(),
+            (*handle).clone_weak(),
+            ExtractedGizmoConfig::from(config.as_ref()),
         ));
     }
 }
