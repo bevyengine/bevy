@@ -1980,6 +1980,21 @@ mod tests {
 
         // inserted sync points
         assert_eq!(schedule.executable.systems.len(), 4);
+
+        // merges sync points on rebuild
+        schedule.add_systems((
+            (
+                (
+                    |mut commands: Commands| commands.insert_resource(Resource1),
+                    |mut commands: Commands| commands.insert_resource(Resource2),
+                ),
+                |_: Res<Resource1>, _: Res<Resource2>| {},
+            )
+                .chain(),
+        ));
+        schedule.run(&mut world);
+        
+        assert_eq!(schedule.executable.systems.len(), 7);
     }
 
     #[test]
