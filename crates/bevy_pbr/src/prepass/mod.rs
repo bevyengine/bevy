@@ -485,6 +485,7 @@ where
                     write_mask: ColorWrites::ALL,
                 }),
         );
+
         targets.push(
             key.mesh_key
                 .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
@@ -496,27 +497,26 @@ where
                 }),
         );
 
-        if key.mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
-            targets.push(
-                key.mesh_key
-                    .contains(MeshPipelineKey::DEFERRED_PREPASS)
-                    .then_some(ColorTargetState {
-                        format: DEFERRED_PREPASS_FORMAT,
-                        // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
-                        blend: None,
-                        write_mask: ColorWrites::ALL,
-                    }),
-            );
-            targets.push(
-                key.mesh_key
-                    .contains(MeshPipelineKey::DEFERRED_PREPASS)
-                    .then_some(ColorTargetState {
-                        format: DEFERRED_LIGHTING_PASS_ID_FORMAT,
-                        blend: None,
-                        write_mask: ColorWrites::ALL,
-                    }),
-            );
-        }
+        targets.push(
+            key.mesh_key
+                .contains(MeshPipelineKey::DEFERRED_PREPASS)
+                .then_some(ColorTargetState {
+                    format: DEFERRED_PREPASS_FORMAT,
+                    // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
+                    blend: None,
+                    write_mask: ColorWrites::ALL,
+                }),
+        );
+
+        targets.push(
+            key.mesh_key
+                .contains(MeshPipelineKey::DEFERRED_PREPASS)
+                .then_some(ColorTargetState {
+                    format: DEFERRED_LIGHTING_PASS_ID_FORMAT,
+                    blend: None,
+                    write_mask: ColorWrites::ALL,
+                }),
+        );
 
         if targets.iter().all(Option::is_none) {
             // if no targets are required then clear the list, so that no fragment shader is required

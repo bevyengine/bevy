@@ -77,6 +77,11 @@ impl ViewNode for PrepassNode {
                 },
             },
         ));
+
+        // Use None in place of Deferred attachments
+        color_attachments.push(None);
+        color_attachments.push(None);
+
         if color_attachments.iter().all(Option::is_none) {
             // all attachments are none: clear the attachment list so that no fragment shader is required
             color_attachments.clear();

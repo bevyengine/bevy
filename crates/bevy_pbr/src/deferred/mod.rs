@@ -183,10 +183,10 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             return Ok(());
         };
 
-        let deferred_lighting_depth_id =
+        let deferred_lighting_pass_id =
             world.resource::<ComponentUniforms<PbrDeferredLightingDepthId>>();
-        let Some(deferred_lighting_depth_id_binding) =
-            deferred_lighting_depth_id.uniforms().binding()
+        let Some(deferred_lighting_pass_id_binding) =
+            deferred_lighting_pass_id.uniforms().binding()
         else {
             return Ok(());
         };
@@ -198,7 +198,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
                 layout: &deferred_lighting_layout.bind_group_layout_1,
                 entries: &[BindGroupEntry {
                     binding: 0,
-                    resource: deferred_lighting_depth_id_binding.clone(),
+                    resource: deferred_lighting_pass_id_binding.clone(),
                 }],
             });
 
