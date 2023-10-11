@@ -475,6 +475,8 @@ impl<S: States, M: 'static, Sm: StateMatcher<S, M>> IntoSystem<(), bool, (S, M)>
     }
 }
 
+/// A system type for `StateMatcher`s
+/// Allows them to be used as `Condition`s directly
 pub struct StateMatcherSystem<S: States, M: 'static, Sm: StateMatcher<S, M>>(
     Box<dyn crate::prelude::ReadOnlySystem<In = (), Out = bool>>,
     PhantomData<fn() -> (S, M, Sm)>,
