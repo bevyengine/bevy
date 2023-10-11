@@ -29,9 +29,10 @@ mod pipeline_3d;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        config::{AabbGizmos, GizmoConfig, GizmoConfigExtension, Global},
+        config::{AabbGizmos, GizmoConfig, CustomGizmoConfig, GlobalGizmos},
         gizmos::Gizmos,
         ShowAabbGizmo,
+        AppGizmoBuilder,
     };
 }
 
@@ -71,7 +72,7 @@ use bevy_transform::{
     TransformSystem,
 };
 use bevy_utils::HashMap;
-use config::{AabbGizmos, ExtractedGizmoConfig, GizmoConfig, GizmoConfigExtension, Global};
+use config::{AabbGizmos, ExtractedGizmoConfig, GizmoConfig, CustomGizmoConfig, GlobalGizmos};
 use gizmos::{GizmoStorage, Gizmos};
 use std::mem;
 
@@ -88,8 +89,8 @@ impl Plugin for GizmoPlugin {
             .init_asset::<LineGizmo>()
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
-            .add_gizmos::<Global>()
-            .add_gizmos::<AabbGizmos>()
+            .add_gizmo_config::<GlobalGizmos>()
+            .add_gizmo_config::<AabbGizmos>()
             .add_systems(
                 PostUpdate,
                 (
@@ -139,12 +140,14 @@ impl Plugin for GizmoPlugin {
     }
 }
 
-trait AppGizmoBuilder {
-    fn add_gizmos<T: GizmoConfigExtension>(&mut self) -> &mut Self;
+/// A trait adding `add_gizmos<T>()` to the app
+pub trait AppGizmoBuilder {
+    /// Adds a [`GizmoConfig<T>`] to the app enabling the use of [`Gizmos<T>`].
+    fn add_gizmo_config<T: CustomGizmoConfig>(&mut self) -> &mut Self;
 }
 
 impl AppGizmoBuilder for App {
-    fn add_gizmos<T: GizmoConfigExtension>(&mut self) -> &mut Self {
+    fn add_gizmo_config<T: CustomGizmoConfig>(&mut self) -> &mut Self {
         self.init_resource::<GizmoConfig<T>>()
             .init_resource::<GizmoStorage<T>>()
             .add_systems(Last, update_gizmo_meshes::<T>);
@@ -172,7 +175,7 @@ pub struct ShowAabbGizmo {
 fn draw_aabbs(
     query: Query<(Entity, &Aabb, &GlobalTransform, &ShowAabbGizmo)>,
     config: Res<GizmoConfig<AabbGizmos>>,
-    mut gizmos: Gizmos<Global>,
+    mut gizmos: Gizmos<GlobalGizmos>,
 ) {
     for (entity, &aabb, &transform, gizmo) in &query {
         let color = gizmo
@@ -186,7 +189,7 @@ fn draw_aabbs(
 fn draw_all_aabbs(
     query: Query<(Entity, &Aabb, &GlobalTransform), Without<ShowAabbGizmo>>,
     config: Res<GizmoConfig<AabbGizmos>>,
-    mut gizmos: Gizmos<Global>,
+    mut gizmos: Gizmos<GlobalGizmos>,
 ) {
     for (entity, &aabb, &transform) in &query {
         let color = config
@@ -226,7 +229,7 @@ struct LineGizmoHandles {
     strip: HashMap<&'static str, Handle<LineGizmo>>,
 }
 
-fn update_gizmo_meshes<T: GizmoConfigExtension>(
+fn update_gizmo_meshes<T: CustomGizmoConfig>(
     mut line_gizmos: ResMut<Assets<LineGizmo>>,
     mut handles: ResMut<LineGizmoHandles>,
     mut storage: ResMut<GizmoStorage<T>>,
@@ -270,7 +273,7 @@ fn update_gizmo_meshes<T: GizmoConfigExtension>(
     }
 }
 
-fn extract_gizmo_data<T: GizmoConfigExtension>(
+fn extract_gizmo_data<T: CustomGizmoConfig>(
     mut commands: Commands,
     handles: Extract<Res<LineGizmoHandles>>,
     config: Extract<Res<GizmoConfig<T>>>,

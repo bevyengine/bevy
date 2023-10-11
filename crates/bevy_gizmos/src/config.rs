@@ -7,16 +7,16 @@ use bevy_render::{color::Color, view::RenderLayers};
 /// A trait used for custom gizmo configs.
 /// 
 /// Make sure to derive [`Default`], [`Clone`], [`TypePath`] and register in the app using `app.add_gizmos::<T>()`
-pub trait GizmoConfigExtension: 'static + Default + Clone + TypePath + Send + Sync {}
+pub trait CustomGizmoConfig: 'static + Default + Clone + TypePath + Send + Sync {}
 
 /// The default gizmo config.
 #[derive(Default, Clone, TypePath)]
-pub struct Global;
-impl GizmoConfigExtension for Global {}
+pub struct GlobalGizmos;
+impl CustomGizmoConfig for GlobalGizmos {}
 
 /// A struct that stores configuration for gizmos.
 #[derive(Resource, Clone)]
-pub struct GizmoConfig<T: GizmoConfigExtension = Global> {
+pub struct GizmoConfig<T: CustomGizmoConfig = GlobalGizmos> {
     /// Set to `false` to stop drawing gizmos.
     ///
     /// Defaults to `true`.
@@ -52,7 +52,7 @@ pub struct GizmoConfig<T: GizmoConfigExtension = Global> {
     pub extended: T,
 }
 
-impl<T: GizmoConfigExtension> Default for GizmoConfig<T> {
+impl<T: CustomGizmoConfig> Default for GizmoConfig<T> {
     fn default() -> Self {
         Self {
             enabled: true,
@@ -77,7 +77,7 @@ pub(crate) struct ExtractedGizmoConfig {
     pub render_layers: RenderLayers,
 }
 
-impl<T: GizmoConfigExtension> From<&GizmoConfig<T>> for ExtractedGizmoConfig {
+impl<T: CustomGizmoConfig> From<&GizmoConfig<T>> for ExtractedGizmoConfig {
     fn from(other: &GizmoConfig<T>) -> Self {
         Self {
             enabled: other.enabled,
@@ -106,4 +106,4 @@ pub struct AabbGizmos {
     pub default_color: Option<Color>,
 }
 
-impl GizmoConfigExtension for AabbGizmos {}
+impl CustomGizmoConfig for AabbGizmos {}
