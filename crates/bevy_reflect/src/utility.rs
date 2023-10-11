@@ -88,7 +88,7 @@ mod sealed {
 /// ```
 ///
 /// [`TypePath`]: crate::TypePath
-pub struct NonGenericTypeCell<T: TypedProperty>(OnceLock<Box<T::Stored>>);
+pub struct NonGenericTypeCell<T: TypedProperty>(OnceLock<T::Stored>);
 
 /// See [`NonGenericTypeCell`].
 pub type NonGenericTypeInfoCell = NonGenericTypeCell<TypeInfo>;
@@ -106,7 +106,7 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
     where
         F: FnOnce() -> T::Stored,
     {
-        self.0.get_or_init(|| Box::new(f()))
+        self.0.get_or_init(f)
     }
 }
 
