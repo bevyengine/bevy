@@ -52,7 +52,7 @@ use super::{MatchesStateTransition, StateMatcher};
 /// struct Level(u32);
 /// ```
 ///
-/// Or more complex structures with multiple layers:
+/// Or more complex types with multiple layers:
 /// This can be useful for complex state machines to ensure that invalid states are unrepresentable.
 ///
 /// ```rust {
