@@ -317,7 +317,7 @@ pub struct StandardMaterial {
     pub max_parallax_layer_count: f32,
 
     /// Render method used for opaque materials. (Where `alpha_mode` is [`AlphaMode::Opaque`] or [`AlphaMode::Mask`])
-    pub opaque_render_method: Option<OpaqueRendererMethod>,
+    pub opaque_render_method: OpaqueRendererMethod,
 
     /// Used for selecting the deferred lighting pass for deferred materials.
     /// Default is [`DEFAULT_PBR_DEFERRED_LIGHTING_DEPTH_ID`] for default
@@ -356,7 +356,7 @@ impl Default for StandardMaterial {
             parallax_depth_scale: 0.1,
             max_parallax_layer_count: 16.0,
             parallax_mapping_method: ParallaxMappingMethod::Occlusion,
-            opaque_render_method: None,
+            opaque_render_method: OpaqueRendererMethod::Auto,
             deferred_lighting_depth_id: DEFAULT_PBR_DEFERRED_LIGHTING_DEPTH_ID,
         }
     }
@@ -603,7 +603,7 @@ impl Material for StandardMaterial {
     }
 
     #[inline]
-    fn opaque_render_method(&self) -> Option<OpaqueRendererMethod> {
+    fn opaque_render_method(&self) -> OpaqueRendererMethod {
         self.opaque_render_method
     }
 }

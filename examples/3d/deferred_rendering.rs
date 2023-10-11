@@ -16,7 +16,7 @@ use bevy::{
 fn main() {
     App::new()
         .insert_resource(Msaa::Off)
-        .insert_resource(DefaultOpaqueRendererMethod(OpaqueRendererMethod::Deferred))
+        .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .insert_resource(ClearColor(Color::rgb_linear(0.05, 0.05, 0.05)))
         .insert_resource(AmbientLight {
             color: Color::WHITE,
@@ -98,7 +98,7 @@ fn setup(
     });
 
     let mut forward_mat: StandardMaterial = Color::rgb(0.1, 0.2, 0.1).into();
-    forward_mat.opaque_render_method = Some(OpaqueRendererMethod::Forward);
+    forward_mat.opaque_render_method = OpaqueRendererMethod::Forward;
     let forward_mat_h = materials.add(forward_mat);
 
     // Plane
@@ -339,7 +339,7 @@ fn switch_mode(
 
     if keys.just_pressed(KeyCode::Key1) {
         *mode = DefaultRenderMode::Deferred;
-        default_opaque_renderer_method.0 = OpaqueRendererMethod::Deferred;
+        default_opaque_renderer_method.set_to_deferred();
         println!("DefaultOpaqueRendererMethod: Deferred");
         for _ in materials.iter_mut() {}
         for camera in &cameras {
@@ -351,7 +351,7 @@ fn switch_mode(
     }
     if keys.just_pressed(KeyCode::Key2) {
         *mode = DefaultRenderMode::Forward;
-        default_opaque_renderer_method.0 = OpaqueRendererMethod::Forward;
+        default_opaque_renderer_method.set_to_forward();
         println!("DefaultOpaqueRendererMethod: Forward");
         for _ in materials.iter_mut() {}
         for camera in &cameras {
@@ -363,7 +363,7 @@ fn switch_mode(
     }
     if keys.just_pressed(KeyCode::Key3) {
         *mode = DefaultRenderMode::ForwardPrepass;
-        default_opaque_renderer_method.0 = OpaqueRendererMethod::Forward;
+        default_opaque_renderer_method.set_to_forward();
         println!("DefaultOpaqueRendererMethod: Forward + Prepass");
         for _ in materials.iter_mut() {}
         for camera in &cameras {

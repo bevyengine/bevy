@@ -120,10 +120,10 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
 
     /// Returns if this material should be rendered by the deferred or forward renderer.
     /// for `AlphaMode::Opaque` or `AlphaMode::Mask` materials.
-    /// If None, it will default to what is selected in the `DefaultOpaqueRendererMethod` resource.
+    /// If `OpaqueRendererMethod::Auto`, it will default to what is selected in the `DefaultOpaqueRendererMethod` resource.
     #[inline]
-    fn opaque_render_method(&self) -> Option<OpaqueRendererMethod> {
-        None
+    fn opaque_render_method(&self) -> OpaqueRendererMethod {
+        OpaqueRendererMethod::Forward
     }
 
     #[inline]
@@ -534,7 +534,7 @@ pub fn queue_material_meshes<M: Material>(
             };
 
             let forward = match material.properties.render_method {
-                OpaqueRendererMethod::Forward => true,
+                OpaqueRendererMethod::Auto | OpaqueRendererMethod::Forward => true,
                 OpaqueRendererMethod::Deferred => false,
             };
 
@@ -618,7 +618,25 @@ pub fn queue_material_meshes<M: Material>(
 
 /// Default render method used for opaque materials.
 #[derive(Default, Resource, Clone, Debug, ExtractResource, Reflect)]
-pub struct DefaultOpaqueRendererMethod(pub OpaqueRendererMethod);
+pub struct DefaultOpaqueRendererMethod(OpaqueRendererMethod);
+
+impl DefaultOpaqueRendererMethod {
+    pub fn forward() -> Self {
+        DefaultOpaqueRendererMethod(OpaqueRendererMethod::Forward)
+    }
+
+    pub fn deferred() -> Self {
+        DefaultOpaqueRendererMethod(OpaqueRendererMethod::Deferred)
+    }
+
+    pub fn set_to_forward(&mut self) {
+        self.0 = OpaqueRendererMethod::Forward;
+    }
+
+    pub fn set_to_deferred(&mut self) {
+        self.0 = OpaqueRendererMethod::Deferred;
+    }
+}
 
 /// Render method used for opaque materials.
 ///
@@ -636,11 +654,14 @@ pub struct DefaultOpaqueRendererMethod(pub OpaqueRendererMethod);
 /// then a fullscreen pass that reads data from these textures and executes shading. This allows
 /// for one pass over geometry, but is at the cost of not being able to use MSAA, and has heavier
 /// bandwidth usage which can be unsuitable for low end mobile or other bandwidth-constrained devices.
+///
+/// If a material indicates `OpaqueRendererMethod::Auto`, `DefaultOpaqueRendererMethod` will be used.
 #[derive(Default, Clone, Copy, Debug, Reflect)]
 pub enum OpaqueRendererMethod {
     #[default]
     Forward,
     Deferred,
+    Auto,
 }
 
 /// Common [`Material`] properties, calculated for a specific material instance.
@@ -818,8 +839,9 @@ fn prepare_material<M: Material>(
         fallback_image,
     )?;
     let method = match material.opaque_render_method() {
-        Some(method) => method,
-        None => default_opaque_render_method,
+        OpaqueRendererMethod::Forward => OpaqueRendererMethod::Forward,
+        OpaqueRendererMethod::Deferred => OpaqueRendererMethod::Deferred,
+        OpaqueRendererMethod::Auto => default_opaque_render_method,
     };
     Ok(PreparedMaterial {
         bindings: prepared.bindings,
