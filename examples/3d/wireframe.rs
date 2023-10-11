@@ -1,21 +1,34 @@
 //! Showcases wireframe rendering.
+//!
+//! Wireframes currently do not work when using webgl or webgpu.
+//! Supported platforms:
+//! - DX12
+//! - Vulkan
+//! - Metal
+//!
+//! This is a native only feature.
 
 use bevy::{
     pbr::wireframe::{NoWireframe, Wireframe, WireframeConfig, WireframePlugin},
     prelude::*,
-    render::{render_resource::WgpuFeatures, settings::WgpuSettings, RenderPlugin},
+    render::{
+        render_resource::WgpuFeatures,
+        settings::{RenderCreation, WgpuSettings},
+        RenderPlugin,
+    },
 };
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.set(RenderPlugin {
-                render_creation: WgpuSettings {
+                render_creation: RenderCreation::Automatic(WgpuSettings {
+                    // WARN this is a native only feature. It will not work with webgl or webgpu
                     features: WgpuFeatures::POLYGON_MODE_LINE,
                     ..default()
-                }
-                .into(),
+                }),
             }),
+            // You need to add this plugin to enable wireframe rendering
             WireframePlugin,
         ))
         .insert_resource(WireframeToggleTimer(Timer::from_seconds(
@@ -36,7 +49,7 @@ fn setup(
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane::from_size(5.0))),
-        material: materials.add(Color::rgb(0.3, 0.3, 0.5).into()),
+        material: materials.add(Color::BLUE.into()),
         ..default()
     });
 
@@ -44,7 +57,7 @@ fn setup(
     commands
         .spawn(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::rgb(0.8, 0.1, 0.1).into()),
+            material: materials.add(Color::RED.into()),
             transform: Transform::from_xyz(-1.0, 0.5, -1.0),
             ..default()
         })
@@ -52,7 +65,7 @@ fn setup(
     // Orange cube: Follows global wireframe setting
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.8, 0.1).into()),
+        material: materials.add(Color::ORANGE.into()),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
@@ -60,7 +73,7 @@ fn setup(
     commands
         .spawn(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::rgb(0.1, 0.8, 0.1).into()),
+            material: materials.add(Color::GREEN.into()),
             transform: Transform::from_xyz(1.0, 0.5, 1.0),
             ..default()
         })

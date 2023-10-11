@@ -74,22 +74,42 @@ pub struct SceneSpawner {
 #[derive(Error, Debug)]
 pub enum SceneSpawnError {
     /// Scene contains an unregistered component type.
-    #[error("scene contains the unregistered component `{type_name}`. consider adding `#[reflect(Component)]` to your type")]
+    #[error("scene contains the unregistered component `{type_path}`. consider adding `#[reflect(Component)]` to your type")]
     UnregisteredComponent {
         /// Type of the unregistered component.
-        type_name: String,
+        type_path: String,
     },
     /// Scene contains an unregistered resource type.
-    #[error("scene contains the unregistered resource `{type_name}`. consider adding `#[reflect(Resource)]` to your type")]
+    #[error("scene contains the unregistered resource `{type_path}`. consider adding `#[reflect(Resource)]` to your type")]
     UnregisteredResource {
         /// Type of the unregistered resource.
-        type_name: String,
+        type_path: String,
     },
     /// Scene contains an unregistered type.
-    #[error("scene contains the unregistered type `{type_name}`. consider registering the type using `app.register_type::<T>()`")]
+    #[error(
+        "scene contains the unregistered type `{std_type_name}`. \
+        consider reflecting it with `#[derive(Reflect)]` \
+        and registering the type using `app.register_type::<T>()`"
+    )]
     UnregisteredType {
+        /// The [type name] for the unregistered type.
+        /// [type name]: std::any::type_name
+        std_type_name: String,
+    },
+    /// Scene contains an unregistered type which has a `TypePath`.
+    #[error(
+        "scene contains the reflected type `{type_path}` but it was not found in the type registry. \
+        consider registering the type using `app.register_type::<T>()``"
+    )]
+    UnregisteredButReflectedType {
         /// The unregistered type.
-        type_name: String,
+        type_path: String,
+    },
+    /// Scene contains a proxy without a represented type.
+    #[error("scene contains dynamic type `{type_path}` without a represented type. consider changing this using `set_represented_type`.")]
+    NoRepresentedType {
+        /// The dynamic instance type.
+        type_path: String,
     },
     /// Dynamic scene with the given id does not exist.
     #[error("scene does not exist")]
