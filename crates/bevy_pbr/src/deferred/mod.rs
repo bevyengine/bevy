@@ -32,7 +32,7 @@ use bevy_render::{
 
 use crate::{
     EnvironmentMapLight, MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset,
-    ViewLightsUniformOffset, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
+    ViewLightsUniformOffset,
 };
 
 pub struct DeferredPbrLightingPlugin;
@@ -307,16 +307,6 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14 {
             shader_defs.push("SHADOW_FILTER_METHOD_JIMENEZ_14".into());
         }
-
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_DIRECTIONAL_LIGHTS".to_string(),
-            MAX_DIRECTIONAL_LIGHTS as u32,
-        ));
-
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_CASCADES_PER_LIGHT".to_string(),
-            MAX_CASCADES_PER_LIGHT as u32,
-        ));
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
