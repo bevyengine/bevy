@@ -180,17 +180,16 @@ fn fragment(
             pbr_input.material.flags |= pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT;
             out.deferred = pbr_deferred_functions::deferred_gbuffer_from_pbr_input(pbr_input);
             out.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_depth_id;
-#endif // DEFERRED_PREPASS
 #ifdef NORMAL_PREPASS
             out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
 #endif
+#endif // DEFERRED_PREPASS
     }
 
+#ifdef DEFERRED_PREPASS
 #ifdef MOTION_VECTOR_PREPASS
     out.motion_vector = pbr_prepass_functions::calculate_motion_vector(in.world_position, in.previous_world_position);
 #endif // MOTION_VECTOR_PREPASS
-
-#ifdef DEFERRED_PREPASS
     return out;
 #else //DEFERRED_PREPASS
     // fog
