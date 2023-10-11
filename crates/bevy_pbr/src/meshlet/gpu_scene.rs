@@ -147,29 +147,29 @@ pub fn prepare_meshlet_per_frame_bind_groups(
         },
         BindGroupEntry {
             binding: 2,
-            resource: gpu_scene.meshlet_indices.binding(),
-        },
-        BindGroupEntry {
-            binding: 3,
             resource: gpu_scene.meshlets.binding(),
         },
         BindGroupEntry {
-            binding: 4,
+            binding: 3,
             resource: gpu_scene.instance_uniforms.binding().unwrap(),
         },
         BindGroupEntry {
-            binding: 5,
+            binding: 4,
             resource: gpu_scene
                 .instanced_meshlet_instance_indices
                 .binding()
                 .unwrap(),
         },
         BindGroupEntry {
-            binding: 6,
+            binding: 5,
             resource: gpu_scene
                 .instanced_meshlet_meshlet_indices
                 .binding()
                 .unwrap(),
+        },
+        BindGroupEntry {
+            binding: 6,
+            resource: gpu_scene.meshlet_indices.binding(),
         },
         BindGroupEntry {
             binding: 7,
@@ -196,12 +196,12 @@ pub fn prepare_meshlet_per_frame_bind_groups(
     let culling_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
         label: Some("meshlet_culling_bind_group"),
         layout: &gpu_scene.culling_bind_group_layout,
-        entries,
+        entries: &entries[2..10],
     });
     let draw_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
         label: Some("meshlet_draw_bind_group"),
         layout: &gpu_scene.draw_bind_group_layout,
-        entries: &entries[0..3],
+        entries: &entries[0..6],
     });
 
     gpu_scene.culling_bind_group = Some(culling_bind_group);
@@ -268,13 +268,13 @@ impl FromWorld for MeshletGpuScene {
             culling_bind_group_layout: render_device.create_bind_group_layout(
                 &BindGroupLayoutDescriptor {
                     label: Some("meshlet_culling_bind_group_layout"),
-                    entries: &bind_group_layout_entries(),
+                    entries: &bind_group_layout_entries()[2..10],
                 },
             ),
             draw_bind_group_layout: render_device.create_bind_group_layout(
                 &BindGroupLayoutDescriptor {
                     label: Some("meshlet_draw_bind_group_layout"),
-                    entries: &bind_group_layout_entries()[0..8],
+                    entries: &bind_group_layout_entries()[0..6],
                 },
             ),
 
@@ -405,20 +405,9 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 10] {
             },
             count: None,
         },
-        // Meshlet indices
-        BindGroupLayoutEntry {
-            binding: 2,
-            visibility: ShaderStages::VERTEX,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Storage { read_only: true },
-                has_dynamic_offset: false,
-                min_binding_size: None,
-            },
-            count: None,
-        },
         // Meshlets
         BindGroupLayoutEntry {
-            binding: 3,
+            binding: 2,
             visibility: ShaderStages::COMPUTE | ShaderStages::VERTEX,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: true },
@@ -429,7 +418,7 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 10] {
         },
         // Instance uniforms
         BindGroupLayoutEntry {
-            binding: 4,
+            binding: 3,
             visibility: ShaderStages::COMPUTE | ShaderStages::VERTEX,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: true },
@@ -440,7 +429,7 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 10] {
         },
         // Instanced meshlet instance indices
         BindGroupLayoutEntry {
-            binding: 5,
+            binding: 4,
             visibility: ShaderStages::COMPUTE | ShaderStages::VERTEX,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: true },
@@ -451,8 +440,19 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 10] {
         },
         // Instanced meshlet meshlet indices
         BindGroupLayoutEntry {
-            binding: 6,
+            binding: 5,
             visibility: ShaderStages::COMPUTE | ShaderStages::VERTEX,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Meshlet indices
+        BindGroupLayoutEntry {
+            binding: 6,
+            visibility: ShaderStages::VERTEX,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: true },
                 has_dynamic_offset: false,
