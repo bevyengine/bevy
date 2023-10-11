@@ -22,7 +22,7 @@ struct MeshletBoundingSphere {
 }
 
 struct DrawIndexedIndirect {
-    vertex_count: atomic<u32>,
+    index_count: atomic<u32>,
     instance_count: u32,
     base_index: u32,
     vertex_offset: u32,
@@ -40,6 +40,6 @@ struct DrawIndexedIndirect {
 #ifdef CULLING_BINDINGS
 @group(1) @binding(6) var<storage, read> meshlet_indices: array<u32>; // packed u8's
 @group(1) @binding(7) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>;
-@group(1) @binding(8) var<storage, write> draw_command_buffer: DrawIndexedIndirect;
+@group(1) @binding(8) var<storage, read_write> draw_command_buffer: DrawIndexedIndirect;
 @group(1) @binding(9) var<storage, write> draw_index_buffer: array<u32>;
 #endif
