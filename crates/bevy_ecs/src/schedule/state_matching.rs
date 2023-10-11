@@ -516,19 +516,19 @@ impl<S: States, M: 'static, Sm: StateMatcher<S, M>> System for StateMatcherSyste
     }
 
     fn apply_deferred(&mut self, world: &mut crate::prelude::World) {
-        self.0.apply_deferred(world)
+        self.0.apply_deferred(world);
     }
 
     fn initialize(&mut self, world: &mut crate::prelude::World) {
-        self.0.initialize(world)
+        self.0.initialize(world);
     }
 
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.0.update_archetype_component_access(world)
+        self.0.update_archetype_component_access(world);
     }
 
     fn check_change_tick(&mut self, change_tick: crate::component::Tick) {
-        self.0.check_change_tick(change_tick)
+        self.0.check_change_tick(change_tick);
     }
 
     fn get_last_run(&self) -> crate::component::Tick {
@@ -536,7 +536,7 @@ impl<S: States, M: 'static, Sm: StateMatcher<S, M>> System for StateMatcherSyste
     }
 
     fn set_last_run(&mut self, last_run: crate::component::Tick) {
-        self.0.set_last_run(last_run)
+        self.0.set_last_run(last_run);
     }
 }
 
