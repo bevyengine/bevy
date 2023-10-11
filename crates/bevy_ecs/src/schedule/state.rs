@@ -134,10 +134,24 @@ pub struct OnTransition<S: States> {
     pub to: S,
 }
 
-/// A schedule for every time a state is entered
+/// A schedule that runs whenever any state is entered.
+/// This occurs either:
+///
+/// - On startup, when the `run_enter_schedule` system is triggered with the initial value of any state. In this case,
+///   a state transition would see the previous state as `None`
+/// - During `apply_state_transition`, after the state has been replaced
+///
+/// Note - this runs every time any state is entered - regardless of the state type. Run conditions
+/// should be used to specifiy more detailed execution.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Entering;
-/// A schedule for every time a state is exited
+
+/// A schedule that runs whenever any state is exited.
+///
+/// Triggered during `apply_state_transition`, before the state has been replaced.
+///
+/// Note - this runs every time any state is entered - regardless of the state type. Run conditions
+/// should be used to specifiy more detailed execution.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Exiting;
 
