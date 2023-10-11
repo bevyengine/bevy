@@ -13,9 +13,7 @@ use bevy_macro_utils::{
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
-use state_matchers::{
-    simple_state_transition_macros, state_matches_macro, transitioning_macro, MatchMacro,
-};
+use state_matchers::state_matches_macro;
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
     ConstParam, DeriveInput, GenericParam, Ident, Index, TypeParam,
@@ -483,52 +481,6 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
     states::derive_states(input)
 }
 
-/// Schedule your systems to run when entering a matching state.
-///
-/// This can be done by:
-/// - passing in pre-existing `StateMatcher<S>`, like so `entering!(AppStateMatcher)`
-/// - using matching pattern, like so `entering!(AppState, InGame { .. })`. Note that when matching
-/// enums, you do  not need to repeat the type within the pattern.
-/// - using a closure with a type that automatically implements `StateMatcher<S>`, like so `entering!(AppState, |state| { /// some logic here - return a bool})`
-///
-/// Using the `every` keyword before a pattern or closure ensures that the state will trigger every time you enter a matching state, regardless of whether the previous state also matched.
-/// By default, it will skip execution if the previous state matched as well.
-///
-/// For example, when moving from `AppState::InGame(GameState::PlayerTurn)` to `AppState::InGame(GameState::EnemyTurn)`, systems added with the `entering!(AppState, every AppState::InGame(_))` schedule will run, will systems added with the `entering(AppState, AppState::InGame(_))` will not run.
-/// However, both wil run if moving from `AppState::MainMenu` to `AppState::InGame(PlayerTurn)` or `AppState::InGame(EnemyTurn)`.
-///
-/// Lastly, you can also add additional comma-separated patterns or closures - which will be evaluated in order.
-///
-/// For example, `entering!(AppState, InGame(_), every _)` will trigger whenever I enter any `InGame` state from a non-`InGame` state, as well as any time I enter any other state.
-#[proc_macro]
-pub fn entering(input: TokenStream) -> TokenStream {
-    let result = state_matchers::define_match_macro(input).expect("Couldn't parse `entering!`");
-    simple_state_transition_macros(MatchMacro::OnEnter, result)
-}
-
-/// Schedule your systems to run when exiting a matching state.
-///
-/// This can be done by:
-/// - passing in pre-existing `StateMatcher<S>`, like so `exiting!(AppStateMatcher)`
-/// - using matching pattern, like so `exiting!(AppState, InGame { .. })`. Note that when matching
-/// enums, you do  not need to repeat the type within the pattern.
-/// - using a closure with a type that automatically implements `StateMatcher<S>`, like so `exiting!(AppState, |state| { /// some logic here - return a bool})`
-///
-/// Using the `every` keyword before a pattern or closure ensures that the state will trigger every time you exit a matching state, regardless of whether the next state also matched.
-/// By default, it will skip execution if the next state matched as well.
-///
-/// For example, when moving from `AppState::InGame(GameState::PlayerTurn)` to `AppState::InGame(GameState::EnemyTurn)`, systems added with the `exiting!(AppState, every AppState::InGame(_))` schedule will run, will systems added with the `exiting(AppState, AppState::InGame(_))` will not run.
-/// However, both wil run if moving from either `AppState::InGame(PlayerTurn)` or `AppState::InGame(EnemyTurn)` to `AppState::MainMenu`.
-///
-/// Lastly, you can also add additional comma-separated patterns or closures - which will be evaluated in order.
-///
-/// For example, `exiting!(AppState, InGame(_), every _)` will trigger whenever I exit any `InGame` state to a non-`InGame` state, as well as any time I exit any other state.
-#[proc_macro]
-pub fn exiting(input: TokenStream) -> TokenStream {
-    let result = state_matchers::define_match_macro(input).expect("Couldn't parse `exiting!`");
-    simple_state_transition_macros(MatchMacro::OnExit, result)
-}
-
 /// Run a system only if the current state matches the provided expressions.
 ///
 /// This can be done by:
@@ -543,31 +495,4 @@ pub fn state_matches(input: TokenStream) -> TokenStream {
     let result =
         state_matchers::define_match_macro(input).expect("Couldn't parse `state_matches!`");
     state_matches_macro(result)
-}
-
-/// Schedule your systems to run when transitions from a state matching the `from` matcher, to one matching the `to` matcher
-///
-/// To use this macro, first provide the state type `S` for your transitions, and then provide your matching patterns or closures like so:
-///
-/// `transitioning!(S, { from matching patterns and closures }, { to matching patterns and closures })`
-///
-/// The matching patterns and closures are enclosed in bracets, but otherwise follow the same syntax as the `entering`, `exiting` and `state_matches` macros:
-/// - using matching pattern, like so `transitioning!(AppState, { InGame { .. } }, { AppState::MainMenu | AppState::Paused })`. Note that when matching
-/// enums, you do  not need to repeat the type within the pattern.
-/// - using a closure with a type that automatically implements `StateMatcher<S>`, like so `transitioning!(AppState, { |from_state| { /// some logic here - return a bool} }, { | to_state| { /// some logic here - return a bool}})`
-///
-/// Using the `every` keyword before a pattern or closure in the `from` section ensures that the state will trigger every time you exit a matching state, regardless of whether the next state also matched.
-/// By default, it will skip execution if the next state matched as well.
-///
-/// /// Using the `every` keyword before a pattern or closure in the `to` section ensures that the state will trigger every time you exit a matching state, regardless of whether the previous state also matched.
-/// By default, it will skip execution if the previous state matched as well.
-///
-/// For example, when moving from `AppState::InGame(GameState::PlayerTurn)` to `AppState::InGame(GameState::EnemyTurn)`, systems added with the `transitioning!(AppState, { every AppState::InGame(_) | AppState::Paused }, { AppState::InGame(_) })` schedule will run, will systems added with the `transitioning(AppState, { AppState::InGame(_) | AppState::Paused }, { AppState::InGame(GameState::EnemyTurn) })` will not run.
-//
-/// However, both wil run if moving from `AppState::Paused` to `AppState::InGame(GameState::EnemyTurn)`
-///
-/// Lastly, you can also add additional comma-separated patterns or closures - which will be evaluated in order.
-#[proc_macro]
-pub fn transitioning(input: TokenStream) -> TokenStream {
-    transitioning_macro(input)
 }

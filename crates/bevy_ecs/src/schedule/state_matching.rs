@@ -1,13 +1,13 @@
-use super::{ActiveTransition, Condition, State, States};
+use super::{ActiveTransition, State, States};
 use crate::{
     archetype::ArchetypeComponentId,
     change_detection::Res,
     component::ComponentId,
     query::Access,
-    system::{BoxedSystem, FunctionSystem, IntoSystem, IsFunctionSystem, ReadOnlySystem, System},
+    system::{IntoSystem, ReadOnlySystem, System},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-pub use bevy_ecs_macros::{entering, exiting, state_matches, transitioning};
+pub use bevy_ecs_macros::state_matches;
 use std::{borrow::Cow, marker::PhantomData};
 
 /// An enum describing the possible result of a state transition match.
@@ -33,6 +33,9 @@ impl From<bool> for MatchesStateTransition {
     }
 }
 
+/// A wrapper around a `StateMatcher` that ignores the state matcher's
+/// `match_state_transition`, and instead always returns a
+/// `TransitionMatches` if the main state matches.
 pub struct EveryTransition<S: States, Sm: StateMatcher<S, Marker>, Marker: 'static>(
     pub Sm,
     PhantomData<Box<dyn Send + Sync + 'static + Fn(S) -> Marker>>,
@@ -53,6 +56,12 @@ impl<S: States, Marker: Send + Sync + 'static, Sm: StateMatcher<S, Marker>>
         }
     }
 }
+
+/// A wrapper around a `StateMatcher` that swaps the `main` and `seconary` states
+/// when calling `main_state_transition`.
+///
+/// When `Exiting`, the `main` would become the incoming state
+/// When `Entering`, the `main` would become the outgoing state
 pub struct InvertTransition<S: States, Sm: StateMatcher<S, Marker>, Marker: 'static>(
     Sm,
     PhantomData<Box<dyn Send + Sync + 'static + Fn(S) -> Marker>>,
@@ -74,6 +83,13 @@ impl<S: States, Marker, Sm: StateMatcher<S, Marker>> sealed::InternalStateMatche
     }
 }
 
+/// A struct that takes two `StateMatcher`s, and evaluates them in order.
+///
+/// If matching a single state, it will return true if one of the states is true
+///
+/// If matching a transition, it'll check the first state matcher, and returns that
+/// result unless it is `NoMatch`. In that case, it will return the result of the second
+/// state matcher.
 pub struct CombineStateMatchers<
     S: States,
     Sm1: StateMatcher<S, M1>,
@@ -171,14 +187,27 @@ use sealed::InternalStateMatcher;
 /// - `Fn(&Self, Option<&Self>) -> MatchesStateTransition`
 /// - `Fn(Option<&Self>, Option<&Self>) -> MatchesStateTransition`
 pub trait StateMatcher<S: States, Marker>: InternalStateMatcher<S, Marker> {
+    /// Ensures that any transition is considered valid if the `main` state
+    /// matches, regardless of anything else.
     fn every(self) -> EveryTransition<S, Self, Marker> {
         EveryTransition(self, PhantomData)
     }
 
+    /// Swaps the `main` and `secondary` states when calling `match_state_transition`
+    ///
+    /// Can be used to focus on the incoming state when `Exiting`,
+    /// or to focus on the outgoing state when `Entering`
     fn invert_transition(self) -> InvertTransition<S, Self, Marker> {
         InvertTransition(self, PhantomData)
     }
 
+    /// Combines two `StateMatcher`s in order
+    ///
+    /// If matching a single state, it will return true if one of the states is true
+    ///
+    /// If matching a transition, it'll check the first state matcher, and returns that
+    /// result unless it is `NoMatch`. In that case, it will return the result of the second
+    /// state matcher.
     fn combine<M2, Sm: StateMatcher<S, M2>>(
         self,
         other: Sm,
@@ -517,7 +546,7 @@ unsafe impl<S: States, M: 'static, Sm: StateMatcher<S, M>> ReadOnlySystem
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs_macros::{entering, state_matches};
+    use bevy_ecs_macros::state_matches;
 
     use crate as bevy_ecs;
     use crate::schedule::ActiveTransition;

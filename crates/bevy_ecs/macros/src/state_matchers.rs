@@ -1,8 +1,6 @@
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
-use quote::ToTokens;
 use quote::{format_ident, quote};
-use syn::braced;
 use syn::Error;
 use syn::ExprClosure;
 use syn::{parse::Parse, Expr, ExprPath, Ident, Pat, PatTupleStruct, Path, Token};
@@ -25,50 +23,6 @@ enum MatcherType {
     Expression(Expr),
     Pattern(MatcherPattern),
     Closure(MatcherClosure),
-}
-
-#[derive(Clone)]
-struct TransitionMatcher {
-    state_type: Path,
-    from_matchers: Vec<(bool, MatcherType)>,
-    to_matchers: Vec<(bool, MatcherType)>,
-}
-
-impl Parse for TransitionMatcher {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let state_type = match Expr::parse(input)? {
-            Expr::Path(p) => p.path.clone(),
-            _ => {
-                return Err(Error::new(
-                    Span::call_site(),
-                    "Couldn't determine state type",
-                ))
-            }
-        };
-
-        input.parse::<Token![,]>()?;
-
-        let from_matchers = {
-            let content;
-            let _ = braced!(content in input);
-            let matcher = Matcher::parse_with_state_type(&content, Some(state_type.clone()))?;
-            matcher.matchers
-        };
-        input.parse::<Token![,]>()?;
-
-        let to_matchers = {
-            let content;
-            let _ = braced!(content in input);
-            let matcher = Matcher::parse_with_state_type(&content, Some(state_type.clone()))?;
-            matcher.matchers
-        };
-
-        Ok(Self {
-            state_type,
-            from_matchers,
-            to_matchers,
-        })
-    }
 }
 
 #[derive(Clone)]
@@ -294,11 +248,6 @@ fn inject_state_type(pattern: Pat, state_type: &Path) -> Pat {
     }
 }
 
-pub enum MatchMacro {
-    OnEnter,
-    OnExit,
-}
-
 pub struct MatchMacroResult {
     state_type: Option<Path>,
     matchers: Vec<(bool, MatchTypes)>,
@@ -351,67 +300,6 @@ pub fn define_match_macro(input: proc_macro::TokenStream) -> syn::Result<MatchMa
     })
 }
 
-pub fn simple_state_transition_macros(
-    macro_type: MatchMacro,
-    match_result: MatchMacroResult,
-) -> proc_macro::TokenStream {
-    if match_result.matchers.is_empty() {
-        panic!("No matchers found");
-    }
-
-    let MatchMacroResult {
-        state_type,
-        matchers,
-    } = match_result;
-
-    match (state_type, matchers.first(), matchers.len()) {
-        (_, Some((_, MatchTypes::Expression(expr))), 1) => {
-            let mut module_path = bevy_ecs_path();
-            module_path.segments.push(format_ident!("schedule").into());
-            module_path
-                .segments
-                .push(format_ident!("common_conditions").into());
-            module_path.segments.push(
-                Ident::new(
-                    match macro_type {
-                        MatchMacro::OnEnter => "entering",
-                        MatchMacro::OnExit => "exiting",
-                    },
-                    Span::call_site(),
-                )
-                .into(),
-            );
-
-            quote!(#module_path(#expr))
-        }
-        (Some(state_type), _, _) => {
-            let match_function = generate_match_function(&state_type, &matchers);
-
-            let mut module_path = bevy_ecs_path();
-            module_path.segments.push(format_ident!("schedule").into());
-            module_path
-                .segments
-                .push(format_ident!("common_conditions").into());
-            module_path.segments.push(
-                Ident::new(
-                    match macro_type {
-                        MatchMacro::OnEnter => "entering",
-                        MatchMacro::OnExit => "exiting",
-                    },
-                    Span::call_site(),
-                )
-                .into(),
-            );
-
-            quote!(
-                #module_path::<#state_type, _>(#match_function)
-            )
-        }
-        _ => panic!("No State Type"),
-    }
-    .into()
-}
-
 pub fn state_matches_macro(match_result: MatchMacroResult) -> proc_macro::TokenStream {
     let MatchMacroResult {
         state_type,
@@ -442,37 +330,6 @@ pub fn state_matches_macro(match_result: MatchMacroResult) -> proc_macro::TokenS
         }
         _ => panic!("No State Type"),
     }
-    .into()
-}
-
-pub fn transitioning_macro(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let TransitionMatcher {
-        state_type,
-        from_matchers,
-        to_matchers,
-    } = syn::parse(input).expect("Couldn't parse transition matcher");
-
-    let from_matchers = MatchTypes::from_matcher_type_vec(from_matchers);
-    let from_function = generate_match_function(&state_type, &from_matchers);
-    let to_matchers = MatchTypes::from_matcher_type_vec(to_matchers);
-    let to_function = generate_match_function(&state_type, &to_matchers);
-
-    let mut module_path = bevy_ecs_path();
-    module_path.segments.push(format_ident!("schedule").into());
-    module_path
-        .segments
-        .push(format_ident!("common_conditions").into());
-    module_path
-        .segments
-        .push(format_ident!("transitioning").into());
-
-    quote!({
-        let from_matcher = #from_function;
-
-        let to_matcher = #to_function;
-
-        #module_path::<#state_type, _, _>(from_matcher, to_matcher)
-    })
     .into()
 }
 

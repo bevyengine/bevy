@@ -137,10 +137,6 @@ pub struct OnTransition<S: States> {
 /// A schedule for every time a state is entered
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Entering;
-/// A schedule for every time a state is changed
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
-pub struct Transitioning;
-
 /// A schedule for every time a state is exited
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Exiting;
@@ -274,7 +270,6 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
     world.insert_resource(ActiveTransition::new(Some(state.clone()), None));
     world.try_run_schedule(OnEnter(state)).ok();
     // We are running the transition schedule because you could be transitioning from having no State resource to having one.
-    world.try_run_schedule(Transitioning).ok();
     world.try_run_schedule(Entering).ok();
     world.remove_resource::<ActiveTransition<S>>();
 }
@@ -314,7 +309,6 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
                     to: entered.clone(),
                 })
                 .ok();
-            world.try_run_schedule(Transitioning).ok();
             world.try_run_schedule(OnEnter(entered)).ok();
             world.try_run_schedule(Entering).ok();
             world.remove_resource::<ActiveTransition<S>>();
