@@ -964,8 +964,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
             }
 
             let forward = match material.properties.render_method {
-                OpaqueRendererMethod::Auto | OpaqueRendererMethod::Forward => true,
+                OpaqueRendererMethod::Forward => true,
                 OpaqueRendererMethod::Deferred => false,
+                OpaqueRendererMethod::Auto => unreachable!(),
             };
 
             let deferred = deferred_prepass.is_some() && !forward;
