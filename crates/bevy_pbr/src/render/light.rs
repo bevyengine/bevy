@@ -1615,8 +1615,7 @@ pub fn queue_shadows<M: Material>(
 
                 let mut mesh_key =
                     MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
-                        | MeshPipelineKey::DEPTH_PREPASS
-                        | MeshPipelineKey::SHADOW_PASS;
+                        | MeshPipelineKey::DEPTH_PREPASS;
                 if mesh.morph_targets.is_some() {
                     mesh_key |= MeshPipelineKey::MORPH_TARGETS;
                 }
