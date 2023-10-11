@@ -398,7 +398,7 @@ pub fn prepare_deferred_lighting_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DeferredLightingLayout>>,
-    differed_lighting_layout: Res<DeferredLightingLayout>,
+    deferred_lighting_layout: Res<DeferredLightingLayout>,
     views: Query<
         (
             Entity,
@@ -464,7 +464,7 @@ pub fn prepare_deferred_lighting_pipelines(
         }
 
         let pipeline_id =
-            pipelines.specialize(&pipeline_cache, &differed_lighting_layout, view_key);
+            pipelines.specialize(&pipeline_cache, &deferred_lighting_layout, view_key);
 
         commands
             .entity(entity)

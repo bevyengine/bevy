@@ -172,16 +172,16 @@ fn fragment(
 #else // DEFERRED_PREPASS
         output_color = pbr_functions::pbr(pbr_input);
 #endif // DEFERRED_PREPASS
-    } else {
-            pbr_functions::alpha_discard(pbr_bindings::material, output_color);
+    } else { // if UNLIT_BIT != 0
+        pbr_functions::alpha_discard(pbr_bindings::material, output_color);
 #ifdef DEFERRED_PREPASS    
-            var pbr_input = pbr_types::pbr_input_new();
-            pbr_input.material.base_color = output_color;
-            pbr_input.material.flags |= pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT;
-            out.deferred = pbr_deferred_functions::deferred_gbuffer_from_pbr_input(pbr_input);
-            out.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
+        var pbr_input = pbr_types::pbr_input_new();
+        pbr_input.material.base_color = output_color;
+        pbr_input.material.flags |= pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT;
+        out.deferred = pbr_deferred_functions::deferred_gbuffer_from_pbr_input(pbr_input);
+        out.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
 #ifdef NORMAL_PREPASS
-            out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
+        out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
 #endif
 #endif // DEFERRED_PREPASS
     }
