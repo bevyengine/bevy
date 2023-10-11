@@ -419,7 +419,7 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 10] {
         // Meshlets
         BindGroupLayoutEntry {
             binding: 3,
-            visibility: ShaderStages::VERTEX,
+            visibility: ShaderStages::COMPUTE | ShaderStages::VERTEX,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: true },
                 has_dynamic_offset: false,
