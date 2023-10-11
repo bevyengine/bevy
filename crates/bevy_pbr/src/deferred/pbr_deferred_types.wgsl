@@ -24,36 +24,14 @@ fn mesh_material_flags_from_deferred_flags(deferred_flags: u32) -> vec2<u32> {
     return vec2(mesh_flags, mat_flags);
 }
 
-
-// For storing normals as oct24.
-// Flags are stored in the remaining 8 bits.
-// https://jcgt.org/published/0003/02/01/paper.pdf
-// Could possibly go down to oct20 if the space is needed.
-
-fn octahedral_wrap(v: vec2<f32>) -> vec2<f32> {
-    return (1.0 - abs(v.yx)) * select(vec2(-1.0), vec2(1.0), v.xy >= vec2(0.0));
-}
-
-fn octahedral_encode(n: vec3<f32>) -> vec2<f32> {
-    var n = n / (abs(n.x) + abs(n.y) + abs(n.z));
-    if (n.z < 0.0) {
-        n = vec3(octahedral_wrap(n.xy), n.z);
-    }
-    return n.xy * 0.5 + 0.5;
-}
-
-fn octahedral_decode(f: vec2<f32>) -> vec3<f32> {
-    var f = f * 2.0 - 1.0;
-    var n = vec3( f.x, f.y, 1.0 - abs(f.x) - abs(f.y));
-    if (n.z < 0.0) {
-        n = vec3(octahedral_wrap(n.xy), n.z);
-    }
-    return normalize(n);
-}
-
 const U12MAXF = 4095.0;
 const U16MAXF = 65535.0;
 const U20MAXF = 1048575.0;
+
+// Storing normals as oct24.
+// Flags are stored in the remaining 8 bits.
+// https://jcgt.org/published/0003/02/01/paper.pdf
+// Could possibly go down to oct20 if the space is needed.
 
 fn pack_24bit_normal_and_flags(octahedral_normal: vec2<f32>, flags: u32) -> u32 {
     let unorm1 = u32(saturate(octahedral_normal.x) * U12MAXF + 0.5);
