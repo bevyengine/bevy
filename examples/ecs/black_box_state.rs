@@ -30,7 +30,7 @@ fn main() {
         // you can also use `Fn` values rather than points, like we do here
         .add_systems(Update, change_color.run_if(in_game()))
         // Or pass in functions that test the full transition rather than just a single state
-        .add_systems(Exiting, cleanup_ui.run_if(ui.every()))
+        .add_systems(Exiting, cleanup_ui.run_if(ui))
         .add_systems(Update, menu.run_if(in_menu))
         .add_systems(Update, invert_movement.run_if(GameState::running))
         // You can also use generics to specialize things
@@ -38,10 +38,10 @@ fn main() {
         .add_systems(Update, inverted_movement.run_if(in_movement::<Inverted>))
         .run();
 }
-use bevy_internal::ecs::schedule::StateMatcher;
 use state::*;
 mod state {
     use bevy::prelude::States;
+    use bevy_internal::ecs::schedule::{MatchesStateTransition, StateMatcher};
 
     // The first portion is identical to the setup in the Struct State example
     // We define the state
@@ -162,11 +162,13 @@ mod state {
     // run-condition, this will be the current state, while `secondary_state` will be the previous state.
     // If we are using the `exiting` run condition or the `from` portion of a transition, `main_state` will be the `previous_state`
     // while `secondary_state` will be the current one.
-    pub fn ui(main_state: &AppState, secondary_state: &AppState) -> bool {
-        if main_state.in_game.is_some() && !main_state.is_paused {
-            return secondary_state.in_game.is_none() || main_state.is_paused;
-        }
-        true
+    pub fn ui(main_state: &AppState, secondary_state: &AppState) -> MatchesStateTransition {
+        // We can use `AppState::matches_transition` to test an arbitrary transition
+        AppState::matches_transition(
+            GameState::running.combine((|_: &AppState| true).every()),
+            Some(main_state),
+            Some(secondary_state),
+        )
     }
 
     // You can also use closures, which means you can pass in stateful objects if needed!
