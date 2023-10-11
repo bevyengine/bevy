@@ -74,6 +74,9 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn line(&mut self, start: Vec3, end: Vec3, color: Color) {
+        if !self.config.enabled {
+            return;
+        }
         self.extend_list_positions([start, end]);
         self.add_list_color(color, 2);
     }
@@ -94,6 +97,9 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn line_gradient(&mut self, start: Vec3, end: Vec3, start_color: Color, end_color: Color) {
+        if !self.config.enabled {
+            return;
+        }
         self.extend_list_positions([start, end]);
         self.extend_list_colors([start_color, end_color]);
     }
@@ -114,6 +120,9 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn ray(&mut self, start: Vec3, vector: Vec3, color: Color) {
+        if !self.config.enabled {
+            return;
+        }
         self.line(start, start + vector, color);
     }
 
@@ -139,6 +148,9 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
         start_color: Color,
         end_color: Color,
     ) {
+        if !self.config.enabled {
+            return;
+        }
         self.line_gradient(start, start + vector, start_color, end_color);
     }
 
@@ -158,6 +170,9 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn linestrip(&mut self, positions: impl IntoIterator<Item = Vec3>, color: Color) {
+        if !self.config.enabled {
+            return;
+        }
         self.extend_strip_positions(positions);
         let len = self.buffer.strip_positions.len();
         self.buffer
@@ -186,6 +201,9 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn linestrip_gradient(&mut self, points: impl IntoIterator<Item = (Vec3, Color)>) {
+        if !self.config.enabled {
+            return;
+        }
         let points = points.into_iter();
 
         let GizmoBuffer {
@@ -299,6 +317,9 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn rect(&mut self, position: Vec3, rotation: Quat, size: Vec2, color: Color) {
+        if !self.config.enabled {
+            return;
+        }
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2.extend(0.));
         self.linestrip([tl, tr, br, bl, tl], color);
     }
@@ -319,6 +340,9 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn cuboid(&mut self, transform: impl TransformPoint, color: Color) {
+        if !self.config.enabled {
+            return;
+        }
         let rect = rect_inner(Vec2::ONE);
         // Front
         let [tlf, trf, brf, blf] = rect.map(|vec2| transform.transform_point(vec2.extend(0.5)));
@@ -354,6 +378,9 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn line_2d(&mut self, start: Vec2, end: Vec2, color: Color) {
+        if !self.config.enabled {
+            return;
+        }
         self.line(start.extend(0.), end.extend(0.), color);
     }
 
@@ -379,6 +406,9 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
         start_color: Color,
         end_color: Color,
     ) {
+        if !self.config.enabled {
+            return;
+        }
         self.line_gradient(start.extend(0.), end.extend(0.), start_color, end_color);
     }
 
@@ -398,6 +428,9 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn linestrip_2d(&mut self, positions: impl IntoIterator<Item = Vec2>, color: Color) {
+        if !self.config.enabled {
+            return;
+        }
         self.linestrip(positions.into_iter().map(|vec2| vec2.extend(0.)), color);
     }
 
@@ -421,6 +454,9 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn linestrip_gradient_2d(&mut self, positions: impl IntoIterator<Item = (Vec2, Color)>) {
+        if !self.config.enabled {
+            return;
+        }
         self.linestrip_gradient(
             positions
                 .into_iter()
@@ -444,6 +480,9 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn ray_2d(&mut self, start: Vec2, vector: Vec2, color: Color) {
+        if !self.config.enabled {
+            return;
+        }
         self.line_2d(start, start + vector, color);
     }
 
@@ -469,6 +508,9 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
         start_color: Color,
         end_color: Color,
     ) {
+        if !self.config.enabled {
+            return;
+        }
         self.line_gradient_2d(start, start + vector, start_color, end_color);
     }
 
@@ -572,6 +614,9 @@ impl<'w, 's, T: CustomGizmoConfig> Gizmos<'w, 's, T> {
     /// ```
     #[inline]
     pub fn rect_2d(&mut self, position: Vec2, rotation: f32, size: Vec2, color: Color) {
+        if !self.config.enabled {
+            return;
+        }
         let rotation = Mat2::from_angle(rotation);
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2);
         self.linestrip_2d([tl, tr, br, bl, tl], color);
@@ -629,6 +674,9 @@ impl<T: CustomGizmoConfig> CircleBuilder<'_, '_, '_, T> {
 
 impl<T: CustomGizmoConfig> Drop for CircleBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
+        if !self.gizmos.config.enabled {
+            return;
+        }
         let rotation = Quat::from_rotation_arc(Vec3::Z, self.normal);
         let positions = circle_inner(self.radius, self.segments)
             .map(|vec2| (self.position + rotation * vec2.extend(0.)));
@@ -656,6 +704,9 @@ impl<T: CustomGizmoConfig> SphereBuilder<'_, '_, '_, T> {
 
 impl<T: CustomGizmoConfig> Drop for SphereBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
+        if !self.gizmos.config.enabled {
+            return;
+        }
         for axis in Vec3::AXES {
             self.gizmos
                 .circle(self.position, self.rotation * axis, self.radius, self.color)
@@ -683,6 +734,9 @@ impl<T: CustomGizmoConfig> Circle2dBuilder<'_, '_, '_, T> {
 
 impl<T: CustomGizmoConfig> Drop for Circle2dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
+        if !self.gizmos.config.enabled {
+            return;
+        }
         let positions = circle_inner(self.radius, self.segments).map(|vec2| (vec2 + self.position));
         self.gizmos.linestrip_2d(positions, self.color);
     }
@@ -709,6 +763,9 @@ impl<T: CustomGizmoConfig> Arc2dBuilder<'_, '_, '_, T> {
 
 impl<T: CustomGizmoConfig> Drop for Arc2dBuilder<'_, '_, '_, T> {
     fn drop(&mut self) {
+        if !self.gizmos.config.enabled {
+            return;
+        }
         let segments = match self.segments {
             Some(segments) => segments,
             // Do a linear interpolation between 1 and `DEFAULT_CIRCLE_SEGMENTS`
