@@ -186,8 +186,8 @@ where
         render_app
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>()
-            .add_render_command::<Opaque3dDeferred, DrawDeferred<M>>()
-            .add_render_command::<AlphaMask3dDeferred, DrawDeferred<M>>()
+            .add_render_command::<Opaque3dDeferred, DrawPrepass<M>>()
+            .add_render_command::<AlphaMask3dDeferred, DrawPrepass<M>>()
             .add_systems(
                 Render,
                 queue_prepass_material_meshes::<M>
@@ -909,11 +909,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
         .unwrap();
     let opaque_draw_deferred = opaque_deferred_draw_functions
         .read()
-        .get_id::<DrawDeferred<M>>()
+        .get_id::<DrawPrepass<M>>()
         .unwrap();
     let alpha_mask_draw_deferred = alpha_mask_deferred_draw_functions
         .read()
-        .get_id::<DrawDeferred<M>>()
+        .get_id::<DrawPrepass<M>>()
         .unwrap();
     for (
         view,
@@ -1108,14 +1108,6 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
 }
 
 pub type DrawPrepass<M> = (
-    SetItemPipeline,
-    SetPrepassViewBindGroup<0>,
-    SetMaterialBindGroup<M, 1>,
-    SetMeshBindGroup<2>,
-    DrawMesh,
-);
-
-pub type DrawDeferred<M> = (
     SetItemPipeline,
     SetPrepassViewBindGroup<0>,
     SetMaterialBindGroup<M, 1>,
