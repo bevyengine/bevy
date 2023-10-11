@@ -30,7 +30,7 @@ fn main() {
         // you can also use `Fn` values rather than points, like we do here
         .add_systems(Update, change_color.run_if(in_game()))
         // Or pass in functions that test the full transition rather than just a single state
-        .add_systems(Exiting, cleanup_ui.run_if(ui))
+        .add_systems(Exiting, cleanup_ui.run_if(ui.every()))
         .add_systems(Update, menu.run_if(in_menu))
         .add_systems(Update, invert_movement.run_if(GameState::running))
         // You can also use generics to specialize things
@@ -38,6 +38,7 @@ fn main() {
         .add_systems(Update, inverted_movement.run_if(in_movement::<Inverted>))
         .run();
 }
+use bevy_internal::ecs::schedule::StateMatcher;
 use state::*;
 mod state {
     use bevy::prelude::States;

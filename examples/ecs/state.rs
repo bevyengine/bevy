@@ -36,7 +36,7 @@ fn main() {
             setup_in_game_ui,
         )
         // We can also uise `OnExit` to run the system whenever we leave a state.
-        // Note that, just like `OnEnter` (and `in_state` below), `OnExit` relies on the state's
+        // Note that, just like `OnEnter`, `OnExit` relies on the state's
         // `Eq` implementation to determine whether it should run or not, so if we want to run
         // a system in multiple situations, we need to add it to each schedule individually.
         // The Nested State & Sturct State examples show a different approach.
@@ -44,37 +44,35 @@ fn main() {
         .add_systems(OnExit(AppState::InGame(GameState::Running)), cleanup_ui)
         .add_systems(OnExit(AppState::InGame(GameState::Paused)), cleanup_ui)
         // In addition to `OnEnter` and `OnExit`, you can run systems any other schedule as well.
-        // To do so, you will want to add the `in_state()` run condition, which will check
+        // To do so, you will want to add the state as a run condition, which will check
         // if we're in the correct state every time the schedule runs. In this case - that's every frame.
-        .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
+        .add_systems(Update, menu.run_if(AppState::Menu))
         .add_systems(
             Update,
-            change_color.run_if(in_state(AppState::InGame(GameState::Running))),
+            change_color.run_if(AppState::InGame(GameState::Running)),
         )
         .add_systems(
             Update,
-            change_color.run_if(in_state(AppState::InGame(GameState::Paused))),
+            change_color.run_if(AppState::InGame(GameState::Paused)),
         )
         .add_systems(
             Update,
-            invert_movement.run_if(in_state(AppState::InGame(GameState::Running))),
+            invert_movement.run_if(AppState::InGame(GameState::Running)),
         )
         // We can also have more than one state type set up in an app.
         // In this case, we are adding a Struct as our state type, instead of an enum.
         .add_state::<MovementState>()
-        // We can also use `in_state` conditions referring to multiple states on a single system!
+        // And we can chain states just like any run condition, to check against multiple different states!
         .add_systems(
             Update,
             movement.run_if(
-                in_state(AppState::InGame(GameState::Running))
-                    .and_then(in_state(MovementState { inverted: false })),
+                AppState::InGame(GameState::Running).and_then(MovementState { inverted: false }),
             ),
         )
         .add_systems(
             Update,
             inverted_movement.run_if(
-                in_state(AppState::InGame(GameState::Running))
-                    .and_then(in_state(MovementState { inverted: true })),
+                AppState::InGame(GameState::Running).and_then(MovementState { inverted: true }),
             ),
         )
         .run();

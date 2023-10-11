@@ -1,6 +1,6 @@
 //! This example illustrates how to use enum-based nested [`States`] for high-level app control flow.
 //! States are a powerful but intuitive tool for controlling which logic runs when.
-//! You can have multiple independent states, and the `entering!` and `exiting!` macros
+//! You can have multiple independent states, and the `state_matches!` macro
 //! can be used to great effect to ensure that you handle setup and teardown appropriately with a
 //! variety of states.
 //!
@@ -25,7 +25,7 @@ fn main() {
         // All systems from the exit schedule of the state we're leaving are run first,
         // and then all systems from the enter schedule of the state we're entering are run second.
         .add_systems(OnEnter(AppState::Menu), setup_menu)
-        // You can achieve the same result using the `Entering` schedule & conditions
+        // You can achieve the same result using the `Entering` schedule & using the state as a run condition
         .add_systems(
             Entering,
             setup_paused.run_if(AppState::InGame(GameState::Paused)),
@@ -33,10 +33,9 @@ fn main() {
         // However, we can also use the `Entering` schedule with pattern matching
         // to let us ensure the `setup_game` system runs whenever we enter the "InGame" state
         // regardless of whether the game is paused or not!
-        // Instead of calling the `entering` function, we are using the `entering!` macro and passing in the
-        // state type and the pattern we want to match
+        // Instead of just passing in the state, we can use the `state_matches!` macro and pass in a pattern
         .add_systems(Entering, setup_game.run_if(state_matches!(AppState, InGame(_))))
-        // You can also pass in a closure to the macro or the `entering` function.
+        // You can also pass in a closure to the macro, like so
         .add_systems(
             Entering,
             setup_in_game_ui.run_if(state_matches!(AppState, |state: &AppState| state
@@ -52,7 +51,7 @@ fn main() {
         // - if we are leaving the "GameState::Running" substate completely (so not when moving between GameState::Running { inverted: true} and GameState::Running { inverted: false })
         // - whenever we leave any other state (AppState::Manu or GameState::Paused)
         //
-        // To do so, we provide the `exiting!` macro a sequence of conditions - the first works just like any other, but the second has the
+        // To do so, we provide the `state_matches!` macro a sequence of conditions - the first works just like any other, but the second has the
         // `every` key word at the start, meaning it will run whenever we exit a state that matches the pattern - regardless of the next state.
         //
         // The first pattern is checked first - and if the previous state doesn't match it we skip to the next pattern. However, if it does - we check whether the
@@ -63,17 +62,17 @@ fn main() {
                 state_matches!(AppState, InGame(GameState::Running { .. }), every |_: &AppState| true),
             ),
         )
-        // We can also use all the same options with the "state_matches!" macro
-        .add_systems(Update, menu.run_if(state_matches!(AppState::Menu)))
+        // We can also use all the same options during any other schedule, like Update
+        .add_systems(Update, menu.run_if(AppState::Menu))
         .add_systems(
             Update,
             change_color.run_if(state_matches!(AppState, InGame(_))),
         )
+        // Lastly, for closures that implement [`StateMatcher`], we can actually pass them in directly as well
         .add_systems(
             Update,
-            invert_movement.run_if(state_matches!(AppState, InGame(GameState::Running { .. }))),
+            invert_movement.run_if(|state: &AppState| matches!(state, AppState::InGame(GameState::Running { .. }))),
         )
-        // And of course, you can still use the normal `in_state` value-based option if it works for your needs
         .add_systems(
             Update,
             movement.run_if(AppState::InGame(GameState::Running {

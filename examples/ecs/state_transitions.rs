@@ -17,17 +17,43 @@ fn main() {
             Exiting,
             cleanup_ui.run_if(state_matches!(AppState, every _)),
         )
-        // The simplest way to handle transitions is using the `transitioning` function - which works well for
-        // state values
+        // The simplest way to handle transitions is using the OnTransition schedule,
+        // which only works if both states are single, explicit values
+        .add_systems(
+            OnTransition {
+                from: AppState::Rock,
+                to: AppState::Paper,
+            },
+            setup_rocks_to_paper,
+        )
+        // Another simple option is using a closure in the `Entering` or `Exiting` schedules
+        // When `Entering`, the first argument will be the incoming state, and
+        // when `Exiting` the first argument is the outgoing state
         .add_systems(
             Entering,
-            setup_rocks_to_paper
-                .run_if(AppState::Rock.invert_transition().and_then(AppState::Paper)),
+            paper_always_wins.run_if(|to: &AppState, from: &AppState| {
+                if from == &AppState::Paper && to == &AppState::Rock {
+                    println!("paper wins");
+                    return true;
+                }
+                if from == &AppState::Rock && to == &AppState::Paper {
+                    println!("paper always wins");
+                    return true;
+                }
+                false
+            }),
         )
+        // That means that if we use `Exiting`, we can pass in the state or another matcher
+        // and it will target the outgoing state first
         .add_systems(
             Exiting,
-            setup_scissors_to_paper
-                .run_if(AppState::Scissors.and_then(AppState::Paper.invert_transition())),
+            setup_scissors_to_paper.run_if(
+                AppState::Scissors
+                    // So if we want to specify an incoming state, we need to
+                    // add it as a second condition, and call `invert_transition()`
+                    // so it focuses on the incoming state
+                    .and_then(AppState::Paper.invert_transition()),
+            ),
         )
         // We can also use the macro, to enable some pattern matching
         .add_systems(
@@ -39,14 +65,15 @@ fn main() {
         )
         // You can use all the pattern matching features from the other macros, like the "every" keyword
         .add_systems(
-            Exiting,
+            Entering,
             setup_scissors.run_if(
-                state_matches!(AppState, _)
-                    .every()
-                    .and_then(AppState::Scissors.invert_transition()),
+                AppState::Scissors
+                    // this is basically always true, so you wouldn't do it with this case normally
+                    // but it illustrates something that can be used in other cases
+                    .and_then(state_matches!(AppState, every _).invert_transition()),
             ),
         )
-        // And it can also work with closures
+        // And you can also invert closures
         .add_systems(
             Exiting,
             setup_sciessors_or_rock_from_paper.run_if(
@@ -56,31 +83,13 @@ fn main() {
                 ),
             ),
         )
-        // In some cases, it might be easy to use "entering!" or "exiting!" instead, while still checking with both states,
-        // such as if you have some custom logic that needs to process the "to" and "from" states at once
-        .add_systems(
-            Exiting,
-            paper_always_wins.run_if(state_matches!(
-                AppState,
-                |from: &AppState, to: &AppState| {
-                    if from == &AppState::Paper && to == &AppState::Rock {
-                        println!("paper wins");
-                        return true;
-                    }
-                    if from == &AppState::Rock && to == &AppState::Paper {
-                        println!("paper always wins");
-                        return true;
-                    }
-                    false
-                }
-            )),
-        )
-        // We can also pass closures and other matchers into the transitioning function, for example to test if the previous state even exists
         .add_systems(
             Entering,
             setup_rocks_from_startup.run_if(
+                // Here we are actually checking if the previous state exists
                 (|s: Option<&AppState>| s.is_none())
                     .invert_transition()
+                    // and if not, if the current state is AppState::Rock
                     .and_then(|s: &AppState| s == &AppState::Rock),
             ),
         )

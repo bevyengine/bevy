@@ -1,6 +1,6 @@
 //! This example illustrates how to use struct based [`States`] for high-level app control flow.
 //! States are a powerful but intuitive tool for controlling which logic runs when.
-//! You can have multiple independent states, and the `entering!` and `exiting!` macros
+//! You can have multiple independent states, and the `state_matches!` macro
 //! can be used to great effect to ensure that you handle setup and teardown appropriately with a
 //! variety of states.
 //!
@@ -15,6 +15,7 @@
 // type aliases tends to obfuscate code while offering no improvement in code cleanliness.
 #![allow(clippy::type_complexity)]
 use bevy::prelude::*;
+use bevy_internal::ecs::schedule::StateMatcher;
 
 fn main() {
     App::new()
@@ -44,7 +45,6 @@ fn main() {
         .add_systems(
             Entering,
             setup_game.run_if(state_matches!(AppState, |state: &AppState| {
-                println!("Test move: {state:?}");
                 state.in_game.is_some()
             })),
         )
@@ -54,6 +54,7 @@ fn main() {
             setup_in_game_ui.run_if(|state: &AppState| state.in_game.is_some() && !state.is_paused),
         )
         // We can also use `Exiting` to run the system whenever we leave a state with the help of pattern matching
+        // In the `nested_state` example, we used the macro. But here, we'll a different approach.
         //
         // By default, pattern matching systems only run if the result of the match changes - so when exiting, it'll
         // only run if the next state doesn't match the pattern.
@@ -62,17 +63,19 @@ fn main() {
         // - if we are leaving the "GameState::Running" substate completely (so not when moving between GameState::Running { inverted: true} and GameState::Running { inverted: false })
         // - whenever we leave any other state (AppState::Manu or GameState::Paused)
         //
-        // To do so, we provide the `exiting!` macro a sequence of conditions - the first works just like any other pattern match, but the second has the
-        // `every` key word at the start, meaning it will run whenever we exit a state that matches the pattern - regardless of the next state.
+        // To do so, we combine multiple state matchers that will evaluate in order- the first works just like any other pattern match, but the second calls the
+        // `every` method, meaning it will run whenever we exit a state that matches the pattern - regardless of the next state.
         //
         // The first pattern is checked first - and if the previous state doesn't match it we skip to the next pattern. However, if it does - we check whether the
         // next state also matches and return false if it does.
         .add_systems(
             Exiting,
-            cleanup_ui
-                .run_if(state_matches!(AppState, |state: &AppState| state.in_game.is_some() && !state.is_paused, every _)),
+            cleanup_ui.run_if(
+                (|state: &AppState| state.in_game.is_some() && !state.is_paused)
+                    .combine((|_: &AppState| true).every()),
+            ),
         )
-        // We can also use all the same options with the "state_matches!" macro
+        // We can also use all the same options during any other schedule, like Update
         .add_systems(
             Update,
             menu.run_if(state_matches!(AppState, AppState { in_menu: true, .. })),
@@ -94,7 +97,6 @@ fn main() {
                 }
             )),
         )
-        // And of course, you can still use the normal `in_state` value-based option if it works for your needs
         .add_systems(
             Update,
             movement.run_if(AppState {
