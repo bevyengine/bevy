@@ -71,27 +71,29 @@ fn fallback_image_new(
         },
     };
 
+    // We can't create textures with data when it's a depth texture or when using multiple samples
+    let create_texture_with_data = !format.is_depth_stencil_format() && samples == 1;
+
     let image_dimension = dimension.compatible_texture_dimension();
-    let mut image = if format.is_depth_stencil_format() {
+    let mut image = if create_texture_with_data {
+        let data = vec![value; format.pixel_size()];
+        Image::new_fill(extents, image_dimension, &data, format)
+    } else {
         let mut image = Image::default();
         image.texture_descriptor.dimension = TextureDimension::D2;
         image.texture_descriptor.size = extents;
         image.texture_descriptor.format = format;
         image
-    } else {
-        let data = vec![value; format.pixel_size()];
-        Image::new_fill(extents, image_dimension, &data, format)
     };
     image.texture_descriptor.sample_count = samples;
     if image_dimension == TextureDimension::D2 {
         image.texture_descriptor.usage |= TextureUsages::RENDER_ATTACHMENT;
     }
 
-    // We can't create textures with data when it's a depth texture or when using multiple samples
-    let texture = if format.is_depth_stencil_format() || samples > 1 {
-        render_device.create_texture(&image.texture_descriptor)
-    } else {
+    let texture = if create_texture_with_data {
         render_device.create_texture_with_data(render_queue, &image.texture_descriptor, &image.data)
+    } else {
+        render_device.create_texture(&image.texture_descriptor)
     };
 
     let texture_view = texture.create_view(&TextureViewDescriptor {
