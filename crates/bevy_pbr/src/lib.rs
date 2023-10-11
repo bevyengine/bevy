@@ -90,7 +90,7 @@ pub struct PbrPlugin {
     /// Controls if the prepass is enabled for the StandardMaterial.
     /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
     pub prepass_enabled: bool,
-    /// Controls if [`PbrDeferredLightingPlugin`] is added.
+    /// Controls if [`DeferredPbrLightingPlugin`] is added.
     pub add_default_deferred_lighting_plugin: bool,
 }
 

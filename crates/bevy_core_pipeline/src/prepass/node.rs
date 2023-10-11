@@ -50,8 +50,7 @@ impl ViewNode for PrepassNode {
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
 
-        let mut color_attachments = vec![];
-        color_attachments.push(
+        let mut color_attachments = vec![
             view_prepass_textures
                 .normal
                 .as_ref()
@@ -63,24 +62,24 @@ impl ViewNode for PrepassNode {
                         store: true,
                     },
                 }),
-        );
-        color_attachments.push(view_prepass_textures.motion_vectors.as_ref().map(
-            |view_motion_vectors_texture| RenderPassColorAttachment {
-                view: &view_motion_vectors_texture.default_view,
-                resolve_target: None,
-                ops: Operations {
-                    // Red and Green channels are X and Y components of the motion vectors
-                    // Blue channel doesn't matter, but set to 0.0 for possible faster clear
-                    // https://gpuopen.com/performance/#clears
-                    load: LoadOp::Clear(Color::BLACK.into()),
-                    store: true,
-                },
-            },
-        ));
-
-        // Use None in place of Deferred attachments
-        color_attachments.push(None);
-        color_attachments.push(None);
+            view_prepass_textures
+                .motion_vectors
+                .as_ref()
+                .map(|view_motion_vectors_texture| RenderPassColorAttachment {
+                    view: &view_motion_vectors_texture.default_view,
+                    resolve_target: None,
+                    ops: Operations {
+                        // Red and Green channels are X and Y components of the motion vectors
+                        // Blue channel doesn't matter, but set to 0.0 for possible faster clear
+                        // https://gpuopen.com/performance/#clears
+                        load: LoadOp::Clear(Color::BLACK.into()),
+                        store: true,
+                    },
+                }),
+            // Use None in place of Deferred attachments
+            None,
+            None,
+        ];
 
         if color_attachments.iter().all(Option::is_none) {
             // all attachments are none: clear the attachment list so that no fragment shader is required
