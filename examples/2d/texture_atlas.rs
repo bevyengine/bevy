@@ -7,8 +7,7 @@
 //! Only one padded and one unpadded texture atlas are rendered to the screen.
 //! An upscaled sprite from each of the 4 atlases are rendered to the screen.
 
-use bevy::{asset::LoadedFolder, prelude::*};
-use bevy_internal::render::texture::ImageSampler;
+use bevy::{asset::LoadedFolder, prelude::*, render::texture::ImageSampler};
 
 fn main() {
     App::new()
@@ -41,6 +40,7 @@ fn check_textures(
     mut events: EventReader<AssetEvent<LoadedFolder>>,
 ) {
     // Advance the `AppState` once all sprite handles have been loaded by the `AssetServer`
+    // and that the the font has been loaded by the `FontSystem`.
     for event in events.read() {
         if event.is_loaded_with_dependencies(&rpg_sprite_folder.0) {
             next_state.set(AppState::Finished);
@@ -99,15 +99,23 @@ fn setup(
 
     // draw unpadded texture atlas
     commands.spawn(SpriteBundle {
-        texture: texture_atlas_linear.clone().texture,
-        transform: Transform::from_xyz(-500.0, -200.0, 0.0),
+        texture: texture_atlas_linear_padded.texture.clone(),
+        transform: Transform {
+            translation: Vec3::new(-250.0, -130.0, 0.0),
+            scale: Vec3::splat(0.8),
+            ..default()
+        },
         ..default()
     });
 
     // draw padded texture atlas
     commands.spawn(SpriteBundle {
-        texture: texture_atlas_linear_padded.clone().texture,
-        transform: Transform::from_xyz(500.0, -200.0, 0.0),
+        texture: texture_atlas_linear_padded.texture.clone(),
+        transform: Transform {
+            translation: Vec3::new(250.0, -130.0, 0.0),
+            scale: Vec3::splat(0.8),
+            ..default()
+        },
         ..default()
     });
 
@@ -121,8 +129,8 @@ fn setup(
     // linear, no padding
     commands.spawn(SpriteSheetBundle {
         transform: Transform {
-            translation: Vec3::new(-650.0, 250.0, 0.0),
-            scale: Vec3::splat(4.0),
+            translation: Vec3::new(-350.0, 170.0, 0.0),
+            scale: Vec3::splat(3.0),
             ..default()
         },
         sprite: TextureAtlasSprite::new(
@@ -134,27 +142,11 @@ fn setup(
         ..default()
     });
 
-    // linear, padding
-    commands.spawn(SpriteSheetBundle {
-        transform: Transform {
-            translation: Vec3::new(250.0, 250.0, 0.0),
-            scale: Vec3::splat(4.0),
-            ..default()
-        },
-        sprite: TextureAtlasSprite::new(
-            texture_atlas_linear_padded
-                .get_texture_index(&vendor_handle)
-                .unwrap(),
-        ),
-        texture_atlas: atlas_linear_padded_handle,
-        ..default()
-    });
-
     // nearest, no padding
     commands.spawn(SpriteSheetBundle {
         transform: Transform {
-            translation: Vec3::new(-250.0, 250.0, 0.0),
-            scale: Vec3::splat(4.0),
+            translation: Vec3::new(-150.0, 170.0, 0.0),
+            scale: Vec3::splat(3.0),
             ..default()
         },
         sprite: TextureAtlasSprite::new(
@@ -166,11 +158,27 @@ fn setup(
         ..default()
     });
 
+    // linear, padding
+    commands.spawn(SpriteSheetBundle {
+        transform: Transform {
+            translation: Vec3::new(150.0, 170.0, 0.0),
+            scale: Vec3::splat(3.0),
+            ..default()
+        },
+        sprite: TextureAtlasSprite::new(
+            texture_atlas_linear_padded
+                .get_texture_index(&vendor_handle)
+                .unwrap(),
+        ),
+        texture_atlas: atlas_linear_padded_handle,
+        ..default()
+    });
+
     // nearest, padding
     commands.spawn(SpriteSheetBundle {
         transform: Transform {
-            translation: Vec3::new(650.0, 250.0, 0.0),
-            scale: Vec3::splat(4.0),
+            translation: Vec3::new(350.0, 170.0, 0.0),
+            scale: Vec3::splat(3.0),
             ..default()
         },
         sprite: TextureAtlasSprite::new(
