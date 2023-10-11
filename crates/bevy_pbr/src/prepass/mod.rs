@@ -474,8 +474,7 @@ where
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
-        let mut targets = vec![];
-        targets.push(
+        let mut targets = vec![
             key.mesh_key
                 .contains(MeshPipelineKey::NORMAL_PREPASS)
                 .then_some(ColorTargetState {
@@ -484,9 +483,6 @@ where
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 }),
-        );
-
-        targets.push(
             key.mesh_key
                 .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
                 .then_some(ColorTargetState {
@@ -495,9 +491,6 @@ where
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 }),
-        );
-
-        targets.push(
             key.mesh_key
                 .contains(MeshPipelineKey::DEFERRED_PREPASS)
                 .then_some(ColorTargetState {
@@ -506,9 +499,6 @@ where
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 }),
-        );
-
-        targets.push(
             key.mesh_key
                 .contains(MeshPipelineKey::DEFERRED_PREPASS)
                 .then_some(ColorTargetState {
@@ -516,7 +506,7 @@ where
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 }),
-        );
+        ];
 
         if targets.iter().all(Option::is_none) {
             // if no targets are required then clear the list, so that no fragment shader is required
