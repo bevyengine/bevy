@@ -631,10 +631,10 @@ pub struct AxisSettings {
 impl Default for AxisSettings {
     fn default() -> Self {
         AxisSettings {
-            livezone_upperbound: 0.95,
+            livezone_upperbound: 1.0,
             deadzone_upperbound: 0.05,
             deadzone_lowerbound: -0.05,
-            livezone_lowerbound: -0.95,
+            livezone_lowerbound: -1.0,
             threshold: 0.01,
         }
     }
