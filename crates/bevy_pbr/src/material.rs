@@ -459,7 +459,7 @@ pub fn queue_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::TAA;
         }
 
-        if !environment_maps.diffuse.is_empty() && !environment_maps.specular.is_empty() {
+        if !environment_maps.is_empty() {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
         }
 

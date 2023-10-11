@@ -1,7 +1,9 @@
-use bevy_app::{Plugin, App};
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_app::{App, AppLabel, Plugin};
+use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent, system::Resource};
 use bevy_math::Vec3A;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::RenderApp;
+use bevy_utils::EntityHashMap;
 
 pub struct LightProbePlugin;
 
@@ -11,6 +13,17 @@ pub struct LightProbePlugin;
 pub struct LightProbe {
     /// The influence range of the light probe.
     pub half_extents: Vec3A,
+}
+
+/// Which light probe is to be assigned to each mesh.
+///
+/// TODO: Allow multiple light probes to be assigned to each mesh, and
+/// interpolate between them.
+#[derive(Resource, Default)]
+pub struct RenderMeshLightProbeInstances(EntityHashMap<Entity, RenderMeshLightProbes>);
+
+pub struct RenderMeshLightProbes {
+    environment_map_index: u32,
 }
 
 impl LightProbe {
@@ -33,5 +46,8 @@ impl Default for LightProbe {
 impl Plugin for LightProbePlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<LightProbe>();
+
+        let Ok(ref mut render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        render_app.init_resource::<RenderMeshLightProbeInstances>();
     }
 }

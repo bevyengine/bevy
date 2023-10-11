@@ -1,50 +1,40 @@
+use std::iter;
+
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
-use bevy_core_pipeline::{
-    blit::{BlitPipeline, BlitPipelineKey},
-    core_3d::{
-        graph::node::{PREPASS, START_MAIN_PASS},
-        CORE_3D,
-    },
-    prelude::Camera3d,
-};
+use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     entity::Entity,
     prelude::Component,
     query::{Or, With},
     schedule::IntoSystemConfigs,
     system::{Query, Res, ResMut, Resource},
-    world::World,
 };
-use bevy_math::UVec2;
+use bevy_math::vec2;
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::{
-        BindGroupDescriptor, BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType,
-        CachedRenderPipelineId, Extent3d, FilterMode, LoadOp, Operations, PipelineCache,
-        RenderPassColorAttachment, RenderPassDescriptor, SamplerBindingType, SamplerDescriptor,
-        Shader, ShaderStages, SpecializedRenderPipelines, Texture, TextureAspect,
+        BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType,
+        CommandEncoderDescriptor, Extent3d, FilterMode, ImageCopyTexture, Origin3d,
+        SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, Texture, TextureAspect,
         TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
         TextureViewDescriptor, TextureViewDimension,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::{RenderDevice, RenderQueue},
     texture::{FallbackImage, GpuImage, Image},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::EntityHashMap;
+use bevy_utils::{tracing::warn, EntityHashMap};
 
 use crate::LightProbe;
 
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(154476556247605696);
 
-// FIXME: Compress better.
-const CUBEMAP_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rgba32Float;
-
-pub const PREPARE_ENVIRONMENT_MAPS: &str = "prepare_environment_maps";
+// FIXME: Don't hardcode this!
+const CUBEMAP_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rgb9e5Ufloat;
 
 pub struct EnvironmentMapPlugin;
 
@@ -63,22 +53,9 @@ impl Plugin for EnvironmentMapPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<RenderEnvironmentMaps>()
-                .init_resource::<EnvironmentMapPipelines>()
-                .add_systems(
-                    Render,
-                    prepare_environment_map_pipelines.in_set(RenderSet::Prepare),
-                )
                 .add_systems(
                     Render,
                     prepare_environment_maps.in_set(RenderSet::PrepareResources),
-                )
-                .add_render_graph_node::<PrepareEnvironmentMapsNode>(
-                    CORE_3D,
-                    PREPARE_ENVIRONMENT_MAPS,
-                )
-                .add_render_graph_edges(
-                    CORE_3D,
-                    &[PREPASS, PREPARE_ENVIRONMENT_MAPS, START_MAIN_PASS],
                 );
         }
     }
@@ -106,29 +83,24 @@ pub struct EnvironmentMapLight {
     pub specular_map: Handle<Image>,
 }
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct RenderEnvironmentMaps {
-    pub diffuse: EnvironmentMapArray,
-    pub specular: EnvironmentMapArray,
-}
+    images: Option<RenderEnvironmentMapImages>,
 
-pub struct EnvironmentMapArray {
-    kind: EnvironmentMapKind,
-    size: UVec2,
-
-    image: Option<GpuImage>,
-
-    /// A list of references to the top layer of each cubemap.
-    ///
-    /// We use these to generate mipmaps.
-    cubemaps: Vec<(Texture, TextureFormat)>,
+    /// A list of references to each cubemap.
+    cubemaps: Vec<RenderEnvironmentCubemap>,
 
     entity_to_cubemap_array_index: EntityHashMap<Entity, u32>,
 }
 
-#[derive(Resource, Default)]
-pub struct EnvironmentMapPipelines {
-    blit: Option<CachedRenderPipelineId>,
+pub struct RenderEnvironmentMapImages {
+    diffuse: GpuImage,
+    specular: GpuImage,
+}
+
+struct RenderEnvironmentCubemap {
+    diffuse_texture: Texture,
+    specular_texture: Texture,
 }
 
 pub enum EnvironmentMapKind {
@@ -188,121 +160,157 @@ pub fn get_bind_group_layout_entries(bindings: [u32; 3]) -> [BindGroupLayoutEntr
     ]
 }
 
-pub fn prepare_environment_map_pipelines(
-    mut environment_map_pipelines: ResMut<EnvironmentMapPipelines>,
-    blit_pipeline: Res<BlitPipeline>,
-    mut pipeline_cache: ResMut<PipelineCache>,
-    mut specialized_render_pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
-) {
-    if environment_map_pipelines.blit.is_none() {
-        environment_map_pipelines.blit = Some(specialized_render_pipelines.specialize(
-            &pipeline_cache,
-            &*blit_pipeline,
-            BlitPipelineKey {
-                texture_format: CUBEMAP_TEXTURE_FORMAT,
-                samples: 1,
-                blend_state: None,
-            },
-        ));
-
-        // We need to flush the queue now, because it won't get flushed before
-        // `prepare_environment_maps`.
-        pipeline_cache.process_queue();
-    }
-}
-
 pub fn prepare_environment_maps(
     reflection_probes: Query<(Entity, &EnvironmentMapLight)>,
     mut render_environment_maps: ResMut<RenderEnvironmentMaps>,
     render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
     images: Res<RenderAssets<Image>>,
 ) {
-    render_environment_maps.diffuse.clear();
-    render_environment_maps.specular.clear();
+    render_environment_maps.clear();
 
     // Gather up the reflection probes.
     for (reflection_probe, environment_map_light) in reflection_probes.iter() {
-        render_environment_maps.diffuse.add_image(
-            reflection_probe,
-            &environment_map_light.diffuse_map,
-            &images,
-        );
-        render_environment_maps.specular.add_image(
-            reflection_probe,
-            &environment_map_light.specular_map,
-            &images,
-        );
+        render_environment_maps.add_images(reflection_probe, environment_map_light, &images);
     }
 
     println!(
-        "have {} diffuse maps, {} specular maps",
-        render_environment_maps.diffuse.cubemaps.len(),
-        render_environment_maps.specular.cubemaps.len()
+        "have {} environment maps",
+        render_environment_maps.cubemaps.len(),
     );
 
     // Create the textures.
-    if !render_environment_maps.diffuse.is_empty() {
-        render_environment_maps
-            .diffuse
-            .create_texture(&render_device);
-    }
-    if !render_environment_maps.specular.is_empty() {
-        render_environment_maps
-            .specular
-            .create_texture(&render_device);
-    }
+
+    let (first_diffuse_texture, first_specular_texture) =
+        match render_environment_maps.cubemaps.first() {
+            None => return,
+            Some(first_cubemap) => (
+                &first_cubemap.diffuse_texture,
+                &first_cubemap.specular_texture,
+            ),
+        };
+
+    render_environment_maps.images = Some(RenderEnvironmentMapImages {
+        diffuse: render_environment_maps.create_image(
+            &render_device,
+            EnvironmentMapKind::Diffuse,
+            first_diffuse_texture.size(),
+            first_diffuse_texture.mip_level_count(),
+        ),
+        specular: render_environment_maps.create_image(
+            &render_device,
+            EnvironmentMapKind::Specular,
+            first_specular_texture.size(),
+            first_specular_texture.mip_level_count(),
+        ),
+    });
+
+    render_environment_maps.copy_cubemaps_in(
+        &render_device,
+        &render_queue,
+        EnvironmentMapKind::Diffuse,
+    );
+    render_environment_maps.copy_cubemaps_in(
+        &render_device,
+        &render_queue,
+        EnvironmentMapKind::Specular,
+    );
 }
 
-impl EnvironmentMapArray {
-    fn new(kind: EnvironmentMapKind) -> Self {
-        Self {
-            kind,
-            size: UVec2::ZERO,
-            entity_to_cubemap_array_index: EntityHashMap::default(),
-            cubemaps: vec![],
-            image: None,
-        }
-    }
-
-    fn add_image(
+impl RenderEnvironmentMaps {
+    fn add_images(
         &mut self,
         entity: Entity,
-        image_handle: &Handle<Image>,
+        environment_map_light: &EnvironmentMapLight,
         images: &RenderAssets<Image>,
     ) {
-        let Some(image) = images.get(image_handle) else { return };
+        if !environment_map_light.is_loaded(images) {
+            return;
+        }
 
-        self.size = self.size.max(image.size.as_uvec2());
+        let (Some(diffuse_image), Some(specular_image)) = (
+            images.get(&environment_map_light.diffuse_map),
+            images.get(&environment_map_light.specular_map)
+        ) else { return };
+
+        if let Some(existing_cubemap) = self.cubemaps.first() {
+            if !self.check_cubemap_compatibility(
+                &existing_cubemap.diffuse_texture,
+                &diffuse_image.texture,
+            ) || !self.check_cubemap_compatibility(
+                &existing_cubemap.specular_texture,
+                &specular_image.texture,
+            ) {
+                return;
+            }
+        }
+
+        println!(
+            "diffuse image size={:?} specular image size={:?}",
+            diffuse_image.size, specular_image.size
+        );
+
         self.entity_to_cubemap_array_index
             .insert(entity, self.cubemaps.len() as u32);
 
-        self.cubemaps
-            .push((image.texture.clone(), image.texture_format));
+        self.cubemaps.push(RenderEnvironmentCubemap {
+            diffuse_texture: diffuse_image.texture.clone(),
+            specular_texture: specular_image.texture.clone(),
+        });
     }
 
-    fn create_texture(&mut self, render_device: &RenderDevice) {
-        let mip_level_count = self.mip_level_count();
+    fn check_cubemap_compatibility(
+        &self,
+        existing_cubemap: &Texture,
+        new_cubemap: &Texture,
+    ) -> bool {
+        if existing_cubemap.size() == new_cubemap.size()
+            && existing_cubemap.mip_level_count() == new_cubemap.mip_level_count()
+        {
+            return true;
+        }
 
+        warn!(
+            "Ignoring environment map because its size was incompatible with the previous one:
+    Previous width: {}, height: {}, mip levels: {}
+    This width: {}, height: {}, mip levels: {}",
+            existing_cubemap.width(),
+            existing_cubemap.height(),
+            existing_cubemap.mip_level_count(),
+            new_cubemap.width(),
+            new_cubemap.height(),
+            new_cubemap.mip_level_count(),
+        );
+        false
+    }
+
+    fn create_image(
+        &self,
+        render_device: &RenderDevice,
+        kind: EnvironmentMapKind,
+        extents: Extent3d,
+        mip_level_count: u32,
+    ) -> GpuImage {
         let texture = render_device.create_texture(&TextureDescriptor {
-            label: match self.kind {
+            label: match kind {
                 EnvironmentMapKind::Diffuse => Some("environment_map_diffuse_texture"),
                 EnvironmentMapKind::Specular => Some("environment_map_specular_texture"),
             },
             size: Extent3d {
-                width: self.size.x,
-                height: self.size.y,
+                width: extents.width,
+                height: extents.height,
                 depth_or_array_layers: self.cubemaps.len() as u32 * 6,
             },
             mip_level_count,
             sample_count: 1,
             dimension: TextureDimension::D2,
             format: CUBEMAP_TEXTURE_FORMAT,
-            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
             view_formats: &[],
         });
 
         let texture_view = texture.create_view(&TextureViewDescriptor {
-            label: match self.kind {
+            label: match kind {
                 EnvironmentMapKind::Diffuse => Some("environment_map_diffuse_texture_view"),
                 EnvironmentMapKind::Specular => Some("environment_map_specular_texture_view"),
             },
@@ -316,7 +324,7 @@ impl EnvironmentMapArray {
         });
 
         let sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: match self.kind {
+            label: match kind {
                 EnvironmentMapKind::Diffuse => Some("environment_map_diffuse_sampler"),
                 EnvironmentMapKind::Specular => Some("environment_map_specular_sampler"),
             },
@@ -326,110 +334,82 @@ impl EnvironmentMapArray {
             ..SamplerDescriptor::default()
         });
 
-        self.image = Some(GpuImage {
+        GpuImage {
             texture,
             texture_view,
             texture_format: CUBEMAP_TEXTURE_FORMAT,
             sampler,
-            size: self.size.as_vec2(),
+            size: vec2(extents.width as f32, extents.height as f32),
             mip_level_count,
-        });
+        }
     }
 
     fn copy_cubemaps_in(
         &self,
-        render_context: &mut RenderContext,
-        blit_pipeline: &BlitPipeline,
-        pipeline_cache: &PipelineCache,
-        blit_pipeline_id: CachedRenderPipelineId,
+        render_device: &RenderDevice,
+        render_queue: &RenderQueue,
+        kind: EnvironmentMapKind,
     ) {
-        let gpu_image = self
-            .image
+        let environment_map_images = self
+            .images
             .as_ref()
             .expect("`copy_cubemaps_in()` called with no texture present");
 
-        for (cubemap_index, (top_layer_texture, top_layer_texture_format)) in
-            self.cubemaps.iter().enumerate()
-        {
-            for side in 0..6 {
-                let mut src_texture_view = top_layer_texture.create_view(&TextureViewDescriptor {
-                    label: Some("environment_map_src_layer"),
-                    format: Some(*top_layer_texture_format),
-                    dimension: Some(TextureViewDimension::D2),
-                    aspect: TextureAspect::All,
-                    base_mip_level: 0,
-                    mip_level_count: Some(1),
-                    base_array_layer: side,
-                    array_layer_count: Some(1),
-                });
+        let dest_image = match kind {
+            EnvironmentMapKind::Diffuse => &environment_map_images.diffuse,
+            EnvironmentMapKind::Specular => &environment_map_images.specular,
+        };
 
-                for mip_level in 0..self.mip_level_count() {
-                    let dest_texture_view = gpu_image.texture.create_view(&TextureViewDescriptor {
-                        label: Some("environment_map_dest_texture_view"),
-                        format: Some(TextureFormat::Rgba32Float),
-                        dimension: Some(TextureViewDimension::D2),
+        let (width, height) = (dest_image.size.x as u32, dest_image.size.y as u32);
+
+        let mut command_encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
+            label: match kind {
+                EnvironmentMapKind::Diffuse => Some("copy_environment_maps_diffuse"),
+                EnvironmentMapKind::Specular => Some("copy_environment_maps_specular"),
+            },
+        });
+
+        for (cubemap_index, cubemap) in self.cubemaps.iter().enumerate() {
+            let src_texture = match kind {
+                EnvironmentMapKind::Diffuse => &cubemap.diffuse_texture,
+                EnvironmentMapKind::Specular => &cubemap.specular_texture,
+            };
+
+            println!(
+                "src mip count={} dest mip count={}",
+                src_texture.mip_level_count(),
+                dest_image.mip_level_count
+            );
+
+            for mip_level in 0..src_texture.mip_level_count() {
+                command_encoder.copy_texture_to_texture(
+                    ImageCopyTexture {
+                        texture: src_texture,
+                        mip_level,
+                        origin: Origin3d::ZERO,
                         aspect: TextureAspect::All,
-                        base_mip_level: mip_level,
-                        mip_level_count: Some(1),
-                        base_array_layer: cubemap_index as u32 * 6 + side,
-                        array_layer_count: Some(1),
-                    });
-
-                    let attachment = RenderPassColorAttachment {
-                        view: &dest_texture_view,
-                        resolve_target: None,
-                        ops: Operations {
-                            load: LoadOp::Clear(Default::default()),
-                            store: true,
+                    },
+                    ImageCopyTexture {
+                        texture: &dest_image.texture,
+                        mip_level,
+                        origin: Origin3d {
+                            x: 0,
+                            y: 0,
+                            z: cubemap_index as u32,
                         },
-                    };
-
-                    let pass_descriptor = RenderPassDescriptor {
-                        label: Some("prepare_environment_map"),
-                        color_attachments: &[Some(attachment)],
-                        depth_stencil_attachment: None,
-                    };
-
-                    let bind_group =
-                        render_context
-                            .render_device()
-                            .create_bind_group(&BindGroupDescriptor {
-                                label: Some("prepare_environment_map_descriptor"),
-                                layout: &blit_pipeline.texture_bind_group,
-                                entries: &[
-                                    BindGroupEntry {
-                                        binding: 0,
-                                        resource: BindingResource::TextureView(&src_texture_view),
-                                    },
-                                    BindGroupEntry {
-                                        binding: 1,
-                                        resource: BindingResource::Sampler(&blit_pipeline.sampler),
-                                    },
-                                ],
-                            });
-
-                    // Grab the blit pipeline.
-                    let pipeline = pipeline_cache
-                        .get_render_pipeline(blit_pipeline_id)
-                        .expect("No render pipeline found for environment map creation");
-
-                    {
-                        let mut render_pass = render_context
-                            .command_encoder()
-                            .begin_render_pass(&pass_descriptor);
-                        render_pass.set_pipeline(pipeline);
-                        render_pass.set_bind_group(0, &bind_group, &[]);
-                        render_pass.draw(0..3, 0..1);
-                    }
-
-                    src_texture_view = dest_texture_view;
-                }
+                        aspect: TextureAspect::All,
+                    },
+                    Extent3d {
+                        width: width >> mip_level,
+                        height: height >> mip_level,
+                        depth_or_array_layers: 6,
+                    },
+                );
             }
         }
-    }
 
-    fn mip_level_count(&self) -> u32 {
-        self.size.min_element().ilog2()
+        let command_buffer = command_encoder.finish();
+        render_queue.submit(iter::once(command_buffer));
     }
 
     pub fn is_empty(&self) -> bool {
@@ -437,7 +417,6 @@ impl EnvironmentMapArray {
     }
 
     fn clear(&mut self) {
-        self.size = UVec2::ZERO;
         self.cubemaps.clear();
         self.entity_to_cubemap_array_index.clear();
     }
@@ -449,16 +428,10 @@ impl RenderEnvironmentMaps {
         fallback_image: &'r FallbackImage,
         bindings: &[u32; 3],
     ) -> [BindGroupEntry<'r>; 3] {
-        let diffuse_map = self
-            .diffuse
-            .image
-            .as_ref()
-            .unwrap_or(&fallback_image.cube_array);
-        let specular_map = self
-            .specular
-            .image
-            .as_ref()
-            .unwrap_or(&fallback_image.cube_array);
+        let (diffuse_map, specular_map) = match self.images {
+            None => (&fallback_image.cube_array, &fallback_image.cube_array),
+            Some(ref images) => (&images.diffuse, &images.specular),
+        };
 
         [
             BindGroupEntry {
@@ -474,52 +447,5 @@ impl RenderEnvironmentMaps {
                 resource: BindingResource::Sampler(&diffuse_map.sampler),
             },
         ]
-    }
-}
-
-impl Node for PrepareEnvironmentMapsNode {
-    fn run(
-        &self,
-        _: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let environment_maps = world.resource::<RenderEnvironmentMaps>();
-        let environment_map_pipelines = world.resource::<EnvironmentMapPipelines>();
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let blit_pipeline = world.resource::<BlitPipeline>();
-
-        let blit_pipeline_id = environment_map_pipelines
-            .blit
-            .expect("Blit pipeline wasn't prepared");
-
-        if !environment_maps.diffuse.is_empty() {
-            environment_maps.diffuse.copy_cubemaps_in(
-                render_context,
-                blit_pipeline,
-                pipeline_cache,
-                blit_pipeline_id,
-            )
-        }
-
-        if !environment_maps.specular.is_empty() {
-            environment_maps.specular.copy_cubemaps_in(
-                render_context,
-                blit_pipeline,
-                pipeline_cache,
-                blit_pipeline_id,
-            )
-        }
-
-        Ok(())
-    }
-}
-
-impl Default for RenderEnvironmentMaps {
-    fn default() -> RenderEnvironmentMaps {
-        RenderEnvironmentMaps {
-            diffuse: EnvironmentMapArray::new(EnvironmentMapKind::Diffuse),
-            specular: EnvironmentMapArray::new(EnvironmentMapKind::Specular),
-        }
     }
 }
