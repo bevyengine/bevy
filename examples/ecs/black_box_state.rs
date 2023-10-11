@@ -40,8 +40,8 @@ fn main() {
 }
 use state::*;
 mod state {
+    use bevy::ecs::schedule::{MatchesStateTransition, StateMatcher};
     use bevy::prelude::States;
-    use bevy_internal::ecs::schedule::{MatchesStateTransition, StateMatcher};
 
     // The first portion is identical to the setup in the Struct State example
     // We define the state
