@@ -29,10 +29,9 @@ mod pipeline_3d;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        config::{AabbGizmos, GizmoConfig, CustomGizmoConfig, GlobalGizmos},
+        config::{AabbGizmos, CustomGizmoConfig, GizmoConfig, GlobalGizmos},
         gizmos::Gizmos,
-        ShowAabbGizmo,
-        AppGizmoBuilder,
+        AppGizmoBuilder, ShowAabbGizmo,
     };
 }
 
@@ -72,7 +71,7 @@ use bevy_transform::{
     TransformSystem,
 };
 use bevy_utils::HashMap;
-use config::{AabbGizmos, ExtractedGizmoConfig, GizmoConfig, CustomGizmoConfig, GlobalGizmos};
+use config::{AabbGizmos, CustomGizmoConfig, ExtractedGizmoConfig, GizmoConfig, GlobalGizmos};
 use gizmos::{GizmoStorage, Gizmos};
 use std::mem;
 

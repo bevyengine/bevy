@@ -57,7 +57,9 @@ fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyGizmos>, time: Res<Time>) 
     // The circles have 32 line-segments by default.
     my_gizmos.circle_2d(Vec2::ZERO, 120., Color::BLACK);
     // You may want to increase this for larger circles.
-    my_gizmos.circle_2d(Vec2::ZERO, 300., Color::NAVY).segments(64);
+    my_gizmos
+        .circle_2d(Vec2::ZERO, 300., Color::NAVY)
+        .segments(64);
 
     // Arcs default amount of segments is linearly interpolated between
     // 1 and 32, using the arc length as scalar.

@@ -5,7 +5,7 @@ use bevy_reflect::TypePath;
 use bevy_render::{color::Color, view::RenderLayers};
 
 /// A trait used for custom gizmo configs.
-/// 
+///
 /// Make sure to derive [`Default`], [`Clone`], [`TypePath`] and register in the app using `app.add_gizmos::<T>()`
 pub trait CustomGizmoConfig: 'static + Default + Clone + TypePath + Send + Sync {}
 
