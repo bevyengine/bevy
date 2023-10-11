@@ -188,7 +188,7 @@ pub mod common_conditions {
         system::{IntoSystem, Res, Resource, System},
     };
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the first time the condition is run and false every time after
     ///
     /// # Example
@@ -229,7 +229,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the resource exists.
     ///
     /// # Example
@@ -264,7 +264,7 @@ pub mod common_conditions {
         move |res: Option<Res<T>>| res.is_some()
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the resource is equal to `value`.
     ///
     /// # Panics
@@ -304,7 +304,7 @@ pub mod common_conditions {
         move |res: Res<T>| *res == value
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the resource exists and is equal to `value`.
     ///
     /// The condition will return `false` if the resource does not exist.
@@ -349,7 +349,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the resource of the given type has been added since the condition was last checked.
     ///
     /// # Example
@@ -390,7 +390,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the resource of the given type has had its value changed since the condition
     /// was last checked.
     ///
@@ -444,7 +444,7 @@ pub mod common_conditions {
         move |res: Res<T>| res.is_changed()
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the resource of the given type has had its value changed since the condition
     /// was last checked.
     ///
@@ -504,7 +504,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the resource of the given type has had its value changed since the condition
     /// was last checked.
     ///
@@ -584,7 +584,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the resource of the given type has been removed since the condition was last checked.
     ///
     /// # Example
@@ -639,7 +639,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine exists.
     ///
     /// # Example
@@ -682,7 +682,7 @@ pub mod common_conditions {
         move |current_state: Option<Res<State<S>>>| current_state.is_some()
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine is currently in `state`.
     ///
     /// The condition will return `false` if the state does not exist.
@@ -737,7 +737,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine changed state.
     ///
     /// To do things on transitions to/from specific states, use their respective OnEnter/OnExit
@@ -795,7 +795,7 @@ pub mod common_conditions {
         move |current_state: Res<State<S>>| current_state.is_changed()
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if there are any new events of the given type since it was last called.
     ///
     /// # Example
@@ -839,7 +839,7 @@ pub mod common_conditions {
         move |mut reader: EventReader<T>| reader.read().count() > 0
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if there are any entities with the given component type.
     ///
     /// # Example
@@ -876,7 +876,7 @@ pub mod common_conditions {
         move |query: Query<(), With<T>>| !query.is_empty()
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if there are any entity with a component of the given type removed.
     pub fn any_component_removed<T: Component>() -> impl FnMut(RemovedComponents<T>) -> bool {
         // `RemovedComponents` based on events and therefore events need to be consumed,
@@ -887,7 +887,7 @@ pub mod common_conditions {
         move |mut removals: RemovedComponents<T>| removals.read().count() != 0
     }
 
-    /// Generates a [`Condition`] that inverses the result of passed one.
+    /// Generates a [`Condition`](super::Condition) that inverses the result of passed one.
     ///
     /// # Example
     ///
