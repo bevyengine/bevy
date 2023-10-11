@@ -803,11 +803,23 @@ name = "wireframe"
 path = "examples/3d/wireframe.rs"
 doc-scrape-examples = true
 
+
 [package.metadata.example.wireframe]
 name = "Wireframe"
 description = "Showcases wireframe rendering"
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "user_defined_clipping"
+path = "examples/3d/user_defined_clipping.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.user_defined_clipping]
+name = "User-defined clipping plane"
+description = "Showcases the effect of adding a user-defined clipping plane to a camera"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "no_prepass"

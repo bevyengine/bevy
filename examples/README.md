@@ -145,6 +145,7 @@ Example | Description
 [Update glTF Scene](../examples/3d/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 [Vertex Colors](../examples/3d/vertex_colors.rs) | Shows the use of vertex colors
 [Wireframe](../examples/3d/wireframe.rs) | Showcases wireframe rendering
+[User Defined Clipping](../examples/3d/user_defined_clipping.rs) | Showcases User-defined Clipping
 
 ## Animation
 
