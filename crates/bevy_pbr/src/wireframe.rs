@@ -108,29 +108,14 @@ fn apply_wireframe_material(
     commands.insert_or_spawn_batch(wireframes_to_spawn);
 }
 
+type WireframeFilter = (With<Handle<Mesh>>, Without<Wireframe>, Without<NoWireframe>);
+
 /// Applies or removes a wireframe material on any mesh without a [`Wireframe`] component.
-#[allow(clippy::type_complexity)]
 fn apply_global_wireframe_material(
     mut commands: Commands,
     config: Res<WireframeConfig>,
-    meshes_without_material: Query<
-        Entity,
-        (
-            With<Handle<Mesh>>,
-            Without<Wireframe>,
-            Without<NoWireframe>,
-            Without<Handle<WireframeMaterial>>,
-        ),
-    >,
-    meshes_with_global_material: Query<
-        Entity,
-        (
-            With<Handle<Mesh>>,
-            Without<Wireframe>,
-            Without<NoWireframe>,
-            With<Handle<WireframeMaterial>>,
-        ),
-    >,
+    meshes_without_material: Query<Entity, (WireframeFilter, Without<Handle<WireframeMaterial>>)>,
+    meshes_with_global_material: Query<Entity, (WireframeFilter, With<Handle<WireframeMaterial>>)>,
     global_material: Res<GlobalWireframeMaterial>,
 ) {
     if !config.is_changed() {
