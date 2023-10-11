@@ -738,53 +738,6 @@ pub mod common_conditions {
     }
 
     /// Generates a [`Condition`]-satisfying closure that returns `true`
-    /// if the state machine is in a state that matches the provided `matcher`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # #[derive(Resource, Default)]
-    /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
-    /// # let mut world = World::new();
-    /// # world.init_resource::<Counter>();
-    /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
-    /// enum GameState {
-    ///     #[default]
-    ///     Playing,
-    ///     Paused,
-    /// }
-    ///
-    /// fn playing(state: &GameState) -> bool {
-    ///     *state == GameState::Playing
-    /// }
-    ///
-    /// world.init_resource::<State<GameState>>();
-    ///
-    /// app.add_systems(
-    ///     // `state_matches` will only return true if the
-    ///     // given state matches the matcher
-    ///     play_system.run_if(state_matches(playing)),
-    /// );
-    ///
-    /// fn play_system(mut counter: ResMut<Counter>) {
-    ///     counter.0 += 1;
-    /// }
-    ///
-    /// // We default to `GameState::Playing` so `play_system` runs
-    /// app.run(&mut world);
-    /// assert_eq!(world.resource::<Counter>().0, 1);
-    ///
-    /// *world.resource_mut::<State<GameState>>() = State::new(GameState::Paused);
-    /// ```
-    pub fn state_matches<S: States, M: StateMatcher<S, Marker>, Marker: 'static>(
-        matcher: M,
-    ) -> impl Condition<()> {
-        IntoSystem::into_system(matcher)
-    }
-
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the state machine changed state.
     ///
     /// To do things on transitions to/from specific states, use their respective OnEnter/OnExit
