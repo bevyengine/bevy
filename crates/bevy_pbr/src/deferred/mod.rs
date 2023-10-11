@@ -40,7 +40,7 @@ pub struct DeferredPbrLightingPlugin;
 pub const DEFERRED_LIGHTING_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(2708011359337029741);
 
-pub const DEFAULT_PBR_DEFERRED_LIGHTING_DEPTH_ID: u8 = 1;
+pub const DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID: u8 = 1;
 
 /// Component with a `depth_id` for specifying which corresponding materials should be rendered by this specific PBR deferred lighting pass.
 /// Will be automatically added to entities with the [`DeferredPrepass`] component that don't already have a [`PbrDeferredLightingDepthId`].
@@ -82,7 +82,7 @@ impl PbrDeferredLightingDepthId {
 impl Default for PbrDeferredLightingDepthId {
     fn default() -> Self {
         PbrDeferredLightingDepthId {
-            depth_id: DEFAULT_PBR_DEFERRED_LIGHTING_DEPTH_ID as u32,
+            depth_id: DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID as u32,
 
             #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
             _webgl2_padding_0: 0.0,
@@ -100,7 +100,7 @@ impl Plugin for DeferredPbrLightingPlugin {
             ExtractComponentPlugin::<PbrDeferredLightingDepthId>::default(),
             UniformComponentPlugin::<PbrDeferredLightingDepthId>::default(),
         ))
-        .add_systems(PostUpdate, insert_deferred_lighting_depth_id_component);
+        .add_systems(PostUpdate, insert_deferred_lighting_pass_id_component);
 
         load_internal_asset!(
             app,
@@ -393,7 +393,7 @@ impl FromWorld for DeferredLightingLayout {
     }
 }
 
-pub fn insert_deferred_lighting_depth_id_component(
+pub fn insert_deferred_lighting_pass_id_component(
     mut commands: Commands,
     views: Query<Entity, (With<DeferredPrepass>, Without<PbrDeferredLightingDepthId>)>,
 ) {

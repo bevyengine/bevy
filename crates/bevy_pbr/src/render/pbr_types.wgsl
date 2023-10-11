@@ -13,7 +13,7 @@ struct StandardMaterial {
     max_parallax_layer_count: f32,
     max_relief_mapping_search_steps: u32,
     /// ID for specifying which deferred lighting pass should be used for rendering this material, if any.
-    deferred_lighting_depth_id: u32,
+    deferred_lighting_pass_id: u32,
 };
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -56,7 +56,7 @@ fn standard_material_new() -> StandardMaterial {
     material.parallax_depth_scale = 0.1;
     material.max_parallax_layer_count = 16.0;
     material.max_relief_mapping_search_steps = 5u;
-    material.deferred_lighting_depth_id = 1u;
+    material.deferred_lighting_pass_id = 1u;
     
     return material;
 }
