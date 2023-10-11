@@ -20,31 +20,22 @@ fn main() {
         // Because we can't really see the internals of `AppState`, we need to rely on matching functions exported from
         // the `state` module. Fortunately, we can use these with the `entering`/`exiting`/`transitioning` functions!
         // Here we are using the `in_menu` function, which uses a derive to match any state with `in_menu: true`
-        .add_systems(Entering, setup_menu.run_if(entering(in_menu)))
+        .add_systems(Entering, setup_menu.run_if(in_menu))
         // You can also use impl's to mimic enums, such as here to see if we're paused
-        .add_systems(Entering, setup_paused.run_if(entering(GameState::paused)))
+        .add_systems(Entering, setup_paused.run_if(GameState::paused))
         // And here to see if we are in any game state
-        .add_systems(Entering, setup_game.run_if(entering(GameState::any)))
+        .add_systems(Entering, setup_game.run_if(GameState::any))
         // or that we are specifically not paused
-        .add_systems(
-            Entering,
-            setup_in_game_ui.run_if(entering(GameState::running)),
-        )
+        .add_systems(Entering, setup_in_game_ui.run_if(GameState::running))
         // you can also use `Fn` values rather than points, like we do here
-        .add_systems(Update, change_color.run_if(state_matches(in_game())))
+        .add_systems(Update, change_color.run_if(in_game()))
         // Or pass in functions that test the full transition rather than just a single state
-        .add_systems(Exiting, cleanup_ui.run_if(exiting(ui)))
+        .add_systems(Exiting, cleanup_ui.run_if(ui))
         .add_systems(Update, menu.run_if(state_matches(in_menu)))
-        .add_systems(Update, invert_movement.run_if(entering(GameState::running)))
+        .add_systems(Update, invert_movement.run_if(GameState::running))
         // You can also use generics to specialize things
-        .add_systems(
-            Update,
-            movement.run_if(state_matches(in_movement::<Standard>)),
-        )
-        .add_systems(
-            Update,
-            inverted_movement.run_if(state_matches(in_movement::<Inverted>)),
-        )
+        .add_systems(Update, movement.run_if(in_movement::<Standard>))
+        .add_systems(Update, inverted_movement.run_if(in_movement::<Inverted>))
         .run();
 }
 use state::*;

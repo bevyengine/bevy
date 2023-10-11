@@ -28,18 +28,18 @@ fn main() {
         // You can achieve the same result using the `Entering` schedule & conditions
         .add_systems(
             Entering,
-            setup_paused.run_if(entering(AppState::InGame(GameState::Paused))),
+            setup_paused.run_if(AppState::InGame(GameState::Paused)),
         )
         // However, we can also use the `Entering` schedule with pattern matching
         // to let us ensure the `setup_game` system runs whenever we enter the "InGame" state
         // regardless of whether the game is paused or not!
         // Instead of calling the `entering` function, we are using the `entering!` macro and passing in the
         // state type and the pattern we want to match
-        .add_systems(Entering, setup_game.run_if(entering!(AppState, InGame(_))))
+        .add_systems(Entering, setup_game.run_if(state_matches!(AppState, InGame(_))))
         // You can also pass in a closure to the macro or the `entering` function.
         .add_systems(
             Entering,
-            setup_in_game_ui.run_if(entering!(AppState, |state: &AppState| state
+            setup_in_game_ui.run_if(state_matches!(AppState, |state: &AppState| state
                 == &AppState::InGame(GameState::Running { inverted: true })
                 || state == &AppState::InGame(GameState::Running { inverted: false }))),
         )
@@ -60,7 +60,7 @@ fn main() {
         .add_systems(
             Exiting,
             cleanup_ui.run_if(
-                exiting!(AppState, InGame(GameState::Running { .. }), every |_: &AppState| true),
+                state_matches!(AppState, InGame(GameState::Running { .. }), every |_: &AppState| true),
             ),
         )
         // We can also use all the same options with the "state_matches!" macro

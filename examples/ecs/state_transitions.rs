@@ -6,63 +6,89 @@
 // type aliases tends to obfuscate code while offering no improvement in code cleanliness.
 #![allow(clippy::type_complexity)]
 use bevy::prelude::*;
+use bevy_internal::ecs::schedule::StateMatcher;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_state::<AppState>()
-        .add_systems(Exiting, cleanup_ui.run_if(exiting!(AppState, every _)))
+        .add_systems(
+            Exiting,
+            cleanup_ui.run_if(state_matches!(AppState, every _)),
+        )
         // The simplest way to handle transitions is using the `transitioning` function - which works well for
         // state values
         .add_systems(
-            Transitioning,
-            setup_rocks_to_paper.run_if(transitioning(AppState::Rock, AppState::Paper)),
+            Entering,
+            setup_rocks_to_paper
+                .run_if(AppState::Rock.invert_transition().and_then(AppState::Paper)),
         )
         .add_systems(
-            Transitioning,
-            setup_scissors_to_paper.run_if(transitioning(AppState::Scissors, AppState::Paper)),
+            Exiting,
+            setup_scissors_to_paper
+                .run_if(AppState::Scissors.and_then(AppState::Paper.invert_transition())),
         )
         // We can also use the macro, to enable some pattern matching
         .add_systems(
-            Transitioning,
-            setup_any_to_rock.run_if(transitioning!(AppState, { Scissors | Paper }, { Rock })),
+            Exiting,
+            setup_any_to_rock.run_if(
+                state_matches!(AppState, Scissors | Paper)
+                    .and_then(AppState::Rock.invert_transition()),
+            ),
         )
         // You can use all the pattern matching features from the other macros, like the "every" keyword
         .add_systems(
-            Transitioning,
-            setup_scissors.run_if(transitioning!(AppState, { every _ }, { Scissors })),
+            Exiting,
+            setup_scissors.run_if(
+                state_matches!(AppState, _)
+                    .every()
+                    .and_then(AppState::Scissors.invert_transition()),
+            ),
         )
         // And it can also work with closures
         .add_systems(
-            Transitioning,
-            setup_sciessors_or_rock_from_paper.run_if(transitioning!(AppState, { Paper }, {
-                |s: &AppState| s == &AppState::Scissors || s == &AppState::Rock
-            })),
+            Exiting,
+            setup_sciessors_or_rock_from_paper.run_if(
+                AppState::Paper.and_then(
+                    (|s: &AppState| s == &AppState::Scissors || s == &AppState::Rock)
+                        .invert_transition(),
+                ),
+            ),
         )
         // In some cases, it might be easy to use "entering!" or "exiting!" instead, while still checking with both states,
         // such as if you have some custom logic that needs to process the "to" and "from" states at once
         .add_systems(
-            Transitioning,
-            paper_always_wins.run_if(entering!(AppState, |from: &AppState, to: &AppState| {
-                if from == &AppState::Paper && to == &AppState::Rock {
-                    println!("paper wins");
-                    return true;
+            Exiting,
+            paper_always_wins.run_if(state_matches!(
+                AppState,
+                |from: &AppState, to: &AppState| {
+                    if from == &AppState::Paper && to == &AppState::Rock {
+                        println!("paper wins");
+                        return true;
+                    }
+                    if from == &AppState::Rock && to == &AppState::Paper {
+                        println!("paper always wins");
+                        return true;
+                    }
+                    false
                 }
-                if from == &AppState::Rock && to == &AppState::Paper {
-                    println!("paper always wins");
-                    return true;
-                }
-                false
-            })),
+            )),
         )
         // We can also pass closures and other matchers into the transitioning function, for example to test if the previous state even exists
         .add_systems(
-            Transitioning,
-            setup_rocks_from_startup.run_if(transitioning(
-                |s: Option<&AppState>| s.is_none(),
-                |s: &AppState| s == &AppState::Rock,
-            )),
+            Entering,
+            setup_rocks_from_startup.run_if(
+                (|s: Option<&AppState>| s.is_none())
+                    .invert_transition()
+                    .and_then(|s: &AppState| s == &AppState::Rock),
+            ),
+        )
+        .add_systems(Entering, last_choice_was_paper.run_if(AppState::Paper))
+        .add_systems(Entering, last_choice_was_rock.run_if(AppState::Rock))
+        .add_systems(
+            Entering,
+            last_choice_was_scissors.run_if(AppState::Scissors),
         )
         .add_systems(Update, menu)
         .run();
@@ -152,7 +178,7 @@ fn paper_always_wins(mut commands: Commands) {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
                 justify_content: JustifyContent::FlexStart,
-                align_items: AlignItems::Center,
+                align_items: AlignItems::FlexEnd,
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
@@ -161,6 +187,84 @@ fn paper_always_wins(mut commands: Commands) {
         .with_children(|parent| {
             parent.spawn(TextBundle::from_section(
                 "PAPER ALWAYS WINS!",
+                TextStyle {
+                    font_size: 60.0,
+                    color: Color::rgb(0.9, 0.9, 0.9),
+                    ..default()
+                },
+            ));
+        });
+}
+
+fn last_choice_was_paper(mut commands: Commands) {
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                // center button
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                justify_content: JustifyContent::FlexStart,
+                align_items: AlignItems::FlexStart,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "Last choice was paper...",
+                TextStyle {
+                    font_size: 60.0,
+                    color: Color::rgb(0.9, 0.9, 0.9),
+                    ..default()
+                },
+            ));
+        });
+}
+
+fn last_choice_was_scissors(mut commands: Commands) {
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                // center button
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                justify_content: JustifyContent::FlexStart,
+                align_items: AlignItems::FlexStart,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "You chose scissors - what's next?",
+                TextStyle {
+                    font_size: 60.0,
+                    color: Color::rgb(0.9, 0.9, 0.9),
+                    ..default()
+                },
+            ));
+        });
+}
+
+fn last_choice_was_rock(mut commands: Commands) {
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                // center button
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                justify_content: JustifyContent::FlexStart,
+                align_items: AlignItems::FlexStart,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "ahh yes - we're at rock.",
                 TextStyle {
                     font_size: 60.0,
                     color: Color::rgb(0.9, 0.9, 0.9),

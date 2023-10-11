@@ -1,7 +1,14 @@
-use super::{Condition, States};
-use crate::{change_detection::Res, system::IntoSystem};
+use super::{ActiveTransition, Condition, State, States};
+use crate::{
+    archetype::ArchetypeComponentId,
+    change_detection::Res,
+    component::ComponentId,
+    query::Access,
+    system::{BoxedSystem, FunctionSystem, IntoSystem, IsFunctionSystem, ReadOnlySystem, System},
+    world::unsafe_world_cell::UnsafeWorldCell,
+};
 pub use bevy_ecs_macros::{entering, exiting, state_matches, transitioning};
-use std::ops::Deref;
+use std::{borrow::Cow, marker::PhantomData};
 
 /// An enum describing the possible result of a state transition match.
 ///
@@ -25,6 +32,80 @@ impl From<bool> for MatchesStateTransition {
         }
     }
 }
+
+pub struct EveryTransition<S: States, Sm: StateMatcher<S, Marker>, Marker: 'static>(
+    pub Sm,
+    PhantomData<Box<dyn Send + Sync + 'static + Fn(S) -> Marker>>,
+);
+
+impl<S: States, Marker: Send + Sync + 'static, Sm: StateMatcher<S, Marker>>
+    sealed::InternalStateMatcher<S, ()> for EveryTransition<S, Sm, Marker>
+{
+    fn match_state(&self, state: &S) -> bool {
+        self.0.match_state(state)
+    }
+
+    fn match_state_transition(&self, main: Option<&S>, _: Option<&S>) -> MatchesStateTransition {
+        if let Some(main) = main {
+            self.0.match_state(main).into()
+        } else {
+            false.into()
+        }
+    }
+}
+pub struct InvertTransition<S: States, Sm: StateMatcher<S, Marker>, Marker: 'static>(
+    Sm,
+    PhantomData<Box<dyn Send + Sync + 'static + Fn(S) -> Marker>>,
+);
+
+impl<S: States, Marker, Sm: StateMatcher<S, Marker>> sealed::InternalStateMatcher<S, ()>
+    for InvertTransition<S, Sm, Marker>
+{
+    fn match_state(&self, state: &S) -> bool {
+        self.0.match_state(state)
+    }
+
+    fn match_state_transition(
+        &self,
+        main: Option<&S>,
+        secondary: Option<&S>,
+    ) -> MatchesStateTransition {
+        self.0.match_state_transition(secondary, main)
+    }
+}
+
+pub struct CombineStateMatchers<
+    S: States,
+    Sm1: StateMatcher<S, M1>,
+    M1: 'static,
+    Sm2: StateMatcher<S, M2>,
+    M2: 'static,
+>(
+    pub Sm1,
+    pub Sm2,
+    PhantomData<Box<dyn Send + Sync + 'static + Fn(S) -> (M1, M2)>>,
+);
+
+impl<S: States, Sm1: StateMatcher<S, M1>, M1: 'static, Sm2: StateMatcher<S, M2>, M2: 'static>
+    sealed::InternalStateMatcher<S, (M1, M2)> for CombineStateMatchers<S, Sm1, M1, Sm2, M2>
+{
+    fn match_state(&self, state: &S) -> bool {
+        self.0.match_state(state) || self.1.match_state(state)
+    }
+
+    fn match_state_transition(
+        &self,
+        main: Option<&S>,
+        secondary: Option<&S>,
+    ) -> MatchesStateTransition {
+        let result = self.0.match_state_transition(main, secondary);
+        if result != MatchesStateTransition::NoMatch {
+            return result;
+        }
+        self.1.match_state_transition(main, secondary)
+    }
+}
+
 pub(crate) mod sealed {
     use std::marker::PhantomData;
 
@@ -89,7 +170,22 @@ use sealed::InternalStateMatcher;
 /// - `Fn(&Self, &Self) -> MatchesStateTransition`
 /// - `Fn(&Self, Option<&Self>) -> MatchesStateTransition`
 /// - `Fn(Option<&Self>, Option<&Self>) -> MatchesStateTransition`
-pub trait StateMatcher<S: States, Marker>: InternalStateMatcher<S, Marker> {}
+pub trait StateMatcher<S: States, Marker>: InternalStateMatcher<S, Marker> {
+    fn every(self) -> EveryTransition<S, Self, Marker> {
+        EveryTransition(self, PhantomData)
+    }
+
+    fn invert_transition(self) -> InvertTransition<S, Self, Marker> {
+        InvertTransition(self, PhantomData)
+    }
+
+    fn combine<M2, Sm: StateMatcher<S, M2>>(
+        self,
+        other: Sm,
+    ) -> CombineStateMatchers<S, Self, Marker, Sm, M2> {
+        CombineStateMatchers(self, other, PhantomData)
+    }
+}
 
 impl<S: States, Marker, Sm: InternalStateMatcher<S, Marker>> StateMatcher<S, Marker> for Sm {}
 
@@ -323,31 +419,100 @@ impl<S: States, F: 'static + Send + Sync + Fn(Option<&S>, Option<&S>) -> bool>
     }
 }
 
-/// Get a [`Condition`] for running whenever `MainResource<S>` matches regardless of
-/// whether `SecondaryResource<S>` matches, so long as they are not identical
-pub(crate) fn run_condition_on_match<
-    MainResource: crate::prelude::Resource + Deref<Target = S>,
-    SecondaryResource: crate::prelude::Resource + Deref<Target = S>,
-    S: States,
-    M,
->(
-    matcher: impl InternalStateMatcher<S, M>,
-) -> impl Condition<()> {
-    IntoSystem::into_system(
-        move |main: Option<Res<MainResource>>, secondary: Option<Res<SecondaryResource>>| {
-            let main = main.as_ref().map(|v| v.as_ref().deref());
-            let secondary = secondary.as_ref().map(|v| v.as_ref().deref());
+impl<S: States, M: 'static, Sm: StateMatcher<S, M>> IntoSystem<(), bool, (S, M)> for Sm {
+    type System = StateMatcherSystem<S, M, Sm>;
 
-            if let (Some(main), Some(secondary)) = (main, secondary) {
-                if main == secondary {
-                    return false;
+    fn into_system(this: Self) -> Self::System {
+        let system = IntoSystem::into_system(
+            move |main: Option<Res<State<S>>>, transition: Option<Res<ActiveTransition<S>>>| {
+                if let Some(transition) = transition.as_ref().map(|v| v.as_ref()) {
+                    let main = transition.get_main();
+                    let secondary = transition.get_secondary();
+
+                    if main == secondary {
+                        false
+                    } else {
+                        let result = this.match_state_transition(main, secondary);
+                        result == MatchesStateTransition::TransitionMatches
+                    }
+                } else if let Some(main) = main {
+                    this.match_state(main.get())
+                } else {
+                    false
                 }
-            }
+            },
+        );
+        StateMatcherSystem(Box::new(system), PhantomData)
+    }
+}
 
-            let result = matcher.match_state_transition(main, secondary);
-            result == MatchesStateTransition::TransitionMatches
-        },
-    )
+pub struct StateMatcherSystem<S: States, M: 'static, Sm: StateMatcher<S, M>>(
+    Box<dyn crate::prelude::ReadOnlySystem<In = (), Out = bool>>,
+    PhantomData<fn() -> (S, M, Sm)>,
+);
+
+impl<S: States, M: 'static, Sm: StateMatcher<S, M>> System for StateMatcherSystem<S, M, Sm> {
+    type In = ();
+
+    type Out = bool;
+
+    fn name(&self) -> Cow<'static, str> {
+        self.0.name()
+    }
+
+    fn type_id(&self) -> std::any::TypeId {
+        self.0.type_id()
+    }
+
+    fn component_access(&self) -> &Access<ComponentId> {
+        self.0.component_access()
+    }
+
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        self.0.archetype_component_access()
+    }
+
+    fn is_send(&self) -> bool {
+        self.0.is_send()
+    }
+
+    fn is_exclusive(&self) -> bool {
+        self.0.is_exclusive()
+    }
+
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
+        self.0.run_unsafe(input, world)
+    }
+
+    fn apply_deferred(&mut self, world: &mut crate::prelude::World) {
+        self.0.apply_deferred(world)
+    }
+
+    fn initialize(&mut self, world: &mut crate::prelude::World) {
+        self.0.initialize(world)
+    }
+
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
+        self.0.update_archetype_component_access(world)
+    }
+
+    fn check_change_tick(&mut self, change_tick: crate::component::Tick) {
+        self.0.check_change_tick(change_tick)
+    }
+
+    fn get_last_run(&self) -> crate::component::Tick {
+        self.0.get_last_run()
+    }
+
+    fn set_last_run(&mut self, last_run: crate::component::Tick) {
+        self.0.set_last_run(last_run)
+    }
+}
+
+/// SAFETY: The boxed system is must be a read only system
+unsafe impl<S: States, M: 'static, Sm: StateMatcher<S, M>> ReadOnlySystem
+    for StateMatcherSystem<S, M, Sm>
+{
 }
 
 #[cfg(test)]
@@ -355,12 +520,9 @@ mod tests {
     use bevy_ecs_macros::{entering, state_matches};
 
     use crate as bevy_ecs;
-    use crate::change_detection::Ticks;
-    use crate::component::Tick;
-    use crate::schedule::PreviousState;
+    use crate::schedule::ActiveTransition;
     use crate::system::{IntoSystem, System};
     use crate::{
-        change_detection::Res,
         schedule::{MatchesStateTransition, State, States},
         world::World,
     };
@@ -597,46 +759,13 @@ mod tests {
         let state_a = State::new(TestState::A);
         let state_b = State::new(TestState::B);
         let state_c = State::new(TestState::C(true));
-        let tick = Tick::new(0);
 
-        let mut match_state_value = state_matches!(TestState::A);
-        assert!(match_state_value(Some(Res {
-            value: &state_a,
-            ticks: Ticks {
-                added: &tick,
-                changed: &tick,
-                last_run: tick,
-                this_run: tick,
-            },
-        })));
-        assert!(!match_state_value(Some(Res {
-            value: &state_b,
-            ticks: Ticks {
-                added: &tick,
-                changed: &tick,
-                last_run: tick,
-                this_run: tick,
-            },
-        })));
-        let mut match_state_value = state_matches!(only_c);
-        assert!(match_state_value(Some(Res {
-            value: &state_c,
-            ticks: Ticks {
-                added: &tick,
-                changed: &tick,
-                last_run: tick,
-                this_run: tick,
-            },
-        })));
-        assert!(!match_state_value(Some(Res {
-            value: &state_b,
-            ticks: Ticks {
-                added: &tick,
-                changed: &tick,
-                last_run: tick,
-                this_run: tick,
-            },
-        })));
+        let match_state_value = state_matches!(TestState::A);
+        assert!(match_state_value.match_state(&state_a));
+        assert!(!match_state_value.match_state(&state_b));
+        let match_state_value = state_matches!(only_c);
+        assert!(match_state_value.match_state(&state_c));
+        assert!(!match_state_value.match_state(&state_b));
     }
 
     #[test]
@@ -645,44 +774,12 @@ mod tests {
         let state_b = State::new(TestState::B);
         let state_c = State::new(TestState::C(true));
         let state_c2 = State::new(TestState::C(false));
-        let tick = Tick::new(0);
+
         let match_state_value = state_matches!(TestState, C(_));
-        assert!(match_state_value(Some(Res {
-            value: &state_c,
-            ticks: Ticks {
-                added: &tick,
-                changed: &tick,
-                last_run: tick,
-                this_run: tick,
-            },
-        })));
-        assert!(match_state_value(Some(Res {
-            value: &state_c2,
-            ticks: Ticks {
-                added: &tick,
-                changed: &tick,
-                last_run: tick,
-                this_run: tick,
-            },
-        })));
-        assert!(!match_state_value(Some(Res {
-            value: &state_a,
-            ticks: Ticks {
-                added: &tick,
-                changed: &tick,
-                last_run: tick,
-                this_run: tick,
-            },
-        })));
-        assert!(!match_state_value(Some(Res {
-            value: &state_b,
-            ticks: Ticks {
-                added: &tick,
-                changed: &tick,
-                last_run: tick,
-                this_run: tick,
-            },
-        })));
+        assert!(match_state_value.match_state(&state_c));
+        assert!(match_state_value.match_state(&state_c2));
+        assert!(!match_state_value.match_state(&state_a));
+        assert!(!match_state_value.match_state(&state_b));
     }
 
     #[test]
@@ -691,81 +788,64 @@ mod tests {
         let state_b = State::new(TestState::B);
         let state_c = State::new(TestState::C(true));
         let state_c2 = State::new(TestState::C(false));
-        let tick = Tick::new(0);
+
         let match_state_value = state_matches!(TestState, |state: &TestState| matches!(
             state,
             TestState::C(_)
         ));
-        assert!(match_state_value(Some(Res {
-            value: &state_c,
-            ticks: Ticks {
-                added: &tick,
-                changed: &tick,
-                last_run: tick,
-                this_run: tick,
-            },
-        })));
-        assert!(match_state_value(Some(Res {
-            value: &state_c2,
-            ticks: Ticks {
-                added: &tick,
-                changed: &tick,
-                last_run: tick,
-                this_run: tick,
-            },
-        })));
-        assert!(!match_state_value(Some(Res {
-            value: &state_a,
-            ticks: Ticks {
-                added: &tick,
-                changed: &tick,
-                last_run: tick,
-                this_run: tick,
-            },
-        })));
-        assert!(!match_state_value(Some(Res {
-            value: &state_b,
-            ticks: Ticks {
-                added: &tick,
-                changed: &tick,
-                last_run: tick,
-                this_run: tick,
-            },
-        })));
+        assert!(match_state_value.match_state(&state_c));
+        assert!(match_state_value.match_state(&state_c2));
+        assert!(!match_state_value.match_state(&state_a));
+        assert!(!match_state_value.match_state(&state_b));
     }
 
     #[test]
     fn macro_can_generate_matcher_for_a_simple_transition() {
         let mut world = World::new();
 
-        let match_state_value = entering!(TestState, C(_));
+        let match_state_value = state_matches!(TestState, C(_));
 
         let mut system = IntoSystem::into_system(match_state_value);
 
         system.initialize(&mut world);
         world.insert_resource(State::new(TestState::C(true)));
-        world.insert_resource(PreviousState::new(TestState::A));
+        world.insert_resource(ActiveTransition::new(
+            Some(TestState::C(true)),
+            Some(TestState::A),
+        ));
         assert!(system.run((), &mut world));
         world.insert_resource(State::new(TestState::C(true)));
-        world.insert_resource(PreviousState::new(TestState::C(false)));
+        world.insert_resource(ActiveTransition::new(
+            Some(TestState::C(true)),
+            Some(TestState::C(false)),
+        ));
         assert!(!system.run((), &mut world));
     }
     #[test]
     fn macro_can_generate_matcher_for_every_transition() {
         let mut world = World::new();
 
-        let match_state_value = entering!(TestState, every C(_));
+        let match_state_value = state_matches!(TestState, every C(_));
 
         let mut system = IntoSystem::into_system(match_state_value);
 
         system.initialize(&mut world);
         world.insert_resource(State::new(TestState::C(true)));
-        world.insert_resource(PreviousState::new(TestState::A));
+        world.insert_resource(ActiveTransition::new(
+            Some(TestState::C(true)),
+            Some(TestState::A),
+        ));
         assert!(system.run((), &mut world));
         world.insert_resource(State::new(TestState::C(true)));
-        world.insert_resource(PreviousState::new(TestState::C(false)));
+        world.insert_resource(ActiveTransition::new(
+            Some(TestState::C(true)),
+            Some(TestState::C(false)),
+        ));
         assert!(system.run((), &mut world));
-        world.insert_resource(PreviousState::new(TestState::C(true)));
+        world.insert_resource(ActiveTransition::new(
+            Some(TestState::A),
+            Some(TestState::C(false)),
+        ));
         world.insert_resource(State::new(TestState::A));
         assert!(!system.run((), &mut world));
     }
@@ -773,18 +853,27 @@ mod tests {
     fn macro_can_generate_multi_pattern_matcher() {
         let mut world = World::new();
 
-        let match_state_value = entering!(TestState, C(_), every |_: &TestState| true);
+        let match_state_value = state_matches!(TestState, C(_), every |_: &TestState| true);
 
         let mut system = IntoSystem::into_system(match_state_value);
 
         system.initialize(&mut world);
         world.insert_resource(State::new(TestState::C(true)));
-        world.insert_resource(PreviousState::new(TestState::A));
+        world.insert_resource(ActiveTransition::new(
+            Some(TestState::C(true)),
+            Some(TestState::A),
+        ));
         assert!(system.run((), &mut world));
         world.insert_resource(State::new(TestState::C(true)));
-        world.insert_resource(PreviousState::new(TestState::C(false)));
+        world.insert_resource(ActiveTransition::new(
+            Some(TestState::C(true)),
+            Some(TestState::C(false)),
+        ));
         assert!(!system.run((), &mut world));
-        world.insert_resource(PreviousState::new(TestState::C(true)));
+        world.insert_resource(ActiveTransition::new(
+            Some(TestState::A),
+            Some(TestState::C(true)),
+        ));
         world.insert_resource(State::new(TestState::A));
         assert!(system.run((), &mut world));
     }

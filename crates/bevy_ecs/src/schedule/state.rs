@@ -195,30 +195,25 @@ impl<S: States> Deref for State<S> {
     derive(bevy_reflect::Reflect),
     reflect(Resource, Default)
 )]
-pub(crate) struct PreviousState<S: States>(S);
+pub(crate) struct ActiveTransition<S: States>(Option<S>, Option<S>);
 
-impl<S: States> PreviousState<S> {
-    pub(crate) fn new(state: S) -> Self {
-        Self(state)
+impl<S: States> ActiveTransition<S> {
+    pub(crate) fn new(main: Option<S>, secondary: Option<S>) -> Self {
+        Self(main, secondary)
     }
 
-    /// Get the current state.
-    pub(crate) fn get(&self) -> &S {
-        &self.0
+    pub(crate) fn swap(&mut self) {
+        let main = self.0.clone();
+        self.0 = self.1.clone();
+        self.1 = main;
     }
-}
 
-impl<S: States + PartialEq> PartialEq<S> for PreviousState<S> {
-    fn eq(&self, other: &S) -> bool {
-        self.get() == other
+    pub(crate) fn get_main(&self) -> Option<&S> {
+        self.0.as_ref()
     }
-}
 
-impl<S: States> Deref for PreviousState<S> {
-    type Target = S;
-
-    fn deref(&self) -> &Self::Target {
-        self.get()
+    pub(crate) fn get_secondary(&self) -> Option<&S> {
+        self.1.as_ref()
     }
 }
 
@@ -276,10 +271,12 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
     let Some(state) = world.get_resource::<State<S>>().map(|s| s.0.clone()) else {
         return;
     };
+    world.insert_resource(ActiveTransition::new(Some(state.clone()), None));
     world.try_run_schedule(OnEnter(state)).ok();
     // We are running the transition schedule because you could be transitioning from having no State resource to having one.
     world.try_run_schedule(Transitioning).ok();
     world.try_run_schedule(Entering).ok();
+    world.remove_resource::<ActiveTransition<S>>();
 }
 
 /// If a new state is queued in [`NextState<S>`], this system:
@@ -301,22 +298,26 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
     };
     if let Some(entered) = entered {
         if current_state != entered {
-            world.insert_resource(PreviousState::new(current_state));
-            let mut state_resource = world.resource_mut::<State<S>>();
-            let exited = mem::replace(&mut state_resource.0, entered.clone());
+            world.insert_resource(ActiveTransition::new(
+                Some(current_state.clone()),
+                Some(entered.clone()),
+            ));
             // Try to run the schedules if they exist.
-            world.try_run_schedule(OnExit(exited.clone())).ok();
+            world.try_run_schedule(OnExit(current_state.clone())).ok();
             world.try_run_schedule(Exiting).ok();
+            world.resource_mut::<ActiveTransition<S>>().swap();
+            let mut state_resource = world.resource_mut::<State<S>>();
+            let _ = mem::replace(&mut state_resource.0, entered.clone());
             world
                 .try_run_schedule(OnTransition {
-                    from: exited,
+                    from: current_state,
                     to: entered.clone(),
                 })
                 .ok();
             world.try_run_schedule(Transitioning).ok();
             world.try_run_schedule(OnEnter(entered)).ok();
             world.try_run_schedule(Entering).ok();
-            world.remove_resource::<PreviousState<S>>();
+            world.remove_resource::<ActiveTransition<S>>();
         }
 
         world.insert_resource(NextState::<S>::Keep);

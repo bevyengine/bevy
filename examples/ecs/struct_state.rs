@@ -28,11 +28,11 @@ fn main() {
         // Instead, we will stick with pattern matching
         .add_systems(
             Entering,
-            setup_menu.run_if(entering!(AppState, AppState { in_menu: true, .. })),
+            setup_menu.run_if(state_matches!(AppState, AppState { in_menu: true, .. })),
         )
         .add_systems(
             Entering,
-            setup_paused.run_if(entering!(
+            setup_paused.run_if(state_matches!(
                 AppState,
                 AppState {
                     is_paused: true,
@@ -43,7 +43,7 @@ fn main() {
         // Just like in the nested example, we still have access to closures
         .add_systems(
             Entering,
-            setup_game.run_if(entering!(AppState, |state: &AppState| {
+            setup_game.run_if(state_matches!(AppState, |state: &AppState| {
                 println!("Test move: {state:?}");
                 state.in_game.is_some()
             })),
@@ -51,7 +51,7 @@ fn main() {
         // And we can even pass some closures directly into the `entering()` function, rather than the macro
         .add_systems(
             Entering,
-            setup_in_game_ui.run_if(entering(|state: &AppState| state.in_game.is_some() && !state.is_paused)),
+            setup_in_game_ui.run_if(state_matches(|state: &AppState| state.in_game.is_some() && !state.is_paused)),
         )
         // We can also use `Exiting` to run the system whenever we leave a state with the help of pattern matching
         //
@@ -70,7 +70,7 @@ fn main() {
         .add_systems(
             Exiting,
             cleanup_ui
-                .run_if(exiting!(AppState, |state: &AppState| state.in_game.is_some() && !state.is_paused, every _)),
+                .run_if(state_matches!(AppState, |state: &AppState| state.in_game.is_some() && !state.is_paused, every _)),
         )
         // We can also use all the same options with the "state_matches!" macro
         .add_systems(
