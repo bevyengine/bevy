@@ -1,4 +1,9 @@
-use crate::{Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, UnnamedField};
+use bevy_reflect_derive::impl_type_path;
+
+use crate::{
+    self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
+    TypePathTable, UnnamedField,
+};
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
@@ -51,8 +56,7 @@ pub trait TupleStruct: Reflect {
 /// A container for compile-time tuple struct info.
 #[derive(Clone, Debug)]
 pub struct TupleStructInfo {
-    name: &'static str,
-    type_name: &'static str,
+    type_path: TypePathTable,
     type_id: TypeId,
     fields: Box<[UnnamedField]>,
     #[cfg(feature = "documentation")]
@@ -64,13 +68,11 @@ impl TupleStructInfo {
     ///
     /// # Arguments
     ///
-    /// * `name`: The name of this struct (_without_ generics or lifetimes)
     /// * `fields`: The fields of this struct in the order they are defined
     ///
-    pub fn new<T: Reflect>(name: &'static str, fields: &[UnnamedField]) -> Self {
+    pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
-            name,
-            type_name: std::any::type_name::<T>(),
+            type_path: TypePathTable::of::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
             #[cfg(feature = "documentation")]
@@ -99,20 +101,21 @@ impl TupleStructInfo {
         self.fields.len()
     }
 
-    /// The name of the struct.
+    /// A representation of the type path of the struct.
     ///
-    /// This does _not_ include any generics or lifetimes.
-    ///
-    /// For example, `foo::bar::Baz<'a, T>` would simply be `Baz`.
-    pub fn name(&self) -> &'static str {
-        self.name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn type_path_table(&self) -> &TypePathTable {
+        &self.type_path
     }
 
-    /// The [type name] of the tuple struct.
+    /// The [stable, full type path] of the struct.
     ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
+    ///
+    /// [stable, full type path]: TypePath
+    /// [`type_path_table`]: Self::type_path_table
+    pub fn type_path(&self) -> &'static str {
+        self.type_path_table().path()
     }
 
     /// The [`TypeId`] of the tuple struct.
@@ -292,13 +295,6 @@ impl TupleStruct for DynamicTupleStruct {
 
 impl Reflect for DynamicTupleStruct {
     #[inline]
-    fn type_name(&self) -> &str {
-        self.represented_type
-            .map(|info| info.type_name())
-            .unwrap_or_else(|| std::any::type_name::<Self>())
-    }
-
-    #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
     }
@@ -386,6 +382,8 @@ impl Reflect for DynamicTupleStruct {
     }
 }
 
+impl_type_path!((in bevy_reflect) DynamicTupleStruct);
+
 impl Debug for DynamicTupleStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
@@ -446,7 +444,7 @@ pub fn tuple_struct_debug(
     dyn_tuple_struct: &dyn TupleStruct,
     f: &mut std::fmt::Formatter<'_>,
 ) -> std::fmt::Result {
-    let mut debug = f.debug_tuple(dyn_tuple_struct.type_name());
+    let mut debug = f.debug_tuple(dyn_tuple_struct.reflect_type_path());
     for field in dyn_tuple_struct.iter_fields() {
         debug.field(&field as &dyn Debug);
     }

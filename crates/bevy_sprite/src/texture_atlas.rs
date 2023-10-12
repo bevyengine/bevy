@@ -1,8 +1,10 @@
-use bevy_asset::{Assets, Handle};
-use bevy_ecs::component::Component;
+use crate::Anchor;
+use bevy_asset::{Asset, AssetId, Assets, Handle};
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::system::Res;
 use bevy_math::{Rect, Vec2};
-use bevy_reflect::{FromReflect, Reflect, TypeUuid};
-use bevy_render::texture::Image;
+use bevy_reflect::Reflect;
+use bevy_render::{color::Color, texture::Image};
 use bevy_utils::HashMap;
 
 /// Stores a map used to lookup the position of a texture in a [`TextureAtlas`].
@@ -15,8 +17,7 @@ use bevy_utils::HashMap;
 /// [Example usage loading sprite sheet.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
 ///
 /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
-#[derive(Reflect, FromReflect, Debug, Clone, TypeUuid)]
-#[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
+#[derive(Asset, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct TextureAtlasLayout {
     // TODO: add support to Uniforms derive to write dimensions and sprites to the same buffer
@@ -28,7 +29,7 @@ pub struct TextureAtlasLayout {
     /// This field is set by [`TextureAtlasBuilder`].
     ///
     /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
-    pub texture_handles: Option<HashMap<Handle<Image>, usize>>,
+    pub texture_handles: Option<HashMap<AssetId<Image>, usize>>,
 }
 
 /// Component used to draw a specific section of a texture.
@@ -43,10 +44,11 @@ pub struct TextureAtlasLayout {
 /// - [`animated sprite sheet example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
 /// - [`texture atlas example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
 #[derive(Component, Default, Debug, Clone, Reflect)]
+#[reflect(Component)]
 pub struct TextureAtlas {
     /// Texture atlas handle
     pub layout: Handle<TextureAtlasLayout>,
-    /// Texture atlas section index
+    /// Section index in [`TextureAtlasLayout`]
     pub index: usize,
 }
 
@@ -61,9 +63,9 @@ impl TextureAtlasLayout {
     }
 
     /// Generate a [`TextureAtlasLayout`] as a grid where each
-    /// `tile_size` by `tile_size` grid-cell is one of the *section* in the
+    /// `tile_size` by `tile_size` grid-cell is one of *section* in the
     /// atlas. Grid cells are separated by some `padding`, and the grid starts
-    /// at `offset` pixels from the top left corner. Resulting layout is
+    /// at `offset` pixels from the top left corner. The resulting [`TextureAtlasLayout`] is
     /// indexed left to right, top to bottom.
     ///
     /// # Arguments
@@ -119,19 +121,19 @@ impl TextureAtlasLayout {
     ///
     /// # Arguments
     ///
-    /// * `rect` - The section of the texture to be added
-    ///
-    /// [`TextureAtlas`]: crate::TextureAtlas
+    /// * `rect` - The section of the atlas that contains the texture to be added,
+    /// from the top-left corner of the texture to the bottom-right corner
     pub fn add_texture(&mut self, rect: Rect) -> usize {
         self.textures.push(rect);
         self.textures.len() - 1
     }
 
-    /// How many textures are in the `TextureAtlas`
+    /// The number of textures in the [`TextureAtlas`]
     pub fn len(&self) -> usize {
         self.textures.len()
     }
 
+    /// Returns `true` if there are no textures in the [`TextureAtlas`]
     pub fn is_empty(&self) -> bool {
         self.textures.is_empty()
     }
@@ -141,16 +143,17 @@ impl TextureAtlasLayout {
     /// This requires the layout to have been built using a [`TextureAtlasBuilder`]
     ///
     /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
-    pub fn get_texture_index(&self, texture: &Handle<Image>) -> Option<usize> {
+    pub fn get_texture_index(&self, texture: impl Into<AssetId<Image>>) -> Option<usize> {
+        let id = texture.into();
         self.texture_handles
             .as_ref()
-            .and_then(|texture_handles| texture_handles.get(texture).cloned())
+            .and_then(|texture_handles| texture_handles.get(&id).cloned())
     }
 }
 
 impl TextureAtlas {
     /// Retrieves the current texture [`Rect`] of the sprite sheet according to the section `index`
-    pub fn texture_rect(&self, texture_atlases: &Assets<TextureAtlasLayout>) -> Option<Rect> {
+    pub fn texture_rect(&self, texture_atlases: &Res<Assets<TextureAtlasLayout>>) -> Option<Rect> {
         let atlas = texture_atlases.get(&self.layout)?;
         atlas.textures.get(self.index).copied()
     }

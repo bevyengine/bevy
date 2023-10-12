@@ -18,11 +18,13 @@ pub use short_names::get_short_name;
 pub mod synccell;
 pub mod syncunsafecell;
 
+mod cow_arc;
 mod default;
 mod float_ord;
 
-pub use ahash::AHasher;
+pub use ahash::{AHasher, RandomState};
 pub use bevy_utils_proc_macros::*;
+pub use cow_arc::*;
 pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
@@ -32,12 +34,16 @@ pub use thiserror;
 pub use tracing;
 pub use uuid::Uuid;
 
-use ahash::RandomState;
+#[allow(missing_docs)]
+pub mod nonmax {
+    pub use nonmax::*;
+}
+
 use hashbrown::hash_map::RawEntryMut;
 use std::{
     fmt::Debug,
     future::Future,
-    hash::{BuildHasher, Hash, Hasher},
+    hash::{BuildHasher, BuildHasherDefault, Hash, Hasher},
     marker::PhantomData,
     mem::ManuallyDrop,
     ops::Deref,
@@ -48,11 +54,12 @@ use std::{
 #[cfg(not(target_arch = "wasm32"))]
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
+#[allow(missing_docs)]
 #[cfg(target_arch = "wasm32")]
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 
 /// A shortcut alias for [`hashbrown::hash_map::Entry`].
-pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, RandomState>;
+pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, BuildHasherDefault<AHasher>>;
 
 /// A hasher builder that will create a fixed hasher.
 #[derive(Debug, Clone, Default)]
@@ -63,10 +70,13 @@ impl std::hash::BuildHasher for FixedState {
 
     #[inline]
     fn build_hasher(&self) -> AHasher {
-        AHasher::new_with_keys(
-            0b1001010111101110000001001100010000000011001001101011001001111000,
-            0b1100111101101011011110001011010100000100001111100011010011010101,
+        RandomState::with_seeds(
+            0b10010101111011100000010011000100,
+            0b00000011001001101011001001111000,
+            0b11001111011010110111100010110101,
+            0b00000100001111100011010011010101,
         )
+        .build_hasher()
     }
 }
 
@@ -74,7 +84,7 @@ impl std::hash::BuildHasher for FixedState {
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
-pub type HashMap<K, V> = hashbrown::HashMap<K, V, RandomState>;
+pub type HashMap<K, V> = hashbrown::HashMap<K, V, BuildHasherDefault<AHasher>>;
 
 /// A stable hash map implementing aHash, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
@@ -89,7 +99,7 @@ pub type StableHashMap<K, V> = hashbrown::HashMap<K, V, FixedState>;
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
-pub type HashSet<K> = hashbrown::HashSet<K, RandomState>;
+pub type HashSet<K> = hashbrown::HashSet<K, BuildHasherDefault<AHasher>>;
 
 /// A stable hash set implementing aHash, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
@@ -240,6 +250,58 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
     }
 }
 
+/// A [`BuildHasher`] that results in a [`EntityHasher`].
+#[derive(Default)]
+pub struct EntityHash;
+
+impl BuildHasher for EntityHash {
+    type Hasher = EntityHasher;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        EntityHasher::default()
+    }
+}
+
+/// A very fast hash that is only designed to work on generational indices
+/// like `Entity`. It will panic if attempting to hash a type containing
+/// non-u64 fields.
+#[derive(Debug, Default)]
+pub struct EntityHasher {
+    hash: u64,
+}
+
+// This value comes from rustc-hash (also known as FxHasher) which in turn got
+// it from Firefox. It is something like `u64::MAX / N` for an N that gives a
+// value close to π and works well for distributing bits for hashing when using
+// with a wrapping multiplication.
+const FRAC_U64MAX_PI: u64 = 0x517cc1b727220a95;
+
+impl Hasher for EntityHasher {
+    fn write(&mut self, _bytes: &[u8]) {
+        panic!("can only hash u64 using EntityHasher");
+    }
+
+    #[inline]
+    fn write_u64(&mut self, i: u64) {
+        // Apparently hashbrown's hashmap uses the upper 7 bits for some SIMD
+        // optimisation that uses those bits for binning. This hash function
+        // was faster than i | (i << (64 - 7)) in the worst cases, and was
+        // faster than PassHasher for all cases tested.
+        self.hash = i | (i.wrapping_mul(FRAC_U64MAX_PI) << 32);
+    }
+
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.hash
+    }
+}
+
+/// A [`HashMap`] pre-configured to use [`EntityHash`] hashing.
+pub type EntityHashMap<K, V> = hashbrown::HashMap<K, V, EntityHash>;
+
+/// A [`HashSet`] pre-configured to use [`EntityHash`] hashing.
+pub type EntityHashSet<T> = hashbrown::HashSet<T, EntityHash>;
+
 /// A type which calls a function when dropped.
 /// This can be used to ensure that cleanup code is run even in case of a panic.
 ///
@@ -292,6 +354,30 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
         // SAFETY: We may move out of `self`, since this instance can never be observed after it's dropped.
         let callback = unsafe { ManuallyDrop::take(&mut self.callback) };
         callback();
+    }
+}
+
+/// Calls the [`tracing::info!`] macro on a value.
+pub fn info<T: Debug>(data: T) {
+    tracing::info!("{:?}", data);
+}
+
+/// Calls the [`tracing::debug!`] macro on a value.
+pub fn dbg<T: Debug>(data: T) {
+    tracing::debug!("{:?}", data);
+}
+
+/// Processes a [`Result`] by calling the [`tracing::warn!`] macro in case of an [`Err`] value.
+pub fn warn<E: Debug>(result: Result<(), E>) {
+    if let Err(warn) = result {
+        tracing::warn!("{:?}", warn);
+    }
+}
+
+/// Processes a [`Result`] by calling the [`tracing::error!`] macro in case of an [`Err`] value.
+pub fn error<E: Debug>(result: Result<(), E>) {
+    if let Err(error) = result {
+        tracing::error!("{:?}", error);
     }
 }
 

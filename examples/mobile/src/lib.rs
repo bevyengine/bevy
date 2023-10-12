@@ -1,3 +1,7 @@
+// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
+// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
+#![allow(clippy::type_complexity)]
+
 use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
 
 // the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
@@ -31,7 +35,7 @@ fn touch_camera(
 ) {
     let window = windows.single();
 
-    for touch in touches.iter() {
+    for touch in touches.read() {
         if touch.phase == TouchPhase::Started {
             *last_position = None;
         }
@@ -110,7 +114,6 @@ fn setup_scene(
                 position_type: PositionType::Absolute,
                 left: Val::Px(50.0),
                 right: Val::Px(50.0),
-                top: Val::Auto,
                 bottom: Val::Px(50.0),
                 ..default()
             },
@@ -139,7 +142,7 @@ fn button_handler(
 ) {
     for (interaction, mut color) in &mut interaction_query {
         match *interaction {
-            Interaction::Clicked => {
+            Interaction::Pressed => {
                 *color = Color::BLUE.into();
             }
             Interaction::Hovered => {
@@ -152,7 +155,9 @@ fn button_handler(
     }
 }
 
-fn setup_music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    let music = asset_server.load("sounds/Windless Slopes.ogg");
-    audio.play(music);
+fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
+    commands.spawn(AudioBundle {
+        source: asset_server.load("sounds/Windless Slopes.ogg"),
+        settings: PlaybackSettings::LOOP,
+    });
 }

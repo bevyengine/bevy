@@ -1,12 +1,17 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::mem;
+use std::ops::Deref;
 
 use crate as bevy_ecs;
 use crate::change_detection::DetectChangesMut;
+#[cfg(feature = "bevy_reflect")]
+use crate::reflect::ReflectResource;
 use crate::schedule::ScheduleLabel;
 use crate::system::Resource;
 use crate::world::World;
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::std_traits::ReflectDefault;
 
 pub use bevy_ecs_macros::States;
 
@@ -35,12 +40,7 @@ pub use bevy_ecs_macros::States;
 /// }
 ///
 /// ```
-pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {
-    type Iter: Iterator<Item = Self>;
-
-    /// Returns an iterator over all the state variants.
-    fn variants() -> Self::Iter;
-}
+pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {}
 
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
 /// enters this state.
@@ -73,6 +73,11 @@ pub struct OnTransition<S: States> {
 ///
 /// The starting state is defined via the [`Default`] implementation for `S`.
 #[derive(Resource, Default, Debug)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(bevy_reflect::Reflect),
+    reflect(Resource, Default)
+)]
 pub struct State<S: States>(S);
 
 impl<S: States> State<S> {
@@ -95,12 +100,25 @@ impl<S: States> PartialEq<S> for State<S> {
     }
 }
 
+impl<S: States> Deref for State<S> {
+    type Target = S;
+
+    fn deref(&self) -> &Self::Target {
+        self.get()
+    }
+}
+
 /// The next state of [`State<S>`].
 ///
 /// To queue a transition, just set the contained value to `Some(next_state)`.
 /// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`] matters.
 #[derive(Resource, Default, Debug)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(bevy_reflect::Reflect),
+    reflect(Resource, Default)
+)]
 pub struct NextState<S: States>(pub Option<S>);
 
 impl<S: States> NextState<S> {

@@ -23,18 +23,19 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                /// Use the CSS Grid algorithm for laying out this node
+                // Use the CSS Grid algorithm for laying out this node
                 display: Display::Grid,
-                /// Make node fill the entirety it's parent (in this case the window)
-                size: Size::all(Val::Percent(100.)),
-                /// Set the grid to have 2 columns with sizes [min-content, minmax(0, 1fr)]
-                ///   - The first column will size to the size of it's contents
-                ///   - The second column will take up the remaining available space
+                // Make node fill the entirety it's parent (in this case the window)
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                // Set the grid to have 2 columns with sizes [min-content, minmax(0, 1fr)]
+                //   - The first column will size to the size of it's contents
+                //   - The second column will take up the remaining available space
                 grid_template_columns: vec![GridTrack::min_content(), GridTrack::flex(1.0)],
-                /// Set the grid to have 3 rows with sizes [auto, minmax(0, 1fr), 20px]
-                ///  - The first row will size to the size of it's contents
-                ///  - The second row take up remaining available space (after rows 1 and 3 have both been sized)
-                ///  - The third row will be exactly 20px high
+                // Set the grid to have 3 rows with sizes [auto, minmax(0, 1fr), 20px]
+                //  - The first row will size to the size of it's contents
+                //  - The second row take up remaining available space (after rows 1 and 3 have both been sized)
+                //  - The third row will be exactly 20px high
                 grid_template_rows: vec![
                     GridTrack::auto(),
                     GridTrack::flex(1.0),
@@ -51,7 +52,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn(NodeBundle {
                     style: Style {
                         display: Display::Grid,
-                        /// Make this node span two grid columns so that it takes up the entire top tow
+                        // Make this node span two grid columns so that it takes up the entire top tow
                         grid_column: GridPlacement::span(2),
                         padding: UiRect::all(Val::Px(6.0)),
                         ..default()
@@ -66,23 +67,24 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             builder
                 .spawn(NodeBundle {
                     style: Style {
-                        /// Make the height of the node fill its parent
-                        size: Size::height(Val::Percent(100.0)),
-                        /// Make the grid have a 1:1 aspect ratio meaning it will scale as an exact square
-                        /// As the height is set explicitly, this means the width will adjust to match the height
+                        // Make the height of the node fill its parent
+                        height: Val::Percent(100.0),
+                        // Make the grid have a 1:1 aspect ratio meaning it will scale as an exact square
+                        // As the height is set explicitly, this means the width will adjust to match the height
                         aspect_ratio: Some(1.0),
-                        /// Use grid layout for this node
+                        // Use grid layout for this node
                         display: Display::Grid,
                         // Add 24px of padding around the grid
                         padding: UiRect::all(Val::Px(24.0)),
-                        /// Set the grid to have 4 columns all with sizes minmax(0, 1fr)
-                        /// This creates 4 exactly evenly sized columns
+                        // Set the grid to have 4 columns all with sizes minmax(0, 1fr)
+                        // This creates 4 exactly evenly sized columns
                         grid_template_columns: RepeatedGridTrack::flex(4, 1.0),
-                        /// Set the grid to have 4 rows all with sizes minmax(0, 1fr)
-                        /// This creates 4 exactly evenly sized rows
+                        // Set the grid to have 4 rows all with sizes minmax(0, 1fr)
+                        // This creates 4 exactly evenly sized rows
                         grid_template_rows: RepeatedGridTrack::flex(4, 1.0),
-                        /// Set a 12px gap/gutter between rows and columns
-                        gap: Size::all(Val::Px(12.0)),
+                        // Set a 12px gap/gutter between rows and columns
+                        row_gap: Val::Px(12.0),
+                        column_gap: Val::Px(12.0),
                         ..default()
                     },
                     background_color: BackgroundColor(Color::DARK_GRAY),
@@ -130,7 +132,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         // can be top-aligned. Normally you'd use flexbox for this, but this is the CSS Grid example so we're using grid.
                         grid_template_rows: vec![GridTrack::auto(), GridTrack::auto(), GridTrack::fr(1.0)],
                         // Add a 10px gap between rows
-                        gap: Size::height(Val::Px(10.)),
+                        row_gap: Val::Px(10.),
                         ..default()
                     },
                     background_color: BackgroundColor(Color::BLACK),
@@ -167,34 +169,30 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             });
 
-            // Modal (absolutely positioned on top of content - uncomment to view)
-            // builder.spawn(NodeBundle {
-            //     style: Style {
-            //         position_type: PositionType::Absolute,
-            //         margin: UiRect {
-            //             top: Val::Px(100.),
-            //             bottom: Val::Auto,
-            //             left: Val::Auto,
-            //             right: Val::Auto,
-            //         },
-            //         size: Size {
-            //             width: Val::Percent(60.),
-            //             height: Val::Px(300.),
-            //         },
-            //         max_size: Size {
-            //             width: Val::Px(600.),
-            //             height: Val::Auto,
-            //         },
-            //         ..default()
-            //     },
-            //     background_color: BackgroundColor(Color::Rgba {
-            //         red: 255.0,
-            //         green: 255.0,
-            //         blue: 255.0,
-            //         alpha: 0.8,
-            //     }),
-            //     ..default()
-            // });
+            // Modal (absolutely positioned on top of content - currently hidden: to view it, change its visibility)
+            builder.spawn(NodeBundle {
+                visibility: Visibility::Hidden,
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    margin: UiRect {
+                        top: Val::Px(100.),
+                        bottom: Val::Auto,
+                        left: Val::Auto,
+                        right: Val::Auto,
+                    },
+                    width: Val::Percent(60.),
+                    height: Val::Px(300.),
+                    max_width: Val::Px(600.),
+                    ..default()
+                },
+                background_color: BackgroundColor(Color::Rgba {
+                    red: 255.0,
+                    green: 255.0,
+                    blue: 255.0,
+                    alpha: 0.8,
+                }),
+                ..default()
+            });
         });
 }
 

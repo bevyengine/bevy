@@ -6,10 +6,11 @@ use bevy_a11y::{
     accesskit::{NodeBuilder, Rect, Role},
     AccessibilityNode,
 };
-use bevy_app::{App, Plugin, Update};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity},
     query::{Changed, Without},
+    schedule::IntoSystemConfigs,
     system::{Commands, Query},
     world::Ref,
 };
@@ -20,7 +21,7 @@ use bevy_transform::prelude::GlobalTransform;
 
 fn calc_name(texts: &Query<&Text>, children: &Children) -> Option<Box<str>> {
     let mut name = None;
-    for child in children.iter() {
+    for child in children {
         if let Ok(text) = texts.get(*child) {
             let values = text
                 .sections
@@ -123,14 +124,14 @@ fn label_changed(
             .collect::<Vec<String>>();
         let name = Some(values.join(" ").into_boxed_str());
         if let Some(mut accessible) = accessible {
-            accessible.set_role(Role::LabelText);
+            accessible.set_role(Role::StaticText);
             if let Some(name) = name {
                 accessible.set_name(name);
             } else {
                 accessible.clear_name();
             }
         } else {
-            let mut node = NodeBuilder::new(Role::LabelText);
+            let mut node = NodeBuilder::new(Role::StaticText);
             if let Some(name) = name {
                 node.set_name(name);
             }
@@ -147,8 +148,13 @@ pub(crate) struct AccessibilityPlugin;
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
-            Update,
-            (calc_bounds, button_changed, image_changed, label_changed),
+            PostUpdate,
+            (
+                calc_bounds.after(bevy_transform::TransformSystem::TransformPropagate),
+                button_changed,
+                image_changed,
+                label_changed,
+            ),
         );
     }
 }

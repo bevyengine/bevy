@@ -84,7 +84,7 @@ struct Velocity(Vec2);
 #[derive(Component)]
 struct Collider;
 
-#[derive(Default)]
+#[derive(Event, Default)]
 struct CollisionEvent;
 
 #[derive(Component)]
@@ -249,11 +249,6 @@ fn setup(
     commands.spawn(WallBundle::new(WallLocation::Top));
 
     // Bricks
-    // Negative scales result in flipped sprites / meshes,
-    // which is definitely not what we want here
-    assert!(BRICK_SIZE.x > 0.0);
-    assert!(BRICK_SIZE.y > 0.0);
-
     let total_width_of_bricks = (RIGHT_WALL - LEFT_WALL) - 2. * GAP_BETWEEN_BRICKS_AND_SIDES;
     let bottom_edge_of_bricks = paddle_y + GAP_BETWEEN_PADDLE_AND_BRICKS;
     let total_height_of_bricks = TOP_WALL - bottom_edge_of_bricks - GAP_BETWEEN_BRICKS_AND_CEILING;
@@ -404,14 +399,18 @@ fn check_for_collisions(
 }
 
 fn play_collision_sound(
+    mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
-    audio: Res<Audio>,
     sound: Res<CollisionSound>,
 ) {
     // Play a sound once per frame if a collision occurred.
     if !collision_events.is_empty() {
         // This prevents events staying active on the next frame.
         collision_events.clear();
-        audio.play(sound.0.clone());
+        commands.spawn(AudioBundle {
+            source: sound.0.clone(),
+            // auto-despawn the entity when playback finishes
+            settings: PlaybackSettings::DESPAWN,
+        });
     }
 }

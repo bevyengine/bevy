@@ -8,10 +8,14 @@ use fixedbitset::FixedBitSet;
 
 use crate::schedule::set::*;
 
-/// Unique identifier for a system or system set.
+/// Unique identifier for a system or system set stored in a [`ScheduleGraph`].
+///
+/// [`ScheduleGraph`]: super::ScheduleGraph
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum NodeId {
+    /// Identifier for a system.
     System(usize),
+    /// Identifier for a system set.
     Set(usize),
 }
 
@@ -72,7 +76,6 @@ pub(crate) struct GraphInfo {
     pub(crate) sets: Vec<BoxedSystemSet>,
     pub(crate) dependencies: Vec<Dependency>,
     pub(crate) ambiguous_with: Ambiguity,
-    pub(crate) base_set: Option<BoxedSystemSet>,
 }
 
 /// Converts 2D row-major pair of indices into a 1D array index.

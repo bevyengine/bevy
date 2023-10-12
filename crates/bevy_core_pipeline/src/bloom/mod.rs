@@ -9,10 +9,9 @@ use crate::{
     core_3d::{self, CORE_3D},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::UVec2;
-use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::{
@@ -34,8 +33,7 @@ use upsampling_pipeline::{
     prepare_upsampling_pipeline, BloomUpsamplingPipeline, UpsamplingPipelineIds,
 };
 
-const BLOOM_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 929599476923908);
+const BLOOM_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(929599476923908);
 
 const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Float;
 
@@ -52,8 +50,10 @@ impl Plugin for BloomPlugin {
         app.register_type::<BloomSettings>();
         app.register_type::<BloomPrefilterSettings>();
         app.register_type::<BloomCompositeMode>();
-        app.add_plugin(ExtractComponentPlugin::<BloomSettings>::default());
-        app.add_plugin(UniformComponentPlugin::<BloomUniforms>::default());
+        app.add_plugins((
+            ExtractComponentPlugin::<BloomSettings>::default(),
+            UniformComponentPlugin::<BloomUniforms>::default(),
+        ));
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -66,10 +66,10 @@ impl Plugin for BloomPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_bloom_textures.in_set(RenderSet::Prepare),
                     prepare_downsampling_pipeline.in_set(RenderSet::Prepare),
                     prepare_upsampling_pipeline.in_set(RenderSet::Prepare),
-                    queue_bloom_bind_groups.in_set(RenderSet::Queue),
+                    prepare_bloom_textures.in_set(RenderSet::PrepareResources),
+                    prepare_bloom_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             )
             // Add bloom to the 3d render graph
@@ -161,7 +161,10 @@ impl ViewNode for BloomNode {
             pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.main),
             pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_main),
             pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_final),
-        ) else { return Ok(()) };
+        )
+        else {
+            return Ok(());
+        };
 
         render_context.command_encoder().push_debug_group("bloom");
 
@@ -177,7 +180,9 @@ impl ViewNode for BloomNode {
                             BindGroupEntry {
                                 binding: 0,
                                 // Read from main texture directly
-                                resource: BindingResource::TextureView(view_target.main_texture()),
+                                resource: BindingResource::TextureView(
+                                    view_target.main_texture_view(),
+                                ),
                             },
                             BindGroupEntry {
                                 binding: 1,
@@ -302,17 +307,32 @@ impl ViewNode for BloomNode {
 #[derive(Component)]
 struct BloomTexture {
     // First mip is half the screen resolution, successive mips are half the previous
+    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
     texture: CachedTexture,
+    // WebGL does not support binding specific mip levels for sampling, fallback to separate textures instead
+    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    texture: Vec<CachedTexture>,
     mip_count: u32,
 }
 
 impl BloomTexture {
+    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
     fn view(&self, base_mip_level: u32) -> TextureView {
         self.texture.texture.create_view(&TextureViewDescriptor {
             base_mip_level,
             mip_level_count: Some(1u32),
             ..Default::default()
         })
+    }
+    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    fn view(&self, base_mip_level: u32) -> TextureView {
+        self.texture[base_mip_level as usize]
+            .texture
+            .create_view(&TextureViewDescriptor {
+                base_mip_level: 0,
+                mip_level_count: Some(1u32),
+                ..Default::default()
+            })
     }
 }
 
@@ -347,10 +367,29 @@ fn prepare_bloom_textures(
                 view_formats: &[],
             };
 
-            commands.entity(entity).insert(BloomTexture {
-                texture: texture_cache.get(&render_device, texture_descriptor),
-                mip_count,
-            });
+            #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+            let texture = texture_cache.get(&render_device, texture_descriptor);
+            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            let texture: Vec<CachedTexture> = (0..mip_count)
+                .map(|mip| {
+                    texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            size: Extent3d {
+                                width: (texture_descriptor.size.width >> mip).max(1),
+                                height: (texture_descriptor.size.height >> mip).max(1),
+                                depth_or_array_layers: 1,
+                            },
+                            mip_level_count: 1,
+                            ..texture_descriptor.clone()
+                        },
+                    )
+                })
+                .collect();
+
+            commands
+                .entity(entity)
+                .insert(BloomTexture { texture, mip_count });
         }
     }
 }
@@ -362,7 +401,7 @@ struct BloomBindGroups {
     sampler: Sampler,
 }
 
-fn queue_bloom_bind_groups(
+fn prepare_bloom_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     downsampling_pipeline: Res<BloomDownsamplingPipeline>,
