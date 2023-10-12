@@ -1,10 +1,6 @@
 //! This example compares MSAA (Multi-Sample Anti-aliasing), FXAA (Fast Approximate Anti-aliasing), and TAA (Temporal Anti-aliasing).
 
-// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
-// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
-#![allow(clippy::type_complexity)]
-
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 use bevy::{
     core_pipeline::{
@@ -14,9 +10,11 @@ use bevy::{
         },
         fxaa::{Fxaa, Sensitivity},
     },
+    math::vec3,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
+        mesh::VertexAttributeValues,
         render_resource::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
         texture::ImageSampler,
     },
@@ -25,10 +23,17 @@ use bevy::{
 fn main() {
     App::new()
         .insert_resource(Msaa::Off)
+        .insert_resource(CameraMovementSettings::default())
         .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, (modify_aa, modify_sharpening, update_ui))
         .run();
+}
+
+#[derive(Resource, Default)]
+struct CameraMovementSettings {
+    rotate_camera: bool,
+    circle_look_camera: bool,
 }
 
 fn modify_aa(
@@ -43,6 +48,7 @@ fn modify_aa(
     >,
     mut msaa: ResMut<Msaa>,
     mut commands: Commands,
+    mut camera_movement_settings: ResMut<CameraMovementSettings>,
 ) {
     let (camera_entity, fxaa, taa) = camera.single_mut();
     let mut camera = commands.entity(camera_entity);
@@ -114,6 +120,16 @@ fn modify_aa(
 
         camera.insert(TemporalAntiAliasBundle::default());
     }
+
+    // Rotate Camera
+    if keys.just_pressed(KeyCode::K) {
+        camera_movement_settings.rotate_camera = !camera_movement_settings.rotate_camera;
+    }
+
+    // Circle look camera
+    if keys.just_pressed(KeyCode::L) {
+        camera_movement_settings.circle_look_camera = !camera_movement_settings.circle_look_camera;
+    }
 }
 
 fn modify_sharpening(
@@ -141,8 +157,10 @@ fn modify_sharpening(
 }
 
 fn update_ui(
-    camera: Query<
+    time: Res<Time>,
+    mut camera: Query<
         (
+            &mut Transform,
             Option<&Fxaa>,
             Option<&TemporalAntiAliasSettings>,
             &ContrastAdaptiveSharpeningSettings,
@@ -151,8 +169,9 @@ fn update_ui(
     >,
     msaa: Res<Msaa>,
     mut ui: Query<&mut Text>,
+    camera_movement_settings: Res<CameraMovementSettings>,
 ) {
-    let (fxaa, taa, cas_settings) = camera.single();
+    let (mut transform, fxaa, taa, cas_settings) = camera.single_mut();
 
     let mut ui = ui.single_mut();
     let ui = &mut ui.sections[0].value;
@@ -251,6 +270,39 @@ fn update_ui(
     } else {
         ui.push_str("\n\n----------\n\n(0) Sharpening (Disabled)\n");
     }
+
+    ui.push_str("\n----------\n\n");
+
+    if camera_movement_settings.rotate_camera {
+        ui.push_str("(K) *Rotate Camera*\n");
+    } else {
+        ui.push_str("(K) Rotate Camera\n");
+    }
+
+    if camera_movement_settings.circle_look_camera {
+        ui.push_str("(L) *Shake Camera*\n");
+    } else {
+        ui.push_str("(L) Shake Camera\n");
+    }
+
+    if camera_movement_settings.rotate_camera {
+        let speed = 1.0;
+        let t = (time.elapsed_seconds() * speed) % TAU;
+        let radius = 2.0;
+        transform.translation = vec3(t.cos() * radius, 0.5, t.sin() * radius);
+    }
+
+    if camera_movement_settings.circle_look_camera {
+        let speed = 5.0;
+        let t = (time.elapsed_seconds() * speed) % TAU;
+        let radius = 0.3;
+        transform.look_at(
+            vec3(t.cos() * radius, 0.2, t.sin() * radius),
+            vec3(0.0, 1.0, 0.0),
+        );
+    } else {
+        transform.look_at(vec3(0.0, 0.2, 0.0), vec3(0.0, 1.0, 0.0));
+    }
 }
 
 /// Set up a simple 3D scene
@@ -261,6 +313,16 @@ fn setup(
     mut images: ResMut<Assets<Image>>,
     asset_server: Res<AssetServer>,
 ) {
+    let checker_material = materials.add(StandardMaterial {
+        base_color_texture: Some(images.add(uv_debug_texture())),
+        ..default()
+    });
+
+    let orange_red_material = materials.add(StandardMaterial {
+        base_color: Color::ORANGE_RED,
+        ..default()
+    });
+
     // Plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(shape::Plane::from_size(5.0).into()),
@@ -268,16 +330,37 @@ fn setup(
         ..default()
     });
 
-    let cube_material = materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(uv_debug_texture())),
+    // Plane 2
+    let mut plane2: Mesh = shape::Plane::from_size(5.0).into();
+
+    // modify the uvs so the texture repeats on the plane
+    if let Some(VertexAttributeValues::Float32x2(uvs)) = plane2.attribute_mut(Mesh::ATTRIBUTE_UV_0)
+    {
+        for uv in uvs {
+            uv[0] *= 20.0;
+            uv[1] *= 20.0;
+        }
+    }
+
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(plane2),
+        material: orange_red_material,
+        transform: Transform::from_xyz(0.0, 1.0, -1.5).with_rotation(Quat::from_euler(
+            EulerRot::XYZ,
+            FRAC_PI_2,
+            0.0,
+            0.0,
+        )),
         ..default()
     });
+
+    let cube_h = meshes.add(Mesh::from(shape::Cube { size: 0.25 }));
 
     // Cubes
     for i in 0..5 {
         commands.spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.25 })),
-            material: cube_material.clone(),
+            mesh: cube_h.clone(),
+            material: checker_material.clone(),
             transform: Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
             ..default()
         });
