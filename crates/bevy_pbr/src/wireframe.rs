@@ -44,10 +44,10 @@ impl Plugin for WireframePlugin {
             .add_systems(
                 Update,
                 (
-                    global_color_changed,
+                    global_color_changed.run_if(resource_changed::<WireframeConfig>()),
                     wireframe_color_changed,
                     apply_wireframe_material,
-                    apply_global_wireframe_material,
+                    apply_global_wireframe_material.run_if(resource_changed::<WireframeConfig>()),
                 ),
             );
     }
@@ -117,9 +117,6 @@ fn global_color_changed(
     mut materials: ResMut<Assets<WireframeMaterial>>,
     global_material: Res<GlobalWireframeMaterial>,
 ) {
-    if !config.is_changed() {
-        return;
-    }
     if let Some(global_material) = materials.get_mut(&global_material.handle) {
         global_material.color = config.default_color;
     }
@@ -198,10 +195,6 @@ fn apply_global_wireframe_material(
     >,
     global_material: Res<GlobalWireframeMaterial>,
 ) {
-    if !config.is_changed() {
-        return;
-    }
-
     if config.global {
         let mut material_to_spawn = vec![];
         for e in &meshes_without_material {
@@ -210,7 +203,7 @@ fn apply_global_wireframe_material(
             material_to_spawn.push((e, global_material.handle.clone()));
         }
         commands.insert_or_spawn_batch(material_to_spawn);
-    } else if !config.global {
+    } else {
         for e in &meshes_with_global_material {
             commands.entity(e).remove::<Handle<WireframeMaterial>>();
         }
