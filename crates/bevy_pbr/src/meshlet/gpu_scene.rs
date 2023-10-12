@@ -12,6 +12,7 @@ use bevy_ecs::{
 use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
+    view::ViewUniforms,
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
@@ -130,11 +131,13 @@ pub fn prepare_meshlet_per_frame_resources(
 
 pub fn prepare_meshlet_per_frame_bind_groups(
     mut gpu_scene: ResMut<MeshletGpuScene>,
+    view_uniforms: Res<ViewUniforms>,
     render_device: Res<RenderDevice>,
 ) {
     if gpu_scene.total_instanced_meshlet_count == 0 {
         return;
     }
+    let Some(view_uniforms) = view_uniforms.uniforms.binding() else { return; };
 
     let entries = &[
         BindGroupEntry {
@@ -191,12 +194,16 @@ pub fn prepare_meshlet_per_frame_bind_groups(
                 .unwrap()
                 .as_entire_binding(),
         },
+        BindGroupEntry {
+            binding: 10,
+            resource: view_uniforms,
+        },
     ];
 
     let culling_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
         label: Some("meshlet_culling_bind_group"),
         layout: &gpu_scene.culling_bind_group_layout,
-        entries: &entries[2..10],
+        entries: &entries[2..11],
     });
     let draw_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
         label: Some("meshlet_draw_bind_group"),
@@ -268,7 +275,7 @@ impl FromWorld for MeshletGpuScene {
             culling_bind_group_layout: render_device.create_bind_group_layout(
                 &BindGroupLayoutDescriptor {
                     label: Some("meshlet_culling_bind_group_layout"),
-                    entries: &bind_group_layout_entries()[2..10],
+                    entries: &bind_group_layout_entries()[2..11],
                 },
             ),
             draw_bind_group_layout: render_device.create_bind_group_layout(
@@ -381,7 +388,7 @@ impl MeshletGpuScene {
     }
 }
 
-fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 10] {
+fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
     [
         // Vertex data
         BindGroupLayoutEntry {
@@ -489,6 +496,17 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 10] {
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: false },
                 has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // View
+        BindGroupLayoutEntry {
+            binding: 10,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: true,
                 min_binding_size: None,
             },
             count: None,

@@ -79,16 +79,7 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
             let mut culling_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
                 label: Some("meshlet_culling_pass"),
             });
-            culling_pass.set_bind_group(
-                0,
-                &mesh_view_bind_group.value,
-                &[
-                    view_offset.offset,
-                    view_lights_offset.offset,
-                    view_fog_offset.offset,
-                ],
-            );
-            culling_pass.set_bind_group(1, culling_bind_group, &[]);
+            culling_pass.set_bind_group(0, culling_bind_group, &[view_offset.offset]);
             culling_pass.set_pipeline(todo!("Culling pipeline"));
             culling_pass.dispatch_workgroups(div_ceil(total_instanced_meshlet_count, 128), 1, 1);
         }

@@ -9,6 +9,7 @@ use crate::{
     camera::{ExtractedCamera, ManualTextureViews, MipBias, TemporalJitter},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::{Image, Shader},
+    primitives::Frustum,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
@@ -168,6 +169,7 @@ pub struct ViewUniform {
     world_position: Vec3,
     // viewport(x_origin, y_origin, width, height)
     viewport: Vec4,
+    frustum: [Vec4; 6],
     color_grading: ColorGrading,
     mip_bias: f32,
 }
@@ -352,6 +354,7 @@ pub fn prepare_view_uniforms(
     views: Query<(
         Entity,
         &ExtractedView,
+        &Frustum,
         Option<&TemporalJitter>,
         Option<&MipBias>,
     )>,
@@ -365,7 +368,7 @@ pub fn prepare_view_uniforms(
     else {
         return;
     };
-    for (entity, camera, temporal_jitter, mip_bias) in &views {
+    for (entity, camera, frustum, temporal_jitter, mip_bias) in &views {
         let viewport = camera.viewport.as_vec4();
         let unjittered_projection = camera.projection;
         let mut projection = unjittered_projection;
@@ -397,6 +400,14 @@ pub fn prepare_view_uniforms(
                 inverse_projection,
                 world_position: camera.transform.translation(),
                 viewport,
+                frustum: [
+                    frustum.half_spaces[0].normal_d(),
+                    frustum.half_spaces[1].normal_d(),
+                    frustum.half_spaces[2].normal_d(),
+                    frustum.half_spaces[3].normal_d(),
+                    frustum.half_spaces[4].normal_d(),
+                    frustum.half_spaces[5].normal_d(),
+                ],
                 color_grading: camera.color_grading,
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
             }),

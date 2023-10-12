@@ -1,6 +1,7 @@
 #define_import_path bevy_pbr::meshlet_bindings
 
-#import bevy_pbr::mesh_types
+#import bevy_pbr::mesh_types Mesh
+#import bevy_render::view View
 
 struct Vertex {
     position: vec3<f32>,
@@ -42,4 +43,5 @@ struct DrawIndexedIndirect {
 @group(1) @binding(7) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>;
 @group(1) @binding(8) var<storage, read_write> draw_command_buffer: DrawIndexedIndirect;
 @group(1) @binding(9) var<storage, write> draw_index_buffer: array<u32>;
+@group(1) @binding(10) var<uniform> view: View;
 #endif
