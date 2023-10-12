@@ -12,7 +12,7 @@ pub mod graph {
         pub const PREPASS: &str = "prepass";
         pub const DEFERRED_PREPASS: &str = "deferred_prepass";
         pub const COPY_DEFERRED_LIGHTING_ID: &str = "copy_deferred_lighting_id";
-        pub const END_PRE_PASSES: &str = "end_pre_passes";
+        pub const END_PREPASSES: &str = "end_prepasses";
         pub const START_MAIN_PASS: &str = "start_main_pass";
         pub const MAIN_OPAQUE_PASS: &str = "main_opaque_pass";
         pub const MAIN_TRANSPARENT_PASS: &str = "main_transparent_pass";
@@ -125,7 +125,7 @@ impl Plugin for Core3dPlugin {
                 CORE_3D,
                 COPY_DEFERRED_LIGHTING_ID,
             )
-            .add_render_graph_node::<EmptyNode>(CORE_3D, END_PRE_PASSES)
+            .add_render_graph_node::<EmptyNode>(CORE_3D, END_PREPASSES)
             .add_render_graph_node::<EmptyNode>(CORE_3D, START_MAIN_PASS)
             .add_render_graph_node::<ViewNodeRunner<MainOpaquePass3dNode>>(
                 CORE_3D,
@@ -145,7 +145,7 @@ impl Plugin for Core3dPlugin {
                     PREPASS,
                     DEFERRED_PREPASS,
                     COPY_DEFERRED_LIGHTING_ID,
-                    END_PRE_PASSES,
+                    END_PREPASSES,
                     START_MAIN_PASS,
                     MAIN_OPAQUE_PASS,
                     MAIN_TRANSPARENT_PASS,
