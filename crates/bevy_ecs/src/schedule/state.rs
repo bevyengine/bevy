@@ -324,7 +324,6 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
     };
     world.insert_resource(ActiveTransition::new(Some(state.clone()), None));
     world.try_run_schedule(OnEnter(state)).ok();
-    // We are running the transition schedule because you could be transitioning from having no State resource to having one.
     world.try_run_schedule(Entering).ok();
     world.remove_resource::<ActiveTransition<S>>();
 }
@@ -332,7 +331,7 @@ pub fn run_enter_schedule<S: States>(world: &mut World) {
 /// If a new state is queued in [`NextState<S>`], this system:
 /// - Takes the new state value from [`NextState<S>`] and updates [`State<S>`].
 /// - Runs the [`OnExit(exited_state)`] and [`Exiting`] schedules, if they exist.
-/// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition) and [`Transitioning`] schedules, if they exist.
+/// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition) schedule, if they exist.
 /// - Runs the [`OnEnter(entered_state)`] and [`Entering`] schedules, if they exist.
 pub fn apply_state_transition<S: States>(world: &mut World) {
     let Some(next_state_resource) = world.get_resource::<NextState<S>>() else {
