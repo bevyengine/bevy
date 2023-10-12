@@ -179,6 +179,9 @@ fn fragment(
         pbr_input.flags = mesh[in.instance_index].flags;
         pbr_input.material.flags = pbr_bindings::material.flags;
         pbr_input.material.base_color = output_color;
+        pbr_input.world_position = in.world_position;
+        pbr_input.world_normal = in.world_normal;
+        pbr_input.frag_coord = in.position;
         out.deferred = pbr_deferred_functions::deferred_gbuffer_from_pbr_input(pbr_input);
         out.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
 #ifdef NORMAL_PREPASS
