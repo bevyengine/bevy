@@ -451,6 +451,11 @@ where
 
         if key.mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
             shader_defs.push("DEFERRED_PREPASS".into());
+
+            if layout.contains(Mesh::ATTRIBUTE_COLOR) {
+                shader_defs.push("VERTEX_COLORS".into());
+                vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(6));
+            }
         }
 
         if key

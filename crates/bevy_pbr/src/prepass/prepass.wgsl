@@ -83,6 +83,10 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif // VERTEX_TANGENTS
 #endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
 
+#ifdef VERTEX_COLORS
+    out.color = vertex.color;
+#endif
+
 #ifdef MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS
     out.world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
 #endif // MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS

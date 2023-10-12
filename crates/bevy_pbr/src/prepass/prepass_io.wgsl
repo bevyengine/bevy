@@ -22,6 +22,10 @@ struct Vertex {
     @location(5) joint_weights: vec4<f32>,
 #endif
 
+#ifdef VERTEX_COLORS
+    @location(6) color: vec4<f32>,
+#endif
+
 #ifdef MORPH_TARGETS
     @builtin(vertex_index) index: u32,
 #endif // MORPH_TARGETS
@@ -52,6 +56,10 @@ struct VertexOutput {
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
     @location(6) instance_index: u32,
 #endif
+
+#ifdef VERTEX_COLORS
+    @location(7) color: vec4<f32>,
+#endif
 }
 
 struct FragmentInput {
@@ -77,6 +85,10 @@ struct FragmentInput {
 #endif // DEPTH_CLAMP_ORTHO
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
     @location(6) instance_index: u32,
+#endif
+
+#ifdef VERTEX_COLORS
+    @location(7) color: vec4<f32>,
 #endif
 };
 
