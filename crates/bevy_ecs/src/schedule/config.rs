@@ -68,7 +68,7 @@ pub enum NodeConfigs<T> {
         configs: Vec<NodeConfigs<T>>,
         /// Run conditions applied to everything in the tuple.
         collective_conditions: Vec<BoxedCondition>,
-        /// If `true`, adds `before -> after` ordering constraints between the successive elements.
+        /// See [`Chain`] for usage.
         chained: Chain,
     },
 }
