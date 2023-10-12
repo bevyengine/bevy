@@ -1,5 +1,5 @@
 use crate::{
-    line_gizmo_vertex_buffer_layouts, prelude::GizmoConfig, DrawLineGizmo, LineGizmo,
+    config::GizmoConfig, line_gizmo_vertex_buffer_layouts, DrawLineGizmo, LineGizmo,
     LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
