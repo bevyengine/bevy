@@ -330,6 +330,7 @@ pub struct ExtractedSprite {
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
     pub sprites: EntityHashMap<Entity, ExtractedSprite>,
+    pub original_entities: HashMap<Entity, Entity>,
 }
 
 #[derive(Resource, Default)]
@@ -372,6 +373,7 @@ pub fn extract_sprites(
     >,
 ) {
     extracted_sprites.sprites.clear();
+    extracted_sprites.original_entities.clear();
 
     for (entity, view_visibility, sprite, transform, handle) in sprite_query.iter() {
         if !view_visibility.get() {
@@ -550,7 +552,12 @@ pub fn queue_sprites(
             .reserve(extracted_sprites.sprites.len());
 
         for (entity, extracted_sprite) in extracted_sprites.sprites.iter() {
-            if !view_entities.contains(entity.index() as usize) {
+            let orig = extracted_sprites
+                .original_entities
+                .get(entity)
+                .unwrap_or(entity);
+
+            if !view_entities.contains(orig.index() as usize) {
                 continue;
             }
 
