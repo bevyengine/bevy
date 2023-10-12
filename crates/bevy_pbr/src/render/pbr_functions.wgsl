@@ -268,17 +268,19 @@ fn pbr(
     // Environment map light (indirect)
     // TODO: Pick the array index correctly.
 #ifdef ENVIRONMENT_MAP
-    let environment_light = bevy_pbr::environment_map::environment_map_light(
-        perceptual_roughness,
-        roughness,
-        diffuse_color,
-        NdotV,
-        f_ab,
-        in.N,
-        R,
-        F0,
-        in.reflection_probe_index);
-    indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
+    if (in.reflection_probe_index >= 0) {
+        let environment_light = bevy_pbr::environment_map::environment_map_light(
+            perceptual_roughness,
+            roughness,
+            diffuse_color,
+            NdotV,
+            f_ab,
+            in.N,
+            R,
+            F0,
+            in.reflection_probe_index);
+        indirect_light += (environment_light.diffuse * occlusion) + environment_light.specular;
+    }
 #endif
 
     let emissive_light = emissive.rgb * output_color.a;

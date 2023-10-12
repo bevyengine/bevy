@@ -2322,6 +2322,17 @@ name = "fallback_image"
 path = "examples/shader/fallback_image.rs"
 doc-scrape-examples = true
 
+[[example]]
+name = "reflection_probes"
+path = "examples/3d/reflection_probes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.reflection_probes]
+name = "Reflection Probes"
+description = "Demonstrates reflection probes"
+category = "3D Rendering"
+wasm = true
+
 [package.metadata.example.fallback_image]
 hidden = true
 
