@@ -199,6 +199,9 @@ serialize = ["bevy_internal/serialize"]
 # Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.
 multi-threaded = ["bevy_internal/multi-threaded"]
 
+# Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.
+async-io = ["bevy_internal/async-io"]
+
 # Wayland display server support
 wayland = ["bevy_internal/wayland"]
 
@@ -249,7 +252,6 @@ bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0-dev", default-featu
 bevy_internal = { path = "crates/bevy_internal", version = "0.12.0-dev", default-features = false }
 
 [dev-dependencies]
-anyhow = "1.0.4"
 rand = "0.8.0"
 ron = "0.8.0"
 serde = { version = "1", features = ["derive"] }

@@ -20,7 +20,6 @@ mod derive_data;
 mod documentation;
 mod enum_utility;
 mod field_attributes;
-mod fq_std;
 mod from_reflect;
 mod impls;
 mod reflect_value;
@@ -31,7 +30,6 @@ mod type_uuid;
 mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
-use crate::type_uuid::gen_impl_type_uuid;
 use container_attributes::ReflectTraits;
 use derive_data::ReflectTypePath;
 use proc_macro::TokenStream;
@@ -40,7 +38,6 @@ use reflect_value::ReflectValueDef;
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput};
 use type_path::NamedTypePathDef;
-use type_uuid::TypeUuidDef;
 use utility::WhereClauseOptions;
 
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
@@ -289,7 +286,10 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
 // From https://github.com/randomPoison/type-uuid
 #[proc_macro_derive(TypeUuid, attributes(uuid))]
 pub fn derive_type_uuid(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
     type_uuid::type_uuid_derive(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
 }
 
 /// A macro that automatically generates type data for traits, which their implementors can then register.
@@ -589,6 +589,6 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
 /// Derives `TypeUuid` for the given type. This is used internally to implement `TypeUuid` on foreign types, such as those in the std. This macro should be used in the format of `<[Generic Params]> [Type (Path)], [Uuid (String Literal)]`.
 #[proc_macro]
 pub fn impl_type_uuid(input: TokenStream) -> TokenStream {
-    let def = parse_macro_input!(input as TypeUuidDef);
-    gen_impl_type_uuid(def)
+    let def = parse_macro_input!(input as type_uuid::TypeUuidDef);
+    type_uuid::gen_impl_type_uuid(def).into()
 }

@@ -3,10 +3,10 @@
 use crate::TypeInfo;
 use bevy_utils::{FixedState, StableHashMap};
 use once_cell::race::OnceBox;
-use parking_lot::RwLock;
 use std::{
     any::{Any, TypeId},
     hash::BuildHasher,
+    sync::{PoisonError, RwLock},
 };
 
 /// A type that can be stored in a ([`Non`])[`GenericTypeCell`].
@@ -62,14 +62,16 @@ mod sealed {
 ///         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
 ///         CELL.get_or_set(|| {
 ///             let fields = [NamedField::new::<i32>("bar")];
-///             let info = StructInfo::new::<Self>("Foo", &fields);
+///             let info = StructInfo::new::<Self>(&fields);
 ///             TypeInfo::Struct(info)
 ///         })
 ///     }
 /// }
-/// #
+/// # impl TypePath for Foo {
+/// #     fn type_path() -> &'static str { todo!() }
+/// #     fn short_type_path() -> &'static str { todo!() }
+/// # }
 /// # impl Reflect for Foo {
-/// #     fn type_name(&self) -> &str { todo!() }
 /// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #     fn as_any(&self) -> &dyn Any { todo!() }
@@ -83,11 +85,6 @@ mod sealed {
 /// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #     fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
-/// # }
-
-/// # impl TypePath for Foo {
-/// #   fn type_path() -> &'static str { todo!() }
-/// #   fn short_type_path() -> &'static str { todo!() }
 /// # }
 /// ```
 ///
@@ -133,19 +130,21 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 ///
 /// struct Foo<T>(T);
 ///
-/// impl<T: Reflect> Typed for Foo<T> {
+/// impl<T: Reflect + TypePath> Typed for Foo<T> {
 ///     fn type_info() -> &'static TypeInfo {
 ///         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| {
 ///             let fields = [UnnamedField::new::<T>(0)];
-///             let info = TupleStructInfo::new::<Self>("Foo", &fields);
+///             let info = TupleStructInfo::new::<Self>(&fields);
 ///             TypeInfo::TupleStruct(info)
 ///         })
 ///     }
 /// }
-/// #
-/// # impl<T: Reflect> Reflect for Foo<T> {
-/// #     fn type_name(&self) -> &str { todo!() }
+/// # impl<T: TypePath> TypePath for Foo<T> {
+/// #     fn type_path() -> &'static str { todo!() }
+/// #     fn short_type_path() -> &'static str { todo!() }
+/// # }
+/// # impl<T: Reflect + TypePath> Reflect for Foo<T> {
 /// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #     fn as_any(&self) -> &dyn Any { todo!() }
@@ -160,22 +159,18 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #     fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
 /// # }
-/// # impl<T: Reflect> TypePath for Foo<T> {
-/// #   fn type_path() -> &'static str { todo!() }
-/// #   fn short_type_path() -> &'static str { todo!() }
-/// # }
 /// ```
 ///
 ///  Implementing [`TypePath`] with generics.
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath};
+/// # use bevy_reflect::TypePath;
 /// use bevy_reflect::utility::GenericTypePathCell;
 ///
 /// struct Foo<T>(T);
 ///
-/// impl<T: Reflect + TypePath> TypePath for Foo<T> {
+/// impl<T: TypePath> TypePath for Foo<T> {
 ///     fn type_path() -> &'static str {
 ///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| format!("my_crate::foo::Foo<{}>", T::type_path()))
@@ -185,24 +180,19 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 ///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| format!("Foo<{}>", T::short_type_path()))
 ///     }
+///
+///     fn type_ident() -> Option<&'static str> {
+///         Some("Foo")
+///     }
+///
+///     fn module_path() -> Option<&'static str> {
+///         Some("my_crate::foo")
+///     }
+///
+///     fn crate_name() -> Option<&'static str> {
+///         Some("my_crate")
+///     }
 /// }
-/// #
-/// # impl<T: Reflect + TypePath> Reflect for Foo<T> {
-/// #     fn type_name(&self) -> &str { todo!() }
-/// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
-/// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
-/// #     fn as_any(&self) -> &dyn Any { todo!() }
-/// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
-/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
-/// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
-/// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #     fn apply(&mut self, value: &dyn Reflect) { todo!() }
-/// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
-/// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
-/// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
-/// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #     fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
-/// # }
 /// ```
 /// [`impl_type_path`]: crate::impl_type_path
 /// [`TypePath`]: crate::TypePath
@@ -236,7 +226,7 @@ impl<T: TypedProperty> GenericTypeCell<T> {
         // since `f` might want to call `get_or_insert` recursively
         // and we don't want a deadlock!
         {
-            let mapping = self.0.read();
+            let mapping = self.0.read().unwrap_or_else(PoisonError::into_inner);
             if let Some(info) = mapping.get(&type_id) {
                 return info;
             }
@@ -244,7 +234,7 @@ impl<T: TypedProperty> GenericTypeCell<T> {
 
         let value = f();
 
-        let mut mapping = self.0.write();
+        let mut mapping = self.0.write().unwrap_or_else(PoisonError::into_inner);
         mapping
             .entry(type_id)
             .insert({

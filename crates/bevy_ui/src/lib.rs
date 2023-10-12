@@ -14,6 +14,8 @@ pub mod widget;
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::Reflect;
 #[cfg(feature = "bevy_text")]
+use bevy_text::TextLayoutInfo;
+#[cfg(feature = "bevy_text")]
 mod accessibility;
 mod focus;
 mod geometry;
@@ -40,6 +42,8 @@ pub mod prelude {
 }
 
 use crate::prelude::UiCameraConfig;
+#[cfg(feature = "bevy_text")]
+use crate::widget::TextFlags;
 use bevy_app::prelude::*;
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
@@ -63,6 +67,8 @@ pub enum UiSystem {
     Focus,
     /// After this label, the [`UiStack`] resource has been updated
     Stack,
+    /// After this label, node outline widths have been updated
+    Outlines,
 }
 
 /// The current scale of the UI.
@@ -122,10 +128,15 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
+            .register_type::<Outline>()
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
             );
+
+        #[cfg(feature = "bevy_text")]
+        app.register_type::<TextLayoutInfo>()
+            .register_type::<TextFlags>();
         // add these systems to front because these must run before transform update systems
         #[cfg(feature = "bevy_text")]
         app.add_systems(
@@ -172,6 +183,9 @@ impl Plugin for UiPlugin {
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
+                resolve_outlines_system
+                    .in_set(UiSystem::Outlines)
+                    .after(UiSystem::Layout),
                 ui_stack_system.in_set(UiSystem::Stack),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
             ),

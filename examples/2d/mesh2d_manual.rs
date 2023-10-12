@@ -2,6 +2,7 @@
 //! pipeline for 2d meshes.
 //! It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color.
 //! Check out the "mesh2d" example for simpler / higher level 2d meshes.
+#![allow(clippy::type_complexity)]
 
 use bevy::{
     core_pipeline::core_2d::Transparent2d,
@@ -21,8 +22,9 @@ use bevy::{
         Extract, Render, RenderApp, RenderSet,
     },
     sprite::{
-        DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dTransforms,
-        SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+        extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dHandle, Mesh2dPipeline,
+        Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance,
+        RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
     },
     utils::FloatOrd,
 };
@@ -280,7 +282,10 @@ impl Plugin for ColoredMesh2dPlugin {
             .unwrap()
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
-            .add_systems(ExtractSchedule, extract_colored_mesh2d)
+            .add_systems(
+                ExtractSchedule,
+                extract_colored_mesh2d.after(extract_mesh2d),
+            )
             .add_systems(Render, queue_colored_mesh2d.in_set(RenderSet::QueueMeshes));
     }
 
@@ -298,14 +303,32 @@ pub fn extract_colored_mesh2d(
     mut previous_len: Local<usize>,
     // When extracting, you must use `Extract` to mark the `SystemParam`s
     // which should be taken from the main world.
-    query: Extract<Query<(Entity, &ViewVisibility), With<ColoredMesh2d>>>,
+    query: Extract<
+        Query<(Entity, &ViewVisibility, &GlobalTransform, &Mesh2dHandle), With<ColoredMesh2d>>,
+    >,
+    mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, view_visibility) in &query {
+    for (entity, view_visibility, transform, handle) in &query {
         if !view_visibility.get() {
             continue;
         }
+
+        let transforms = Mesh2dTransforms {
+            transform: (&transform.affine()).into(),
+            flags: MeshFlags::empty().bits(),
+        };
+
         values.push((entity, ColoredMesh2d));
+        render_mesh_instances.insert(
+            entity,
+            RenderMesh2dInstance {
+                mesh_asset_id: handle.0.id(),
+                transforms,
+                material_bind_group_id: Material2dBindGroupId::default(),
+                automatic_batching: false,
+            },
+        );
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
@@ -320,14 +343,14 @@ pub fn queue_colored_mesh2d(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
-    colored_mesh2d: Query<(&Mesh2dHandle, &Mesh2dTransforms), With<ColoredMesh2d>>,
+    render_mesh_instances: Res<RenderMesh2dInstances>,
     mut views: Query<(
         &VisibleEntities,
         &mut RenderPhase<Transparent2d>,
         &ExtractedView,
     )>,
 ) {
-    if colored_mesh2d.is_empty() {
+    if render_mesh_instances.is_empty() {
         return;
     }
     // Iterate each view (a camera is a view)
@@ -339,10 +362,12 @@ pub fn queue_colored_mesh2d(
 
         // Queue all entities visible to that view
         for visible_entity in &visible_entities.entities {
-            if let Ok((mesh2d_handle, mesh2d_transforms)) = colored_mesh2d.get(*visible_entity) {
+            if let Some(mesh_instance) = render_mesh_instances.get(visible_entity) {
+                let mesh2d_handle = mesh_instance.mesh_asset_id;
+                let mesh2d_transforms = &mesh_instance.transforms;
                 // Get our specialized pipeline
                 let mut mesh2d_key = mesh_key;
-                if let Some(mesh) = render_meshes.get(&mesh2d_handle.0) {
+                if let Some(mesh) = render_meshes.get(mesh2d_handle) {
                     mesh2d_key |=
                         Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
                 }

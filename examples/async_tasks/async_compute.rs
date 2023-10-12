@@ -3,7 +3,7 @@
 
 use bevy::{
     prelude::*,
-    tasks::{AsyncComputeTaskPool, Task},
+    tasks::{block_on, AsyncComputeTaskPool, Task},
 };
 use futures_lite::future;
 use rand::Rng;
@@ -88,7 +88,7 @@ fn handle_tasks(
     box_material_handle: Res<BoxMaterialHandle>,
 ) {
     for (entity, mut task) in &mut transform_tasks {
-        if let Some(transform) = future::block_on(future::poll_once(&mut task.0)) {
+        if let Some(transform) = block_on(future::poll_once(&mut task.0)) {
             // Add our new PbrBundle of components to our tagged entity
             commands.entity(entity).insert(PbrBundle {
                 mesh: box_mesh_handle.clone(),

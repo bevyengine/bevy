@@ -1,29 +1,28 @@
-use crate::{DrawMesh, MeshPipelineKey, SetMeshBindGroup, SetMeshViewBindGroup};
-use crate::{MeshPipeline, MeshTransforms};
-use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, Handle};
-use bevy_core_pipeline::core_3d::Opaque3d;
-use bevy_ecs::{prelude::*, reflect::ReflectComponent};
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
-use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
-use bevy_render::Render;
+use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin};
+use bevy_app::{Plugin, Startup, Update};
+use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
+use bevy_ecs::prelude::*;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath, TypeUuid};
 use bevy_render::{
-    extract_resource::{ExtractResource, ExtractResourcePlugin},
+    extract_resource::ExtractResource,
     mesh::{Mesh, MeshVertexBufferLayout},
-    render_asset::RenderAssets,
-    render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
+    prelude::Shader,
     render_resource::{
-        PipelineCache, PolygonMode, RenderPipelineDescriptor, Shader, SpecializedMeshPipeline,
-        SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
     },
-    view::{ExtractedView, Msaa, VisibleEntities},
-    RenderApp, RenderSet,
 };
-use bevy_utils::tracing::error;
 
 pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
 
+/// A [`Plugin`] that draws wireframes.
+///
+/// Wireframes currently do not work when using webgl or webgpu.
+/// Supported rendering backends:
+/// - DX12
+/// - Vulkan
+/// - Metal
+///
+/// This is a native only feature.
 #[derive(Debug, Default)]
 pub struct WireframePlugin;
 
@@ -37,147 +36,124 @@ impl Plugin for WireframePlugin {
         );
 
         app.register_type::<Wireframe>()
+            .register_type::<NoWireframe>()
             .register_type::<WireframeConfig>()
             .init_resource::<WireframeConfig>()
-            .add_plugins((
-                ExtractResourcePlugin::<WireframeConfig>::default(),
-                ExtractComponentPlugin::<Wireframe>::default(),
-            ));
-
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .add_render_command::<Opaque3d, DrawWireframes>()
-                .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
-                .add_systems(Render, queue_wireframes.in_set(RenderSet::QueueMeshes));
-        }
-    }
-
-    fn finish(&self, app: &mut bevy_app::App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<WireframePipeline>();
-        }
+            .add_plugins(MaterialPlugin::<WireframeMaterial>::default())
+            .add_systems(Startup, setup_global_wireframe_material)
+            .add_systems(
+                Update,
+                (apply_global_wireframe_material, apply_wireframe_material),
+            );
     }
 }
 
-/// Controls whether an entity should rendered in wireframe-mode if the [`WireframePlugin`] is enabled
-#[derive(Component, Debug, Clone, Default, ExtractComponent, Reflect)]
+/// Enables wireframe rendering for any entity it is attached to.
+/// It will ignore the [`WireframeConfig`] global setting.
+///
+/// This requires the [`WireframePlugin`] to be enabled.
+#[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
 #[reflect(Component, Default)]
 pub struct Wireframe;
+
+/// Disables wireframe rendering for any entity it is attached to.
+/// It will ignore the [`WireframeConfig`] global setting.
+///
+/// This requires the [`WireframePlugin`] to be enabled.
+#[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
+#[reflect(Component, Default)]
+pub struct NoWireframe;
 
 #[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct WireframeConfig {
-    /// Whether to show wireframes for all meshes. If `false`, only meshes with a [`Wireframe`] component will be rendered.
+    /// Whether to show wireframes for all meshes.
+    /// Can be overridden for individual meshes by adding a [`Wireframe`] or [`NoWireframe`] component.
     pub global: bool,
 }
 
-#[derive(Resource, Clone)]
-pub struct WireframePipeline {
-    mesh_pipeline: MeshPipeline,
-    shader: Handle<Shader>,
+#[derive(Resource)]
+struct GlobalWireframeMaterial {
+    // This handle will be reused when the global config is enabled
+    handle: Handle<WireframeMaterial>,
 }
-impl FromWorld for WireframePipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        WireframePipeline {
-            mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            shader: WIREFRAME_SHADER_HANDLE,
+
+fn setup_global_wireframe_material(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<WireframeMaterial>>,
+) {
+    // Create the handle used for the global material
+    commands.insert_resource(GlobalWireframeMaterial {
+        handle: materials.add(WireframeMaterial {}),
+    });
+}
+
+/// Applies or remove the wireframe material to any mesh with a [`Wireframe`] component.
+fn apply_wireframe_material(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<WireframeMaterial>>,
+    wireframes: Query<Entity, (With<Wireframe>, Without<Handle<WireframeMaterial>>)>,
+    mut removed_wireframes: RemovedComponents<Wireframe>,
+) {
+    for e in removed_wireframes.read() {
+        if let Some(mut commands) = commands.get_entity(e) {
+            commands.remove::<Handle<WireframeMaterial>>();
+        }
+    }
+
+    let mut wireframes_to_spawn = vec![];
+    for e in &wireframes {
+        wireframes_to_spawn.push((e, materials.add(WireframeMaterial {})));
+    }
+    commands.insert_or_spawn_batch(wireframes_to_spawn);
+}
+
+type WireframeFilter = (With<Handle<Mesh>>, Without<Wireframe>, Without<NoWireframe>);
+
+/// Applies or removes a wireframe material on any mesh without a [`Wireframe`] component.
+fn apply_global_wireframe_material(
+    mut commands: Commands,
+    config: Res<WireframeConfig>,
+    meshes_without_material: Query<Entity, (WireframeFilter, Without<Handle<WireframeMaterial>>)>,
+    meshes_with_global_material: Query<Entity, (WireframeFilter, With<Handle<WireframeMaterial>>)>,
+    global_material: Res<GlobalWireframeMaterial>,
+) {
+    if !config.is_changed() {
+        return;
+    }
+
+    if config.global {
+        let mut material_to_spawn = vec![];
+        for e in &meshes_without_material {
+            // We only add the material handle but not the Wireframe component
+            // This makes it easy to detect which mesh is using the global material and which ones are user specified
+            material_to_spawn.push((e, global_material.handle.clone()));
+        }
+        commands.insert_or_spawn_batch(material_to_spawn);
+    } else if !config.global {
+        for e in &meshes_with_global_material {
+            commands.entity(e).remove::<Handle<WireframeMaterial>>();
         }
     }
 }
 
-impl SpecializedMeshPipeline for WireframePipeline {
-    type Key = MeshPipelineKey;
+#[derive(Default, AsBindGroup, TypeUuid, TypePath, Debug, Clone, Asset)]
+#[uuid = "9e694f70-9963-4418-8bc1-3474c66b13b8"]
+struct WireframeMaterial {}
+
+impl Material for WireframeMaterial {
+    fn fragment_shader() -> ShaderRef {
+        WIREFRAME_SHADER_HANDLE.into()
+    }
 
     fn specialize(
-        &self,
-        key: Self::Key,
-        layout: &MeshVertexBufferLayout,
-    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
-        descriptor.vertex.shader = self.shader.clone_weak();
-        descriptor
-            .vertex
-            .shader_defs
-            .push("MESH_BINDGROUP_1".into());
-        descriptor.fragment.as_mut().unwrap().shader = self.shader.clone_weak();
+        _pipeline: &MaterialPipeline<Self>,
+        descriptor: &mut RenderPipelineDescriptor,
+        _layout: &MeshVertexBufferLayout,
+        _key: MaterialPipelineKey<Self>,
+    ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.primitive.polygon_mode = PolygonMode::Line;
         descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
-        Ok(descriptor)
+        Ok(())
     }
 }
-
-#[allow(clippy::too_many_arguments)]
-fn queue_wireframes(
-    opaque_3d_draw_functions: Res<DrawFunctions<Opaque3d>>,
-    render_meshes: Res<RenderAssets<Mesh>>,
-    wireframe_config: Res<WireframeConfig>,
-    wireframe_pipeline: Res<WireframePipeline>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<WireframePipeline>>,
-    pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
-    mut material_meshes: ParamSet<(
-        Query<(Entity, &Handle<Mesh>, &MeshTransforms)>,
-        Query<(Entity, &Handle<Mesh>, &MeshTransforms), With<Wireframe>>,
-    )>,
-    mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<Opaque3d>)>,
-) {
-    let draw_custom = opaque_3d_draw_functions.read().id::<DrawWireframes>();
-    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
-    for (view, visible_entities, mut opaque_phase) in &mut views {
-        let rangefinder = view.rangefinder3d();
-
-        let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
-        let add_render_phase = |phase_item: (Entity, &Handle<Mesh>, &MeshTransforms)| {
-            let (entity, mesh_handle, mesh_transforms) = phase_item;
-
-            let Some(mesh) = render_meshes.get(mesh_handle) else {
-                return;
-            };
-            let mut key =
-                view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-            if mesh.morph_targets.is_some() {
-                key |= MeshPipelineKey::MORPH_TARGETS;
-            }
-            let pipeline_id =
-                pipelines.specialize(&pipeline_cache, &wireframe_pipeline, key, &mesh.layout);
-            let pipeline_id = match pipeline_id {
-                Ok(id) => id,
-                Err(err) => {
-                    error!("{}", err);
-                    return;
-                }
-            };
-            opaque_phase.add(Opaque3d {
-                entity,
-                pipeline: pipeline_id,
-                draw_function: draw_custom,
-                distance: rangefinder.distance_translation(&mesh_transforms.transform.translation),
-                batch_range: 0..1,
-                dynamic_offset: None,
-            });
-        };
-
-        if wireframe_config.global {
-            let query = material_meshes.p0();
-            visible_entities
-                .entities
-                .iter()
-                .filter_map(|visible_entity| query.get(*visible_entity).ok())
-                .for_each(add_render_phase);
-        } else {
-            let query = material_meshes.p1();
-            visible_entities
-                .entities
-                .iter()
-                .filter_map(|visible_entity| query.get(*visible_entity).ok())
-                .for_each(add_render_phase);
-        }
-    }
-}
-
-type DrawWireframes = (
-    SetItemPipeline,
-    SetMeshViewBindGroup<0>,
-    SetMeshBindGroup<1>,
-    DrawMesh,
-);
