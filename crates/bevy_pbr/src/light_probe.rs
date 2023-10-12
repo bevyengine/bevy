@@ -81,7 +81,6 @@ pub fn apply_light_probes(
         })
     }
 
-    // TODO: Actually look through light probes and assign them.
     'outer: for (mesh_entity, mesh_transform) in mesh_query.iter() {
         for light_probe_info in &light_probes {
             let probe_space_mesh_center: Vec3A = (light_probe_info.inverse_transform
