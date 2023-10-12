@@ -266,7 +266,6 @@ fn pbr(
     var indirect_light = ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, occlusion);
 
     // Environment map light (indirect)
-    // TODO: Pick the array index correctly.
 #ifdef ENVIRONMENT_MAP
     if (in.reflection_probe_index >= 0) {
         let environment_light = bevy_pbr::environment_map::environment_map_light(
