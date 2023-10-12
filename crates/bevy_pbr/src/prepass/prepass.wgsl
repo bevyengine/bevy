@@ -83,7 +83,10 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif // VERTEX_TANGENTS
 #endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
 
+#ifdef MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS
     out.world_position = bevy_pbr::mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
+#endif // MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS
+
 #ifdef MOTION_VECTOR_PREPASS
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416

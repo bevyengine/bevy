@@ -442,6 +442,13 @@ where
             }
         }
 
+        if key
+            .mesh_key
+            .intersects(MeshPipelineKey::NORMAL_PREPASS | MeshPipelineKey::DEFERRED_PREPASS)
+        {
+            shader_defs.push("MOTION_VECTOR_PREPASS_OR_DEFERRED_PREPASS".into());
+        }
+
         if key.mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
             shader_defs.push("DEFERRED_PREPASS".into());
         }
