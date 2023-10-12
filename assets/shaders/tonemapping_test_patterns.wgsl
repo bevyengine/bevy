@@ -9,8 +9,8 @@
 
 // Sweep across hues on y axis with value from 0.0 to +15EV across x axis 
 // quantized into 24 steps for both axis.
-fn color_sweep(uv: vec2<f32>) -> vec3<f32> {
-    var uv = uv;
+fn color_sweep(uv_input: vec2<f32>) -> vec3<f32> {
+    var uv = uv_input;
     let steps = 24.0;
     uv.y = uv.y * (1.0 + 1.0 / steps);
     let ratio = 2.0;
