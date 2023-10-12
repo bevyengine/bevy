@@ -3,10 +3,16 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
+use bevy_internal::render::{RenderPlugin, settings::{WgpuSettings, Backends}};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(RenderPlugin {
+            render_creation: WgpuSettings {
+                backends: Some(Backends::VULKAN),
+                ..default()
+            }.into()
+        }))
         .init_gizmo_config::<MyGizmoConfig>()
         .add_systems(Startup, setup)
         .add_systems(Update, (system, rotate_camera, update_config))
@@ -119,17 +125,21 @@ fn update_config(
     keyboard: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
-    let (config, _) = config_store.get_mut::<DefaultGizmoConfig>();
     if keyboard.just_pressed(KeyCode::D) {
-        config.depth_bias = if config.depth_bias == 0. { -1. } else { 0. };
+        for config in config_store.iter_mut() {
+            config.depth_bias = if config.depth_bias == 0. { -1. } else { 0. };
+        }
     }
     if keyboard.just_pressed(KeyCode::P) {
-        // Toggle line_perspective
-        config.line_perspective ^= true;
-        // Increase the line width when line_perspective is on
-        config.line_width *= if config.line_perspective { 5. } else { 1. / 5. };
+        for config in config_store.iter_mut() {
+            // Toggle line_perspective
+            config.line_perspective ^= true;
+            // Increase the line width when line_perspective is on
+            config.line_width *= if config.line_perspective { 5. } else { 1. / 5. };
+        }
     }
 
+    let (config, _) = config_store.get_mut::<DefaultGizmoConfig>();
     if keyboard.pressed(KeyCode::Right) {
         config.line_width += 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
@@ -143,20 +153,6 @@ fn update_config(
     }
 
     let (my_config, _) = config_store.get_mut::<MyGizmoConfig>();
-    if keyboard.just_pressed(KeyCode::D) {
-        my_config.depth_bias = if my_config.depth_bias == 0. { -1. } else { 0. };
-    }
-    if keyboard.just_pressed(KeyCode::P) {
-        // Toggle line_perspective
-        my_config.line_perspective ^= true;
-        // Increase the line width when line_perspective is on
-        my_config.line_width *= if my_config.line_perspective {
-            5.
-        } else {
-            1. / 5.
-        };
-    }
-
     if keyboard.pressed(KeyCode::Up) {
         my_config.line_width += 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
