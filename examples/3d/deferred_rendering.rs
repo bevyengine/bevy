@@ -7,12 +7,12 @@ use bevy::{
         fxaa::Fxaa,
         prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     },
+    pbr::NotShadowReceiver,
     pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
     pbr::{DefaultOpaqueRendererMethod, NotShadowCaster, OpaqueRendererMethod},
     prelude::*,
     render::render_resource::TextureFormat,
 };
-use bevy_internal::pbr::NotShadowReceiver;
 
 fn main() {
     App::new()
