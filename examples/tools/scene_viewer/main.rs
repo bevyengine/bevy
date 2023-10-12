@@ -4,6 +4,8 @@
 //! replacing the path as appropriate.
 //! In case of multiple scenes, you can select which to display by adapting the file path: `/path/to/model.gltf#Scene1`.
 //! With no arguments it will load the `FlightHelmet` glTF model from the repository assets subdirectory.
+//!
+//! If you want to hot reload asset changes, enable the `file_watcher` cargo feature.
 
 use bevy::{
     math::Vec3A,
