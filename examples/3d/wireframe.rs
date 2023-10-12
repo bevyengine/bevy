@@ -31,12 +31,9 @@ fn main() {
             // You need to add this plugin to enable wireframe rendering
             WireframePlugin,
         ))
-        .insert_resource(WireframeToggleTimer(Timer::from_seconds(
-            1.0,
-            TimerMode::Repeating,
-        )))
         .add_systems(Startup, setup)
-        .add_systems(Update, toggle_global_wireframe_setting)
+        .add_systems(FixedUpdate, toggle_global_wireframe_setting)
+        .insert_resource(FixedTime::new_from_secs(1.0))
         .run();
 }
 
@@ -91,21 +88,11 @@ fn setup(
     });
 }
 
-/// This timer is used to periodically toggle the wireframe rendering.
-#[derive(Resource)]
-struct WireframeToggleTimer(Timer);
-
 /// Periodically turns the global wireframe setting on and off, to show the differences between
 /// [`Wireframe`], [`NoWireframe`], and just a mesh.
-fn toggle_global_wireframe_setting(
-    time: Res<Time>,
-    mut timer: ResMut<WireframeToggleTimer>,
-    mut wireframe_config: ResMut<WireframeConfig>,
-) {
-    if timer.0.tick(time.delta()).just_finished() {
-        // The global wireframe config enables drawing of wireframes on every mesh,
-        // except those with `NoWireframe`. Meshes with `Wireframe` will always have a wireframe,
-        // regardless of the global configuration.
-        wireframe_config.global = !wireframe_config.global;
-    }
+fn toggle_global_wireframe_setting(mut wireframe_config: ResMut<WireframeConfig>) {
+    // The global wireframe config enables drawing of wireframes on every mesh,
+    // except those with `NoWireframe`. Meshes with `Wireframe` will always have a wireframe,
+    // regardless of the global configuration.
+    wireframe_config.global = !wireframe_config.global;
 }
