@@ -472,6 +472,7 @@ pub struct ScheduleGraph {
     changed: bool,
     settings: ScheduleBuildSettings,
     no_sync_edges: BTreeSet<(NodeId, NodeId)>,
+    auto_sync_node_ids: HashMap<u32, NodeId>,
 }
 
 impl ScheduleGraph {
@@ -492,6 +493,7 @@ impl ScheduleGraph {
             changed: false,
             settings: default(),
             no_sync_edges: BTreeSet::new(),
+            auto_sync_node_ids: HashMap::new(),
         }
     }
 
@@ -1031,14 +1033,14 @@ impl ScheduleGraph {
         let mut sync_point_graph = dependency_flattened.clone();
         let topo = self.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
 
-        let mut sync_point_map = HashMap::new();
-        let mut get_sync_point = |graph: &mut ScheduleGraph, distance: u32| {
-            sync_point_map
+        let get_sync_point = |graph: &mut ScheduleGraph, distance: u32| {
+            graph
+                .auto_sync_node_ids
                 .get(&distance)
                 .copied()
                 .or_else(|| {
                     let node_id = graph.add_auto_sync();
-                    sync_point_map.insert(distance, node_id);
+                    graph.auto_sync_node_ids.insert(distance, node_id);
                     Some(node_id)
                 })
                 .unwrap()
@@ -1046,7 +1048,7 @@ impl ScheduleGraph {
 
         // calculate the number of sync points each sync point is from the beginning of the graph
         // use the same sync point if the distance is the same
-        let mut distances: Vec<Option<u32>> = vec![None; topo.len()];
+        let mut distances: HashMap<usize, Option<u32>> = HashMap::with_capacity(topo.len());
         for node in &topo {
             let add_sync_after = self.systems[node.index()].get().unwrap().has_deferred();
 
@@ -1057,13 +1059,23 @@ impl ScheduleGraph {
 
                 let weight = if add_sync_on_edge { 1 } else { 0 };
 
-                distances[target.index()] = distances[target.index()]
+                // TODO: can't use target index here, since it isn't continuous, need to figure out a way to map the target.index to a
+                // array index or use a different data structure
+                let distance = distances
+                    .get(&target.index())
+                    .unwrap_or(&None)
                     .or(Some(0))
-                    .map(|distance| distance.max(distances[node.index()].unwrap_or(0) + weight));
+                    .map(|distance| {
+                        distance.max(
+                            distances.get(&node.index()).unwrap_or(&None).unwrap_or(0) + weight,
+                        )
+                    });
+
+                distances.insert(target.index(), distance);
 
                 if add_sync_on_edge {
                     // TODO: this algorithm might add a bunch of redundant edges to the sync point
-                    let sync_point = get_sync_point(self, distances[target.index()].unwrap());
+                    let sync_point = get_sync_point(self, distances[&target.index()].unwrap());
                     sync_point_graph.add_edge(*node, sync_point, ());
                     sync_point_graph.add_edge(sync_point, target, ());
 
@@ -1982,18 +1994,16 @@ mod tests {
         assert_eq!(schedule.executable.systems.len(), 4);
 
         // merges sync points on rebuild
-        schedule.add_systems((
+        schedule.add_systems(((
             (
-                (
-                    |mut commands: Commands| commands.insert_resource(Resource1),
-                    |mut commands: Commands| commands.insert_resource(Resource2),
-                ),
-                |_: Res<Resource1>, _: Res<Resource2>| {},
-            )
-                .chain(),
-        ));
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |mut commands: Commands| commands.insert_resource(Resource2),
+            ),
+            |_: Res<Resource1>, _: Res<Resource2>| {},
+        )
+            .chain(),));
         schedule.run(&mut world);
-        
+
         assert_eq!(schedule.executable.systems.len(), 7);
     }
 
