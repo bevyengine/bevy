@@ -3,7 +3,6 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_internal::gizmos::config::GizmoConfigStore;
 
 fn main() {
     App::new()
