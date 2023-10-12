@@ -29,7 +29,7 @@ mod pipeline_3d;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        config::{AabbGizmos, CustomGizmoConfig, GizmoConfig, GlobalGizmos},
+        config::{AabbGizmoConfig, CustomGizmoConfig, DefaultGizmoConfig, GizmoConfig},
         gizmos::Gizmos,
         AppGizmoBuilder, ShowAabbGizmo,
     };
@@ -39,7 +39,6 @@ use bevy_app::{App, Last, Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_core::cast_slice;
 use bevy_ecs::{
-    change_detection::DetectChanges,
     component::Component,
     entity::Entity,
     query::{ROQueryItem, Without},
@@ -71,9 +70,9 @@ use bevy_transform::{
     TransformSystem,
 };
 use bevy_utils::HashMap;
-use config::{AabbGizmos, CustomGizmoConfig, ExtractedGizmoConfig, GizmoConfig, GlobalGizmos};
+use config::{AabbGizmoConfig, CustomGizmoConfig, DefaultGizmoConfig, GizmoConfigStore};
 use gizmos::{GizmoStorage, Gizmos};
-use std::mem;
+use std::{any::TypeId, mem};
 
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
 
@@ -88,14 +87,14 @@ impl Plugin for GizmoPlugin {
             .init_asset::<LineGizmo>()
             .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
             .init_resource::<LineGizmoHandles>()
-            .add_gizmo_config::<GlobalGizmos>()
-            .add_gizmo_config::<AabbGizmos>()
+            .init_resource::<GizmoConfigStore>()
+            .init_gizmo_config::<DefaultGizmoConfig>()
+            .init_gizmo_config::<AabbGizmoConfig>()
             .add_systems(
                 PostUpdate,
                 (
                     draw_aabbs,
-                    draw_all_aabbs
-                        .run_if(|config: Res<GizmoConfig<AabbGizmos>>| config.extended.draw_all),
+                    draw_all_aabbs.run_if(|config: Res<AabbGizmoConfig>| config.draw_all),
                 )
                     .after(TransformSystem::TransformPropagate),
             );
@@ -142,14 +141,18 @@ impl Plugin for GizmoPlugin {
 /// A trait adding `add_gizmos<T>()` to the app
 pub trait AppGizmoBuilder {
     /// Adds a [`GizmoConfig<T>`] to the app enabling the use of [`Gizmos<T>`].
-    fn add_gizmo_config<T: CustomGizmoConfig>(&mut self) -> &mut Self;
+    fn init_gizmo_config<T: CustomGizmoConfig>(&mut self) -> &mut Self;
 }
 
 impl AppGizmoBuilder for App {
-    fn add_gizmo_config<T: CustomGizmoConfig>(&mut self) -> &mut Self {
-        self.init_resource::<GizmoConfig<T>>()
+    fn init_gizmo_config<T: CustomGizmoConfig>(&mut self) -> &mut Self {
+        self.init_resource::<T>()
             .init_resource::<GizmoStorage<T>>()
             .add_systems(Last, update_gizmo_meshes::<T>);
+
+        self.world
+            .resource_mut::<GizmoConfigStore>()
+            .regsiter::<T>();
 
         let Ok(render_app) = self.get_sub_app_mut(RenderApp) else {
             return self;
@@ -173,13 +176,13 @@ pub struct ShowAabbGizmo {
 
 fn draw_aabbs(
     query: Query<(Entity, &Aabb, &GlobalTransform, &ShowAabbGizmo)>,
-    config: Res<GizmoConfig<AabbGizmos>>,
-    mut gizmos: Gizmos<GlobalGizmos>,
+    config: Res<AabbGizmoConfig>,
+    mut gizmos: Gizmos<AabbGizmoConfig>,
 ) {
     for (entity, &aabb, &transform, gizmo) in &query {
         let color = gizmo
             .color
-            .or(config.extended.default_color)
+            .or(config.default_color)
             .unwrap_or_else(|| color_from_entity(entity));
         gizmos.cuboid(aabb_transform(aabb, transform), color);
     }
@@ -187,12 +190,11 @@ fn draw_aabbs(
 
 fn draw_all_aabbs(
     query: Query<(Entity, &Aabb, &GlobalTransform), Without<ShowAabbGizmo>>,
-    config: Res<GizmoConfig<AabbGizmos>>,
-    mut gizmos: Gizmos<GlobalGizmos>,
+    config: Res<AabbGizmoConfig>,
+    mut gizmos: Gizmos<AabbGizmoConfig>,
 ) {
     for (entity, &aabb, &transform) in &query {
         let color = config
-            .extended
             .default_color
             .unwrap_or_else(|| color_from_entity(entity));
         gizmos.cuboid(aabb_transform(aabb, transform), color);
@@ -224,8 +226,8 @@ fn aabb_transform(aabb: Aabb, transform: GlobalTransform) -> GlobalTransform {
 
 #[derive(Resource, Default)]
 struct LineGizmoHandles {
-    list: HashMap<&'static str, Handle<LineGizmo>>,
-    strip: HashMap<&'static str, Handle<LineGizmo>>,
+    list: HashMap<TypeId, Handle<LineGizmo>>,
+    strip: HashMap<TypeId, Handle<LineGizmo>>,
 }
 
 fn update_gizmo_meshes<T: CustomGizmoConfig>(
@@ -234,8 +236,8 @@ fn update_gizmo_meshes<T: CustomGizmoConfig>(
     mut storage: ResMut<GizmoStorage<T>>,
 ) {
     if storage.list_positions.is_empty() {
-        handles.list.remove(T::type_path());
-    } else if let Some(handle) = handles.list.get(T::type_path()) {
+        handles.list.remove(&TypeId::of::<T>());
+    } else if let Some(handle) = handles.list.get(&TypeId::of::<T>()) {
         let list = line_gizmos.get_mut(handle).unwrap();
 
         list.positions = mem::take(&mut storage.list_positions);
@@ -249,12 +251,14 @@ fn update_gizmo_meshes<T: CustomGizmoConfig>(
         list.positions = mem::take(&mut storage.list_positions);
         list.colors = mem::take(&mut storage.list_colors);
 
-        handles.list.insert(T::type_path(), line_gizmos.add(list));
+        handles
+            .list
+            .insert(TypeId::of::<T>(), line_gizmos.add(list));
     }
 
     if storage.strip_positions.is_empty() {
-        handles.strip.remove(T::type_path());
-    } else if let Some(handle) = handles.strip.get(T::type_path()) {
+        handles.strip.remove(&TypeId::of::<T>());
+    } else if let Some(handle) = handles.strip.get(&TypeId::of::<T>()) {
         let strip = line_gizmos.get_mut(handle).unwrap();
 
         strip.positions = mem::take(&mut storage.strip_positions);
@@ -268,27 +272,25 @@ fn update_gizmo_meshes<T: CustomGizmoConfig>(
         strip.positions = mem::take(&mut storage.strip_positions);
         strip.colors = mem::take(&mut storage.strip_colors);
 
-        handles.strip.insert(T::type_path(), line_gizmos.add(strip));
+        handles
+            .strip
+            .insert(TypeId::of::<T>(), line_gizmos.add(strip));
     }
 }
 
 fn extract_gizmo_data<T: CustomGizmoConfig>(
     mut commands: Commands,
     handles: Extract<Res<LineGizmoHandles>>,
-    config: Extract<Res<GizmoConfig<T>>>,
+    config: Extract<Res<GizmoConfigStore>>,
 ) {
-    // todo per config togle
-
-    if config.is_changed() {
-        commands.insert_resource(config.clone());
-    }
+    let config = config.get::<T>();
 
     if !config.enabled {
         return;
     }
 
     for map in [&handles.list, &handles.strip].into_iter() {
-        let Some(handle) = map.get(T::type_path()) else {
+        let Some(handle) = map.get(&TypeId::of::<T>()) else {
             continue;
         };
         commands.spawn((
@@ -299,7 +301,7 @@ fn extract_gizmo_data<T: CustomGizmoConfig>(
                 _padding: Default::default(),
             },
             (*handle).clone_weak(),
-            ExtractedGizmoConfig::from(config.as_ref()),
+            config.clone(),
         ));
     }
 }

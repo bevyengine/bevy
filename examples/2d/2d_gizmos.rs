@@ -3,18 +3,19 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
+use bevy_internal::gizmos::config::GizmoConfigStore;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_gizmo_config::<MyGizmos>()
+        .init_gizmo_config::<MyGizmos>()
         .add_systems(Startup, setup)
         .add_systems(Update, (system, update_config))
         .run();
 }
 
 // We can create our own gizmo config!
-#[derive(Default, Clone, TypePath)]
+#[derive(Resource, Default)]
 struct MyGizmos {}
 
 impl CustomGizmoConfig for MyGizmos {}
@@ -67,11 +68,11 @@ fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyGizmos>, time: Res<Time>) 
 }
 
 fn update_config(
-    mut config: ResMut<GizmoConfig>,
-    mut my_config: ResMut<GizmoConfig<MyGizmos>>,
+    mut config_store: ResMut<GizmoConfigStore>,
     keyboard: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
+    let config = config_store.get_mut::<DefaultGizmoConfig>();
     if keyboard.pressed(KeyCode::Right) {
         config.line_width += 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
@@ -80,7 +81,11 @@ fn update_config(
         config.line_width -= 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
     }
+    if keyboard.just_pressed(KeyCode::Key1) {
+        config.enabled ^= true;
+    }
 
+    let my_config = config_store.get_mut::<DefaultGizmoConfig>();
     if keyboard.pressed(KeyCode::Up) {
         my_config.line_width += 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
@@ -88,10 +93,6 @@ fn update_config(
     if keyboard.pressed(KeyCode::Down) {
         my_config.line_width -= 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
-    }
-
-    if keyboard.just_pressed(KeyCode::Key1) {
-        config.enabled ^= true;
     }
     if keyboard.just_pressed(KeyCode::Key2) {
         my_config.enabled ^= true;

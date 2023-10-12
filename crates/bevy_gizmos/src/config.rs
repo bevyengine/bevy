@@ -1,22 +1,64 @@
 //! A module for the [`GizmoConfig<T>`] [`Resource`].
 
+use std::any::TypeId;
+
 use bevy_ecs::{component::Component, system::Resource};
-use bevy_reflect::TypePath;
 use bevy_render::{color::Color, view::RenderLayers};
+use bevy_utils::HashMap;
 
 /// A trait used for custom gizmo configs.
 ///
-/// Make sure to derive [`Default`], [`Clone`], [`TypePath`] and register in the app using `app.add_gizmos::<T>()`
-pub trait CustomGizmoConfig: 'static + Default + Clone + TypePath + Send + Sync {}
+/// Here you can store additional configuration for you gizmos not covered by [`GizmoConfig`]
+///
+/// Make sure to derive [`Default`], [`Clone`] and register in the app using `app.init_gizmo_config::<T>()`
+pub trait CustomGizmoConfig: 'static + Default + Resource + Send + Sync {}
 
 /// The default gizmo config.
-#[derive(Default, Clone, TypePath)]
-pub struct GlobalGizmos;
-impl CustomGizmoConfig for GlobalGizmos {}
+#[derive(Resource, Default)]
+pub struct DefaultGizmoConfig;
+impl CustomGizmoConfig for DefaultGizmoConfig {}
+
+/// A [`Resource`] storing [`GizmoConfig`] structs for all registered [`CustomGizmoConfig`]
+///
+/// Use `app.init_gizmo_config::<T>()` to register a custom config.
+#[derive(Resource, Default)]
+pub struct GizmoConfigStore {
+    store: HashMap<TypeId, GizmoConfig>,
+}
+
+impl GizmoConfigStore {
+    /// Returns [`GizmoConfig`] associated with [`CustomGizmoConfig`] `T`
+    pub fn get<T: CustomGizmoConfig>(&self) -> &GizmoConfig {
+        self.store.get(&TypeId::of::<T>()).unwrap()
+    }
+
+    /// Returns mutable [`GizmoConfig`] associated with [`CustomGizmoConfig`] `T`
+    pub fn get_mut<T: CustomGizmoConfig>(&mut self) -> &mut GizmoConfig {
+        self.store.get_mut(&TypeId::of::<T>()).unwrap()
+    }
+
+    /// Returns an iterator over all [`GizmoConfigs`]s.
+    pub fn iter(&self) -> impl Iterator<Item = &GizmoConfig> + '_ {
+        self.store.values()
+    }
+
+    /// Returns an iterator over all [`GizmoConfigs`]s, by mutable reference.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut GizmoConfig> + '_ {
+        self.store.values_mut()
+    }
+
+    pub(crate) fn insert<T: CustomGizmoConfig>(&mut self, config: GizmoConfig) {
+        self.store.insert(TypeId::of::<T>(), config);
+    }
+
+    pub(crate) fn regsiter<T: CustomGizmoConfig>(&mut self) {
+        self.insert::<T>(GizmoConfig::default());
+    }
+}
 
 /// A struct that stores configuration for gizmos.
-#[derive(Resource, Clone)]
-pub struct GizmoConfig<T: CustomGizmoConfig = GlobalGizmos> {
+#[derive(Component, Clone)]
+pub struct GizmoConfig {
     /// Set to `false` to stop drawing gizmos.
     ///
     /// Defaults to `true`.
@@ -48,11 +90,9 @@ pub struct GizmoConfig<T: CustomGizmoConfig = GlobalGizmos> {
     ///
     /// Gizmos will only be rendered to cameras with intersecting layers.
     pub render_layers: RenderLayers,
-    /// Extended configuration provided by the respective plugin.
-    pub extended: T,
 }
 
-impl<T: CustomGizmoConfig> Default for GizmoConfig<T> {
+impl Default for GizmoConfig {
     fn default() -> Self {
         Self {
             enabled: true,
@@ -60,38 +100,13 @@ impl<T: CustomGizmoConfig> Default for GizmoConfig<T> {
             line_perspective: false,
             depth_bias: 0.,
             render_layers: Default::default(),
-            extended: Default::default(),
-        }
-    }
-}
-
-// We need to get rid of the generic extended settings in the extract system to unify the rendering systems.
-// It is a component because multiple resources of the same type are not allowed.
-#[derive(Component, Debug, Clone)]
-#[allow(unused)]
-pub(crate) struct ExtractedGizmoConfig {
-    pub enabled: bool,
-    pub line_width: f32,
-    pub line_perspective: bool,
-    pub depth_bias: f32,
-    pub render_layers: RenderLayers,
-}
-
-impl<T: CustomGizmoConfig> From<&GizmoConfig<T>> for ExtractedGizmoConfig {
-    fn from(other: &GizmoConfig<T>) -> Self {
-        Self {
-            enabled: other.enabled,
-            line_width: other.line_width,
-            line_perspective: other.line_perspective,
-            depth_bias: other.depth_bias,
-            render_layers: other.render_layers,
         }
     }
 }
 
 /// Configuration for drawing the [`Aabb`] component on entities.
-#[derive(Clone, Default, TypePath)]
-pub struct AabbGizmos {
+#[derive(Resource, Default)]
+pub struct AabbGizmoConfig {
     /// Draws all bounding boxes in the scene when set to `true`.
     ///
     /// To draw a specific entity's bounding box, you can add the [`AabbGizmo`] component.
@@ -106,4 +121,4 @@ pub struct AabbGizmos {
     pub default_color: Option<Color>,
 }
 
-impl CustomGizmoConfig for AabbGizmos {}
+impl CustomGizmoConfig for AabbGizmoConfig {}

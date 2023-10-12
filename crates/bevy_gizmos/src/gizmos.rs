@@ -3,14 +3,19 @@
 use std::{f32::consts::TAU, iter, marker::PhantomData};
 
 use bevy_ecs::{
-    system::{Deferred, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
-    world::World,
+    component::Tick,
+    system::{Deferred, ReadOnlySystemParam, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_math::{Mat2, Quat, Vec2, Vec3};
 use bevy_render::color::Color;
 use bevy_transform::TransformPoint;
 
-use crate::{config::CustomGizmoConfig, config::GlobalGizmos, prelude::GizmoConfig};
+use crate::{
+    config::CustomGizmoConfig,
+    config::{DefaultGizmoConfig, GizmoConfigStore},
+    prelude::GizmoConfig,
+};
 
 type PositionItem = [f32; 3];
 type ColorItem = [f32; 4];
@@ -31,12 +36,100 @@ pub(crate) struct GizmoStorage<T: CustomGizmoConfig> {
 /// They are drawn in immediate mode, which means they will be rendered only for
 /// the frames in which they are spawned.
 /// Gizmos should be spawned before the [`Last`](bevy_app::Last) schedule to ensure they are drawn.
-#[derive(SystemParam)]
-pub struct Gizmos<'w, 's, T: CustomGizmoConfig = GlobalGizmos> {
+//#[derive(SystemParam)]
+pub struct Gizmos<'w, 's, T: CustomGizmoConfig = DefaultGizmoConfig> {
     buffer: Deferred<'s, GizmoBuffer<T>>,
-    config: Res<'w, GizmoConfig<T>>,
-    marker: PhantomData<T>,
+    _groups: Res<'w, GizmoConfigStore>,
+    config: GizmoConfig,
 }
+
+const _: () = {
+    #[doc(hidden)]
+    pub struct FetchState<T: CustomGizmoConfig> {
+        state: (
+            <Deferred<'static, GizmoBuffer<T>> as SystemParam>::State,
+            <Res<'static, GizmoConfigStore> as SystemParam>::State,
+        ),
+    }
+    unsafe impl<T: CustomGizmoConfig> bevy_ecs::system::SystemParam for Gizmos<'_, '_, T> {
+        type State = FetchState<T>;
+        type Item<'w, 's> = Gizmos<'w, 's, T>;
+        fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+            FetchState {
+                state: (
+                    <Deferred<'static, GizmoBuffer<T>> as SystemParam>::init_state(
+                        world,
+                        system_meta,
+                    ),
+                    <Res<'static, GizmoConfigStore> as SystemParam>::init_state(world, system_meta),
+                ),
+            }
+        }
+        fn new_archetype(
+            state: &mut Self::State,
+            archetype: &bevy_ecs::archetype::Archetype,
+            system_meta: &mut bevy_ecs::system::SystemMeta,
+        ) {
+            <Deferred<'static, GizmoBuffer<T>> as SystemParam>::new_archetype(
+                &mut state.state.0,
+                archetype,
+                system_meta,
+            );
+            <Res<'static, GizmoConfigStore> as SystemParam>::new_archetype(
+                &mut state.state.1,
+                archetype,
+                system_meta,
+            );
+        }
+        fn apply(
+            state: &mut Self::State,
+            system_meta: &bevy_ecs::system::SystemMeta,
+            world: &mut bevy_ecs::world::World,
+        ) {
+            <Deferred<'static, GizmoBuffer<T>> as SystemParam>::apply(
+                &mut state.state.0,
+                system_meta,
+                world,
+            );
+            <Res<'static, GizmoConfigStore> as SystemParam>::apply(
+                &mut state.state.1,
+                system_meta,
+                world,
+            );
+        }
+        unsafe fn get_param<'w, 's>(
+            state: &'s mut Self::State,
+            system_meta: &SystemMeta,
+            world: UnsafeWorldCell<'w>,
+            change_tick: Tick,
+        ) -> Self::Item<'w, 's> {
+            let f0 = <Deferred<'static, GizmoBuffer<T>> as SystemParam>::get_param(
+                &mut state.state.0,
+                system_meta,
+                world,
+                change_tick,
+            );
+            let f1 = <Res<'static, GizmoConfigStore> as SystemParam>::get_param(
+                &mut state.state.1,
+                system_meta,
+                world,
+                change_tick,
+            );
+            let config = f1.get::<T>().clone();
+            Gizmos {
+                buffer: f0,
+                _groups: f1,
+                config,
+            }
+        }
+    }
+    unsafe impl<'w, 's, T: CustomGizmoConfig> ReadOnlySystemParam for Gizmos<'w, 's, T>
+    where
+        Deferred<'s, GizmoBuffer<T>>: ReadOnlySystemParam,
+        Res<'w, GizmoConfigStore>: ReadOnlySystemParam,
+    {
+    }
+};
 
 #[derive(Default)]
 struct GizmoBuffer<T: CustomGizmoConfig> {

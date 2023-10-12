@@ -1,5 +1,5 @@
 use crate::{
-    line_gizmo_vertex_buffer_layouts, DrawLineGizmo, ExtractedGizmoConfig, LineGizmo,
+    line_gizmo_vertex_buffer_layouts, prelude::GizmoConfig, DrawLineGizmo, LineGizmo,
     LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
@@ -151,7 +151,7 @@ fn queue_line_gizmos_3d(
     mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
-    line_gizmos: Query<(Entity, &Handle<LineGizmo>, &ExtractedGizmoConfig)>,
+    line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoConfig)>,
     line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
     mut views: Query<(
         &ExtractedView,

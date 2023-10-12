@@ -3,9 +3,12 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_internal::render::{
-    settings::{Backends, WgpuSettings},
-    RenderPlugin,
+use bevy_internal::{
+    gizmos::config::GizmoConfigStore,
+    render::{
+        settings::{Backends, WgpuSettings},
+        RenderPlugin,
+    },
 };
 
 fn main() {
@@ -19,17 +22,17 @@ fn main() {
                 .into(),
             }),
         )
-        .add_gizmo_config::<MyGizmos>()
+        .init_gizmo_config::<MyGizmoConfig>()
         .add_systems(Startup, setup)
         .add_systems(Update, (system, rotate_camera, update_config))
         .run();
 }
 
 // We can create our own gizmo config!
-#[derive(Default, Clone, TypePath)]
-struct MyGizmos {}
+#[derive(Resource, Default)]
+struct MyGizmoConfig {}
 
-impl CustomGizmoConfig for MyGizmos {}
+impl CustomGizmoConfig for MyGizmoConfig {}
 
 fn setup(
     mut commands: Commands,
@@ -87,7 +90,7 @@ fn setup(
     );
 }
 
-fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyGizmos>, time: Res<Time>) {
+fn system(mut gizmos: Gizmos, mut my_gizmos: Gizmos<MyGizmoConfig>, time: Res<Time>) {
     gizmos.cuboid(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
         Color::BLACK,
@@ -127,23 +130,20 @@ fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>
 }
 
 fn update_config(
-    mut config: ResMut<GizmoConfig>,
-    mut my_config: ResMut<GizmoConfig<MyGizmos>>,
-    mut aabb_config: ResMut<GizmoConfig<AabbGizmos>>,
+    mut config_store: ResMut<GizmoConfigStore>,
+    mut aabb_config: ResMut<AabbGizmoConfig>,
     keyboard: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
+    let config = config_store.get_mut::<DefaultGizmoConfig>();
     if keyboard.just_pressed(KeyCode::D) {
         config.depth_bias = if config.depth_bias == 0. { -1. } else { 0. };
-        my_config.depth_bias = config.depth_bias;
     }
     if keyboard.just_pressed(KeyCode::P) {
         // Toggle line_perspective
         config.line_perspective ^= true;
-        my_config.line_perspective = config.line_perspective;
         // Increase the line width when line_perspective is on
         config.line_width *= if config.line_perspective { 5. } else { 1. / 5. };
-        my_config.line_width = config.line_width;
     }
 
     if keyboard.pressed(KeyCode::Right) {
@@ -154,6 +154,24 @@ fn update_config(
         config.line_width -= 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
     }
+    if keyboard.just_pressed(KeyCode::Key1) {
+        config.enabled ^= true;
+    }
+
+    let my_config = config_store.get_mut::<MyGizmoConfig>();
+    if keyboard.just_pressed(KeyCode::D) {
+        my_config.depth_bias = if my_config.depth_bias == 0. { -1. } else { 0. };
+    }
+    if keyboard.just_pressed(KeyCode::P) {
+        // Toggle line_perspective
+        my_config.line_perspective ^= true;
+        // Increase the line width when line_perspective is on
+        my_config.line_width *= if my_config.line_perspective {
+            5.
+        } else {
+            1. / 5.
+        };
+    }
 
     if keyboard.pressed(KeyCode::Up) {
         my_config.line_width += 5. * time.delta_seconds();
@@ -163,10 +181,6 @@ fn update_config(
         my_config.line_width -= 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
     }
-
-    if keyboard.just_pressed(KeyCode::Key1) {
-        config.enabled ^= true;
-    }
     if keyboard.just_pressed(KeyCode::Key2) {
         my_config.enabled ^= true;
     }
@@ -174,6 +188,6 @@ fn update_config(
     if keyboard.just_pressed(KeyCode::A) {
         // AABB gizmos are normally only drawn on entities with a ShowAabbGizmo component
         // We can change this behaviour in the extended configuration of AabbGizmos config
-        aabb_config.extended.draw_all ^= true;
+        aabb_config.draw_all ^= true;
     }
 }
