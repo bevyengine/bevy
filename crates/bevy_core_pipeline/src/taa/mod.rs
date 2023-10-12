@@ -1,5 +1,3 @@
-use std::num::NonZeroU64;
-
 use crate::{
     core_3d::{self, CORE_3D},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
@@ -38,6 +36,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
+use std::num::NonZeroU64;
 
 pub mod draw_3d_graph {
     pub mod node {
