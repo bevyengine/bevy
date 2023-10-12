@@ -146,7 +146,7 @@ impl Plugin for GizmoPlugin {
 pub trait AppGizmoBuilder {
     /// Registers [`CustomGizmoConfig`] `T` in the app enabling the use of [`Gizmos<T>`].
     ///
-    /// Configurations can be set using the [`Resource`] `T` and [`GizmoConfigStore`].
+    /// Configurations can be set using the [`GizmoConfigStore`] [`Resource`].
     fn init_gizmo_config<T: CustomGizmoConfig + Default>(&mut self) -> &mut Self;
 }
 

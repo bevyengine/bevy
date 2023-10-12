@@ -22,7 +22,7 @@ pub trait CustomGizmoConfig: 'static + Send + Sync {}
 pub struct DefaultGizmoConfig;
 impl CustomGizmoConfig for DefaultGizmoConfig {}
 
-/// A [`Resource`] storing [`GizmoConfig`] structs for all registered [`CustomGizmoConfig`]
+/// A [`Resource`] storing [`GizmoConfig`] and [`CustomGizmoConfig`] structs
 ///
 /// Use `app.init_gizmo_config::<T>()` to register a custom config.
 #[derive(Resource, Default)]
