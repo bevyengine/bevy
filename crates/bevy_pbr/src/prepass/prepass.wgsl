@@ -130,7 +130,12 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 #endif // MOTION_VECTOR_PREPASS
 
 #ifdef DEFERRED_PREPASS
+    // There isn't any material info available for this default prepass shader so we are just writing 
+    // emissive magenta out to the deferred gbuffer to be rendered by the first deferred lighting pass layer.
+    // The is here so if the default prepass fragment is used for deferred magenta will be rendered, and also
+    // as an example to show that a user could write to the deferred gbuffer if they were to start from this shader.
     out.deferred = vec4(0u, bevy_pbr::rgb9e5::vec3_to_rgb9e5_(vec3(1.0, 0.0, 1.0)), 0u, 0u);
+    out.deferred_lighting_pass_id = 1u;
 #endif
 
     return out;
