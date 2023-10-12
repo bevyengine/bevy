@@ -271,6 +271,47 @@ impl<S: States> NextState<S> {
         *self = Self::Value(state);
     }
     /// Tentatively set a planned state transition to `Some(state)`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    ///
+    /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
+    /// enum GameState {
+    ///   #[default]
+    ///   Menu,
+    ///   Playing {
+    ///     paused: bool
+    ///   }
+    /// }
+    ///
+    /// world.init_resource::<State<GameState>>();
+    /// world.init_resource::<NextState<GameState>>();
+    ///
+    /// app.add_systems((toggle_pause, apply_state_transition::<GameState>).chain());
+    ///
+    /// fn toggle_pause(mut next_state: ResMut<NextState<GameState>>) {
+    ///   next_state.setter(|s| match &s {
+    ///     GameState::Playing { paused} => GameState::Playing { paused: !paused },
+    ///     _ => s
+    ///   })
+    /// }
+    ///
+    /// // Since the state is not paused, nothing should change
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<State<GameState>>().get(), &GameState::Menu);
+    ///
+    /// world.insert_resource(State::new(GameState::Playing { paused: false}));
+    ///
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<State<GameState>>().get(), &GameState::Playing { paused: true } );
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<State<GameState>>().get(), &GameState::Playing { paused: false } );
+    ///
+    /// ```
     pub fn setter(&mut self, setter: impl Fn(S) -> S + 'static + Sync + Send) {
         *self = Self::Setter(Box::new(setter));
     }
