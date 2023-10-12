@@ -1,32 +1,33 @@
 use std::iter;
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     entity::Entity,
     prelude::Component,
     query::{Or, With},
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
-    system::{Query, Res, ResMut, Resource},
+    system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_math::vec2;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
         BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType,
-        CommandEncoderDescriptor, Extent3d, FilterMode, ImageCopyTexture, Origin3d,
-        SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, Texture, TextureAspect,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-        TextureViewDescriptor, TextureViewDimension,
+        CommandEncoderDescriptor, DynamicUniformBuffer, Extent3d, FilterMode, ImageCopyTexture,
+        Origin3d, SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, Texture,
+        TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
+        TextureUsages, TextureViewDescriptor, TextureViewDimension,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::{FallbackImage, GpuImage, Image},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::{tracing::warn, EntityHashMap};
+use bevy_utils::{tracing::warn, HashMap};
 
 use crate::LightProbe;
 
@@ -53,9 +54,16 @@ impl Plugin for EnvironmentMapPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<RenderEnvironmentMaps>()
+                .init_resource::<EnvironmentMapMeta>()
                 .add_systems(
                     Render,
                     prepare_environment_maps.in_set(RenderSet::PrepareResources),
+                )
+                .add_systems(
+                    Render,
+                    prepare_view_environment_map
+                        .after(prepare_environment_maps)
+                        .in_set(RenderSet::PrepareResources),
                 );
         }
     }
@@ -83,6 +91,12 @@ pub struct EnvironmentMapLight {
     pub specular_map: Handle<Image>,
 }
 
+#[derive(Clone, PartialEq, Hash, Eq, Debug)]
+pub struct EnvironmentMapLightId {
+    pub diffuse: AssetId<Image>,
+    pub specular: AssetId<Image>,
+}
+
 #[derive(Resource, Default)]
 pub struct RenderEnvironmentMaps {
     images: Option<RenderEnvironmentMapImages>,
@@ -90,7 +104,8 @@ pub struct RenderEnvironmentMaps {
     /// A list of references to each cubemap.
     cubemaps: Vec<RenderEnvironmentCubemap>,
 
-    entity_to_cubemap_array_index: EntityHashMap<Entity, u32>,
+    /// Maps from asset ID to index in the cubemap.
+    pub(crate) light_id_indices: HashMap<EnvironmentMapLightId, i32>,
 }
 
 pub struct RenderEnvironmentMapImages {
@@ -111,11 +126,32 @@ pub enum EnvironmentMapKind {
 #[derive(Default)]
 pub struct PrepareEnvironmentMapsNode;
 
+#[derive(Default, Resource)]
+pub struct EnvironmentMapMeta {
+    // The indices of the view environment map in the diffuse and specular
+    // cubemap arrays, used as a fallback in case no reflection probe applies to
+    // the mesh. This will be -1 if not present.
+    pub view_environment_map_indices: DynamicUniformBuffer<i32>,
+}
+
+#[derive(Component, Reflect, Default)]
+#[reflect(Component, Default)]
+pub struct ViewEnvironmentMapUniformOffset {
+    pub offset: u32,
+}
+
 impl EnvironmentMapLight {
     /// Whether or not all textures necessary to use the environment map
     /// have been loaded by the asset server.
     pub fn is_loaded(&self, images: &RenderAssets<Image>) -> bool {
         images.get(&self.diffuse_map).is_some() && images.get(&self.specular_map).is_some()
+    }
+
+    pub fn id(&self) -> EnvironmentMapLightId {
+        EnvironmentMapLightId {
+            diffuse: self.diffuse_map.id(),
+            specular: self.specular_map.id(),
+        }
     }
 }
 
@@ -161,17 +197,25 @@ pub fn get_bind_group_layout_entries(bindings: [u32; 3]) -> [BindGroupLayoutEntr
 }
 
 pub fn prepare_environment_maps(
-    reflection_probes: Query<(Entity, &EnvironmentMapLight)>,
+    reflection_probes: Query<&EnvironmentMapLight>,
     mut render_environment_maps: ResMut<RenderEnvironmentMaps>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     images: Res<RenderAssets<Image>>,
 ) {
-    render_environment_maps.clear();
+    // Skip if we have nothing to do.
+    if reflection_probes.iter().all(|reflection_probe| {
+        render_environment_maps
+            .light_id_indices
+            .contains_key(&reflection_probe.id())
+    }) {
+        return;
+    }
 
     // Gather up the reflection probes.
-    for (reflection_probe, environment_map_light) in reflection_probes.iter() {
-        render_environment_maps.add_images(reflection_probe, environment_map_light, &images);
+    render_environment_maps.clear();
+    for environment_map_light in reflection_probes.iter() {
+        render_environment_maps.add_images(environment_map_light, &images);
     }
 
     println!(
@@ -220,11 +264,16 @@ pub fn prepare_environment_maps(
 impl RenderEnvironmentMaps {
     fn add_images(
         &mut self,
-        entity: Entity,
         environment_map_light: &EnvironmentMapLight,
         images: &RenderAssets<Image>,
     ) {
         if !environment_map_light.is_loaded(images) {
+            return;
+        }
+
+        // If we've already added this environment map, then bail out.
+        let id = environment_map_light.id();
+        if self.light_id_indices.contains_key(&id) {
             return;
         }
 
@@ -250,8 +299,7 @@ impl RenderEnvironmentMaps {
             diffuse_image.size, specular_image.size
         );
 
-        self.entity_to_cubemap_array_index
-            .insert(entity, self.cubemaps.len() as u32);
+        self.light_id_indices.insert(id, self.cubemaps.len() as i32);
 
         self.cubemaps.push(RenderEnvironmentCubemap {
             diffuse_texture: diffuse_image.texture.clone(),
@@ -418,7 +466,14 @@ impl RenderEnvironmentMaps {
 
     fn clear(&mut self) {
         self.cubemaps.clear();
-        self.entity_to_cubemap_array_index.clear();
+        self.light_id_indices.clear();
+    }
+
+    pub(crate) fn get_index(&self, environment_map_light_id: &EnvironmentMapLightId) -> i32 {
+        match self.light_id_indices.get(environment_map_light_id) {
+            Some(&index) => index,
+            None => -1,
+        }
     }
 }
 
@@ -447,5 +502,36 @@ impl RenderEnvironmentMaps {
                 resource: BindingResource::Sampler(&diffuse_map.sampler),
             },
         ]
+    }
+}
+
+pub fn prepare_view_environment_map(
+    mut commands: Commands,
+    mut environment_map_meta: ResMut<EnvironmentMapMeta>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    render_environment_maps: ResMut<RenderEnvironmentMaps>,
+    views: Query<(Entity, Option<&EnvironmentMapLight>)>,
+) {
+    let views_iter = views.iter();
+    let view_count = views_iter.len();
+
+    let Some(mut writer) = environment_map_meta
+        .view_environment_map_indices
+        .get_writer(view_count, &render_device, &render_queue) else { return };
+
+    for (view_entity, environment_map_light) in views_iter {
+        let environment_map_index = match environment_map_light {
+            None => -1,
+            Some(environment_map_light) => {
+                render_environment_maps.get_index(&environment_map_light.id())
+            }
+        };
+
+        commands
+            .entity(view_entity)
+            .insert(ViewEnvironmentMapUniformOffset {
+                offset: writer.write(&environment_map_index),
+            });
     }
 }

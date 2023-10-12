@@ -2,28 +2,6 @@
 
 #import bevy_pbr::mesh_view_bindings as bindings
 
-#ifdef _COMMENT
-
-#ifdef MESH_BINDGROUP_1
-
-#ifdef PER_OBJECT_BUFFER_BATCH_SIZE
-@group(1) binding(4) var<uniform> mesh_environment_maps: array<u32, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
-#else
-@group(1) binding(4) var<uniform> mesh_environment_maps: array<u32>;
-#endif
-
-#else // MESH_BINDGROUP_1
-
-#ifdef PER_OBJECT_BUFFER_BATCH_SIZE
-@group(2) binding(4) var<uniform> mesh_environment_maps: array<u32, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
-#else
-@group(2) binding(4) var<uniform> mesh_environment_maps: array<u32>;
-#endif
-
-#endif
-
-#endif  // _COMMENT
-
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
     specular: vec3<f32>,
@@ -38,11 +16,8 @@ fn environment_map_light(
     N: vec3<f32>,
     R: vec3<f32>,
     F0: vec3<f32>,
-    instance_index: u32,
+    array_index: i32,
 ) -> EnvironmentMapLight {
-    //let array_index = mesh_environment_maps[instance_index];
-    let array_index = 0u;
-
     // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
     // Technically we could use textureNumLevels(environment_map_specular) - 1 here, but we use a uniform
     // because textureNumLevels() does not work on WebGL2

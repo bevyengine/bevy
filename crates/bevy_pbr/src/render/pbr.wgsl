@@ -7,7 +7,7 @@
 
 #import bevy_pbr::mesh_vertex_output       MeshVertexOutput
 #import bevy_pbr::mesh_bindings            mesh
-#import bevy_pbr::mesh_view_bindings       view, fog, screen_space_ambient_occlusion_texture
+#import bevy_pbr::mesh_view_bindings       view, fog, environment_map_index, screen_space_ambient_occlusion_texture
 #import bevy_pbr::mesh_view_types          FOG_MODE_OFF
 #import bevy_core_pipeline::tonemapping    screen_space_dither, powsafe, tone_mapping
 #import bevy_pbr::parallax_mapping         parallaxed_uv
@@ -137,6 +137,14 @@ fn fragment(
 
         pbr_input.V = V;
         pbr_input.occlusion = occlusion;
+
+        // Pick the reflection probe. Prefer the mesh's reflection probe, but
+        // fall back to that of the view if not present.
+        var reflection_probe_index = mesh[in.instance_index].reflection_probe_index;
+        if (reflection_probe_index < 0) {
+            reflection_probe_index = environment_map_index;
+        }
+        pbr_input.reflection_probe_index = reflection_probe_index;
 
         pbr_input.flags = mesh[in.instance_index].flags;
 

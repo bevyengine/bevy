@@ -1,9 +1,19 @@
-use bevy_app::{App, AppLabel, Plugin};
-use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent, system::Resource};
-use bevy_math::Vec3A;
+use bevy_app::{App, Plugin, PostUpdate};
+use bevy_asset::Handle;
+use bevy_ecs::{
+    component::Component,
+    entity::Entity,
+    query::With,
+    reflect::ReflectComponent,
+    system::{Commands, Query},
+};
+use bevy_math::{Mat4, Vec3A, Vec4Swizzles};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::RenderApp;
-use bevy_utils::EntityHashMap;
+use bevy_render::mesh::Mesh;
+use bevy_transform::prelude::GlobalTransform;
+use smallvec::SmallVec;
+
+use crate::{environment_map::EnvironmentMapLightId, EnvironmentMapLight};
 
 pub struct LightProbePlugin;
 
@@ -15,15 +25,16 @@ pub struct LightProbe {
     pub half_extents: Vec3A,
 }
 
-/// Which light probe is to be assigned to each mesh.
-///
-/// TODO: Allow multiple light probes to be assigned to each mesh, and
-/// interpolate between them.
-#[derive(Resource, Default)]
-pub struct RenderMeshLightProbeInstances(EntityHashMap<Entity, RenderMeshLightProbes>);
+/// Which light probes this mesh must take into account.
+#[derive(Component, Debug, Clone)]
+pub struct AppliedLightProbes {
+    pub reflection_probe: EnvironmentMapLightId,
+}
 
-pub struct RenderMeshLightProbes {
-    environment_map_index: u32,
+struct LightProbeApplicationInfo {
+    inverse_transform: Mat4,
+    half_extents: Vec3A,
+    light_probes: AppliedLightProbes,
 }
 
 impl LightProbe {
@@ -45,9 +56,51 @@ impl Default for LightProbe {
 
 impl Plugin for LightProbePlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<LightProbe>();
+        app.register_type::<LightProbe>()
+            .add_systems(PostUpdate, apply_light_probes);
+    }
+}
 
-        let Ok(ref mut render_app) = app.get_sub_app_mut(RenderApp) else { return };
-        render_app.init_resource::<RenderMeshLightProbeInstances>();
+pub fn apply_light_probes(
+    mut commands: Commands,
+    mesh_query: Query<(Entity, &GlobalTransform), With<Handle<Mesh>>>,
+    light_probe_query: Query<(&LightProbe, &EnvironmentMapLight, &GlobalTransform)>,
+) {
+    if mesh_query.is_empty() {
+        return;
+    }
+
+    let mut light_probes: SmallVec<[LightProbeApplicationInfo; 4]> = SmallVec::new();
+    for (light_probe, environment_map_light, light_probe_transform) in light_probe_query.iter() {
+        light_probes.push(LightProbeApplicationInfo {
+            inverse_transform: light_probe_transform.compute_matrix().inverse(),
+            half_extents: light_probe.half_extents,
+            light_probes: AppliedLightProbes {
+                reflection_probe: environment_map_light.id(),
+            },
+        })
+    }
+
+    // TODO: Actually look through light probes and assign them.
+    'outer: for (mesh_entity, mesh_transform) in mesh_query.iter() {
+        for light_probe_info in &light_probes {
+            let probe_space_mesh_center: Vec3A = (light_probe_info.inverse_transform
+                * mesh_transform.translation_vec3a().extend(1.0))
+            .xyz()
+            .into();
+
+            if (-light_probe_info.half_extents)
+                .cmple(probe_space_mesh_center)
+                .all()
+                && probe_space_mesh_center
+                    .cmple(light_probe_info.half_extents)
+                    .all()
+            {
+                commands
+                    .entity(mesh_entity)
+                    .insert(light_probe_info.light_probes.clone());
+                continue 'outer;
+            }
+        }
     }
 }

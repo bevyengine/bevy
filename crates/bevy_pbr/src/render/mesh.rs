@@ -1,7 +1,9 @@
 use crate::{
-    environment_map::{self, RenderEnvironmentMaps},
-    prepass, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta,
-    MaterialBindGroupId, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
+    environment_map::{
+        self, EnvironmentMapMeta, RenderEnvironmentMaps, ViewEnvironmentMapUniformOffset,
+    },
+    prepass, AppliedLightProbes, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights,
+    LightMeta, MaterialBindGroupId, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
     ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers, ViewClusterBindings,
     ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
@@ -201,19 +203,21 @@ pub struct MeshUniform {
     //   [2].z
     pub inverse_transpose_model_a: [Vec4; 2],
     pub inverse_transpose_model_b: f32,
+    pub reflection_probe_index: i32,
     pub flags: u32,
 }
 
-impl From<&MeshTransforms> for MeshUniform {
-    fn from(mesh_transforms: &MeshTransforms) -> Self {
+impl MeshUniform {
+    fn new(mesh_instance: &RenderMeshInstance) -> MeshUniform {
         let (inverse_transpose_model_a, inverse_transpose_model_b) =
-            mesh_transforms.transform.inverse_transpose_3x3();
+            mesh_instance.transforms.transform.inverse_transpose_3x3();
         Self {
-            transform: mesh_transforms.transform.to_transpose(),
-            previous_transform: mesh_transforms.previous_transform.to_transpose(),
+            transform: mesh_instance.transforms.transform.to_transpose(),
+            previous_transform: mesh_instance.transforms.previous_transform.to_transpose(),
             inverse_transpose_model_a,
             inverse_transpose_model_b,
-            flags: mesh_transforms.flags,
+            reflection_probe_index: mesh_instance.reflection_probe_index,
+            flags: mesh_instance.transforms.flags,
         }
     }
 }
@@ -235,6 +239,7 @@ pub struct RenderMeshInstance {
     pub transforms: MeshTransforms,
     pub mesh_asset_id: AssetId<Mesh>,
     pub material_bind_group_id: MaterialBindGroupId,
+    pub reflection_probe_index: i32,
     pub shadow_caster: bool,
     pub automatic_batching: bool,
 }
@@ -249,6 +254,7 @@ pub fn extract_meshes(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    render_environment_maps: Res<RenderEnvironmentMaps>,
     mut thread_local_queues: Local<ThreadLocal<Cell<Vec<(Entity, RenderMeshInstance)>>>>,
     meshes_query: Extract<
         Query<(
@@ -257,6 +263,7 @@ pub fn extract_meshes(
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
+            Option<&AppliedLightProbes>,
             Has<NotShadowReceiver>,
             Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
@@ -270,6 +277,7 @@ pub fn extract_meshes(
             transform,
             previous_transform,
             handle,
+            applied_light_probes,
             not_receiver,
             not_caster,
             no_automatic_batching,
@@ -279,6 +287,14 @@ pub fn extract_meshes(
             }
             let transform = transform.affine();
             let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
+
+            let reflection_probe_index = match applied_light_probes {
+                Some(light_probes) => {
+                    render_environment_maps.get_index(&light_probes.reflection_probe)
+                }
+                None => -1,
+            };
+
             let mut flags = if not_receiver {
                 MeshFlags::empty()
             } else {
@@ -287,6 +303,7 @@ pub fn extract_meshes(
             if transform.matrix3.determinant().is_sign_positive() {
                 flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
             }
+
             let transforms = MeshTransforms {
                 transform: (&transform).into(),
                 previous_transform: (&previous_transform).into(),
@@ -299,6 +316,7 @@ pub fn extract_meshes(
                 RenderMeshInstance {
                     mesh_asset_id: handle.id(),
                     transforms,
+                    reflection_probe_index,
                     shadow_caster: !not_caster,
                     material_bind_group_id: MaterialBindGroupId::default(),
                     automatic_batching: !no_automatic_batching,
@@ -488,9 +506,20 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
-                // Screen space ambient occlusion texture
+                // Environment map
                 BindGroupLayoutEntry {
                     binding: 11,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: Some(i32::min_size()),
+                    },
+                    count: None,
+                },
+                // Screen space ambient occlusion texture
+                BindGroupLayoutEntry {
+                    binding: 12,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
@@ -503,18 +532,18 @@ impl FromWorld for MeshPipeline {
 
             // EnvironmentMapLight
             let environment_map_entries =
-                environment_map::get_bind_group_layout_entries([12, 13, 14]);
+                environment_map::get_bind_group_layout_entries([13, 14, 15]);
             entries.extend_from_slice(&environment_map_entries);
 
             // Tonemapping
-            let tonemapping_lut_entries = get_lut_bind_group_layout_entries([15, 16]);
+            let tonemapping_lut_entries = get_lut_bind_group_layout_entries([16, 17]);
             entries.extend_from_slice(&tonemapping_lut_entries);
 
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && !multisampled)
             {
                 entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
-                    [17, 18, 19],
+                    [18, 19, 20],
                     multisampled,
                 ));
             }
@@ -617,7 +646,7 @@ impl GetBatchData for MeshPipeline {
             .get(entity)
             .expect("Failed to find render mesh instance");
         (
-            (&mesh_instance.transforms).into(),
+            MeshUniform::new(&mesh_instance),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
@@ -1046,6 +1075,7 @@ pub fn prepare_mesh_bind_group(
     let Some(model) = mesh_uniforms.binding() else {
         return;
     };
+
     groups.model_only = Some(layouts.model_only(&render_device, &model));
 
     let skin = skins_uniform.buffer.buffer();
@@ -1081,6 +1111,7 @@ pub fn prepare_mesh_view_bind_groups(
     light_meta: Res<LightMeta>,
     global_light_meta: Res<GlobalLightMeta>,
     fog_meta: Res<FogMeta>,
+    environment_map_meta: Res<EnvironmentMapMeta>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(
         Entity,
@@ -1108,12 +1139,14 @@ pub fn prepare_mesh_view_bind_groups(
         Some(point_light_binding),
         Some(globals),
         Some(fog_binding),
+        Some(environment_map_binding),
     ) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
         globals_buffer.buffer.binding(),
         fog_meta.gpu_fogs.binding(),
+        environment_map_meta.view_environment_map_indices.binding(),
     ) {
         for (
             entity,
@@ -1186,6 +1219,10 @@ pub fn prepare_mesh_view_bind_groups(
                 },
                 BindGroupEntry {
                     binding: 11,
+                    resource: environment_map_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 12,
                     resource: BindingResource::TextureView(
                         ssao_textures
                             .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
@@ -1194,11 +1231,11 @@ pub fn prepare_mesh_view_bind_groups(
                 },
             ];
 
-            let env_map = environment_maps.get_bindings(&*fallback, &[12, 13, 14]);
+            let env_map = environment_maps.get_bindings(&*fallback, &[13, 14, 15]);
             entries.extend_from_slice(&env_map);
 
             let tonemapping_luts =
-                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [15, 16]);
+                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [16, 17]);
             entries.extend_from_slice(&tonemapping_luts);
 
             // When using WebGL, we can't have a depth texture with multisampling
@@ -1210,7 +1247,7 @@ pub fn prepare_mesh_view_bind_groups(
                     &mut fallback_images,
                     &mut fallback_depths,
                     &msaa,
-                    [17, 18, 19],
+                    [18, 19, 20],
                 ));
             }
 
@@ -1234,6 +1271,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
         Read<ViewFogUniformOffset>,
+        Read<ViewEnvironmentMapUniformOffset>,
         Read<MeshViewBindGroup>,
     );
     type ItemWorldQuery = ();
@@ -1241,7 +1279,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, view_lights, view_fog, mesh_view_bind_group): ROQueryItem<
+        (view_uniform, view_lights, view_fog, view_environment_map, mesh_view_bind_group): ROQueryItem<
             'w,
             Self::ViewWorldQuery,
         >,
@@ -1252,7 +1290,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         pass.set_bind_group(
             I,
             &mesh_view_bind_group.value,
-            &[view_uniform.offset, view_lights.offset, view_fog.offset],
+            &[
+                view_uniform.offset,
+                view_lights.offset,
+                view_fog.offset,
+                view_environment_map.offset,
+            ],
         );
 
         RenderCommandResult::Success
