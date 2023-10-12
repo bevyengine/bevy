@@ -1501,7 +1501,7 @@ mod tests {
     }
 
     #[test]
-    fn test_axis_settings_filter() {
+    fn test_axis_settings_default_filter() {
         let cases = [
             (1.0, Some(1.0)),
             (0.99, Some(1.0)),
@@ -1535,7 +1535,7 @@ mod tests {
     }
 
     #[test]
-    fn test_axis_settings_filter_with_old_values() {
+    fn test_axis_settings_default_filter_with_old_values() {
         let cases = [
             (0.43, Some(0.44001), Some(0.43)),
             (0.43, Some(0.44), None),
