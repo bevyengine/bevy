@@ -3,25 +3,11 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_internal::{
-    gizmos::config::GizmoConfigStore,
-    render::{
-        settings::{Backends, WgpuSettings},
-        RenderPlugin,
-    },
-};
+use bevy_internal::gizmos::config::GizmoConfigStore;
 
 fn main() {
     App::new()
-        .add_plugins(
-            DefaultPlugins.set(RenderPlugin {
-                render_creation: WgpuSettings {
-                    backends: Some(Backends::VULKAN),
-                    ..Default::default()
-                }
-                .into(),
-            }),
-        )
+        .add_plugins(DefaultPlugins)
         .init_gizmo_config::<MyGizmoConfig>()
         .add_systems(Startup, setup)
         .add_systems(Update, (system, rotate_camera, update_config))
