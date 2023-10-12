@@ -30,18 +30,18 @@ struct DrawIndexedIndirect {
     base_instance: u32,
 }
 
-#ifndef CULLING_BINDINGS
-@group(1) @binding(0) var<storage, read> vertex_data: array<Vertex>;
-@group(1) @binding(1) var<storage, read> meshlet_vertices: array<u32>;
+#ifndef MESHLET_CULLING_BINDINGS
+@group(#{MESHLET_BIND_GROUP}) @binding(0) var<storage, read> vertex_data: array<Vertex>;
+@group(#{MESHLET_BIND_GROUP}) @binding(1) var<storage, read> meshlet_vertices: array<u32>;
 #endif
-@group(1) @binding(2) var<storage, read> meshlets: array<Meshlet>;
-@group(1) @binding(3) var<storage, read> instance_uniforms: array<Mesh>;
-@group(1) @binding(4) var<storage, read> instanced_meshlet_instance_indices: array<u32>;
-@group(1) @binding(5) var<storage, read> instanced_meshlet_meshlet_indices: array<u32>;
-#ifdef CULLING_BINDINGS
-@group(1) @binding(6) var<storage, read> meshlet_indices: array<u32>; // packed u8's
-@group(1) @binding(7) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>;
-@group(1) @binding(8) var<storage, read_write> draw_command_buffer: DrawIndexedIndirect;
-@group(1) @binding(9) var<storage, write> draw_index_buffer: array<u32>;
-@group(1) @binding(10) var<uniform> view: View;
+@group(#{MESHLET_BIND_GROUP}) @binding(2) var<storage, read> meshlets: array<Meshlet>;
+@group(#{MESHLET_BIND_GROUP}) @binding(3) var<storage, read> instance_uniforms: array<Mesh>;
+@group(#{MESHLET_BIND_GROUP}) @binding(4) var<storage, read> instanced_meshlet_instance_indices: array<u32>;
+@group(#{MESHLET_BIND_GROUP}) @binding(5) var<storage, read> instanced_meshlet_meshlet_indices: array<u32>;
+#ifdef MESHLET_CULLING_BINDINGS
+@group(#{MESHLET_BIND_GROUP}) @binding(6) var<storage, read> meshlet_indices: array<u32>; // packed u8's
+@group(#{MESHLET_BIND_GROUP}) @binding(7) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>;
+@group(#{MESHLET_BIND_GROUP}) @binding(8) var<storage, read_write> draw_command_buffer: DrawIndexedIndirect;
+@group(#{MESHLET_BIND_GROUP}) @binding(9) var<storage, write> draw_index_buffer: array<u32>;
+@group(#{MESHLET_BIND_GROUP}) @binding(10) var<uniform> view: View;
 #endif

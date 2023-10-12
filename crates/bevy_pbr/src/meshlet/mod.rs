@@ -1,4 +1,5 @@
 mod asset;
+mod culling_pipeline;
 mod from_mesh;
 mod gpu_scene;
 mod node;
@@ -12,6 +13,7 @@ pub use self::{
 };
 
 use self::{
+    culling_pipeline::{MeshletCullingPipeline, MESHLET_CULLING_SHADER_HANDLE},
     draw_3d_graph::node::MAIN_MESHLET_OPAQUE_PASS_3D,
     gpu_scene::{
         extract_meshlet_meshes, perform_pending_meshlet_mesh_writes,
@@ -20,7 +22,7 @@ use self::{
     },
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::AssetApp;
+use bevy_asset::{load_internal_asset, AssetApp, Handle};
 use bevy_core_pipeline::core_3d::{
     graph::node::{MAIN_OPAQUE_PASS, START_MAIN_PASS},
     CORE_3D,
@@ -28,14 +30,29 @@ use bevy_core_pipeline::core_3d::{
 use bevy_ecs::schedule::IntoSystemConfigs;
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
+    render_resource::Shader,
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
+
+const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
 
 // TODO: Gate plugin (and meshopt dependency) behind a cargo feature
 pub struct MeshletPlugin;
 
 impl Plugin for MeshletPlugin {
     fn build(&self, app: &mut App) {
+        load_internal_asset!(
+            app,
+            MESHLET_BINDINGS_SHADER_HANDLE,
+            "meshlet_bindings.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESHLET_CULLING_SHADER_HANDLE,
+            "cull_meshlets.wgsl",
+            Shader::from_wgsl
+        );
         app.init_asset::<MeshletMesh>();
     }
 
@@ -57,6 +74,7 @@ impl Plugin for MeshletPlugin {
             ],
         )
         .init_resource::<MeshletGpuScene>()
+        .init_resource::<MeshletCullingPipeline>()
         .add_systems(ExtractSchedule, extract_meshlet_meshes)
         .add_systems(
             Render,

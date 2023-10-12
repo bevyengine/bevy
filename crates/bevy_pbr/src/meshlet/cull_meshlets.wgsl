@@ -1,6 +1,7 @@
-#import bevy_pbr::meshlet_bindings
+#import bevy_pbr::meshlet_bindings instanced_meshlet_meshlet_indices, meshlets, draw_command_buffer, meshlet_indices, draw_index_buffer
 
-@compute(8, 8, 1)
+@compute
+@workgroup_size(8, 8, 1)
 fn cull_meshlets(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let instanced_meshlet_index = global_id.x;
     if instanced_meshlet_index <= arrayLength(&instanced_meshlet_meshlet_indices) { return; }

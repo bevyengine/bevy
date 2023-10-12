@@ -137,7 +137,9 @@ pub fn prepare_meshlet_per_frame_bind_groups(
     if gpu_scene.total_instanced_meshlet_count == 0 {
         return;
     }
-    let Some(view_uniforms) = view_uniforms.uniforms.binding() else { return; };
+    let Some(view_uniforms) = view_uniforms.uniforms.binding() else {
+        return;
+    };
 
     let entries = &[
         BindGroupEntry {
@@ -389,6 +391,7 @@ impl MeshletGpuScene {
 }
 
 fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
+    // TODO: min_binding_size
     [
         // Vertex data
         BindGroupLayoutEntry {
@@ -459,7 +462,7 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
         // Meshlet indices
         BindGroupLayoutEntry {
             binding: 6,
-            visibility: ShaderStages::VERTEX,
+            visibility: ShaderStages::COMPUTE,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: true },
                 has_dynamic_offset: false,

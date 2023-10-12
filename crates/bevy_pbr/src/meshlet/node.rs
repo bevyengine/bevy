@@ -1,4 +1,4 @@
-use super::gpu_scene::MeshletGpuScene;
+use super::{culling_pipeline::MeshletCullingPipeline, gpu_scene::MeshletGpuScene};
 use crate::{MeshViewBindGroup, ViewFogUniformOffset, ViewLightsUniformOffset};
 use bevy_core_pipeline::{
     clear_color::{ClearColor, ClearColorConfig},
@@ -62,7 +62,12 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let gpu_scene = world.resource::<MeshletGpuScene>();
+        let (Some(gpu_scene), Some(culling_pipeline)) = (
+            world.get_resource::<MeshletGpuScene>(),
+            MeshletCullingPipeline::get(world),
+        ) else {
+            return Ok(());
+        };
         let (
             total_instanced_meshlet_count,
             Some(culling_bind_group),
@@ -80,7 +85,7 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
                 label: Some("meshlet_culling_pass"),
             });
             culling_pass.set_bind_group(0, culling_bind_group, &[view_offset.offset]);
-            culling_pass.set_pipeline(todo!("Culling pipeline"));
+            culling_pass.set_pipeline(culling_pipeline);
             culling_pass.dispatch_workgroups(div_ceil(total_instanced_meshlet_count, 128), 1, 1);
         }
 

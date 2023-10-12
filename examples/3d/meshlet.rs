@@ -10,11 +10,11 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(MeshletPlugin)
-        .add_systems(Update, update)
+        .add_systems(Update, setup)
         .run();
 }
 
-fn update(
+fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut meshlet_meshes: ResMut<Assets<MeshletMesh>>,
@@ -23,6 +23,8 @@ fn update(
     mut dragon_mesh_handle: Local<Handle<Mesh>>,
 ) {
     if dragon_mesh_handle.id() == AssetId::default() {
+        commands.spawn(Camera3dBundle::default());
+
         info!("Loading dragon model...");
         *dragon_mesh_handle = asset_server.load("models/dragon.glb#Mesh0/Primitive0");
     }
