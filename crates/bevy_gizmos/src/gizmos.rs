@@ -57,23 +57,20 @@ pub struct Gizmos<'w, 's, T: CustomGizmoConfig = DefaultGizmoConfig> {
 const _: () = {
     #[doc(hidden)]
     pub struct FetchState<T: CustomGizmoConfig> {
-        state: (
-            <Deferred<'static, GizmoBuffer<T>> as SystemParam>::State,
-            <Res<'static, GizmoConfigStore> as SystemParam>::State,
-        ),
+        state: <(
+            Deferred<'static, GizmoBuffer<T>>,
+            Res<'static, GizmoConfigStore>,
+        ) as SystemParam>::State,
     }
     unsafe impl<T: CustomGizmoConfig> SystemParam for Gizmos<'_, '_, T> {
         type State = FetchState<T>;
         type Item<'w, 's> = Gizmos<'w, 's, T>;
         fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
             FetchState {
-                state: (
-                    <Deferred<'static, GizmoBuffer<T>> as SystemParam>::init_state(
-                        world,
-                        system_meta,
-                    ),
-                    <Res<'static, GizmoConfigStore> as SystemParam>::init_state(world, system_meta),
-                ),
+                state: <(
+                    Deferred<'static, GizmoBuffer<T>>,
+                    Res<'static, GizmoConfigStore>,
+                ) as SystemParam>::init_state(world, system_meta),
             }
         }
         fn new_archetype(
@@ -81,28 +78,16 @@ const _: () = {
             archetype: &bevy_ecs::archetype::Archetype,
             system_meta: &mut SystemMeta,
         ) {
-            <Deferred<'static, GizmoBuffer<T>> as SystemParam>::new_archetype(
-                &mut state.state.0,
-                archetype,
-                system_meta,
-            );
-            <Res<'static, GizmoConfigStore> as SystemParam>::new_archetype(
-                &mut state.state.1,
-                archetype,
-                system_meta,
-            );
+            <(
+                Deferred<'static, GizmoBuffer<T>>,
+                Res<'static, GizmoConfigStore>,
+            ) as SystemParam>::new_archetype(&mut state.state, archetype, system_meta);
         }
         fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
-            <Deferred<'static, GizmoBuffer<T>> as SystemParam>::apply(
-                &mut state.state.0,
-                system_meta,
-                world,
-            );
-            <Res<'static, GizmoConfigStore> as SystemParam>::apply(
-                &mut state.state.1,
-                system_meta,
-                world,
-            );
+            <(
+                Deferred<'static, GizmoBuffer<T>>,
+                Res<'static, GizmoConfigStore>,
+            ) as SystemParam>::apply(&mut state.state, system_meta, world);
         }
         unsafe fn get_param<'w, 's>(
             state: &'s mut Self::State,
@@ -110,17 +95,11 @@ const _: () = {
             world: UnsafeWorldCell<'w>,
             change_tick: Tick,
         ) -> Self::Item<'w, 's> {
-            let f0 = <Deferred<'static, GizmoBuffer<T>> as SystemParam>::get_param(
-                &mut state.state.0,
-                system_meta,
-                world,
-                change_tick,
-            );
-            let f1 = <Res<'static, GizmoConfigStore> as SystemParam>::get_param(
-                &mut state.state.1,
-                system_meta,
-                world,
-                change_tick,
+            let (f0, f1) = <(
+                Deferred<'static, GizmoBuffer<T>>,
+                Res<'static, GizmoConfigStore>,
+            ) as SystemParam>::get_param(
+                &mut state.state, system_meta, world, change_tick
             );
             // Accessing the GizmoConfigStore in the immediate mode API reduces performance significantly.
             // Implementing SystemParam manually allows us to do it to here:
