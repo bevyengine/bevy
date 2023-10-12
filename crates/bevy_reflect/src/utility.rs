@@ -2,11 +2,10 @@
 
 use crate::TypeInfo;
 use bevy_utils::{FixedState, StableHashMap};
-use once_cell::race::OnceBox;
 use std::{
     any::{Any, TypeId},
     hash::BuildHasher,
-    sync::{PoisonError, RwLock},
+    sync::{OnceLock, PoisonError, RwLock},
 };
 
 /// A type that can be stored in a ([`Non`])[`GenericTypeCell`].
@@ -89,7 +88,7 @@ mod sealed {
 /// ```
 ///
 /// [`TypePath`]: crate::TypePath
-pub struct NonGenericTypeCell<T: TypedProperty>(OnceBox<T::Stored>);
+pub struct NonGenericTypeCell<T: TypedProperty>(OnceLock<T::Stored>);
 
 /// See [`NonGenericTypeCell`].
 pub type NonGenericTypeInfoCell = NonGenericTypeCell<TypeInfo>;
@@ -97,7 +96,7 @@ pub type NonGenericTypeInfoCell = NonGenericTypeCell<TypeInfo>;
 impl<T: TypedProperty> NonGenericTypeCell<T> {
     /// Initialize a [`NonGenericTypeCell`] for non-generic types.
     pub const fn new() -> Self {
-        Self(OnceBox::new())
+        Self(OnceLock::new())
     }
 
     /// Returns a reference to the [`TypedProperty`] stored in the cell.
@@ -107,7 +106,7 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
     where
         F: FnOnce() -> T::Stored,
     {
-        self.0.get_or_init(|| Box::new(f()))
+        self.0.get_or_init(f)
     }
 }
 
