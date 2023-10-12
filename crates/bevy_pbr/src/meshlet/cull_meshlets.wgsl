@@ -18,9 +18,8 @@ fn cull_meshlets(@builtin(global_invocation_id) global_id: vec3<u32>) {
         for (var offset = 0u; offset < meshlet_index_count; offset++) {
             let packed_meshlet_index_index = meshlet.indices_index + offset;
             let packed_meshlet_index = meshlet_indices[packed_meshlet_index_index / 4u];
-            // TODO: Verify the math for extractBits here
-            let bit_offset = packed_meshlet_index_index % 4u;
-            let meshlet_index = extractBits(packed_meshlet_index, packed_meshlet_index_index * 8u, 8u);
+            let bit_offset = (packed_meshlet_index_index % 4u) * 8u;
+            let meshlet_index = extractBits(packed_meshlet_index, packed_meshlet_index_index, 8u);
 
             draw_index_buffer[draw_index_buffer_start + offset] = packed_meshlet_index | meshlet_index;
         }
