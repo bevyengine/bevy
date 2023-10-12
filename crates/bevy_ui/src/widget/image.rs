@@ -1,7 +1,7 @@
 use crate::{
     measurement::AvailableSpace, ContentSize, Measure, Node, UiImage, UiScale, UiTextureAtlasImage,
 };
-use bevy_asset::{Assets, Handle};
+use bevy_asset::Assets;
 
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::query::Without;

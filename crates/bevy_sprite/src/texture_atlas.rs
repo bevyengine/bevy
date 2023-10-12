@@ -1,10 +1,8 @@
-use crate::Anchor;
 use bevy_asset::{Asset, AssetId, Assets, Handle};
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_ecs::system::Res;
+use bevy_ecs::{component::Component, reflect::ReflectComponent, system::Res};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::Reflect;
-use bevy_render::{color::Color, texture::Image};
+use bevy_render::texture::Image;
 use bevy_utils::HashMap;
 
 /// Stores a map used to lookup the position of a texture in a [`TextureAtlas`].

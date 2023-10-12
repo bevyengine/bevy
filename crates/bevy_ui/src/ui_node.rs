@@ -1,16 +1,18 @@
 use crate::{UiRect, Val};
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
+use bevy_ecs::{
+    prelude::{Component, Res},
+    reflect::ReflectComponent,
+};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{color::Color, texture::Image};
+use bevy_sprite::TextureAtlasLayout;
 use bevy_transform::prelude::GlobalTransform;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
-use bevy_ecs::system::Res;
-use bevy_sprite::TextureAtlasLayout;
 
 /// Describes the size of a UI node
 #[derive(Component, Debug, Copy, Clone, Reflect)]
@@ -1470,7 +1472,7 @@ impl From<Handle<TextureAtlasLayout>> for UiTextureAtlasImage {
             index: 0,
             //TODO: Fix flip
             flip_x: false,
-            flip_y: false
+            flip_y: false,
         }
     }
 }

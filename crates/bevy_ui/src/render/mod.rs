@@ -32,7 +32,7 @@ use bevy_render::{
     view::{ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };
-use bevy_sprite::{SpriteAssetEvents, TextureAtlasLayout, TextureAtlas};
+use bevy_sprite::{SpriteAssetEvents, TextureAtlasLayout};
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
@@ -211,30 +211,9 @@ pub fn extract_atlas_uinodes(
             let atlas = texture_atlases.get(&atlas_image.layout).unwrap();
             let mut atlas_rect = atlas_image.texture_rect(&texture_atlases).unwrap();
             let mut atlas_size = atlas.size;
-            /*let (mut atlas_rect, mut atlas_size) =
-                if let Some(texture_atlas) = texture_atlases.get(&atlas_image.layout) {
-                    let atlas_rect = *texture_atlas
-                        .textures
-                        .get(atlas_image.index)
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "Atlas index {:?} does not exist for texture atlas handle {:?}.",
-                                atlas_image.index,
-                                image_handle,
-                            )
-                        });
-                    (
-                        atlas_rect,
-                        texture_atlas.size,
-                        //texture_atlas.texture.clone(),
-                    )
-                } else {
-                    // Atlas not present in assets resource (should this warn the user?)
-                    continue;
-                };*/
 
             // Skip loading images
-            if !images.contains(&*image_handle) {
+            if !images.contains(image_handle) {
                 continue;
             }
 
@@ -242,8 +221,6 @@ pub fn extract_atlas_uinodes(
             atlas_rect.min *= scale;
             atlas_rect.max *= scale;
             atlas_size *= scale;
-
-
 
             extracted_uinodes.uinodes.insert(
                 entity,
