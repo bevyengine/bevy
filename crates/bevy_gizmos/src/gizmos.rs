@@ -36,7 +36,6 @@ pub(crate) struct GizmoStorage<T: CustomGizmoConfig> {
 /// They are drawn in immediate mode, which means they will be rendered only for
 /// the frames in which they are spawned.
 /// Gizmos should be spawned before the [`Last`](bevy_app::Last) schedule to ensure they are drawn.
-//#[derive(SystemParam)]
 pub struct Gizmos<'w, 's, T: CustomGizmoConfig = DefaultGizmoConfig> {
     buffer: Deferred<'s, GizmoBuffer<T>>,
     _groups: Res<'w, GizmoConfigStore>,
@@ -51,7 +50,7 @@ const _: () = {
             <Res<'static, GizmoConfigStore> as SystemParam>::State,
         ),
     }
-    unsafe impl<T: CustomGizmoConfig> bevy_ecs::system::SystemParam for Gizmos<'_, '_, T> {
+    unsafe impl<T: CustomGizmoConfig> SystemParam for Gizmos<'_, '_, T> {
         type State = FetchState<T>;
         type Item<'w, 's> = Gizmos<'w, 's, T>;
         fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -68,7 +67,7 @@ const _: () = {
         fn new_archetype(
             state: &mut Self::State,
             archetype: &bevy_ecs::archetype::Archetype,
-            system_meta: &mut bevy_ecs::system::SystemMeta,
+            system_meta: &mut SystemMeta,
         ) {
             <Deferred<'static, GizmoBuffer<T>> as SystemParam>::new_archetype(
                 &mut state.state.0,
@@ -81,11 +80,7 @@ const _: () = {
                 system_meta,
             );
         }
-        fn apply(
-            state: &mut Self::State,
-            system_meta: &bevy_ecs::system::SystemMeta,
-            world: &mut bevy_ecs::world::World,
-        ) {
+        fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
             <Deferred<'static, GizmoBuffer<T>> as SystemParam>::apply(
                 &mut state.state.0,
                 system_meta,
@@ -115,6 +110,8 @@ const _: () = {
                 world,
                 change_tick,
             );
+            // Accessing the GizmoConfigStore in the immediate mode API reduces performance significantly.
+            // Implementing SystemParam manually allows us to do it to here:
             let config = f1.get::<T>().clone();
             Gizmos {
                 buffer: f0,

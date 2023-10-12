@@ -69,7 +69,7 @@ use bevy_transform::{
     components::{GlobalTransform, Transform},
     TransformSystem,
 };
-use bevy_utils::HashMap;
+use bevy_utils::{tracing::warn, HashMap};
 use config::{AabbGizmoConfig, CustomGizmoConfig, DefaultGizmoConfig, GizmoConfigStore};
 use gizmos::{GizmoStorage, Gizmos};
 use std::{any::TypeId, mem};
@@ -138,14 +138,20 @@ impl Plugin for GizmoPlugin {
     }
 }
 
-/// A trait adding `add_gizmos<T>()` to the app
+/// A trait adding `init_gizmo_config<T>()` to the app
 pub trait AppGizmoBuilder {
-    /// Adds a [`GizmoConfig<T>`] to the app enabling the use of [`Gizmos<T>`].
+    /// Registers [`CustomGizmoConfig`] `T` in the app enabling the use of [`Gizmos<T>`].
+    ///
+    /// Configurations can be set using the [`Resource`] `T` and [`GizmoConfigStore`].
     fn init_gizmo_config<T: CustomGizmoConfig>(&mut self) -> &mut Self;
 }
 
 impl AppGizmoBuilder for App {
     fn init_gizmo_config<T: CustomGizmoConfig>(&mut self) -> &mut Self {
+        if self.world.contains_resource::<GizmoStorage<T>>() {
+            return self;
+        }
+
         self.init_resource::<T>()
             .init_resource::<GizmoStorage<T>>()
             .add_systems(Last, update_gizmo_meshes::<T>);
