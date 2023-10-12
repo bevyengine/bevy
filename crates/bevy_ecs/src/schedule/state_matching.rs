@@ -791,10 +791,10 @@ mod tests {
         let state_b = State::new(TestState::B);
         let state_c = State::new(TestState::C(true));
 
-        let match_state_value = state_matches!(TestState::A);
+        let match_state_value = state_matches!(TestState, =TestState::A);
         assert!(match_state_value.match_state(&state_a));
         assert!(!match_state_value.match_state(&state_b));
-        let match_state_value = state_matches!(only_c);
+        let match_state_value = state_matches!(TestState, =only_c);
         assert!(match_state_value.match_state(&state_c));
         assert!(!match_state_value.match_state(&state_b));
     }
@@ -885,27 +885,34 @@ mod tests {
         let mut world = World::new();
 
         let match_state_value = state_matches!(TestState, C(_), every |_: &TestState| true);
+        let match_state_value_alt = state_matches!(TestState, =only_c, every |_: &TestState| true);
 
         let mut system = IntoSystem::into_system(match_state_value);
 
+        let mut system_alt = IntoSystem::into_system(match_state_value_alt);
+
         system.initialize(&mut world);
+        system_alt.initialize(&mut world);
         world.insert_resource(State::new(TestState::C(true)));
         world.insert_resource(ActiveTransition::new(
             Some(TestState::C(true)),
             Some(TestState::A),
         ));
         assert!(system.run((), &mut world));
+        assert!(system_alt.run((), &mut world));
         world.insert_resource(State::new(TestState::C(true)));
         world.insert_resource(ActiveTransition::new(
             Some(TestState::C(true)),
             Some(TestState::C(false)),
         ));
         assert!(!system.run((), &mut world));
+        assert!(!system_alt.run((), &mut world));
         world.insert_resource(ActiveTransition::new(
             Some(TestState::A),
             Some(TestState::C(true)),
         ));
         world.insert_resource(State::new(TestState::A));
         assert!(system.run((), &mut world));
+        assert!(system_alt.run((), &mut world));
     }
 }

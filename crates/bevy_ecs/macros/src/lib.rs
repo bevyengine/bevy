@@ -484,12 +484,12 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
 /// Run a system only if the current state matches the provided expressions.
 ///
 /// This can be done by:
-/// - passing in pre-existing `StateMatcher<S>`, like so `state_matches!(AppStateMatcher)`
 /// - using matching pattern, like so `state_matches!(AppState, InGame { .. })`. Note that when matching
 /// enums, you do  not need to repeat the type within the pattern.
 /// - using a closure with a type that automatically implements `StateMatcher<S>`, like so `state_matches!(AppState, |state| { /// some logic here - return a bool})`
+/// - using an expression preceded by a `=`, like so `state_matches!(=AppState::Menu)`
 ///
-/// You can also add additional comma-separated patterns or closures - which will be evaluated in order.
+/// You can also add additional comma-separated expressions, patterns or closures - which will be evaluated in order.
 #[proc_macro]
 pub fn state_matches(input: TokenStream) -> TokenStream {
     let result =

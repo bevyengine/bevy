@@ -47,10 +47,7 @@ impl Matcher {
             let state_type = if let Ok(expr) = Expr::parse(input) {
                 match &expr {
                     Expr::Path(p) => Some(p.path.clone()),
-                    Expr::Closure(_) => return Err(syn::Error::new(Span::call_site(), "Closures must define the state type at the start of the matcher macro, like so !(StateType, |...| {})")),
-                    _ => {
-                        return Ok(Self { state_type: None, matchers: vec![(false, MatcherType::Expression(expr))]});
-                    }
+                    _ => return Err(syn::Error::new(Span::call_site(), "Closures must define the state type at the start of the matcher macro, like so !(StateType, |...| {})")),
                 }
             } else {
                 None
@@ -60,19 +57,6 @@ impl Matcher {
                 return Err(syn::Error::new(Span::call_site(), "Couldn't determine the state type. Define the state type at the start of the matcher macro, like so !(StateType, Pattern or Closure)"));
             };
 
-            if !input.peek(Token![,]) {
-                return Ok(Self {
-                    state_type: None,
-                    matchers: vec![(
-                        false,
-                        MatcherType::Expression(Expr::Path(ExprPath {
-                            path: state_type,
-                            attrs: vec![],
-                            qself: None,
-                        })),
-                    )],
-                });
-            }
             input.parse::<Token![,]>()?;
             state_type
         };
@@ -123,6 +107,7 @@ impl MatcherType {
             }
         };
         let is_closure = input.peek(Token![|]) || input.peek(Token![move]);
+        let is_expr = input.peek(Token![=]);
         if is_closure {
             Ok((
                 every,
@@ -130,6 +115,11 @@ impl MatcherType {
                     Error::new(e.span(), format!("Failed to parse closure: {e:?}"))
                 })?),
             ))
+        } else if is_expr {
+            input.parse::<Token![=]>()?;
+            let expr = Expr::parse(input)
+                .map_err(|e| Error::new(e.span(), format!("Failed to parse expression: {e:?}")))?;
+            Ok((every, Self::Expression(expr)))
         } else {
             let pattern = MatcherPattern::parse_with_state_type(input, state_type)
                 .map_err(|e| Error::new(e.span(), format!("Failed to parse pattern: {e:?}")))?;
