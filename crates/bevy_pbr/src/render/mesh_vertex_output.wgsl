@@ -15,4 +15,7 @@ struct MeshVertexOutput {
     #ifdef VERTEX_COLORS
     @location(4) color: vec4<f32>,
     #endif
+    #ifdef ARRAY_TEXTURES
+    @location(5) texture_layer: i32,
+    #endif
 }
