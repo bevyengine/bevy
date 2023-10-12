@@ -1,5 +1,7 @@
 #import bevy_pbr::meshlet_bindings
 
+// TODO: Bind view fustrum / position
+
 @compute(8, 8, 1)
 fn cull_meshlets(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let instanced_meshlet_index = global_id.x;
