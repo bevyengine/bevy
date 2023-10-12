@@ -14,7 +14,7 @@ fn main() {
 }
 
 // We can create our own gizmo config!
-#[derive(Resource, Default)]
+#[derive(Default)]
 struct MyGizmoConfig {}
 
 impl CustomGizmoConfig for MyGizmoConfig {}

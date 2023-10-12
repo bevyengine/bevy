@@ -3,16 +3,10 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_internal::render::{RenderPlugin, settings::{WgpuSettings, Backends}};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(RenderPlugin {
-            render_creation: WgpuSettings {
-                backends: Some(Backends::VULKAN),
-                ..default()
-            }.into()
-        }))
+        .add_plugins(DefaultPlugins)
         .init_gizmo_config::<MyGizmoConfig>()
         .add_systems(Startup, setup)
         .add_systems(Update, (system, rotate_camera, update_config))
@@ -20,7 +14,7 @@ fn main() {
 }
 
 // We can create our own gizmo config!
-#[derive(Resource, Default)]
+#[derive(Default)]
 struct MyGizmoConfig {}
 
 impl CustomGizmoConfig for MyGizmoConfig {}
