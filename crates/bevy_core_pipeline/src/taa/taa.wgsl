@@ -11,6 +11,7 @@
 @group(0) @binding(3) var depth: texture_depth_2d;
 @group(0) @binding(4) var nearest_sampler: sampler;
 @group(0) @binding(5) var linear_sampler: sampler;
+@group(0) @binding(6) var<uniform> user_reset: f32;
 
 struct Output {
     @location(0) view_target: vec4<f32>,
@@ -139,9 +140,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     var accumulated_samples = textureSampleLevel(history, nearest_sampler, history_uv, 0.0).a;
     // If the history_uv is pointing off-screen, reset accumulated sample count
     accumulated_samples *= f32(all(saturate(history_uv) == history_uv));
-#ifdef RESET
-    accumulated_samples = 0.0;
-#endif
+    accumulated_samples *= user_reset;
     accumulated_samples = max(accumulated_samples + 1.0, 8.0);
 
     // Blend current and past sample

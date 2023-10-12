@@ -1,3 +1,5 @@
+use std::num::NonZeroU64;
+
 use crate::{
     core_3d::{self, CORE_3D},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
@@ -18,16 +20,18 @@ use bevy_math::vec2;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
+    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     prelude::{Camera, Projection},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
         BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState, MultisampleState,
-        Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
-        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
+        BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType::Uniform,
+        CachedRenderPipelineId, ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState,
+        MultisampleState, Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment,
+        RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType,
+        SamplerDescriptor, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsages, TextureViewDimension,
     },
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
@@ -54,14 +58,15 @@ impl Plugin for TemporalAntiAliasPlugin {
         load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
 
         app.insert_resource(Msaa::Off)
-            .register_type::<TemporalAntiAliasSettings>();
+            .register_type::<TemporalAntiAliasSettings>()
+            .add_plugins(UniformComponentPlugin::<TaaUniforms>::default());
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         render_app
-            .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
+            .init_resource::<SpecializedRenderPipelines<TaaPipeline>>()
             .add_systems(ExtractSchedule, extract_taa_settings)
             .add_systems(
                 Render,
@@ -91,7 +96,7 @@ impl Plugin for TemporalAntiAliasPlugin {
             return;
         };
 
-        render_app.init_resource::<TAAPipeline>();
+        render_app.init_resource::<TaaPipeline>();
     }
 }
 
@@ -173,71 +178,83 @@ impl ViewNode for TemporalAntiAliasNode {
         &'static TemporalAntiAliasHistoryTextures,
         &'static ViewPrepassTextures,
         &'static TemporalAntiAliasPipelineId,
+        &'static DynamicUniformIndex<TaaUniforms>,
     );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id): QueryItem<
-            Self::ViewQuery,
-        >,
+        (
+            camera,
+            view_target,
+            taa_history_textures,
+            prepass_textures,
+            taa_pipeline_id,
+            taa_uniforms_index,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let (Some(pipelines), Some(pipeline_cache)) = (
-            world.get_resource::<TAAPipeline>(),
+        let (Some(pipelines), Some(pipeline_cache), Some(taa_uniforms)) = (
+            world.get_resource::<TaaPipeline>(),
             world.get_resource::<PipelineCache>(),
+            world.get_resource::<ComponentUniforms<TaaUniforms>>(),
         ) else {
             return Ok(());
         };
-        let (Some(taa_pipeline), Some(prepass_motion_vectors_texture), Some(prepass_depth_texture)) = (
+        let (
+            Some(taa_pipeline),
+            Some(prepass_motion_vectors_texture),
+            Some(prepass_depth_texture),
+            Some(taa_uniforms),
+        ) = (
             pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
             &prepass_textures.motion_vectors,
             &prepass_textures.depth,
-        ) else {
+            taa_uniforms.binding(),
+        )
+        else {
             return Ok(());
         };
         let view_target = view_target.post_process_write();
 
-        let taa_bind_group =
-            render_context
-                .render_device()
-                .create_bind_group(&BindGroupDescriptor {
-                    label: Some("taa_bind_group"),
-                    layout: &pipelines.taa_bind_group_layout,
-                    entries: &[
-                        BindGroupEntry {
-                            binding: 0,
-                            resource: BindingResource::TextureView(view_target.source),
-                        },
-                        BindGroupEntry {
-                            binding: 1,
-                            resource: BindingResource::TextureView(
-                                &taa_history_textures.read.default_view,
-                            ),
-                        },
-                        BindGroupEntry {
-                            binding: 2,
-                            resource: BindingResource::TextureView(
-                                &prepass_motion_vectors_texture.default_view,
-                            ),
-                        },
-                        BindGroupEntry {
-                            binding: 3,
-                            resource: BindingResource::TextureView(
-                                &prepass_depth_texture.default_view,
-                            ),
-                        },
-                        BindGroupEntry {
-                            binding: 4,
-                            resource: BindingResource::Sampler(&pipelines.nearest_sampler),
-                        },
-                        BindGroupEntry {
-                            binding: 5,
-                            resource: BindingResource::Sampler(&pipelines.linear_sampler),
-                        },
-                    ],
-                });
+        let render_device = render_context.render_device();
+        let taa_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("taa_bind_group"),
+            layout: &pipelines.taa_bind_group_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(view_target.source),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(&taa_history_textures.read.default_view),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::TextureView(
+                        &prepass_motion_vectors_texture.default_view,
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: BindingResource::TextureView(&prepass_depth_texture.default_view),
+                },
+                BindGroupEntry {
+                    binding: 4,
+                    resource: BindingResource::Sampler(&pipelines.nearest_sampler),
+                },
+                BindGroupEntry {
+                    binding: 5,
+                    resource: BindingResource::Sampler(&pipelines.linear_sampler),
+                },
+                BindGroupEntry {
+                    binding: 6,
+                    resource: taa_uniforms,
+                },
+            ],
+        });
 
         {
             let mut taa_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
@@ -257,7 +274,7 @@ impl ViewNode for TemporalAntiAliasNode {
                 depth_stencil_attachment: None,
             });
             taa_pass.set_render_pipeline(taa_pipeline);
-            taa_pass.set_bind_group(0, &taa_bind_group, &[]);
+            taa_pass.set_bind_group(0, &taa_bind_group, &[taa_uniforms_index.index()]);
             if let Some(viewport) = camera.viewport.as_ref() {
                 taa_pass.set_camera_viewport(viewport);
             }
@@ -269,13 +286,13 @@ impl ViewNode for TemporalAntiAliasNode {
 }
 
 #[derive(Resource)]
-struct TAAPipeline {
+struct TaaPipeline {
     taa_bind_group_layout: BindGroupLayout,
     nearest_sampler: Sampler,
     linear_sampler: Sampler,
 }
 
-impl FromWorld for TAAPipeline {
+impl FromWorld for TaaPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
@@ -354,10 +371,21 @@ impl FromWorld for TAAPipeline {
                         ty: BindingType::Sampler(SamplerBindingType::Filtering),
                         count: None,
                     },
+                    // TAA uniforms
+                    BindGroupLayoutEntry {
+                        binding: 6,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Buffer {
+                            ty: Uniform,
+                            has_dynamic_offset: true,
+                            min_binding_size: NonZeroU64::new(4),
+                        },
+                        count: None,
+                    },
                 ],
             });
 
-        TAAPipeline {
+        TaaPipeline {
             taa_bind_group_layout,
             nearest_sampler,
             linear_sampler,
@@ -366,13 +394,12 @@ impl FromWorld for TAAPipeline {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
-struct TAAPipelineKey {
+struct TaaPipelineKey {
     hdr: bool,
-    reset: bool,
 }
 
-impl SpecializedRenderPipeline for TAAPipeline {
-    type Key = TAAPipelineKey;
+impl SpecializedRenderPipeline for TaaPipeline {
+    type Key = TaaPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![];
@@ -383,10 +410,6 @@ impl SpecializedRenderPipeline for TAAPipeline {
         } else {
             TextureFormat::bevy_default()
         };
-
-        if key.reset {
-            shader_defs.push("RESET".into());
-        }
 
         RenderPipelineDescriptor {
             label: Some("taa_pipeline".into()),
@@ -431,7 +454,9 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
     {
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         if camera.is_active && has_perspective_projection {
-            commands.get_or_spawn(entity).insert(taa_settings.clone());
+            commands.get_or_spawn(entity).insert(TaaUniforms {
+                user_reset: (1 - (taa_settings.reset as u32)) as f32,
+            });
             taa_settings.reset = false;
         }
     }
@@ -439,10 +464,7 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
 
 fn prepare_taa_jitter_and_mip_bias(
     frame_count: Res<FrameCount>,
-    mut query: Query<
-        (Entity, &mut TemporalJitter, Option<&MipBias>),
-        With<TemporalAntiAliasSettings>,
-    >,
+    mut query: Query<(Entity, &mut TemporalJitter, Option<&MipBias>), With<TaaUniforms>>,
     mut commands: Commands,
 ) {
     // Halton sequence (2, 3) - 0.5, skipping i = 0
@@ -479,7 +501,7 @@ fn prepare_taa_history_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     frame_count: Res<FrameCount>,
-    views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasSettings>>,
+    views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TaaUniforms>>,
 ) {
     for (entity, camera, view) in &views {
         if let Some(physical_viewport_size) = camera.physical_viewport_size {
@@ -531,25 +553,21 @@ pub struct TemporalAntiAliasPipelineId(CachedRenderPipelineId);
 fn prepare_taa_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<TAAPipeline>>,
-    pipeline: Res<TAAPipeline>,
-    views: Query<(Entity, &ExtractedView, &TemporalAntiAliasSettings)>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<TaaPipeline>>,
+    pipeline: Res<TaaPipeline>,
+    views: Query<(Entity, &ExtractedView), With<TaaUniforms>>,
 ) {
-    for (entity, view, taa_settings) in &views {
-        let mut pipeline_key = TAAPipelineKey {
-            hdr: view.hdr,
-            reset: taa_settings.reset,
-        };
-        let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key.clone());
-
-        // Prepare non-reset pipeline anyways - it will be necessary next frame
-        if pipeline_key.reset {
-            pipeline_key.reset = false;
-            pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key);
-        }
+    for (entity, view) in &views {
+        let pipeline_id =
+            pipelines.specialize(&pipeline_cache, &pipeline, TaaPipelineKey { hdr: view.hdr });
 
         commands
             .entity(entity)
             .insert(TemporalAntiAliasPipelineId(pipeline_id));
     }
+}
+
+#[derive(Component, ShaderType, Clone)]
+pub struct TaaUniforms {
+    user_reset: f32,
 }
