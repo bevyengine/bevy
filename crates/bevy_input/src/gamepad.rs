@@ -1501,7 +1501,7 @@ mod tests {
     }
 
     #[test]
-    fn test_axis_settings_default_filter() {
+    fn test_axis_settings_filter() {
         let cases = [
             (1.0, Some(1.0)),
             (0.99, Some(1.0)),
@@ -1529,13 +1529,13 @@ mod tests {
         ];
 
         for (new_value, expected) in cases {
-            let settings = AxisSettings::default();
+            let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
             test_axis_settings_filter(settings, new_value, None, expected);
         }
     }
 
     #[test]
-    fn test_axis_settings_default_filter_with_old_values() {
+    fn test_axis_settings_filter_with_old_values() {
         let cases = [
             (0.43, Some(0.44001), Some(0.43)),
             (0.43, Some(0.44), None),
@@ -1556,7 +1556,7 @@ mod tests {
         ];
 
         for (new_value, old_value, expected) in cases {
-            let settings = AxisSettings::default();
+            let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
             test_axis_settings_filter(settings, new_value, old_value, expected);
         }
     }
