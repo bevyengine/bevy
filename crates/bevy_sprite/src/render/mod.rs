@@ -325,12 +325,14 @@ pub struct ExtractedSprite {
     pub flip_x: bool,
     pub flip_y: bool,
     pub anchor: Vec2,
+    /// For cases where additional ExtractedSprites are created during extraction, this stores the
+    /// entity that caused that creation for use in determining visibility.
+    pub original_entity: Option<Entity>,
 }
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
     pub sprites: EntityHashMap<Entity, ExtractedSprite>,
-    pub original_entities: HashMap<Entity, Entity>,
 }
 
 #[derive(Resource, Default)]
@@ -373,7 +375,6 @@ pub fn extract_sprites(
     >,
 ) {
     extracted_sprites.sprites.clear();
-    extracted_sprites.original_entities.clear();
 
     for (entity, view_visibility, sprite, transform, handle) in sprite_query.iter() {
         if !view_visibility.get() {
@@ -392,6 +393,7 @@ pub fn extract_sprites(
                 flip_y: sprite.flip_y,
                 image_handle_id: handle.id(),
                 anchor: sprite.anchor.as_vec(),
+                original_entity: None,
             },
         );
     }
@@ -427,6 +429,7 @@ pub fn extract_sprites(
                     flip_y: atlas_sprite.flip_y,
                     image_handle_id: texture_atlas.texture.id(),
                     anchor: atlas_sprite.anchor.as_vec(),
+                    original_entity: None,
                 },
             );
         }
@@ -552,13 +555,9 @@ pub fn queue_sprites(
             .reserve(extracted_sprites.sprites.len());
 
         for (entity, extracted_sprite) in extracted_sprites.sprites.iter() {
-            if !view_entities.contains(entity.index() as usize)
-                && !extracted_sprites
-                    .original_entities
-                    .get(entity)
-                    .map(|orig| view_entities.contains(orig.index() as usize))
-                    .unwrap_or(false)
-            {
+            let index = extracted_sprite.original_entity.unwrap_or(*entity).index();
+
+            if !view_entities.contains(index as usize) {
                 continue;
             }
 

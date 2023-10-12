@@ -140,11 +140,9 @@ pub fn extract_text2d_sprite(
                     flip_x: false,
                     flip_y: false,
                     anchor: Anchor::Center.as_vec(),
+                    original_entity: Some(original_entity),
                 },
             );
-            extracted_sprites
-                .original_entities
-                .insert(entity, original_entity);
         }
     }
 }
