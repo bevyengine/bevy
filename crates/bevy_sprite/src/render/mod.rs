@@ -552,12 +552,13 @@ pub fn queue_sprites(
             .reserve(extracted_sprites.sprites.len());
 
         for (entity, extracted_sprite) in extracted_sprites.sprites.iter() {
-            let orig = extracted_sprites
-                .original_entities
-                .get(entity)
-                .unwrap_or(entity);
-
-            if !view_entities.contains(orig.index() as usize) {
+            if !view_entities.contains(entity.index() as usize)
+                && !extracted_sprites
+                    .original_entities
+                    .get(entity)
+                    .map(|orig| view_entities.contains(orig.index() as usize))
+                    .unwrap_or(false)
+            {
                 continue;
             }
 
