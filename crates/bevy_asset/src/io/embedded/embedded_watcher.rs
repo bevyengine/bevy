@@ -14,6 +14,10 @@ use std::{
     sync::Arc,
 };
 
+/// A watcher for assets stored in the `embedded` asset source. Embedded assets are assets whose
+/// bytes have been embedded into the Rust binary using the [`embedded_asset`](crate::io::embedded::embedded_asset) macro.
+/// This watcher will watch for changes to the "source files", read the contents of changed files from the file system
+/// and overwrite the initial static bytes of the file embedded in the binary with the new dynamically loaded bytes.
 pub struct EmbeddedWatcher {
     _watcher: Debouncer<RecommendedWatcher, FileIdMap>,
 }
@@ -54,6 +58,7 @@ impl FilesystemEventHandler for EmbeddedEventHandler {
     fn begin(&mut self) {
         self.last_event = None;
     }
+
     fn get_path(&self, absolute_path: &Path) -> Option<(PathBuf, bool)> {
         let (local_path, is_meta) = get_asset_path(&self.root, absolute_path);
         let final_path = self.root_paths.read().get(&local_path)?.clone();

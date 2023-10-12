@@ -14,6 +14,11 @@ use notify_debouncer_full::{
 };
 use std::path::{Path, PathBuf};
 
+/// An [`AssetWatcher`] that watches the filesystem for changes to asset files in a given root folder and emits [`AssetSourceEvent`]
+/// for each relevant change. This uses [`notify_debouncer_full`] to retrieve "debounced" filesystem events.
+/// "Debouncing" defines a time window to hold on to events and then removes duplicate events that fall into this window.
+/// This introduces a small delay in processing events, but it helps reduce event duplicates. A small delay is also necessary
+/// on some systems to avoid processing a change event before it has actually been applied.
 pub struct FileWatcher {
     _watcher: Debouncer<RecommendedWatcher, FileIdMap>,
 }

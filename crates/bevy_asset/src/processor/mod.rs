@@ -867,16 +867,16 @@ impl AssetProcessor {
                             }
                             LogEntryError::UnfinishedTransaction(path) => {
                                 debug!("Asset {path:?} did not finish processing. Clearning state for that asset");
-                                let mut unrecoverable_err = |message: &str| {
-                                    error!("Failed to remove asset {path:?} because {message}");
+                                let mut unrecoverable_err = |message: &dyn std::fmt::Display| {
+                                    error!("Failed to remove asset {path:?}: {message}");
                                     state_is_valid = false;
                                 };
                                 let Ok(source) = self.get_source(path.source()) else {
-                                    (unrecoverable_err)("AssetSource does not exist");
+                                    (unrecoverable_err)(&"AssetSource does not exist");
                                     continue;
                                 };
                                 let Ok(processed_writer) = source.processed_writer() else {
-                                    (unrecoverable_err)("AssetSource does not have a processed AssetWriter registered");
+                                    (unrecoverable_err)(&"AssetSource does not have a processed AssetWriter registered");
                                     continue;
                                 };
 
@@ -885,7 +885,7 @@ impl AssetProcessor {
                                         AssetWriterError::Io(err) => {
                                             // any error but NotFound means we could be in a bad state
                                             if err.kind() != ErrorKind::NotFound {
-                                                (unrecoverable_err)("Failed to remove asset");
+                                                (unrecoverable_err)(&err);
                                             }
                                         }
                                     }
@@ -895,7 +895,7 @@ impl AssetProcessor {
                                         AssetWriterError::Io(err) => {
                                             // any error but NotFound means we could be in a bad state
                                             if err.kind() != ErrorKind::NotFound {
-                                                (unrecoverable_err)("Failed to remove asset meta");
+                                                (unrecoverable_err)(&err);
                                             }
                                         }
                                     }
