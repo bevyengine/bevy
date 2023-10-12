@@ -612,6 +612,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "deferred_rendering"
+path = "examples/3d/deferred_rendering.rs"
+
+[package.metadata.example.deferred_rendering]
+name = "Deferred Rendering"
+description = "Renders meshes with both forward and deferred pipelines"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 doc-scrape-examples = true

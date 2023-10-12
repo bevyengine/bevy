@@ -1,6 +1,6 @@
 #import bevy_pbr::mesh_vertex_output    MeshVertexOutput
 #import bevy_pbr::mesh_view_bindings    view
-#import bevy_pbr::pbr_types             STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT
+#import bevy_pbr::pbr_types             STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT, PbrInput, pbr_input_new
 #import bevy_core_pipeline::tonemapping tone_mapping
 #import bevy_pbr::pbr_functions as fns
 
@@ -16,7 +16,7 @@ fn fragment(
 
     // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
     // the material members
-    var pbr_input: fns::PbrInput = fns::pbr_input_new();
+    var pbr_input: PbrInput = pbr_input_new();
 
     pbr_input.material.base_color = textureSample(my_array_texture, my_array_texture_sampler, mesh.uv, layer);
 #ifdef VERTEX_COLORS
