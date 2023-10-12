@@ -1,6 +1,10 @@
 //! A module for the [`GizmoConfig<T>`] [`Resource`].
 
-use std::any::TypeId;
+use core::panic;
+use std::{
+    any::TypeId,
+    ops::{Deref, DerefMut},
+};
 
 use bevy_ecs::{component::Component, system::Resource};
 use bevy_render::{color::Color, view::RenderLayers};
@@ -10,11 +14,11 @@ use bevy_utils::HashMap;
 ///
 /// Here you can store additional configuration for you gizmos not covered by [`GizmoConfig`]
 ///
-/// Make sure to derive [`Default`], [`Clone`] and register in the app using `app.init_gizmo_config::<T>()`
-pub trait CustomGizmoConfig: 'static + Default + Resource + Send + Sync {}
+/// Make sure to derive [`Default`] and register in the app using `app.init_gizmo_config::<T>()`
+pub trait CustomGizmoConfig: 'static + Send + Sync {}
 
 /// The default gizmo config.
-#[derive(Resource, Default)]
+#[derive(Default)]
 pub struct DefaultGizmoConfig;
 impl CustomGizmoConfig for DefaultGizmoConfig {}
 
@@ -24,17 +28,35 @@ impl CustomGizmoConfig for DefaultGizmoConfig {}
 #[derive(Resource, Default)]
 pub struct GizmoConfigStore {
     store: HashMap<TypeId, GizmoConfig>,
+    // SAFETY: store_ext must map TypeId::of::<T>() to correct type T
+    store_ext: HashMap<TypeId, Box<dyn CustomGizmoConfig>>,
 }
 
 impl GizmoConfigStore {
-    /// Returns [`GizmoConfig`] associated with [`CustomGizmoConfig`] `T`
-    pub fn get<T: CustomGizmoConfig>(&self) -> &GizmoConfig {
-        self.store.get(&TypeId::of::<T>()).unwrap()
+    /// Returns [`GizmoConfig`] and [`CustomGizmoConfig`] associated with [`CustomGizmoConfig`] `T`
+    pub fn get<T: CustomGizmoConfig>(&self) -> (&GizmoConfig, &T) {
+        let Some(config) = self.store.get(&TypeId::of::<T>()) else {
+            panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_config<T>()`?", std::any::type_name::<T>());
+        };
+        let ext = self.store_ext.get(&TypeId::of::<T>()).unwrap().deref();
+        // SAFETY: hash map invariant guarantees that `&dyn CustomGizmoConfig` is of correct type T
+        let ext = unsafe { &*(ext as *const dyn CustomGizmoConfig as *const T) };
+        (config, ext)
     }
 
-    /// Returns mutable [`GizmoConfig`] associated with [`CustomGizmoConfig`] `T`
-    pub fn get_mut<T: CustomGizmoConfig>(&mut self) -> &mut GizmoConfig {
-        self.store.get_mut(&TypeId::of::<T>()).unwrap()
+    /// Returns mutable [`GizmoConfig`] and [`CustomGizmoConfig`] associated with [`CustomGizmoConfig`] `T`
+    pub fn get_mut<T: CustomGizmoConfig>(&mut self) -> (&mut GizmoConfig, &mut T) {
+        let Some(config) = self.store.get_mut(&TypeId::of::<T>()) else {
+            panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_config<T>()`?", std::any::type_name::<T>());
+        };
+        let ext = self
+            .store_ext
+            .get_mut(&TypeId::of::<T>())
+            .unwrap()
+            .deref_mut();
+        // SAFETY: hash map invariant guarantees that `&dyn CustomGizmoConfig` is of correct type T
+        let ext = unsafe { &mut *(ext as *mut dyn CustomGizmoConfig as *mut T) };
+        (config, ext)
     }
 
     /// Returns an iterator over all [`GizmoConfigs`]s.
@@ -47,12 +69,15 @@ impl GizmoConfigStore {
         self.store.values_mut()
     }
 
-    pub(crate) fn insert<T: CustomGizmoConfig>(&mut self, config: GizmoConfig) {
+    pub(crate) fn insert<T: CustomGizmoConfig>(&mut self, config: GizmoConfig, ext_config: T) {
         self.store.insert(TypeId::of::<T>(), config);
+        // SAFETY: hash map must only map TypeId::of::<T>() to Box<T>
+        self.store_ext
+            .insert(TypeId::of::<T>(), Box::new(ext_config));
     }
 
-    pub(crate) fn regsiter<T: CustomGizmoConfig>(&mut self) {
-        self.insert::<T>(GizmoConfig::default());
+    pub(crate) fn regsiter<T: CustomGizmoConfig + Default>(&mut self) {
+        self.insert::<T>(GizmoConfig::default(), T::default());
     }
 }
 
@@ -105,7 +130,7 @@ impl Default for GizmoConfig {
 }
 
 /// Configuration for drawing the [`Aabb`] component on entities.
-#[derive(Resource, Default)]
+#[derive(Default)]
 pub struct AabbGizmoConfig {
     /// Draws all bounding boxes in the scene when set to `true`.
     ///

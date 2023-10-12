@@ -116,11 +116,10 @@ fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>
 
 fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
-    mut aabb_config: ResMut<AabbGizmoConfig>,
     keyboard: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
-    let config = config_store.get_mut::<DefaultGizmoConfig>();
+    let (config, _) = config_store.get_mut::<DefaultGizmoConfig>();
     if keyboard.just_pressed(KeyCode::D) {
         config.depth_bias = if config.depth_bias == 0. { -1. } else { 0. };
     }
@@ -143,7 +142,7 @@ fn update_config(
         config.enabled ^= true;
     }
 
-    let my_config = config_store.get_mut::<MyGizmoConfig>();
+    let (my_config, _) = config_store.get_mut::<MyGizmoConfig>();
     if keyboard.just_pressed(KeyCode::D) {
         my_config.depth_bias = if my_config.depth_bias == 0. { -1. } else { 0. };
     }
@@ -173,6 +172,6 @@ fn update_config(
     if keyboard.just_pressed(KeyCode::A) {
         // AABB gizmos are normally only drawn on entities with a ShowAabbGizmo component
         // We can change this behaviour in the extended configuration of AabbGizmos config
-        aabb_config.draw_all ^= true;
+        config_store.get_mut::<AabbGizmoConfig>().1.draw_all ^= true;
     }
 }

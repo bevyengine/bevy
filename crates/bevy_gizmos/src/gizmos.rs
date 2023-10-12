@@ -22,13 +22,25 @@ type ColorItem = [f32; 4];
 
 const DEFAULT_CIRCLE_SEGMENTS: usize = 32;
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub(crate) struct GizmoStorage<T: CustomGizmoConfig> {
     pub list_positions: Vec<PositionItem>,
     pub list_colors: Vec<ColorItem>,
     pub strip_positions: Vec<PositionItem>,
     pub strip_colors: Vec<ColorItem>,
     marker: PhantomData<T>,
+}
+
+impl<T: CustomGizmoConfig> Default for GizmoStorage<T> {
+    fn default() -> Self {
+        Self {
+            list_positions: Default::default(),
+            list_colors: Default::default(),
+            strip_positions: Default::default(),
+            strip_colors: Default::default(),
+            marker: Default::default(),
+        }
+    }
 }
 
 /// A [`SystemParam`] for drawing gizmos.
@@ -112,7 +124,7 @@ const _: () = {
             );
             // Accessing the GizmoConfigStore in the immediate mode API reduces performance significantly.
             // Implementing SystemParam manually allows us to do it to here:
-            let config = f1.get::<T>().clone();
+            let config = f1.get::<T>().0.clone();
             Gizmos {
                 buffer: f0,
                 _groups: f1,
@@ -128,13 +140,24 @@ const _: () = {
     }
 };
 
-#[derive(Default)]
 struct GizmoBuffer<T: CustomGizmoConfig> {
     list_positions: Vec<PositionItem>,
     list_colors: Vec<ColorItem>,
     strip_positions: Vec<PositionItem>,
     strip_colors: Vec<ColorItem>,
     marker: PhantomData<T>,
+}
+
+impl<T: CustomGizmoConfig> Default for GizmoBuffer<T> {
+    fn default() -> Self {
+        Self {
+            list_positions: Default::default(),
+            list_colors: Default::default(),
+            strip_positions: Default::default(),
+            strip_colors: Default::default(),
+            marker: Default::default(),
+        }
+    }
 }
 
 impl<T: CustomGizmoConfig> SystemBuffer for GizmoBuffer<T> {

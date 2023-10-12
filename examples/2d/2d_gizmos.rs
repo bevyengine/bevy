@@ -71,7 +71,7 @@ fn update_config(
     keyboard: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
-    let config = config_store.get_mut::<DefaultGizmoConfig>();
+    let (config, _) = config_store.get_mut::<DefaultGizmoConfig>();
     if keyboard.pressed(KeyCode::Right) {
         config.line_width += 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
@@ -84,7 +84,7 @@ fn update_config(
         config.enabled ^= true;
     }
 
-    let my_config = config_store.get_mut::<MyGizmoConfig>();
+    let (my_config, _) = config_store.get_mut::<MyGizmoConfig>();
     if keyboard.pressed(KeyCode::Up) {
         my_config.line_width += 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
