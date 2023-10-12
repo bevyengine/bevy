@@ -176,8 +176,9 @@ fn fragment(
         pbr_functions::alpha_discard(pbr_bindings::material, output_color);
 #ifdef DEFERRED_PREPASS    
         var pbr_input = pbr_types::pbr_input_new();
+        pbr_input.flags = mesh[in.instance_index].flags;
+        pbr_input.material.flags = pbr_bindings::material.flags;
         pbr_input.material.base_color = output_color;
-        pbr_input.material.flags |= pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT;
         out.deferred = pbr_deferred_functions::deferred_gbuffer_from_pbr_input(pbr_input);
         out.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
 #ifdef NORMAL_PREPASS

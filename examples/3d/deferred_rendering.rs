@@ -12,12 +12,12 @@ use bevy::{
     prelude::*,
     render::render_resource::TextureFormat,
 };
+use bevy_internal::pbr::NotShadowReceiver;
 
 fn main() {
     App::new()
         .insert_resource(Msaa::Off)
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
-        .insert_resource(ClearColor(Color::rgb_linear(0.05, 0.05, 0.05)))
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 1.0 / 5.0f32,
@@ -193,6 +193,23 @@ fn setup(
             ..default()
         });
     }
+
+    // sky
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Box::default())),
+            material: materials.add(StandardMaterial {
+                base_color: Color::hex("888888").unwrap(),
+                unlit: true,
+                cull_mode: None,
+                ..default()
+            }),
+            transform: Transform::from_scale(Vec3::splat(1_000_000.0)),
+            ..default()
+        },
+        NotShadowCaster,
+        NotShadowReceiver,
+    ));
 
     // Example instructions
     commands.spawn(
