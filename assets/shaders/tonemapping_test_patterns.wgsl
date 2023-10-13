@@ -1,6 +1,6 @@
 #import bevy_pbr::mesh_view_bindings
 #import bevy_pbr::mesh_bindings
-#import bevy_pbr::mesh_vertex_output  MeshVertexOutput
+#import bevy_pbr::forward_io  VertexOutput
 #import bevy_pbr::utils               PI
 
 #ifdef TONEMAP_IN_SHADER
@@ -43,7 +43,7 @@ fn continuous_hue(uv: vec2<f32>) -> vec3<f32> {
 
 @fragment
 fn fragment(
-    in: MeshVertexOutput,
+    in: VertexOutput,
 ) -> @location(0) vec4<f32> {
     var uv = in.uv;
     var out = vec3(0.0);

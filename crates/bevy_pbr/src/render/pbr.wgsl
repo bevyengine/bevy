@@ -17,12 +17,11 @@
 #endif
 
 #ifdef DEFERRED_PREPASS
-#import bevy_pbr::pbr_deferred_types as pbr_deferred_types
-#import bevy_pbr::pbr_deferred_functions as pbr_deferred_functions
-#import bevy_pbr::pbr_prepass_functions as pbr_prepass_functions
-#import bevy_pbr::prepass_io as prepass_io
+#import bevy_pbr::pbr_deferred_functions deferred_gbuffer_from_pbr_input
+#import bevy_pbr::pbr_prepass_functions calculate_motion_vector
+#import bevy_pbr::prepass_io VertexOutput, FragmentOutput
 #else // DEFERRED_PREPASS
-#import bevy_pbr::mesh_vertex_output as mesh_vertex_output
+#import bevy_pbr::forward_io VertexOutput, FragmentOutput
 #endif // DEFERRED_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
@@ -30,21 +29,16 @@
 var<uniform> previous_view_proj: mat4x4<f32>;
 #endif // MOTION_VECTOR_PREPASS
 
-
 @fragment
-#ifdef DEFERRED_PREPASS
 fn fragment(
-        in: prepass_io::FragmentInput,
-        @builtin(front_facing) is_front: bool,
-    ) -> prepass_io::FragmentOutput {
-    var out: prepass_io::FragmentOutput;
-#else // DEFERRED_PREPASS
-fn fragment(
-        in: mesh_vertex_output::MeshVertexOutput,
-        @builtin(front_facing) is_front: bool,
-    ) -> @location(0) vec4<f32> {
-#endif // DEFERRED_PREPASS
-    var output_color: vec4<f32> = pbr_bindings::material.base_color;
+    in: VertexOutput,
+    @builtin(front_facing) is_front: bool,
+) -> FragmentOutput {
+    var out: FragmentOutput;
+
+    // calculate unlit color
+    // ---------------------
+    var unlit_color: vec4<f32> = pbr_bindings::material.base_color;
 
     let is_orthographic = view.projection[3].w == 1.0;
     let V = pbr_functions::calculate_view(in.world_position, is_orthographic);
@@ -72,25 +66,31 @@ fn fragment(
 #endif
 
 #ifdef VERTEX_COLORS
-    output_color = output_color * in.color;
+    unlit_color = unlit_color * in.color;
 #endif
 #ifdef VERTEX_UVS
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
-        output_color = output_color * textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv, view.mip_bias);
+        unlit_color = unlit_color * textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv, view.mip_bias);
     }
-#endif // VERTEX_UVS
+#endif
 
+    // gather pbr lighting data
+    // ------------------
+    var pbr_input: pbr_types::PbrInput;
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
         // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
         // the material members
-        var pbr_input: pbr_types::PbrInput;
 
-        pbr_input.material.base_color = output_color;
         pbr_input.material.reflectance = pbr_bindings::material.reflectance;
         pbr_input.material.flags = pbr_bindings::material.flags;
         pbr_input.material.alpha_cutoff = pbr_bindings::material.alpha_cutoff;
+        pbr_input.frag_coord = in.position;
+        pbr_input.world_position = in.world_position;
+        pbr_input.is_orthographic = is_orthographic;
+        pbr_input.flags = mesh[in.instance_index].flags;
 
+        // emmissive
         // TODO use .a for exposure compensation in HDR
         var emissive: vec4<f32> = pbr_bindings::material.emissive;
 #ifdef VERTEX_UVS
@@ -100,6 +100,7 @@ fn fragment(
 #endif
         pbr_input.material.emissive = emissive;
 
+        // metallic and perceptual roughness
         var metallic: f32 = pbr_bindings::material.metallic;
         var perceptual_roughness: f32 = pbr_bindings::material.perceptual_roughness;
 #ifdef VERTEX_UVS
@@ -113,6 +114,7 @@ fn fragment(
         pbr_input.material.metallic = metallic;
         pbr_input.material.perceptual_roughness = perceptual_roughness;
 
+        // occlusion
         // TODO: Split into diffuse/specular occlusion?
         var occlusion: vec3<f32> = vec3(1.0);
 #ifdef VERTEX_UVS
@@ -120,26 +122,21 @@ fn fragment(
             occlusion = vec3(textureSampleBias(pbr_bindings::occlusion_texture, pbr_bindings::occlusion_sampler, uv, view.mip_bias).r);
         }
 #endif
-#ifndef DEFERRED_PREPASS
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
         let ssao_multibounce = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
         occlusion = min(occlusion, ssao_multibounce);
-#endif // SCREEN_SPACE_AMBIENT_OCCLUSION
-#endif // DEFERRED_PREPASS
+#endif
         pbr_input.occlusion = occlusion;
 
-        pbr_input.frag_coord = in.position;
-        pbr_input.world_position = in.world_position;
-
+        // world normal
         pbr_input.world_normal = pbr_functions::prepare_world_normal(
             in.world_normal,
             (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
             is_front,
         );
 
-        pbr_input.is_orthographic = is_orthographic;
-
+        // N (normal vector)
 #ifdef LOAD_PREPASS_NORMALS
         pbr_input.N = bevy_pbr::prepass_utils::prepass_normal(in.position, 0u);
 #else
@@ -158,45 +155,48 @@ fn fragment(
         );
 #endif
 
+        // V (view vector)
         pbr_input.V = V;
-        pbr_input.occlusion = occlusion;
 
-        pbr_input.flags = mesh[in.instance_index].flags;
-#ifdef DEFERRED_PREPASS
-        pbr_functions::alpha_discard(pbr_bindings::material, output_color);
-        out.deferred = pbr_deferred_functions::deferred_gbuffer_from_pbr_input(pbr_input);
-        out.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
-#ifdef NORMAL_PREPASS
-        out.normal = vec4(pbr_input.N * 0.5 + vec3(0.5), 1.0);
-#endif // NORMAL_PREPASS
-#else // DEFERRED_PREPASS
-        output_color = pbr_functions::pbr(pbr_input);
-#endif // DEFERRED_PREPASS
     } else { // if UNLIT_BIT != 0
-        pbr_functions::alpha_discard(pbr_bindings::material, output_color);
-#ifdef DEFERRED_PREPASS    
-        var pbr_input = pbr_types::pbr_input_new();
+#ifdef DEFERRED_PREPASS
+        // in deferred mode, we need to fill some of the pbr input data even for unlit materials
+        // to pass through the gbuffer to the deferred lighting shader        
+        pbr_input = pbr_types::pbr_input_new();
         pbr_input.flags = mesh[in.instance_index].flags;
         pbr_input.material.flags = pbr_bindings::material.flags;
-        pbr_input.material.base_color = output_color;
         pbr_input.world_position = in.world_position;
-        pbr_input.world_normal = in.world_normal;
-        pbr_input.frag_coord = in.position;
-        out.deferred = pbr_deferred_functions::deferred_gbuffer_from_pbr_input(pbr_input);
-        out.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
-#ifdef NORMAL_PREPASS
-        out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
 #endif
-#endif // DEFERRED_PREPASS
     }
 
+    // apply alpha discard
+    // -------------------
+    // note even though this is based on the unlit color, it must be done after all texture samples for uniform control flow
+    unlit_color = pbr_functions::alpha_discard(pbr_bindings::material, unlit_color);
+    pbr_input.material.base_color = unlit_color;
+
+    // generate output
+    // ---------------
 #ifdef DEFERRED_PREPASS
+    // write the gbuffer
+    out.deferred = deferred_gbuffer_from_pbr_input(pbr_input);
+    out.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
+#ifdef NORMAL_PREPASS
+    out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
+#endif
 #ifdef MOTION_VECTOR_PREPASS
-    out.motion_vector = pbr_prepass_functions::calculate_motion_vector(in.world_position, in.previous_world_position);
+    out.motion_vector = calculate_motion_vector(in.world_position, in.previous_world_position);
 #endif // MOTION_VECTOR_PREPASS
-    return out;
-#else //DEFERRED_PREPASS
-    // fog
+
+#else // DEFERRED_PREPASS
+
+    // in forward mode, we calculate the lit color immediately, and then apply some post-lighting effects here.
+    // in deferred mode the lit color and these effects will be calculated in the deferred lighting shader
+    var output_color = unlit_color;
+    if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
+        output_color = pbr_functions::pbr(pbr_input);
+    }
+
     if (fog.mode != FOG_MODE_OFF && (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
         output_color = pbr_functions::apply_fog(fog, output_color, in.world_position.xyz, view.world_position.xyz);
     }
@@ -217,6 +217,10 @@ fn fragment(
     output_color = pbr_functions::premultiply_alpha(pbr_bindings::material.flags, output_color);
 #endif
 
-    return output_color;
+    // write the final pixel color
+    out.color = output_color;
+
 #endif //DEFERRED_PREPASS
+
+    return out;
 }

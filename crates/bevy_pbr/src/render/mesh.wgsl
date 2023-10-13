@@ -2,35 +2,8 @@
 #import bevy_pbr::skinning
 #import bevy_pbr::morph
 #import bevy_pbr::mesh_bindings       mesh
-#import bevy_pbr::mesh_vertex_output  MeshVertexOutput
+#import bevy_pbr::forward_io          Vertex, VertexOutput
 #import bevy_render::instance_index   get_instance_index
-
-struct Vertex {
-    @builtin(instance_index) instance_index: u32,
-#ifdef VERTEX_POSITIONS
-    @location(0) position: vec3<f32>,
-#endif
-#ifdef VERTEX_NORMALS
-    @location(1) normal: vec3<f32>,
-#endif
-#ifdef VERTEX_UVS
-    @location(2) uv: vec2<f32>,
-#endif
-// (Alternate UVs are at location 3, but they're currently unused here.)
-#ifdef VERTEX_TANGENTS
-    @location(4) tangent: vec4<f32>,
-#endif
-#ifdef VERTEX_COLORS
-    @location(5) color: vec4<f32>,
-#endif
-#ifdef SKINNED
-    @location(6) joint_indices: vec4<u32>,
-    @location(7) joint_weights: vec4<f32>,
-#endif
-#ifdef MORPH_TARGETS
-    @builtin(vertex_index) index: u32,
-#endif
-};
 
 #ifdef MORPH_TARGETS
 fn morph_vertex(vertex_in: Vertex) -> Vertex {
@@ -54,8 +27,8 @@ fn morph_vertex(vertex_in: Vertex) -> Vertex {
 #endif
 
 @vertex
-fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
-    var out: MeshVertexOutput;
+fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
+    var out: VertexOutput;
 
 #ifdef MORPH_TARGETS
     var vertex = morph_vertex(vertex_no_morph);
@@ -118,7 +91,7 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
 
 @fragment
 fn fragment(
-    mesh: MeshVertexOutput,
+    mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
 #ifdef VERTEX_COLORS
     return mesh.color;

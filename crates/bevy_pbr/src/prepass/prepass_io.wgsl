@@ -32,7 +32,9 @@ struct Vertex {
 }
 
 struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
+    // This is `clip position` when the struct is used as a vertex stage output
+    // and `frag coord` when used as a fragment stage input
+    @builtin(position) position: vec4<f32>,
 
 #ifdef VERTEX_UVS
     @location(0) uv: vec2<f32>,
@@ -61,36 +63,6 @@ struct VertexOutput {
     @location(7) color: vec4<f32>,
 #endif
 }
-
-struct FragmentInput {
-    @builtin(position) position: vec4<f32>,
-#ifdef VERTEX_UVS
-    @location(0) uv: vec2<f32>,
-#endif // VERTEX_UVS
-
-#ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
-    @location(1) world_normal: vec3<f32>,
-#ifdef VERTEX_TANGENTS
-    @location(2) world_tangent: vec4<f32>,
-#endif
-#endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
-
-    @location(3) world_position: vec4<f32>,
-#ifdef MOTION_VECTOR_PREPASS
-    @location(4) previous_world_position: vec4<f32>,
-#endif // MOTION_VECTOR_PREPASS
-
-#ifdef DEPTH_CLAMP_ORTHO
-    @location(5) clip_position_unclamped: vec4<f32>,
-#endif // DEPTH_CLAMP_ORTHO
-#ifdef VERTEX_OUTPUT_INSTANCE_INDEX
-    @location(6) instance_index: u32,
-#endif
-
-#ifdef VERTEX_COLORS
-    @location(7) color: vec4<f32>,
-#endif
-};
 
 #ifdef PREPASS_FRAGMENT
 struct FragmentOutput {
