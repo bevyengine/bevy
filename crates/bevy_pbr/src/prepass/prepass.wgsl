@@ -1,6 +1,6 @@
 #import bevy_pbr::prepass_bindings
 #import bevy_pbr::mesh_functions
-#import bevy_pbr::prepass_io Vertex, VertexOutput, FragmentInput, FragmentOutput
+#import bevy_pbr::prepass_io Vertex, VertexOutput, FragmentOutput
 #import bevy_pbr::skinning
 #import bevy_pbr::morph
 #import bevy_pbr::mesh_bindings mesh
@@ -50,10 +50,10 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var model = bevy_pbr::mesh_functions::get_model_matrix(vertex_no_morph.instance_index);
 #endif // SKINNED
 
-    out.clip_position = bevy_pbr::mesh_functions::mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
+    out.position = bevy_pbr::mesh_functions::mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
 #ifdef DEPTH_CLAMP_ORTHO
-    out.clip_position_unclamped = out.clip_position;
-    out.clip_position.z = min(out.clip_position.z, 1.0);
+    out.clip_position_unclamped = out.position;
+    out.position.z = min(out.position.z, 1.0);
 #endif // DEPTH_CLAMP_ORTHO
 
 #ifdef VERTEX_UVS
@@ -111,7 +111,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
 #ifdef PREPASS_FRAGMENT
 @fragment
-fn fragment(in: FragmentInput) -> FragmentOutput {
+fn fragment(in: VertexOutput) -> FragmentOutput {
     var out: FragmentOutput;
 
 #ifdef NORMAL_PREPASS

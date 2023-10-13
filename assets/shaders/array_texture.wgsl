@@ -1,4 +1,4 @@
-#import bevy_pbr::mesh_vertex_output    MeshVertexOutput
+#import bevy_pbr::forward_io    VertexOutput
 #import bevy_pbr::mesh_view_bindings    view
 #import bevy_pbr::pbr_types             STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT, PbrInput, pbr_input_new
 #import bevy_core_pipeline::tonemapping tone_mapping
@@ -10,7 +10,7 @@
 @fragment
 fn fragment(
     @builtin(front_facing) is_front: bool,
-    mesh: MeshVertexOutput,
+    mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
     let layer = i32(mesh.world_position.x) & 0x3;
 
