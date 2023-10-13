@@ -1,11 +1,12 @@
 use std::{
+    collections::BTreeSet,
     fmt::{Debug, Write},
     result::Result,
 };
 
-use bevy_utils::default;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
+use bevy_utils::{default, tracing::info};
 use bevy_utils::{
     petgraph::{algo::TarjanScc, prelude::*},
     thiserror::Error,
@@ -18,6 +19,7 @@ use fixedbitset::FixedBitSet;
 use crate::{
     self as bevy_ecs,
     component::{ComponentId, Components, Tick},
+    prelude::Component,
     schedule::*,
     system::{BoxedSystem, Resource, System},
     world::World,
@@ -27,6 +29,8 @@ use crate::{
 #[derive(Default, Resource)]
 pub struct Schedules {
     inner: HashMap<BoxedScheduleLabel, Schedule>,
+    /// List of [`ComponentId`]s to ignore when reporting system order ambiguity conflicts
+    pub ignored_scheduling_ambiguities: BTreeSet<ComponentId>,
 }
 
 impl Schedules {
@@ -34,6 +38,7 @@ impl Schedules {
     pub fn new() -> Self {
         Self {
             inner: HashMap::new(),
+            ignored_scheduling_ambiguities: BTreeSet::new(),
         }
     }
 
@@ -95,7 +100,7 @@ impl Schedules {
         let _all_span = info_span!("check stored schedule ticks").entered();
         // label used when trace feature is enabled
         #[allow(unused_variables)]
-        for (label, schedule) in self.inner.iter_mut() {
+        for (label, schedule) in &mut self.inner {
             #[cfg(feature = "trace")]
             let name = format!("{label:?}");
             #[cfg(feature = "trace")]
@@ -106,9 +111,41 @@ impl Schedules {
 
     /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
     pub fn configure_schedules(&mut self, schedule_build_settings: ScheduleBuildSettings) {
-        for (_, schedule) in self.inner.iter_mut() {
+        for (_, schedule) in &mut self.inner {
             schedule.set_build_settings(schedule_build_settings.clone());
         }
+    }
+
+    /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
+    pub fn allow_ambiguous_component<T: Component>(&mut self, world: &mut World) {
+        self.ignored_scheduling_ambiguities
+            .insert(world.init_component::<T>());
+    }
+
+    /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
+    pub fn allow_ambiguous_resource<T: Resource>(&mut self, world: &mut World) {
+        self.ignored_scheduling_ambiguities
+            .insert(world.components.init_resource::<T>());
+    }
+
+    /// Iterate through the [`ComponentId`]'s that will be ignored.
+    pub fn iter_ignored_ambiguities(&self) -> impl Iterator<Item = &ComponentId> + '_ {
+        self.ignored_scheduling_ambiguities.iter()
+    }
+
+    /// Prints the names of the components and resources with [`info`]
+    ///
+    /// May panic or retrieve incorrect names if [`Components`] is not from the same
+    /// world
+    pub fn print_ignored_ambiguities(&self, components: &Components) {
+        let mut message =
+            "System order ambiguities caused by conflicts on the following types are ignored:\n"
+                .to_string();
+        for id in self.iter_ignored_ambiguities() {
+            writeln!(message, "{}", components.get_name(*id).unwrap()).unwrap();
+        }
+
+        info!("{}", message);
     }
 }
 
@@ -237,7 +274,7 @@ impl Schedule {
 
     /// Set whether the schedule applies deferred system buffers on final time or not. This is a catch-all
     /// in case a system uses commands but was not explicitly ordered before an instance of
-    /// [`apply_deferred`](crate::prelude::apply_deferred). By default this
+    /// [`apply_deferred`]. By default this
     /// setting is true, but may be disabled if needed.
     pub fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) -> &mut Self {
         self.executor.set_apply_final_deferred(apply_final_deferred);
@@ -251,7 +288,7 @@ impl Schedule {
 
         world.check_change_ticks();
         self.initialize(world)
-            .unwrap_or_else(|e| panic!("Error when intializing schedule {:?}: {e}", self.name));
+            .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.name));
         self.executor.run(&mut self.executable, world);
     }
 
@@ -262,8 +299,16 @@ impl Schedule {
     pub fn initialize(&mut self, world: &mut World) -> Result<(), ScheduleBuildError> {
         if self.graph.changed {
             self.graph.initialize(world);
-            self.graph
-                .update_schedule(&mut self.executable, world.components(), &self.name)?;
+            let ignored_ambiguities = world
+                .get_resource_or_insert_with::<Schedules>(Schedules::default)
+                .ignored_scheduling_ambiguities
+                .clone();
+            self.graph.update_schedule(
+                &mut self.executable,
+                world.components(),
+                &ignored_ambiguities,
+                &self.name,
+            )?;
             self.graph.changed = false;
             self.executor_initialized = false;
         }
@@ -297,13 +342,13 @@ impl Schedule {
         }
 
         for conditions in &mut self.executable.system_conditions {
-            for system in conditions.iter_mut() {
+            for system in conditions {
                 system.check_change_tick(change_tick);
             }
         }
 
         for conditions in &mut self.executable.set_conditions {
-            for system in conditions.iter_mut() {
+            for system in conditions {
                 system.check_change_tick(change_tick);
             }
         }
@@ -871,6 +916,7 @@ impl ScheduleGraph {
         &mut self,
         components: &Components,
         schedule_label: &BoxedScheduleLabel,
+        ignored_ambiguities: &BTreeSet<ComponentId>,
     ) -> Result<SystemSchedule, ScheduleBuildError> {
         // check hierarchy for cycles
         self.hierarchy.topsort =
@@ -919,8 +965,11 @@ impl ScheduleGraph {
         let ambiguous_with_flattened = self.get_ambiguous_with_flattened(&set_systems);
 
         // check for conflicts
-        let conflicting_systems =
-            self.get_conflicting_systems(&flat_results.disconnected, &ambiguous_with_flattened);
+        let conflicting_systems = self.get_conflicting_systems(
+            &flat_results.disconnected,
+            &ambiguous_with_flattened,
+            ignored_ambiguities,
+        );
         self.optionally_check_conflicts(&conflicting_systems, components, schedule_label)?;
         self.conflicting_systems = conflicting_systems;
 
@@ -973,7 +1022,7 @@ impl ScheduleGraph {
         // have to do it like this to preserve transitivity
         let mut dependency_flattened = self.dependency.graph.clone();
         let mut temp = Vec::new();
-        for (&set, systems) in set_systems.iter() {
+        for (&set, systems) in set_systems {
             if systems.is_empty() {
                 for a in dependency_flattened.neighbors_directed(set, Direction::Incoming) {
                     for b in dependency_flattened.neighbors_directed(set, Direction::Outgoing) {
@@ -1040,6 +1089,7 @@ impl ScheduleGraph {
         &self,
         flat_results_disconnected: &Vec<(NodeId, NodeId)>,
         ambiguous_with_flattened: &GraphMap<NodeId, (), Undirected>,
+        ignored_ambiguities: &BTreeSet<ComponentId>,
     ) -> Vec<(NodeId, NodeId, Vec<ComponentId>)> {
         let mut conflicting_systems = Vec::new();
         for &(a, b) in flat_results_disconnected {
@@ -1058,8 +1108,15 @@ impl ScheduleGraph {
                 let access_a = system_a.component_access();
                 let access_b = system_b.component_access();
                 if !access_a.is_compatible(access_b) {
-                    let conflicts = access_a.get_conflicts(access_b);
-                    conflicting_systems.push((a, b, conflicts));
+                    let conflicts: Vec<_> = access_a
+                        .get_conflicts(access_b)
+                        .into_iter()
+                        .filter(|id| !ignored_ambiguities.contains(id))
+                        .collect();
+
+                    if !conflicts.is_empty() {
+                        conflicting_systems.push((a, b, conflicts));
+                    }
                 }
             }
         }
@@ -1171,6 +1228,7 @@ impl ScheduleGraph {
         &mut self,
         schedule: &mut SystemSchedule,
         components: &Components,
+        ignored_ambiguities: &BTreeSet<ComponentId>,
         schedule_label: &BoxedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
         if !self.uninit.is_empty() {
@@ -1196,7 +1254,7 @@ impl ScheduleGraph {
             self.system_set_conditions[id.index()] = conditions;
         }
 
-        *schedule = self.build_schedule(components, schedule_label)?;
+        *schedule = self.build_schedule(components, schedule_label, ignored_ambiguities)?;
 
         // move systems into new schedule
         for &id in &schedule.system_ids {
@@ -1456,7 +1514,7 @@ impl ScheduleGraph {
         dep_results: &CheckGraphResults<NodeId>,
         hier_results_connected: &HashSet<(NodeId, NodeId)>,
     ) -> Result<(), ScheduleBuildError> {
-        for &(a, b) in dep_results.connected.iter() {
+        for &(a, b) in &dep_results.connected {
             if hier_results_connected.contains(&(a, b)) || hier_results_connected.contains(&(b, a))
             {
                 let name_a = self.get_node_name(&a);
@@ -1474,7 +1532,7 @@ impl ScheduleGraph {
         set_system_bitsets: &HashMap<NodeId, FixedBitSet>,
     ) -> Result<(), ScheduleBuildError> {
         // check that there is no ordering between system sets that intersect
-        for (a, b) in dep_results_connected.iter() {
+        for (a, b) in dep_results_connected {
             if !(a.is_set() && b.is_set()) {
                 continue;
             }
@@ -1497,7 +1555,7 @@ impl ScheduleGraph {
         &self,
         set_systems: &HashMap<NodeId, Vec<NodeId>>,
     ) -> Result<(), ScheduleBuildError> {
-        for (&id, systems) in set_systems.iter() {
+        for (&id, systems) in set_systems {
             let set = &self.system_sets[id.index()];
             if set.is_system_type() {
                 let instances = systems.len();
@@ -1570,7 +1628,7 @@ impl ScheduleGraph {
         message
     }
 
-    /// convert conflics to human readable format
+    /// convert conflicts to human readable format
     pub fn conflicts_to_string<'a>(
         &'a self,
         ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],

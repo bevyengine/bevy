@@ -23,7 +23,6 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.12.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
 
-anyhow = "1.0"
 async-broadcast = "0.5"
 async-fs = "1.5"
 async-lock = "2.8"
@@ -36,7 +35,7 @@ parking_lot = { version = "0.12", features = ["arc_lock", "send_guard"] }
 ron = "0.8"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1.0"
-notify-debouncer-full = { version = "0.2.0", optional = true }
+notify-debouncer-full = { version = "0.3.1", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 bevy_winit = { path = "../bevy_winit", version = "0.12.0-dev" }

@@ -3,7 +3,6 @@ use crate::{
     processor::{AssetProcessorData, ProcessStatus},
     AssetPath,
 };
-use anyhow::Result;
 use async_lock::RwLockReadGuardArc;
 use bevy_log::trace;
 use bevy_utils::BoxedFuture;
@@ -36,7 +35,7 @@ impl ProcessorGatedReader {
     ) -> Result<RwLockReadGuardArc<()>, AssetReaderError> {
         let infos = self.processor_data.asset_infos.read().await;
         let info = infos
-            .get(&AssetPath::new(path.to_owned(), None))
+            .get(&AssetPath::from_path(path.to_path_buf()))
             .ok_or_else(|| AssetReaderError::NotFound(path.to_owned()))?;
         Ok(info.file_transaction_lock.read_arc().await)
     }

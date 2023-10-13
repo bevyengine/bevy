@@ -13,8 +13,8 @@ use crate::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
         AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
-    AssetLoadError, AssetLoaderError, AssetPath, AssetServer, DeserializeMetaError,
-    LoadDirectError, MissingAssetLoaderForExtensionError, CANNOT_WATCH_ERROR_MESSAGE,
+    AssetLoadError, AssetPath, AssetServer, DeserializeMetaError,
+    MissingAssetLoaderForExtensionError, CANNOT_WATCH_ERROR_MESSAGE,
 };
 use bevy_ecs::prelude::*;
 use bevy_log::{debug, error, trace, warn};
@@ -166,7 +166,7 @@ impl AssetProcessor {
             let processor = _processor.clone();
             std::thread::spawn(move || {
                 processor.process_assets();
-                futures_lite::future::block_on(processor.listen_for_source_change_events());
+                bevy_tasks::block_on(processor.listen_for_source_change_events());
             });
         }
     }
@@ -190,7 +190,7 @@ impl AssetProcessor {
         });
         // This must happen _after_ the scope resolves or it will happen "too early"
         // Don't move this into the async scope above! process_assets is a blocking/sync function this is fine
-        futures_lite::future::block_on(self.finish_processing_assets());
+        bevy_tasks::block_on(self.finish_processing_assets());
         let end_time = std::time::Instant::now();
         debug!("Processing finished in {:?}", end_time - start_time);
     }
@@ -364,7 +364,7 @@ impl AssetProcessor {
     /// asset have finished, thanks to the `file_transaction_lock`.
     async fn handle_removed_asset(&self, path: PathBuf) {
         debug!("Removing processed {:?} because source was removed", path);
-        let asset_path = AssetPath::new(path, None);
+        let asset_path = AssetPath::from_path(path);
         let mut infos = self.data.asset_infos.write().await;
         if let Some(info) = infos.get(&asset_path) {
             // we must wait for uncontested write access to the asset source to ensure existing readers / writers
@@ -380,19 +380,19 @@ impl AssetProcessor {
     /// This will cause direct path dependencies to break.
     async fn handle_renamed_asset(&self, old: PathBuf, new: PathBuf) {
         let mut infos = self.data.asset_infos.write().await;
-        let old_asset_path = AssetPath::new(old, None);
+        let old_asset_path = AssetPath::from_path(old);
         if let Some(info) = infos.get(&old_asset_path) {
             // we must wait for uncontested write access to the asset source to ensure existing readers / writers
             // can finish their operations
             let _write_lock = info.file_transaction_lock.write();
-            let old = &old_asset_path.path;
+            let old = old_asset_path.path();
             self.destination_writer().rename(old, &new).await.unwrap();
             self.destination_writer()
                 .rename_meta(old, &new)
                 .await
                 .unwrap();
         }
-        let new_asset_path = AssetPath::new(new.clone(), None);
+        let new_asset_path = AssetPath::from_path(new);
         infos.rename(&old_asset_path, &new_asset_path).await;
     }
 
@@ -531,11 +531,11 @@ impl AssetProcessor {
         .map_err(InitializeError::FailedToReadDestinationPaths)?;
 
         for path in &source_paths {
-            asset_infos.get_or_insert(AssetPath::new(path.to_owned(), None));
+            asset_infos.get_or_insert(AssetPath::from_path(path.clone()));
         }
 
         for path in &destination_paths {
-            let asset_path = AssetPath::new(path.to_owned(), None);
+            let asset_path = AssetPath::from_path(path.clone());
             let mut dependencies = Vec::new();
             if let Some(info) = asset_infos.get_mut(&asset_path) {
                 match self.destination_reader().read_meta_bytes(path).await {
@@ -551,7 +551,7 @@ impl AssetProcessor {
                                     for process_dependency_info in
                                         &processed_info.process_dependencies
                                     {
-                                        dependencies.push(process_dependency_info.path.to_owned());
+                                        dependencies.push(process_dependency_info.path.clone());
                                     }
                                 }
                                 info.processed_info = minimal.processed_info;
@@ -573,7 +573,7 @@ impl AssetProcessor {
             }
 
             for dependency in dependencies {
-                asset_infos.add_dependant(&dependency, asset_path.to_owned());
+                asset_infos.add_dependant(&dependency, asset_path.clone());
             }
         }
 
@@ -627,7 +627,7 @@ impl AssetProcessor {
     async fn process_asset(&self, path: &Path) {
         let result = self.process_asset_internal(path).await;
         let mut infos = self.data.asset_infos.write().await;
-        let asset_path = AssetPath::new(path.to_owned(), None);
+        let asset_path = AssetPath::from_path(path.to_owned());
         infos.finish_processing(asset_path, result).await;
     }
 
@@ -635,7 +635,7 @@ impl AssetProcessor {
         if path.extension().is_none() {
             return Err(ProcessError::ExtensionRequired);
         }
-        let asset_path = AssetPath::new(path.to_owned(), None);
+        let asset_path = AssetPath::from_path(path.to_path_buf());
         // TODO: check if already processing to protect against duplicate hot-reload events
         debug!("Processing {:?}", path);
         let server = &self.server;
@@ -817,7 +817,7 @@ impl AssetProcessor {
                                 break;
                             }
                             LogEntryError::UnfinishedTransaction(path) => {
-                                debug!("Asset {path:?} did not finish processing. Clearning state for that asset");
+                                debug!("Asset {path:?} did not finish processing. Clearing state for that asset");
                                 if let Err(err) = self.destination_writer().remove(&path).await {
                                     match err {
                                         AssetWriterError::Io(err) => {
@@ -912,7 +912,7 @@ impl AssetProcessorData {
         self.wait_until_initialized().await;
         let mut receiver = {
             let infos = self.asset_infos.write().await;
-            let info = infos.get(&AssetPath::new(path.to_owned(), None));
+            let info = infos.get(&AssetPath::from_path(path.to_path_buf()));
             match info {
                 Some(info) => match info.status {
                     Some(result) => return result,
@@ -991,7 +991,7 @@ pub(crate) struct ProcessorAssetInfo {
     /// * when processing assets in parallel, the processor might read an asset's process_dependencies when processing new versions of those dependencies
     ///     * this second scenario almost certainly isn't possible with the current implementation, but its worth protecting against
     /// This lock defends against those scenarios by ensuring readers don't read while processed files are being written. And it ensures
-    /// Because this lock is shared across meta and asset bytes, readers can esure they don't read "old" versions of metadata with "new" asset data.  
+    /// Because this lock is shared across meta and asset bytes, readers can ensure they don't read "old" versions of metadata with "new" asset data.
     pub(crate) file_transaction_lock: Arc<async_lock::RwLock<()>>,
     status_sender: async_broadcast::Sender<ProcessStatus>,
     status_receiver: async_broadcast::Receiver<ProcessStatus>,
@@ -1067,7 +1067,7 @@ impl ProcessorAssetInfos {
         } else {
             let dependants = self
                 .non_existent_dependants
-                .entry(asset_path.to_owned())
+                .entry(asset_path.clone())
                 .or_default();
             dependants.insert(dependant);
         }
@@ -1130,20 +1130,17 @@ impl ProcessorAssetInfos {
             Err(err) => {
                 error!("Failed to process asset {:?}: {:?}", asset_path, err);
                 // if this failed because a dependency could not be loaded, make sure it is reprocessed if that dependency is reprocessed
-                if let ProcessError::AssetLoadError(AssetLoadError::AssetLoaderError {
-                    error: AssetLoaderError::Load(loader_error),
-                    ..
+                if let ProcessError::AssetLoadError(AssetLoadError::CannotLoadDependency {
+                    path: dependency,
                 }) = err
                 {
-                    if let Some(error) = loader_error.downcast_ref::<LoadDirectError>() {
-                        let info = self.get_mut(&asset_path).expect("info should exist");
-                        info.processed_info = Some(ProcessedInfo {
-                            hash: AssetHash::default(),
-                            full_hash: AssetHash::default(),
-                            process_dependencies: vec![],
-                        });
-                        self.add_dependant(&error.dependency, asset_path.to_owned());
-                    }
+                    let info = self.get_mut(&asset_path).expect("info should exist");
+                    info.processed_info = Some(ProcessedInfo {
+                        hash: AssetHash::default(),
+                        full_hash: AssetHash::default(),
+                        process_dependencies: vec![],
+                    });
+                    self.add_dependant(&dependency, asset_path.to_owned());
                 }
 
                 let info = self.get_mut(&asset_path).expect("info should exist");

@@ -55,7 +55,7 @@ pub struct Fxaa {
 
     /// Use lower sensitivity for a sharper, faster, result.
     /// Use higher sensitivity for a slower, smoother, result.
-    /// [Ultra](`Sensitivity::Ultra`) and [Extreme](`Sensitivity::Extreme`)
+    /// [`Ultra`](`Sensitivity::Ultra`) and [`Extreme`](`Sensitivity::Extreme`)
     /// settings can result in significant smearing and loss of detail.
 
     /// The minimum amount of local contrast required to apply algorithm.

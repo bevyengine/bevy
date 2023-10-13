@@ -1,5 +1,4 @@
 use crate::io::{AssetSourceEvent, AssetWatcher};
-use anyhow::Result;
 use bevy_log::error;
 use bevy_utils::Duration;
 use crossbeam_channel::Sender;
@@ -45,17 +44,6 @@ impl FileWatcher {
                                 notify::EventKind::Create(CreateKind::Folder) => {
                                     let (path, _) = get_asset_path(&owned_root, &event.paths[0]);
                                     sender.send(AssetSourceEvent::AddedFolder(path)).unwrap();
-                                }
-                                notify::EventKind::Modify(ModifyKind::Any) => {
-                                    let (path, is_meta) =
-                                        get_asset_path(&owned_root, &event.paths[0]);
-                                    if event.paths[0].is_dir() {
-                                        // modified folder means nothing in this case
-                                    } else if is_meta {
-                                        sender.send(AssetSourceEvent::ModifiedMeta(path)).unwrap();
-                                    } else {
-                                        sender.send(AssetSourceEvent::ModifiedAsset(path)).unwrap();
-                                    };
                                 }
                                 notify::EventKind::Access(AccessKind::Close(AccessMode::Write)) => {
                                     let (path, is_meta) =
@@ -133,6 +121,17 @@ impl FileWatcher {
                                             }
                                         }
                                     }
+                                }
+                                notify::EventKind::Modify(_) => {
+                                    let (path, is_meta) =
+                                        get_asset_path(&owned_root, &event.paths[0]);
+                                    if event.paths[0].is_dir() {
+                                        // modified folder means nothing in this case
+                                    } else if is_meta {
+                                        sender.send(AssetSourceEvent::ModifiedMeta(path)).unwrap();
+                                    } else {
+                                        sender.send(AssetSourceEvent::ModifiedAsset(path)).unwrap();
+                                    };
                                 }
                                 notify::EventKind::Remove(RemoveKind::File) => {
                                     let (path, is_meta) =

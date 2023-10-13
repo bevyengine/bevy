@@ -3,9 +3,7 @@
 #import bevy_pbr::pbr_functions as pbr_functions
 #import bevy_pbr::pbr_bindings as pbr_bindings
 #import bevy_pbr::pbr_types as pbr_types
-#import bevy_pbr::prepass_utils
 
-#import bevy_pbr::mesh_vertex_output       MeshVertexOutput
 #import bevy_pbr::mesh_bindings            mesh
 #import bevy_pbr::mesh_view_bindings       view, fog, screen_space_ambient_occlusion_texture
 #import bevy_pbr::mesh_view_types          FOG_MODE_OFF
@@ -18,11 +16,34 @@
 #import bevy_pbr::gtao_utils gtao_multibounce
 #endif
 
+#ifdef DEFERRED_PREPASS
+#import bevy_pbr::pbr_deferred_types as pbr_deferred_types
+#import bevy_pbr::pbr_deferred_functions as pbr_deferred_functions
+#import bevy_pbr::pbr_prepass_functions as pbr_prepass_functions
+#import bevy_pbr::prepass_io as prepass_io
+#else // DEFERRED_PREPASS
+#import bevy_pbr::mesh_vertex_output as mesh_vertex_output
+#endif // DEFERRED_PREPASS
+
+#ifdef MOTION_VECTOR_PREPASS
+@group(0) @binding(2)
+var<uniform> previous_view_proj: mat4x4<f32>;
+#endif // MOTION_VECTOR_PREPASS
+
+
 @fragment
+#ifdef DEFERRED_PREPASS
 fn fragment(
-    in: MeshVertexOutput,
-    @builtin(front_facing) is_front: bool,
-) -> @location(0) vec4<f32> {
+        in: prepass_io::FragmentInput,
+        @builtin(front_facing) is_front: bool,
+    ) -> prepass_io::FragmentOutput {
+    var out: prepass_io::FragmentOutput;
+#else // DEFERRED_PREPASS
+fn fragment(
+        in: mesh_vertex_output::MeshVertexOutput,
+        @builtin(front_facing) is_front: bool,
+    ) -> @location(0) vec4<f32> {
+#endif // DEFERRED_PREPASS
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
 
     let is_orthographic = view.projection[3].w == 1.0;
@@ -57,13 +78,13 @@ fn fragment(
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
         output_color = output_color * textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv, view.mip_bias);
     }
-#endif
+#endif // VERTEX_UVS
 
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
         // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
         // the material members
-        var pbr_input: pbr_functions::PbrInput;
+        var pbr_input: pbr_types::PbrInput;
 
         pbr_input.material.base_color = output_color;
         pbr_input.material.reflectance = pbr_bindings::material.reflectance;
@@ -99,11 +120,13 @@ fn fragment(
             occlusion = vec3(textureSampleBias(pbr_bindings::occlusion_texture, pbr_bindings::occlusion_sampler, uv, view.mip_bias).r);
         }
 #endif
+#ifndef DEFERRED_PREPASS
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
         let ssao_multibounce = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
         occlusion = min(occlusion, ssao_multibounce);
-#endif
+#endif // SCREEN_SPACE_AMBIENT_OCCLUSION
+#endif // DEFERRED_PREPASS
         pbr_input.occlusion = occlusion;
 
         pbr_input.frag_coord = in.position;
@@ -139,12 +162,40 @@ fn fragment(
         pbr_input.occlusion = occlusion;
 
         pbr_input.flags = mesh[in.instance_index].flags;
-
+#ifdef DEFERRED_PREPASS
+        pbr_functions::alpha_discard(pbr_bindings::material, output_color);
+        out.deferred = pbr_deferred_functions::deferred_gbuffer_from_pbr_input(pbr_input);
+        out.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
+#ifdef NORMAL_PREPASS
+        out.normal = vec4(pbr_input.N * 0.5 + vec3(0.5), 1.0);
+#endif // NORMAL_PREPASS
+#else // DEFERRED_PREPASS
         output_color = pbr_functions::pbr(pbr_input);
-    } else {
-        output_color = pbr_functions::alpha_discard(pbr_bindings::material, output_color);
+#endif // DEFERRED_PREPASS
+    } else { // if UNLIT_BIT != 0
+        pbr_functions::alpha_discard(pbr_bindings::material, output_color);
+#ifdef DEFERRED_PREPASS    
+        var pbr_input = pbr_types::pbr_input_new();
+        pbr_input.flags = mesh[in.instance_index].flags;
+        pbr_input.material.flags = pbr_bindings::material.flags;
+        pbr_input.material.base_color = output_color;
+        pbr_input.world_position = in.world_position;
+        pbr_input.world_normal = in.world_normal;
+        pbr_input.frag_coord = in.position;
+        out.deferred = pbr_deferred_functions::deferred_gbuffer_from_pbr_input(pbr_input);
+        out.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
+#ifdef NORMAL_PREPASS
+        out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
+#endif
+#endif // DEFERRED_PREPASS
     }
 
+#ifdef DEFERRED_PREPASS
+#ifdef MOTION_VECTOR_PREPASS
+    out.motion_vector = pbr_prepass_functions::calculate_motion_vector(in.world_position, in.previous_world_position);
+#endif // MOTION_VECTOR_PREPASS
+    return out;
+#else //DEFERRED_PREPASS
     // fog
     if (fog.mode != FOG_MODE_OFF && (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
         output_color = pbr_functions::apply_fog(fog, output_color, in.world_position.xyz, view.world_position.xyz);
@@ -165,5 +216,7 @@ fn fragment(
 #ifdef PREMULTIPLY_ALPHA
     output_color = pbr_functions::premultiply_alpha(pbr_bindings::material.flags, output_color);
 #endif
+
     return output_color;
+#endif //DEFERRED_PREPASS
 }

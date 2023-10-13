@@ -2,8 +2,10 @@
 
 use crate::derive_data::{ReflectMeta, StructField};
 use crate::field_attributes::ReflectIgnoreBehavior;
-use crate::fq_std::{FQAny, FQOption, FQSend, FQSync};
-use bevy_macro_utils::BevyManifest;
+use bevy_macro_utils::{
+    fq_std::{FQAny, FQOption, FQSend, FQSync},
+    BevyManifest,
+};
 use bit_set::BitSet;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
