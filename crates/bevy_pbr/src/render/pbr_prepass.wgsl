@@ -11,7 +11,7 @@
 #ifdef PREPASS_FRAGMENT
 @fragment
 fn fragment(
-    in: prepass_io::FragmentInput,
+    in: prepass_io::VertexOutput,
     @builtin(front_facing) is_front: bool,
 ) -> prepass_io::FragmentOutput {
     bevy_pbr::pbr_prepass_functions::prepass_alpha_discard(in);
@@ -59,7 +59,7 @@ fn fragment(
 }
 #else
 @fragment
-fn fragment(in: prepass_io::FragmentInput) {
+fn fragment(in: prepass_io::VertexOutput) {
     bevy_pbr::pbr_prepass_functions::prepass_alpha_discard(in);
 }
 #endif // PREPASS_FRAGMENT

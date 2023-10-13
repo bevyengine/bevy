@@ -1,5 +1,5 @@
 #define_import_path bevy_pbr::pbr_prepass_functions
-#import bevy_pbr::prepass_io as prepass_io
+#import bevy_pbr::prepass_io VertexOutput
 #import bevy_pbr::prepass_bindings previous_view_proj
 #import bevy_pbr::mesh_view_bindings view
 
@@ -11,7 +11,7 @@
 const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
 
 // We can use a simplified version of alpha_discard() here since we only need to handle the alpha_cutoff
-fn prepass_alpha_discard(in: prepass_io::FragmentInput) {
+fn prepass_alpha_discard(in: VertexOutput) {
 
 #ifdef MAY_DISCARD
     var output_color: vec4<f32> = pbr_bindings::material.base_color;

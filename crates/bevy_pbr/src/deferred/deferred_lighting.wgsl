@@ -56,14 +56,15 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     var pbr_input = pbr_input_from_deferred_gbuffer(frag_coord, deferred_data);
     var output_color = vec4(0.0);
 
-#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
-    let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
-    let ssao_multibounce = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
-    pbr_input.occlusion = min(pbr_input.occlusion, ssao_multibounce);
-#endif // SCREEN_SPACE_AMBIENT_OCCLUSION
-    
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if ((pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
+
+#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+        let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
+        let ssao_multibounce = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
+        pbr_input.occlusion = min(pbr_input.occlusion, ssao_multibounce);
+#endif // SCREEN_SPACE_AMBIENT_OCCLUSION
+
         output_color = pbr_functions::pbr(pbr_input);
     } else {
         output_color = pbr_input.material.base_color;
@@ -87,7 +88,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 #endif
 #endif
 #ifdef PREMULTIPLY_ALPHA
-    output_color = pbr_functions::premultiply_alpha(material.flags, output_color);
+    output_color = pbr_functions::premultiply_alpha(pbr_input.material.flags, output_color);
 #endif
 
     return output_color;

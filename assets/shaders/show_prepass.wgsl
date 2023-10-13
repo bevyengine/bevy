@@ -1,7 +1,7 @@
 #import bevy_pbr::mesh_types
 #import bevy_pbr::mesh_view_bindings  globals
 #import bevy_pbr::prepass_utils
-#import bevy_pbr::mesh_vertex_output  MeshVertexOutput
+#import bevy_pbr::forward_io  VertexOutput
 
 struct ShowPrepassSettings {
     show_depth: u32,
@@ -17,7 +17,7 @@ fn fragment(
 #ifdef MULTISAMPLED
     @builtin(sample_index) sample_index: u32,
 #endif
-    mesh: MeshVertexOutput,
+    mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
 #ifndef MULTISAMPLED
     let sample_index = 0u;

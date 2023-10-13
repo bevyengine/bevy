@@ -62,7 +62,7 @@ use super::skin::SkinIndices;
 #[derive(Default)]
 pub struct MeshRenderPlugin;
 
-pub const MESH_VERTEX_OUTPUT: Handle<Shader> = Handle::weak_from_u128(2645551199423808407);
+pub const FORWARD_IO_HANDLE: Handle<Shader> = Handle::weak_from_u128(2645551199423808407);
 pub const MESH_VIEW_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(8140454348013264787);
 pub const MESH_VIEW_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(9076678235888822571);
 pub const MESH_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(2506024101911992377);
@@ -74,12 +74,7 @@ pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(9709828135876073
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        load_internal_asset!(
-            app,
-            MESH_VERTEX_OUTPUT,
-            "mesh_vertex_output.wgsl",
-            Shader::from_wgsl
-        );
+        load_internal_asset!(app, FORWARD_IO_HANDLE, "forward_io.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
             MESH_VIEW_TYPES_HANDLE,

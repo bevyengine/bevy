@@ -152,8 +152,6 @@ fn pbr(
 
     let occlusion = in.occlusion;
 
-    output_color = alpha_discard(in.material, output_color);
-
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
     let NdotV = max(dot(in.N, in.V), 0.0001);
 
