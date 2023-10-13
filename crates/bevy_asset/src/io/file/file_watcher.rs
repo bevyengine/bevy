@@ -1,5 +1,4 @@
 use crate::io::{AssetSourceEvent, AssetWatcher};
-use anyhow::Result;
 use bevy_log::error;
 use bevy_utils::Duration;
 use crossbeam_channel::Sender;

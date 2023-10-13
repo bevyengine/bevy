@@ -6,7 +6,7 @@ use crate::{
         AssetReader, AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
         MissingAssetSourceError, MissingProcessedAssetReaderError, Reader,
     },
-    loader::{AssetLoader, AssetLoaderError, ErasedAssetLoader, LoadContext, LoadedAsset},
+    loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
     meta::{
         loader_settings_meta_transform, AssetActionMinimal, AssetMetaDyn, AssetMetaMinimal,
         MetaTransform, Settings,
@@ -687,7 +687,10 @@ impl AssetServer {
             Ok(meta_bytes) => {
                 // TODO: this isn't fully minimal yet. we only need the loader
                 let minimal: AssetMetaMinimal = ron::de::from_bytes(&meta_bytes).map_err(|e| {
-                    AssetLoadError::DeserializeMeta(DeserializeMetaError::DeserializeMinimal(e))
+                    AssetLoadError::DeserializeMeta {
+                        path: asset_path.clone_owned(),
+                        error: DeserializeMetaError::DeserializeMinimal(e),
+                    }
                 })?;
                 let loader_name = match minimal.asset {
                     AssetActionMinimal::Load { loader } => loader,
@@ -704,10 +707,9 @@ impl AssetServer {
                 };
                 let loader = self.get_asset_loader_with_type_name(&loader_name).await?;
                 let meta = loader.deserialize_meta(&meta_bytes).map_err(|e| {
-                    AssetLoadError::AssetLoaderError {
+                    AssetLoadError::DeserializeMeta {
                         path: asset_path.clone_owned(),
-                        loader: loader.type_name(),
-                        error: AssetLoaderError::DeserializeMeta(e),
+                        error: e,
                     }
                 })?;
 
@@ -737,8 +739,8 @@ impl AssetServer {
             LoadContext::new(self, asset_path.clone(), load_dependencies, populate_hashes);
         loader.load(reader, meta, load_context).await.map_err(|e| {
             AssetLoadError::AssetLoaderError {
-                loader: loader.type_name(),
-                path: asset_path,
+                path: asset_path.clone_owned(),
+                loader_name: loader.type_name(),
                 error: e,
             }
         })
@@ -915,17 +917,20 @@ pub enum AssetLoadError {
     MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
     #[error("Encountered an error while reading asset metadata bytes")]
     AssetMetaReadError,
-    #[error(transparent)]
-    DeserializeMeta(DeserializeMetaError),
+    #[error("Failed to deserialize meta for asset {path}: {error}")]
+    DeserializeMeta {
+        path: AssetPath<'static>,
+        error: DeserializeMetaError,
+    },
     #[error("Asset '{path}' is configured to be processed. It cannot be loaded directly.")]
     CannotLoadProcessedAsset { path: AssetPath<'static> },
     #[error("Asset '{path}' is configured to be ignored. It cannot be loaded.")]
     CannotLoadIgnoredAsset { path: AssetPath<'static> },
-    #[error("Asset '{path}' encountered an error in {loader}: {error}")]
+    #[error("Failed to load asset '{path}' with asset loader '{loader_name}': {error}")]
     AssetLoaderError {
         path: AssetPath<'static>,
-        loader: &'static str,
-        error: AssetLoaderError,
+        loader_name: &'static str,
+        error: Box<dyn std::error::Error + Send + Sync + 'static>,
     },
 }
 

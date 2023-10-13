@@ -193,12 +193,13 @@ impl VisitAssetDependencies for () {
 impl AssetLoader for () {
     type Asset = ();
     type Settings = ();
+    type Error = std::io::Error;
     fn load<'a>(
         &'a self,
         _reader: &'a mut crate::io::Reader,
         _settings: &'a Self::Settings,
         _load_context: &'a mut crate::LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Self::Asset, anyhow::Error>> {
+    ) -> bevy_utils::BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
         unreachable!();
     }
 

@@ -7,7 +7,6 @@ use crate::io::{
     get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream,
     Reader, Writer,
 };
-use anyhow::Result;
 use async_fs::{read_dir, File};
 use bevy_utils::BoxedFuture;
 use futures_lite::StreamExt;

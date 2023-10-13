@@ -1,6 +1,7 @@
 use ab_glyph::{Font as _, FontArc, Glyph, PxScaleFont, ScaleFont as _};
 use bevy_asset::{AssetId, Assets};
 use bevy_math::{Rect, Vec2};
+use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::tracing::warn;
@@ -158,7 +159,7 @@ impl GlyphBrush {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct PositionedGlyph {
     pub position: Vec2,
     pub size: Vec2,

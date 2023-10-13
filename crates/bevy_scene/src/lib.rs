@@ -1,4 +1,11 @@
+//! Provides scene definition, instantiation and serialization/deserialization.
+//!
+//! Scenes are collections of entities and their associated components that can be
+//! instantiated or removed from a world to allow composition. Scenes can be serialized/deserialized,
+//! for example to save part of the world state to a file.
+
 #![allow(clippy::type_complexity)]
+#![warn(missing_docs)]
 
 mod bundle;
 mod dynamic_scene;
@@ -20,6 +27,7 @@ pub use scene_filter::*;
 pub use scene_loader::*;
 pub use scene_spawner::*;
 
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -31,6 +39,7 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
 
+/// Plugin that provides scene functionality to an [`App`].
 #[derive(Default)]
 pub struct ScenePlugin;
 

@@ -94,7 +94,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "cannot get type info for bevy_reflect::struct_trait::DynamicStruct")]
+    #[should_panic(expected = "cannot get type info for bevy_reflect::DynamicStruct")]
     fn unproxied_dynamic_should_not_serialize() {
         let registry = TypeRegistry::default();
 

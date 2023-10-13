@@ -1,5 +1,4 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
-use anyhow::Result;
 use bevy_utils::{BoxedFuture, HashMap};
 use crossbeam_channel::{Receiver, Sender};
 use parking_lot::RwLock;

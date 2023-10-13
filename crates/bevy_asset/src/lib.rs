@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 pub mod io;
 pub mod meta;
 pub mod processor;
@@ -33,7 +35,6 @@ pub use path::*;
 pub use reflect::*;
 pub use server::*;
 
-pub use anyhow;
 pub use bevy_utils::BoxedFuture;
 
 use crate::{
@@ -248,6 +249,9 @@ pub trait AssetApp {
     /// * Registering the [`Asset`] in the [`AssetServer`]
     /// * Initializing the [`AssetEvent`] resource for the [`Asset`]
     /// * Adding other relevant systems and resources for the [`Asset`]
+    /// * Ignoring schedule ambiguities in [`Assets`] resource. Any time a system takes
+    /// mutable access to this resource this causes a conflict, but they rarely actually
+    /// modify the same underlying asset.
     fn init_asset<A: Asset>(&mut self) -> &mut Self;
     /// Registers the asset type `T` using `[App::register]`,
     /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
@@ -288,6 +292,7 @@ impl AssetApp for App {
                 ));
         }
         self.insert_resource(assets)
+            .allow_ambiguous_resource::<Assets<A>>()
             .add_event::<AssetEvent<A>>()
             .register_type::<Handle<A>>()
             .register_type::<AssetId<A>>()
@@ -372,22 +377,26 @@ mod tests {
         io::{
             gated::{GateOpener, GatedReader},
             memory::{Dir, MemoryAssetReader},
-            AssetSource, Reader,
+            AssetSource, AssetSourceId, Reader,
         },
         loader::{AssetLoader, LoadContext},
-        Asset, AssetApp, AssetEvent, AssetId, AssetPlugin, AssetServer, AssetSourceId, Assets,
+        Asset, AssetApp, AssetEvent, AssetId, AssetPath, AssetPlugin, AssetServer, Assets,
         DependencyLoadState, LoadState, RecursiveDependencyLoadState,
     };
     use bevy_app::{App, Update};
     use bevy_core::TaskPoolPlugin;
-    use bevy_ecs::event::ManualEventReader;
     use bevy_ecs::prelude::*;
+    use bevy_ecs::{
+        event::ManualEventReader,
+        schedule::{LogLevel, ScheduleBuildSettings},
+    };
     use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
     use bevy_utils::BoxedFuture;
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
     use std::path::Path;
+    use thiserror::Error;
 
     #[derive(Asset, TypePath, Debug)]
     pub struct CoolText {
@@ -415,24 +424,40 @@ mod tests {
     #[derive(Default)]
     struct CoolTextLoader;
 
+    #[derive(Error, Debug)]
+    enum CoolTextLoaderError {
+        #[error("Could not load dependency: {dependency}")]
+        CannotLoadDependency { dependency: AssetPath<'static> },
+        #[error("A RON error occurred during loading")]
+        RonSpannedError(#[from] ron::error::SpannedError),
+        #[error("An IO error occurred during loading")]
+        Io(#[from] std::io::Error),
+    }
+
     impl AssetLoader for CoolTextLoader {
         type Asset = CoolText;
 
         type Settings = ();
+
+        type Error = CoolTextLoaderError;
 
         fn load<'a>(
             &'a self,
             reader: &'a mut Reader,
             _settings: &'a Self::Settings,
             load_context: &'a mut LoadContext,
-        ) -> BoxedFuture<'a, Result<Self::Asset, anyhow::Error>> {
+        ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
             Box::pin(async move {
                 let mut bytes = Vec::new();
                 reader.read_to_end(&mut bytes).await?;
                 let mut ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
                 let mut embedded = String::new();
                 for dep in ron.embedded_dependencies {
-                    let loaded = load_context.load_direct(&dep).await?;
+                    let loaded = load_context.load_direct(&dep).await.map_err(|_| {
+                        Self::Error::CannotLoadDependency {
+                            dependency: dep.into(),
+                        }
+                    })?;
                     let cool = loaded.get::<CoolText>().unwrap();
                     embedded.push_str(&cool.text);
                 }
@@ -1115,5 +1140,24 @@ mod tests {
             }
             None
         });
+    }
+
+    #[test]
+    fn ignore_system_ambiguities_on_assets() {
+        let mut app = App::new();
+        app.add_plugins(AssetPlugin::default())
+            .init_asset::<CoolText>();
+
+        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
+        app.add_systems(Update, (uses_assets, uses_assets));
+        app.edit_schedule(Update, |s| {
+            s.set_build_settings(ScheduleBuildSettings {
+                ambiguity_detection: LogLevel::Error,
+                ..Default::default()
+            });
+        });
+
+        // running schedule does not error on ambiguity between the 2 uses_assets systems
+        app.world.run_schedule(Update);
     }
 }

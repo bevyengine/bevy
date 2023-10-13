@@ -3,7 +3,6 @@ use crate::{
     processor::{AssetProcessorData, ProcessStatus},
     AssetPath,
 };
-use anyhow::Result;
 use async_lock::RwLockReadGuardArc;
 use bevy_log::trace;
 use bevy_utils::BoxedFuture;

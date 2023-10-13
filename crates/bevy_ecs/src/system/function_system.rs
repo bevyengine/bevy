@@ -1,5 +1,5 @@
 use crate::{
-    archetype::{ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
+    archetype::{ArchetypeComponentId, ArchetypeGeneration},
     component::{ComponentId, Tick},
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
@@ -232,8 +232,18 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Asserts that the [`SystemState`] matches the provided world.
     #[inline]
+    #[track_caller]
     fn validate_world(&self, world_id: WorldId) {
-        assert!(self.matches_world(world_id), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
+        #[inline(never)]
+        #[track_caller]
+        #[cold]
+        fn panic_mismatched(this: WorldId, other: WorldId) -> ! {
+            panic!("Encountered a mismatched World. This SystemState was created from {this:?}, but a method was called using {other:?}.");
+        }
+
+        if !self.matches_world(world_id) {
+            panic_mismatched(self.world_id, world_id);
+        }
     }
 
     /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before fetching the parameters,
@@ -260,16 +270,11 @@ impl<Param: SystemParam> SystemState<Param> {
     #[inline]
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
         let archetypes = world.archetypes();
-        let new_generation = archetypes.generation();
-        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
-        let archetype_index_range = old_generation.value()..new_generation.value();
+        let old_generation =
+            std::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
-        for archetype_index in archetype_index_range {
-            Param::new_archetype(
-                &mut self.param_state,
-                &archetypes[ArchetypeId::new(archetype_index)],
-                &mut self.meta,
-            );
+        for archetype in &archetypes[old_generation..] {
+            Param::new_archetype(&mut self.param_state, archetype, &mut self.meta);
         }
     }
 
@@ -505,17 +510,12 @@ where
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
         assert!(self.world_id == Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
         let archetypes = world.archetypes();
-        let new_generation = archetypes.generation();
-        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
-        let archetype_index_range = old_generation.value()..new_generation.value();
+        let old_generation =
+            std::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
-        for archetype_index in archetype_index_range {
+        for archetype in &archetypes[old_generation..] {
             let param_state = self.param_state.as_mut().unwrap();
-            F::Param::new_archetype(
-                param_state,
-                &archetypes[ArchetypeId::new(archetype_index)],
-                &mut self.system_meta,
-            );
+            F::Param::new_archetype(param_state, archetype, &mut self.system_meta);
         }
     }
 
