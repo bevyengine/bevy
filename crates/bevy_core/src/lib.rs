@@ -154,7 +154,7 @@ impl Plugin for FrameCountPlugin {
     }
 }
 
-fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
+pub fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
     frame_count.0 = frame_count.0.wrapping_add(1);
 }
 
