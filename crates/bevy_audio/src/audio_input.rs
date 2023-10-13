@@ -8,7 +8,7 @@ use bevy_utils::{
 use rodio::cpal::{
     self,
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    InputCallbackInfo, Stream, StreamConfig, PlayStreamError, PauseStreamError,
+    InputCallbackInfo, PauseStreamError, PlayStreamError, Stream, StreamConfig,
 };
 
 /// Used internally to retrieve audio on the current "audio input device". When this is dropped,
