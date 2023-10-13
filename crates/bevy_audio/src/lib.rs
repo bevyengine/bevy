@@ -42,7 +42,7 @@ pub mod prelude {
     };
 
     #[cfg(feature = "input")]
-    pub use crate::audio_input::AudioInputEvent;
+    pub use crate::audio_input::{AudioInputEvent, AudioInputStreamCommands};
 }
 
 pub use audio::*;

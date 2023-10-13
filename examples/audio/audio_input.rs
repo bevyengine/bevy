@@ -7,12 +7,32 @@ fn main() {
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, oscilloscope)
+        .add_systems(Update, (oscilloscope, push_to_listen))
         .run();
+}
+
+fn push_to_listen(mut commands: Commands, keyboard_input: Res<Input<KeyCode>>) {
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        commands.start_recording_audio();
+    } else if !keyboard_input.pressed(KeyCode::Space) {
+        commands.stop_recording_audio();
+    }
 }
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
+
+    commands.spawn(TextBundle::from_section(
+        "Hold the Spacebar to Record!",
+        default()
+    )
+    .with_text_alignment(TextAlignment::Left)
+    .with_style(Style {
+        position_type: PositionType::Absolute,
+        top: Val::Px(5.0),
+        left: Val::Px(5.0),
+        ..default()
+    }));
 }
 
 fn oscilloscope(

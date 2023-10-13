@@ -1,6 +1,6 @@
 use std::sync::mpsc::{channel, Receiver};
 
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::Command};
 use bevy_utils::{
     tracing::{trace, warn},
     Duration,
@@ -8,7 +8,7 @@ use bevy_utils::{
 use rodio::cpal::{
     self,
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    InputCallbackInfo, Stream, StreamConfig,
+    InputCallbackInfo, Stream, StreamConfig, PlayStreamError, PauseStreamError,
 };
 
 /// Used internally to retrieve audio on the current "audio input device". When this is dropped,
@@ -67,11 +67,6 @@ impl AudioInputStream {
             )
             .ok()?;
 
-        // The term "play" does not mean output to the stream, it instead means "start" listening.
-        if let Err(error) = stream.play() {
-            warn!("Audio Input Error: {}", error);
-        }
-
         Some(Self {
             config,
             stream,
@@ -93,6 +88,16 @@ impl AudioInputStream {
     /// Provides access to the underlying [`Stream`].
     pub fn stream(&self) -> &Stream {
         &self.stream
+    }
+
+    /// Start recording audio from this input.
+    pub fn start(&self) -> Result<(), PlayStreamError> {
+        self.stream.play()
+    }
+
+    /// Stop recording audio from this input.
+    pub fn stop(&self) -> Result<(), PauseStreamError> {
+        self.stream.pause()
     }
 }
 
@@ -130,5 +135,46 @@ pub fn handle_input_stream(
 ) {
     if let Some(stream) = stream {
         writer.send_batch(stream.iter());
+    }
+}
+
+/// Requests that an audio input device start recording.
+pub struct AudioInputStreamStart;
+
+impl Command for AudioInputStreamStart {
+    fn apply(self, world: &mut World) {
+        if let Err(error) = world.non_send_resource::<AudioInputStream>().start() {
+            warn!("Audio Input Error: {}", error);
+        }
+    }
+}
+
+/// Requests that an audio input device stop recording.
+pub struct AudioInputStreamStop;
+
+impl Command for AudioInputStreamStop {
+    fn apply(self, world: &mut World) {
+        if let Err(error) = world.non_send_resource::<AudioInputStream>().stop() {
+            warn!("Audio Input Error: {}", error);
+        }
+    }
+}
+
+/// Provides methods for controlling an [`AudioInputStream`].
+pub trait AudioInputStreamCommands {
+    /// Requests that an audio input device start recording.
+    fn start_recording_audio(&mut self);
+
+    /// Requests that an audio input device stop recording.
+    fn stop_recording_audio(&mut self);
+}
+
+impl<'w, 's> AudioInputStreamCommands for Commands<'w, 's> {
+    fn start_recording_audio(&mut self) {
+        self.add(AudioInputStreamStart);
+    }
+
+    fn stop_recording_audio(&mut self) {
+        self.add(AudioInputStreamStop);
     }
 }
