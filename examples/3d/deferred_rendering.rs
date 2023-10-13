@@ -129,7 +129,7 @@ fn setup(
         ..default()
     });
 
-    let sphere_color = Color::rgb(1.0, 0.4, 0.1);
+    let sphere_color = Color::rgb(10.0, 4.0, 1.0);
     let sphere_pos = Transform::from_xyz(0.4, 0.5, -0.8);
     // Emissive sphere
     let mut unlit_mat: StandardMaterial = sphere_color.into();

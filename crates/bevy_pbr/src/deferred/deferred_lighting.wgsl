@@ -87,9 +87,6 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     output_color = vec4(output_rgb, output_color.a);
 #endif
 #endif
-#ifdef PREMULTIPLY_ALPHA
-    output_color = pbr_functions::premultiply_alpha(pbr_input.material.flags, output_color);
-#endif
 
     return output_color;
 }
