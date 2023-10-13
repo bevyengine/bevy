@@ -15,7 +15,10 @@
 /// https://www.w3.org/TR/webgpu/#coordinate-systems
 /// (-1.0, -1.0) in NDC is located at the bottom-left corner of NDC
 /// (1.0, 1.0) in NDC is located at the top-right corner of NDC
-/// Z is depth where 1.0 is near clipping plane, and 0.0 is inf far away
+/// Z is depth where: 
+///    1.0 is near clipping plane
+///    Perspective projection: 0.0 is inf far away
+///    Orthographic projection: 0.0 is far clipping plane
 
 /// UV space:
 /// 0.0, 0.0 is the top left
