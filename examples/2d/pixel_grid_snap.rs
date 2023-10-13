@@ -15,6 +15,7 @@ use bevy::{
 use bevy_internal::sprite::MaterialMesh2dBundle;
 use bevy_internal::window::WindowResized;
 
+// in-game resolution
 const RES_WIDTH: u32 = 160;
 const RES_HEIGHT: u32 = 90;
 
@@ -40,23 +41,22 @@ struct OuterCamera;
 struct Drawable;
 
 fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let texture = asset_server.load("textures/rpg/chars/sensei/sensei.png");
-    // the sample sprite that will be rendered to the canvas
+    // the sample sprite that will be rendered to the pixel-perfect canvas
     commands.spawn((
         SpriteBundle {
-            texture: texture.clone(),
-            transform: Transform::from_xyz(-40., 20., 0.),
+            texture: asset_server.load("pixel/bevy_pixel_dark.png"),
+            transform: Transform::from_xyz(-40., 20., 2.),
             ..default()
         },
         Drawable,
         RenderLayers::layer(1),
     ));
 
-    // same, but skips the pixel-perfect rendering
+    // the sample sprite that will be rendered to the high-res "outer world"
     commands.spawn((
         SpriteBundle {
-            texture,
-            transform: Transform::from_xyz(-40., -20., 0.),
+            texture: asset_server.load("pixel/bevy_pixel_light.png"),
+            transform: Transform::from_xyz(-40., -20., 2.),
             ..default()
         },
         Drawable,
@@ -71,7 +71,7 @@ fn setup_mesh(
     commands.spawn((
         MaterialMesh2dBundle {
             mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
-            transform: Transform::from_xyz(40., 0., 0.).with_scale(Vec3::splat(32.)),
+            transform: Transform::from_xyz(40., 0., 2.).with_scale(Vec3::splat(32.)),
             material: materials.add(ColorMaterial::from(Color::BLACK)),
             ..default()
         },
@@ -81,7 +81,7 @@ fn setup_mesh(
 }
 
 fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
-    let size = Extent3d {
+    let canvas_size = Extent3d {
         width: RES_WIDTH,
         height: RES_HEIGHT,
         ..default()
@@ -91,7 +91,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let mut canvas = Image {
         texture_descriptor: TextureDescriptor {
             label: None,
-            size,
+            size: canvas_size,
             dimension: TextureDimension::D2,
             format: TextureFormat::Bgra8UnormSrgb,
             mip_level_count: 1,
@@ -105,7 +105,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     };
 
     // fill image.data with zeroes
-    canvas.resize(size);
+    canvas.resize(canvas_size);
 
     let image_handle = images.add(canvas);
 
@@ -124,7 +124,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         InGameCamera,
     ));
 
-    // this places the canvas to the "outer world"
+    // spawn the canvas
     commands.spawn((
         SpriteBundle {
             texture: image_handle,
@@ -133,12 +133,12 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         Canvas,
     ));
 
-    // the "outer" camera renders the objects that are in the "outer world"
-    // in this example, the canvas and one copy of the sample sprite are in the "outer world"
+    // the "outer" camera renders the objects that are not rendered to the canvas
+    // here, the canvas and one of the sample sprites will be rendered by this camera
     commands.spawn((Camera2dBundle::default(), OuterCamera));
 }
 
-/// transform drawables to demonstrate grid snapping
+/// Transforms drawables to demonstrate grid snapping
 fn transform_drawables(time: Res<Time>, mut query: Query<&mut Transform, With<Drawable>>) {
     for mut transform in &mut query {
         let dt = time.delta_seconds();
@@ -146,12 +146,12 @@ fn transform_drawables(time: Res<Time>, mut query: Query<&mut Transform, With<Dr
     }
 }
 
-/// scales camera projection to fit the window (integer multiples only)
+/// Scales camera projection to fit the window (integer multiples only)
 fn fit_canvas(
-    mut resize_event: EventReader<WindowResized>,
+    mut resize_events: EventReader<WindowResized>,
     mut q: Query<&mut OrthographicProjection, With<OuterCamera>>,
 ) {
-    for event in resize_event.iter() {
+    for event in resize_events.read() {
         let h_scale = event.width / RES_WIDTH as f32;
         let v_scale = event.height / RES_HEIGHT as f32;
         let mut projection = q.single_mut();
