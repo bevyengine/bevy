@@ -25,8 +25,8 @@
 #endif // DEFERRED_PREPASS
 
 #ifdef MOTION_VECTOR_PREPASS
-    @group(0) @binding(2)
-    var<uniform> previous_view_proj: mat4x4<f32>;
+@group(0) @binding(2)
+var<uniform> previous_view_proj: mat4x4<f32>;
 #endif // MOTION_VECTOR_PREPASS
 
 @fragment

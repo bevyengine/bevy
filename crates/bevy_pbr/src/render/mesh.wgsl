@@ -2,7 +2,7 @@
 #import bevy_pbr::skinning
 #import bevy_pbr::morph
 #import bevy_pbr::mesh_bindings       mesh
-#import bevy_pbr::forward_io  Vertex, VertexOutput
+#import bevy_pbr::forward_io          Vertex, VertexOutput
 #import bevy_render::instance_index   get_instance_index
 
 #ifdef MORPH_TARGETS
