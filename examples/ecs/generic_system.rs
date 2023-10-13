@@ -11,19 +11,11 @@
 
 use bevy::prelude::*;
 
-#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, States)]
 enum AppState {
     #[default]
     MainMenu,
     InGame,
-}
-
-impl States for AppState {
-    type Iter = std::array::IntoIter<AppState, 2>;
-
-    fn variants() -> Self::Iter {
-        [AppState::MainMenu, AppState::InGame].into_iter()
-    }
 }
 
 #[derive(Component)]
@@ -47,7 +39,7 @@ fn main() {
             Update,
             (
                 print_text_system,
-                transition_to_in_game_system.in_set(OnUpdate(AppState::MainMenu)),
+                transition_to_in_game_system.run_if(in_state(AppState::MainMenu)),
             ),
         )
         // Cleanup systems.

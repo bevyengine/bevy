@@ -11,7 +11,7 @@ fn main() {
     // Add the counter resource
     world.insert_resource(Counter { value: 0 });
 
-    // Create a schedule and a stage
+    // Create a schedule
     let mut schedule = Schedule::default();
 
     // Add systems to increase the counter and to print out the current value

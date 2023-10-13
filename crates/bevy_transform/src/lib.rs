@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![doc = include_str!("../README.md")]
@@ -13,12 +14,15 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         commands::BuildChildrenTransformExt, components::*, TransformBundle, TransformPlugin,
+        TransformPoint,
     };
 }
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::ValidParentCheckPlugin;
+use bevy_math::{Affine3A, Mat4, Vec3};
+
 use prelude::{GlobalTransform, Transform};
 use systems::{propagate_transforms, sync_simple_transforms};
 
@@ -41,7 +45,7 @@ use systems::{propagate_transforms, sync_simple_transforms};
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
 /// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
-/// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
+/// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 #[derive(Bundle, Clone, Copy, Debug, Default)]
 pub struct TransformBundle {
@@ -61,7 +65,7 @@ impl TransformBundle {
     /// Creates a new [`TransformBundle`] from a [`Transform`].
     ///
     /// This initializes [`GlobalTransform`] as identity, to be updated later by the
-    /// [`PostUpdate`](bevy_app::PostUpdate) stage.
+    /// [`PostUpdate`](bevy_app::PostUpdate) schedule.
     #[inline]
     pub const fn from_transform(transform: Transform) -> Self {
         TransformBundle {
@@ -97,8 +101,8 @@ impl Plugin for TransformPlugin {
 
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
-            .add_plugin(ValidParentCheckPlugin::<GlobalTransform>::default())
-            .configure_set(
+            .add_plugins(ValidParentCheckPlugin::<GlobalTransform>::default())
+            .configure_sets(
                 PostStartup,
                 PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
             )
@@ -115,7 +119,7 @@ impl Plugin for TransformPlugin {
                     propagate_transforms.in_set(PropagateTransformsSet),
                 ),
             )
-            .configure_set(
+            .configure_sets(
                 PostUpdate,
                 PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
             )
@@ -128,5 +132,39 @@ impl Plugin for TransformPlugin {
                     propagate_transforms.in_set(PropagateTransformsSet),
                 ),
             );
+    }
+}
+
+/// A trait for point transformation methods.
+pub trait TransformPoint {
+    /// Transform a point.
+    fn transform_point(&self, point: impl Into<Vec3>) -> Vec3;
+}
+
+impl TransformPoint for Transform {
+    #[inline]
+    fn transform_point(&self, point: impl Into<Vec3>) -> Vec3 {
+        self.transform_point(point.into())
+    }
+}
+
+impl TransformPoint for GlobalTransform {
+    #[inline]
+    fn transform_point(&self, point: impl Into<Vec3>) -> Vec3 {
+        self.transform_point(point.into())
+    }
+}
+
+impl TransformPoint for Mat4 {
+    #[inline]
+    fn transform_point(&self, point: impl Into<Vec3>) -> Vec3 {
+        self.transform_point3(point.into())
+    }
+}
+
+impl TransformPoint for Affine3A {
+    #[inline]
+    fn transform_point(&self, point: impl Into<Vec3>) -> Vec3 {
+        self.transform_point3(point.into())
     }
 }

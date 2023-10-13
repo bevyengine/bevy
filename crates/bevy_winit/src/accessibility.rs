@@ -1,14 +1,17 @@
+//! Helpers for mapping window entities to accessibility types
+
 use std::{
     collections::VecDeque,
     sync::{atomic::Ordering, Arc, Mutex},
 };
 
 use accesskit_winit::Adapter;
+use bevy_a11y::ActionRequest as ActionRequestWrapper;
 use bevy_a11y::{
     accesskit::{ActionHandler, ActionRequest, NodeBuilder, NodeClassSet, Role, TreeUpdate},
     AccessKitEntityExt, AccessibilityNode, AccessibilityRequested, Focus,
 };
-use bevy_app::{App, Plugin, Update};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
@@ -43,7 +46,7 @@ fn handle_window_focus(
     adapters: NonSend<AccessKitAdapters>,
     mut focused: EventReader<WindowFocused>,
 ) {
-    for event in focused.iter() {
+    for event in focused.read() {
         if let Some(adapter) = adapters.get(&event.window) {
             adapter.update_if_active(|| {
                 let focus_id = (*focus).unwrap_or_else(|| event.window);
@@ -65,17 +68,20 @@ fn window_closed(
     mut receivers: ResMut<WinitActionHandlers>,
     mut events: EventReader<WindowClosed>,
 ) {
-    for WindowClosed { window, .. } in events.iter() {
+    for WindowClosed { window, .. } in events.read() {
         adapters.remove(window);
         receivers.remove(window);
     }
 }
 
-fn poll_receivers(handlers: Res<WinitActionHandlers>, mut actions: EventWriter<ActionRequest>) {
+fn poll_receivers(
+    handlers: Res<WinitActionHandlers>,
+    mut actions: EventWriter<ActionRequestWrapper>,
+) {
     for (_id, handler) in handlers.iter() {
         let mut handler = handler.lock().unwrap();
         while let Some(event) = handler.pop_front() {
-            actions.send(event);
+            actions.send(ActionRequestWrapper(event));
         }
     }
 }
@@ -162,9 +168,9 @@ impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
         app.init_non_send_resource::<AccessKitAdapters>()
             .init_resource::<WinitActionHandlers>()
-            .add_event::<ActionRequest>()
+            .add_event::<ActionRequestWrapper>()
             .add_systems(
-                Update,
+                PostUpdate,
                 (
                     handle_window_focus,
                     window_closed,

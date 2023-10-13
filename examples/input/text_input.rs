@@ -108,10 +108,7 @@ fn toggle_ime(
     if input.just_pressed(MouseButton::Left) {
         let mut window = windows.single_mut();
 
-        window.ime_position = window
-            .cursor_position()
-            .map(|p| Vec2::new(p.x, window.height() - p.y))
-            .unwrap();
+        window.ime_position = window.cursor_position().unwrap();
         window.ime_enabled = !window.ime_enabled;
 
         let mut text = text.single_mut();
@@ -145,7 +142,7 @@ fn listen_ime_events(
     mut status_text: Query<&mut Text, With<Node>>,
     mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
 ) {
-    for event in events.iter() {
+    for event in events.read() {
         match event {
             Ime::Preedit { value, cursor, .. } if !cursor.is_none() => {
                 status_text.single_mut().sections[5].value = format!("IME buffer: {value}");
@@ -171,7 +168,7 @@ fn listen_received_character_events(
     mut events: EventReader<ReceivedCharacter>,
     mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
 ) {
-    for event in events.iter() {
+    for event in events.read() {
         edit_text.single_mut().sections[0].value.push(event.char);
     }
 }
@@ -181,7 +178,7 @@ fn listen_keyboard_input_events(
     mut events: EventReader<KeyboardInput>,
     mut edit_text: Query<(Entity, &mut Text), (Without<Node>, Without<Bubble>)>,
 ) {
-    for event in events.iter() {
+    for event in events.read() {
         match event.key_code {
             Some(KeyCode::Return) => {
                 let (entity, text) = edit_text.single();

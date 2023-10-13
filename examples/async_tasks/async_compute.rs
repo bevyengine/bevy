@@ -47,14 +47,16 @@ struct ComputeTransform(Task<Transform>);
 
 /// This system generates tasks simulating computationally intensive
 /// work that potentially spans multiple frames/ticks. A separate
-/// system, `handle_tasks`, will poll the spawned tasks on subsequent
+/// system, [`handle_tasks`], will poll the spawned tasks on subsequent
 /// frames/ticks, and use the results to spawn cubes
 fn spawn_tasks(mut commands: Commands) {
     let thread_pool = AsyncComputeTaskPool::get();
     for x in 0..NUM_CUBES {
         for y in 0..NUM_CUBES {
             for z in 0..NUM_CUBES {
-                // Spawn new task on the AsyncComputeTaskPool
+                // Spawn new task on the AsyncComputeTaskPool; the task will be
+                // executed in the background, and the Task future returned by
+                // spawn() can be used to poll for the result
                 let task = thread_pool.spawn(async move {
                     let mut rng = rand::thread_rng();
                     let start_time = Instant::now();

@@ -32,6 +32,7 @@ fn main() {
 }
 
 // This is our event that we will send and receive in systems
+#[derive(Event)]
 struct MyEvent {
     pub message: String,
     pub random_value: f32,
@@ -51,7 +52,7 @@ fn sending_system(mut event_writer: EventWriter<MyEvent>) {
 // This system listens for events of the type MyEvent
 // If an event is received it will be printed to the console
 fn receiving_system(mut event_reader: EventReader<MyEvent>) {
-    for my_event in event_reader.iter() {
+    for my_event in event_reader.read() {
         println!(
             "    Received message {:?}, with random value of {}",
             my_event.message, my_event.random_value
