@@ -1,9 +1,10 @@
 #import bevy_pbr::mesh_functions as mesh_functions
 #import bevy_pbr::skinning
 #import bevy_pbr::morph
-#import bevy_pbr::mesh_bindings       mesh
-#import bevy_pbr::mesh_vertex_output  MeshVertexOutput
-#import bevy_render::instance_index   get_instance_index
+#import bevy_pbr::mesh_bindings        mesh
+#import bevy_pbr::mesh_vertex_output   MeshVertexOutput
+#import bevy_render::instance_index    get_instance_index
+#import bevy_pbr::view_transformations position_world_to_clip
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
@@ -86,7 +87,7 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
 
 #ifdef VERTEX_POSITIONS
     out.world_position = mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
-    out.position = mesh_functions::mesh_position_world_to_clip(out.world_position);
+    out.position = position_world_to_clip(out.world_position.xyz);
 #endif
 
 #ifdef VERTEX_UVS
