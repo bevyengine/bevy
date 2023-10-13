@@ -647,6 +647,7 @@ impl AssetProcessor {
     /// to block reads until the asset is processed).
     ///
     /// [`LoadContext`]: crate::loader::LoadContext
+    /// [`ProcessorGatedReader`]: crate::io::processor_gated::ProcessorGatedReader
     async fn process_asset(&self, source: &AssetSource, path: PathBuf) {
         let asset_path = AssetPath::from(path).with_source(source.id());
         let result = self.process_asset_internal(source, &asset_path).await;

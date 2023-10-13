@@ -15,7 +15,7 @@ use std::{
 };
 
 /// A watcher for assets stored in the `embedded` asset source. Embedded assets are assets whose
-/// bytes have been embedded into the Rust binary using the [`embedded_asset`](crate::io::embedded::embedded_asset) macro.
+/// bytes have been embedded into the Rust binary using the [`embedded_asset`](crate::embedded_asset) macro.
 /// This watcher will watch for changes to the "source files", read the contents of changed files from the file system
 /// and overwrite the initial static bytes of the file embedded in the binary with the new dynamically loaded bytes.
 pub struct EmbeddedWatcher {
