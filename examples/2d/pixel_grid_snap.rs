@@ -11,9 +11,9 @@ use bevy::{
         },
         view::RenderLayers,
     },
+    sprite::MaterialMesh2dBundle,
+    window::WindowResized,
 };
-use bevy_internal::sprite::MaterialMesh2dBundle;
-use bevy_internal::window::WindowResized;
 
 // in-game resolution
 const RES_WIDTH: u32 = 160;
