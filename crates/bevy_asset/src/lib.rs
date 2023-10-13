@@ -55,6 +55,8 @@ use std::{any::TypeId, sync::Arc};
 ///
 /// Supports flexible "modes", such as [`AssetMode::Processed`] and
 /// [`AssetMode::Unprocessed`] that enable using the asset workflow that best suits your project.
+///
+/// [`AssetSource`]: crate::io::AssetSource
 pub struct AssetPlugin {
     /// The default file path to use (relative to the project root) for unprocessed assets.
     pub file_path: String,

@@ -16,6 +16,8 @@ pub const EMBEDDED: &str = "embedded";
 /// A [`Resource`] that manages "rust source files" in a virtual in memory [`Dir`], which is intended
 /// to be shared with a [`MemoryAssetReader`].
 /// Generally this should not be interacted with directly. The [`embedded_asset`] will populate this.
+///
+/// [`embedded_asset`]: crate::embedded_asset
 #[derive(Resource, Default)]
 pub struct EmbeddedAssetRegistry {
     dir: Dir,
@@ -97,6 +99,8 @@ impl EmbeddedAssetRegistry {
 /// Returns the [`Path`] for a given `embedded` asset.
 /// This is used internally by [`embedded_asset`] and can be used to get a [`Path`]
 /// that matches the [`AssetPath`](crate::AssetPath) used by that asset.
+///
+/// [`embedded_asset`]: crate::embedded_asset
 #[macro_export]
 macro_rules! embedded_path {
     ($path_str: expr) => {{
@@ -177,6 +181,8 @@ macro_rules! embedded_path {
 /// Hot-reloading `embedded` assets is supported. Just enable the `embedded_watcher` cargo feature.
 ///
 /// [`AssetPath`]: crate::AssetPath
+/// [`embedded_asset`]: crate::embedded_asset
+/// [`embedded_path`]: crate::embedded_path
 #[macro_export]
 macro_rules! embedded_asset {
     ($app: ident, $path: expr) => {{

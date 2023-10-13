@@ -211,8 +211,6 @@ pub enum AssetSourceEvent {
 
 /// A handle to an "asset watcher" process, that will listen for and emit [`AssetSourceEvent`] values for as long as
 /// [`AssetWatcher`] has not been dropped.
-///
-/// See [`AssetReader::watch_for_changes`].
 pub trait AssetWatcher: Send + Sync + 'static {}
 
 /// An [`AsyncRead`] implementation capable of reading a [`Vec<u8>`].

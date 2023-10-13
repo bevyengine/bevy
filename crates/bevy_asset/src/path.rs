@@ -51,7 +51,7 @@ use thiserror::Error;
 /// which allows us to optimize the static cases.
 /// This means that the common case of `asset_server.load("my_scene.scn")` when it creates and
 /// clones internal owned [`AssetPaths`](AssetPath).
-/// This also means that you should use [`AssetPath::new`] in cases where `&str` is the explicit type.
+/// This also means that you should use [`AssetPath::parse`] in cases where `&str` is the explicit type.
 #[derive(Eq, PartialEq, Hash, Clone, Default)]
 pub struct AssetPath<'a> {
     source: AssetSourceId<'a>,
