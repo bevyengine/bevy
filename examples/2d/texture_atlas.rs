@@ -74,7 +74,7 @@ fn setup(
         Some(ImageSampler::nearest()),
         &mut textures,
     );
-    let atlas_nearest_handle = texture_atlases.add(texture_atlas_nearest.clone());
+    let atlas_nearest_handle = texture_atlases.add(texture_atlas_nearest);
 
     let texture_atlas_linear_padded = create_texture_atlas(
         loaded_folder,
@@ -90,7 +90,7 @@ fn setup(
         Some(ImageSampler::nearest()),
         &mut textures,
     );
-    let atlas_nearest_padded_handle = texture_atlases.add(texture_atlas_nearest_padded.clone());
+    let atlas_nearest_padded_handle = texture_atlases.add(texture_atlas_nearest_padded);
 
     // setup 2d scene
     commands.spawn(Camera2dBundle::default());
@@ -110,7 +110,7 @@ fn setup(
 
     // draw padded texture atlas
     commands.spawn(SpriteBundle {
-        texture: texture_atlas_linear_padded.texture.clone(),
+        texture: texture_atlas_linear_padded.texture,
         transform: Transform {
             translation: Vec3::new(250.0, -130.0, 0.0),
             scale: Vec3::splat(0.8),
@@ -126,69 +126,100 @@ fn setup(
         .get_handle("textures/rpg/chars/vendor/generic-rpg-vendor.png")
         .unwrap();
 
+    // get index of the sprite in the texture atlas, this is used to render the sprite
+    // the index is the same for all the texture atlases, since they are created from the same folder
+    let vendor_index = texture_atlas_linear
+        .get_texture_index(&vendor_handle)
+        .unwrap();
+
     // linear, no padding
-    commands.spawn(SpriteSheetBundle {
-        transform: Transform {
-            translation: Vec3::new(-350.0, 170.0, 0.0),
-            scale: Vec3::splat(3.0),
-            ..default()
-        },
-        sprite: TextureAtlasSprite::new(
-            texture_atlas_linear
-                .get_texture_index(&vendor_handle)
-                .unwrap(),
-        ),
-        texture_atlas: atlas_linear_handle,
-        ..default()
-    });
+    create_sprite_from_atlas(
+        &mut commands,
+        (-350.0, 170.0, 0.0),
+        vendor_index,
+        atlas_linear_handle,
+    );
 
     // nearest, no padding
-    commands.spawn(SpriteSheetBundle {
-        transform: Transform {
-            translation: Vec3::new(-150.0, 170.0, 0.0),
-            scale: Vec3::splat(3.0),
-            ..default()
-        },
-        sprite: TextureAtlasSprite::new(
-            texture_atlas_nearest
-                .get_texture_index(&vendor_handle)
-                .unwrap(),
-        ),
-        texture_atlas: atlas_nearest_handle,
-        ..default()
-    });
+    create_sprite_from_atlas(
+        &mut commands,
+        (-150.0, 170.0, 0.0),
+        vendor_index,
+        atlas_nearest_handle,
+    );
 
     // linear, padding
-    commands.spawn(SpriteSheetBundle {
-        transform: Transform {
-            translation: Vec3::new(150.0, 170.0, 0.0),
-            scale: Vec3::splat(3.0),
-            ..default()
-        },
-        sprite: TextureAtlasSprite::new(
-            texture_atlas_linear_padded
-                .get_texture_index(&vendor_handle)
-                .unwrap(),
-        ),
-        texture_atlas: atlas_linear_padded_handle,
-        ..default()
-    });
+    create_sprite_from_atlas(
+        &mut commands,
+        (150.0, 170.0, 0.0),
+        vendor_index,
+        atlas_linear_padded_handle,
+    );
 
     // nearest, padding
-    commands.spawn(SpriteSheetBundle {
-        transform: Transform {
-            translation: Vec3::new(350.0, 170.0, 0.0),
-            scale: Vec3::splat(3.0),
-            ..default()
-        },
-        sprite: TextureAtlasSprite::new(
-            texture_atlas_nearest_padded
-                .get_texture_index(&vendor_handle)
-                .unwrap(),
-        ),
-        texture_atlas: atlas_nearest_padded_handle,
-        ..default()
-    });
+    create_sprite_from_atlas(
+        &mut commands,
+        (350.0, 170.0, 0.0),
+        vendor_index,
+        atlas_nearest_padded_handle,
+    );
+
+    // labels to indicate the different settings
+    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let text_style = TextStyle {
+        font: font.clone(),
+        font_size: 50.0,
+        color: Color::WHITE,
+    };
+
+    // No padding
+    create_label(
+        &mut commands,
+        (-250.0, 330.0, 0.0),
+        "No padding",
+        text_style.clone(),
+    );
+
+    // Padding
+    create_label(&mut commands, (250.0, 330.0, 0.0), "Padding", text_style);
+
+    let text_style_smaller = TextStyle {
+        font,
+        font_size: 30.0,
+        color: Color::WHITE,
+    };
+
+    // Linear, left
+    create_label(
+        &mut commands,
+        (-350.0, 280.0, 0.0),
+        "Linear",
+        text_style_smaller.clone(),
+    );
+
+    // Nearest, left
+    create_label(
+        &mut commands,
+        (-150.0, 280.0, 0.0),
+        "Nearest",
+        text_style_smaller.clone(),
+    );
+
+    // Linear, right
+    create_label(
+        &mut commands,
+        (150.0, 280.0, 0.0),
+        "Linear",
+        text_style_smaller.clone(),
+    );
+
+    // Nearest, right
+    create_label(
+        &mut commands,
+        (350.0, 280.0, 0.0),
+        "Nearest",
+        text_style_smaller,
+    );
 }
 
 /// Create a texture atlas with the given padding and sampling settings
@@ -222,4 +253,40 @@ fn create_texture_atlas(
     image.sampler_descriptor = sampling.unwrap_or_default();
 
     texture_atlas
+}
+
+/// Create and spawn a sprite from a texture atlas
+fn create_sprite_from_atlas(
+    commands: &mut Commands,
+    translation: (f32, f32, f32),
+    sprite_index: usize,
+    atlas_handle: Handle<TextureAtlas>,
+) {
+    commands.spawn(SpriteSheetBundle {
+        transform: Transform {
+            translation: Vec3::new(translation.0, translation.1, translation.2),
+            scale: Vec3::splat(3.0),
+            ..default()
+        },
+        sprite: TextureAtlasSprite::new(sprite_index),
+        texture_atlas: atlas_handle,
+        ..default()
+    });
+}
+
+/// Create and spawn a label (text)
+fn create_label(
+    commands: &mut Commands,
+    translation: (f32, f32, f32),
+    text: &str,
+    text_style: TextStyle,
+) {
+    commands.spawn(Text2dBundle {
+        text: Text::from_section(text, text_style).with_alignment(TextAlignment::Center),
+        transform: Transform {
+            translation: Vec3::new(translation.0, translation.1, translation.2),
+            ..default()
+        },
+        ..default()
+    });
 }
