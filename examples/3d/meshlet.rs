@@ -42,7 +42,11 @@ fn setup(
                 meshlet_meshes.add(MeshletMesh::from_mesh(&dragon_mesh).unwrap());
             info!("Dragon meshlets calculated");
 
-            commands.spawn((dragon_meshlet_mesh_handle.clone(), SpatialBundle::default()));
+            commands.spawn((
+                dragon_meshlet_mesh_handle.clone(),
+                Transform::default(),
+                GlobalTransform::default(),
+            ));
         }
     }
 }

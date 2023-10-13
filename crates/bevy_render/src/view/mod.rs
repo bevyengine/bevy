@@ -354,7 +354,7 @@ pub fn prepare_view_uniforms(
     views: Query<(
         Entity,
         &ExtractedView,
-        &Frustum,
+        Option<&Frustum>,
         Option<&TemporalJitter>,
         Option<&MipBias>,
     )>,
@@ -389,6 +389,19 @@ pub fn prepare_view_uniforms(
                 .unwrap_or_else(|| projection * inverse_view)
         };
 
+        let frustum = frustum
+            .map(|frustum| {
+                [
+                    frustum.half_spaces[0].normal_d(),
+                    frustum.half_spaces[1].normal_d(),
+                    frustum.half_spaces[2].normal_d(),
+                    frustum.half_spaces[3].normal_d(),
+                    frustum.half_spaces[4].normal_d(),
+                    frustum.half_spaces[5].normal_d(),
+                ]
+            })
+            .unwrap_or([Vec4::ZERO; 6]);
+
         let view_uniforms = ViewUniformOffset {
             offset: writer.write(&ViewUniform {
                 view_proj,
@@ -400,14 +413,7 @@ pub fn prepare_view_uniforms(
                 inverse_projection,
                 world_position: camera.transform.translation(),
                 viewport,
-                frustum: [
-                    frustum.half_spaces[0].normal_d(),
-                    frustum.half_spaces[1].normal_d(),
-                    frustum.half_spaces[2].normal_d(),
-                    frustum.half_spaces[3].normal_d(),
-                    frustum.half_spaces[4].normal_d(),
-                    frustum.half_spaces[5].normal_d(),
-                ],
+                frustum,
                 color_grading: camera.color_grading,
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
             }),
