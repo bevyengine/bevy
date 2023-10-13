@@ -140,14 +140,8 @@ impl AssetSourceBuilder {
         watch_processed: bool,
     ) -> Option<AssetSource> {
         let reader = (self.reader.as_mut()?)();
-        let writer = self.writer.as_mut().map(|w| match (w)() {
-            Some(w) => w,
-            None => panic!("{} does not have an AssetWriter configured. Note that Web and Android do not currently support writing assets.", id),
-        });
-        let processed_writer = self.processed_writer.as_mut().map(|w| match (w)() {
-            Some(w) => w,
-            None => panic!("{} does not have a processed AssetWriter configured. Note that Web and Android do not currently support writing assets.", id),
-        });
+        let writer = self.writer.as_mut().and_then(|w| (w)());
+        let processed_writer = self.processed_writer.as_mut().and_then(|w| (w)());
         let mut source = AssetSource {
             id: id.clone(),
             reader,
@@ -405,12 +399,12 @@ impl AssetSource {
 
     /// Returns a builder function for this platform's default [`AssetReader`]. `path` is the relative path to
     /// the asset root.
-    pub fn get_default_reader(path: String) -> impl FnMut() -> Box<dyn AssetReader> + Send + Sync {
+    pub fn get_default_reader(_path: String) -> impl FnMut() -> Box<dyn AssetReader> + Send + Sync {
         move || {
             #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-            return Box::new(super::file::FileAssetReader::new(&path));
+            return Box::new(super::file::FileAssetReader::new(&_path));
             #[cfg(target_arch = "wasm32")]
-            return Box::new(super::wasm::HttpWasmAssetReader::new(&path));
+            return Box::new(super::wasm::HttpWasmAssetReader::new(&_path));
             #[cfg(target_os = "android")]
             return Box::new(super::android::AndroidAssetReader);
         }
@@ -419,11 +413,11 @@ impl AssetSource {
     /// Returns a builder function for this platform's default [`AssetWriter`]. `path` is the relative path to
     /// the asset root. This will return [`None`] if this platform does not support writing assets by default.
     pub fn get_default_writer(
-        path: String,
+        _path: String,
     ) -> impl FnMut() -> Option<Box<dyn AssetWriter>> + Send + Sync {
         move || {
             #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-            return Some(Box::new(super::file::FileAssetWriter::new(&path)));
+            return Some(Box::new(super::file::FileAssetWriter::new(&_path)));
             #[cfg(any(target_arch = "wasm32", target_os = "android"))]
             return None;
         }
