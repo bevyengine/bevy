@@ -689,7 +689,7 @@ impl AssetServer {
                 let minimal: AssetMetaMinimal = ron::de::from_bytes(&meta_bytes).map_err(|e| {
                     AssetLoadError::DeserializeMeta {
                         path: asset_path.clone_owned(),
-                        error: DeserializeMetaError::DeserializeMinimal(e),
+                        error: Box::new(DeserializeMetaError::DeserializeMinimal(e)),
                     }
                 })?;
                 let loader_name = match minimal.asset {
@@ -709,7 +709,7 @@ impl AssetServer {
                 let meta = loader.deserialize_meta(&meta_bytes).map_err(|e| {
                     AssetLoadError::DeserializeMeta {
                         path: asset_path.clone_owned(),
-                        error: e,
+                        error: Box::new(e),
                     }
                 })?;
 
@@ -920,7 +920,7 @@ pub enum AssetLoadError {
     #[error("Failed to deserialize meta for asset {path}: {error}")]
     DeserializeMeta {
         path: AssetPath<'static>,
-        error: DeserializeMetaError,
+        error: Box<DeserializeMetaError>,
     },
     #[error("Asset '{path}' is configured to be processed. It cannot be loaded directly.")]
     CannotLoadProcessedAsset { path: AssetPath<'static> },
