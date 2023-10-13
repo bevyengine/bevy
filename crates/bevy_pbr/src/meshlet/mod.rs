@@ -5,6 +5,7 @@ mod gpu_scene;
 mod node;
 mod persistent_buffer;
 mod psb_impls;
+mod test_material;
 
 pub use self::{
     asset::{Meshlet, MeshletBoundingSphere, MeshletMesh},
@@ -20,6 +21,7 @@ use self::{
         prepare_meshlet_per_frame_bind_groups, prepare_meshlet_per_frame_resources,
         MeshletGpuScene,
     },
+    test_material::MESHLET_TEST_MATERIAL_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetApp, Handle};
@@ -51,6 +53,12 @@ impl Plugin for MeshletPlugin {
             app,
             MESHLET_CULLING_SHADER_HANDLE,
             "cull_meshlets.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESHLET_TEST_MATERIAL_SHADER_HANDLE,
+            "test_material.wgsl",
             Shader::from_wgsl
         );
         app.init_asset::<MeshletMesh>();

@@ -34,9 +34,10 @@ pub fn extract_meshlet_meshes(
 ) {
     gpu_scene.reset();
 
+    // TODO: Handle not_shadow_caster
     for (
         instance_index,
-        (handle, transform, previous_transform, not_shadow_receiver, not_shadow_caster),
+        (handle, transform, previous_transform, not_shadow_receiver, _not_shadow_caster),
     ) in query.iter().enumerate()
     {
         gpu_scene.queue_meshlet_mesh_upload(handle, &assets, instance_index as u32);
