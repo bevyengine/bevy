@@ -183,7 +183,7 @@ fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
 
 /// Convert uv [0.0 .. 1.0] coordinate to ndc space xy [-1.0 .. 1.0]
 fn uv_to_ndc(uv: vec2<f32>) -> vec2<f32> {
-    return (uv - vec2(0.5)) * vec2(2.0, -2.0);
+    return uv * vec2(2.0, -2.0) + vec2(-1.0, 1.0);
 }
 
 /// returns the (0.0, 0.0) .. (1.0, 1.0) position within the viewport for the current render target
