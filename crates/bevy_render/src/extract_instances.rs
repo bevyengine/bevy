@@ -78,12 +78,7 @@ where
             marker: PhantomData,
         }
     }
-}
 
-impl<EI> ExtractInstancesPlugin<EI>
-where
-    EI: ExtractInstance,
-{
     /// Creates a new [`ExtractInstancesPlugin`] that extracts to the render world
     /// if and only if the entity it's attached to is visible.
     pub fn extract_visible() -> Self {
