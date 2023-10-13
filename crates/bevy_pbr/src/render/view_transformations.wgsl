@@ -151,14 +151,12 @@ fn perspective_camera_near() -> f32 {
 fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
 #ifdef VIEW_PROJECTION_PERSPECTIVE
     return -perspective_camera_near() / ndc_depth;
-#else
-#ifdef VIEW_PROJECTION_ORTHOGRAPHIC
+#else ifdef VIEW_PROJECTION_ORTHOGRAPHIC
     return -(view_bindings::view.projection[3][2] - ndc_depth) / view_bindings::view.projection[2][2];
 #else
     let view_pos = view_bindings::view.inverse_projection * vec4(0.0, 0.0, ndc_depth, 1.0);
     return view_pos.z / view_pos.w;
-#endif // VIEW_PROJECTION_ORTHOGRAPHIC
-#endif // VIEW_PROJECTION_PERSPECTIVE
+#endif
 }
 
 /// Convert linear view z to ndc depth. 
@@ -166,14 +164,12 @@ fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
 fn view_z_to_depth_ndc(view_z: f32) -> f32 {
 #ifdef VIEW_PROJECTION_PERSPECTIVE
     return -perspective_camera_near() / view_z;
-#else
-#ifdef VIEW_PROJECTION_ORTHOGRAPHIC
+#else ifdef VIEW_PROJECTION_ORTHOGRAPHIC
     return view_bindings::view.projection[3][2] + view_z * view_bindings::view.projection[2][2];
 #else
     let ndc_pos = view_bindings::view.projection * vec4(0.0, 0.0, view_z, 1.0);
     return ndc_pos.z / ndc_pos.w;
-#endif // VIEW_PROJECTION_ORTHOGRAPHIC
-#endif // VIEW_PROJECTION_PERSPECTIVE
+#endif
 }
 
 // -----------------
