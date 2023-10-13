@@ -1033,19 +1033,6 @@ impl ScheduleGraph {
         let mut sync_point_graph = dependency_flattened.clone();
         let topo = self.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
 
-        let get_sync_point = |graph: &mut ScheduleGraph, distance: u32| {
-            graph
-                .auto_sync_node_ids
-                .get(&distance)
-                .copied()
-                .or_else(|| {
-                    let node_id = graph.add_auto_sync();
-                    graph.auto_sync_node_ids.insert(distance, node_id);
-                    Some(node_id)
-                })
-                .unwrap()
-        };
-
         // calculate the number of sync points each sync point is from the beginning of the graph
         // use the same sync point if the distance is the same
         let mut distances: HashMap<usize, Option<u32>> = HashMap::with_capacity(topo.len());
@@ -1059,8 +1046,6 @@ impl ScheduleGraph {
 
                 let weight = if add_sync_on_edge { 1 } else { 0 };
 
-                // TODO: can't use target index here, since it isn't continuous, need to figure out a way to map the target.index to a
-                // array index or use a different data structure
                 let distance = distances
                     .get(&target.index())
                     .unwrap_or(&None)
@@ -1074,8 +1059,7 @@ impl ScheduleGraph {
                 distances.insert(target.index(), distance);
 
                 if add_sync_on_edge {
-                    // TODO: this algorithm might add a bunch of redundant edges to the sync point
-                    let sync_point = get_sync_point(self, distances[&target.index()].unwrap());
+                    let sync_point = self.get_sync_point(distances[&target.index()].unwrap());
                     sync_point_graph.add_edge(*node, sync_point, ());
                     sync_point_graph.add_edge(sync_point, target, ());
 
@@ -1103,6 +1087,20 @@ impl ScheduleGraph {
         self.ambiguous_with_all.insert(id);
 
         id
+    }
+
+    /// Returns the `NodeId` of the cached auto sync point. Will create
+    /// a new one if needed.
+    fn get_sync_point(&mut self, distance: u32) -> NodeId {
+        self.auto_sync_node_ids
+            .get(&distance)
+            .copied()
+            .or_else(|| {
+                let node_id = self.add_auto_sync();
+                self.auto_sync_node_ids.insert(distance, node_id);
+                Some(node_id)
+            })
+            .unwrap()
     }
 
     fn map_sets_to_systems(
