@@ -56,10 +56,7 @@ fn vertex(@builtin(vertex_index) packed_meshlet_index: u32) -> VertexOutput {
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var rng = in.meshlet_id;
-    let light_position = vec3(10.0);
-    let light_direction = normalize(light_position - in.world_position);
-    let cos_theta = max(dot(in.world_normal, light_direction), vec3(0.0));
     let base_color = vec3(rand_f(&rng), rand_f(&rng), rand_f(&rng));
-    let light = base_color * cos_theta;
-    return vec4(light, 1.0);
+    let cos_theta = max(dot(in.world_normal, vec3(0.5)), vec3(0.0));
+    return vec4(base_color * cos_theta, 1.0);
 }
