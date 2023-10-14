@@ -241,20 +241,25 @@ impl AssetSourceBuilder {
     /// Returns a builder containing the "platform default source" for the given `path` and `processed_path`.
     /// For most platforms, this will use [`FileAssetReader`](crate::io::file::FileAssetReader) / [`FileAssetWriter`](crate::io::file::FileAssetWriter),
     /// but some platforms (such as Android) have their own default readers / writers / watchers.
-    pub fn platform_default(path: &str, processed_path: &str) -> Self {
-        Self::default()
+    pub fn platform_default(path: &str, processed_path: Option<&str>) -> Self {
+        let default = Self::default()
             .with_reader(AssetSource::get_default_reader(path.to_string()))
             .with_writer(AssetSource::get_default_writer(path.to_string()))
             .with_watcher(AssetSource::get_default_watcher(
                 path.to_string(),
                 Duration::from_millis(300),
-            ))
-            .with_processed_reader(AssetSource::get_default_reader(processed_path.to_string()))
-            .with_processed_writer(AssetSource::get_default_writer(processed_path.to_string()))
-            .with_processed_watcher(AssetSource::get_default_watcher(
-                processed_path.to_string(),
-                Duration::from_millis(300),
-            ))
+            ));
+        if let Some(processed_path) = processed_path {
+            default
+                .with_processed_reader(AssetSource::get_default_reader(processed_path.to_string()))
+                .with_processed_writer(AssetSource::get_default_writer(processed_path.to_string()))
+                .with_processed_watcher(AssetSource::get_default_watcher(
+                    processed_path.to_string(),
+                    Duration::from_millis(300),
+                ))
+        } else {
+            default
+        }
     }
 }
 
@@ -315,7 +320,7 @@ impl AssetSourceBuilders {
     }
 
     /// Initializes the default [`AssetSourceBuilder`] if it has not already been set.
-    pub fn init_default_source(&mut self, path: &str, processed_path: &str) {
+    pub fn init_default_source(&mut self, path: &str, processed_path: Option<&str>) {
         self.default
             .get_or_insert_with(|| AssetSourceBuilder::platform_default(path, processed_path));
     }

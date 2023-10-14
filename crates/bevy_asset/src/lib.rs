@@ -122,7 +122,11 @@ impl Plugin for AssetPlugin {
             let mut sources = app
                 .world
                 .get_resource_or_insert_with::<AssetSourceBuilders>(Default::default);
-            sources.init_default_source(&self.file_path, &self.processed_file_path);
+            sources.init_default_source(
+                &self.file_path,
+                (!matches!(self.mode, AssetMode::Unprocessed))
+                    .then(|| self.processed_file_path.as_str()),
+            );
             embedded.register_source(&mut sources);
         }
         {
