@@ -38,7 +38,7 @@ fn position_view_to_world(view_pos: vec3<f32>) -> vec3<f32> {
 /// Convert a clip space position to world space
 fn position_clip_to_world(clip_pos: vec4<f32>) -> vec3<f32> {
     let world_pos = view_bindings::view.inverse_view_proj * clip_pos;
-    return world_pos.xyz;
+    return world_pos.xyz / world_pos.w;
 }
 
 /// Convert a ndc space position to world space
