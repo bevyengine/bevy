@@ -75,10 +75,10 @@ pub fn perform_pending_meshlet_mesh_writes(
         .vertex_data
         .perform_writes(&render_queue, &render_device);
     gpu_scene
-        .meshlet_vertices
+        .vertex_ids
         .perform_writes(&render_queue, &render_device);
     gpu_scene
-        .meshlet_indices
+        .indices
         .perform_writes(&render_queue, &render_device);
     gpu_scene
         .meshlets
@@ -93,7 +93,7 @@ pub fn prepare_meshlet_per_frame_resources(
     render_queue: Res<RenderQueue>,
     render_device: Res<RenderDevice>,
 ) {
-    if gpu_scene.total_instanced_meshlet_count == 0 {
+    if gpu_scene.scene_meshlet_count == 0 {
         return;
     }
 
@@ -101,10 +101,10 @@ pub fn prepare_meshlet_per_frame_resources(
         .instance_uniforms
         .write_buffer(&render_device, &render_queue);
     gpu_scene
-        .instanced_meshlet_instance_indices
+        .thread_instance_ids
         .write_buffer(&render_device, &render_queue);
     gpu_scene
-        .instanced_meshlet_meshlet_indices
+        .thread_meshlet_ids
         .write_buffer(&render_device, &render_queue);
 
     gpu_scene.draw_command_buffer = Some(
@@ -124,7 +124,7 @@ pub fn prepare_meshlet_per_frame_resources(
 
     gpu_scene.draw_index_buffer = Some(render_device.create_buffer(&BufferDescriptor {
         label: Some("meshlet_draw_index_buffer"),
-        size: 12 * gpu_scene.total_instanced_triangle_count,
+        size: 12 * gpu_scene.scene_triangle_count,
         usage: BufferUsages::STORAGE | BufferUsages::INDEX,
         mapped_at_creation: false,
     }));
@@ -135,7 +135,7 @@ pub fn prepare_meshlet_per_frame_bind_groups(
     view_uniforms: Res<ViewUniforms>,
     render_device: Res<RenderDevice>,
 ) {
-    if gpu_scene.total_instanced_meshlet_count == 0 {
+    if gpu_scene.scene_meshlet_count == 0 {
         return;
     }
     let Some(view_uniforms) = view_uniforms.uniforms.binding() else {
@@ -149,7 +149,7 @@ pub fn prepare_meshlet_per_frame_bind_groups(
         },
         BindGroupEntry {
             binding: 1,
-            resource: gpu_scene.meshlet_vertices.binding(),
+            resource: gpu_scene.vertex_ids.binding(),
         },
         BindGroupEntry {
             binding: 2,
@@ -161,21 +161,15 @@ pub fn prepare_meshlet_per_frame_bind_groups(
         },
         BindGroupEntry {
             binding: 4,
-            resource: gpu_scene
-                .instanced_meshlet_instance_indices
-                .binding()
-                .unwrap(),
+            resource: gpu_scene.thread_instance_ids.binding().unwrap(),
         },
         BindGroupEntry {
             binding: 5,
-            resource: gpu_scene
-                .instanced_meshlet_meshlet_indices
-                .binding()
-                .unwrap(),
+            resource: gpu_scene.thread_meshlet_ids.binding().unwrap(),
         },
         BindGroupEntry {
             binding: 6,
-            resource: gpu_scene.meshlet_indices.binding(),
+            resource: gpu_scene.indices.binding(),
         },
         BindGroupEntry {
             binding: 7,
@@ -221,17 +215,17 @@ pub fn prepare_meshlet_per_frame_bind_groups(
 #[derive(Resource)]
 pub struct MeshletGpuScene {
     vertex_data: PersistentGpuBuffer<Arc<[u8]>>,
-    meshlet_vertices: PersistentGpuBuffer<Arc<[u32]>>,
-    meshlet_indices: PersistentGpuBuffer<Arc<[u8]>>,
+    vertex_ids: PersistentGpuBuffer<Arc<[u32]>>,
+    indices: PersistentGpuBuffer<Arc<[u8]>>,
     meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
     meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSphere]>>,
     meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, (Range<u32>, u32)>,
 
-    total_instanced_meshlet_count: u32,
-    total_instanced_triangle_count: u64,
+    scene_meshlet_count: u32,
+    scene_triangle_count: u64,
     instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
-    instanced_meshlet_instance_indices: StorageBuffer<Vec<u32>>,
-    instanced_meshlet_meshlet_indices: StorageBuffer<Vec<u32>>,
+    thread_instance_ids: StorageBuffer<Vec<u32>>,
+    thread_meshlet_ids: StorageBuffer<Vec<u32>>,
 
     culling_bind_group_layout: BindGroupLayout,
     draw_bind_group_layout: BindGroupLayout,
@@ -248,30 +242,30 @@ impl FromWorld for MeshletGpuScene {
 
         Self {
             vertex_data: PersistentGpuBuffer::new("meshlet_vertex_data", render_device),
-            meshlet_vertices: PersistentGpuBuffer::new("meshlet_meshlet_vertices", render_device),
-            meshlet_indices: PersistentGpuBuffer::new("meshlet_meshlet_indices", render_device),
-            meshlets: PersistentGpuBuffer::new("meshlet_meshlets", render_device),
+            vertex_ids: PersistentGpuBuffer::new("meshlet_vertex_ids", render_device),
+            indices: PersistentGpuBuffer::new("meshlet_indices", render_device),
+            meshlets: PersistentGpuBuffer::new("meshlets", render_device),
             meshlet_bounding_spheres: PersistentGpuBuffer::new(
-                "meshlet_meshlet_bounding_spheres",
+                "meshlet_bounding_spheres",
                 render_device,
             ),
             meshlet_mesh_slices: HashMap::new(),
 
-            total_instanced_meshlet_count: 0,
-            total_instanced_triangle_count: 0,
+            scene_meshlet_count: 0,
+            scene_triangle_count: 0,
             instance_uniforms: {
                 let mut buffer = StorageBuffer::default();
                 buffer.set_label(Some("meshlet_instance_uniforms"));
                 buffer
             },
-            instanced_meshlet_instance_indices: {
+            thread_instance_ids: {
                 let mut buffer = StorageBuffer::default();
-                buffer.set_label(Some("meshlet_instanced_meshlet_instance_indices"));
+                buffer.set_label(Some("meshlet_thread_instance_ids"));
                 buffer
             },
-            instanced_meshlet_meshlet_indices: {
+            thread_meshlet_ids: {
                 let mut buffer = StorageBuffer::default();
-                buffer.set_label(Some("meshlet_instanced_meshlet_meshlet_indices"));
+                buffer.set_label(Some("meshlet_thread_meshlet_ids"));
                 buffer
             },
 
@@ -298,12 +292,12 @@ impl FromWorld for MeshletGpuScene {
 
 impl MeshletGpuScene {
     fn reset(&mut self) {
-        self.total_instanced_meshlet_count = 0;
-        self.total_instanced_triangle_count = 0;
+        self.scene_meshlet_count = 0;
+        self.scene_triangle_count = 0;
         // TODO: Shrink capacity if saturation is low
         self.instance_uniforms.get_mut().clear();
-        self.instanced_meshlet_instance_indices.get_mut().clear();
-        self.instanced_meshlet_meshlet_indices.get_mut().clear();
+        self.thread_instance_ids.get_mut().clear();
+        self.thread_meshlet_ids.get_mut().clear();
         self.draw_command_buffer = None;
         self.draw_index_buffer = None;
         self.culling_bind_group = None;
@@ -322,45 +316,41 @@ impl MeshletGpuScene {
             let vertex_data_slice = self
                 .vertex_data
                 .queue_write(Arc::clone(&meshlet_mesh.vertex_data), ());
-            let meshlet_vertices_slice = self.meshlet_vertices.queue_write(
-                Arc::clone(&meshlet_mesh.meshlet_vertices),
+            let vertex_ids_slice = self.vertex_ids.queue_write(
+                Arc::clone(&meshlet_mesh.vertex_ids),
                 vertex_data_slice.start,
             );
-            let meshlet_indices_slice = self
-                .meshlet_indices
-                .queue_write(Arc::clone(&meshlet_mesh.meshlet_indices), ());
-            let meshlet_slice = self.meshlets.queue_write(
+            let indices_slice = self
+                .indices
+                .queue_write(Arc::clone(&meshlet_mesh.indices), ());
+            let meshlets_slice = self.meshlets.queue_write(
                 Arc::clone(&meshlet_mesh.meshlets),
-                (meshlet_vertices_slice.start, meshlet_indices_slice.start),
+                (vertex_ids_slice.start, indices_slice.start),
             );
             self.meshlet_bounding_spheres
                 .queue_write(Arc::clone(&meshlet_mesh.meshlet_bounding_spheres), ());
 
             (
-                (meshlet_slice.start as u32 / 16)..(meshlet_slice.end as u32 / 16),
+                (meshlets_slice.start as u32 / 16)..(meshlets_slice.end as u32 / 16),
                 meshlet_mesh
                     .meshlets
                     .iter()
-                    .map(|meshlet| meshlet.meshlet_triangle_count)
+                    .map(|meshlet| meshlet.triangle_count)
                     .sum(),
             )
         };
 
-        let (scene_slice, triangle_count) = self
+        let (meshlets_slice, triangle_count) = self
             .meshlet_mesh_slices
             .entry(handle.id())
             .or_insert_with_key(queue_meshlet_mesh);
 
-        self.total_instanced_meshlet_count += scene_slice.end - scene_slice.start;
-        self.total_instanced_triangle_count += *triangle_count as u64;
+        self.scene_meshlet_count += meshlets_slice.end - meshlets_slice.start;
+        self.scene_triangle_count += *triangle_count as u64;
 
-        for meshlet_index in scene_slice {
-            self.instanced_meshlet_instance_indices
-                .get_mut()
-                .push(instance_index);
-            self.instanced_meshlet_meshlet_indices
-                .get_mut()
-                .push(meshlet_index);
+        for meshlet_index in meshlets_slice {
+            self.thread_instance_ids.get_mut().push(instance_index);
+            self.thread_meshlet_ids.get_mut().push(meshlet_index);
         }
     }
 
@@ -382,7 +372,7 @@ impl MeshletGpuScene {
         Option<&Buffer>,
     ) {
         (
-            self.total_instanced_meshlet_count,
+            self.scene_meshlet_count,
             self.culling_bind_group.as_ref(),
             self.draw_bind_group.as_ref(),
             self.draw_index_buffer.as_ref(),
@@ -405,7 +395,7 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
             },
             count: None,
         },
-        // Meshlet vertices
+        // Vertex IDs
         BindGroupLayoutEntry {
             binding: 1,
             visibility: ShaderStages::VERTEX,
@@ -438,7 +428,7 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
             },
             count: None,
         },
-        // Instanced meshlet instance indices
+        // Thread instance IDs
         BindGroupLayoutEntry {
             binding: 4,
             visibility: ShaderStages::COMPUTE | ShaderStages::VERTEX,
@@ -449,7 +439,7 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
             },
             count: None,
         },
-        // Instanced meshlet meshlet indices
+        // Thread meshlet IDs
         BindGroupLayoutEntry {
             binding: 5,
             visibility: ShaderStages::COMPUTE | ShaderStages::VERTEX,
@@ -460,7 +450,7 @@ fn bind_group_layout_entries() -> [BindGroupLayoutEntry; 11] {
             },
             count: None,
         },
-        // Meshlet indices
+        // Indices
         BindGroupLayoutEntry {
             binding: 6,
             visibility: ShaderStages::COMPUTE,

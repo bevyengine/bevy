@@ -43,8 +43,8 @@ impl PersistentGpuBufferable for Arc<[Meshlet]> {
         self.iter()
             .flat_map(|meshlet| {
                 bytemuck::cast::<_, [u8; 16]>(Meshlet {
-                    meshlet_vertices_index: meshlet.meshlet_vertices_index + vertex_offset,
-                    meshlet_indices_index: meshlet.meshlet_indices_index + index_offset,
+                    start_vertex_id: meshlet.start_vertex_id + vertex_offset,
+                    start_index_id: meshlet.start_index_id + index_offset,
                     ..*meshlet
                 })
             })

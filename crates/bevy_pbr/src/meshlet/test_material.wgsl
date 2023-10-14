@@ -1,4 +1,4 @@
-#import bevy_pbr::meshlet_bindings vertex_data, meshlet_vertices, meshlets, instance_uniforms, instanced_meshlet_instance_indices, instanced_meshlet_meshlet_indices
+#import bevy_pbr::meshlet_bindings meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms
 
 struct VertexOutput {
     @location(0) position: vec3<f32>,
@@ -9,13 +9,14 @@ struct VertexOutput {
 
 @vertex
 fn vertex(@builtin(vertex_index) packed_meshlet_index: u32) -> VertexOutput {
-    let instanced_meshlet_index = packed_meshlet_index >> 8u;
-    let meshlet_index = instanced_meshlet_meshlet_indices[instanced_meshlet_index];
-    let meshlet = meshlets[meshlet_index];
-    let meshlet_vertex_index = extractBits(packed_meshlet_index, 0u, 8u);
-    let meshlet_vertex = meshlet_vertices[meshlet.vertices_index + meshlet_vertex_index];
-    let vertex = vertex_data[meshlet_vertex];
-    let mesh_uniform = instance_uniforms[instanced_meshlet_index];
+    let thead_id = packed_meshlet_index >> 8u;
+    let meshlet_id = meshlet_thread_meshlet_ids[thead_id];
+    let meshlet = meshlets[meshlet_id];
+    let index = extractBits(packed_meshlet_index, 0u, 8u);
+    let vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + index];
+    let vertex = meshlet_vertex_data[vertex_id];
+    let instance_id = meshlet_thread_instance_ids[thead_id];
+    let instance_uniform = meshlet_instance_uniforms[instance_id];
 
     // TODO
 }

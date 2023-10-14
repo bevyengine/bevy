@@ -11,8 +11,8 @@ struct Vertex {
 }
 
 struct Meshlet {
-    vertices_index: u32,
-    indices_index: u32,
+    start_vertex_id: u32,
+    start_index_id: u32,
     vertex_count: u32,
     triangle_count: u32,
 }
@@ -31,13 +31,13 @@ struct DrawIndexedIndirect {
 }
 
 #ifndef MESHLET_CULLING_BINDINGS
-@group(#{MESHLET_BIND_GROUP}) @binding(0) var<storage, read> vertex_data: array<Vertex>;
-@group(#{MESHLET_BIND_GROUP}) @binding(1) var<storage, read> meshlet_vertices: array<u32>;
+@group(#{MESHLET_BIND_GROUP}) @binding(0) var<storage, read> meshlet_vertex_data: array<Vertex>;
+@group(#{MESHLET_BIND_GROUP}) @binding(1) var<storage, read> meshlet_vertex_ids: array<u32>;
 #endif
 @group(#{MESHLET_BIND_GROUP}) @binding(2) var<storage, read> meshlets: array<Meshlet>;
-@group(#{MESHLET_BIND_GROUP}) @binding(3) var<storage, read> instance_uniforms: array<Mesh>;
-@group(#{MESHLET_BIND_GROUP}) @binding(4) var<storage, read> instanced_meshlet_instance_indices: array<u32>;
-@group(#{MESHLET_BIND_GROUP}) @binding(5) var<storage, read> instanced_meshlet_meshlet_indices: array<u32>;
+@group(#{MESHLET_BIND_GROUP}) @binding(3) var<storage, read> meshlet_instance_uniforms: array<Mesh>;
+@group(#{MESHLET_BIND_GROUP}) @binding(4) var<storage, read> meshlet_thread_instance_ids: array<u32>;
+@group(#{MESHLET_BIND_GROUP}) @binding(5) var<storage, read> meshlet_thread_meshlet_ids: array<u32>;
 #ifdef MESHLET_CULLING_BINDINGS
 @group(#{MESHLET_BIND_GROUP}) @binding(6) var<storage, read> meshlet_indices: array<u32>; // packed u8's
 @group(#{MESHLET_BIND_GROUP}) @binding(7) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>;
@@ -45,3 +45,9 @@ struct DrawIndexedIndirect {
 @group(#{MESHLET_BIND_GROUP}) @binding(9) var<storage, write> draw_index_buffer: array<u32>;
 @group(#{MESHLET_BIND_GROUP}) @binding(10) var<uniform> view: View;
 #endif
+
+fn get_meshlet_index(index_id: u32) -> u32 {
+    let packed_index = meshlet_indices[index_id / 4u];
+    let bit_offset = (index_id % 4u) * 8u;
+    return extractBits(packed_index, bit_offset, 8u);
+}

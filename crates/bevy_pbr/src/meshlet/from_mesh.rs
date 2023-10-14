@@ -61,16 +61,16 @@ impl MeshletMesh {
 
         Ok(Self {
             vertex_data: vertex_buffer.into(),
-            meshlet_vertices: meshlets.vertices.into(),
-            meshlet_indices: meshlets.triangles.into(),
+            vertex_ids: meshlets.vertices.into(),
+            indices: meshlets.triangles.into(),
             meshlets: meshlets
                 .meshlets
                 .into_iter()
                 .map(|m| Meshlet {
-                    meshlet_vertices_index: m.vertex_offset,
-                    meshlet_indices_index: m.triangle_offset,
-                    meshlet_vertex_count: m.vertex_count,
-                    meshlet_triangle_count: m.triangle_count,
+                    start_vertex_id: m.vertex_offset,
+                    start_index_id: m.triangle_offset,
+                    vertex_count: m.vertex_count,
+                    triangle_count: m.triangle_count,
                 })
                 .collect(),
             meshlet_bounding_spheres,
