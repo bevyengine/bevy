@@ -1,15 +1,10 @@
 //! This example illustrates loading scenes from files.
-use bevy::{asset::ChangeWatcher, prelude::*, tasks::IoTaskPool, utils::Duration};
+use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
 use std::{fs::File, io::Write};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            // This tells the AssetServer to watch for changes to assets.
-            // It enables our scenes to automatically reload in game when we modify their files.
-            watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
         .register_type::<ResourceA>()
@@ -26,7 +21,7 @@ fn main() {
 // `Reflect` enable a bunch of cool behaviors, so its worth checking out the dedicated `reflect.rs`
 // example. The `FromWorld` trait determines how your component is constructed when it loads.
 // For simple use cases you can just implement the `Default` trait (which automatically implements
-// FromResources). The simplest registered component just needs these two derives:
+// `FromWorld`). The simplest registered component just needs these three derives:
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)] // this tells the reflect derive to also reflect component behaviors
 struct ComponentA {
@@ -80,7 +75,8 @@ fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 // This system logs all ComponentA components in our world. Try making a change to a ComponentA in
-// load_scene_example.scn. You should immediately see the changes appear in the console.
+// load_scene_example.scn. If you enable the `file_watcher` cargo feature you should immediately see
+// the changes appear in the console whenever you make a change.
 fn log_system(
     query: Query<(Entity, &ComponentA), Changed<ComponentA>>,
     res: Option<Res<ResourceA>>,

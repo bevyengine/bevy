@@ -17,7 +17,6 @@
 #import bevy_pbr::environment_map
 #endif
 
-#import bevy_pbr::mesh_bindings   mesh
 #import bevy_pbr::mesh_types      MESH_FLAGS_SHADOW_RECEIVER_BIT
 
 fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
@@ -137,47 +136,9 @@ fn calculate_view(
     return V;
 }
 
-struct PbrInput {
-    material: pbr_types::StandardMaterial,
-    occlusion: vec3<f32>,
-    frag_coord: vec4<f32>,
-    world_position: vec4<f32>,
-    // Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
-    // mapping
-    world_normal: vec3<f32>,
-    // Normalized normal-mapped world normal used for lighting
-    N: vec3<f32>,
-    // Normalized view vector in world space, pointing from the fragment world position toward the
-    // view world position
-    V: vec3<f32>,
-    is_orthographic: bool,
-    flags: u32,
-};
-
-// Creates a PbrInput with default values
-fn pbr_input_new() -> PbrInput {
-    var pbr_input: PbrInput;
-
-    pbr_input.material = pbr_types::standard_material_new();
-    pbr_input.occlusion = vec3<f32>(1.0);
-
-    pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
-    pbr_input.world_position = vec4<f32>(0.0, 0.0, 0.0, 1.0);
-    pbr_input.world_normal = vec3<f32>(0.0, 0.0, 1.0);
-
-    pbr_input.is_orthographic = false;
-
-    pbr_input.N = vec3<f32>(0.0, 0.0, 1.0);
-    pbr_input.V = vec3<f32>(1.0, 0.0, 0.0);
-
-    pbr_input.flags = 0u;
-
-    return pbr_input;
-}
-
 #ifndef PREPASS_FRAGMENT
 fn pbr(
-    in: PbrInput,
+    in: pbr_types::PbrInput,
 ) -> vec4<f32> {
     var output_color: vec4<f32> = in.material.base_color;
 
@@ -190,8 +151,6 @@ fn pbr(
     let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
 
     let occlusion = in.occlusion;
-
-    output_color = alpha_discard(in.material, output_color);
 
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
     let NdotV = max(dot(in.N, in.V), 0.0001);

@@ -336,19 +336,19 @@ impl<'w> WorldCell<'w> {
         }
     }
 
-    /// Sends an [`Event`](crate::event::Event).
+    /// Sends an [`Event`].
     #[inline]
     pub fn send_event<E: Event>(&self, event: E) {
         self.send_event_batch(std::iter::once(event));
     }
 
-    /// Sends the default value of the [`Event`](crate::event::Event) of type `E`.
+    /// Sends the default value of the [`Event`] of type `E`.
     #[inline]
     pub fn send_event_default<E: Event + Default>(&self) {
         self.send_event_batch(std::iter::once(E::default()));
     }
 
-    /// Sends a batch of [`Event`](crate::event::Event)s from an iterator.
+    /// Sends a batch of [`Event`]s from an iterator.
     #[inline]
     pub fn send_event_batch<E: Event>(&self, events: impl Iterator<Item = E>) {
         match self.get_resource_mut::<Events<E>>() {

@@ -97,13 +97,13 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: LINE_SHADER_HANDLE.typed(),
+                shader: LINE_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: line_gizmo_vertex_buffer_layouts(key.strip),
             },
             fragment: Some(FragmentState {
-                shader: LINE_SHADER_HANDLE.typed(),
+                shader: LINE_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -178,7 +178,8 @@ fn queue_line_gizmos_2d(
                 draw_function,
                 pipeline,
                 sort_key: FloatOrd(f32::INFINITY),
-                batch_size: 1,
+                batch_range: 0..1,
+                dynamic_offset: None,
             });
         }
     }

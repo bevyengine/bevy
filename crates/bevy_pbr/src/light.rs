@@ -6,12 +6,13 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::Camera,
     color::Color,
+    extract_component::ExtractComponent,
     extract_resource::ExtractResource,
     prelude::Projection,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
-    view::{ComputedVisibility, RenderLayers, VisibleEntities},
+    view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::{tracing::warn, HashMap};
@@ -44,6 +45,7 @@ use crate::{
 #[reflect(Component, Default)]
 pub struct PointLight {
     pub color: Color,
+    /// Luminous power in lumens
     pub intensity: f32,
     pub range: f32,
     pub radius: f32,
@@ -59,7 +61,6 @@ impl Default for PointLight {
     fn default() -> Self {
         PointLight {
             color: Color::rgb(1.0, 1.0, 1.0),
-            /// Luminous power in lumens
             intensity: 800.0, // Roughly a 60W non-halogen incandescent bulb
             range: 20.0,
             radius: 0.0,
@@ -95,6 +96,7 @@ impl Default for PointLightShadowMap {
 #[reflect(Component, Default)]
 pub struct SpotLight {
     pub color: Color,
+    /// Luminous power in lumens
     pub intensity: f32,
     pub range: f32,
     pub radius: f32,
@@ -127,7 +129,6 @@ impl Default for SpotLight {
         // a quarter arc attenuating from the center
         Self {
             color: Color::rgb(1.0, 1.0, 1.0),
-            /// Luminous power in lumens
             intensity: 800.0, // Roughly a 60W non-halogen incandescent bulb
             range: 20.0,
             radius: 0.0,
@@ -422,7 +423,7 @@ pub fn update_directional_light_cascades(
         })
         .collect::<Vec<_>>();
 
-    for (transform, directional_light, cascades_config, mut cascades) in lights.iter_mut() {
+    for (transform, directional_light, cascades_config, mut cascades) in &mut lights {
         if !directional_light.shadows_enabled {
             continue;
         }
@@ -605,6 +606,36 @@ pub struct NotShadowCaster;
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct NotShadowReceiver;
+
+/// Add this component to a [`Camera3d`](bevy_core_pipeline::core_3d::Camera3d)
+/// to control how to anti-alias shadow edges.
+///
+/// The different modes use different approaches to
+/// [Percentage Closer Filtering](https://developer.nvidia.com/gpugems/gpugems/part-ii-lighting-and-shadows/chapter-11-shadow-map-antialiasing).
+///
+/// Currently does not affect point lights.
+#[derive(Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
+#[reflect(Component, Default)]
+pub enum ShadowFilteringMethod {
+    /// Hardware 2x2.
+    ///
+    /// Fast but poor quality.
+    Hardware2x2,
+    /// Method by Ignacio Castaño for The Witness using 9 samples and smart
+    /// filtering to achieve the same as a regular 5x5 filter kernel.
+    ///
+    /// Good quality, good performance.
+    #[default]
+    Castano13,
+    /// Method by Jorge Jimenez for Call of Duty: Advanced Warfare using 8
+    /// samples in spiral pattern, randomly-rotated by interleaved gradient
+    /// noise with spatial variation.
+    ///
+    /// Good quality when used with
+    /// [`TemporalAntiAliasSettings`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasSettings)
+    /// and good performance.
+    Jimenez14,
+}
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
@@ -1050,20 +1081,12 @@ fn compute_aabb_for_cluster(
 
         // Convert to view space at the cluster near and far planes
         // NOTE: 1.0 is the near plane due to using reverse z projections
-        let p_min = screen_to_view(
-            screen_size,
-            inverse_projection,
-            p_min,
-            1.0 - (ijk.z / cluster_dimensions.z as f32),
-        )
-        .xyz();
-        let p_max = screen_to_view(
-            screen_size,
-            inverse_projection,
-            p_max,
-            1.0 - ((ijk.z + 1.0) / cluster_dimensions.z as f32),
-        )
-        .xyz();
+        let mut p_min = screen_to_view(screen_size, inverse_projection, p_min, 0.0).xyz();
+        let mut p_max = screen_to_view(screen_size, inverse_projection, p_max, 0.0).xyz();
+
+        // calculate cluster depth using z_near and z_far
+        p_min.z = -z_near + (z_near - z_far) * ijk.z / cluster_dimensions.z as f32;
+        p_max.z = -z_near + (z_near - z_far) * (ijk.z + 1.0) / cluster_dimensions.z as f32;
 
         cluster_min = p_min.min(p_max);
         cluster_max = p_min.max(p_max);
@@ -1178,8 +1201,8 @@ pub(crate) fn assign_lights_to_clusters(
         &mut Clusters,
         Option<&mut VisiblePointLights>,
     )>,
-    point_lights_query: Query<(Entity, &GlobalTransform, &PointLight, &ComputedVisibility)>,
-    spot_lights_query: Query<(Entity, &GlobalTransform, &SpotLight, &ComputedVisibility)>,
+    point_lights_query: Query<(Entity, &GlobalTransform, &PointLight, &ViewVisibility)>,
+    spot_lights_query: Query<(Entity, &GlobalTransform, &SpotLight, &ViewVisibility)>,
     mut lights: Local<Vec<PointLightAssignmentData>>,
     mut cluster_aabb_spheres: Local<Vec<Option<Sphere>>>,
     mut max_point_lights_warning_emitted: Local<bool>,
@@ -1196,7 +1219,7 @@ pub(crate) fn assign_lights_to_clusters(
     lights.extend(
         point_lights_query
             .iter()
-            .filter(|(.., visibility)| visibility.is_visible())
+            .filter(|(.., visibility)| visibility.get())
             .map(
                 |(entity, transform, point_light, _visibility)| PointLightAssignmentData {
                     entity,
@@ -1210,7 +1233,7 @@ pub(crate) fn assign_lights_to_clusters(
     lights.extend(
         spot_lights_query
             .iter()
-            .filter(|(.., visibility)| visibility.is_visible())
+            .filter(|(.., visibility)| visibility.get())
             .map(
                 |(entity, transform, spot_light, _visibility)| PointLightAssignmentData {
                     entity,
@@ -1797,7 +1820,7 @@ pub fn update_directional_light_frusta(
         (
             &Cascades,
             &DirectionalLight,
-            &ComputedVisibility,
+            &ViewVisibility,
             &mut CascadesFrusta,
         ),
         (
@@ -1810,7 +1833,7 @@ pub fn update_directional_light_frusta(
         // The frustum is used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frustum is
         // not needed.
-        if !directional_light.shadows_enabled || !visibility.is_visible() {
+        if !directional_light.shadows_enabled || !visibility.get() {
             continue;
         }
 
@@ -1882,7 +1905,7 @@ pub fn update_spot_light_frusta(
         Or<(Changed<GlobalTransform>, Changed<SpotLight>)>,
     >,
 ) {
-    for (entity, transform, spot_light, mut frustum) in views.iter_mut() {
+    for (entity, transform, spot_light, mut frustum) in &mut views {
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
         // not needed.
@@ -1931,14 +1954,15 @@ pub fn check_light_mesh_visibility(
             &CascadesFrusta,
             &mut CascadesVisibleEntities,
             Option<&RenderLayers>,
-            &mut ComputedVisibility,
+            &mut ViewVisibility,
         ),
         Without<SpotLight>,
     >,
     mut visible_entity_query: Query<
         (
             Entity,
-            &mut ComputedVisibility,
+            &InheritedVisibility,
+            &mut ViewVisibility,
             Option<&RenderLayers>,
             Option<&Aabb>,
             Option<&GlobalTransform>,
@@ -1963,17 +1987,12 @@ pub fn check_light_mesh_visibility(
     }
 
     // Directional lights
-    for (
-        directional_light,
-        frusta,
-        mut visible_entities,
-        maybe_view_mask,
-        light_computed_visibility,
-    ) in &mut directional_lights
+    for (directional_light, frusta, mut visible_entities, maybe_view_mask, light_view_visibility) in
+        &mut directional_lights
     {
         // Re-use already allocated entries where possible.
         let mut views_to_remove = Vec::new();
-        for (view, cascade_view_entities) in visible_entities.entities.iter_mut() {
+        for (view, cascade_view_entities) in &mut visible_entities.entities {
             match frusta.frusta.get(view) {
                 Some(view_frusta) => {
                     cascade_view_entities.resize(view_frusta.len(), Default::default());
@@ -1984,7 +2003,7 @@ pub fn check_light_mesh_visibility(
                 None => views_to_remove.push(*view),
             };
         }
-        for (view, frusta) in frusta.frusta.iter() {
+        for (view, frusta) in &frusta.frusta {
             visible_entities
                 .entities
                 .entry(*view)
@@ -1995,16 +2014,22 @@ pub fn check_light_mesh_visibility(
         }
 
         // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
-        if !directional_light.shadows_enabled || !light_computed_visibility.is_visible() {
+        if !directional_light.shadows_enabled || !light_view_visibility.get() {
             continue;
         }
 
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        for (entity, mut computed_visibility, maybe_entity_mask, maybe_aabb, maybe_transform) in
-            &mut visible_entity_query
+        for (
+            entity,
+            inherited_visibility,
+            mut view_visibility,
+            maybe_entity_mask,
+            maybe_aabb,
+            maybe_transform,
+        ) in &mut visible_entity_query
         {
-            if !computed_visibility.is_visible_in_hierarchy() {
+            if !inherited_visibility.get() {
                 continue;
             }
 
@@ -2015,7 +2040,7 @@ pub fn check_light_mesh_visibility(
 
             // If we have an aabb and transform, do frustum culling
             if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
-                for (view, view_frusta) in frusta.frusta.iter() {
+                for (view, view_frusta) in &frusta.frusta {
                     let view_visible_entities = visible_entities
                         .entities
                         .get_mut(view)
@@ -2029,12 +2054,12 @@ pub fn check_light_mesh_visibility(
                             continue;
                         }
 
-                        computed_visibility.set_visible_in_view();
+                        view_visibility.set();
                         frustum_visible_entities.entities.push(entity);
                     }
                 }
             } else {
-                computed_visibility.set_visible_in_view();
+                view_visibility.set();
                 for view in frusta.frusta.keys() {
                     let view_visible_entities = visible_entities
                         .entities
@@ -2048,7 +2073,7 @@ pub fn check_light_mesh_visibility(
             }
         }
 
-        for (_, cascade_view_entities) in visible_entities.entities.iter_mut() {
+        for (_, cascade_view_entities) in &mut visible_entities.entities {
             cascade_view_entities.iter_mut().for_each(shrink_entities);
         }
     }
@@ -2081,13 +2106,14 @@ pub fn check_light_mesh_visibility(
 
                 for (
                     entity,
-                    mut computed_visibility,
+                    inherited_visibility,
+                    mut view_visibility,
                     maybe_entity_mask,
                     maybe_aabb,
                     maybe_transform,
                 ) in &mut visible_entity_query
                 {
-                    if !computed_visibility.is_visible_in_hierarchy() {
+                    if !inherited_visibility.get() {
                         continue;
                     }
 
@@ -2109,12 +2135,12 @@ pub fn check_light_mesh_visibility(
                             .zip(cubemap_visible_entities.iter_mut())
                         {
                             if frustum.intersects_obb(aabb, &model_to_world, true, true) {
-                                computed_visibility.set_visible_in_view();
+                                view_visibility.set();
                                 visible_entities.entities.push(entity);
                             }
                         }
                     } else {
-                        computed_visibility.set_visible_in_view();
+                        view_visibility.set();
                         for visible_entities in cubemap_visible_entities.iter_mut() {
                             visible_entities.entities.push(entity);
                         }
@@ -2145,13 +2171,14 @@ pub fn check_light_mesh_visibility(
 
                 for (
                     entity,
-                    mut computed_visibility,
+                    inherited_visibility,
+                    mut view_visibility,
                     maybe_entity_mask,
                     maybe_aabb,
                     maybe_transform,
-                ) in visible_entity_query.iter_mut()
+                ) in &mut visible_entity_query
                 {
-                    if !computed_visibility.is_visible_in_hierarchy() {
+                    if !inherited_visibility.get() {
                         continue;
                     }
 
@@ -2169,11 +2196,11 @@ pub fn check_light_mesh_visibility(
                         }
 
                         if frustum.intersects_obb(aabb, &model_to_world, true, true) {
-                            computed_visibility.set_visible_in_view();
+                            view_visibility.set();
                             visible_entities.entities.push(entity);
                         }
                     } else {
-                        computed_visibility.set_visible_in_view();
+                        view_visibility.set();
                         visible_entities.entities.push(entity);
                     }
                 }

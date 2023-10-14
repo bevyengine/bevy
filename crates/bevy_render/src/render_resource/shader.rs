@@ -1,9 +1,9 @@
 use super::ShaderDefVal;
 use crate::define_atomic_id;
-use bevy_asset::{AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
-use bevy_reflect::{TypePath, TypeUuid};
+use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
+use bevy_reflect::TypePath;
 use bevy_utils::{tracing::error, BoxedFuture};
-
+use futures_lite::AsyncReadExt;
 use std::{borrow::Cow, marker::Copy};
 use thiserror::Error;
 
@@ -24,8 +24,7 @@ pub enum ShaderReflectError {
 }
 /// A shader, as defined by its [`ShaderSource`](wgpu::ShaderSource) and [`ShaderStage`](naga::ShaderStage)
 /// This is an "unprocessed" shader. It can contain preprocessor directives.
-#[derive(Debug, Clone, TypeUuid, TypePath)]
-#[uuid = "d95bc916-6c55-4de3-9622-37e7b6969fda"]
+#[derive(Asset, TypePath, Debug, Clone)]
 pub struct Shader {
     pub path: String,
     pub source: Source,
@@ -35,6 +34,9 @@ pub struct Shader {
     pub additional_imports: Vec<naga_oil::compose::ImportDefinition>,
     // any shader defs that will be included when this module is used
     pub shader_defs: Vec<ShaderDefVal>,
+    // we must store strong handles to our dependencies to stop them
+    // from being immediately dropped if we are the only user.
+    pub file_dependencies: Vec<Handle<Shader>>,
 }
 
 impl Shader {
@@ -76,6 +78,7 @@ impl Shader {
             source: Source::Wgsl(source),
             additional_imports: Default::default(),
             shader_defs: Default::default(),
+            file_dependencies: Default::default(),
         }
     }
 
@@ -105,6 +108,7 @@ impl Shader {
             source: Source::Glsl(source, stage),
             additional_imports: Default::default(),
             shader_defs: Default::default(),
+            file_dependencies: Default::default(),
         }
     }
 
@@ -117,6 +121,7 @@ impl Shader {
             source: Source::SpirV(source.into()),
             additional_imports: Default::default(),
             shader_defs: Default::default(),
+            file_dependencies: Default::default(),
         }
     }
 
@@ -233,61 +238,61 @@ impl From<&Source> for naga_oil::compose::ShaderType {
 #[derive(Default)]
 pub struct ShaderLoader;
 
+#[non_exhaustive]
+#[derive(Debug, Error)]
+pub enum ShaderLoaderError {
+    #[error("Could not load shader: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Could not parse shader: {0}")]
+    Parse(#[from] std::string::FromUtf8Error),
+}
+
 impl AssetLoader for ShaderLoader {
+    type Asset = Shader;
+    type Settings = ();
+    type Error = ShaderLoaderError;
     fn load<'a>(
         &'a self,
-        bytes: &'a [u8],
+        reader: &'a mut Reader,
+        _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<(), anyhow::Error>> {
+    ) -> BoxedFuture<'a, Result<Shader, Self::Error>> {
         Box::pin(async move {
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
-            let shader = match ext {
-                "spv" => {
-                    Shader::from_spirv(Vec::from(bytes), load_context.path().to_string_lossy())
-                }
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            let mut shader = match ext {
+                "spv" => Shader::from_spirv(bytes, load_context.path().to_string_lossy()),
                 "wgsl" => Shader::from_wgsl(
-                    String::from_utf8(Vec::from(bytes))?,
+                    String::from_utf8(bytes)?,
                     load_context.path().to_string_lossy(),
                 ),
                 "vert" => Shader::from_glsl(
-                    String::from_utf8(Vec::from(bytes))?,
+                    String::from_utf8(bytes)?,
                     naga::ShaderStage::Vertex,
                     load_context.path().to_string_lossy(),
                 ),
                 "frag" => Shader::from_glsl(
-                    String::from_utf8(Vec::from(bytes))?,
+                    String::from_utf8(bytes)?,
                     naga::ShaderStage::Fragment,
                     load_context.path().to_string_lossy(),
                 ),
                 "comp" => Shader::from_glsl(
-                    String::from_utf8(Vec::from(bytes))?,
+                    String::from_utf8(bytes)?,
                     naga::ShaderStage::Compute,
                     load_context.path().to_string_lossy(),
                 ),
                 _ => panic!("unhandled extension: {ext}"),
             };
 
-            // collect file dependencies
-            let dependencies = shader
-                .imports
-                .iter()
-                .flat_map(|import| {
-                    if let ShaderImport::AssetPath(asset_path) = import {
-                        Some(asset_path.clone())
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>();
-
-            let mut asset = LoadedAsset::new(shader);
-            for dependency in dependencies {
-                asset.add_dependency(dependency.into());
+            // collect and store file dependencies
+            for import in &shader.imports {
+                if let ShaderImport::AssetPath(asset_path) = import {
+                    shader.file_dependencies.push(load_context.load(asset_path));
+                }
             }
-
-            load_context.set_default_asset(asset);
-            Ok(())
+            Ok(shader)
         })
     }
 

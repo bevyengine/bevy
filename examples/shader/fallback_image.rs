@@ -7,7 +7,7 @@
 //! not panic.
 use bevy::{
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
@@ -44,8 +44,7 @@ fn setup(
     });
 }
 
-#[derive(AsBindGroup, Debug, Clone, TypePath, TypeUuid)]
-#[uuid = "d4890167-0e16-4bfc-b812-434717f20409"]
+#[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
 struct FallbackTestMaterial {
     #[texture(0, dimension = "1d")]
     #[sampler(1)]

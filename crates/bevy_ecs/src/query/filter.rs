@@ -427,8 +427,7 @@ macro_rules! impl_tick_filter {
                     table_ticks: None,
                     sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
                         .then(|| {
-                            world.unsafe_world()
-                                 .storages()
+                            world.storages()
                                  .sparse_sets
                                  .get(id)
                                  .debug_checked_unwrap()
@@ -574,7 +573,7 @@ impl_tick_filter!(
     Added,
     AddedFetch,
     Column::get_added_ticks_slice,
-    ComponentSparseSet::get_added_ticks
+    ComponentSparseSet::get_added_tick
 );
 
 impl_tick_filter!(
@@ -612,15 +611,15 @@ impl_tick_filter!(
     Changed,
     ChangedFetch,
     Column::get_changed_ticks_slice,
-    ComponentSparseSet::get_changed_ticks
+    ComponentSparseSet::get_changed_tick
 );
 
 /// A marker trait to indicate that the filter works at an archetype level.
 ///
-/// This is needed to implement [`ExactSizeIterator`](std::iter::ExactSizeIterator) for
+/// This is needed to implement [`ExactSizeIterator`] for
 /// [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
 ///
-/// The trait must only be implement for filters where its corresponding [`WorldQuery::IS_ARCHETYPAL`](crate::query::WorldQuery::IS_ARCHETYPAL)
+/// The trait must only be implement for filters where its corresponding [`WorldQuery::IS_ARCHETYPAL`]
 /// is [`prim@true`]. As such, only the [`With`] and [`Without`] filters can implement the trait.
 /// [Tuples](prim@tuple) and [`Or`] filters are automatically implemented with the trait only if its containing types
 /// also implement the same trait.
