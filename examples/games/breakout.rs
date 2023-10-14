@@ -60,15 +60,19 @@ fn main() {
         .add_systems(
             FixedUpdate,
             (
+                apply_velocity,
+                move_paddle,
                 check_for_collisions,
-                apply_velocity.before(check_for_collisions),
-                move_paddle
-                    .before(check_for_collisions)
-                    .after(apply_velocity),
-                play_collision_sound.after(check_for_collisions),
-            ),
+                play_collision_sound,
+            )
+                // `chain`ing systems together runs them in order
+                .chain(),
         )
-        .add_systems(Update, (update_scoreboard, bevy::window::close_on_esc))
+        .add_systems(
+            Update,
+            // Omitting `chain``, these can run in parallel
+            (update_scoreboard, bevy::window::close_on_esc),
+        )
         .run();
 }
 
