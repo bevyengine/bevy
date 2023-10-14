@@ -11,11 +11,11 @@ fn cull_meshlets(@builtin(global_invocation_id) thead_id: vec3<u32>) {
     let meshlet_visible = true; // TODO
 
     if meshlet_visible {
-        let meshlet_index_count = meshlet.triangle_count * 3u;
-        let draw_index_buffer_start = atomicAdd(&draw_command_buffer.index_count, meshlet_index_count);
+        let meshlet_vertex_count = meshlet.triangle_count * 3u;
+        let draw_index_buffer_start = atomicAdd(&draw_command_buffer.vertex_count, meshlet_vertex_count);
         let packed_thread_id = thead_id.x << 8u;
 
-        for (var offset = 0u; offset < meshlet_index_count; offset++) {
+        for (var offset = 0u; offset < meshlet_vertex_count; offset++) {
             let index = get_meshlet_index(meshlet.start_index_id + offset);
             draw_index_buffer[draw_index_buffer_start + offset] = packed_thread_id | index;
         }

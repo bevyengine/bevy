@@ -23,7 +23,7 @@ struct MeshletBoundingSphere {
 }
 
 struct DrawIndexedIndirect {
-    index_count: atomic<u32>,
+    vertex_count: atomic<u32>,
     instance_count: u32,
     base_index: u32,
     vertex_offset: u32,
