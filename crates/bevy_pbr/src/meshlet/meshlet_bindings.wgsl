@@ -44,10 +44,10 @@ struct DrawIndexedIndirect {
 @group(#{MESHLET_BIND_GROUP}) @binding(8) var<storage, read_write> draw_command_buffer: DrawIndexedIndirect;
 @group(#{MESHLET_BIND_GROUP}) @binding(9) var<storage, write> draw_index_buffer: array<u32>;
 @group(#{MESHLET_BIND_GROUP}) @binding(10) var<uniform> view: View;
-#endif
 
 fn get_meshlet_index(index_id: u32) -> u32 {
     let packed_index = meshlet_indices[index_id / 4u];
     let bit_offset = (index_id % 4u) * 8u;
     return extractBits(packed_index, bit_offset, 8u);
 }
+#endif

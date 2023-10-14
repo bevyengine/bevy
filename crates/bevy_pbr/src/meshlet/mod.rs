@@ -21,7 +21,7 @@ use self::{
         prepare_meshlet_per_frame_bind_groups, prepare_meshlet_per_frame_resources,
         MeshletGpuScene,
     },
-    test_material::MESHLET_TEST_MATERIAL_SHADER_HANDLE,
+    test_material::{MeshletTestMaterial, MESHLET_TEST_MATERIAL_SHADER_HANDLE},
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetApp, Handle};
@@ -83,6 +83,7 @@ impl Plugin for MeshletPlugin {
         )
         .init_resource::<MeshletGpuScene>()
         .init_resource::<MeshletCullingPipeline>()
+        .init_resource::<MeshletTestMaterial>()
         .add_systems(ExtractSchedule, extract_meshlet_meshes)
         .add_systems(
             Render,

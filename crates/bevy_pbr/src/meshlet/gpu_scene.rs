@@ -332,6 +332,7 @@ impl MeshletGpuScene {
 
             (
                 (meshlets_slice.start as u32 / 16)..(meshlets_slice.end as u32 / 16),
+                // TODO: Pre-compute this value during conversion and store in MeshletMesh
                 meshlet_mesh
                     .meshlets
                     .iter()

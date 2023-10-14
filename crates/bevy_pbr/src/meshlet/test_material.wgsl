@@ -1,5 +1,5 @@
 #import bevy_pbr::meshlet_bindings meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms
-#import bevy_pbr::mesh_functions
+#import bevy_pbr::mesh_functions as mesh_functions
 #import bevy_pbr::mesh_types MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT
 #import bevy_render::maths affine_to_square, mat2x4_f32_to_mat3x3_unpack
 
@@ -57,6 +57,6 @@ fn vertex(@builtin(vertex_index) packed_meshlet_index: u32) -> VertexOutput {
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var rng = in.meshlet_id;
     let base_color = vec3(rand_f(&rng), rand_f(&rng), rand_f(&rng));
-    let cos_theta = max(dot(in.world_normal, vec3(0.0, 0.0, 1.0)), vec3(0.0));
+    let cos_theta = max(dot(in.world_normal, vec3(0.0, 0.0, 1.0)), 0.0);
     return vec4(base_color * cos_theta, 1.0);
 }

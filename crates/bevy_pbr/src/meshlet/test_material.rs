@@ -19,7 +19,7 @@ impl FromWorld for MeshletTestMaterial {
     fn from_world(world: &mut World) -> Self {
         let gpu_scene = world.resource::<MeshletGpuScene>();
         let mesh_pipeline = world.resource::<MeshPipeline>();
-        let view_layout = mesh_pipeline.view_layout.clone();
+        let view_layout = mesh_pipeline.view_layout_multisampled.clone();
         let meshlet_layout = gpu_scene.draw_bind_group_layout().clone();
         let pipeline_cache = world.resource_mut::<PipelineCache>();
 
@@ -62,7 +62,7 @@ impl FromWorld for MeshletTestMaterial {
                     },
                 }),
                 multisample: MultisampleState {
-                    count: 1,
+                    count: 4,
                     mask: !0,
                     alpha_to_coverage_enabled: false,
                 },
