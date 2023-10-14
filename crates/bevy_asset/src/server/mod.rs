@@ -956,7 +956,7 @@ fn format_missing_asset_ext(exts: &[String]) -> String {
             exts.join(", ")
         )
     } else {
-        String::new()
+        " for file with no extension"
     }
 }
 
