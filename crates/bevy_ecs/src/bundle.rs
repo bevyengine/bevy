@@ -844,6 +844,15 @@ impl Bundles {
         // SAFETY: index either exists, or was initialized
         unsafe { self.bundle_infos.get_unchecked(id.0) }
     }
+    
+    /// Gets the [`BundleInfo`] for a statically known type.
+    /// Return `None` if it does not exist.
+    pub(crate) fn get_info<T: Bundle>(
+        &self,
+    ) -> Option<&BundleInfo> {
+        let id = self.bundle_ids.get(&TypeId::of::<T>())?;
+        self.bundle_infos.get(id.0)
+    }
 
     /// Initializes a new [`BundleInfo`] for a dynamic [`Bundle`].
     ///

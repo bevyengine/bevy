@@ -64,7 +64,7 @@ impl<'w> EntityRef<'w> {
         self.0.archetype()
     }
 
-    /// Returns `true` if the current entity has a component of type `T`.
+    /// Returns `true` if the current entity has a bundle of type `T`.
     /// Otherwise, this returns `false`.
     ///
     /// ## Notes
@@ -72,8 +72,18 @@ impl<'w> EntityRef<'w> {
     /// If you do not know the concrete type of a component, consider using
     /// [`Self::contains_id`] or [`Self::contains_type_id`].
     #[inline]
-    pub fn contains<T: Component>(&self) -> bool {
-        self.contains_type_id(TypeId::of::<T>())
+    pub fn contains<T: Bundle>(&self) -> bool {
+        let Some(bundle_info) = self.0.world().bundles().get_info::<T>() else {
+            return false;
+        };
+
+        for component_id in bundle_info.components(){
+            if !self.contains_id(*component_id) {
+                return false;
+            }
+        }
+
+        true
     }
 
     /// Returns `true` if the current entity has a component identified by `component_id`.
@@ -251,7 +261,7 @@ impl<'w> EntityMut<'w> {
         self.0.archetype()
     }
 
-    /// Returns `true` if the current entity has a component of type `T`.
+    /// Returns `true` if the current entity has a bundle of type `T`.
     /// Otherwise, this returns `false`.
     ///
     /// ## Notes
@@ -259,8 +269,18 @@ impl<'w> EntityMut<'w> {
     /// If you do not know the concrete type of a component, consider using
     /// [`Self::contains_id`] or [`Self::contains_type_id`].
     #[inline]
-    pub fn contains<T: Component>(&self) -> bool {
-        self.contains_type_id(TypeId::of::<T>())
+    pub fn contains<T: Bundle>(&self) -> bool {
+        let Some(bundle_info) = self.0.world().bundles().get_info::<T>() else {
+            return false;
+        };
+
+        for component_id in bundle_info.components(){
+            if !self.contains_id(*component_id) {
+                return false;
+            }
+        }
+
+        true
     }
 
     /// Returns `true` if the current entity has a component identified by `component_id`.
@@ -454,7 +474,7 @@ impl<'w> EntityWorldMut<'w> {
         &self.world.archetypes[self.location.archetype_id]
     }
 
-    /// Returns `true` if the current entity has a component of type `T`.
+    /// Returns `true` if the current entity has a bundle of type `T`.
     /// Otherwise, this returns `false`.
     ///
     /// ## Notes
@@ -462,8 +482,18 @@ impl<'w> EntityWorldMut<'w> {
     /// If you do not know the concrete type of a component, consider using
     /// [`Self::contains_id`] or [`Self::contains_type_id`].
     #[inline]
-    pub fn contains<T: Component>(&self) -> bool {
-        self.contains_type_id(TypeId::of::<T>())
+    pub fn contains<T: Bundle>(&self) -> bool {
+        let Some(bundle_info) = self.world.bundles().get_info::<T>() else {
+            return false;
+        };
+
+        for component_id in bundle_info.components(){
+            if !self.contains_id(*component_id) {
+                return false;
+            }
+        }
+
+        true
     }
 
     /// Returns `true` if the current entity has a component identified by `component_id`.
