@@ -2,11 +2,10 @@
 
 use bevy::reflect::TypePath;
 use bevy::{
-    pbr::{ExtendedMaterial, MaterialExtension},
+    pbr::{ExtendedMaterial, MaterialExtension, OpaqueRendererMethod},
     prelude::*,
     render::render_resource::*,
 };
-use bevy_internal::pbr::OpaqueRendererMethod;
 
 fn main() {
     App::new()
