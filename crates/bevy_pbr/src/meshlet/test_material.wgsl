@@ -20,13 +20,13 @@ struct VertexOutput {
 
 @vertex
 fn vertex(@builtin(vertex_index) packed_meshlet_index: u32) -> VertexOutput {
-    let thead_id = packed_meshlet_index >> 8u;
-    let meshlet_id = meshlet_thread_meshlet_ids[thead_id];
+    let thread_id = packed_meshlet_index >> 8u;
+    let meshlet_id = meshlet_thread_meshlet_ids[thread_id];
     let meshlet = meshlets[meshlet_id];
     let index = extractBits(packed_meshlet_index, 0u, 8u);
     let vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + index];
     let vertex = meshlet_vertex_data[vertex_id];
-    let instance_id = meshlet_thread_instance_ids[thead_id];
+    let instance_id = meshlet_thread_instance_ids[thread_id];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
 
     var out: VertexOutput;
