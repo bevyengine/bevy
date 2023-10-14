@@ -1,12 +1,11 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::{QueryItem, With},
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
 };
-use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExposureSettings,
     extract_component::{
@@ -16,7 +15,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
+        BindGroupLayoutEntry, BindingResource, BindingType, BufferBindingType,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
         DepthStencilState, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
         RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages, ShaderType,
@@ -29,8 +28,9 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 
-const SKYBOX_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 55594763423201);
+use crate::core_3d::CORE_3D_DEPTH_FORMAT;
+
+const SKYBOX_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(55594763423201);
 
 pub struct SkyboxPlugin;
 
@@ -173,6 +173,7 @@ impl SkyboxPipeline {
 struct SkyboxPipelineKey {
     hdr: bool,
     samples: u32,
+    depth_format: TextureFormat,
 }
 
 impl SpecializedRenderPipeline for SkyboxPipeline {
@@ -184,14 +185,14 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             layout: vec![self.bind_group_layout.clone()],
             push_constant_ranges: Vec::new(),
             vertex: VertexState {
-                shader: SKYBOX_SHADER_HANDLE.typed(),
+                shader: SKYBOX_SHADER_HANDLE,
                 shader_defs: Vec::new(),
                 entry_point: "skybox_vertex".into(),
                 buffers: Vec::new(),
             },
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
+                format: key.depth_format,
                 depth_write_enabled: false,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
@@ -212,7 +213,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                 alpha_to_coverage_enabled: false,
             },
             fragment: Some(FragmentState {
-                shader: SKYBOX_SHADER_HANDLE.typed(),
+                shader: SKYBOX_SHADER_HANDLE,
                 shader_defs: Vec::new(),
                 entry_point: "skybox_fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -221,7 +222,8 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                     } else {
                         TextureFormat::bevy_default()
                     },
-                    blend: Some(BlendState::REPLACE),
+                    // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
+                    blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
             }),
@@ -247,6 +249,7 @@ fn prepare_skybox_pipelines(
             SkyboxPipelineKey {
                 hdr: view.hdr,
                 samples: msaa.samples(),
+                depth_format: CORE_3D_DEPTH_FORMAT,
             },
         );
 

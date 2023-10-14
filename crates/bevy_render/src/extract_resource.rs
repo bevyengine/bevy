@@ -9,7 +9,7 @@ use crate::{Extract, ExtractSchedule, RenderApp};
 /// Describes how a resource gets extracted for rendering.
 ///
 /// Therefore the resource is transferred from the "main world" into the "render world"
-/// in the [`ExtractSchedule`](crate::ExtractSchedule) step.
+/// in the [`ExtractSchedule`] step.
 pub trait ExtractResource: Resource {
     type Source: Resource;
 
@@ -19,7 +19,7 @@ pub trait ExtractResource: Resource {
 
 /// This plugin extracts the resources into the "render world".
 ///
-/// Therefore it sets up the[`ExtractSchedule`](crate::ExtractSchedule) step
+/// Therefore it sets up the[`ExtractSchedule`] step
 /// for the specified [`Resource`].
 pub struct ExtractResourcePlugin<R: ExtractResource>(PhantomData<R>);
 

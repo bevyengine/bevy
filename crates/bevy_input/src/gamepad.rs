@@ -631,10 +631,10 @@ pub struct AxisSettings {
 impl Default for AxisSettings {
     fn default() -> Self {
         AxisSettings {
-            livezone_upperbound: 0.95,
+            livezone_upperbound: 1.0,
             deadzone_upperbound: 0.05,
             deadzone_lowerbound: -0.05,
-            livezone_lowerbound: -0.95,
+            livezone_lowerbound: -1.0,
             threshold: 0.01,
         }
     }
@@ -1529,7 +1529,7 @@ mod tests {
         ];
 
         for (new_value, expected) in cases {
-            let settings = AxisSettings::default();
+            let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
             test_axis_settings_filter(settings, new_value, None, expected);
         }
     }
@@ -1556,7 +1556,7 @@ mod tests {
         ];
 
         for (new_value, old_value, expected) in cases {
-            let settings = AxisSettings::default();
+            let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
             test_axis_settings_filter(settings, new_value, old_value, expected);
         }
     }

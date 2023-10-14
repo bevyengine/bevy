@@ -125,12 +125,13 @@ pub trait DetectChangesMut: DetectChanges {
     /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
     fn bypass_change_detection(&mut self) -> &mut Self::Inner;
 
-    /// Overwrites this smart pointer with the given value, if and only if `*self != value`
+    /// Overwrites this smart pointer with the given value, if and only if `*self != value`.
+    /// Returns `true` if the value was overwritten, and returns `false` if it was not.
     ///
     /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time it is mutably accessed.
     ///
-    /// If you need to handle the previous value, use [`replace_if_neq`](DetectChangesMut::replace_if_neq).
+    /// If you need the previous value, use [`replace_if_neq`](DetectChangesMut::replace_if_neq).
     ///
     /// # Examples
     ///
@@ -160,7 +161,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// # assert!(!score_changed.run((), &mut world));
     /// ```
     #[inline]
-    fn set_if_neq(&mut self, value: Self::Inner)
+    fn set_if_neq(&mut self, value: Self::Inner) -> bool
     where
         Self::Inner: Sized + PartialEq,
     {
@@ -168,16 +169,19 @@ pub trait DetectChangesMut: DetectChanges {
         if *old != value {
             *old = value;
             self.set_changed();
+            true
+        } else {
+            false
         }
     }
 
-    /// Overwrites this smart pointer with the given value, if and only if `*self != value`
+    /// Overwrites this smart pointer with the given value, if and only if `*self != value`,
     /// returning the previous value if this occurs.
     ///
     /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time it is mutably accessed.
     ///
-    /// If you don't need to handle the previous value, use [`set_if_neq`](DetectChangesMut::set_if_neq).
+    /// If you don't need the previous value, use [`set_if_neq`](DetectChangesMut::set_if_neq).
     ///
     /// # Examples
     ///
@@ -377,6 +381,15 @@ macro_rules! impl_methods {
                     ticks: self.ticks,
                 }
             }
+
+            /// Allows you access to the dereferenced value of this pointer without immediately
+            /// triggering change detection.
+            pub fn as_deref_mut(&mut self) -> Mut<'_, <$target as Deref>::Target>
+                where $target: DerefMut
+            {
+                self.reborrow().map_unchanged(|v| v.deref_mut())
+            }
+
         }
     };
 }
@@ -522,7 +535,7 @@ impl_debug!(Res<'w, T>, Resource);
 ///
 /// See the [`Resource`] documentation for usage.
 ///
-/// If you need a shared borrow, use [`Res`](crate::system::Res) instead.
+/// If you need a shared borrow, use [`Res`] instead.
 ///
 /// # Panics
 ///
@@ -829,7 +842,7 @@ impl<'a> MutUntyped<'a> {
     /// # let mut_untyped: MutUntyped = unimplemented!();
     /// # let reflect_from_ptr: bevy_reflect::ReflectFromPtr = unimplemented!();
     /// // SAFETY: from the context it is known that `ReflectFromPtr` was made for the type of the `MutUntyped`
-    /// mut_untyped.map_unchanged(|ptr| unsafe { reflect_from_ptr.as_reflect_ptr_mut(ptr) });
+    /// mut_untyped.map_unchanged(|ptr| unsafe { reflect_from_ptr.as_reflect_mut(ptr) });
     /// ```
     pub fn map_unchanged<T: ?Sized>(self, f: impl FnOnce(PtrMut<'a>) -> &'a mut T) -> Mut<'a, T> {
         Mut {
@@ -903,6 +916,7 @@ mod tests {
     use bevy_ecs_macros::Resource;
     use bevy_ptr::PtrMut;
     use bevy_reflect::{FromType, ReflectFromPtr};
+    use std::ops::{Deref, DerefMut};
 
     use crate::{
         self as bevy_ecs,
@@ -924,6 +938,19 @@ mod tests {
 
     #[derive(Resource, PartialEq)]
     struct R2(u8);
+
+    impl Deref for R2 {
+        type Target = u8;
+        fn deref(&self) -> &u8 {
+            &self.0
+        }
+    }
+
+    impl DerefMut for R2 {
+        fn deref_mut(&mut self) -> &mut u8 {
+            &mut self.0
+        }
+    }
 
     #[test]
     fn change_expiration() {
@@ -1140,6 +1167,32 @@ mod tests {
     }
 
     #[test]
+    fn as_deref_mut() {
+        let mut world = World::new();
+
+        world.insert_resource(R2(0));
+        // Resources are Changed when first added
+        world.increment_change_tick();
+        // This is required to update world::last_change_tick
+        world.clear_trackers();
+
+        let mut r = world.resource_mut::<R2>();
+        assert!(!r.is_changed(), "Resource must begin unchanged.");
+
+        let mut r = r.as_deref_mut();
+        assert!(
+            !r.is_changed(),
+            "Dereferencing should not mark the item as changed yet"
+        );
+
+        r.set_if_neq(3);
+        assert!(
+            r.is_changed(),
+            "Resource must be changed after setting to a different value."
+        );
+    }
+
+    #[test]
     fn mut_untyped_to_reflect() {
         let last_run = Tick::new(2);
         let this_run = Tick::new(3);
@@ -1164,7 +1217,7 @@ mod tests {
 
         let mut new = value.map_unchanged(|ptr| {
             // SAFETY: The underlying type of `ptr` matches `reflect_from_ptr`.
-            let value = unsafe { reflect_from_ptr.as_reflect_ptr_mut(ptr) };
+            let value = unsafe { reflect_from_ptr.as_reflect_mut(ptr) };
             value
         });
 

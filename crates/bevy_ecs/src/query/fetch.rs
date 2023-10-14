@@ -410,6 +410,9 @@ pub unsafe trait WorldQuery {
     ///
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     /// `table_row` must be in the range of the current table and archetype.
+    ///
+    /// If this includes any mutable access, then this should never be called
+    /// while the return value of [`WorldQuery::fetch`] for the same entity is live.
     #[allow(unused_variables)]
     #[inline(always)]
     unsafe fn filter_fetch(
@@ -1218,10 +1221,15 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     }
 
     fn update_component_access(state: &T::State, access: &mut FilteredAccess<ComponentId>) {
-        // We don't want to add the `with`/`without` of `T` as `Option<T>` will match things regardless of
-        // `T`'s filters. for example `Query<(Option<&U>, &mut V)>` will match every entity with a `V` component
-        // regardless of whether it has a `U` component. If we don't do this the query will not conflict with
-        // `Query<&mut V, Without<U>>` which would be unsound.
+        // FilteredAccess::add_[write,read] adds the component to the `with` filter.
+        // Those methods are called on `access` in `T::update_component_access`.
+        // But in `Option<T>`, we specifically don't filter on `T`,
+        // since `(Option<T>, &OtherComponent)` should be a valid item, even
+        // if `Option<T>` is `None`.
+        //
+        // We pass a clone of the `FilteredAccess` to `T`, and only update the `Access`
+        // using `extend_access` so that we can apply `T`'s component_access
+        // without updating the `with` filters of `access`.
         let mut intermediate = access.clone();
         T::update_component_access(state, &mut intermediate);
         access.extend_access(&intermediate);

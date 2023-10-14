@@ -7,12 +7,12 @@ use std::ops::Deref;
 use std::time::Duration;
 
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{AddAsset, Assets, Handle};
+use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{Quat, Vec3};
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::Reflect;
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
@@ -65,8 +65,7 @@ pub struct EntityPath {
 }
 
 /// A list of [`VariableCurve`], and the [`EntityPath`] to which they apply.
-#[derive(Reflect, Clone, TypeUuid, Debug, Default)]
-#[uuid = "d81b7179-0448-4eb0-89fe-c067222725bf"]
+#[derive(Asset, Reflect, Clone, Debug, Default)]
 pub struct AnimationClip {
     curves: Vec<Vec<VariableCurve>>,
     paths: HashMap<EntityPath, usize>,
@@ -454,16 +453,16 @@ fn entity_from_path(
 /// Verify that there are no ancestors of a given entity that have an [`AnimationPlayer`].
 fn verify_no_ancestor_player(
     player_parent: Option<&Parent>,
-    parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
+    parents: &Query<(Has<AnimationPlayer>, Option<&Parent>)>,
 ) -> bool {
     let Some(mut current) = player_parent.map(Parent::get) else {
         return true;
     };
     loop {
-        let Ok((maybe_player, parent)) = parents.get(current) else {
+        let Ok((has_player, parent)) = parents.get(current) else {
             return true;
         };
-        if maybe_player.is_some() {
+        if has_player {
             return false;
         }
         if let Some(parent) = parent {
@@ -484,7 +483,7 @@ pub fn animation_player(
     names: Query<&Name>,
     transforms: Query<&mut Transform>,
     morphs: Query<&mut MorphWeights>,
-    parents: Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
+    parents: Query<(Has<AnimationPlayer>, Option<&Parent>)>,
     mut animation_players: Query<(Entity, Option<&Parent>, &mut AnimationPlayer)>,
 ) {
     animation_players
@@ -516,7 +515,7 @@ fn run_animation_player(
     transforms: &Query<&mut Transform>,
     morphs: &Query<&mut MorphWeights>,
     maybe_parent: Option<&Parent>,
-    parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
+    parents: &Query<(Has<AnimationPlayer>, Option<&Parent>)>,
     children: &Query<&Children>,
 ) {
     let paused = player.paused;
@@ -566,8 +565,16 @@ fn run_animation_player(
     }
 }
 
-/// Update `weights` based on weights in `keyframes` at index `key_index`
-/// with a linear interpolation on `key_lerp`.
+/// Update `weights` based on weights in `keyframe` with a linear interpolation
+/// on `key_lerp`.
+fn lerp_morph_weights(weights: &mut [f32], keyframe: impl Iterator<Item = f32>, key_lerp: f32) {
+    let zipped = weights.iter_mut().zip(keyframe);
+    for (morph_weight, keyframe) in zipped {
+        *morph_weight += (keyframe - *morph_weight) * key_lerp;
+    }
+}
+
+/// Extract a keyframe from a list of keyframes by index.
 ///
 /// # Panics
 ///
@@ -576,16 +583,10 @@ fn run_animation_player(
 /// This happens when `keyframes` is not formatted as described in
 /// [`Keyframes::Weights`]. A possible cause is [`AnimationClip`] not being
 /// meant to be used for the [`MorphWeights`] of the entity it's being applied to.
-fn lerp_morph_weights(weights: &mut [f32], key_lerp: f32, keyframes: &[f32], key_index: usize) {
-    let target_count = weights.len();
+fn get_keyframe(target_count: usize, keyframes: &[f32], key_index: usize) -> &[f32] {
     let start = target_count * key_index;
     let end = target_count * (key_index + 1);
-
-    let zipped = weights.iter_mut().zip(&keyframes[start..end]);
-    for (morph_weight, keyframe) in zipped {
-        let minus_lerp = 1.0 - key_lerp;
-        *morph_weight = (*morph_weight * minus_lerp) + (keyframe * key_lerp);
-    }
+    &keyframes[start..end]
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -600,7 +601,7 @@ fn apply_animation(
     transforms: &Query<&mut Transform>,
     morphs: &Query<&mut MorphWeights>,
     maybe_parent: Option<&Parent>,
-    parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
+    parents: &Query<(Has<AnimationPlayer>, Option<&Parent>)>,
     children: &Query<&Children>,
 ) {
     if let Some(animation_clip) = animations.get(&animation.animation_clip) {
@@ -658,7 +659,12 @@ fn apply_animation(
                         }
                         Keyframes::Weights(keyframes) => {
                             if let Ok(morphs) = &mut morphs {
-                                lerp_morph_weights(morphs.weights_mut(), weight, keyframes, 0);
+                                let target_count = morphs.weights().len();
+                                lerp_morph_weights(
+                                    morphs.weights_mut(),
+                                    get_keyframe(target_count, keyframes, 0).iter().copied(),
+                                    weight,
+                                );
                             }
                         }
                     }
@@ -708,7 +714,14 @@ fn apply_animation(
                     }
                     Keyframes::Weights(keyframes) => {
                         if let Ok(morphs) = &mut morphs {
-                            lerp_morph_weights(morphs.weights_mut(), weight, keyframes, step_start);
+                            let target_count = morphs.weights().len();
+                            let morph_start = get_keyframe(target_count, keyframes, step_start);
+                            let morph_end = get_keyframe(target_count, keyframes, step_start + 1);
+                            let result = morph_start
+                                .iter()
+                                .zip(morph_end)
+                                .map(|(a, b)| *a + lerp * (*b - *a));
+                            lerp_morph_weights(morphs.weights_mut(), result, weight);
                         }
                     }
                 }
@@ -734,7 +747,7 @@ pub struct AnimationPlugin;
 
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
-        app.add_asset::<AnimationClip>()
+        app.init_asset::<AnimationClip>()
             .register_asset_reflect::<AnimationClip>()
             .register_type::<AnimationPlayer>()
             .add_systems(
