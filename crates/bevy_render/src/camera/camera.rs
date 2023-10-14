@@ -661,7 +661,7 @@ pub fn extract_cameras(
         color_grading,
         temporal_jitter,
         render_layers,
-        perspective,
+        projection,
     ) in query.iter()
     {
         let color_grading = *color_grading.unwrap_or(&ColorGrading::default());
@@ -725,7 +725,7 @@ pub fn extract_cameras(
                 commands.insert(*render_layers);
             }
 
-            if let Some(perspective) = perspective {
+            if let Some(perspective) = projection {
                 commands.insert(perspective.clone());
             }
         }
