@@ -125,7 +125,7 @@ impl Plugin for AssetPlugin {
             sources.init_default_source(
                 &self.file_path,
                 (!matches!(self.mode, AssetMode::Unprocessed))
-                    .then(|| self.processed_file_path.as_str()),
+                    .then_some(self.processed_file_path.as_str()),
             );
             embedded.register_source(&mut sources);
         }
