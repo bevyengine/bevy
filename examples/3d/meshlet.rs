@@ -23,7 +23,10 @@ fn setup(
     mut dragon_mesh_handle: Local<Handle<Mesh>>,
 ) {
     if dragon_mesh_handle.id() == AssetId::default() {
-        commands.spawn(Camera3dBundle::default());
+        commands.spawn(Camera3dBundle {
+            transform: Transform::from_translation(Vec3::new(1.1119571, 0.63360685, 1.1559026)),
+            ..default()
+        });
 
         info!("Loading dragon model...");
         *dragon_mesh_handle = asset_server.load("models/dragon.glb#Mesh0/Primitive0");
