@@ -19,7 +19,7 @@ fn setup(
     // Create a sphere mesh.
     let sphere_mesh = meshes.add(
         Mesh::try_from(shape::Icosphere {
-            radius: 0.45,
+            radius: 1.0,
             ..default()
         })
         .unwrap(),

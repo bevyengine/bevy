@@ -118,6 +118,7 @@ struct RenderEnvironmentCubemap {
     specular_texture: Texture,
 }
 
+#[derive(Debug)]
 pub enum EnvironmentMapKind {
     Diffuse,
     Specular,
@@ -286,9 +287,11 @@ impl RenderEnvironmentMaps {
             if !self.check_cubemap_compatibility(
                 &existing_cubemap.diffuse_texture,
                 &diffuse_image.texture,
+                EnvironmentMapKind::Diffuse,
             ) || !self.check_cubemap_compatibility(
                 &existing_cubemap.specular_texture,
                 &specular_image.texture,
+                EnvironmentMapKind::Specular,
             ) {
                 return;
             }
@@ -311,6 +314,7 @@ impl RenderEnvironmentMaps {
         &self,
         existing_cubemap: &Texture,
         new_cubemap: &Texture,
+        environment_map_kind: EnvironmentMapKind,
     ) -> bool {
         if existing_cubemap.size() == new_cubemap.size()
             && existing_cubemap.mip_level_count() == new_cubemap.mip_level_count()
@@ -319,9 +323,10 @@ impl RenderEnvironmentMaps {
         }
 
         warn!(
-            "Ignoring environment map because its size was incompatible with the previous one:
+            "Ignoring {:?} environment map because its size was incompatible with the previous one:
     Previous width: {}, height: {}, mip levels: {}
     This width: {}, height: {}, mip levels: {}",
+            environment_map_kind,
             existing_cubemap.width(),
             existing_cubemap.height(),
             existing_cubemap.mip_level_count(),
@@ -443,7 +448,7 @@ impl RenderEnvironmentMaps {
                         origin: Origin3d {
                             x: 0,
                             y: 0,
-                            z: cubemap_index as u32,
+                            z: cubemap_index as u32 * 6,
                         },
                         aspect: TextureAspect::All,
                     },
