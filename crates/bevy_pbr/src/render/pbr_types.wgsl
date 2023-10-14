@@ -12,8 +12,14 @@ struct StandardMaterial {
     parallax_depth_scale: f32,
     max_parallax_layer_count: f32,
     max_relief_mapping_search_steps: u32,
+    /// ID for specifying which deferred lighting pass should be used for rendering this material, if any.
+    deferred_lighting_pass_id: u32,
 };
 
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// NOTE: if these flags are updated or changed. Be sure to also update 
+// deferred_flags_from_mesh_material_flags and mesh_material_flags_from_deferred_flags
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 const STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT: u32         = 1u;
 const STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT: u32           = 2u;
 const STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT: u32 = 4u;
@@ -34,6 +40,7 @@ const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MULTIPLY: u32            = 2684354560u;
 // ↑ To calculate/verify the values above, use the following playground:
 // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=7792f8dd6fc6a8d4d0b6b1776898a7f4
 
+
 // Creates a StandardMaterial with default values
 fn standard_material_new() -> StandardMaterial {
     var material: StandardMaterial;
@@ -49,6 +56,46 @@ fn standard_material_new() -> StandardMaterial {
     material.parallax_depth_scale = 0.1;
     material.max_parallax_layer_count = 16.0;
     material.max_relief_mapping_search_steps = 5u;
-
+    material.deferred_lighting_pass_id = 1u;
+    
     return material;
+}
+
+struct PbrInput {
+    material: StandardMaterial,
+    occlusion: vec3<f32>,
+    frag_coord: vec4<f32>,
+    world_position: vec4<f32>,
+    // Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
+    // mapping
+    world_normal: vec3<f32>,
+    // Normalized normal-mapped world normal used for lighting
+    N: vec3<f32>,
+    // Normalized view vector in world space, pointing from the fragment world position toward the
+    // view world position
+    V: vec3<f32>,
+    reflection_probe_index: i32,
+    is_orthographic: bool,
+    flags: u32,
+};
+
+// Creates a PbrInput with default values
+fn pbr_input_new() -> PbrInput {
+    var pbr_input: PbrInput;
+
+    pbr_input.material = standard_material_new();
+    pbr_input.occlusion = vec3<f32>(1.0);
+
+    pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    pbr_input.world_position = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    pbr_input.world_normal = vec3<f32>(0.0, 0.0, 1.0);
+
+    pbr_input.is_orthographic = false;
+
+    pbr_input.N = vec3<f32>(0.0, 0.0, 1.0);
+    pbr_input.V = vec3<f32>(1.0, 0.0, 0.0);
+
+    pbr_input.flags = 0u;
+
+    return pbr_input;
 }

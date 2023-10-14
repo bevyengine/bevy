@@ -49,32 +49,32 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// # use bevy_render::mesh::{Mesh, Indices};
 /// # use bevy_render::render_resource::PrimitiveTopology;
 /// fn create_simple_parallelogram() -> Mesh {
-///     // Create a new mesh, add 4 vertices, each with its own position attribute (coordinate in
-///     // 3D space), for each of the corners of the parallelogram.
-///     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-///     mesh.insert_attribute(
-///         Mesh::ATTRIBUTE_POSITION,
-///         vec![[0.0, 0.0, 0.0], [1.0, 2.0, 0.0], [2.0, 2.0, 0.0], [1.0, 0.0, 0.0]]
-///     );
-///     // Assign a UV coordinate to each vertex.
-///     mesh.insert_attribute(
-///         Mesh::ATTRIBUTE_UV_0,
-///         vec![[0.0, 1.0], [0.5, 0.0], [1.0, 0.0], [0.5, 1.0]]
-///     );
-///     // Assign normals (everything points outwards)
-///     mesh.insert_attribute(
-///        Mesh::ATTRIBUTE_NORMAL,
-///        vec![[0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0]]
-///     );
-///     // After defining all the vertices and their attributes, build each triangle using the
-///     // indices of the vertices that make it up in a counter-clockwise order.
-///     mesh.set_indices(Some(Indices::U32(vec![
-///         // First triangle
-///         0, 3, 1,
-///         // Second triangle
-///         1, 3, 2
-///     ])));
-///     mesh
+///     // Create a new mesh using a triangle list topology, where each set of 3 vertices composes a triangle.
+///     Mesh::new(PrimitiveTopology::TriangleList)
+///         // Add 4 vertices, each with its own position attribute (coordinate in
+///         // 3D space), for each of the corners of the parallelogram.
+///         .with_inserted_attribute(
+///             Mesh::ATTRIBUTE_POSITION,
+///             vec![[0.0, 0.0, 0.0], [1.0, 2.0, 0.0], [2.0, 2.0, 0.0], [1.0, 0.0, 0.0]]
+///         )
+///         // Assign a UV coordinate to each vertex.
+///         .with_inserted_attribute(
+///             Mesh::ATTRIBUTE_UV_0,
+///             vec![[0.0, 1.0], [0.5, 0.0], [1.0, 0.0], [0.5, 1.0]]
+///         )
+///         // Assign normals (everything points outwards)
+///         .with_inserted_attribute(
+///             Mesh::ATTRIBUTE_NORMAL,
+///             vec![[0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0]]
+///         )
+///         // After defining all the vertices and their attributes, build each triangle using the
+///         // indices of the vertices that make it up in a counter-clockwise order.
+///         .with_indices(Some(Indices::U32(vec![
+///             // First triangle
+///             0, 3, 1,
+///             // Second triangle
+///             1, 3, 2
+///         ])))
 /// }
 /// ```
 ///
@@ -126,16 +126,18 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`].
+    /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`]
+    /// or [`Mesh::with_inserted_attribute`].
     pub const ATTRIBUTE_POSITION: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Position", 0, VertexFormat::Float32x3);
 
     /// The direction the vertex normal is facing in.
-    /// Use in conjunction with [`Mesh::insert_attribute`].
+    /// Use in conjunction with [`Mesh::insert_attribute`] or [`Mesh::with_inserted_attribute`].
     pub const ATTRIBUTE_NORMAL: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Normal", 1, VertexFormat::Float32x3);
 
-    /// Texture coordinates for the vertex. Use in conjunction with [`Mesh::insert_attribute`].
+    /// Texture coordinates for the vertex. Use in conjunction with [`Mesh::insert_attribute`]
+    /// or [`Mesh::with_inserted_attribute`].
     ///
     /// Values are generally between 0. and 1., with `StandardMaterial` and `ColorMaterial`
     /// `[0.,0.]` is the top left of the texture, and [1.,1.] the bottom-right.
@@ -147,7 +149,7 @@ impl Mesh {
         MeshVertexAttribute::new("Vertex_Uv", 2, VertexFormat::Float32x2);
 
     /// Alternate texture coordinates for the vertex. Use in conjunction with
-    /// [`Mesh::insert_attribute`].
+    /// [`Mesh::insert_attribute`] or [`Mesh::with_inserted_attribute`].
     ///
     /// Typically, these are used for lightmaps, textures that provide
     /// precomputed illumination.
@@ -155,19 +157,23 @@ impl Mesh {
         MeshVertexAttribute::new("Vertex_Uv_1", 3, VertexFormat::Float32x2);
 
     /// The direction of the vertex tangent. Used for normal mapping.
-    /// Usually generated with [`generate_tangents`](Mesh::generate_tangents).
+    /// Usually generated with [`generate_tangents`](Mesh::generate_tangents) or
+    /// [`with_generated_tangents`](Mesh::with_generated_tangents).
     pub const ATTRIBUTE_TANGENT: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Tangent", 4, VertexFormat::Float32x4);
 
-    /// Per vertex coloring. Use in conjunction with [`Mesh::insert_attribute`].
+    /// Per vertex coloring. Use in conjunction with [`Mesh::insert_attribute`]
+    /// or [`Mesh::with_inserted_attribute`].
     pub const ATTRIBUTE_COLOR: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Color", 5, VertexFormat::Float32x4);
 
-    /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::insert_attribute`].
+    /// Per vertex joint transform matrix weight. Use in conjunction with [`Mesh::insert_attribute`]
+    /// or [`Mesh::with_inserted_attribute`].
     pub const ATTRIBUTE_JOINT_WEIGHT: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointWeight", 6, VertexFormat::Float32x4);
 
-    /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::insert_attribute`].
+    /// Per vertex joint transform matrix index. Use in conjunction with [`Mesh::insert_attribute`]
+    /// or [`Mesh::with_inserted_attribute`].
     pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointIndex", 7, VertexFormat::Uint16x4);
 
@@ -224,6 +230,24 @@ impl Mesh {
             .insert(attribute.id, MeshAttributeData { attribute, values });
     }
 
+    /// Consumes the mesh and returns a mesh with data set for a vertex attribute (position, normal etc.).
+    /// The name will often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
+    ///
+    /// (Alternatively, you can use [`Mesh::insert_attribute`] to mutate an existing mesh in-place)
+    ///
+    /// # Panics
+    /// Panics when the format of the values does not match the attribute's format.
+    #[must_use]
+    #[inline]
+    pub fn with_inserted_attribute(
+        mut self,
+        attribute: MeshVertexAttribute,
+        values: impl Into<VertexAttributeValues>,
+    ) -> Self {
+        self.insert_attribute(attribute, values);
+        self
+    }
+
     /// Removes the data for a vertex attribute
     pub fn remove_attribute(
         &mut self,
@@ -232,6 +256,15 @@ impl Mesh {
         self.attributes
             .remove(&attribute.into())
             .map(|data| data.values)
+    }
+
+    /// Consumes the mesh and returns a mesh without the data for a vertex attribute
+    ///
+    /// (Alternatively, you can use [`Mesh::remove_attribute`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn with_removed_attribute(mut self, attribute: impl Into<MeshVertexAttributeId>) -> Self {
+        self.remove_attribute(attribute);
+        self
     }
 
     #[inline]
@@ -281,6 +314,18 @@ impl Mesh {
     #[inline]
     pub fn set_indices(&mut self, indices: Option<Indices>) {
         self.indices = indices;
+    }
+
+    /// Consumes the mesh and returns a mesh with the given vertex indices. They describe how triangles
+    /// are constructed out of the vertex attributes and are therefore only useful for the
+    /// [`PrimitiveTopology`] variants that use triangles.
+    ///
+    /// (Alternatively, you can use [`Mesh::set_indices`] to mutate an existing mesh in-place)
+    #[must_use]
+    #[inline]
+    pub fn with_indices(mut self, indices: Option<Indices>) -> Self {
+        self.set_indices(indices);
+        self
     }
 
     /// Retrieves the vertex `indices` of the mesh.
@@ -436,6 +481,18 @@ impl Mesh {
         }
     }
 
+    /// Consumes the mesh and returns a mesh with no shared vertices.
+    ///
+    /// This can dramatically increase the vertex count, so make sure this is what you want.
+    /// Does nothing if no [Indices] are set.
+    ///
+    /// (Alternatively, you can use [`Mesh::duplicate_vertices`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn with_duplicated_vertices(mut self) -> Self {
+        self.duplicate_vertices();
+        self
+    }
+
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
     ///
     /// # Panics
@@ -465,6 +522,20 @@ impl Mesh {
         self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     }
 
+    /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
+    ///
+    /// (Alternatively, you can use [`Mesh::compute_flat_normals`] to mutate an existing mesh in-place)
+    ///
+    /// # Panics
+    /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3` or
+    /// if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Consider calling [`Mesh::with_duplicated_vertices`] or export your mesh with normal attributes.
+    #[must_use]
+    pub fn with_computed_flat_normals(mut self) -> Self {
+        self.compute_flat_normals();
+        self
+    }
+
     /// Generate tangents for the mesh using the `mikktspace` algorithm.
     ///
     /// Sets the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
@@ -473,6 +544,18 @@ impl Mesh {
         let tangents = generate_tangents_for_mesh(self)?;
         self.insert_attribute(Mesh::ATTRIBUTE_TANGENT, tangents);
         Ok(())
+    }
+
+    /// Consumes the mesh and returns a mesh with tangents generated using the `mikktspace` algorithm.
+    ///
+    /// The resulting mesh will have the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
+    ///
+    /// (Alternatively, you can use [`Mesh::generate_tangents`] to mutate an existing mesh in-place)
+    ///
+    /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
+    pub fn with_generated_tangents(mut self) -> Result<Mesh, GenerateTangentsError> {
+        self.generate_tangents()?;
+        Ok(self)
     }
 
     /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
@@ -498,9 +581,32 @@ impl Mesh {
         self.morph_targets = Some(morph_targets);
     }
 
+    /// Consumes the mesh and returns a mesh with the given [morph targets].
+    ///
+    /// This requires a "morph target image". See [`MorphTargetImage`](crate::mesh::morph::MorphTargetImage) for info.
+    ///
+    /// (Alternatively, you can use [`Mesh::set_morph_targets`] to mutate an existing mesh in-place)
+    ///
+    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    #[must_use]
+    pub fn with_morph_targets(mut self, morph_targets: Handle<Image>) -> Self {
+        self.set_morph_targets(morph_targets);
+        self
+    }
+
     /// Sets the names of each morph target. This should correspond to the order of the morph targets in `set_morph_targets`.
     pub fn set_morph_target_names(&mut self, names: Vec<String>) {
         self.morph_target_names = Some(names);
+    }
+
+    /// Consumes the mesh and returns a mesh with morph target names.
+    /// Names should correspond to the order of the morph targets in `set_morph_targets`.
+    ///
+    /// (Alternatively, you can use [`Mesh::set_morph_target_names`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn with_morph_target_names(mut self, names: Vec<String>) -> Self {
+        self.set_morph_target_names(names);
+        self
     }
 
     /// Gets a list of all morph target names, if they exist.
@@ -1123,7 +1229,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn panic_invalid_format() {
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
+        let _mesh = Mesh::new(PrimitiveTopology::TriangleList)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
     }
 }

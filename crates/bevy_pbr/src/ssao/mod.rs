@@ -127,8 +127,8 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
             .add_render_graph_edges(
                 CORE_3D,
                 &[
-                    // PREPASS -> SCREEN_SPACE_AMBIENT_OCCLUSION -> MAIN_PASS
-                    bevy_core_pipeline::core_3d::graph::node::PREPASS,
+                    // END_PRE_PASSES -> SCREEN_SPACE_AMBIENT_OCCLUSION -> MAIN_PASS
+                    bevy_core_pipeline::core_3d::graph::node::END_PREPASSES,
                     draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
                     bevy_core_pipeline::core_3d::graph::node::START_MAIN_PASS,
                 ],
@@ -797,6 +797,7 @@ fn prepare_ssao_bind_groups(
             mip_level_count: Some(1),
             ..default()
         };
+
         let preprocess_depth_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             label: Some("ssao_preprocess_depth_bind_group"),
             layout: &pipelines.preprocess_depth_bind_group_layout,
