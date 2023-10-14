@@ -1,32 +1,43 @@
-#import bevy_pbr::mesh_vertex_output    MeshVertexOutput
-#import bevy_pbr::pbr_functions         PbrInput, apply_pbr_lighting, alpha_discard
-#import bevy_pbr::pbr_fragment          pbr_input_from_standard_material, main_pass_post_lighting_processing
-#import bevy_pbr::pbr_types             STANDARD_MATERIAL_FLAGS_UNLIT_BIT
+#import bevy_pbr::pbr_functions           alpha_discard
+#import bevy_pbr::pbr_fragment            pbr_input_from_standard_material
+
+#ifdef DEFERRED_PREPASS
+#import bevy_pbr::prepass_io              VertexOutput, FragmentOutput
+#import bevy_pbr::pbr_deferred_functions  deferred_output
+#else
+#import bevy_pbr::forward_io              VertexOutput, FragmentOutput
+#import bevy_pbr::pbr_functions           apply_pbr_lighting, main_pass_post_lighting_processing
+#import bevy_pbr::pbr_types               STANDARD_MATERIAL_FLAGS_UNLIT_BIT
+#endif
 
 @fragment
 fn fragment(
     in: VertexOutput,
     @builtin(front_facing) is_front: bool,
-) -> @location(0) vec4<f32> {
+) -> FragmentOutput {
     // generate a PbrInput struct from the StandardMaterial bindings
-    let pbr_input = pbr_input_from_standard_material(in, is_front);
+    var pbr_input = pbr_input_from_standard_material(in, is_front);
 
-    // apply lighting
-    var lit_color: vec4<f32>;
+    // alpha discard
+    pbr_input.material.base_color = alpha_discard(pbr_input.material, pbr_input.material.base_color);
 
-    // gather pbr lighting data
-    // ------------------
-    var pbr_input: pbr_types::PbrInput;
-    // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
+#ifdef DEFERRED_PREPASS
+    // write the gbuffer, lighting pass id, and optionally normal and motion_vector textures
+    let out = deferred_output(in, pbr_input);
+#else
+    // in forward mode, we calculate the lit color immediately, and then apply some post-lighting effects here.
+    // in deferred mode the lit color and these effects will be calculated in the deferred lighting shader
+    var out: FragmentOutput;
     if (pbr_input.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
-        lit_color = apply_pbr_lighting(pbr_input);
+        out.color = apply_pbr_lighting(pbr_input);
     } else {
-        lit_color = alpha_discard(pbr_input.material, lit_color);
+        out.color = pbr_input.material.base_color;
     }
 
     // apply in-shader post processing (fog, alpha-premultiply, and also tonemapping, debanding if the camera is non-hdr)
     // note this does not include fullscreen postprocessing effects like bloom.
-    lit_color = main_pass_post_lighting_processing(pbr_input, lit_color);
+    out.color = main_pass_post_lighting_processing(pbr_input, out.color);
+#endif
 
-    return lit_color;
+    return out;
 }

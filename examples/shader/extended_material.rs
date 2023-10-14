@@ -6,6 +6,7 @@ use bevy::{
     prelude::*,
     render::render_resource::*,
 };
+use bevy_internal::pbr::OpaqueRendererMethod;
 
 fn main() {
     App::new()
@@ -36,6 +37,8 @@ fn setup(
         material: materials.add(ExtendedMaterial {
             base: StandardMaterial {
                 base_color: Color::RED,
+                // can be used in forward or deferred mode
+                opaque_render_method: OpaqueRendererMethod::Auto,
                 ..Default::default()
             },
             extension: MyExtension { quantize_steps: 3 },

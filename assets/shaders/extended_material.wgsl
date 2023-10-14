@@ -1,6 +1,12 @@
-#import bevy_pbr::mesh_vertex_output    MeshVertexOutput
-#import bevy_pbr::pbr_functions         PbrInput, apply_pbr_lighting
-#import bevy_pbr::pbr_fragment          pbr_input_from_standard_material, main_pass_post_lighting_processing
+#import bevy_pbr::pbr_fragment          pbr_input_from_standard_material
+#import bevy_pbr::pbr_functions         alpha_discard
+
+#ifdef DEFERRED_PREPASS
+#import bevy_pbr::prepass_io            VertexOutput, FragmentOutput
+#else
+#import bevy_pbr::forward_io            VertexOutput, FragmentOutput
+#import bevy_pbr::pbr_functions         apply_pbr_lighting, main_pass_post_lighting_processing
+#endif
 
 struct MyExtendedMaterial {
     quantize_steps: u32,
@@ -11,27 +17,36 @@ var<uniform> my_extended_material: MyExtendedMaterial;
 
 @fragment
 fn fragment(
-    in: MeshVertexOutput,
+    in: VertexOutput,
     @builtin(front_facing) is_front: bool,
-) -> @location(0) vec4<f32> {
+) -> FragmentOutput {
     // generate a PbrInput struct from the StandardMaterial bindings
     var pbr_input = pbr_input_from_standard_material(in, is_front);
 
-    // we can optionally modify the input before lighting is applied
+    // we can optionally modify the input before lighting and alpha_discard is applied
     pbr_input.material.base_color.b = pbr_input.material.base_color.r;
 
+    // alpha discard
+    pbr_input.material.base_color = alpha_discard(pbr_input.material, pbr_input.material.base_color);
+
+#ifdef DEFERRED_PREPASS
+    // in deferred mode we can't modify anything after that, as lighting is run in a separate fullscreen shader.
+    let out = deferred_output(in, pbr_input);
+#else
+    var out: FragmentOutput;
     // apply lighting
-    let lit_color = apply_pbr_lighting(pbr_input);
+    out.color = apply_pbr_lighting(pbr_input);
 
     // we can optionally modify the lit color before post-processing is applied
-    let modified_lit_color = vec4<f32>(vec4<u32>(lit_color * f32(my_extended_material.quantize_steps))) / f32(my_extended_material.quantize_steps);
+    out.color = vec4<f32>(vec4<u32>(out.color * f32(my_extended_material.quantize_steps))) / f32(my_extended_material.quantize_steps);
 
     // apply in-shader post processing (fog, alpha-premultiply, and also tonemapping, debanding if the camera is non-hdr)
     // note this does not include fullscreen postprocessing effects like bloom.
-    let output_color = main_pass_post_lighting_processing(pbr_input, modified_lit_color);
+    out.color = main_pass_post_lighting_processing(pbr_input, out.color);
 
     // we can optionally modify the final result here
-    let modified_output_color = output_color * 2.0;
+    out.color = out.color * 2.0;
+#endif
 
-    return modified_output_color;
+    return out;
 }

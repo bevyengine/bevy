@@ -5,26 +5,29 @@
 #import bevy_pbr::pbr_types as pbr_types
 #import bevy_pbr::prepass_utils
 
-#import bevy_pbr::mesh_vertex_output       MeshVertexOutput
 #import bevy_pbr::mesh_bindings            mesh
-#import bevy_pbr::mesh_view_bindings       view, fog, screen_space_ambient_occlusion_texture
-#import bevy_pbr::mesh_view_types          FOG_MODE_OFF
-#import bevy_core_pipeline::tonemapping    screen_space_dither, powsafe, tone_mapping
+#import bevy_pbr::mesh_view_bindings       view, screen_space_ambient_occlusion_texture
 #import bevy_pbr::parallax_mapping         parallaxed_uv
-
-#import bevy_pbr::prepass_utils
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
 #import bevy_pbr::gtao_utils gtao_multibounce
 #endif
 
+#ifdef DEFERRED_PREPASS
+#import bevy_pbr::prepass_io VertexOutput
+#else
+#import bevy_pbr::forward_io VertexOutput
+#endif
+
+// prepare a basic PbrInput from the vertex stage output, mesh binding and view binding
 fn pbr_input_from_mesh_vertex_output(
-    in: MeshVertexOutput,
+    in: VertexOutput,
     is_front: bool,
     double_sided: bool,
-) -> pbr_functions::PbrInput {
-    var pbr_input: pbr_functions::PbrInput = pbr_functions::pbr_input_new();
+) -> pbr_types::PbrInput {
+    var pbr_input: pbr_types::PbrInput = pbr_types::pbr_input_new();
 
+    pbr_input.flags = mesh[in.instance_index].flags;
     pbr_input.is_orthographic = view.projection[3].w == 1.0;
     pbr_input.V = pbr_functions::calculate_view(in.world_position, pbr_input.is_orthographic);
     pbr_input.frag_coord = in.position;
@@ -39,24 +42,32 @@ fn pbr_input_from_mesh_vertex_output(
         double_sided,
         is_front,
     );
+
+#ifdef LOAD_PREPASS_NORMALS
+    pbr_input.N = bevy_pbr::prepass_utils::prepass_normal(in.position, 0u);
+#else
     pbr_input.N = normalize(pbr_input.world_normal);
+#endif
 
     return pbr_input;
 }
 
-// Prepare a 'processed' StandardMaterial by sampling all textures to resolve
+// Prepare a full PbrInput by sampling all textures to resolve
 // the material members
 fn pbr_input_from_standard_material(
-    in: MeshVertexOutput,
+    in: VertexOutput,
     is_front: bool,
-) -> pbr_functions::PbrInput {
+) -> pbr_types::PbrInput {
     let double_sided = (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
 
-    var pbr_input: pbr_functions::PbrInput = pbr_input_from_mesh_vertex_output(in, is_front, double_sided);
+    var pbr_input: pbr_types::PbrInput = pbr_input_from_mesh_vertex_output(in, is_front, double_sided);
+    pbr_input.material.flags = pbr_bindings::material.flags;
     pbr_input.material.base_color *= pbr_bindings::material.base_color;
+    pbr_input.material.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
 
 #ifdef VERTEX_UVS
     var uv = in.uv;
+
 #ifdef VERTEX_TANGENTS
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
         let V = pbr_input.V;
@@ -76,14 +87,12 @@ fn pbr_input_from_standard_material(
             -Vt,
         );
     }
-#endif
-#endif
+#endif // VERTEX_TANGENTS
 
-#ifdef VERTEX_UVS
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
         pbr_input.material.base_color *= textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv, view.mip_bias);
     }
-#endif
+#endif // VERTEX_UVS
 
     pbr_input.material.flags = pbr_bindings::material.flags;
 
@@ -93,6 +102,7 @@ fn pbr_input_from_standard_material(
         pbr_input.material.reflectance = pbr_bindings::material.reflectance;
         pbr_input.material.alpha_cutoff = pbr_bindings::material.alpha_cutoff;
 
+        // emissive       
         // TODO use .a for exposure compensation in HDR
         var emissive: vec4<f32> = pbr_bindings::material.emissive;
 #ifdef VERTEX_UVS
@@ -102,6 +112,7 @@ fn pbr_input_from_standard_material(
 #endif
         pbr_input.material.emissive = emissive;
 
+        // metallic and perceptual roughness
         var metallic: f32 = pbr_bindings::material.metallic;
         var perceptual_roughness: f32 = pbr_bindings::material.perceptual_roughness;
 #ifdef VERTEX_UVS
@@ -115,6 +126,7 @@ fn pbr_input_from_standard_material(
         pbr_input.material.metallic = metallic;
         pbr_input.material.perceptual_roughness = perceptual_roughness;
 
+        // occlusion
         // TODO: Split into diffuse/specular occlusion?
         var occlusion: vec3<f32> = vec3(1.0);
 #ifdef VERTEX_UVS
@@ -129,9 +141,8 @@ fn pbr_input_from_standard_material(
 #endif
         pbr_input.occlusion = occlusion;
 
-#ifdef LOAD_PREPASS_NORMALS
-        pbr_input.N = bevy_pbr::prepass_utils::prepass_normal(in.position, 0u);
-#else
+        // N (normal vector)
+#ifndef LOAD_PREPASS_NORMALS
         pbr_input.N = pbr_functions::apply_normal_mapping(
             pbr_bindings::material.flags,
             pbr_input.world_normal,
@@ -146,42 +157,7 @@ fn pbr_input_from_standard_material(
             view.mip_bias,
         );
 #endif
-
-        pbr_input.occlusion = occlusion;
-
-        pbr_input.flags = mesh[in.instance_index].flags;
     }
 
     return pbr_input;
-}
-
-// fog, alpha premultiply
-// for non-hdr cameras, tonemapping and debanding
-fn main_pass_post_lighting_processing(
-    pbr_input: pbr_functions::PbrInput,
-    input_color: vec4<f32>,
-) -> vec4<f32> {
-    var output_color = input_color;
-
-    // fog
-    if (fog.mode != FOG_MODE_OFF && (pbr_input.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
-        output_color = pbr_functions::apply_fog(fog, output_color, pbr_input.world_position.xyz, view.world_position.xyz);
-    }
-
-#ifdef TONEMAP_IN_SHADER
-    output_color = tone_mapping(output_color, view.color_grading);
-#ifdef DEBAND_DITHER
-    var output_rgb = output_color.rgb;
-    output_rgb = powsafe(output_rgb, 1.0 / 2.2);
-    output_rgb += screen_space_dither(pbr_input.frag_coord.xy);
-    // This conversion back to linear space is required because our output texture format is
-    // SRGB; the GPU will assume our output is linear and will apply an SRGB conversion.
-    output_rgb = powsafe(output_rgb, 2.2);
-    output_color = vec4(output_rgb, output_color.a);
-#endif
-#endif
-#ifdef PREMULTIPLY_ALPHA
-    output_color = pbr_functions::premultiply_alpha(pbr_input.flags, output_color);
-#endif
-    return output_color;
 }
