@@ -463,6 +463,7 @@ impl AssetServer {
         let path = path.into().into_owned();
 
         fn load_folder<'a>(
+            source: AssetSourceId<'static>,
             path: &'a Path,
             reader: &'a dyn AssetReader,
             server: &'a AssetServer,
@@ -474,10 +475,12 @@ impl AssetServer {
                     let mut path_stream = reader.read_directory(path.as_ref()).await?;
                     while let Some(child_path) = path_stream.next().await {
                         if reader.is_directory(&child_path).await? {
-                            load_folder(&child_path, reader, server, handles).await?;
+                            load_folder(source.clone(), &child_path, reader, server, handles)
+                                .await?;
                         } else {
                             let path = child_path.to_str().expect("Path should be a valid string.");
-                            match server.load_untyped_async(AssetPath::parse(path)).await {
+                            let asset_path = AssetPath::parse(path).with_source(source.clone());
+                            match server.load_untyped_async(asset_path).await {
                                 Ok(handle) => handles.push(handle),
                                 // skip assets that cannot be loaded
                                 Err(
@@ -519,7 +522,7 @@ impl AssetServer {
                 };
 
                 let mut handles = Vec::new();
-                match load_folder(path.path(), asset_reader, &server, &mut handles).await {
+                match load_folder(source.id(), path.path(), asset_reader, &server, &mut handles).await {
                     Ok(_) => server.send_asset_event(InternalAssetEvent::Loaded {
                         id,
                         loaded_asset: LoadedAsset::new_with_dependencies(
