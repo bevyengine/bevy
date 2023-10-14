@@ -5,15 +5,14 @@ use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
     BackgroundColor, BorderColor, ContentSize, FocusPolicy, Interaction, Node, Style, UiImage,
-    UiTextureAtlasImage, ZIndex,
+    ZIndex,
 };
-use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
     prelude::Color,
-    texture::Image,
     view::{InheritedVisibility, ViewVisibility, Visibility},
 };
+use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{BreakLineOn, Text, TextAlignment, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -115,6 +114,9 @@ pub struct ImageBundle {
 }
 
 /// A UI node that is a texture atlas sprite
+///
+/// Note:
+/// This bundle is identical to [`ImageBundle`] with an additional [`TextureAtlas`] component.
 #[derive(Bundle, Debug, Default)]
 pub struct AtlasImageBundle {
     /// Describes the logical size of the node
@@ -128,12 +130,10 @@ pub struct AtlasImageBundle {
     ///
     /// Combines with `UiImage` to tint the provided image.
     pub background_color: BackgroundColor,
-    /// A handle to the texture atlas to use for this Ui Node
-    pub texture: Handle<Image>,
-    /// The descriptor for which sprite to use from the given texture atlas
-    pub texture_atlas_image: UiTextureAtlasImage,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
+    /// The image of the node
+    pub image: UiImage,
     /// The size of the image in pixels
     ///
     /// This component is set automatically
@@ -155,6 +155,8 @@ pub struct AtlasImageBundle {
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// The sprite sheet texture atlas, allowing to draw a custom section of `image`.
+    pub atlas: TextureAtlas,
 }
 
 #[cfg(feature = "bevy_text")]

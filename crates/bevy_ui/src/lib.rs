@@ -122,7 +122,6 @@ impl Plugin for UiPlugin {
             .register_type::<UiImageSize>()
             .register_type::<UiRect>()
             .register_type::<UiScale>()
-            .register_type::<UiTextureAtlasImage>()
             .register_type::<Val>()
             .register_type::<BorderColor>()
             .register_type::<widget::Button>()
@@ -173,10 +172,6 @@ impl Plugin for UiPlugin {
 
             system
         });
-        app.add_systems(
-            PostUpdate,
-            widget::update_atlas_content_size_system.before(UiSystem::Layout),
-        );
         app.add_systems(
             PostUpdate,
             (

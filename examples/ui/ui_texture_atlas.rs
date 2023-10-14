@@ -12,8 +12,9 @@ fn main() {
         ))
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
+        .insert_resource(FixedTime::new_from_secs(0.25))
         .add_systems(Startup, setup)
-        .add_systems(Update, increment_atlas_index)
+        .add_systems(FixedUpdate, increment_atlas_index)
         .run();
 }
 
@@ -58,9 +59,11 @@ fn setup(
                     height: Val::Px(256.),
                     ..default()
                 },
-                texture: texture_handle,
-                texture_atlas_image: UiTextureAtlasImage {
-                    index: 3,
+                image: UiImage {
+                    texture: texture_handle,
+                    ..default()
+                },
+                atlas: TextureAtlas {
                     layout: texture_atlas_layout_handle,
                     ..default()
                 },
@@ -81,10 +84,10 @@ fn setup(
 }
 
 fn increment_atlas_index(
-    mut atlas_images: Query<&mut UiTextureAtlasImage>,
+    mut atlas_images: Query<&mut TextureAtlas>,
     keyboard: Res<Input<KeyCode>>,
 ) {
-    if keyboard.just_pressed(KeyCode::Space) {
+    if keyboard.pressed(KeyCode::Space) {
         for mut atlas_image in &mut atlas_images {
             atlas_image.index = (atlas_image.index + 1) % 6;
         }

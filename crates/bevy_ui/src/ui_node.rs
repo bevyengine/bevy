@@ -1,13 +1,9 @@
 use crate::{UiRect, Val};
-use bevy_asset::{Assets, Handle};
-use bevy_ecs::{
-    prelude::{Component, Res},
-    reflect::ReflectComponent,
-};
+use bevy_asset::Handle;
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{color::Color, texture::Image};
-use bevy_sprite::TextureAtlasLayout;
 use bevy_transform::prelude::GlobalTransform;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -1441,39 +1437,6 @@ impl Default for BackgroundColor {
 impl From<Color> for BackgroundColor {
     fn from(color: Color) -> Self {
         Self(color)
-    }
-}
-
-/// The atlas sprite to be used in a UI Texture Atlas Node
-#[derive(Component, Clone, Debug, Reflect, Default)]
-#[reflect(Component, Default)]
-pub struct UiTextureAtlasImage {
-    /// Texture index in the TextureAtlas
-    pub index: usize,
-    /// Whether to flip the sprite in the X axis
-    pub flip_x: bool,
-    /// Whether to flip the sprite in the Y axis
-    pub flip_y: bool,
-    /// Texture atlas handle
-    pub layout: Handle<TextureAtlasLayout>,
-}
-
-impl UiTextureAtlasImage {
-    pub fn texture_rect(&self, texture_atlases: &Res<Assets<TextureAtlasLayout>>) -> Option<Rect> {
-        let atlas = texture_atlases.get(&self.layout)?;
-        atlas.textures.get(self.index).copied()
-    }
-}
-
-impl From<Handle<TextureAtlasLayout>> for UiTextureAtlasImage {
-    fn from(texture_atlas: Handle<TextureAtlasLayout>) -> Self {
-        Self {
-            layout: texture_atlas,
-            index: 0,
-            //TODO: Fix flip
-            flip_x: false,
-            flip_y: false,
-        }
     }
 }
 

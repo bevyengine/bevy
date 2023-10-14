@@ -13,7 +13,7 @@ pub use render_pass::*;
 use crate::Outline;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
-    Style, UiImage, UiScale, UiStack, UiTextureAtlasImage, Val,
+    Style, UiImage, UiScale, UiStack, Val,
 };
 
 use bevy_app::prelude::*;
@@ -32,7 +32,7 @@ use bevy_render::{
     view::{ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };
-use bevy_sprite::{SpriteAssetEvents, TextureAtlasLayout};
+use bevy_sprite::{SpriteAssetEvents, TextureAtlas, TextureAtlasLayout};
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
@@ -56,7 +56,6 @@ pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(130128470471
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
     ExtractNode,
-    ExtractAtlasNode,
 }
 
 pub fn build_ui_render(app: &mut App) {
@@ -80,13 +79,10 @@ pub fn build_ui_render(app: &mut App) {
                 extract_default_ui_camera_view::<Camera2d>,
                 extract_default_ui_camera_view::<Camera3d>,
                 extract_uinodes.in_set(RenderUiSystem::ExtractNode),
-                extract_atlas_uinodes
-                    .in_set(RenderUiSystem::ExtractAtlasNode)
-                    .after(RenderUiSystem::ExtractNode),
-                extract_uinode_borders.after(RenderUiSystem::ExtractAtlasNode),
+                extract_uinode_borders.after(RenderUiSystem::ExtractNode),
                 #[cfg(feature = "bevy_text")]
-                extract_text_uinodes.after(RenderUiSystem::ExtractAtlasNode),
-                extract_uinode_outlines.after(RenderUiSystem::ExtractAtlasNode),
+                extract_text_uinodes.after(RenderUiSystem::ExtractNode),
+                extract_uinode_outlines.after(RenderUiSystem::ExtractNode),
             ),
         )
         .add_systems(
@@ -166,78 +162,6 @@ pub struct ExtractedUiNode {
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
     pub uinodes: EntityHashMap<Entity, ExtractedUiNode>,
-}
-
-// TODO: Fix atlas ui
-pub fn extract_atlas_uinodes(
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    images: Extract<Res<Assets<Image>>>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
-    ui_stack: Extract<Res<UiStack>>,
-    uinode_query: Extract<
-        Query<
-            (
-                Entity,
-                &Node,
-                &GlobalTransform,
-                &BackgroundColor,
-                &ViewVisibility,
-                Option<&CalculatedClip>,
-                &Handle<Image>,
-                &UiTextureAtlasImage,
-            ),
-            Without<UiImage>,
-        >,
-    >,
-) {
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((
-            entity,
-            uinode,
-            transform,
-            color,
-            view_visibility,
-            clip,
-            image_handle,
-            atlas_image,
-        )) = uinode_query.get(*entity)
-        {
-            // Skip invisible and completely transparent nodes
-            if !view_visibility.get() || color.0.a() == 0.0 {
-                continue;
-            }
-
-            //TODO: Unwrap
-            let atlas = texture_atlases.get(&atlas_image.layout).unwrap();
-            let mut atlas_rect = atlas_image.texture_rect(&texture_atlases).unwrap();
-            let mut atlas_size = atlas.size;
-
-            // Skip loading images
-            if !images.contains(image_handle) {
-                continue;
-            }
-
-            let scale = uinode.size() / atlas_rect.size();
-            atlas_rect.min *= scale;
-            atlas_rect.max *= scale;
-            atlas_size *= scale;
-
-            extracted_uinodes.uinodes.insert(
-                entity,
-                ExtractedUiNode {
-                    stack_index,
-                    transform: transform.compute_matrix(),
-                    color: color.0,
-                    rect: atlas_rect,
-                    clip: clip.map(|clip| clip.clip),
-                    image: image_handle.id(),
-                    atlas_size: Some(atlas_size),
-                    flip_x: atlas_image.flip_x,
-                    flip_y: atlas_image.flip_y,
-                },
-            );
-        }
-    }
 }
 
 fn resolve_border_thickness(value: Val, parent_width: f32, viewport_size: Vec2) -> f32 {
@@ -471,24 +395,23 @@ pub fn extract_uinode_outlines(
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
+    texture_layouts: Extract<Res<Assets<TextureAtlasLayout>>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
-        Query<
-            (
-                Entity,
-                &Node,
-                &GlobalTransform,
-                &BackgroundColor,
-                Option<&UiImage>,
-                &ViewVisibility,
-                Option<&CalculatedClip>,
-            ),
-            Without<UiTextureAtlasImage>,
-        >,
+        Query<(
+            Entity,
+            &Node,
+            &GlobalTransform,
+            &BackgroundColor,
+            Option<&UiImage>,
+            Option<&TextureAtlas>,
+            &ViewVisibility,
+            Option<&CalculatedClip>,
+        )>,
     >,
 ) {
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((entity, uinode, transform, color, maybe_image, view_visibility, clip)) =
+        if let Ok((entity, uinode, transform, color, maybe_image, atlas, view_visibility, clip)) =
             uinode_query.get(*entity)
         {
             // Skip invisible and completely transparent nodes
@@ -506,19 +429,39 @@ pub fn extract_uinodes(
                 (AssetId::default(), false, false)
             };
 
+            let (rect, atlas_size) = atlas
+                .and_then(|texture_atlas| {
+                    texture_layouts
+                        .get(&texture_atlas.layout)
+                        .and_then(|layout| {
+                            texture_atlas
+                                .texture_rect(&texture_layouts)
+                                .map(|mut rect| {
+                                    let scale = uinode.size() / rect.size();
+                                    rect.min *= scale;
+                                    rect.max *= scale;
+                                    (rect, Some(layout.size * scale))
+                                })
+                        })
+                })
+                .unwrap_or((
+                    Rect {
+                        min: Vec2::ZERO,
+                        max: uinode.calculated_size,
+                    },
+                    None,
+                ));
+
             extracted_uinodes.uinodes.insert(
                 entity,
                 ExtractedUiNode {
                     stack_index,
                     transform: transform.compute_matrix(),
                     color: color.0,
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: uinode.calculated_size,
-                    },
+                    rect,
                     clip: clip.map(|clip| clip.clip),
                     image,
-                    atlas_size: None,
+                    atlas_size,
                     flip_x,
                     flip_y,
                 },

@@ -1,6 +1,4 @@
-use crate::{
-    measurement::AvailableSpace, ContentSize, Measure, Node, UiImage, UiScale, UiTextureAtlasImage,
-};
+use crate::{measurement::AvailableSpace, ContentSize, Measure, Node, UiImage, UiScale};
 use bevy_asset::Assets;
 
 use bevy_ecs::change_detection::DetectChanges;
@@ -82,51 +80,15 @@ pub fn update_image_content_size_system(
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     textures: Res<Assets<Image>>,
-    mut query: Query<(&mut ContentSize, &UiImage, &mut UiImageSize), UpdateImageFilter>,
-) {
-    let combined_scale_factor = windows
-        .get_single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.)
-        * ui_scale.0;
-
-    for (mut content_size, image, mut image_size) in &mut query {
-        if let Some(texture) = textures.get(&image.texture) {
-            let size = Vec2::new(
-                texture.texture_descriptor.size.width as f32,
-                texture.texture_descriptor.size.height as f32,
-            );
-            // Update only if size or scale factor has changed to avoid needless layout calculations
-            if size != image_size.size
-                || combined_scale_factor != *previous_combined_scale_factor
-                || content_size.is_added()
-            {
-                image_size.size = size;
-                content_size.set(ImageMeasure {
-                    // multiply the image size by the scale factor to get the physical size
-                    size: size * combined_scale_factor as f32,
-                });
-            }
-        }
-    }
-
-    *previous_combined_scale_factor = combined_scale_factor;
-}
-
-/// Updates content size of the node based on the texture atlas sprite
-pub fn update_atlas_content_size_system(
-    mut previous_combined_scale_factor: Local<f64>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    ui_scale: Res<UiScale>,
-    atlases: Res<Assets<TextureAtlasLayout>>,
-    mut atlas_query: Query<
+    texture_layouts: Res<Assets<TextureAtlasLayout>>,
+    mut query: Query<
         (
             &mut ContentSize,
-            &TextureAtlas,
-            &UiTextureAtlasImage,
+            &UiImage,
             &mut UiImageSize,
+            Option<&TextureAtlas>,
         ),
-        (UpdateImageFilter, Without<UiImage>),
+        UpdateImageFilter,
     >,
 ) {
     let combined_scale_factor = windows
@@ -135,9 +97,16 @@ pub fn update_atlas_content_size_system(
         .unwrap_or(1.)
         * ui_scale.0;
 
-    for (mut content_size, atlas, atlas_image, mut image_size) in &mut atlas_query {
-        if let Some(atlas) = atlases.get(&atlas.layout) {
-            let size = atlas.textures[atlas_image.index].size();
+    for (mut content_size, image, mut image_size, atlas) in &mut query {
+        if let Some(texture) = textures.get(&image.texture) {
+            // Atlas (sub)image size or texture size. An atlas might use texture size if index is incorrect
+            let size = atlas
+                .and_then(|texture_atlas| texture_atlas.texture_rect(&texture_layouts))
+                .map(|rect| rect.size())
+                .unwrap_or(Vec2::new(
+                    texture.texture_descriptor.size.width as f32,
+                    texture.texture_descriptor.size.height as f32,
+                ));
             // Update only if size or scale factor has changed to avoid needless layout calculations
             if size != image_size.size
                 || combined_scale_factor != *previous_combined_scale_factor
