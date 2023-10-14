@@ -72,7 +72,7 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
             return Ok(());
         };
         let (
-            total_instanced_meshlet_count,
+            scene_meshlet_count,
             Some(culling_bind_group),
             Some(draw_bind_group),
             Some(draw_index_buffer),
@@ -89,7 +89,7 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
             });
             culling_pass.set_bind_group(0, culling_bind_group, &[view_offset.offset]);
             culling_pass.set_pipeline(culling_pipeline);
-            culling_pass.dispatch_workgroups(div_ceil(total_instanced_meshlet_count, 128), 1, 1);
+            culling_pass.dispatch_workgroups(div_ceil(scene_meshlet_count, 128), 1, 1);
         }
 
         {
