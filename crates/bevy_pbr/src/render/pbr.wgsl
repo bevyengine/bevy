@@ -124,7 +124,7 @@ fn fragment(
 #endif
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
-        let ssao_multibounce = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
+        let ssao_multibounce = gtao_multibounce(ssao, unlit_color.rgb);
         occlusion = min(occlusion, ssao_multibounce);
 #endif
         pbr_input.occlusion = occlusion;
