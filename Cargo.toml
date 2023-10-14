@@ -245,7 +245,10 @@ shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 webgl2 = ["bevy_internal/webgl"]
 
 # Enables watching the filesystem for Bevy Asset hot-reloading
-filesystem_watcher = ["bevy_internal/filesystem_watcher"]
+file_watcher = ["bevy_internal/file_watcher"]
+
+# Enables watching in memory asset providers for Bevy Asset hot-reloading
+embedded_watcher = ["bevy_internal/embedded_watcher"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0-dev", default-features = false, optional = true }
@@ -608,6 +611,16 @@ doc-scrape-examples = true
 [package.metadata.example.bloom_3d]
 name = "3D Bloom"
 description = "Illustrates bloom configuration using HDR and emissive materials"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "deferred_rendering"
+path = "examples/3d/deferred_rendering.rs"
+
+[package.metadata.example.deferred_rendering]
+name = "Deferred Rendering"
+description = "Renders meshes with both forward and deferred pipelines"
 category = "3D Rendering"
 wasm = true
 
@@ -1055,6 +1068,7 @@ wasm = true
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
 doc-scrape-examples = true
+required-features = ["file_watcher"]
 
 [package.metadata.example.hot_asset_reloading]
 name = "Hot Reloading of Assets"
@@ -1066,7 +1080,7 @@ wasm = true
 name = "asset_processing"
 path = "examples/asset/processing/processing.rs"
 doc-scrape-examples = true
-required-features = ["filesystem_watcher"]
+required-features = ["file_watcher"]
 
 [package.metadata.example.asset_processing]
 name = "Asset Processing"

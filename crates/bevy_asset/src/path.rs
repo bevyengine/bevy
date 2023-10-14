@@ -1,3 +1,4 @@
+use crate::io::AssetSourceId;
 use bevy_reflect::{
     std_traits::ReflectDefault, utility::NonGenericTypeInfoCell, FromReflect, FromType,
     GetTypeRegistration, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect,
@@ -12,10 +13,13 @@ use std::{
     ops::Deref,
     path::{Path, PathBuf},
 };
+use thiserror::Error;
 
 /// Represents a path to an asset in a "virtual filesystem".
 ///
-/// Asset paths consist of two main parts:
+/// Asset paths consist of three main parts:
+/// * [`AssetPath::source`]: The name of the [`AssetSource`](crate::io::AssetSource) to load the asset from.
+///     This is optional. If one is not set the default source will be used (which is the `assets` folder by default).
 /// * [`AssetPath::path`]: The "virtual filesystem path" pointing to an asset source file.
 /// * [`AssetPath::label`]: An optional "named sub asset". When assets are loaded, they are
 /// allowed to load "sub assets" of any type, which are identified by a named "label".
@@ -33,20 +37,24 @@ use std::{
 /// # struct Scene;
 /// #
 /// # let asset_server: AssetServer = panic!();
-/// // This loads the `my_scene.scn` base asset.
+/// // This loads the `my_scene.scn` base asset from the default asset source.
 /// let scene: Handle<Scene> = asset_server.load("my_scene.scn");
 ///
-/// // This loads the `PlayerMesh` labeled asset from the `my_scene.scn` base asset.
+/// // This loads the `PlayerMesh` labeled asset from the `my_scene.scn` base asset in the default asset source.
 /// let mesh: Handle<Mesh> = asset_server.load("my_scene.scn#PlayerMesh");
+///
+/// // This loads the `my_scene.scn` base asset from a custom 'remote' asset source.
+/// let scene: Handle<Scene> = asset_server.load("remote://my_scene.scn");
 /// ```
 ///
 /// [`AssetPath`] implements [`From`] for `&'static str`, `&'static Path`, and `&'a String`,
 /// which allows us to optimize the static cases.
 /// This means that the common case of `asset_server.load("my_scene.scn")` when it creates and
 /// clones internal owned [`AssetPaths`](AssetPath).
-/// This also means that you should use [`AssetPath::new`] in cases where `&str` is the explicit type.
+/// This also means that you should use [`AssetPath::parse`] in cases where `&str` is the explicit type.
 #[derive(Eq, PartialEq, Hash, Clone, Default)]
 pub struct AssetPath<'a> {
+    source: AssetSourceId<'a>,
     path: CowArc<'a, Path>,
     label: Option<CowArc<'a, str>>,
 }
@@ -67,36 +75,126 @@ impl<'a> Display for AssetPath<'a> {
     }
 }
 
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum ParseAssetPathError {
+    #[error("Asset source must be followed by '://'")]
+    InvalidSourceSyntax,
+    #[error("Asset source must be at least one character. Either specify the source before the '://' or remove the `://`")]
+    MissingSource,
+    #[error("Asset label must be at least one character. Either specify the label after the '#' or remove the '#'")]
+    MissingLabel,
+}
+
 impl<'a> AssetPath<'a> {
     /// Creates a new [`AssetPath`] from a string in the asset path format:
     /// * An asset at the root: `"scene.gltf"`
     /// * An asset nested in some folders: `"some/path/scene.gltf"`
     /// * An asset with a "label": `"some/path/scene.gltf#Mesh0"`
+    /// * An asset with a custom "source": `"custom://some/path/scene.gltf#Mesh0"`
     ///
     /// Prefer [`From<'static str>`] for static strings, as this will prevent allocations
     /// and reference counting for [`AssetPath::into_owned`].
-    pub fn new(asset_path: &'a str) -> AssetPath<'a> {
-        let (path, label) = Self::get_parts(asset_path);
-        Self {
-            path: CowArc::Borrowed(path),
-            label: label.map(CowArc::Borrowed),
-        }
+    ///
+    /// # Panics
+    /// Panics if the asset path is in an invalid format. Use [`AssetPath::try_parse`] for a fallible variant
+    pub fn parse(asset_path: &'a str) -> AssetPath<'a> {
+        Self::try_parse(asset_path).unwrap()
     }
 
-    fn get_parts(asset_path: &str) -> (&Path, Option<&str>) {
-        let mut parts = asset_path.splitn(2, '#');
-        let path = Path::new(parts.next().expect("Path must be set."));
-        let label = parts.next();
-        (path, label)
+    /// Creates a new [`AssetPath`] from a string in the asset path format:
+    /// * An asset at the root: `"scene.gltf"`
+    /// * An asset nested in some folders: `"some/path/scene.gltf"`
+    /// * An asset with a "label": `"some/path/scene.gltf#Mesh0"`
+    /// * An asset with a custom "source": `"custom://some/path/scene.gltf#Mesh0"`
+    ///
+    /// Prefer [`From<'static str>`] for static strings, as this will prevent allocations
+    /// and reference counting for [`AssetPath::into_owned`].
+    ///
+    /// This will return a [`ParseAssetPathError`] if `asset_path` is in an invalid format.
+    pub fn try_parse(asset_path: &'a str) -> Result<AssetPath<'a>, ParseAssetPathError> {
+        let (source, path, label) = Self::parse_internal(asset_path).unwrap();
+        Ok(Self {
+            source: match source {
+                Some(source) => AssetSourceId::Name(CowArc::Borrowed(source)),
+                None => AssetSourceId::Default,
+            },
+            path: CowArc::Borrowed(path),
+            label: label.map(CowArc::Borrowed),
+        })
+    }
+
+    fn parse_internal(
+        asset_path: &str,
+    ) -> Result<(Option<&str>, &Path, Option<&str>), ParseAssetPathError> {
+        let mut chars = asset_path.char_indices();
+        let mut source_range = None;
+        let mut path_range = 0..asset_path.len();
+        let mut label_range = None;
+        while let Some((index, char)) = chars.next() {
+            match char {
+                ':' => {
+                    let (_, char) = chars
+                        .next()
+                        .ok_or(ParseAssetPathError::InvalidSourceSyntax)?;
+                    if char != '/' {
+                        return Err(ParseAssetPathError::InvalidSourceSyntax);
+                    }
+                    let (index, char) = chars
+                        .next()
+                        .ok_or(ParseAssetPathError::InvalidSourceSyntax)?;
+                    if char != '/' {
+                        return Err(ParseAssetPathError::InvalidSourceSyntax);
+                    }
+                    source_range = Some(0..index - 2);
+                    path_range.start = index + 1;
+                }
+                '#' => {
+                    path_range.end = index;
+                    label_range = Some(index + 1..asset_path.len());
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        let source = match source_range {
+            Some(source_range) => {
+                if source_range.is_empty() {
+                    return Err(ParseAssetPathError::MissingSource);
+                }
+                Some(&asset_path[source_range])
+            }
+            None => None,
+        };
+        let label = match label_range {
+            Some(label_range) => {
+                if label_range.is_empty() {
+                    return Err(ParseAssetPathError::MissingLabel);
+                }
+                Some(&asset_path[label_range])
+            }
+            None => None,
+        };
+
+        let path = Path::new(&asset_path[path_range]);
+        Ok((source, path, label))
     }
 
     /// Creates a new [`AssetPath`] from a [`Path`].
     #[inline]
-    pub fn from_path(path: impl Into<CowArc<'a, Path>>) -> AssetPath<'a> {
+    pub fn from_path(path: &'a Path) -> AssetPath<'a> {
         AssetPath {
-            path: path.into(),
+            path: CowArc::Borrowed(path),
+            source: AssetSourceId::Default,
             label: None,
         }
+    }
+
+    /// Gets the "asset source", if one was defined. If none was defined, the default source
+    /// will be used.
+    #[inline]
+    pub fn source(&self) -> &AssetSourceId {
+        &self.source
     }
 
     /// Gets the "sub-asset label".
@@ -115,6 +213,7 @@ impl<'a> AssetPath<'a> {
     #[inline]
     pub fn without_label(&self) -> AssetPath<'_> {
         Self {
+            source: self.source.clone(),
             path: self.path.clone(),
             label: None,
         }
@@ -135,22 +234,60 @@ impl<'a> AssetPath<'a> {
     /// Returns this asset path with the given label. This will replace the previous
     /// label if it exists.
     #[inline]
-    pub fn with_label(&self, label: impl Into<CowArc<'a, str>>) -> AssetPath<'a> {
+    pub fn with_label(self, label: impl Into<CowArc<'a, str>>) -> AssetPath<'a> {
         AssetPath {
-            path: self.path.clone(),
+            source: self.source,
+            path: self.path,
             label: Some(label.into()),
         }
     }
 
+    /// Returns this asset path with the given asset source. This will replace the previous asset
+    /// source if it exists.
+    #[inline]
+    pub fn with_source(self, source: impl Into<AssetSourceId<'a>>) -> AssetPath<'a> {
+        AssetPath {
+            source: source.into(),
+            path: self.path,
+            label: self.label,
+        }
+    }
+
+    /// Returns an [`AssetPath`] for the parent folder of this path, if there is a parent folder in the path.
+    pub fn parent(&self) -> Option<AssetPath<'a>> {
+        let path = match &self.path {
+            CowArc::Borrowed(path) => CowArc::Borrowed(path.parent()?),
+            CowArc::Static(path) => CowArc::Static(path.parent()?),
+            CowArc::Owned(path) => path.parent()?.to_path_buf().into(),
+        };
+        Some(AssetPath {
+            source: self.source.clone(),
+            label: None,
+            path,
+        })
+    }
+
     /// Converts this into an "owned" value. If internally a value is borrowed, it will be cloned into an "owned [`Arc`]".
-    /// If it is already an "owned [`Arc`]", it will remain unchanged.
+    /// If internally a value is a static reference, the static reference will be used unchanged.
+    /// If internally a value is an "owned [`Arc`]", it will remain unchanged.
     ///
     /// [`Arc`]: std::sync::Arc
     pub fn into_owned(self) -> AssetPath<'static> {
         AssetPath {
+            source: self.source.into_owned(),
             path: self.path.into_owned(),
             label: self.label.map(|l| l.into_owned()),
         }
+    }
+
+    /// Clones this into an "owned" value. If internally a value is borrowed, it will be cloned into an "owned [`Arc`]".
+    /// If internally a value is a static reference, the static reference will be used unchanged.
+    /// If internally a value is an "owned [`Arc`]", the [`Arc`] will be cloned.
+    ///
+    /// [`Arc`]: std::sync::Arc
+    #[inline]
+    pub fn clone_owned(&self) -> AssetPath<'static> {
+        self.clone().into_owned()
     }
 
     /// Returns the full extension (including multiple '.' values).
@@ -176,8 +313,9 @@ impl<'a> AssetPath<'a> {
 impl From<&'static str> for AssetPath<'static> {
     #[inline]
     fn from(asset_path: &'static str) -> Self {
-        let (path, label) = Self::get_parts(asset_path);
+        let (source, path, label) = Self::parse_internal(asset_path).unwrap();
         AssetPath {
+            source: source.into(),
             path: CowArc::Static(path),
             label: label.map(CowArc::Static),
         }
@@ -187,14 +325,14 @@ impl From<&'static str> for AssetPath<'static> {
 impl<'a> From<&'a String> for AssetPath<'a> {
     #[inline]
     fn from(asset_path: &'a String) -> Self {
-        AssetPath::new(asset_path.as_str())
+        AssetPath::parse(asset_path.as_str())
     }
 }
 
 impl From<String> for AssetPath<'static> {
     #[inline]
     fn from(asset_path: String) -> Self {
-        AssetPath::new(asset_path.as_str()).into_owned()
+        AssetPath::parse(asset_path.as_str()).into_owned()
     }
 }
 
@@ -202,6 +340,7 @@ impl From<&'static Path> for AssetPath<'static> {
     #[inline]
     fn from(path: &'static Path) -> Self {
         Self {
+            source: AssetSourceId::Default,
             path: CowArc::Static(path),
             label: None,
         }
@@ -212,6 +351,7 @@ impl From<PathBuf> for AssetPath<'static> {
     #[inline]
     fn from(path: PathBuf) -> Self {
         Self {
+            source: AssetSourceId::Default,
             path: path.into(),
             label: None,
         }
@@ -261,7 +401,7 @@ impl<'de> Visitor<'de> for AssetPathVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(AssetPath::new(v).into_owned())
+        Ok(AssetPath::parse(v).into_owned())
     }
 
     fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
@@ -400,5 +540,38 @@ impl FromReflect for AssetPath<'static> {
         Some(Clone::clone(<dyn ::core::any::Any>::downcast_ref::<
             AssetPath<'static>,
         >(<dyn Reflect>::as_any(reflect))?))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::AssetPath;
+    use std::path::Path;
+
+    #[test]
+    fn parse_asset_path() {
+        let result = AssetPath::parse_internal("a/b.test");
+        assert_eq!(result, Ok((None, Path::new("a/b.test"), None)));
+
+        let result = AssetPath::parse_internal("http://a/b.test");
+        assert_eq!(result, Ok((Some("http"), Path::new("a/b.test"), None)));
+
+        let result = AssetPath::parse_internal("http://a/b.test#Foo");
+        assert_eq!(
+            result,
+            Ok((Some("http"), Path::new("a/b.test"), Some("Foo")))
+        );
+
+        let result = AssetPath::parse_internal("http://");
+        assert_eq!(result, Ok((Some("http"), Path::new(""), None)));
+
+        let result = AssetPath::parse_internal("://x");
+        assert_eq!(result, Err(crate::ParseAssetPathError::MissingSource));
+
+        let result = AssetPath::parse_internal("a/b.test#");
+        assert_eq!(result, Err(crate::ParseAssetPathError::MissingLabel));
+
+        let result = AssetPath::parse_internal("http:/");
+        assert_eq!(result, Err(crate::ParseAssetPathError::InvalidSourceSyntax));
     }
 }

@@ -5,7 +5,7 @@
 
 @fragment
 fn fragment(
-    in: MeshVertexOutput,
+    in: VertexOutput,
     @builtin(front_facing) is_front: bool,
 ) -> @location(0) vec4<f32> {
     // generate a PbrInput struct from the StandardMaterial bindings
@@ -14,6 +14,9 @@ fn fragment(
     // apply lighting
     var lit_color: vec4<f32>;
 
+    // gather pbr lighting data
+    // ------------------
+    var pbr_input: pbr_types::PbrInput;
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if (pbr_input.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
         lit_color = apply_pbr_lighting(pbr_input);
