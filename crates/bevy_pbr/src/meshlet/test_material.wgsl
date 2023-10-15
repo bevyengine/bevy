@@ -50,6 +50,7 @@ fn vertex(@builtin(vertex_index) packed_meshlet_index: u32) -> VertexOutput {
         ),
         vertex.tangent.w * (f32(bool(instance_uniform.flags & MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT)) * 2.0 - 1.0)
     );
+    out.meshlet_id = meshlet_id;
     return out;
 }
 
