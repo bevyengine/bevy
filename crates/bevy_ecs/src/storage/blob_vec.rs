@@ -57,7 +57,9 @@ impl BlobVec {
         drop: Option<unsafe fn(OwningPtr<'_>)>,
         capacity: usize,
     ) -> BlobVec {
-        let align = NonZeroUsize::new(item_layout.align()).expect("alignment must be > 0");
+        let item_layout = pad_to_align(&item_layout);
+        // SAFETY: `Layout` guarantees alignment is nonzero.
+        let align = unsafe { NonZeroUsize::new_unchecked(item_layout.align()) };
         let data = bevy_ptr::dangling_with_align(align);
         if item_layout.size() == 0 {
             BlobVec {
@@ -440,6 +442,21 @@ fn repeat_layout(layout: &Layout, n: usize) -> Option<(Layout, usize)> {
     }
 }
 
+// TODO: replace with `Layout::pad_to_align` if/when it stabilizes
+/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
+const fn pad_to_align(layout: &Layout) -> Layout {
+    let pad = padding_needed_for(layout, layout.align());
+    // This cannot overflow. Quoting from the invariant of Layout:
+    // > `size`, when rounded up to the nearest multiple of `align`,
+    // > must not overflow isize (i.e., the rounded value must be
+    // > less than or equal to `isize::MAX`)
+    let new_size = layout.size() + pad;
+
+    // SAFETY: padded size is guaranteed to not exceed `isize::MAX`.
+    unsafe { Layout::from_size_align_unchecked(new_size, layout.align()) }
+}
+
+// TODO: replace with `Layout::padding_needed_for` if/when it stabilizes
 /// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
 const fn padding_needed_for(layout: &Layout, align: usize) -> usize {
     let len = layout.size();
@@ -608,6 +625,29 @@ mod tests {
         let drop = drop_ptr::<Foo>;
         // SAFETY: drop is able to drop a value of its `item_layout`
         let _ = unsafe { BlobVec::new(item_layout, Some(drop), 0) };
+    }
+
+    #[test]
+    fn respects_alignment() {
+        let item_layout = Layout::new::<u64>();
+        // Double the alignment requirement.
+        let item_layout =
+            Layout::from_size_align(item_layout.size(), item_layout.align() * 2).unwrap();
+
+        // SAFETY: Item is not dropped.
+        let mut blob_vec = unsafe { BlobVec::new(item_layout, None, 2) };
+
+        // SAFETY: Item layout is valid for `u64`.
+        unsafe {
+            push(&mut blob_vec, 42_u64);
+            push(&mut blob_vec, 100_u64);
+        }
+
+        // SAFETY: Index is in bounds.
+        let ptr = unsafe { blob_vec.get_unchecked(1) };
+
+        // Is the pointer to the second item correctly aligned?
+        assert_eq!(ptr.as_ptr().align_offset(item_layout.align()), 0);
     }
 
     #[test]
