@@ -8,7 +8,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 
 const ROTATION_SPEED: f32 = 0.005;
 
-static HELP_TEXT: &str = "Press space to switch reflection mode";
+static HELP_TEXT: &str = "Press Space to switch reflection mode";
 
 #[derive(Clone, Copy, PartialEq, Resource, Default)]
 enum ReflectionMode {
@@ -18,13 +18,19 @@ enum ReflectionMode {
     ReflectionProbe = 2,
 }
 
-#[derive(Clone, Copy, Resource, Default)]
-struct CameraAngle(f32);
+#[derive(Resource)]
+struct Cubemaps {
+    diffuse: Handle<Image>,
+    specular_environment_map: Handle<Image>,
+    specular_reflection_probe: Handle<Image>,
+    skybox: Handle<Image>,
+}
 
 fn main() {
     App::new()
-        .init_resource::<ReflectionMode>()
         .add_plugins(DefaultPlugins)
+        .init_resource::<ReflectionMode>()
+        .init_resource::<Cubemaps>()
         .add_systems(Startup, setup)
         .add_systems(PreUpdate, add_environment_map_to_camera)
         .add_systems(Update, change_reflection_type)
@@ -38,6 +44,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
     reflection_mode: Res<ReflectionMode>,
+    cubemaps: Res<Cubemaps>,
 ) {
     // Spawn the cubes, light, and camera.
     commands.spawn(SceneBundle {
@@ -68,7 +75,7 @@ fn setup(
     });
 
     // Create the reflection probe.
-    create_reflection_probe(&mut commands, &asset_server);
+    create_reflection_probe(&mut commands, &cubemaps);
 
     // Create the text.
     commands.spawn(
@@ -85,7 +92,7 @@ fn setup(
     );
 }
 
-fn create_reflection_probe(commands: &mut Commands, asset_server: &AssetServer) {
+fn create_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
     commands.spawn((
         SpatialBundle {
             transform: Transform::IDENTITY,
@@ -95,9 +102,8 @@ fn create_reflection_probe(commands: &mut Commands, asset_server: &AssetServer) 
             half_extents: Vec3A::splat(1.1),
         },
         EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server
-                .load("environment_maps/cubes_reflection_probe_specular.ktx2"),
+            diffuse_map: cubemaps.diffuse.clone(),
+            specular_map: cubemaps.specular_reflection_probe.clone(),
         },
     ));
 }
@@ -105,16 +111,17 @@ fn create_reflection_probe(commands: &mut Commands, asset_server: &AssetServer) 
 fn add_environment_map_to_camera(
     mut commands: Commands,
     query: Query<Entity, Added<Camera3d>>,
-    asset_server: Res<AssetServer>,
+    cubemaps: Res<Cubemaps>,
 ) {
     for camera_entity in query.iter() {
         commands
             .entity(camera_entity)
-            .insert(create_camera_environment_map_light(&asset_server))
-            .insert(Skybox(asset_server.load("textures/pisa_cubemap.ktx2")));
+            .insert(create_camera_environment_map_light(&cubemaps))
+            .insert(Skybox(cubemaps.skybox.clone()));
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn change_reflection_type(
     mut commands: Commands,
     light_probe_query: Query<Entity, With<LightProbe>>,
@@ -123,6 +130,7 @@ fn change_reflection_type(
     keyboard: Res<Input<KeyCode>>,
     mut reflection_mode: ResMut<ReflectionMode>,
     asset_server: Res<AssetServer>,
+    cubemaps: Res<Cubemaps>,
 ) {
     // Only do anything if space was pressed.
     if !keyboard.just_pressed(KeyCode::Space) {
@@ -138,7 +146,7 @@ fn change_reflection_type(
     }
     match *reflection_mode {
         ReflectionMode::None | ReflectionMode::EnvironmentMap => {}
-        ReflectionMode::ReflectionProbe => create_reflection_probe(&mut commands, &asset_server),
+        ReflectionMode::ReflectionProbe => create_reflection_probe(&mut commands, &cubemaps),
     }
 
     // Add or remove the environment map from the camera.
@@ -150,7 +158,7 @@ fn change_reflection_type(
             ReflectionMode::EnvironmentMap | ReflectionMode::ReflectionProbe => {
                 commands
                     .entity(camera)
-                    .insert(create_camera_environment_map_light(&asset_server));
+                    .insert(create_camera_environment_map_light(&cubemaps));
             }
         }
     }
@@ -196,10 +204,10 @@ fn create_text(reflection_mode: ReflectionMode, asset_server: &AssetServer) -> T
     )
 }
 
-fn create_camera_environment_map_light(asset_server: &AssetServer) -> EnvironmentMapLight {
+fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLight {
     EnvironmentMapLight {
-        diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-        specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+        diffuse_map: cubemaps.diffuse.clone(),
+        specular_map: cubemaps.specular_environment_map.clone(),
     }
 }
 
@@ -210,5 +218,19 @@ fn rotate_camera(mut camera_query: Query<&mut Transform, With<Camera3d>>) {
             .extend(transform.translation.y)
             .xzy();
         transform.look_at(Vec3::ZERO, Vec3::Y);
+    }
+}
+
+impl FromWorld for Cubemaps {
+    fn from_world(world: &mut World) -> Self {
+        let asset_server = world.resource::<AssetServer>();
+        Cubemaps {
+            diffuse: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            specular_environment_map: asset_server
+                .load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            specular_reflection_probe: asset_server
+                .load("environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2"),
+            skybox: asset_server.load("textures/pisa_cubemap_rgb9e5_zstd.ktx2"),
+        }
     }
 }

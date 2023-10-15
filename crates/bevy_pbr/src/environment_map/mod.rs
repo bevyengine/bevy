@@ -204,7 +204,10 @@ pub fn prepare_environment_maps(
     render_queue: Res<RenderQueue>,
     images: Res<RenderAssets<Image>>,
 ) {
-    // Skip if we have nothing to do.
+    // Clear out the old environment maps.
+    render_environment_maps.clear();
+
+    // Skip if we have nothing more to do.
     if reflection_probes.iter().all(|reflection_probe| {
         render_environment_maps
             .light_id_indices
@@ -214,7 +217,6 @@ pub fn prepare_environment_maps(
     }
 
     // Gather up the reflection probes.
-    render_environment_maps.clear();
     for environment_map_light in reflection_probes.iter() {
         render_environment_maps.add_images(environment_map_light, &images);
     }
@@ -427,12 +429,6 @@ impl RenderEnvironmentMaps {
                 EnvironmentMapKind::Diffuse => &cubemap.diffuse_texture,
                 EnvironmentMapKind::Specular => &cubemap.specular_texture,
             };
-
-            println!(
-                "src mip count={} dest mip count={}",
-                src_texture.mip_level_count(),
-                dest_image.mip_level_count
-            );
 
             for mip_level in 0..src_texture.mip_level_count() {
                 command_encoder.copy_texture_to_texture(
