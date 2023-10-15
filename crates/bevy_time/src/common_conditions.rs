@@ -74,6 +74,32 @@ pub fn on_fixed_timer(duration: Duration) -> impl FnMut(Res<FixedTime>) -> bool 
     }
 }
 
+/// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+/// if the given time have passed since the app has started
+///
+/// # Example
+///
+/// ```rust,no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
+/// # use bevy_ecs::schedule::IntoSystemConfigs;
+/// # use bevy_utils::Duration;
+/// # use bevy_time::common_conditions::time_passed_since_app_started;
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins)
+///         .add_systems(Update,
+///             my_system.run_if(time_passed_since_app_started(Duration::from_secs(3))),
+///         )
+///         .run();
+/// }
+/// fn my_system() {
+///     // run after 3 seconds after the app has started
+/// }
+/// ```
+pub fn time_passed_since_app_started(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
+    move |time: Res<Time>| time.elapsed() >= duration
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -87,7 +113,8 @@ mod tests {
         Schedule::default().add_systems(
             (test_system, test_system)
                 .distributive_run_if(on_timer(Duration::new(1, 0)))
-                .distributive_run_if(on_fixed_timer(Duration::new(1, 0))),
+                .distributive_run_if(on_fixed_timer(Duration::new(1, 0)))
+                .distributive_run_if(time_passed_since_app_started(Duration::new(1, 0))),
         );
     }
 }
