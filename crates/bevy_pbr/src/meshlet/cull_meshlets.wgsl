@@ -3,7 +3,7 @@
 @compute
 @workgroup_size(128, 1, 1)
 fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
-    if thread_id.x <= arrayLength(&meshlet_thread_meshlet_ids) { return; }
+    if thread_id.x >= arrayLength(&meshlet_thread_meshlet_ids) { return; }
 
     let meshlet_id = meshlet_thread_meshlet_ids[thread_id.x];
     let meshlet = meshlets[meshlet_id];
