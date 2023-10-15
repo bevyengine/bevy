@@ -1,4 +1,4 @@
-#import bevy_pbr::mesh_vertex_output MeshVertexOutput
+#import bevy_pbr::forward_io VertexOutput
 
 struct CustomMaterial {
     color: vec4<f32>,
@@ -8,7 +8,7 @@ struct CustomMaterial {
 
 @fragment
 fn fragment(
-    mesh: MeshVertexOutput,
+    mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
 #ifdef IS_RED
     return vec4<f32>(1.0, 0.0, 0.0, 1.0);

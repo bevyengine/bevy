@@ -11,6 +11,9 @@ pub mod graph {
     pub mod node {
         pub const MSAA_WRITEBACK: &str = "msaa_writeback";
         pub const PREPASS: &str = "prepass";
+        pub const DEFERRED_PREPASS: &str = "deferred_prepass";
+        pub const COPY_DEFERRED_LIGHTING_ID: &str = "copy_deferred_lighting_id";
+        pub const END_PREPASSES: &str = "end_prepasses";
         pub const START_MAIN_PASS: &str = "start_main_pass";
         pub const MAIN_OPAQUE_PASS: &str = "main_opaque_pass";
         pub const MAIN_TRANSMISSIVE_PASS: &str = "main_transmissive_pass";
@@ -26,13 +29,16 @@ pub mod graph {
 }
 pub const CORE_3D: &str = graph::NAME;
 
+// PERF: vulkan docs recommend using 24 bit depth for better performance
+pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
+
 use std::{cmp::Reverse, ops::Range};
 
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
@@ -52,13 +58,18 @@ use bevy_render::{
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{nonmax::NonMaxU32, FloatOrd, HashMap};
+use bevy_utils::{nonmax::NonMaxU32, tracing::warn, FloatOrd, HashMap};
 
 use crate::{
     core_3d::main_transmissive_pass_3d_node::MainTransmissivePass3dNode,
+    deferred::{
+        copy_lighting_id::CopyDeferredLightingIdNode, node::DeferredGBufferPrepassNode,
+        AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
+        DEFERRED_PREPASS_FORMAT,
+    },
     prepass::{
-        node::PrepassNode, AlphaMask3dPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
-        Opaque3dPrepass, ViewPrepassTextures, DEPTH_PREPASS_FORMAT, MOTION_VECTOR_PREPASS_FORMAT,
+        node::PrepassNode, AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass,
+        NormalPrepass, Opaque3dPrepass, ViewPrepassTextures, MOTION_VECTOR_PREPASS_FORMAT,
         NORMAL_PREPASS_FORMAT,
     },
     skybox::SkyboxPlugin,
@@ -72,7 +83,8 @@ impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera3d>()
             .register_type::<Camera3dDepthLoadOp>()
-            .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()));
+            .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
+            .add_systems(PostUpdate, check_msaa);
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -86,6 +98,8 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<Transparent3d>>()
             .init_resource::<DrawFunctions<Opaque3dPrepass>>()
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
+            .init_resource::<DrawFunctions<Opaque3dDeferred>>()
+            .init_resource::<DrawFunctions<AlphaMask3dDeferred>>()
             .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
             .add_systems(ExtractSchedule, extract_camera_prepass_phase)
             .add_systems(
@@ -97,6 +111,8 @@ impl Plugin for Core3dPlugin {
                     sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<Opaque3dPrepass>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<AlphaMask3dPrepass>.in_set(RenderSet::PhaseSort),
+                    sort_phase_system::<Opaque3dDeferred>.in_set(RenderSet::PhaseSort),
+                    sort_phase_system::<AlphaMask3dDeferred>.in_set(RenderSet::PhaseSort),
                     prepare_core_3d_depth_textures.in_set(RenderSet::PrepareResources),
                     prepare_core_3d_transmission_textures.in_set(RenderSet::PrepareResources),
                     prepare_prepass_textures.in_set(RenderSet::PrepareResources),
@@ -107,6 +123,15 @@ impl Plugin for Core3dPlugin {
         render_app
             .add_render_sub_graph(CORE_3D)
             .add_render_graph_node::<ViewNodeRunner<PrepassNode>>(CORE_3D, PREPASS)
+            .add_render_graph_node::<ViewNodeRunner<DeferredGBufferPrepassNode>>(
+                CORE_3D,
+                DEFERRED_PREPASS,
+            )
+            .add_render_graph_node::<ViewNodeRunner<CopyDeferredLightingIdNode>>(
+                CORE_3D,
+                COPY_DEFERRED_LIGHTING_ID,
+            )
+            .add_render_graph_node::<EmptyNode>(CORE_3D, END_PREPASSES)
             .add_render_graph_node::<EmptyNode>(CORE_3D, START_MAIN_PASS)
             .add_render_graph_node::<ViewNodeRunner<MainOpaquePass3dNode>>(
                 CORE_3D,
@@ -128,6 +153,9 @@ impl Plugin for Core3dPlugin {
                 CORE_3D,
                 &[
                     PREPASS,
+                    DEFERRED_PREPASS,
+                    COPY_DEFERRED_LIGHTING_ID,
+                    END_PREPASSES,
                     START_MAIN_PASS,
                     MAIN_OPAQUE_PASS,
                     MAIN_TRANSMISSIVE_PASS,
@@ -414,12 +442,14 @@ pub fn extract_camera_prepass_phase(
                 Option<&DepthPrepass>,
                 Option<&NormalPrepass>,
                 Option<&MotionVectorPrepass>,
+                Option<&DeferredPrepass>,
             ),
             With<Camera3d>,
         >,
     >,
 ) {
-    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass) in cameras_3d.iter()
+    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass) in
+        cameras_3d.iter()
     {
         if camera.is_active {
             let mut entity = commands.get_or_spawn(entity);
@@ -434,6 +464,13 @@ pub fn extract_camera_prepass_phase(
                 ));
             }
 
+            if deferred_prepass.is_some() {
+                entity.insert((
+                    RenderPhase::<Opaque3dDeferred>::default(),
+                    RenderPhase::<AlphaMask3dDeferred>::default(),
+                ));
+            }
+
             if depth_prepass.is_some() {
                 entity.insert(DepthPrepass);
             }
@@ -442,6 +479,9 @@ pub fn extract_camera_prepass_phase(
             }
             if motion_vector_prepass.is_some() {
                 entity.insert(MotionVectorPrepass);
+            }
+            if deferred_prepass.is_some() {
+                entity.insert(DeferredPrepass);
             }
         }
     }
@@ -502,8 +542,7 @@ pub fn prepare_core_3d_depth_textures(
                     mip_level_count: 1,
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,
-                    // PERF: vulkan docs recommend using 24 bit depth for better performance
-                    format: TextureFormat::Depth32Float,
+                    format: CORE_3D_DEPTH_FORMAT,
                     usage,
                     view_formats: &[],
                 };
@@ -609,6 +648,22 @@ pub fn prepare_core_3d_transmission_textures(
     }
 }
 
+// Disable MSAA and warn if using deferred rendering
+pub fn check_msaa(
+    mut msaa: ResMut<Msaa>,
+    deferred_views: Query<Entity, (With<Camera>, With<DeferredPrepass>)>,
+) {
+    if !deferred_views.is_empty() {
+        match *msaa {
+            Msaa::Off => (),
+            _ => {
+                warn!("MSAA is incompatible with deferred rendering and has been disabled.");
+                *msaa = Msaa::Off;
+            }
+        };
+    }
+}
+
 // Prepares the textures used by the prepass
 pub fn prepare_prepass_textures(
     mut commands: Commands,
@@ -622,6 +677,7 @@ pub fn prepare_prepass_textures(
             Option<&DepthPrepass>,
             Option<&NormalPrepass>,
             Option<&MotionVectorPrepass>,
+            Option<&DeferredPrepass>,
         ),
         (
             With<RenderPhase<Opaque3dPrepass>>,
@@ -631,8 +687,12 @@ pub fn prepare_prepass_textures(
 ) {
     let mut depth_textures = HashMap::default();
     let mut normal_textures = HashMap::default();
+    let mut deferred_textures = HashMap::default();
+    let mut deferred_lighting_id_textures = HashMap::default();
     let mut motion_vectors_textures = HashMap::default();
-    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass) in &views_3d {
+    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass) in
+        &views_3d
+    {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
@@ -653,7 +713,7 @@ pub fn prepare_prepass_textures(
                         mip_level_count: 1,
                         sample_count: msaa.samples(),
                         dimension: TextureDimension::D2,
-                        format: DEPTH_PREPASS_FORMAT,
+                        format: CORE_3D_DEPTH_FORMAT,
                         usage: TextureUsages::COPY_DST
                             | TextureUsages::RENDER_ATTACHMENT
                             | TextureUsages::TEXTURE_BINDING,
@@ -708,10 +768,56 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
+        let cached_deferred_texture = deferred_prepass.is_some().then(|| {
+            deferred_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("prepass_deferred_texture"),
+                            size,
+                            mip_level_count: 1,
+                            sample_count: 1,
+                            dimension: TextureDimension::D2,
+                            format: DEFERRED_PREPASS_FORMAT,
+                            usage: TextureUsages::RENDER_ATTACHMENT
+                                | TextureUsages::TEXTURE_BINDING,
+                            view_formats: &[],
+                        },
+                    )
+                })
+                .clone()
+        });
+
+        let deferred_lighting_pass_id_texture = deferred_prepass.is_some().then(|| {
+            deferred_lighting_id_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("deferred_lighting_pass_id_texture"),
+                            size,
+                            mip_level_count: 1,
+                            sample_count: 1,
+                            dimension: TextureDimension::D2,
+                            format: DEFERRED_LIGHTING_PASS_ID_FORMAT,
+                            usage: TextureUsages::RENDER_ATTACHMENT
+                                | TextureUsages::TEXTURE_BINDING,
+                            view_formats: &[],
+                        },
+                    )
+                })
+                .clone()
+        });
+
         commands.entity(entity).insert(ViewPrepassTextures {
             depth: cached_depth_texture,
             normal: cached_normals_texture,
             motion_vectors: cached_motion_vectors_texture,
+            deferred: cached_deferred_texture,
+            deferred_lighting_pass_id: deferred_lighting_pass_id_texture,
             size,
         });
     }

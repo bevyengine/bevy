@@ -53,7 +53,8 @@
 #endif // PREPASS_DEPTH_SUPPORTED
 @group(0) @binding(18) var normal_prepass_texture: texture_2d<f32>;
 @group(0) @binding(19) var motion_vector_prepass_texture: texture_2d<f32>;
+@group(0) @binding(20) var deferred_prepass_texture: texture_2d<u32>;
 #endif // MULTISAMPLED
 
-@group(0) @binding(20) var view_transmission_texture: texture_2d<f32>;
-@group(0) @binding(21) var view_transmission_sampler: sampler;
+@group(0) @binding(21) var view_transmission_texture: texture_2d<f32>;
+@group(0) @binding(22) var view_transmission_sampler: sampler;
