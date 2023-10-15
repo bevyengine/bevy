@@ -75,14 +75,6 @@ struct PbrInput {
     // view world position
     V: vec3<f32>,
 
-    // The index of the environment map in the `environment_map_diffuse` and
-    // `environment_map_specular` cubemap arrays, or -1 if no environment map
-    // is applicable.
-    //
-    // On WebGL 2, since cubemap arrays aren't supported, this will always be
-    // either 0 or -1.
-    reflection_probe_index: i32,
-
     is_orthographic: bool,
     flags: u32,
 };

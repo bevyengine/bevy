@@ -1,19 +1,23 @@
-use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::Handle;
+use bevy_app::{App, Plugin};
 use bevy_ecs::{
     component::Component,
-    entity::Entity,
-    query::With,
     reflect::ReflectComponent,
-    system::{Commands, Query},
+    schedule::IntoSystemConfigs,
+    system::{Query, Res, ResMut, Resource},
 };
-use bevy_math::{Mat4, Vec3A, Vec4Swizzles};
+use bevy_math::{Mat4, Vec3, Vec3A};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::mesh::Mesh;
+use bevy_render::{
+    render_resource::{ShaderType, UniformBuffer},
+    renderer::{RenderDevice, RenderQueue},
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+};
 use bevy_transform::prelude::GlobalTransform;
-use smallvec::SmallVec;
 
-use crate::{environment_map::EnvironmentMapLightId, EnvironmentMapLight};
+use crate::{
+    environment_map::{self, RenderEnvironmentMaps},
+    EnvironmentMapLight,
+};
 
 /// Adds support for light probes, cuboid bounding regions that apply global
 /// illumination to objects within them.
@@ -35,26 +39,22 @@ pub struct LightProbe {
     pub half_extents: Vec3A,
 }
 
-/// Which light probes this mesh must take into account.
-#[derive(Component, Debug, Clone)]
-pub struct AppliedLightProbes {
-    /// The ID of the single light probe that this mesh reflects.
-    pub reflection_probe: EnvironmentMapLightId,
+#[derive(Clone, Copy, ShaderType, Default)]
+pub struct GpuLightProbe {
+    inverse_transform: Mat4,
+    half_extents: Vec3,
+    cubemap_index: i32,
 }
 
-// Information about the light probe that applies to each mesh.
-//
-// This is a transient structure only used by the [apply_light_probes] system.
-struct LightProbeApplicationInfo {
-    // Maps from the light probe's space into world space; i.e. the opposite of the light probe's
-    // [GlobalTransform].
-    inverse_transform: Mat4,
+#[derive(ShaderType)]
+pub struct LightProbesUniform {
+    data: [GpuLightProbe; 64],
+    count: i32,
+}
 
-    // The half-extents of the light probe.
-    half_extents: Vec3A,
-
-    // The ID of the light probe.
-    light_probes: AppliedLightProbes,
+#[derive(Resource, Default)]
+pub struct LightProbesBuffer {
+    pub buffer: UniformBuffer<LightProbesUniform>,
 }
 
 impl LightProbe {
@@ -76,65 +76,62 @@ impl Default for LightProbe {
 
 impl Plugin for LightProbePlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<LightProbe>()
-            .add_systems(PostUpdate, apply_light_probes);
+        app.register_type::<LightProbe>();
+
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            .init_resource::<LightProbesBuffer>()
+            .add_systems(ExtractSchedule, gather_light_probes)
+            .add_systems(
+                Render,
+                upload_light_probes
+                    .in_set(RenderSet::PrepareResources)
+                    .after(environment_map::prepare_environment_maps),
+            );
     }
 }
 
-/// Determines which light probe applies to each mesh and attaches
-/// [AppliedLightProbes] components to them as appropriate.
-pub fn apply_light_probes(
-    mut commands: Commands,
-    mesh_query: Query<(Entity, &GlobalTransform), With<Handle<Mesh>>>,
-    light_probe_query: Query<(&LightProbe, &EnvironmentMapLight, &GlobalTransform)>,
+pub fn gather_light_probes(
+    render_environment_maps: Res<RenderEnvironmentMaps>,
+    light_probe_query: Extract<Query<(&LightProbe, &EnvironmentMapLight, &GlobalTransform)>>,
+    mut light_probes_buffer: ResMut<LightProbesBuffer>,
 ) {
-    // If there are no meshes, we can just bail.
-    if mesh_query.is_empty() {
-        return;
-    }
-
     // Gather up information about all light probes in the scene.
-    let mut light_probes: SmallVec<[LightProbeApplicationInfo; 4]> = SmallVec::new();
+    let light_probes_uniform = light_probes_buffer.buffer.get_mut();
+    light_probes_uniform.count = 0;
     for (light_probe, environment_map_light, light_probe_transform) in light_probe_query.iter() {
-        light_probes.push(LightProbeApplicationInfo {
-            inverse_transform: light_probe_transform.compute_matrix().inverse(),
-            half_extents: light_probe.half_extents,
-            light_probes: AppliedLightProbes {
-                reflection_probe: environment_map_light.id(),
-            },
-        })
-    }
-
-    // For each mesh and each light probe…
-    'outer: for (mesh_entity, mesh_transform) in mesh_query.iter() {
-        for light_probe_info in &light_probes {
-            // Determine the mesh center in the light probe's object space.
-            // (This makes it easier to test whether the mesh is inside the
-            // light probe's AABB.)
-            let probe_space_mesh_center: Vec3A = (light_probe_info.inverse_transform
-                * mesh_transform.translation_vec3a().extend(1.0))
-            .xyz()
-            .into();
-
-            // If the mesh is inside the AABB of the light probe, add the
-            // [AppliedLightProbes] component. Note that at present we naïvely
-            // consider the first bounding light probe to be the one that
-            // matches.
-            if (-light_probe_info.half_extents)
-                .cmple(probe_space_mesh_center)
-                .all()
-                && probe_space_mesh_center
-                    .cmple(light_probe_info.half_extents)
-                    .all()
-            {
-                commands
-                    .entity(mesh_entity)
-                    .insert(light_probe_info.light_probes.clone());
-                continue 'outer;
-            }
+        if let Some(&cubemap_index) = render_environment_maps
+            .light_id_indices
+            .get(&environment_map_light.id())
+        {
+            light_probes_uniform.data[light_probes_uniform.count as usize] = GpuLightProbe {
+                inverse_transform: light_probe_transform.compute_matrix().inverse(),
+                half_extents: light_probe.half_extents.into(),
+                cubemap_index,
+            };
+            light_probes_uniform.count += 1;
         }
+    }
+}
 
-        // If we got here, no light probe applies, so remove the component.
-        commands.entity(mesh_entity).remove::<AppliedLightProbes>();
+pub fn upload_light_probes(
+    mut light_probes_buffer: ResMut<LightProbesBuffer>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+) {
+    light_probes_buffer
+        .buffer
+        .write_buffer(&render_device, &render_queue);
+}
+
+impl Default for LightProbesUniform {
+    fn default() -> Self {
+        Self {
+            data: [GpuLightProbe::default(); 64],
+            count: i32::default(),
+        }
     }
 }

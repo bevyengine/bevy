@@ -111,3 +111,14 @@ struct ClusterOffsetsAndCounts {
     data: array<vec4<u32>, 1024u>,
 };
 #endif
+
+struct LightProbe {
+    inverse_transform: mat4x4<f32>,
+    half_extents: vec3<f32>,
+    cubemap_index: i32,
+};
+
+struct LightProbes {
+    data: array<LightProbe, 64u>,
+    count: i32,
+};

@@ -201,39 +201,6 @@ impl ExtractComponent for EnvironmentMapLight {
     }
 }
 
-/// Returns the layouts for the texture views and samplers that are assigned to
-/// the diffuse, specular, and sampler bindings in the PBR shader.
-pub fn get_bind_group_layout_entries(bindings: [u32; 3]) -> [BindGroupLayoutEntry; 3] {
-    [
-        BindGroupLayoutEntry {
-            binding: bindings[0],
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Texture {
-                sample_type: TextureSampleType::Float { filterable: true },
-                view_dimension: ENVIRONMENT_MAPS_CUBE_DIMENSION,
-                multisampled: false,
-            },
-            count: None,
-        },
-        BindGroupLayoutEntry {
-            binding: bindings[1],
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Texture {
-                sample_type: TextureSampleType::Float { filterable: true },
-                view_dimension: ENVIRONMENT_MAPS_CUBE_DIMENSION,
-                multisampled: false,
-            },
-            count: None,
-        },
-        BindGroupLayoutEntry {
-            binding: bindings[2],
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Sampler(SamplerBindingType::Filtering),
-            count: None,
-        },
-    ]
-}
-
 /// A render app system that scans for all environment maps and reflection
 /// probes in the scene and, if there are any changes, rebuilds the global
 /// environment map array.
@@ -551,6 +518,7 @@ impl RenderEnvironmentMaps {
     fn clear(&mut self) {
         self.cubemaps.clear();
         self.light_id_indices.clear();
+        self.images = None;
     }
 
     /// Returns the index of the given environment map or reflection probe in
@@ -561,6 +529,39 @@ impl RenderEnvironmentMaps {
             None => -1,
         }
     }
+}
+
+/// Returns the layouts for the texture views and samplers that are assigned to
+/// the diffuse, specular, and sampler bindings in the PBR shader.
+pub fn get_bind_group_layout_entries(bindings: [u32; 3]) -> [BindGroupLayoutEntry; 3] {
+    [
+        BindGroupLayoutEntry {
+            binding: bindings[0],
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                sample_type: TextureSampleType::Float { filterable: true },
+                view_dimension: ENVIRONMENT_MAPS_CUBE_DIMENSION,
+                multisampled: false,
+            },
+            count: None,
+        },
+        BindGroupLayoutEntry {
+            binding: bindings[1],
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+                sample_type: TextureSampleType::Float { filterable: true },
+                view_dimension: ENVIRONMENT_MAPS_CUBE_DIMENSION,
+                multisampled: false,
+            },
+            count: None,
+        },
+        BindGroupLayoutEntry {
+            binding: bindings[2],
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Sampler(SamplerBindingType::Filtering),
+            count: None,
+        },
+    ]
 }
 
 impl RenderEnvironmentMaps {

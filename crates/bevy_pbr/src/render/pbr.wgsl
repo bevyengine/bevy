@@ -158,14 +158,6 @@ fn fragment(
         // V (view vector)
         pbr_input.V = V;
 
-        // Pick the reflection probe. Prefer the mesh's reflection probe, but
-        // fall back to that of the view if not present.
-        var reflection_probe_index = mesh[in.instance_index].reflection_probe_index;
-        if (reflection_probe_index < 0) {
-            reflection_probe_index = environment_map_index;
-        }
-        pbr_input.reflection_probe_index = reflection_probe_index;
-
     } else { // if UNLIT_BIT != 0
 #ifdef DEFERRED_PREPASS
         // in deferred mode, we need to fill some of the pbr input data even for unlit materials

@@ -2,10 +2,10 @@ use crate::{
     environment_map::{
         self, EnvironmentMapMeta, RenderEnvironmentMaps, ViewEnvironmentMapUniformOffset,
     },
-    prepass, AppliedLightProbes, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights,
-    LightMeta, MaterialBindGroupId, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
-    ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers, ViewClusterBindings,
-    ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
+    prepass, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta,
+    LightProbesBuffer, LightProbesUniform, MaterialBindGroupId, NotShadowCaster, NotShadowReceiver,
+    PreviousGlobalTransform, ScreenSpaceAmbientOcclusionTextures, Shadow, ShadowSamplers,
+    ViewClusterBindings, ViewFogUniformOffset, ViewLightsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::{Plugin, PostUpdate};
@@ -201,15 +201,6 @@ pub struct MeshUniform {
     //   [2].z
     pub inverse_transpose_model_a: [Vec4; 2],
     pub inverse_transpose_model_b: f32,
-
-    /// The index of the environment map in the `environment_map_diffuse` and
-    /// `environment_map_specular` cubemap arrays, or -1 if no environment map
-    /// is applicable.
-    ///
-    /// On WebGL 2, since cubemap arrays aren't supported, this will always be
-    /// either 0 or -1.
-    pub reflection_probe_index: i32,
-
     pub flags: u32,
 }
 
@@ -222,7 +213,6 @@ impl MeshUniform {
             previous_transform: mesh_instance.transforms.previous_transform.to_transpose(),
             inverse_transpose_model_a,
             inverse_transpose_model_b,
-            reflection_probe_index: mesh_instance.reflection_probe_index,
             flags: mesh_instance.transforms.flags,
         }
     }
@@ -245,7 +235,6 @@ pub struct RenderMeshInstance {
     pub transforms: MeshTransforms,
     pub mesh_asset_id: AssetId<Mesh>,
     pub material_bind_group_id: MaterialBindGroupId,
-    pub reflection_probe_index: i32,
     pub shadow_caster: bool,
     pub automatic_batching: bool,
 }
@@ -260,7 +249,6 @@ pub fn extract_meshes(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
-    render_environment_maps: Res<RenderEnvironmentMaps>,
     mut thread_local_queues: Local<ThreadLocal<Cell<Vec<(Entity, RenderMeshInstance)>>>>,
     meshes_query: Extract<
         Query<(
@@ -269,7 +257,6 @@ pub fn extract_meshes(
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
-            Option<&AppliedLightProbes>,
             Has<NotShadowReceiver>,
             Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
@@ -283,7 +270,6 @@ pub fn extract_meshes(
             transform,
             previous_transform,
             handle,
-            applied_light_probes,
             not_receiver,
             not_caster,
             no_automatic_batching,
@@ -293,13 +279,6 @@ pub fn extract_meshes(
             }
             let transform = transform.affine();
             let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
-
-            let reflection_probe_index = match applied_light_probes {
-                Some(light_probes) => {
-                    render_environment_maps.get_index(&light_probes.reflection_probe)
-                }
-                None => -1,
-            };
 
             let mut flags = if not_receiver {
                 MeshFlags::empty()
@@ -322,7 +301,6 @@ pub fn extract_meshes(
                 RenderMeshInstance {
                     mesh_asset_id: handle.id(),
                     transforms,
-                    reflection_probe_index,
                     shadow_caster: !not_caster,
                     material_bind_group_id: MaterialBindGroupId::default(),
                     automatic_batching: !no_automatic_batching,
@@ -512,9 +490,20 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
-                // Environment map
+                // Light probes
                 BindGroupLayoutEntry {
                     binding: 11,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(LightProbesUniform::min_size()),
+                    },
+                    count: None,
+                },
+                // The index of the environment map associated with the view
+                BindGroupLayoutEntry {
+                    binding: 12,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
@@ -525,7 +514,7 @@ impl FromWorld for MeshPipeline {
                 },
                 // Screen space ambient occlusion texture
                 BindGroupLayoutEntry {
-                    binding: 12,
+                    binding: 13,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         multisampled: false,
@@ -538,18 +527,18 @@ impl FromWorld for MeshPipeline {
 
             // EnvironmentMapLight
             let environment_map_entries =
-                environment_map::get_bind_group_layout_entries([13, 14, 15]);
+                environment_map::get_bind_group_layout_entries([14, 15, 16]);
             entries.extend_from_slice(&environment_map_entries);
 
             // Tonemapping
-            let tonemapping_lut_entries = get_lut_bind_group_layout_entries([16, 17]);
+            let tonemapping_lut_entries = get_lut_bind_group_layout_entries([17, 18]);
             entries.extend_from_slice(&tonemapping_lut_entries);
 
             if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
                 || (cfg!(all(feature = "webgl", target_arch = "wasm32")) && !multisampled)
             {
                 entries.extend_from_slice(&prepass::get_bind_group_layout_entries(
-                    [18, 19, 20, 21],
+                    [19, 20, 21, 22],
                     multisampled,
                 ));
             }
@@ -859,6 +848,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
             &mut vertex_attributes,
         ));
 
+        println!("{:#?}", bind_group_layout);
+
         if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
             shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
         }
@@ -1141,6 +1132,7 @@ pub fn prepare_mesh_view_bind_groups(
     globals_buffer: Res<GlobalsBuffer>,
     tonemapping_luts: Res<TonemappingLuts>,
     environment_maps: Res<RenderEnvironmentMaps>,
+    light_probes_buffer: Res<LightProbesBuffer>,
 ) {
     if let (
         Some(view_binding),
@@ -1148,13 +1140,15 @@ pub fn prepare_mesh_view_bind_groups(
         Some(point_light_binding),
         Some(globals),
         Some(fog_binding),
-        Some(environment_map_binding),
+        Some(light_probes_binding),
+        Some(environment_map_index_binding),
     ) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
         globals_buffer.buffer.binding(),
         fog_meta.gpu_fogs.binding(),
+        light_probes_buffer.buffer.binding(),
         environment_map_meta.view_environment_map_indices.binding(),
     ) {
         for (
@@ -1228,10 +1222,14 @@ pub fn prepare_mesh_view_bind_groups(
                 },
                 BindGroupEntry {
                     binding: 11,
-                    resource: environment_map_binding.clone(),
+                    resource: light_probes_binding.clone(),
                 },
                 BindGroupEntry {
                     binding: 12,
+                    resource: environment_map_index_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 13,
                     resource: BindingResource::TextureView(
                         ssao_textures
                             .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
@@ -1240,11 +1238,11 @@ pub fn prepare_mesh_view_bind_groups(
                 },
             ];
 
-            let env_map = environment_maps.get_bindings(&fallback, &[13, 14, 15]);
+            let env_map = environment_maps.get_bindings(&fallback, &[14, 15, 16]);
             entries.extend_from_slice(&env_map);
 
             let tonemapping_luts =
-                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [16, 17]);
+                get_lut_bindings(&images, &tonemapping_luts, tonemapping, [17, 18]);
             entries.extend_from_slice(&tonemapping_luts);
 
             let label = Some("mesh_view_bind_group");
@@ -1255,7 +1253,7 @@ pub fn prepare_mesh_view_bind_groups(
             {
                 let prepass_bindings =
                     prepass::get_bindings(prepass_textures, &mut fallback_images, &msaa);
-                entries.extend_from_slice(&prepass_bindings.get_entries([18, 19, 20, 21]));
+                entries.extend_from_slice(&prepass_bindings.get_entries([19, 20, 21, 22]));
                 commands.entity(entity).insert(MeshViewBindGroup {
                     value: render_device.create_bind_group(&BindGroupDescriptor {
                         entries: &entries,

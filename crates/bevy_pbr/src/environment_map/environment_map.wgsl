@@ -2,6 +2,8 @@
 
 #import bevy_pbr::mesh_view_bindings as bindings
 
+#import bevy_pbr::mesh_view_bindings       light_probes, environment_map_index
+
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
     specular: vec3<f32>,
@@ -16,14 +18,40 @@ fn environment_map_light(
     N: vec3<f32>,
     R: vec3<f32>,
     F0: vec3<f32>,
-    array_index: i32,
+    world_position: vec3<f32>,
 ) -> EnvironmentMapLight {
+    // Search for a reflection probe in range.
+    var cubemap_index: i32 = -1;
+    for (var light_probe_index: i32 = 0; light_probe_index < light_probes.count; light_probe_index += 1) {
+        let light_probe = light_probes.data[light_probe_index];
+        let probe_space_pos = (light_probe.inverse_transform * vec4<f32>(world_position, 1.0)).xyz;
+        if (all(abs(probe_space_pos) <= light_probe.half_extents)) {
+            cubemap_index = light_probe.cubemap_index;
+            break;
+        }
+    }
+
+    // If we didn't find a reflection probe, use the view environment map if applicable.
+    if (cubemap_index < 0) {
+        cubemap_index = environment_map_index;
+    }
+
+    var out: EnvironmentMapLight;
     // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
     // Technically we could use textureNumLevels(environment_map_specular) - 1 here, but we use a uniform
     // because textureNumLevels() does not work on WebGL2
     let radiance_level = perceptual_roughness * f32(bindings::lights.environment_map_smallest_specular_mip_level);
-    let irradiance = textureSample(bindings::environment_map_diffuse, bindings::environment_map_sampler, vec3(N.xy, -N.z), array_index).rgb;
-    let radiance = textureSampleLevel(bindings::environment_map_specular, bindings::environment_map_sampler, vec3(R.xy, -R.z), array_index, radiance_level).rgb;
+
+    // We always sample the first cubemap to achieve the required control flow uniformity (because of mip levels).
+    let irradiance = textureSample(bindings::environment_map_diffuse, bindings::environment_map_sampler, vec3(N.xy, -N.z), max(cubemap_index, 0)).rgb;
+
+    if (cubemap_index < 0) {
+        out.diffuse = vec3(0.0);
+        out.specular = vec3(0.0);
+        return out;
+    }
+
+    let radiance = textureSampleLevel(bindings::environment_map_specular, bindings::environment_map_sampler, vec3(R.xy, -R.z), cubemap_index, radiance_level).rgb;
 
     // Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
     // Useful reference: https://bruop.github.io/ibl
@@ -38,7 +66,6 @@ fn environment_map_light(
     let Edss = 1.0 - (FssEss + FmsEms);
     let kD = diffuse_color * Edss;
 
-    var out: EnvironmentMapLight;
     out.diffuse = (FmsEms + kD) * irradiance;
     out.specular = FssEss * radiance;
     return out;
