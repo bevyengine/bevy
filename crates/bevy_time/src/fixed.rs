@@ -15,14 +15,17 @@ use crate::{time::Time, virt::Virtual, FixedUpdate};
 /// generic [`Time`] resource during [`FixedUpdate`](bevy_app::FixedUpdate)
 /// schedule processing.
 ///
-/// The fixed timestep clock advances in fixed-size increments, which is extremely useful for
-/// writing logic (like physics) that should have consistent behavior, regardless of framerate.
+/// The fixed timestep clock advances in fixed-size increments, which is
+/// extremely useful for writing logic (like physics) that should have
+/// consistent behavior, regardless of framerate.
 ///
 /// The default [`timestep()`](Time::timestep) is 64 hertz, or 15625
-/// microseconds. This value was chosen for being a power of two,
-/// which losslessly convert into [`f32`] and [`f64`], while only being
-/// slightly above 60 hertz (a standard screen refresh rate that is
-/// the de-facto performance target for many games).
+/// microseconds. This value was chosen because using 60 hertz has the potential
+/// for a pathological interaction with the monitor refresh rate where the game
+/// alternates between running two fixed timesteps and zero fixed timesteps per
+/// frame (for example when running two fixed timesteps takes longer than a
+/// frame). Additionally, the value is a power of two which losslessly converts
+/// into [`f32`] and [`f64`].
 ///
 /// To run a system on a fixed timestep, add it to the
 /// [`FixedUpdate`](bevy_app::FixedUpdate) schedule. This schedule is run a
