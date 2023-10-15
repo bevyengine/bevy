@@ -344,10 +344,11 @@ impl MeshletGpuScene {
         let (meshlets_slice, triangle_count) = self
             .meshlet_mesh_slices
             .entry(handle.id())
-            .or_insert_with_key(queue_meshlet_mesh);
+            .or_insert_with_key(queue_meshlet_mesh)
+            .clone();
 
         self.scene_meshlet_count += meshlets_slice.end - meshlets_slice.start;
-        self.scene_triangle_count += *triangle_count as u64;
+        self.scene_triangle_count += triangle_count as u64;
 
         for meshlet_index in meshlets_slice {
             self.thread_instance_ids.get_mut().push(instance_index);
