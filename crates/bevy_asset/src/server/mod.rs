@@ -285,6 +285,7 @@ impl AssetServer {
     }
 
     /// Performs an async asset load.
+    ///
     /// `input_handle` must only be [`Some`] if `should_load` was true when retrieving `input_handle`. This is an optimization to
     /// avoid looking up `should_load` twice, but it means you _must_ be sure a load is necessary when calling this function with [`Some`].
     async fn load_internal<'a>(
