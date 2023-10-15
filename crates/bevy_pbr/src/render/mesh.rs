@@ -843,10 +843,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(5));
         }
 
-        if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) {
-            shader_defs.push("PREPASS_DEPTH_SUPPORTED".into());
-        }
-
         if cfg!(feature = "pbr_transmission_textures") {
             shader_defs.push("PBR_TRANSMISSION_TEXTURES_SUPPORTED".into());
         }

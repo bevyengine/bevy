@@ -23,10 +23,10 @@ fn fragment(
     let sample_index = 0u;
 #endif
     if settings.show_depth == 1u {
-#ifdef PREPASS_DEPTH_SUPPORTED
-        let depth = bevy_pbr::prepass_utils::prepass_depth(frag_coord, sample_index);
-#else
+#ifdef WEBGL2
         let depth = 0.0;
+#else
+        let depth = bevy_pbr::prepass_utils::prepass_depth(frag_coord, sample_index);
 #endif
         return vec4(depth, depth, depth, 1.0);
     } else if settings.show_normals == 1u {

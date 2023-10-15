@@ -42,15 +42,15 @@
 @group(0) @binding(16) var dt_lut_sampler: sampler;
 
 #ifdef MULTISAMPLED
-#ifdef PREPASS_DEPTH_SUPPORTED
+#ifndef WEBGL2
 @group(0) @binding(17) var depth_prepass_texture: texture_depth_multisampled_2d;
-#endif // PREPASS_DEPTH_SUPPORTED
+#endif // WEBGL2
 @group(0) @binding(18) var normal_prepass_texture: texture_multisampled_2d<f32>;
 @group(0) @binding(19) var motion_vector_prepass_texture: texture_multisampled_2d<f32>;
 #else
-#ifdef PREPASS_DEPTH_SUPPORTED
+#ifndef WEBGL2
 @group(0) @binding(17) var depth_prepass_texture: texture_depth_2d;
-#endif // PREPASS_DEPTH_SUPPORTED
+#endif // WEBGL2
 @group(0) @binding(18) var normal_prepass_texture: texture_2d<f32>;
 @group(0) @binding(19) var motion_vector_prepass_texture: texture_2d<f32>;
 @group(0) @binding(20) var deferred_prepass_texture: texture_2d<u32>;
