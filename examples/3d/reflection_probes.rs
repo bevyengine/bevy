@@ -1,4 +1,8 @@
 //! This example shows how to place reflection probes in the scene.
+//!
+//! Press Space to switch between no reflections, environment map reflections
+//! (i.e. the skybox only, not the cubes), and a full reflection probe that
+//! reflects the skybox and the cubes.
 
 use bevy::math::Vec3A;
 use bevy::prelude::*;
@@ -10,23 +14,40 @@ const ROTATION_SPEED: f32 = 0.005;
 
 static HELP_TEXT: &str = "Press Space to switch reflection mode";
 
+// Which environment maps the user has requested to display.
 #[derive(Clone, Copy, PartialEq, Resource, Default)]
 enum ReflectionMode {
+    // No environment maps are shown.
     None = 0,
+    // Only a world environment map is shown.
     EnvironmentMap = 1,
+    // Both a world environment map and a reflection probe are present. The
+    // reflection probe is shown in the sphere.
     #[default]
     ReflectionProbe = 2,
 }
 
+// The various reflection maps.
 #[derive(Resource)]
 struct Cubemaps {
+    // The blurry diffuse cubemap. This is used for both the world environment
+    // map and the reflection probe. (In reality you wouldn't do this, but this
+    // reduces complexity of this example a bit.)
     diffuse: Handle<Image>,
+
+    // The specular cubemap that reflects the world, but not the cubes.
     specular_environment_map: Handle<Image>,
+
+    // The specular cubemap that reflects both the world and the cubes.
     specular_reflection_probe: Handle<Image>,
+
+    // The skybox cubemap image. This is almost the same as
+    // `specular_environment_map`.
     skybox: Handle<Image>,
 }
 
 fn main() {
+    // Create the app.
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<ReflectionMode>()
@@ -38,6 +59,7 @@ fn main() {
         .run();
 }
 
+// Initializes the scene.
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -92,6 +114,9 @@ fn setup(
     );
 }
 
+// Creates the reflection probe, which is a box that refers to an environment
+// map and encloses the objects that are to be affected by it (in this case, the
+// sphere).
 fn create_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
     commands.spawn((
         SpatialBundle {
@@ -99,6 +124,7 @@ fn create_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
             ..SpatialBundle::default()
         },
         LightProbe {
+            // 1.1 because the sphere's radius is 1.0 and we want to fully enclose it.
             half_extents: Vec3A::splat(1.1),
         },
         EnvironmentMapLight {
@@ -108,6 +134,9 @@ fn create_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
     ));
 }
 
+// Adds a world environment map to the camera. This separate system is needed because the camera is
+// managed by the scene spawner, as it's part of the glTF file with the cubes, so we have to add
+// the environment map after the fact.
 fn add_environment_map_to_camera(
     mut commands: Commands,
     query: Query<Entity, Added<Camera3d>>,
@@ -121,6 +150,7 @@ fn add_environment_map_to_camera(
     }
 }
 
+// The system that handles switching between different reflection modes.
 #[allow(clippy::too_many_arguments)]
 fn change_reflection_type(
     mut commands: Commands,
@@ -204,6 +234,8 @@ fn create_text(reflection_mode: ReflectionMode, asset_server: &AssetServer) -> T
     )
 }
 
+// Creates the world environment map light, used as a fallback if no reflection
+// probe is applicable to a mesh.
 fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLight {
     EnvironmentMapLight {
         diffuse_map: cubemaps.diffuse.clone(),
@@ -211,6 +243,7 @@ fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLig
     }
 }
 
+// Rotates the camera a bit every frame.
 fn rotate_camera(mut camera_query: Query<&mut Transform, With<Camera3d>>) {
     for mut transform in camera_query.iter_mut() {
         transform.translation = Vec2::from_angle(ROTATION_SPEED)
@@ -221,6 +254,7 @@ fn rotate_camera(mut camera_query: Query<&mut Transform, With<Camera3d>>) {
     }
 }
 
+// Loads the cubemaps from the assets directory.
 impl FromWorld for Cubemaps {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();

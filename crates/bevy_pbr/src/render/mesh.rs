@@ -41,8 +41,8 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, FallbackImage, FallbackImageCubemap, FallbackImageMsaa,
-        GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+        BevyDefault, DefaultImageSampler, FallbackImage, FallbackImageMsaa, GpuImage, Image,
+        ImageSampler, TextureFormatPixelInfo,
     },
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -201,7 +201,15 @@ pub struct MeshUniform {
     //   [2].z
     pub inverse_transpose_model_a: [Vec4; 2],
     pub inverse_transpose_model_b: f32,
+
+    /// The index of the environment map in the `environment_map_diffuse` and
+    /// `environment_map_specular` cubemap arrays, or -1 if no environment map
+    /// is applicable.
+    ///
+    /// On WebGL 2, since cubemap arrays aren't supported, this will always be
+    /// either 0 or -1.
     pub reflection_probe_index: i32,
+
     pub flags: u32,
 }
 
@@ -1232,7 +1240,7 @@ pub fn prepare_mesh_view_bind_groups(
                 },
             ];
 
-            let env_map = environment_maps.get_bindings(&*fallback, &[13, 14, 15]);
+            let env_map = environment_maps.get_bindings(&fallback, &[13, 14, 15]);
             entries.extend_from_slice(&env_map);
 
             let tonemapping_luts =
@@ -1298,7 +1306,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
                 view_uniform.offset,
                 view_lights.offset,
                 view_fog.offset,
-                view_environment_map.offset,
+                view_environment_map.index,
             ],
         );
 

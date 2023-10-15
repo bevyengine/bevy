@@ -1,8 +1,8 @@
 use crate::{
-    light_probe, render, AlphaMode, DrawMesh, DrawPrepass, EnvironmentMapLight, MeshPipeline,
+    environment_map::RenderEnvironmentMaps, render, AlphaMode, DrawMesh, DrawPrepass, MeshPipeline,
     MeshPipelineKey, PrepassPipelinePlugin, PrepassPlugin, RenderMeshInstances,
     ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup, SetMeshViewBindGroup, Shadow,
-    ShadowFilteringMethod, environment_map::RenderEnvironmentMaps,
+    ShadowFilteringMethod,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
@@ -437,7 +437,6 @@ pub fn queue_material_meshes<M: Material>(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     environment_maps: Res<RenderEnvironmentMaps>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
-    images: Res<RenderAssets<Image>>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
