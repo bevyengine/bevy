@@ -1,4 +1,4 @@
-#import bevy_pbr::meshlet_bindings meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms
+#import bevy_pbr::meshlet_bindings meshlet_thread_meshlet_ids, meshlets, meshlet_vertex_ids, meshlet_vertex_data, meshlet_thread_instance_ids, meshlet_instance_uniforms, unpack_vertex
 #import bevy_pbr::mesh_functions as mesh_functions
 #import bevy_pbr::mesh_types MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT
 #import bevy_render::maths affine_to_square, mat2x4_f32_to_mat3x3_unpack
@@ -25,7 +25,7 @@ fn vertex(@builtin(vertex_index) packed_meshlet_index: u32) -> VertexOutput {
     let meshlet = meshlets[meshlet_id];
     let index = extractBits(packed_meshlet_index, 0u, 8u);
     let vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + index];
-    let vertex = meshlet_vertex_data[vertex_id];
+    let vertex = unpack_vertex(meshlet_vertex_data[vertex_id]);
     let instance_id = meshlet_thread_instance_ids[thread_id];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
 

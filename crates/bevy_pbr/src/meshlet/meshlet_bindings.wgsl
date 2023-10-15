@@ -3,11 +3,26 @@
 #import bevy_pbr::mesh_types Mesh
 #import bevy_render::view View
 
+struct PackedVertex {
+    a: vec4<f32>,
+    b: vec4<f32>,
+    tangent: vec4<f32>,
+}
+
 struct Vertex {
     position: vec3<f32>,
     normal: vec3<f32>,
     uv: vec2<f32>,
     tangent: vec4<f32>,
+}
+
+fn unpack_vertex(packed: PackedVertex) -> Vertex {
+    var vertex: Vertex;
+    vertex.position = packed.a.xyz;
+    vertex.normal = vec3(packed.a.w, packed.b.xy);
+    vertex.uv = packed.b.zw;
+    vertex.tangent = packed.tangent;
+    return vertex;
 }
 
 struct Meshlet {
@@ -31,7 +46,7 @@ struct DrawIndexedIndirect {
 }
 
 #ifndef MESHLET_CULLING_BINDINGS
-@group(#{MESHLET_BIND_GROUP}) @binding(0) var<storage, read> meshlet_vertex_data: array<Vertex>;
+@group(#{MESHLET_BIND_GROUP}) @binding(0) var<storage, read> meshlet_vertex_data: array<PackedVertex>;
 @group(#{MESHLET_BIND_GROUP}) @binding(1) var<storage, read> meshlet_vertex_ids: array<u32>;
 #endif
 @group(#{MESHLET_BIND_GROUP}) @binding(2) var<storage, read> meshlets: array<Meshlet>;
