@@ -73,7 +73,7 @@ impl<'a> Serialize for ReflectSerializer<'a> {
                 .ok_or_else(|| {
                     if self.value.is_dynamic() {
                         Error::custom(format_args!(
-                            "cannot serialize unproxied dynamic type: {}",
+                            "cannot serialize dynamic value without represented type: {}",
                             self.value.reflect_type_path()
                         ))
                     } else {
