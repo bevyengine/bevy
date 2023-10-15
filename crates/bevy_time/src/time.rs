@@ -2,27 +2,28 @@ use bevy_ecs::{reflect::ReflectResource, system::Resource};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::Duration;
 
-/// A generic clock resource that tracks how much it has advanced since its previous
-/// update and since its creation.
+/// A generic clock resource that tracks how much it has advanced since its
+/// previous update and since its creation.
 ///
 /// Multiple instances of this resource are inserted automatically by
 /// [`TimePlugin`](crate::TimePlugin):
 ///
 /// - [`Time<Real>`](crate::real::Real) tracks real wall-clock time elapsed.
-/// - [`Time<Virtual>`](crate::virt::Virtual) tracks virtual game time that may be paused or scaled.
-/// - [`Time<Fixed>`](crate::fixed::Fixed) tracks fixed timesteps based on virtual time.
-/// - [`Time`] is a generic clock that corresponds to "current" or "default" time for systems. It
-///   contains [`Time<Virtual>`](crate::virt::Virtual) except inside the
-///   [`FixedUpdate`](bevy_app::FixedUpdate) schedule when it contains
-///   [`Time<Fixed>`](crate::fixed::Fixed).
+/// - [`Time<Virtual>`](crate::virt::Virtual) tracks virtual game time that may
+///   be paused or scaled.
+/// - [`Time<Fixed>`](crate::fixed::Fixed) tracks fixed timesteps based on
+///   virtual time.
+/// - [`Time`] is a generic clock that corresponds to "current" or "default"
+///   time for systems. It contains [`Time<Virtual>`](crate::virt::Virtual)
+///   except inside the [`FixedUpdate`](bevy_app::FixedUpdate) schedule when it
+///   contains [`Time<Fixed>`](crate::fixed::Fixed).
 ///
-/// The time elapsed since the previous time this clock was advanced is saved
-/// as [`delta()`](Time::delta) and the total amount of time the clock has
-/// advanced is saved as [`elapsed()`](Time::elapsed). Both are represented
-/// as exact [`Duration`](std::time::Duration) values with fixed nanosecond
-/// precision. The clock does not support time moving backwards, but it can be
-/// updated with [`Duration::ZERO`](std::time::Duration::ZERO) which will set
-/// [`delta()`](Time::delta) to zero.
+/// The time elapsed since the previous time this clock was advanced is saved as
+/// [`delta()`](Time::delta) and the total amount of time the clock has advanced
+/// is saved as [`elapsed()`](Time::elapsed). Both are represented as exact
+/// [`Duration`] values with fixed nanosecond precision. The clock does not
+/// support time moving backwards, but it can be updated with [`Duration::ZERO`]
+/// which will set [`delta()`](Time::delta) to zero.
 ///
 /// These values are also available in seconds as `f32` via
 /// [`delta_seconds()`](Time::delta_seconds) and
@@ -34,19 +35,19 @@ use bevy_utils::Duration;
 /// is `f32`, it will exhibit gradual precision loss. For applications that
 /// require an `f32` value but suffer from gradual precision loss there is
 /// [`elapsed_seconds_wrapped()`](Time::elapsed_seconds_wrapped) available. The
-/// same wrapped value is also available as [`Duration`](std::time::Duration)
-/// and `f64` for consistency. The wrap period is by default 1 hour, and can be
-/// set by [`set_wrap_period()`](Time::set_wrap_period).
+/// same wrapped value is also available as [`Duration`] and `f64` for
+/// consistency. The wrap period is by default 1 hour, and can be set by
+/// [`set_wrap_period()`](Time::set_wrap_period).
 ///
 /// # Accessing clocks
 ///
 /// By default, any systems requiring current [`delta()`](Time::delta) or
 /// [`elapsed()`](Time::elapsed) should use `Res<Time>` to access the default
 /// time configured for the program. By default, this refers to
-/// [`Time<Virtual>`](crate::virt::Virtual) except during
-/// the [`FixedUpdate`](bevy_app::FixedUpdate) schedule when it refers to
-/// [`Time<Fixed>`](crate::fixed::Fixed). This ensures your system can
-/// be used either in [`Update`](bevy_app::Update) or
+/// [`Time<Virtual>`](crate::virt::Virtual) except during the
+/// [`FixedUpdate`](bevy_app::FixedUpdate) schedule when it refers to
+/// [`Time<Fixed>`](crate::fixed::Fixed). This ensures your system can be used
+/// either in [`Update`](bevy_app::Update) or
 /// [`FixedUpdate`](bevy_app::FixedUpdate) schedule depending on what is needed.
 ///
 /// ```
@@ -140,10 +141,9 @@ use bevy_utils::Duration;
 /// both your context and the generic time part, it's probably simplest to add a
 /// custom trait for them and implement it for `Time<Custom>`.
 ///
-/// Your context struct will need to implement the
-/// [`Default`](std::default::Default) trait because [`Time`] structures support
-/// reflection. It also makes initialization trivial by being able to call
-/// `app.init_resource::<Time<Custom>>()`.
+/// Your context struct will need to implement the [`Default`] trait because
+/// [`Time`] structures support reflection. It also makes initialization trivial
+/// by being able to call `app.init_resource::<Time<Custom>>()`.
 ///
 /// You can also replace the "generic" `Time` clock resource if the "default"
 /// time for your game should not be the default virtual time provided. You can
@@ -215,8 +215,7 @@ impl<T: Default> Time<T> {
     ///
     /// The added duration will be returned by [`Self::delta`] and
     /// [`Self::elapsed`] will be increased by the duration. Adding
-    /// [`Duration::ZERO`](std::time::Duration::ZERO) is allowed and will set
-    /// [`Self::delta`] to zero.
+    /// [`Duration::ZERO`] is allowed and will set [`Self::delta`] to zero.
     pub fn advance_by(&mut self, delta: Duration) {
         self.delta = delta;
         self.delta_seconds = self.delta.as_secs_f32();

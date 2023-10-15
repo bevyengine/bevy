@@ -82,8 +82,7 @@ impl Time<Virtual> {
     /// Equal to 250 milliseconds.
     const DEFAULT_MAX_DELTA: Duration = Duration::from_millis(250);
 
-    /// Create new virtual clock with given maximum delta step
-    /// [`Duration`](std::time::Duration)
+    /// Create new virtual clock with given maximum delta step [`Duration`]
     ///
     /// # Panics
     ///
@@ -95,7 +94,7 @@ impl Time<Virtual> {
     }
 
     /// Returns the maximum amount of time that can be added to this clock by a
-    /// single update, as [`Duration`](std::time::Duration).
+    /// single update, as [`Duration`].
     ///
     /// This is the maximum value [`Self::delta()`] will return and also to
     /// maximum time [`Self::elapsed()`] will be increased by in a single
@@ -112,7 +111,7 @@ impl Time<Virtual> {
     }
 
     /// Sets the maximum amount of time that can be added to this clock by a
-    /// single update, as [`Duration`](std::time::Duration).
+    /// single update, as [`Duration`].
     ///
     /// This is the maximum value [`Self::delta()`] will return and also to
     /// maximum time [`Self::elapsed()`] will be increased by in a single
@@ -124,11 +123,12 @@ impl Time<Virtual> {
     /// gameplay bugs or having to suddenly simulate all the intervening time.
     ///
     /// If no updates happen for an extended amount of time, this limit prevents
-    /// having a sudden, huge advance all at once. This also indirectly limits the
-    /// maximum number of fixed update steps that can run in a single update.
+    /// having a sudden, huge advance all at once. This also indirectly limits
+    /// the maximum number of fixed update steps that can run in a single
+    /// update.
     ///
-    /// The default value is 250 milliseconds. If you want to disable this feature,
-    /// set the value to [`Duration::MAX`](std::time::Duration).
+    /// The default value is 250 milliseconds. If you want to disable this
+    /// feature, set the value to [`Duration::MAX`].
     ///
     /// # Panics
     ///

@@ -65,7 +65,7 @@ impl Time<Real> {
         self.update_with_instant(instant);
     }
 
-    /// Updates time with a specified [`Duration`](std::time::Duration).
+    /// Updates time with a specified [`Duration`].
     ///
     /// This method is provided for use in tests.
     ///

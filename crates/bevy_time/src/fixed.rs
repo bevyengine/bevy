@@ -12,8 +12,7 @@ use crate::{time::Time, virt::Virtual, FixedUpdate};
 /// It is automatically inserted as a resource by
 /// [`TimePlugin`](crate::TimePlugin) and updated based on
 /// [`Time<Virtual>`](Virtual). The fixed clock is automatically set as the
-/// generic [`Time`] resource during [`FixedUpdate`](bevy_app::FixedUpdate)
-/// schedule processing.
+/// generic [`Time`] resource during [`FixedUpdate`] schedule processing.
 ///
 /// The fixed timestep clock advances in fixed-size increments, which is
 /// extremely useful for writing logic (like physics) that should have
@@ -27,13 +26,12 @@ use crate::{time::Time, virt::Virtual, FixedUpdate};
 /// frame). Additionally, the value is a power of two which losslessly converts
 /// into [`f32`] and [`f64`].
 ///
-/// To run a system on a fixed timestep, add it to the
-/// [`FixedUpdate`](bevy_app::FixedUpdate) schedule. This schedule is run a
-/// number of times between [`PreUpdate`](bevy_app::PreUpdate) and
-/// [`Update`](bevy_app::Update) according to the accumulated
-/// [`overstep()`](Time::overstep) time divided by the
-/// [`timestep()`](Time::timestep). This means the schedule may run 0, 1 or more
-/// times during a single update (which typically corresponds to a rendered
+/// To run a system on a fixed timestep, add it to the [`FixedUpdate`] schedule.
+/// This schedule is run a number of times between
+/// [`PreUpdate`](bevy_app::PreUpdate) and [`Update`](bevy_app::Update)
+/// according to the accumulated [`overstep()`](Time::overstep) time divided by
+/// the [`timestep()`](Time::timestep). This means the schedule may run 0, 1 or
+/// more times during a single update (which typically corresponds to a rendered
 /// frame).
 ///
 /// `Time<Fixed>` and the generic [`Time`] resource will report a
@@ -45,21 +43,20 @@ use crate::{time::Time, virt::Virtual, FixedUpdate};
 /// means it is affected by [`pause()`](Time::pause),
 /// [`set_relative_speed()`](Time::set_relative_speed) and
 /// [`set_max_delta()`](Time::set_max_delta) from virtual time. If the virtual
-/// clock is paused, the [`FixedUpdate`](bevy_app::FixedUpdate) schedule will
-/// not run. It is guaranteed that the [`elapsed()`](Time::elapsed) time in
-/// `Time<Fixed>` is always between the previous `elapsed()` and the current
-/// `elapsed()` value in `Time<Virtual>`, so the values are compatible.
+/// clock is paused, the [`FixedUpdate`] schedule will not run. It is guaranteed
+/// that the [`elapsed()`](Time::elapsed) time in `Time<Fixed>` is always
+/// between the previous `elapsed()` and the current `elapsed()` value in
+/// `Time<Virtual>`, so the values are compatible.
 ///
 /// Changing the timestep size while the game is running should not normally be
 /// done, as having a regular interval is the point of this schedule, but it may
 /// be necessary for effects like "bullet-time" if the normal granularity of the
 /// fixed timestep is too big for the slowed down time. In this case,
 /// [`set_timestep()`](Time::set_timestep) and be called to set a new value. The
-/// new value will be used immediately for the next run of the
-/// [`FixedUpdate`](bevy_app::FixedUpdate) schedule, meaning that it will affect
-/// the [`delta()`](Time::delta) value for the very next
-/// [`FixedUpdate`](bevy_app::FixedUpdate), even if it is still during the same
-/// frame. Any [`overstep()`](Time::overstep) present in the accumulator will be
+/// new value will be used immediately for the next run of the [`FixedUpdate`]
+/// schedule, meaning that it will affect the [`delta()`](Time::delta) value for
+/// the very next [`FixedUpdate`], even if it is still during the same frame.
+/// Any [`overstep()`](Time::overstep) present in the accumulator will be
 /// processed according to the new [`timestep()`](Time::timestep) value.
 #[derive(Debug, Copy, Clone, Reflect)]
 pub struct Fixed {
@@ -71,8 +68,7 @@ impl Time<Fixed> {
     /// Corresponds to 64 Hz.
     const DEFAULT_TIMESTEP: Duration = Duration::from_micros(15625);
 
-    /// Return new fixed time clock with given timestep as
-    /// [`Duration`](std::time::Duration)
+    /// Return new fixed time clock with given timestep as [`Duration`]
     ///
     /// # Panics
     ///
@@ -113,7 +109,7 @@ impl Time<Fixed> {
     }
 
     /// Sets the amount of virtual time that must pass before the fixed timestep
-    /// schedule is run again, as [`Duration`](std::time::Duration).
+    /// schedule is run again, as [`Duration`].
     ///
     /// Takes effect immediately on the next run of the schedule, respecting
     /// what is currently in [`Self::overstep`].
@@ -134,9 +130,8 @@ impl Time<Fixed> {
     /// Sets the amount of virtual time that must pass before the fixed timestep
     /// schedule is run again, as seconds.
     ///
-    /// Timestep is stored as a [`Duration`](std::time::Duration), which has
-    /// fixed nanosecond resolution and will be converted from the floating
-    /// point number.
+    /// Timestep is stored as a [`Duration`], which has fixed nanosecond
+    /// resolution and will be converted from the floating point number.
     ///
     /// Takes effect immediately on the next run of the schedule, respecting
     /// what is currently in [`Self::overstep`].
@@ -157,8 +152,8 @@ impl Time<Fixed> {
     /// Sets the amount of virtual time that must pass before the fixed timestep
     /// schedule is run again, as frequency.
     ///
-    /// The timestep value is set to `1 / hz`, converted to a
-    /// [`Duration`](std::time::Duration) which has fixed nanosecond resolution.
+    /// The timestep value is set to `1 / hz`, converted to a [`Duration`] which
+    /// has fixed nanosecond resolution.
     ///
     /// Takes effect immediately on the next run of the schedule, respecting
     /// what is currently in [`Self::overstep`].
@@ -174,7 +169,7 @@ impl Time<Fixed> {
     }
 
     /// Returns the amount of overstep time accumulated toward new steps, as
-    /// [`Duration`](std::time::Duration).
+    /// [`Duration`].
     #[inline]
     pub fn overstep(&self) -> Duration {
         self.context().overstep
@@ -221,8 +216,8 @@ impl Default for Fixed {
     }
 }
 
-/// Runs [`FixedUpdate`](bevy_app::FixedUpdate) zero or more times based on
-/// delta of [`Time<Virtual>`](Virtual) and [`Time::overstep`]
+/// Runs [`FixedUpdate`] zero or more times based on delta of
+/// [`Time<Virtual>`](Virtual) and [`Time::overstep`]
 pub fn run_fixed_update_schedule(world: &mut World) {
     let delta = world.resource::<Time<Virtual>>().delta();
     world.resource_mut::<Time<Fixed>>().accumulate(delta);
