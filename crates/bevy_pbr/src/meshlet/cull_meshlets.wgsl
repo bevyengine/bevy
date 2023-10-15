@@ -1,7 +1,7 @@
 #import bevy_pbr::meshlet_bindings meshlet_thread_meshlet_ids, meshlets, get_meshlet_index, draw_command_buffer, draw_index_buffer
 
 @compute
-@workgroup_size(8, 8, 1)
+@workgroup_size(128, 1, 1)
 fn cull_meshlets(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     if thread_id.x <= arrayLength(&meshlet_thread_meshlet_ids) { return; }
 
