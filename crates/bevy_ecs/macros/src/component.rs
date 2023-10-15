@@ -1,7 +1,12 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
-use syn::{parse_macro_input, parse_quote, DeriveInput, Ident, LitStr, Path, Result};
+use syn::{
+    parse::{Parse, ParseStream},
+    parse_macro_input, parse_quote,
+    spanned::Spanned,
+    DeriveInput, Ident, LitStr, Path, Result,
+};
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -25,16 +30,62 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
 
+    let mut auto_init = false;
+    for attr in &ast.attrs {
+        if !attr
+            .path()
+            .get_ident()
+            .map_or(false, |ident| ident == "resource")
+        {
+            continue;
+        }
+
+        if let Err(e) = attr.parse_args_with(|input: ParseStream| {
+            for meta in input.parse_terminated(syn::Meta::parse, syn::token::Comma)? {
+                // Look for the auto-initialize attribute.
+                if meta
+                    .path()
+                    .get_ident()
+                    .map_or(false, |ident| ident == "auto_init")
+                {
+                    // Error if the attribute was already specified.
+                    if auto_init {
+                        return Err(syn::Error::new(
+                            meta.span(),
+                            "#[resource(auto_init)] may only be specified once per type.",
+                        ));
+                    } else {
+                        auto_init = true;
+                    }
+                }
+            }
+            Ok(())
+        }) {
+            return e.into_compile_error().into();
+        }
+    }
+
     ast.generics
         .make_where_clause()
         .predicates
         .push(parse_quote! { Self: Send + Sync + 'static });
+
+    let init_id_impl = if auto_init {
+        quote! {
+            fn init_id(world: &mut World) -> #bevy_ecs_path::component::ComponentId {
+                world.init_resource::<Self>()
+            }
+        }
+    } else {
+        quote! {}
+    };
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::system::Resource for #struct_name #type_generics #where_clause {
+            #init_id_impl
         }
     })
 }

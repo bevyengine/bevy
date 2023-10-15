@@ -464,7 +464,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
     component::derive_event(input)
 }
 
-#[proc_macro_derive(Resource)]
+#[proc_macro_derive(Resource, attributes(resource))]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }

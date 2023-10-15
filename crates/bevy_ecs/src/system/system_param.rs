@@ -372,6 +372,34 @@ impl_param_set!();
 /// # schedule.add_systems((read_resource_system, write_resource_system).chain());
 /// # schedule.run(&mut world);
 /// ```
+/// 
+/// # Attributes
+/// 
+/// If a resource type is annotated with the `#[resource(auto_init)]` attribute,
+/// then the resource will be given a default value (via the [`FromWorld`] trait) when
+/// any system that accesses the resource via [`Res`] or [`ResMut`] is initialized.
+/// This happens the first time the system or its containing schedule is run.
+/// 
+/// This is meant to be used for resources that are expected to always have a value
+/// -- removing auto-initialized resources may lead to unexpectd behavior.
+/// 
+/// ```
+/// # use bevy_ecs::{system::Resource, world::World, schedule::Schedule, change_detection::ResMut};
+/// # let mut world = World::new();
+/// # let mut schedule = Schedule::default();
+/// #[derive(Resource, Default)]
+/// #[resource(auto_init)]
+/// pub struct Score(u32);
+/// 
+/// fn increment_score(mut score: ResMut<Score>) {
+///     score.0 += 1;
+/// }
+/// 
+/// // It is not necessary to call `init_resource`, as it will be called
+/// // automatically due to the `#[resource(auto_init)]` attribute.
+/// schedule.add_systems(increment_score);
+/// schedule.run(&mut world);
+/// ```
 ///
 /// # `!Sync` Resources
 /// A `!Sync` type cannot implement `Resource`. However, it is possible to wrap a `Send` but not `Sync`
@@ -404,7 +432,18 @@ impl_param_set!();
 ///
 /// [`SyncCell`]: bevy_utils::synccell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
-pub trait Resource: Send + Sync + 'static {}
+pub trait Resource: Send + Sync + 'static {
+    /// Initializes the [`ComponentId`] for the current resource type and returns it.
+    ///
+    /// Depending on the implementing type, this may also initialize the resource with a default value.
+    #[inline(always)]
+    fn init_id(world: &mut World) -> ComponentId
+    where
+        Self: Sized,
+    {
+        world.initialize_resource::<Self>()
+    }
+}
 
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
@@ -416,7 +455,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Item<'w, 's> = Res<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let component_id = world.initialize_resource::<T>();
+        let component_id = T::init_id(world);
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
             !combined_access.has_write(component_id),
@@ -506,7 +545,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Item<'w, 's> = ResMut<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let component_id = world.initialize_resource::<T>();
+        let component_id = T::init_id(world);
         let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_write(component_id) {
             panic!(
