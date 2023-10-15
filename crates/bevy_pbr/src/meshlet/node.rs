@@ -6,7 +6,7 @@ use crate::{MeshViewBindGroup, ViewFogUniformOffset, ViewLightsUniformOffset};
 use bevy_core_pipeline::{
     clear_color::{ClearColor, ClearColorConfig},
     core_3d::{Camera3d, Camera3dDepthLoadOp},
-    prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
 };
 use bevy_ecs::{
     query::{Has, QueryItem},
@@ -40,6 +40,7 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
         Has<DepthPrepass>,
         Has<NormalPrepass>,
         Has<MotionVectorPrepass>,
+        Has<DeferredPrepass>,
         &'static MeshViewBindGroup,
         &'static ViewUniformOffset,
         &'static ViewLightsUniformOffset,
@@ -58,6 +59,7 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
             depth_prepass,
             normal_prepass,
             motion_vector_prepass,
+            deferred_prepass,
             mesh_view_bind_group,
             view_offset,
             view_lights_offset,
@@ -93,22 +95,30 @@ impl ViewNode for MainMeshletOpaquePass3dNode {
         }
 
         {
+            let load = if !deferred_prepass {
+                match camera_3d.clear_color {
+                    ClearColorConfig::Default => {
+                        LoadOp::Clear(world.resource::<ClearColor>().0.into())
+                    }
+                    ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
+                    ClearColorConfig::None => LoadOp::Load,
+                }
+            } else {
+                LoadOp::Load
+            };
             let mut draw_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some(draw_3d_graph::node::MAIN_MESHLET_OPAQUE_PASS_3D),
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: match camera_3d.clear_color {
-                        ClearColorConfig::Default => {
-                            LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                        }
-                        ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                        ClearColorConfig::None => LoadOp::Load,
-                    },
-                    store: true,
-                }))],
+                color_attachments: &[Some(
+                    target.get_color_attachment(Operations { load, store: true }),
+                )],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     depth_ops: Some(Operations {
-                        load: if depth_prepass || normal_prepass || motion_vector_prepass {
+                        load: if depth_prepass
+                            || normal_prepass
+                            || motion_vector_prepass
+                            || deferred_prepass
+                        {
                             Camera3dDepthLoadOp::Load
                         } else {
                             camera_3d.depth_load_op.clone()
