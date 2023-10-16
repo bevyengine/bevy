@@ -1,6 +1,7 @@
 use crate::{
-    AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, ParallaxMappingMethod,
-    PBR_PREPASS_SHADER_HANDLE, PBR_SHADER_HANDLE,
+    deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, AlphaMode, Material, MaterialPipeline,
+    MaterialPipelineKey, OpaqueRendererMethod, ParallaxMappingMethod, PBR_PREPASS_SHADER_HANDLE,
+    PBR_SHADER_HANDLE,
 };
 use bevy_asset::{Asset, Handle};
 use bevy_math::Vec4;
@@ -152,11 +153,13 @@ pub struct StandardMaterial {
     /// - Vertex normals
     ///
     /// Tangents do not have to be stored in your model,
-    /// they can be generated using the [`Mesh::generate_tangents`] method.
+    /// they can be generated using the [`Mesh::generate_tangents`] or
+    /// [`Mesh::with_generated_tangents`] methods.
     /// If your material has a normal map, but still renders as a flat surface,
     /// make sure your meshes have their tangents set.
     ///
     /// [`Mesh::generate_tangents`]: bevy_render::mesh::Mesh::generate_tangents
+    /// [`Mesh::with_generated_tangents`]: bevy_render::mesh::Mesh::with_generated_tangents
     #[texture(9)]
     #[sampler(10)]
     #[dependency]
@@ -314,6 +317,14 @@ pub struct StandardMaterial {
     ///
     /// Default is `16.0`.
     pub max_parallax_layer_count: f32,
+
+    /// Render method used for opaque materials. (Where `alpha_mode` is [`AlphaMode::Opaque`] or [`AlphaMode::Mask`])
+    pub opaque_render_method: OpaqueRendererMethod,
+
+    /// Used for selecting the deferred lighting pass for deferred materials.
+    /// Default is [`DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID`] for default
+    /// PBR deferred lighting pass. Ignored in the case of forward materials.
+    pub deferred_lighting_pass_id: u8,
 }
 
 impl Default for StandardMaterial {
@@ -347,6 +358,8 @@ impl Default for StandardMaterial {
             parallax_depth_scale: 0.1,
             max_parallax_layer_count: 16.0,
             parallax_mapping_method: ParallaxMappingMethod::Occlusion,
+            opaque_render_method: OpaqueRendererMethod::Auto,
+            deferred_lighting_pass_id: DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID,
         }
     }
 }
@@ -439,6 +452,8 @@ pub struct StandardMaterialUniform {
     /// Using [`ParallaxMappingMethod::Relief`], how many additional
     /// steps to use at most to find the depth value.
     pub max_relief_mapping_search_steps: u32,
+    /// ID for specifying which deferred lighting pass should be used for rendering this material, if any.
+    pub deferred_lighting_pass_id: u32,
 }
 
 impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
@@ -512,6 +527,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             parallax_depth_scale: self.parallax_depth_scale,
             max_parallax_layer_count: self.max_parallax_layer_count,
             max_relief_mapping_search_steps: self.parallax_mapping_method.max_steps(),
+            deferred_lighting_pass_id: self.deferred_lighting_pass_id as u32,
         }
     }
 }
@@ -570,6 +586,10 @@ impl Material for StandardMaterial {
         PBR_PREPASS_SHADER_HANDLE.into()
     }
 
+    fn deferred_fragment_shader() -> ShaderRef {
+        PBR_SHADER_HANDLE.into()
+    }
+
     fn fragment_shader() -> ShaderRef {
         PBR_SHADER_HANDLE.into()
     }
@@ -582,5 +602,10 @@ impl Material for StandardMaterial {
     #[inline]
     fn depth_bias(&self) -> f32 {
         self.depth_bias
+    }
+
+    #[inline]
+    fn opaque_render_method(&self) -> OpaqueRendererMethod {
+        self.opaque_render_method
     }
 }

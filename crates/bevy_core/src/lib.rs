@@ -154,7 +154,10 @@ impl Plugin for FrameCountPlugin {
     }
 }
 
-fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
+/// A system used to increment [`FrameCount`] with wrapping addition.
+///
+/// See [`FrameCount`] for more details.
+pub fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
     frame_count.0 = frame_count.0.wrapping_add(1);
 }
 

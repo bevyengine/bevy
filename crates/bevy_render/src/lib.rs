@@ -9,6 +9,7 @@ pub mod batching;
 pub mod camera;
 pub mod color;
 pub mod extract_component;
+pub mod extract_instances;
 mod extract_param;
 pub mod extract_resource;
 pub mod globals;
@@ -18,7 +19,6 @@ pub mod pipelined_rendering;
 pub mod primitives;
 pub mod render_asset;
 pub mod render_graph;
-pub mod render_instances;
 pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
@@ -86,19 +86,19 @@ pub enum RenderSet {
     /// Queue drawable entities as phase items in [`RenderPhase`](crate::render_phase::RenderPhase)s
     /// ready for sorting
     Queue,
-    /// A sub-set within Queue where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
+    /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
     QueueMeshes,
-    // TODO: This could probably be moved in favor of a system ordering abstraction in Render or Queue
+    // TODO: This could probably be moved in favor of a system ordering abstraction in `Render` or `Queue`
     /// Sort the [`RenderPhases`](render_phase::RenderPhase) here.
     PhaseSort,
     /// Prepare render resources from extracted data for the GPU based on their sorted order.
     /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on those data.
     Prepare,
-    /// A sub-set within Prepare for initializing buffers, textures and uniforms for use in bind groups.
+    /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
     /// Flush buffers after [`PrepareResources`](RenderSet::PrepareResources), but before ['PrepareBindGroups'](RenderSet::PrepareBindGroups).
     PrepareResourcesFlush,
-    /// A sub-set within Prepare for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
+    /// A sub-set within [`Prepare`](RenderSet::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
     PrepareBindGroups,
     /// Actual rendering happens here.
     /// In most cases, only the render backend should insert resources here.

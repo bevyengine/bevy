@@ -73,7 +73,7 @@ x11 = ["bevy_winit/x11"]
 subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 
 # Optimise for WebGL2
-webgl = ["bevy_core_pipeline?/webgl", "bevy_pbr?/webgl", "bevy_render?/webgl", "bevy_gizmos?/webgl"]
+webgl = ["bevy_core_pipeline?/webgl", "bevy_pbr?/webgl", "bevy_render?/webgl", "bevy_gizmos?/webgl", "bevy_sprite?/webgl"]
 
 # enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_time/bevy_ci_testing", "bevy_render?/bevy_ci_testing", "bevy_render?/ci_limits"]
@@ -103,7 +103,10 @@ glam_assert = ["bevy_math/glam_assert"]
 default_font = ["bevy_text?/default_font"]
 
 # Enables watching the filesystem for Bevy Asset hot-reloading
-filesystem_watcher = ["bevy_asset?/filesystem_watcher"]
+file_watcher = ["bevy_asset?/file_watcher"]
+
+# Enables watching embedded files for Bevy Asset hot-reloading
+embedded_watcher = ["bevy_asset?/embedded_watcher"]
 
 [dependencies]
 # bevy

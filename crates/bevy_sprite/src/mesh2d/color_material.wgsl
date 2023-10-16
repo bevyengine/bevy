@@ -1,5 +1,5 @@
 #import bevy_sprite::mesh2d_types          Mesh2d
-#import bevy_sprite::mesh2d_vertex_output  MeshVertexOutput
+#import bevy_sprite::mesh2d_vertex_output  VertexOutput
 #import bevy_sprite::mesh2d_view_bindings  view
 
 #ifdef TONEMAP_IN_SHADER
@@ -19,7 +19,7 @@ const COLOR_MATERIAL_FLAGS_TEXTURE_BIT: u32 = 1u;
 
 @fragment
 fn fragment(
-    mesh: MeshVertexOutput,
+    mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
     var output_color: vec4<f32> = material.color;
 #ifdef VERTEX_COLORS
