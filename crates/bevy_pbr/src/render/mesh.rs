@@ -870,6 +870,22 @@ impl SpecializedMeshPipeline for MeshPipeline {
             is_opaque = true;
         }
 
+        if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
+            shader_defs.push("NORMAL_PREPASS".into());
+        }
+
+        if key.contains(MeshPipelineKey::DEPTH_PREPASS) {
+            shader_defs.push("DEPTH_PREPASS".into());
+        }
+
+        if key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
+            shader_defs.push("MOTION_VECTOR_PREPASS".into());
+        }
+
+        if key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
+            shader_defs.push("DEFERRED_PREPASS".into());
+        }
+
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 && is_opaque {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }

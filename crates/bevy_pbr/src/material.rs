@@ -8,7 +8,7 @@ use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Hand
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
     experimental::taa::TemporalAntiAliasSettings,
-    prepass::{DeferredPrepass, NormalPrepass},
+    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
@@ -444,8 +444,12 @@ pub fn queue_material_meshes<M: Material>(
         Option<&EnvironmentMapLight>,
         Option<&ShadowFilteringMethod>,
         Option<&ScreenSpaceAmbientOcclusionSettings>,
-        Option<&NormalPrepass>,
-        Option<&DeferredPrepass>,
+        (
+            Option<&NormalPrepass>,
+            Option<&DepthPrepass>,
+            Option<&MotionVectorPrepass>,
+            Option<&DeferredPrepass>,
+        ),
         Option<&TemporalAntiAliasSettings>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
@@ -462,8 +466,7 @@ pub fn queue_material_meshes<M: Material>(
         environment_map,
         shadow_filter_method,
         ssao,
-        normal_prepass,
-        deferred_prepass,
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         taa_settings,
         mut opaque_phase,
         mut alpha_mask_phase,
@@ -479,6 +482,14 @@ pub fn queue_material_meshes<M: Material>(
 
         if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
+        }
+
+        if depth_prepass.is_some() {
+            view_key |= MeshPipelineKey::DEPTH_PREPASS;
+        }
+
+        if motion_vector_prepass.is_some() {
+            view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 
         if deferred_prepass.is_some() {
@@ -547,10 +558,6 @@ pub fn queue_material_meshes<M: Material>(
                 mesh_key |= MeshPipelineKey::MORPH_TARGETS;
             }
             mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
-
-            if deferred_prepass.is_some() && !forward {
-                mesh_key |= MeshPipelineKey::DEFERRED_PREPASS;
-            }
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
