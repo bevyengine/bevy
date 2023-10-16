@@ -68,11 +68,7 @@ fn main() {
                 // `chain`ing systems together runs them in order
                 .chain(),
         )
-        .add_systems(
-            Update,
-            // Omitting `chain``, these can run in parallel
-            (update_scoreboard, bevy::window::close_on_esc),
-        )
+        .add_systems(Update, (update_scoreboard, bevy::window::close_on_esc))
         .run();
 }
 
