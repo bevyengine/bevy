@@ -307,7 +307,7 @@ impl<'a> AssetPath<'a> {
     /// argument.
     ///
     /// Otherwise, the `path` argument is considered a relative path. The result is concatenated
-    /// using the following algorithm (as specified in IETF RFC 1808):
+    /// using the following algorithm:
     ///
     /// * The base path and the `path` argument are concatenated.
     /// * Path elements consisting of "/." or "&lt;name&gt;/.." are removed.
