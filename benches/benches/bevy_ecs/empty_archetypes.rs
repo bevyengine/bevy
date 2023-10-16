@@ -75,13 +75,10 @@ fn par_for_each(
     });
 }
 
-fn setup(parallel: bool, setup: impl FnOnce(&mut Schedule)) -> (World, Schedule) {
+fn setup(setup: impl FnOnce(&mut Schedule)) -> (World, Schedule) {
     let mut world = World::new();
     let mut schedule = Schedule::default();
     schedule.set_executor_kind(ExecutorKind::SingleThreaded);
-    if parallel {
-        world.insert_resource(ComputeTaskPool(TaskPool::default()));
-    }
     setup(&mut schedule);
     (world, schedule)
 }
@@ -154,7 +151,7 @@ fn add_archetypes(world: &mut World, count: u16) {
 fn empty_archetypes(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("empty_archetypes");
     for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10000] {
-        let (mut world, mut schedule) = setup(true, |schedule| {
+        let (mut world, mut schedule) = setup( |schedule| {
             schedule.add_systems(iter);
         });
         add_archetypes(&mut world, archetype_count);
@@ -185,7 +182,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
         );
     }
     for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10000] {
-        let (mut world, mut schedule) = setup(true, |schedule| {
+        let (mut world, mut schedule) = setup( |schedule| {
             schedule.add_systems(for_each);
         });
         add_archetypes(&mut world, archetype_count);
@@ -216,7 +213,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
         );
     }
     for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10000] {
-        let (mut world, mut schedule) = setup(true, |schedule| {
+        let (mut world, mut schedule) = setup( |schedule| {
             schedule.add_systems(par_for_each);
         });
         add_archetypes(&mut world, archetype_count);
