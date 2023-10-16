@@ -258,7 +258,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = Vec::new();
 
-        // Let the shader code know that it's running in a mesh pipeline.
+        // Let the shader code know that it's running in a deferred pipeline.
         shader_defs.push("DEFERRED_LIGHTING_PIPELINE".into());
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
