@@ -326,7 +326,9 @@ impl<'a> AssetPath<'a> {
     ///
     /// The reason for this behavior is that embedded URIs which start with "./" or "../" are
     /// relative to the *directory* containing the asset, not the asset file. This is consistent
-    /// with the behavior of URIs in `JavaScript`, CSS, HTML and other web file formats.
+    /// with the behavior of URIs in `JavaScript`, CSS, HTML and other web file formats. The
+    /// primary use case for this method is resolving relative paths embedded within asset files,
+    /// which are relative to the asset in which they are contained.
     ///
     /// So for example, the path `"x/y/z#foo"` combined with a relative path of `"./a#bar"`
     /// yields `"x/y/a#bar"`.
