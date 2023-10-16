@@ -111,8 +111,7 @@ fn setup(
     let cube_h = meshes.add(Mesh::from(shape::Cube { size: 0.1 }));
     let sphere_h = meshes.add(Mesh::from(shape::UVSphere {
         radius: 0.125,
-        sectors: 128,
-        stacks: 128,
+        ..default()
     }));
 
     // Cubes
