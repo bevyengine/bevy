@@ -16,13 +16,13 @@
 #import bevy_pbr::gtao_utils gtao_multibounce
 #endif
 
-#ifdef DEFERRED_PREPASS
+#ifdef PREPASS_PIPELINE
 #import bevy_pbr::pbr_deferred_functions deferred_gbuffer_from_pbr_input
 #import bevy_pbr::pbr_prepass_functions calculate_motion_vector
 #import bevy_pbr::prepass_io VertexOutput, FragmentOutput
-#else // DEFERRED_PREPASS
+#else // PREPASS_PIPELINE
 #import bevy_pbr::forward_io VertexOutput, FragmentOutput
-#endif // DEFERRED_PREPASS
+#endif // PREPASS_PIPELINE
 
 #ifdef MOTION_VECTOR_PREPASS
 @group(0) @binding(2)
@@ -159,7 +159,7 @@ fn fragment(
         pbr_input.V = V;
 
     } else { // if UNLIT_BIT != 0
-#ifdef DEFERRED_PREPASS
+#ifdef PREPASS_PIPELINE
         // in deferred mode, we need to fill some of the pbr input data even for unlit materials
         // to pass through the gbuffer to the deferred lighting shader        
         pbr_input = pbr_types::pbr_input_new();
@@ -177,7 +177,7 @@ fn fragment(
 
     // generate output
     // ---------------
-#ifdef DEFERRED_PREPASS
+#ifdef PREPASS_PIPELINE
     // write the gbuffer
     out.deferred = deferred_gbuffer_from_pbr_input(pbr_input);
     out.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
@@ -188,7 +188,7 @@ fn fragment(
     out.motion_vector = calculate_motion_vector(in.world_position, in.previous_world_position);
 #endif // MOTION_VECTOR_PREPASS
 
-#else // DEFERRED_PREPASS
+#else // PREPASS_PIPELINE
 
     // in forward mode, we calculate the lit color immediately, and then apply some post-lighting effects here.
     // in deferred mode the lit color and these effects will be calculated in the deferred lighting shader
@@ -220,7 +220,7 @@ fn fragment(
     // write the final pixel color
     out.color = output_color;
 
-#endif //DEFERRED_PREPASS
+#endif // PREPASS_PIPELINE
 
     return out;
 }
