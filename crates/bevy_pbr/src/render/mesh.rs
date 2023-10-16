@@ -203,13 +203,13 @@ pub struct MeshUniform {
     pub flags: u32,
 }
 
-impl MeshUniform {
-    fn new(mesh_instance: &RenderMeshInstance) -> MeshUniform {
+impl From<&MeshTransforms> for MeshUniform {
+    fn from(mesh_transforms: &MeshTransforms) -> Self {
         let (inverse_transpose_model_a, inverse_transpose_model_b) =
-            mesh_instance.transforms.transform.inverse_transpose_3x3();
+            mesh_transforms.transform.inverse_transpose_3x3();
         Self {
-            transform: mesh_instance.transforms.transform.to_transpose(),
-            previous_transform: mesh_instance.transforms.previous_transform.to_transpose(),
+            transform: mesh_transforms.transform.to_transpose(),
+            previous_transform: mesh_transforms.previous_transform.to_transpose(),
             inverse_transpose_model_a,
             inverse_transpose_model_b,
             flags: mesh_instance.transforms.flags,
@@ -278,7 +278,6 @@ pub fn extract_meshes(
             }
             let transform = transform.affine();
             let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
-
             let mut flags = if not_receiver {
                 MeshFlags::empty()
             } else {
@@ -287,7 +286,6 @@ pub fn extract_meshes(
             if transform.matrix3.determinant().is_sign_positive() {
                 flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
             }
-
             let transforms = MeshTransforms {
                 transform: (&transform).into(),
                 previous_transform: (&previous_transform).into(),
@@ -629,7 +627,7 @@ impl GetBatchData for MeshPipeline {
             .get(entity)
             .expect("Failed to find render mesh instance");
         (
-            MeshUniform::new(mesh_instance),
+            (&mesh_instance.transforms).into(),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
@@ -835,8 +833,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             &mut shader_defs,
             &mut vertex_attributes,
         ));
-
-        println!("{:#?}", bind_group_layout);
 
         if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
             shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());

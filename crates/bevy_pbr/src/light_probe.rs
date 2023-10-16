@@ -1,3 +1,5 @@
+//! Light probes for baked global illumination.
+
 use bevy_app::{App, Plugin};
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_derive::{Deref, DerefMut};
@@ -26,17 +28,17 @@ use crate::{
     EnvironmentMapLight,
 };
 
+/// The maximum number of reflection probes that each view will consider.
+///
+/// Because the fragment shader does a linear search through the list for each
+/// fragment, this number needs to be relatively small.
 pub const MAX_VIEW_REFLECTION_PROBES: usize = 4;
 
 /// Adds support for light probes, cuboid bounding regions that apply global
 /// illumination to objects within them.
 pub struct LightProbePlugin;
 
-/// A cuboid region that provides global illumination to all meshes inside it.
-///
-/// A mesh is considered inside the light probe if the mesh's origin is
-/// contained within the cuboid centered at the light probe's transform with
-/// width, height, and depth equal to double the value of `half_extents`.
+/// A cuboid region that provides global illumination to all fragments inside it.
 ///
 /// Note that a light probe will have no effect unless the entity contains some
 /// kind of illumination. At present, the only supported type of illumination is
@@ -48,26 +50,48 @@ pub struct LightProbe {
     pub half_extents: Vec3A,
 }
 
+/// A GPU type that stores information about a reflection probe.
 #[derive(Clone, Copy, ShaderType, Default)]
 pub struct RenderReflectionProbe {
+    /// The transform from the world space to the model space. This is used to
+    /// efficiently check for bounding box intersection.
     inverse_transform: Mat4,
+
+    /// The half-extents of the bounding cube.
     half_extents: Vec3,
+
+    /// The index of the environment map in the diffuse and specular cubemap
+    /// texture arrays.
     cubemap_index: i32,
 }
 
+/// A per-view shader uniform that specifies all the light probes that the view
+/// takes into account.
 #[derive(ShaderType)]
 pub struct LightProbesUniform {
+    /// The list of applicable reflection probes, sorted from nearest to the
+    /// camera to the farthest away from the camera.
     reflection_probes: [RenderReflectionProbe; MAX_VIEW_REFLECTION_PROBES],
+
+    /// The number of reflection probes in the list.
     reflection_probe_count: i32,
+
+    /// The index of the environment map associated with the view itself. This
+    /// is used as a fallback if no reflection probe in the list contains the
+    /// fragment.
     view_cubemap_index: i32,
 }
 
+/// A map from each camera to the light probe uniform associated with it.
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct LightProbesUniforms(EntityHashMap<Entity, LightProbesUniform>);
 
+/// A GPU buffer that stores information about all light probes.
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct LightProbesBuffer(pub DynamicUniformBuffer<LightProbesUniform>);
 
+/// A component attached to each camera in the render world that stores the
+/// index of the [LightProbesUniform] in the [LightProbesBuffer].
 #[derive(Component, Default, Deref, DerefMut)]
 pub struct ViewLightProbesUniformOffset(pub u32);
 
@@ -109,6 +133,10 @@ impl Plugin for LightProbePlugin {
     }
 }
 
+/// Gathers up all light probes in the scene and assigns them to views,
+/// performing frustum culling and distance sorting in the process.
+///
+/// This populates the [LightProbesUniforms] resource.
 pub fn gather_light_probes(
     render_environment_maps: Res<RenderEnvironmentMaps>,
     mut light_probes_uniforms: ResMut<LightProbesUniforms>,
@@ -170,6 +198,7 @@ pub fn gather_light_probes(
             )
         });
 
+        // Create the light probes uniform.
         let mut light_probes_uniform = LightProbesUniform {
             reflection_probes: [RenderReflectionProbe::default(); MAX_VIEW_REFLECTION_PROBES],
             reflection_probe_count: light_probes.len().min(MAX_VIEW_REFLECTION_PROBES) as i32,
@@ -181,6 +210,8 @@ pub fn gather_light_probes(
             },
         };
 
+        // Now that we have the list of sorted reflection probes, build up the
+        // list for the GPU.
         let light_probe_count = light_probes.len().min(MAX_VIEW_REFLECTION_PROBES);
         for light_probe_index in 0..light_probe_count {
             light_probes_uniform.reflection_probes[light_probe_index] = RenderReflectionProbe {
@@ -190,18 +221,26 @@ pub fn gather_light_probes(
             };
         }
 
+        // Insert the result.
         light_probes_uniforms.insert(view_entity, light_probes_uniform);
     }
 
+    // Information that this function keeps about each light probe.
     #[derive(Clone, Copy)]
     struct LightProbeInfo {
+        // The transform from world space to light probe space.
         inverse_transform: Mat4,
+        // The transform from light probe space to world space.
         affine_transform: Affine3A,
+        // Extents of the bounding box.
         half_extents: Vec3,
+        // The index of the reflection probe corresponding to this lightmap in
+        // the diffuse and specular cubemap arrays.
         cubemap_index: i32,
     }
 }
 
+/// Runs after [gather_light_probes] and uploads the result to the GPU.
 pub fn upload_light_probes(
     mut commands: Commands,
     light_probes_uniforms: Res<LightProbesUniforms>,
@@ -209,12 +248,14 @@ pub fn upload_light_probes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
+    // Get the writer.
     let Some(mut writer) =
         light_probes_buffer.get_writer(light_probes_uniforms.len(), &render_device, &render_queue)
     else {
         return;
     };
 
+    // Send each view's uniforms to the GPU.
     for (&view_entity, light_probes_uniform) in light_probes_uniforms.iter() {
         commands
             .entity(view_entity)

@@ -20,7 +20,9 @@ fn environment_map_light(
     F0: vec3<f32>,
     world_position: vec3<f32>,
 ) -> EnvironmentMapLight {
-    // Search for a reflection probe in range.
+    // Search for a reflection probe that contains the fragment.
+    //
+    // TODO(pcwalton): Interpolate between multiple reflection probes.
     var cubemap_index: i32 = -1;
     for (var reflection_probe_index: i32 = 0;
             reflection_probe_index < light_probes.reflection_probe_count;
@@ -48,6 +50,7 @@ fn environment_map_light(
     // We always sample the first cubemap to achieve the required control flow uniformity (because of mip levels).
     let irradiance = textureSample(bindings::environment_map_diffuse, bindings::environment_map_sampler, vec3(N.xy, -N.z), max(cubemap_index, 0)).rgb;
 
+    // If there's no cubemap, bail out.
     if (cubemap_index < 0) {
         out.diffuse = vec3(0.0);
         out.specular = vec3(0.0);

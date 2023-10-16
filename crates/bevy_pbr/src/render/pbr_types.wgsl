@@ -74,7 +74,6 @@ struct PbrInput {
     // Normalized view vector in world space, pointing from the fragment world position toward the
     // view world position
     V: vec3<f32>,
-
     is_orthographic: bool,
     flags: u32,
 };

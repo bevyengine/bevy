@@ -340,7 +340,7 @@ impl RenderEnvironmentMaps {
     }
 
     // WebGL doesn't support cubemap arrays, so all cubemaps are effectively
-    // incompatible with one another.
+    // incompatible with one another in that environment.
     #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
     fn check_cubemap_compatibility(
         &self,
@@ -354,7 +354,8 @@ impl RenderEnvironmentMaps {
         );
     }
 
-    // Creates a GPU texture, texture view, and sampler corresponding to
+    // Creates a GPU texture, texture view, and sampler that can hold all
+    // environment maps.
     fn create_image(
         &self,
         render_device: &RenderDevice,
