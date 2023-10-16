@@ -128,8 +128,8 @@ impl AudioSinkPlayback for AudioSink {
 
 /// Used to control spatial audio during playback.
 ///
-/// Bevy inserts this component onto your entities when it begins playing an audio source.
-/// Use [`SpatialAudioBundle`][crate::SpatialAudioBundle] to trigger that to happen.
+/// Bevy inserts this component onto your entities when it begins playing an audio source
+/// that's configured to use spatial audio.
 ///
 /// You can use this component to modify the playback settings while the audio is playing.
 ///

@@ -759,7 +759,10 @@ pub fn queue_uinodes(
                 draw_function,
                 pipeline,
                 entity: *entity,
-                sort_key: FloatOrd(extracted_uinode.stack_index as f32),
+                sort_key: (
+                    FloatOrd(extracted_uinode.stack_index as f32),
+                    entity.index(),
+                ),
                 // batch_range will be calculated in prepare_uinodes
                 batch_range: 0..0,
                 dynamic_offset: None,

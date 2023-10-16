@@ -70,7 +70,8 @@ impl SceneFilter {
     /// [`Denylist`]: SceneFilter::Denylist
     /// [`Unset`]: SceneFilter::Unset
     /// [`Allowlist`]: SceneFilter::Allowlist
-    pub fn allow<T: Any>(&mut self) -> &mut Self {
+    #[must_use]
+    pub fn allow<T: Any>(self) -> Self {
         self.allow_by_id(TypeId::of::<T>())
     }
 
@@ -84,10 +85,11 @@ impl SceneFilter {
     /// [`Denylist`]: SceneFilter::Denylist
     /// [`Unset`]: SceneFilter::Unset
     /// [`Allowlist`]: SceneFilter::Allowlist
-    pub fn allow_by_id(&mut self, type_id: TypeId) -> &mut Self {
-        match self {
+    #[must_use]
+    pub fn allow_by_id(mut self, type_id: TypeId) -> Self {
+        match &mut self {
             Self::Unset => {
-                *self = Self::Allowlist(HashSet::from([type_id]));
+                self = Self::Allowlist(HashSet::from([type_id]));
             }
             Self::Allowlist(list) => {
                 list.insert(type_id);
@@ -109,7 +111,8 @@ impl SceneFilter {
     /// [`Allowlist`]: SceneFilter::Allowlist
     /// [`Unset`]: SceneFilter::Unset
     /// [`Denylist`]: SceneFilter::Denylist
-    pub fn deny<T: Any>(&mut self) -> &mut Self {
+    #[must_use]
+    pub fn deny<T: Any>(self) -> Self {
         self.deny_by_id(TypeId::of::<T>())
     }
 
@@ -123,9 +126,10 @@ impl SceneFilter {
     /// [`Allowlist`]: SceneFilter::Allowlist
     /// [`Unset`]: SceneFilter::Unset
     /// [`Denylist`]: SceneFilter::Denylist
-    pub fn deny_by_id(&mut self, type_id: TypeId) -> &mut Self {
-        match self {
-            Self::Unset => *self = Self::Denylist(HashSet::from([type_id])),
+    #[must_use]
+    pub fn deny_by_id(mut self, type_id: TypeId) -> Self {
+        match &mut self {
+            Self::Unset => self = Self::Denylist(HashSet::from([type_id])),
             Self::Allowlist(list) => {
                 list.remove(&type_id);
             }
@@ -231,27 +235,21 @@ mod tests {
 
     #[test]
     fn should_set_list_type_if_none() {
-        let mut filter = SceneFilter::Unset;
-        filter.allow::<i32>();
+        let filter = SceneFilter::Unset.allow::<i32>();
         assert!(matches!(filter, SceneFilter::Allowlist(_)));
 
-        let mut filter = SceneFilter::Unset;
-        filter.deny::<i32>();
+        let filter = SceneFilter::Unset.deny::<i32>();
         assert!(matches!(filter, SceneFilter::Denylist(_)));
     }
 
     #[test]
     fn should_add_to_list() {
-        let mut filter = SceneFilter::default();
-        filter.allow::<i16>();
-        filter.allow::<i32>();
+        let filter = SceneFilter::default().allow::<i16>().allow::<i32>();
         assert_eq!(2, filter.len());
         assert!(filter.is_allowed::<i16>());
         assert!(filter.is_allowed::<i32>());
 
-        let mut filter = SceneFilter::default();
-        filter.deny::<i16>();
-        filter.deny::<i32>();
+        let filter = SceneFilter::default().deny::<i16>().deny::<i32>();
         assert_eq!(2, filter.len());
         assert!(filter.is_denied::<i16>());
         assert!(filter.is_denied::<i32>());
@@ -259,18 +257,18 @@ mod tests {
 
     #[test]
     fn should_remove_from_list() {
-        let mut filter = SceneFilter::default();
-        filter.allow::<i16>();
-        filter.allow::<i32>();
-        filter.deny::<i32>();
+        let filter = SceneFilter::default()
+            .allow::<i16>()
+            .allow::<i32>()
+            .deny::<i32>();
         assert_eq!(1, filter.len());
         assert!(filter.is_allowed::<i16>());
         assert!(!filter.is_allowed::<i32>());
 
-        let mut filter = SceneFilter::default();
-        filter.deny::<i16>();
-        filter.deny::<i32>();
-        filter.allow::<i32>();
+        let filter = SceneFilter::default()
+            .deny::<i16>()
+            .deny::<i32>()
+            .allow::<i32>();
         assert_eq!(1, filter.len());
         assert!(filter.is_denied::<i16>());
         assert!(!filter.is_denied::<i32>());
