@@ -29,6 +29,7 @@ fn setup(mut commands: Commands, mut ui_materials: ResMut<Assets<CustomUiMateria
         .spawn(NodeBundle {
             style: Style {
                 width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()

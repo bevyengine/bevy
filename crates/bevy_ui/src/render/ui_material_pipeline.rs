@@ -542,7 +542,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
 
                     index += QUAD_INDICES.len() as u32;
                     existing_batch.unwrap().1.range.end = index;
-                    ui_phase.items[batch_item_index].batch_size += 1;
+                    ui_phase.items[batch_item_index].batch_range_mut().end += 1;
                 } else {
                     batch_shader_handle = AssetId::invalid();
                 }
@@ -729,8 +729,12 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 draw_function,
                 pipeline,
                 entity: *entity,
-                sort_key: FloatOrd(extracted_uinode.stack_index as f32),
-                batch_size: 0,
+                sort_key: (
+                    FloatOrd(extracted_uinode.stack_index as f32),
+                    entity.index(),
+                ),
+                batch_range: 0..0,
+                dynamic_offset: None,
             });
         }
     }
