@@ -149,7 +149,7 @@ impl AsBindGroup for BindlessMaterial {
         _: &FallbackImage,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // we implement as_bind_group directly because
-        panic!("texture arrays can't be owned")
+        panic!("bindless texture arrays can't be owned")
         // or rather, they can be owned, but then you can't make a `&'a [&'a TextureView]` from a vec of them in get_binding().
     }
 

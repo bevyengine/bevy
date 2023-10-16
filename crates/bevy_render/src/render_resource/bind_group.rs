@@ -303,7 +303,7 @@ pub trait AsBindGroup {
     }
 
     /// Returns a vec of (binding index, `OwnedBindingResource`).
-    /// In cases where `OwnedBindingResource` is not available (as for array textures currently),
+    /// In cases where `OwnedBindingResource` is not available (as for bindless texture arrays currently),
     /// an implementor may define `as_bind_group` directly. This may prevent certain features
     /// from working correctly.
     fn unprepared_bind_group(

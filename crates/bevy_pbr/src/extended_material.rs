@@ -178,7 +178,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         layout: &MeshVertexBufferLayout,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        // call StandardMaterial specialize function
+        // Call the base material's specialize function
         let MaterialPipeline::<Self> {
             mesh_pipeline,
             material_layout,
@@ -199,7 +199,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         };
         B::specialize(&base_pipeline, descriptor, layout, base_key)?;
 
-        // call custom material specialize function afterwards
+        // Call the extended material's specialize function afterwards
         let MaterialPipeline::<Self> {
             mesh_pipeline,
             material_layout,
