@@ -20,7 +20,7 @@
 #endif
 
 // prepare a basic PbrInput from the vertex stage output, mesh binding and view binding
-fn pbr_input_from_mesh_vertex_output(
+fn pbr_input_from_vertex_output(
     in: VertexOutput,
     is_front: bool,
     double_sided: bool,
@@ -60,7 +60,7 @@ fn pbr_input_from_standard_material(
 ) -> pbr_types::PbrInput {
     let double_sided = (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
 
-    var pbr_input: pbr_types::PbrInput = pbr_input_from_mesh_vertex_output(in, is_front, double_sided);
+    var pbr_input: pbr_types::PbrInput = pbr_input_from_vertex_output(in, is_front, double_sided);
     pbr_input.material.flags = pbr_bindings::material.flags;
     pbr_input.material.base_color *= pbr_bindings::material.base_color;
     pbr_input.material.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
