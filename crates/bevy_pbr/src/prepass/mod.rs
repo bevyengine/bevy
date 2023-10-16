@@ -378,17 +378,17 @@ where
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
+        // Let the shader code know that it's running in a prepass pipeline.
+        // (PBR code will use this to detect that it's running in deferred mode,
+        // since that's the only time it gets called from a prepass pipeline.)
+        shader_defs.push("PREPASS_PIPELINE".into());
+
         // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
         // The main limitation right now is that bind group order is hardcoded in shaders.
         bind_group_layouts.insert(1, self.material_layout.clone());
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
         shader_defs.push("WEBGL2".into());
-
-        // Let the shader code know that it's running in a prepass pipeline.
-        // (PBR code will use this to detect that it's running in deferred mode,
-        // since that's the only time it gets called from a prepass pipeline.)
-        shader_defs.push("PREPASS_PIPELINE".into());
 
         shader_defs.push("VERTEX_OUTPUT_INSTANCE_INDEX".into());
 

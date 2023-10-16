@@ -772,6 +772,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
+        // Let the shader code know that it's running in a mesh pipeline.
+        shader_defs.push("MESH_PIPELINE".into());
+
         shader_defs.push("VERTEX_OUTPUT_INSTANCE_INDEX".into());
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
