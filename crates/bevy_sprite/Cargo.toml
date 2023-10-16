@@ -8,6 +8,9 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+[features]
+webgl = []
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
@@ -31,3 +34,4 @@ guillotiere = "0.6.0"
 thiserror = "1.0"
 rectangle-pack = "0.4"
 bitflags = "2.3"
+radsort = "0.1"

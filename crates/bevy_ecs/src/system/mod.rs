@@ -6,7 +6,7 @@
 //!
 //! System functions can have parameters, through which one can query and mutate Bevy ECS state.
 //! Only types that implement [`SystemParam`] can be used, automatically fetching data from
-//! the [`World`](crate::world::World).
+//! the [`World`].
 //!
 //! System functions often look like this:
 //!
@@ -112,6 +112,7 @@ mod query;
 #[allow(clippy::module_inception)]
 mod system;
 mod system_param;
+mod system_registry;
 
 use std::borrow::Cow;
 
@@ -124,6 +125,7 @@ pub use function_system::*;
 pub use query::*;
 pub use system::*;
 pub use system_param::*;
+pub use system_registry::*;
 
 use crate::world::World;
 
@@ -1773,7 +1775,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Attempted to use bevy_ecs::query::state::QueryState<()> with a mismatched World."]
+    #[should_panic = "Encountered a mismatched World."]
     fn query_validates_world_id() {
         let mut world1 = World::new();
         let world2 = World::new();

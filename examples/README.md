@@ -121,6 +121,7 @@ Example | Description
 [Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
+[Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
@@ -223,6 +224,7 @@ Example | Description
 [Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
 [Iter Combinations](../examples/ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results
 [Nondeterministic System Order](../examples/ecs/nondeterministic_system_order.rs) | Systems run in parallel, but their order isn't always deterministic. Here's how to detect and fix this.
+[One Shot Systems](../examples/ecs/one_shot_systems.rs) | Shows how to flexibly run systems without scheduling them
 [Parallel Query](../examples/ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
 [Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed earlier in the current frame
 [Run Conditions](../examples/ecs/run_conditions.rs) | Run systems only when one or multiple conditions are met
@@ -231,6 +233,7 @@ Example | Description
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
+[Time handling](../examples/ecs/time.rs) | Explains how Time is handled in ECS
 [Timers](../examples/ecs/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state
 
 ## Games
@@ -613,7 +616,7 @@ mv optimized.wasm examples/wasm/target/lighting_bg.wasm
 ```
 
 For a small project with a basic 3d model and two lights,
-the generated file sizes are, as of Jully 2022 as following:
+the generated file sizes are, as of July 2022, as follows:
 
 |profile                           | wasm-opt | no wasm-opt |
 |----------------------------------|----------|-------------|

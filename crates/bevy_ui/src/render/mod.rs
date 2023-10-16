@@ -3,8 +3,8 @@ mod render_pass;
 mod ui_material_pipeline;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_ecs::storage::SparseSet;
 use bevy_hierarchy::Parent;
+use bevy_render::render_phase::PhaseItem;
 use bevy_render::view::ViewVisibility;
 use bevy_render::{ExtractSchedule, Render};
 use bevy_window::{PrimaryWindow, Window};
@@ -12,6 +12,7 @@ pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
 
+use crate::Outline;
 use crate::{
     prelude::UiCameraConfig, BackgroundColor, BorderColor, CalculatedClip, ContentSize, Node,
     Style, UiImage, UiScale, UiStack, UiTextureAtlasImage, Val,
@@ -37,7 +38,7 @@ use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{FloatOrd, HashMap};
+use bevy_utils::{EntityHashMap, FloatOrd, HashMap};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
@@ -87,6 +88,7 @@ pub fn build_ui_render(app: &mut App) {
                 extract_uinode_borders.after(RenderUiSystem::ExtractAtlasNode),
                 #[cfg(feature = "bevy_text")]
                 extract_text_uinodes.after(RenderUiSystem::ExtractAtlasNode),
+                extract_uinode_outlines.after(RenderUiSystem::ExtractAtlasNode),
             ),
         )
         .add_systems(
@@ -165,7 +167,7 @@ pub struct ExtractedUiNode {
 
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
-    pub uinodes: SparseSet<Entity, ExtractedUiNode>,
+    pub uinodes: EntityHashMap<Entity, ExtractedUiNode>,
 }
 
 pub fn extract_atlas_uinodes(
@@ -381,6 +383,99 @@ pub fn extract_uinode_borders(
                             image,
                             atlas_size: None,
                             clip: clip.map(|clip| clip.clip),
+                            flip_x: false,
+                            flip_y: false,
+                        },
+                    );
+                }
+            }
+        }
+    }
+}
+
+pub fn extract_uinode_outlines(
+    mut commands: Commands,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    ui_stack: Extract<Res<UiStack>>,
+    uinode_query: Extract<
+        Query<(
+            &Node,
+            &GlobalTransform,
+            &Outline,
+            &ViewVisibility,
+            Option<&Parent>,
+        )>,
+    >,
+    clip_query: Query<&CalculatedClip>,
+) {
+    let image = AssetId::<Image>::default();
+
+    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
+        if let Ok((node, global_transform, outline, view_visibility, maybe_parent)) =
+            uinode_query.get(*entity)
+        {
+            // Skip invisible outlines
+            if !view_visibility.get() || outline.color.a() == 0. || node.outline_width == 0. {
+                continue;
+            }
+
+            // Outline's are drawn outside of a node's borders, so they are clipped using the clipping Rect of their UI node entity's parent.
+            let clip = maybe_parent
+                .and_then(|parent| clip_query.get(parent.get()).ok().map(|clip| clip.clip));
+
+            // Calculate the outline rects.
+            let inner_rect =
+                Rect::from_center_size(Vec2::ZERO, node.size() + 2. * node.outline_offset);
+            let outer_rect = inner_rect.inset(node.outline_width());
+            let outline_edges = [
+                // Left edge
+                Rect::new(
+                    outer_rect.min.x,
+                    outer_rect.min.y,
+                    inner_rect.min.x,
+                    outer_rect.max.y,
+                ),
+                // Right edge
+                Rect::new(
+                    inner_rect.max.x,
+                    outer_rect.min.y,
+                    outer_rect.max.x,
+                    outer_rect.max.y,
+                ),
+                // Top edge
+                Rect::new(
+                    inner_rect.min.x,
+                    outer_rect.min.y,
+                    inner_rect.max.x,
+                    inner_rect.min.y,
+                ),
+                // Bottom edge
+                Rect::new(
+                    inner_rect.min.x,
+                    inner_rect.max.y,
+                    inner_rect.max.x,
+                    outer_rect.max.y,
+                ),
+            ];
+
+            let transform = global_transform.compute_matrix();
+
+            for edge in outline_edges {
+                if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
+                    extracted_uinodes.uinodes.insert(
+                        commands.spawn_empty().id(),
+                        ExtractedUiNode {
+                            stack_index,
+                            // This translates the uinode's transform to the center of the current border rectangle
+                            transform: transform * Mat4::from_translation(edge.center().extend(0.)),
+                            color: outline.color,
+                            rect: Rect {
+                                max: edge.size(),
+                                ..Default::default()
+                            },
+                            image,
+                            atlas_size: None,
+                            clip,
                             flip_x: false,
                             flip_y: false,
                         },
@@ -666,9 +761,13 @@ pub fn queue_uinodes(
                 draw_function,
                 pipeline,
                 entity: *entity,
-                sort_key: FloatOrd(extracted_uinode.stack_index as f32),
-                // batch_size will be calculated in prepare_uinodes
-                batch_size: 0,
+                sort_key: (
+                    FloatOrd(extracted_uinode.stack_index as f32),
+                    entity.index(),
+                ),
+                // batch_range will be calculated in prepare_uinodes
+                batch_range: 0..0,
+                dynamic_offset: None,
             });
         }
     }
@@ -733,7 +832,7 @@ pub fn prepare_uinodes(
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(item.entity) {
+                if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(&item.entity) {
                     let mut existing_batch = batches
                         .last_mut()
                         .filter(|_| batch_image_handle == extracted_uinode.image);
@@ -894,7 +993,7 @@ pub fn prepare_uinodes(
                     }
                     index += QUAD_INDICES.len() as u32;
                     existing_batch.unwrap().1.range.end = index;
-                    ui_phase.items[batch_item_index].batch_size += 1;
+                    ui_phase.items[batch_item_index].batch_range_mut().end += 1;
                 } else {
                     batch_image_handle = AssetId::invalid();
                 }

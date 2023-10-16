@@ -43,6 +43,7 @@ The default feature set enables most of the expected features of a game engine, 
 |feature name|description|
 |-|-|
 |accesskit_unix|Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)|
+|async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |basis-universal|Basis Universal compressed texture support|
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
 |bevy_dynamic_plugin|Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))|
@@ -50,8 +51,9 @@ The default feature set enables most of the expected features of a game engine, 
 |dds|DDS compressed texture support|
 |detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
+|embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
 |exr|EXR image format support|
-|filesystem_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
+|file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
 |jpeg|JPEG image format support|

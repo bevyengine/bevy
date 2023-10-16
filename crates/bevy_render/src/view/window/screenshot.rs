@@ -1,4 +1,4 @@
-use std::{borrow::Cow, path::Path};
+use std::{borrow::Cow, path::Path, sync::PoisonError};
 
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle};
@@ -6,7 +6,7 @@ use bevy_ecs::prelude::*;
 use bevy_log::{error, info, info_span};
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::HashMap;
-use parking_lot::Mutex;
+use std::sync::Mutex;
 use thiserror::Error;
 use wgpu::{
     CommandEncoder, Extent3d, ImageDataLayout, TextureFormat, COPY_BYTES_PER_ROW_ALIGNMENT,
@@ -50,6 +50,7 @@ impl ScreenshotManager {
     ) -> Result<(), ScreenshotAlreadyRequestedError> {
         self.callbacks
             .get_mut()
+            .unwrap_or_else(PoisonError::into_inner)
             .try_insert(window, Box::new(callback))
             .map(|_| ())
             .map_err(|_| ScreenshotAlreadyRequestedError)

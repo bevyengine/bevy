@@ -24,7 +24,7 @@ fn gamepad_events(
     // Handles the boolean measure of whether a button is considered pressed or unpressed, as
     // defined by the thresholds in `GamepadSettings::button_settings` and measured by
     // `Input<GamepadButton>`. When the threshold is crossed and the button state changes,
-    // this event is emmitted.
+    // this event is emitted.
     mut button_input_events: EventReader<GamepadButtonInput>,
 ) {
     for connection_event in connection_events.read() {

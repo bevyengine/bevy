@@ -15,12 +15,12 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
 
 /// Describes how an asset gets extracted and prepared for rendering.
 ///
-/// In the [`ExtractSchedule`](crate::ExtractSchedule) step the asset is transferred
+/// In the [`ExtractSchedule`] step the asset is transferred
 /// from the "main world" into the "render world".
 /// Therefore it is converted into a [`RenderAsset::ExtractedAsset`], which may be the same type
 /// as the render asset itself.
 ///
-/// After that in the [`RenderSet::PrepareAssets`](crate::RenderSet::PrepareAssets) step the extracted asset
+/// After that in the [`RenderSet::PrepareAssets`] step the extracted asset
 /// is transformed into its GPU-representation of type [`RenderAsset::PreparedAsset`].
 pub trait RenderAsset: Asset {
     /// The representation of the asset in the "render world".
@@ -43,8 +43,8 @@ pub trait RenderAsset: Asset {
 /// This plugin extracts the changed assets from the "app world" into the "render world"
 /// and prepares them for the GPU. They can then be accessed from the [`RenderAssets`] resource.
 ///
-/// Therefore it sets up the [`ExtractSchedule`](crate::ExtractSchedule) and
-/// [`RenderSet::PrepareAssets`](crate::RenderSet::PrepareAssets) steps for the specified [`RenderAsset`].
+/// Therefore it sets up the [`ExtractSchedule`] and
+/// [`RenderSet::PrepareAssets`] steps for the specified [`RenderAsset`].
 ///
 /// The `AFTER` generic parameter can be used to specify that `A::prepare_asset` should not be run until
 /// `prepare_assets::<AFTER>` has completed. This allows the `prepare_asset` function to depend on another
@@ -156,7 +156,7 @@ impl<A: RenderAsset> RenderAssets<A> {
     }
 }
 
-/// This system extracts all crated or modified assets of the corresponding [`RenderAsset`] type
+/// This system extracts all created or modified assets of the corresponding [`RenderAsset`] type
 /// into the "render world".
 fn extract_render_asset<A: RenderAsset>(
     mut commands: Commands,
